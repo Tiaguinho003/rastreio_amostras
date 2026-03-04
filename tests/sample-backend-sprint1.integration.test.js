@@ -269,35 +269,11 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(printRequested.statusCode, 201);
 
-    const printFailed = await commandService.recordQrPrintFailed(
-      {
-        sampleId,
-        printAction: 'PRINT',
-        attemptNumber: 1,
-        printerId: 'printer-main',
-        error: 'sem papel'
-      },
-      actorClassifier
-    );
-    assert.equal(printFailed.statusCode, 201);
-
-    const reprintRequested = await commandService.requestQrReprint(
-      {
-        sampleId,
-        attemptNumber: 1,
-        printerId: 'printer-main',
-        reasonText: 'retentativa apos falha inicial',
-        idempotencyKey: randomUUID()
-      },
-      actorClassifier
-    );
-    assert.equal(reprintRequested.statusCode, 201);
-
     const printed = await commandService.recordQrPrinted(
       {
         sampleId,
         expectedVersion: 4,
-        printAction: 'REPRINT',
+        printAction: 'PRINT',
         attemptNumber: 1,
         printerId: 'printer-main'
       },
@@ -308,7 +284,7 @@ if (!databaseUrl || !databaseReachable) {
     const classificationStarted = await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 4,
+        expectedVersion: 5,
         classificationId: null,
         notes: null
       },
@@ -330,7 +306,7 @@ if (!databaseUrl || !databaseReachable) {
     const partial = await commandService.saveClassificationPartial(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 6,
         snapshotPartial: {
           padrao: 'PADRAO-1',
           umidade: 11.3
@@ -344,7 +320,7 @@ if (!databaseUrl || !databaseReachable) {
     const completed = await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 6,
+        expectedVersion: 7,
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
@@ -373,10 +349,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
-    assert.equal(detail.sample.version, 7);
+    assert.equal(detail.sample.version, 8);
     assert.match(detail.sample.internalLotNumber ?? '', /^AM-\d{4}-\d{6}$/);
     assert.equal(detail.attachments.length, 2);
-    assert.equal(detail.events.length, 12);
+    assert.equal(detail.events.length, 10);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
@@ -387,9 +363,8 @@ if (!databaseUrl || !databaseReachable) {
       where: { sampleId },
       orderBy: [{ printAction: 'asc' }, { attemptNumber: 'asc' }]
     });
-    assert.equal(printJobs.length, 2);
-    assert.equal(printJobs[0].status, 'FAILED');
-    assert.equal(printJobs[1].status, 'SUCCESS');
+    assert.equal(printJobs.length, 1);
+    assert.equal(printJobs[0].status, 'SUCCESS');
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.totalPending, 0);

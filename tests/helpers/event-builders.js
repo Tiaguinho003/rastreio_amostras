@@ -198,6 +198,25 @@ export function qrPrintedEvent(sampleId, overrides = {}) {
   });
 }
 
+export function qrReprintRequestedEvent(sampleId, overrides = {}) {
+  return buildEvent({
+    eventType: 'QR_REPRINT_REQUESTED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    idempotencyScope: 'QR_REPRINT',
+    idempotencyKey: randomUUID(),
+    payload: {
+      printAction: 'REPRINT',
+      attemptNumber: 1,
+      printerId: null,
+      reasonText: null
+    },
+    module: 'print',
+    ...overrides
+  });
+}
+
 export function reportExportedEvent(sampleId, overrides = {}) {
   const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
 

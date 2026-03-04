@@ -13,6 +13,7 @@ import {
   registrationConfirmedEvent,
   photoAddedEvent,
   qrPrintRequestedEvent,
+  qrReprintRequestedEvent,
   qrPrintFailedEvent,
   qrPrintedEvent,
   reportExportedEvent,
@@ -339,6 +340,16 @@ if (!databaseUrl || !databaseReachable) {
     await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
     await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
     await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+    await service.appendEvent(
+      qrReprintRequestedEvent(sampleId, {
+        payload: {
+          printAction: 'REPRINT',
+          attemptNumber: 1,
+          printerId: 'printer-main',
+          reasonText: 'etiqueta danificada'
+        }
+      })
+    );
 
     const beforeReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
 
