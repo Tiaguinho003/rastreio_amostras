@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/classification-updated.payload.schema.json",
+  "title": "CLASSIFICATION_UPDATED payload",
+  "type": "object",
+  "properties": {
+    "before": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "after": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "reasonText": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:\\S+(?:\\s+\\S+){0,9})$"
+    },
+    "reasonCode": {
+      "$ref": "../base/shared-defs.schema.json#/$defs/updateReasonCode"
+    }
+  },
+  "required": ["before", "after", "reasonText", "reasonCode"],
+  "additionalProperties": false
+}

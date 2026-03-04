@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/report-exported.payload.schema.json",
+  "title": "REPORT_EXPORTED payload",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "PDF"
+    },
+    "exportType": {
+      "type": "string",
+      "enum": ["COMPLETO", "COMPRADOR_PARCIAL"]
+    },
+    "fileName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "destination": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "selectedFields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "internalLotNumber",
+          "owner",
+          "sacks",
+          "harvest",
+          "originLot",
+          "classificationDate",
+          "padrao",
+          "catacao",
+          "aspecto",
+          "bebida",
+          "broca",
+          "pva",
+          "imp",
+          "defeito",
+          "umidade",
+          "aspectoCor",
+          "classificador",
+          "observacoes",
+          "classificationOriginLot",
+          "peneirasPercentuais",
+          "technicalType",
+          "technicalScreen",
+          "technicalDensity"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "classificationPhotoId": {
+      "$ref": "../base/shared-defs.schema.json#/$defs/uuid"
+    },
+    "templateVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "checksumSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "format",
+    "exportType",
+    "fileName",
+    "selectedFields",
+    "classificationPhotoId",
+    "templateVersion",
+    "sizeBytes",
+    "checksumSha256"
+  ],
+  "additionalProperties": false
+}

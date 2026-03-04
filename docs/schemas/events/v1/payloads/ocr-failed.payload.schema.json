@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/ocr-failed.payload.schema.json",
+  "title": "OCR_FAILED payload",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": ["LOCAL", "EXTERNAL"]
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retryable": {
+      "type": "boolean"
+    }
+  },
+  "required": ["provider", "error"],
+  "additionalProperties": false
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/photo-added.payload.schema.json",
+  "title": "PHOTO_ADDED payload",
+  "type": "object",
+  "properties": {
+    "attachmentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["ARRIVAL_PHOTO", "CLASSIFICATION_PHOTO"]
+    },
+    "storagePath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fileName": {
+      "type": ["string", "null"]
+    },
+    "mimeType": {
+      "type": ["string", "null"]
+    },
+    "sizeBytes": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "checksumSha256": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["attachmentId", "kind", "storagePath"],
+  "additionalProperties": false
+}

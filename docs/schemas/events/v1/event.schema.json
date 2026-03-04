@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/event.schema.json",
+  "title": "Event Contract v1 - Aggregate Schema",
+  "oneOf": [
+    { "$ref": "./events/sample-received.event.schema.json" },
+    { "$ref": "./events/registration-started.event.schema.json" },
+    { "$ref": "./events/photo-added.event.schema.json" },
+    { "$ref": "./events/ocr-extracted.event.schema.json" },
+    { "$ref": "./events/ocr-failed.event.schema.json" },
+    { "$ref": "./events/ocr-confirmed.event.schema.json" },
+    { "$ref": "./events/registration-confirmed.event.schema.json" },
+    { "$ref": "./events/qr-print-requested.event.schema.json" },
+    { "$ref": "./events/qr-print-failed.event.schema.json" },
+    { "$ref": "./events/qr-printed.event.schema.json" },
+    { "$ref": "./events/qr-reprint-requested.event.schema.json" },
+    { "$ref": "./events/classification-started.event.schema.json" },
+    { "$ref": "./events/classification-saved-partial.event.schema.json" },
+    { "$ref": "./events/classification-completed.event.schema.json" },
+    { "$ref": "./events/registration-updated.event.schema.json" },
+    { "$ref": "./events/classification-updated.event.schema.json" },
+    { "$ref": "./events/sample-invalidated.event.schema.json" },
+    { "$ref": "./events/report-exported.event.schema.json" }
+  ]
+}

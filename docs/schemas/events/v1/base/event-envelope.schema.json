@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/base/event-envelope.schema.json",
+  "title": "Event Envelope v1",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "$ref": "./shared-defs.schema.json#/$defs/uuid"
+    },
+    "eventType": {
+      "$ref": "./shared-defs.schema.json#/$defs/eventType"
+    },
+    "sampleId": {
+      "$ref": "./shared-defs.schema.json#/$defs/uuid"
+    },
+    "sequenceNumber": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurredAt": {
+      "$ref": "./shared-defs.schema.json#/$defs/utcTimestamp"
+    },
+    "actorType": {
+      "$ref": "./shared-defs.schema.json#/$defs/actorType"
+    },
+    "actorUserId": {
+      "anyOf": [
+        { "$ref": "./shared-defs.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "source": {
+      "$ref": "./shared-defs.schema.json#/$defs/sourceType"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "payload": {
+      "type": "object"
+    },
+    "requestId": {
+      "$ref": "./shared-defs.schema.json#/$defs/nonEmptyString"
+    },
+    "correlationId": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "causationId": {
+      "anyOf": [
+        { "$ref": "./shared-defs.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "idempotencyScope": {
+      "$ref": "./shared-defs.schema.json#/$defs/idempotencyScope"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fromStatus": {
+      "anyOf": [
+        { "$ref": "./shared-defs.schema.json#/$defs/sampleStatus" },
+        { "type": "null" }
+      ]
+    },
+    "toStatus": {
+      "anyOf": [
+        { "$ref": "./shared-defs.schema.json#/$defs/sampleStatus" },
+        { "type": "null" }
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "userAgent": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "module": {
+          "$ref": "./shared-defs.schema.json#/$defs/moduleType"
+        }
+      },
+      "required": ["module"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "eventId",
+    "eventType",
+    "sampleId",
+    "sequenceNumber",
+    "occurredAt",
+    "actorType",
+    "source",
+    "schemaVersion",
+    "payload",
+    "requestId"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "actorType": { "const": "USER" }
+        },
+        "required": ["actorType"]
+      },
+      "then": {
+        "required": ["actorUserId"],
+        "properties": {
+          "actorUserId": {
+            "$ref": "./shared-defs.schema.json#/$defs/uuid"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "actorType": { "const": "SYSTEM" }
+        },
+        "required": ["actorType"]
+      },
+      "then": {
+        "required": ["actorUserId"],
+        "properties": {
+          "actorUserId": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "idempotencyScope": {
+            "type": "string"
+          }
+        },
+        "required": ["idempotencyScope"]
+      },
+      "then": {
+        "properties": {
+          "idempotencyKey": {
+            "type": "string"
+          }
+        },
+        "required": ["idempotencyKey"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "idempotencyKey": {
+            "type": "string"
+          }
+        },
+        "required": ["idempotencyKey"]
+      },
+      "then": {
+        "properties": {
+          "idempotencyScope": {
+            "type": "string"
+          }
+        },
+        "required": ["idempotencyScope"]
+      }
+    }
+  ]
+}

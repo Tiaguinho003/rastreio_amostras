@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/qr-print-failed.event.schema.json",
+  "title": "QR_PRINT_FAILED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "QR_PRINT_FAILED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/qr-print-failed.payload.schema.json" },
+        "fromStatus": { "type": "null" },
+        "toStatus": { "type": "null" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
+    }
+  ]
+}

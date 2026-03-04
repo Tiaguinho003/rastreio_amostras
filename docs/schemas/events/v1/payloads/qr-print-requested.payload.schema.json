@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/qr-print-requested.payload.schema.json",
+  "title": "QR_PRINT_REQUESTED payload",
+  "type": "object",
+  "properties": {
+    "printAction": {
+      "const": "PRINT"
+    },
+    "attemptNumber": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "printerId": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["printAction", "attemptNumber", "printerId"],
+  "additionalProperties": false
+}

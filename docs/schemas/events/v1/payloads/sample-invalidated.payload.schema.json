@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/sample-invalidated.payload.schema.json",
+  "title": "SAMPLE_INVALIDATED payload",
+  "type": "object",
+  "properties": {
+    "reasonCode": {
+      "$ref": "../base/shared-defs.schema.json#/$defs/invalidationReasonCode"
+    },
+    "reasonText": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": ["reasonCode", "reasonText"],
+  "additionalProperties": false
+}

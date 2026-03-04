@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/ocr-confirmed.event.schema.json",
+  "title": "OCR_CONFIRMED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "OCR_CONFIRMED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/ocr-confirmed.payload.schema.json" },
+        "fromStatus": { "type": "null" },
+        "toStatus": { "type": "null" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:15.8-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rastreio_app
+      POSTGRES_PASSWORD: rastreio_app
+      POSTGRES_DB: rastreio_test
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+    ports:
+      - "55432:5432"
+    volumes:
+      - rastreio_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rastreio_app -d rastreio_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  rastreio_pg_data:

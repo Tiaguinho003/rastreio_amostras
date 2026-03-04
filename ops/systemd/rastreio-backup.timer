@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily timer for rastreio backup cycle
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+Unit=rastreio-backup.service
+
+[Install]
+WantedBy=timers.target

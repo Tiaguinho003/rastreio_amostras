@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/sample-invalidated.event.schema.json",
+  "title": "SAMPLE_INVALIDATED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SAMPLE_INVALIDATED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/sample-invalidated.payload.schema.json" },
+        "fromStatus": {
+          "type": "string",
+          "enum": [
+            "PHYSICAL_RECEIVED",
+            "REGISTRATION_IN_PROGRESS",
+            "REGISTRATION_CONFIRMED",
+            "QR_PENDING_PRINT",
+            "QR_PRINTED",
+            "CLASSIFICATION_IN_PROGRESS",
+            "CLASSIFIED"
+          ]
+        },
+        "toStatus": { "const": "INVALIDATED" },
+        "idempotencyScope": { "const": "INVALIDATE" },
+        "idempotencyKey": { "type": "string", "minLength": 1 }
+      },
+      "required": [
+        "eventType",
+        "schemaVersion",
+        "payload",
+        "fromStatus",
+        "toStatus",
+        "idempotencyScope",
+        "idempotencyKey"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+coverage
+dist
+data/uploads
+docs/assets
+*.log
+*:Zone.Identifier

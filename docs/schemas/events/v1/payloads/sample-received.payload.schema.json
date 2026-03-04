@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/sample-received.payload.schema.json",
+  "title": "SAMPLE_RECEIVED payload",
+  "type": "object",
+  "properties": {
+    "receivedChannel": {
+      "type": "string",
+      "enum": ["in_person", "courier", "driver", "other"]
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["receivedChannel"],
+  "additionalProperties": false
+}

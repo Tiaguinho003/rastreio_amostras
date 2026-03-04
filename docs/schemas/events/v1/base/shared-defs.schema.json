@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/base/shared-defs.schema.json",
+  "title": "Shared Definitions - Event Contract v1",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "SAMPLE_RECEIVED",
+        "REGISTRATION_STARTED",
+        "PHOTO_ADDED",
+        "OCR_EXTRACTED",
+        "OCR_FAILED",
+        "OCR_CONFIRMED",
+        "REGISTRATION_CONFIRMED",
+        "QR_PRINT_REQUESTED",
+        "QR_PRINT_FAILED",
+        "QR_PRINTED",
+        "QR_REPRINT_REQUESTED",
+        "CLASSIFICATION_STARTED",
+        "CLASSIFICATION_SAVED_PARTIAL",
+        "CLASSIFICATION_COMPLETED",
+        "REGISTRATION_UPDATED",
+        "CLASSIFICATION_UPDATED",
+        "SAMPLE_INVALIDATED",
+        "REPORT_EXPORTED"
+      ]
+    },
+    "sampleStatus": {
+      "type": "string",
+      "enum": [
+        "PHYSICAL_RECEIVED",
+        "REGISTRATION_IN_PROGRESS",
+        "REGISTRATION_CONFIRMED",
+        "QR_PENDING_PRINT",
+        "QR_PRINTED",
+        "CLASSIFICATION_IN_PROGRESS",
+        "CLASSIFIED",
+        "INVALIDATED"
+      ]
+    },
+    "actorType": {
+      "type": "string",
+      "enum": ["USER", "SYSTEM"]
+    },
+    "sourceType": {
+      "type": "string",
+      "enum": ["web", "api", "worker"]
+    },
+    "moduleType": {
+      "type": "string",
+      "enum": ["registration", "classification", "print", "ocr"]
+    },
+    "idempotencyScope": {
+      "type": "string",
+      "enum": [
+        "REGISTRATION_CONFIRM",
+        "QR_PRINT",
+        "QR_REPRINT",
+        "CLASSIFICATION_COMPLETE",
+        "INVALIDATE"
+      ]
+    },
+    "printAction": {
+      "type": "string",
+      "enum": ["PRINT", "REPRINT"]
+    },
+    "updateReasonCode": {
+      "type": "string",
+      "enum": ["DATA_FIX", "TYPO", "MISSING_INFO", "OTHER"]
+    },
+    "invalidationReasonCode": {
+      "type": "string",
+      "enum": ["DUPLICATE", "WRONG_SAMPLE", "DAMAGED", "CANCELLED", "OTHER"]
+    },
+    "confidenceScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

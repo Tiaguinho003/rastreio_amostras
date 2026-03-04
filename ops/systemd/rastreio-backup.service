@@ -1,0 +1,12 @@
+[Unit]
+Description=Rastreio backup cycle (db + uploads + retention)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=rastreio
+Group=rastreio
+WorkingDirectory=/opt/rastreio-interno-amostras
+EnvironmentFile=/opt/rastreio-interno-amostras/.env
+ExecStart=/opt/rastreio-interno-amostras/scripts/ops/run-backup-cycle.sh

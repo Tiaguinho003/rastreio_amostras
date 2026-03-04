@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/qr-printed.event.schema.json",
+  "title": "QR_PRINTED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "QR_PRINTED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/qr-printed.payload.schema.json" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"],
+      "oneOf": [
+        {
+          "properties": {
+            "fromStatus": { "const": "QR_PENDING_PRINT" },
+            "toStatus": { "const": "QR_PRINTED" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "printAction": { "const": "PRINT" }
+              },
+              "required": ["printAction"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "fromStatus": { "type": "null" },
+            "toStatus": { "type": "null" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "printAction": { "const": "REPRINT" }
+              },
+              "required": ["printAction"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

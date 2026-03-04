@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/classification-completed.payload.schema.json",
+  "title": "CLASSIFICATION_COMPLETED payload",
+  "type": "object",
+  "properties": {
+    "classificationPhotoId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "classificationVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "classificationData": {
+      "type": "object",
+      "properties": {
+        "dataClassificacao": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "padrao": {
+          "type": ["string", "null"]
+        },
+        "catacao": {
+          "type": ["string", "null"]
+        },
+        "aspecto": {
+          "type": ["string", "null"]
+        },
+        "bebida": {
+          "type": ["string", "null"]
+        },
+        "broca": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pva": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "imp": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "classificador": {
+          "type": ["string", "null"]
+        },
+        "peneirasPercentuais": {
+          "type": ["object", "null"],
+          "properties": {
+            "p18": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p17": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p16": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "mk": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p15": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p14": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p13": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "fundo": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+          },
+          "additionalProperties": false
+        },
+        "defeito": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "umidade": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "aspectoCor": {
+          "type": ["string", "null"]
+        },
+        "observacoes": {
+          "type": ["string", "null"]
+        },
+        "loteOrigem": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "technical": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "screen": {
+          "type": "string",
+          "minLength": 1
+        },
+        "defectsCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moisture": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "density": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "colorAspect": {
+          "type": ["string", "null"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "classifierUserId": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "classifierName": {
+      "type": ["string", "null"]
+    },
+    "consumptionGrams": {
+      "type": ["number", "null"],
+      "minimum": 0
+    }
+  },
+  "required": ["classificationPhotoId"],
+  "additionalProperties": false
+}

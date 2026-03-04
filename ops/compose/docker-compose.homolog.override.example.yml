@@ -1,0 +1,12 @@
+services:
+  db:
+    ports:
+      - "127.0.0.1:${HOMOLOG_DB_PORT:-55433}:5432"
+    volumes:
+      - ${HOMOLOG_PGDATA_DIR:-/srv/rastreio/homolog/postgres}:/var/lib/postgresql/data
+
+  app:
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    volumes:
+      - ${HOMOLOG_UPLOADS_DIR:-/srv/rastreio/homolog/uploads}:/var/lib/rastreio/uploads

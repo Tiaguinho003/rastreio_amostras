@@ -1,0 +1,43 @@
+{
+  "name": "rastreio-interno-amostras-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Event contract validation and CI tests for Rastreio Interno de Amostras",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "validate:schemas": "node scripts/validate-schemas.js",
+    "test:contracts": "node --test tests/event-contract.test.js",
+    "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js",
+    "test:backend:integration": "node --test tests/sample-backend-sprint1.integration.test.js",
+    "test:integration:db": "node --test --test-concurrency=1 tests/**/*.integration.test.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "test": "npm run validate:schemas && npm run test:contracts && npm run test:unit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "bcryptjs": "^3.0.3",
+    "next": "^15.5.12",
+    "pdf-lib": "^1.17.1",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "prisma": "^6.4.1",
+    "typescript": "^5.9.3"
+  }
+}

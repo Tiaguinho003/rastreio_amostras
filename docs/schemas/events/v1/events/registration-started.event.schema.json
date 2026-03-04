@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/registration-started.event.schema.json",
+  "title": "REGISTRATION_STARTED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "REGISTRATION_STARTED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/registration-started.payload.schema.json" },
+        "fromStatus": { "const": "PHYSICAL_RECEIVED" },
+        "toStatus": { "const": "REGISTRATION_IN_PROGRESS" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
+    }
+  ]
+}

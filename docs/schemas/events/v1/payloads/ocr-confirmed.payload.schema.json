@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/ocr-confirmed.payload.schema.json",
+  "title": "OCR_CONFIRMED payload",
+  "type": "object",
+  "properties": {
+    "confirmationMode": {
+      "type": "string",
+      "enum": ["OCR_ACCEPTED", "MANUAL_OVERRIDE", "MANUAL_ENTRY"]
+    },
+    "confirmedFields": {
+      "type": "object",
+      "properties": {
+        "owner": { "type": ["string", "null"] },
+        "sacks": { "type": ["integer", "null"], "minimum": 0 },
+        "harvest": { "type": ["string", "null"] },
+        "originLot": { "type": ["string", "null"] }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["confirmationMode", "confirmedFields"],
+  "additionalProperties": false
+}

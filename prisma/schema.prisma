@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SampleStatus {
+  PHYSICAL_RECEIVED
+  REGISTRATION_IN_PROGRESS
+  REGISTRATION_CONFIRMED
+  QR_PENDING_PRINT
+  QR_PRINTED
+  CLASSIFICATION_IN_PROGRESS
+  CLASSIFIED
+  INVALIDATED
+}
+
+enum ActorType {
+  USER
+  SYSTEM
+}
+
+enum SourceType {
+  WEB    @map("web")
+  API    @map("api")
+  WORKER @map("worker")
+}
+
+enum ModuleType {
+  REGISTRATION   @map("registration")
+  CLASSIFICATION @map("classification")
+  PRINT          @map("print")
+  OCR            @map("ocr")
+}
+
+enum IdempotencyScope {
+  REGISTRATION_CONFIRM
+  QR_PRINT
+  QR_REPRINT
+  CLASSIFICATION_COMPLETE
+  INVALIDATE
+}
+
+enum SampleEventType {
+  SAMPLE_RECEIVED
+  REGISTRATION_STARTED
+  PHOTO_ADDED
+  OCR_EXTRACTED
+  OCR_FAILED
+  OCR_CONFIRMED
+  REGISTRATION_CONFIRMED
+  QR_PRINT_REQUESTED
+  QR_PRINT_FAILED
+  QR_PRINTED
+  QR_REPRINT_REQUESTED
+  CLASSIFICATION_STARTED
+  CLASSIFICATION_SAVED_PARTIAL
+  CLASSIFICATION_COMPLETED
+  REGISTRATION_UPDATED
+  CLASSIFICATION_UPDATED
+  SAMPLE_INVALIDATED
+  REPORT_EXPORTED
+}
+
+enum AttachmentKind {
+  ARRIVAL_PHOTO
+  CLASSIFICATION_PHOTO
+}
+
+enum PrintAction {
+  PRINT
+  REPRINT
+}
+
+enum PrintJobStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model Sample {
+  id                          String    @id @db.Uuid
+  internalLotNumber           String?   @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
+  status                      SampleStatus
+  version                     Int       @default(0)
+  lastEventSequence           Int       @default(0) @map("last_event_sequence")
+  declaredOwner               String?   @map("declared_owner")
+  declaredSacks               Int?      @map("declared_sacks")
+  declaredHarvest             String?   @map("declared_harvest")
+  declaredOriginLot           String?   @map("declared_origin_lot")
+  labelPhotoCount             Int       @default(0) @map("label_photo_count")
+  latestClassificationVersion Int?      @map("latest_classification_version")
+  latestClassificationData    Json?     @map("latest_classification_data")
+  classificationDraftData     Json?     @map("classification_draft_data")
+  classificationDraftCompletionPercent Int? @map("classification_draft_completion_percent")
+  latestType                  String?   @map("latest_type")
+  latestScreen                String?   @map("latest_screen")
+  latestDefectsCount          Int?      @map("latest_defects_count")
+  latestMoisture              Decimal?  @db.Decimal(5, 2) @map("latest_moisture")
+  latestDensity               Decimal?  @db.Decimal(6, 2) @map("latest_density")
+  latestColorAspect           String?   @map("latest_color_aspect")
+  latestNotes                 String?   @map("latest_notes")
+  updatedAt                   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
+  createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  events      SampleEvent[]
+  attachments SampleAttachment[]
+  printJobs   PrintJob[]
+
+  @@index([status], map: "idx_sample_status")
+  @@map("sample")
+}
+
+model SampleEvent {
+  eventId           String            @id @db.Uuid @map("event_id")
+  sampleId          String            @db.Uuid @map("sample_id")
+  sequenceNumber    Int               @map("sequence_number")
+  eventType         SampleEventType   @map("event_type")
+  schemaVersion     Int               @map("schema_version")
+  occurredAt        DateTime          @db.Timestamptz(6) @map("occurred_at")
+  actorType         ActorType         @map("actor_type")
+  actorUserId       String?           @db.Uuid @map("actor_user_id")
+  source            SourceType
+  payload           Json
+  requestId         String            @map("request_id")
+  correlationId     String?           @map("correlation_id")
+  causationId       String?           @db.Uuid @map("causation_id")
+  idempotencyScope  IdempotencyScope? @map("idempotency_scope")
+  idempotencyKey    String?           @map("idempotency_key")
+  fromStatus        SampleStatus?     @map("from_status")
+  toStatus          SampleStatus?     @map("to_status")
+  metadataModule    ModuleType        @map("metadata_module")
+  metadataIp        String?           @map("metadata_ip")
+  metadataUserAgent String?           @map("metadata_user_agent")
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  sample          Sample    @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestedByJobs PrintJob[] @relation("PrintJobRequestedEvent")
+  resultByJobs    PrintJob[] @relation("PrintJobResultEvent")
+
+  @@unique([sampleId, sequenceNumber], map: "uq_sample_event_sequence")
+  @@index([sampleId, occurredAt], map: "idx_sample_event_sample_occurred")
+  @@index([eventType, occurredAt], map: "idx_sample_event_type_occurred")
+  @@index([sampleId, idempotencyScope, idempotencyKey], map: "idx_sample_event_idempotency_lookup")
+  @@map("sample_event")
+}
+
+model SampleAttachment {
+  id           String         @id @db.Uuid
+  sampleId     String         @db.Uuid @map("sample_id")
+  kind         AttachmentKind
+  storagePath  String         @map("storage_path")
+  mimeType     String?        @map("mime_type")
+  sizeBytes    Int?           @map("size_bytes")
+  checksumSha256 String?      @map("checksum_sha256")
+  createdAt    DateTime       @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  sample Sample @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([sampleId, kind], map: "uq_sample_attachment_sample_kind")
+  @@index([sampleId, createdAt], map: "idx_attachment_sample_created")
+  @@map("sample_attachment")
+}
+
+model PrintJob {
+  id               String         @id @db.Uuid
+  sampleId         String         @db.Uuid @map("sample_id")
+  printAction      PrintAction    @map("print_action")
+  attemptNumber    Int            @map("attempt_number")
+  status           PrintJobStatus
+  printerId        String?        @map("printer_id")
+  error            String?
+  requestedEventId String         @db.Uuid @map("requested_event_id")
+  resultEventId    String?        @db.Uuid @map("result_event_id")
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  sample         Sample      @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestedEvent SampleEvent @relation("PrintJobRequestedEvent", fields: [requestedEventId], references: [eventId], onDelete: Restrict, onUpdate: Cascade)
+  resultEvent    SampleEvent? @relation("PrintJobResultEvent", fields: [resultEventId], references: [eventId], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([sampleId, printAction, attemptNumber], map: "uq_print_job_sample_action_attempt")
+  @@index([status, createdAt], map: "idx_print_job_status_created")
+  @@map("print_job")
+}
