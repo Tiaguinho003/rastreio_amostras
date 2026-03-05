@@ -74,6 +74,28 @@ function requireSampleId(params) {
   return sampleId;
 }
 
+function readOptionalQueryString(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function readPageQuery(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsed = readPositiveInteger(value, 1, 'page');
+  if (parsed < 1) {
+    throw new HttpError(422, 'page must be an integer greater than or equal to 1');
+  }
+
+  return parsed;
+}
+
 function executeApiForInput(input, handler) {
   const requestId = readHeader(input?.headers ?? {}, 'x-request-id') ?? null;
   return executeApi(handler, { requestId });
@@ -458,15 +480,45 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
+    updateCommercialStatus: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const sampleId = requireSampleId(input?.params);
+        const body = readRequestBody(input);
+
+        const result = await commandService.updateCommercialStatus(
+          {
+            sampleId,
+            expectedVersion: body.expectedVersion,
+            toCommercialStatus: body.toCommercialStatus,
+            reasonText: body.reasonText,
+            idempotencyKey: body.idempotencyKey
+          },
+          actor
+        );
+
+        return { status: result.statusCode, body: result };
+      }),
+
     listSamples: (input) =>
       executeApiForInput(input, async () => {
         resolveActorContext(input, authService, actorContextOptions);
         const query = input?.query ?? {};
 
         const result = await queryService.listSamples({
-          status: query.status ?? null,
-          limit: readPositiveInteger(query.limit, 50, 'limit'),
-          offset: readPositiveInteger(query.offset, 0, 'offset')
+          search: readOptionalQueryString(query.search),
+          status: readOptionalQueryString(query.status),
+          limit: readPositiveInteger(query.limit, 30, 'limit'),
+          offset: readPositiveInteger(query.offset, 0, 'offset'),
+          page: readPageQuery(query.page),
+          lot: readOptionalQueryString(query.lot),
+          owner: readOptionalQueryString(query.owner),
+          statusGroup: readOptionalQueryString(query.statusGroup),
+          commercialStatus: readOptionalQueryString(query.commercialStatus),
+          harvest: readOptionalQueryString(query.harvest),
+          createdDate: readOptionalQueryString(query.createdDate),
+          createdMonth: readOptionalQueryString(query.createdMonth),
+          createdYear: readOptionalQueryString(query.createdYear)
         });
 
         return {
@@ -548,7 +600,8 @@ export function createBackendApiV1({
             sample: {
               id: sample.id,
               internalLotNumber: sample.internalLotNumber,
-              status: sample.status
+              status: sample.status,
+              commercialStatus: sample.commercialStatus
             },
             redirectPath: `/samples/${sample.id}?focus=classification&source=qr`
           }

@@ -55,6 +55,7 @@ Campos opcionais:
 - `CLASSIFICATION_COMPLETED`
 - `REGISTRATION_UPDATED`
 - `CLASSIFICATION_UPDATED`
+- `COMMERCIAL_STATUS_UPDATED`
 - `SAMPLE_INVALIDATED`
 
 ## 4. Eventos que Mudam Status
@@ -79,6 +80,7 @@ Eventos sem mudanca de status (`fromStatus/toStatus = null`):
 - `CLASSIFICATION_UPDATED`
 - `QR_PRINT_FAILED`
 - `QR_REPRINT_REQUESTED`
+- `COMMERCIAL_STATUS_UPDATED`
 
 ## 5. Payloads Minimos Obrigatorios
 
@@ -181,6 +183,15 @@ Observacao: `labelPhotos` e opcional no fluxo atual e, quando presente, pode ser
 }
 ```
 
+### 5.10 COMMERCIAL_STATUS_UPDATED
+```json
+{
+  "fromCommercialStatus": "OPEN|SOLD|LOST",
+  "toCommercialStatus": "OPEN|SOLD|LOST",
+  "reasonText": "string"
+}
+```
+
 ## 6. Versionamento de Schema
 
 - `schemaVersion` e por evento.
@@ -200,6 +211,7 @@ Scopes criticos do MVP:
 - `QR_PRINT`
 - `QR_REPRINT`
 - `CLASSIFICATION_COMPLETE`
+- `COMMERCIAL_STATUS_UPDATE`
 - `INVALIDATE`
 
 Restricao recomendada:
@@ -219,6 +231,10 @@ Restricao recomendada:
 - `QR_PRINT_FAILED` nao muda status (permanece `QR_PENDING_PRINT`).
 - `QR_PRINT_REQUESTED` representa primeira emissao de etiqueta.
 - `QR_REPRINT_REQUESTED` representa reimpressao por perda/dano (nao muda status).
+- `QR_PRINTED` com `printAction=PRINT` sempre aplica `QR_PENDING_PRINT -> QR_PRINTED`.
+- `QR_PRINTED` com `printAction=REPRINT`:
+- quando `fromStatus/toStatus` vierem preenchidos, aplica `QR_PENDING_PRINT -> QR_PRINTED`;
+- quando vierem `null`, registra apenas auditoria.
 - Unicidade de tentativas:
 - `(sampleId, printAction, attemptNumber)` unico.
 - Repeticao da mesma tentativa retorna resultado existente.

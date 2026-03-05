@@ -9,6 +9,12 @@ const PENDING_STATUSES = [
 const PRINT_PENDING_STATUSES = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT'];
 const CLASSIFICATION_PENDING_STATUSES = ['QR_PRINTED'];
 const CLASSIFICATION_IN_PROGRESS_STATUSES = ['CLASSIFICATION_IN_PROGRESS'];
+const SAMPLE_STATUS_FILTER_GROUPS = {
+  PRINT_PENDING: PRINT_PENDING_STATUSES,
+  CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
+  CLASSIFICATION_IN_PROGRESS: CLASSIFICATION_IN_PROGRESS_STATUSES,
+  CLASSIFIED: ['CLASSIFIED']
+};
 const LATEST_REGISTRATION_STATUSES = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
@@ -19,9 +25,13 @@ const LATEST_REGISTRATION_STATUSES = [
 ];
 const DASHBOARD_LIST_LIMIT = 20;
 const DASHBOARD_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
+const SAMPLES_LIST_DEFAULT_LIMIT = 30;
+const SAMPLES_LIST_MAX_LIMIT = 30;
+const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 const MAX_QR_PARTS = 64;
 const UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'AM-\\d{4}-\\d{6}';
+const COMMERCIAL_STATUSES = ['OPEN', 'SOLD', 'LOST'];
 
 function tryDecodeURIComponent(value) {
   try {
@@ -139,6 +149,7 @@ function moduleFromDb(moduleName) {
     REGISTRATION: 'registration',
     CLASSIFICATION: 'classification',
     PRINT: 'print',
+    COMMERCIAL: 'commercial',
     OCR: 'ocr'
   };
   return map[moduleName] ?? moduleName;
@@ -181,6 +192,151 @@ function toObjectOrNull(value) {
   return value;
 }
 
+function normalizeOptionalText(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function parseCreatedDateRangeInSaoPaulo(createdDate) {
+  const normalized = normalizeOptionalText(createdDate);
+  if (!normalized) {
+    return null;
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+  if (!match) {
+    throw new HttpError(422, 'createdDate must follow YYYY-MM-DD format');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new HttpError(422, 'createdDate must be a valid calendar date');
+  }
+
+  const startUtc = new Date(Date.UTC(year, month - 1, day, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+  const endUtc = new Date(Date.UTC(year, month - 1, day + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+  return {
+    startUtc,
+    endUtc
+  };
+}
+
+function parseCreatedMonthRangeInSaoPaulo(createdMonth) {
+  const normalized = normalizeOptionalText(createdMonth);
+  if (!normalized) {
+    return null;
+  }
+
+  const match = /^(\d{4})-(\d{2})$/.exec(normalized);
+  if (!match) {
+    throw new HttpError(422, 'createdMonth must follow YYYY-MM format');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const parsed = new Date(Date.UTC(year, month - 1, 1));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1) {
+    throw new HttpError(422, 'createdMonth must be a valid calendar month');
+  }
+
+  const startUtc = new Date(Date.UTC(year, month - 1, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+  const endUtc = new Date(Date.UTC(year, month, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+  return {
+    startUtc,
+    endUtc
+  };
+}
+
+function parseCreatedYearRangeInSaoPaulo(createdYear) {
+  const normalized = normalizeOptionalText(createdYear);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^\d{4}$/.test(normalized)) {
+    throw new HttpError(422, 'createdYear must follow YYYY format');
+  }
+
+  const year = Number(normalized);
+  const startUtc = new Date(Date.UTC(year, 0, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+  const endUtc = new Date(Date.UTC(year + 1, 0, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+  return {
+    startUtc,
+    endUtc
+  };
+}
+
+function resolveCreatedPeriodRangeInSaoPaulo({ createdDate = null, createdMonth = null, createdYear = null }) {
+  const normalizedDate = normalizeOptionalText(createdDate);
+  const normalizedMonth = normalizeOptionalText(createdMonth);
+  const normalizedYear = normalizeOptionalText(createdYear);
+
+  const informedPeriods = [normalizedDate, normalizedMonth, normalizedYear].filter(Boolean).length;
+  if (informedPeriods > 1) {
+    throw new HttpError(422, 'Use only one period filter: createdDate, createdMonth or createdYear');
+  }
+
+  if (normalizedDate) {
+    return parseCreatedDateRangeInSaoPaulo(normalizedDate);
+  }
+
+  if (normalizedMonth) {
+    return parseCreatedMonthRangeInSaoPaulo(normalizedMonth);
+  }
+
+  if (normalizedYear) {
+    return parseCreatedYearRangeInSaoPaulo(normalizedYear);
+  }
+
+  return null;
+}
+
+function resolveStatusGroupStatuses(statusGroup) {
+  const normalized = normalizeOptionalText(statusGroup);
+  if (!normalized) {
+    return null;
+  }
+
+  const resolved = SAMPLE_STATUS_FILTER_GROUPS[normalized];
+  if (!resolved) {
+    throw new HttpError(
+      422,
+      'statusGroup must be one of: PRINT_PENDING, CLASSIFICATION_PENDING, CLASSIFICATION_IN_PROGRESS, CLASSIFIED'
+    );
+  }
+
+  return resolved;
+}
+
+function resolveCommercialStatus(commercialStatus) {
+  const normalized = normalizeOptionalText(commercialStatus);
+  if (!normalized) {
+    return null;
+  }
+
+  const normalizedUpper = normalized.toUpperCase();
+  if (!COMMERCIAL_STATUSES.includes(normalizedUpper)) {
+    throw new HttpError(422, 'commercialStatus must be one of: OPEN, SOLD, LOST');
+  }
+
+  return normalizedUpper;
+}
+
 function mapSample(row) {
   if (!row) {
     return null;
@@ -192,6 +348,7 @@ function mapSample(row) {
     id: row.id,
     internalLotNumber: row.internalLotNumber,
     status: row.status,
+    commercialStatus: row.commercialStatus,
     version: row.version,
     lastEventSequence: row.lastEventSequence,
     declared: {
@@ -286,6 +443,33 @@ export class SampleQueryService {
       throw new HttpError(404, `Sample ${sampleId} does not exist`);
     }
     return sample;
+  }
+
+  async findPendingPrintJobOrNull(sampleId, printAction = null) {
+    const where = {
+      sampleId,
+      status: 'PENDING'
+    };
+
+    if (printAction) {
+      where.printAction = printAction;
+    }
+
+    const pending = await this.prisma.printJob.findFirst({
+      where,
+      orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }]
+    });
+
+    if (!pending) {
+      return null;
+    }
+
+    return {
+      printAction: pending.printAction,
+      attemptNumber: pending.attemptNumber,
+      printerId: pending.printerId ?? null,
+      status: pending.status
+    };
   }
 
   async resolveSampleByQrToken(qrContent) {
@@ -394,28 +578,137 @@ export class SampleQueryService {
     }));
   }
 
-  async listSamples({ status = null, limit = 50, offset = 0 } = {}) {
-    const safeLimit = Math.min(Math.max(limit, 1), 200);
+  async listSamples({
+    search = null,
+    status = null,
+    statusGroup = null,
+    commercialStatus = null,
+    limit = SAMPLES_LIST_DEFAULT_LIMIT,
+    offset = 0,
+    page = null,
+    lot = null,
+    owner = null,
+    harvest = null,
+    createdDate = null,
+    createdMonth = null,
+    createdYear = null
+  } = {}) {
+    const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const safeOffset = Math.max(offset, 0);
+    const safePage = typeof page === 'number' && Number.isInteger(page) && page > 0 ? page : null;
+    const resolvedOffset = safePage ? (safePage - 1) * safeLimit : safeOffset;
+    const resolvedPage = safePage ?? Math.floor(resolvedOffset / safeLimit) + 1;
 
-    const where = status ? { status } : undefined;
+    const createdPeriodRange = resolveCreatedPeriodRangeInSaoPaulo({
+      createdDate,
+      createdMonth,
+      createdYear
+    });
+
+    const conditions = [];
+    const normalizedSearch = normalizeOptionalText(search);
+    if (normalizedSearch) {
+      conditions.push({
+        OR: [
+          {
+            internalLotNumber: {
+              contains: normalizedSearch,
+              mode: 'insensitive'
+            }
+          },
+          {
+            declaredOwner: {
+              contains: normalizedSearch,
+              mode: 'insensitive'
+            }
+          }
+        ]
+      });
+    }
+
+    const normalizedStatus = normalizeOptionalText(status);
+    if (normalizedStatus) {
+      conditions.push({ status: normalizedStatus });
+    }
+
+    const resolvedStatusGroupStatuses = resolveStatusGroupStatuses(statusGroup);
+    if (resolvedStatusGroupStatuses) {
+      conditions.push({
+        status: {
+          in: resolvedStatusGroupStatuses
+        }
+      });
+    }
+
+    const resolvedCommercialStatus = resolveCommercialStatus(commercialStatus);
+    if (resolvedCommercialStatus) {
+      conditions.push({
+        commercialStatus: resolvedCommercialStatus
+      });
+    }
+
+    const normalizedLot = normalizeOptionalText(lot);
+    if (normalizedLot) {
+      conditions.push({
+        internalLotNumber: {
+          contains: normalizedLot,
+          mode: 'insensitive'
+        }
+      });
+    }
+
+    const normalizedOwner = normalizeOptionalText(owner);
+    if (normalizedOwner) {
+      conditions.push({
+        declaredOwner: {
+          equals: normalizedOwner,
+          mode: 'insensitive'
+        }
+      });
+    }
+
+    const normalizedHarvest = normalizeOptionalText(harvest);
+    if (normalizedHarvest) {
+      conditions.push({
+        declaredHarvest: normalizedHarvest
+      });
+    }
+
+    if (createdPeriodRange) {
+      conditions.push({
+        createdAt: {
+          gte: createdPeriodRange.startUtc,
+          lt: createdPeriodRange.endUtc
+        }
+      });
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : undefined;
 
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
         where,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
-        skip: safeOffset,
+        skip: resolvedOffset,
         take: safeLimit
       }),
       this.prisma.sample.count({ where })
     ]);
 
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const hasPrev = resolvedPage > 1;
+    const hasNext = resolvedPage < totalPages;
+
     return {
       items: rows.map(mapSample),
       page: {
         limit: safeLimit,
-        offset: safeOffset,
-        total
+        page: resolvedPage,
+        offset: resolvedOffset,
+        total,
+        totalPages,
+        hasPrev,
+        hasNext
       }
     };
   }

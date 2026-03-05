@@ -17,6 +17,7 @@ import {
   qrPrintFailedEvent,
   qrPrintedEvent,
   reportExportedEvent,
+  commercialStatusUpdatedEvent,
   sampleInvalidatedEvent
 } from './helpers/event-builders.js';
 
@@ -370,6 +371,72 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(reprintSuccess.event.eventType, 'QR_PRINTED');
     assert.equal(afterReprint.status, 'QR_PRINTED');
     assert.equal(afterReprint.version, beforeReprint.version);
+  });
+
+  test('persists QR_PRINTED REPRINT with transition when sample is QR_PENDING_PRINT', async () => {
+    const sampleId = randomUUID();
+
+    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+    await service.appendEvent(
+      qrReprintRequestedEvent(sampleId, {
+        payload: {
+          printAction: 'REPRINT',
+          attemptNumber: 1,
+          printerId: 'printer-main',
+          reasonText: 'nova tentativa antes da confirmacao'
+        }
+      })
+    );
+
+    const beforeReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(beforeReprint.status, 'QR_PENDING_PRINT');
+
+    const reprintSuccess = await service.appendEvent(
+      qrPrintedEvent(sampleId, {
+        fromStatus: 'QR_PENDING_PRINT',
+        toStatus: 'QR_PRINTED',
+        payload: {
+          printAction: 'REPRINT',
+          attemptNumber: 1,
+          printerId: 'printer-main'
+        }
+      }),
+      { expectedVersion: beforeReprint.version }
+    );
+
+    const afterReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(reprintSuccess.statusCode, 201);
+    assert.equal(reprintSuccess.event.eventType, 'QR_PRINTED');
+    assert.equal(afterReprint.status, 'QR_PRINTED');
+    assert.equal(afterReprint.version, beforeReprint.version + 1);
+  });
+
+  test('persists COMMERCIAL_STATUS_UPDATED and mutates commercial status/version', async () => {
+    const sampleId = randomUUID();
+
+    await service.appendEvent(sampleReceivedEvent(sampleId));
+    const beforeUpdate = await prisma.sample.findUnique({ where: { id: sampleId } });
+
+    const updated = await service.appendEvent(
+      commercialStatusUpdatedEvent(sampleId, {
+        payload: {
+          fromCommercialStatus: 'OPEN',
+          toCommercialStatus: 'SOLD',
+          reasonText: 'fechamento comercial'
+        }
+      }),
+      { expectedVersion: 1 }
+    );
+
+    const afterUpdate = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(updated.statusCode, 201);
+    assert.equal(updated.event.eventType, 'COMMERCIAL_STATUS_UPDATED');
+    assert.equal(beforeUpdate.commercialStatus, 'OPEN');
+    assert.equal(afterUpdate.commercialStatus, 'SOLD');
+    assert.equal(afterUpdate.version, beforeUpdate.version + 1);
   });
 }
 

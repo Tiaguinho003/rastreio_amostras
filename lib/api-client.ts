@@ -46,9 +46,10 @@ async function request<TResponse>(
     body?: JsonValue;
     session?: SessionData | null;
     formData?: FormData;
+    signal?: AbortSignal;
   } = {}
 ): Promise<TResponse> {
-  const { method = 'GET', body, session, formData } = options;
+  const { method = 'GET', body, session, formData, signal } = options;
 
   const headers: HeadersInit = {};
   if (session?.accessToken) {
@@ -67,7 +68,8 @@ async function request<TResponse>(
     method,
     headers,
     body: finalBody,
-    cache: 'no-store'
+    cache: 'no-store',
+    signal
   });
 
   const payload = await parseJsonSafe(response);
@@ -116,16 +118,45 @@ export function getDashboardPending(session: SessionData) {
   });
 }
 
-export function listSamples(session: SessionData, query: { status?: string; limit?: number; offset?: number } = {}) {
+export function listSamples(
+  session: SessionData,
+  query: {
+    search?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    page?: number;
+    lot?: string;
+    owner?: string;
+    statusGroup?: string;
+    commercialStatus?: string;
+    harvest?: string;
+    createdDate?: string;
+    createdMonth?: string;
+    createdYear?: string;
+  } = {},
+  options: { signal?: AbortSignal } = {}
+) {
   const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
   if (query.status) params.set('status', query.status);
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (typeof query.offset === 'number') params.set('offset', String(query.offset));
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (query.lot) params.set('lot', query.lot);
+  if (query.owner) params.set('owner', query.owner);
+  if (query.statusGroup) params.set('statusGroup', query.statusGroup);
+  if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
+  if (query.harvest) params.set('harvest', query.harvest);
+  if (query.createdDate) params.set('createdDate', query.createdDate);
+  if (query.createdMonth) params.set('createdMonth', query.createdMonth);
+  if (query.createdYear) params.set('createdYear', query.createdYear);
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<ListSamplesResponse>(`/samples${suffix}`, {
     method: 'GET',
-    session
+    session,
+    signal: options.signal
   });
 }
 
@@ -661,6 +692,33 @@ export function invalidateSample(
   }
 
   return request<CommandResponse>(`/samples/${sampleId}/invalidate`, {
+    method: 'POST',
+    session,
+    body
+  });
+}
+
+export function updateCommercialStatus(
+  session: SessionData,
+  sampleId: string,
+  data: {
+    expectedVersion: number;
+    toCommercialStatus: 'OPEN' | 'SOLD' | 'LOST';
+    reasonText: string;
+    idempotencyKey?: string;
+  }
+) {
+  const body: { [key: string]: JsonValue } = {
+    expectedVersion: data.expectedVersion,
+    toCommercialStatus: data.toCommercialStatus,
+    reasonText: data.reasonText
+  };
+
+  if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
+    body.idempotencyKey = data.idempotencyKey;
+  }
+
+  return request<CommandResponse>(`/samples/${sampleId}/commercial-status`, {
     method: 'POST',
     session,
     body

@@ -12,6 +12,10 @@ export type SampleStatus =
   | 'CLASSIFIED'
   | 'INVALIDATED';
 
+export type CommercialStatus = 'OPEN' | 'SOLD' | 'LOST';
+export type PrintAction = 'PRINT' | 'REPRINT';
+export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+
 export type SampleExportField =
   | 'internalLotNumber'
   | 'owner'
@@ -57,6 +61,7 @@ export interface SampleSnapshot {
   id: string;
   internalLotNumber: string | null;
   status: SampleStatus;
+  commercialStatus: CommercialStatus;
   version: number;
   lastEventSequence: number;
   declared: {
@@ -117,7 +122,7 @@ export interface SampleEvent {
   fromStatus: SampleStatus | null;
   toStatus: SampleStatus | null;
   metadata: {
-    module: 'registration' | 'classification' | 'print' | 'ocr';
+    module: 'registration' | 'classification' | 'print' | 'commercial' | 'ocr';
     ip: string | null;
     userAgent: string | null;
   };
@@ -133,8 +138,12 @@ export interface ListSamplesResponse {
   items: SampleSnapshot[];
   page: {
     limit: number;
+    page: number;
     offset: number;
     total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
   };
 }
 
@@ -182,6 +191,7 @@ export interface ResolveSampleByQrResponse {
     id: string;
     internalLotNumber: string | null;
     status: SampleStatus;
+    commercialStatus: CommercialStatus;
   };
   redirectPath: string;
 }
@@ -221,4 +231,10 @@ export interface CreateSampleAndPreparePrintResponse {
     internalLotNumber: string | null;
     status: SampleStatus;
   };
+  print: {
+    printAction: PrintAction;
+    attemptNumber: number;
+    printerId: string | null;
+    status: PrintJobStatus;
+  } | null;
 }

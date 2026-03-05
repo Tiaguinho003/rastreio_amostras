@@ -15,6 +15,19 @@ Projeto: Rastreio Interno de Amostras
 - `CLASSIFIED`
 - `INVALIDATED`
 
+## 1.1 Status Comercial (dimensao separada)
+
+- `OPEN` (em aberto)
+- `SOLD` (vendida)
+- `LOST` (perdida)
+
+Regras:
+- `commercialStatus` nao substitui `SampleStatus`; e uma dimensao paralela.
+- no snapshot, `commercialStatus` inicia em `OPEN`.
+- alteracao comercial permitida somente quando `SampleStatus = CLASSIFIED`.
+- transicoes comerciais permitidas: `OPEN -> SOLD`, `OPEN -> LOST`, `SOLD -> OPEN`, `LOST -> OPEN`.
+- quando `SampleStatus = INVALIDATED`, o status comercial fica somente para historico (sem novas alteracoes).
+
 ## 2. Semantica de Cada Status
 
 - `PHYSICAL_RECEIVED`: amostra chegou fisicamente e ainda nao iniciou registro digital.
@@ -85,7 +98,10 @@ Regra geral:
 - `printerId` (opcional)
 - `result` (`success`/`fail`)
 - `error` (quando falhar)
-- Reimpressao por perda/dano de etiqueta nao altera status e pode gerar `QR_REPRINT_REQUESTED`.
+- Reimpressao por perda/dano de etiqueta pode gerar `QR_REPRINT_REQUESTED`.
+- `QR_PRINTED` com `printAction=REPRINT`:
+  - se amostra estiver `QR_PENDING_PRINT`, transiciona para `QR_PRINTED`;
+  - nos demais status permitidos, registra auditoria sem alterar status.
 - QR codifica somente `internalId`; alteracoes em `owner/sacks/harvest/originLot` nao exigem reimpressao.
 
 ## 9. Regras de Edicao e Auditoria

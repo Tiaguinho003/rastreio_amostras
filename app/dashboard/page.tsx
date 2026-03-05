@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
+import { StatusBadge } from '../../components/StatusBadge';
 import { ApiError, getDashboardPending } from '../../lib/api-client';
 import { useRequireAuth } from '../../lib/use-auth';
-import type { DashboardPendingResponse, SampleSnapshot, SampleStatus } from '../../lib/types';
+import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
 
 type OperationPanel = 'print_pending' | 'classification_pending' | 'classification_in_progress' | null;
 type OperationPanelKey = Exclude<OperationPanel, null>;
@@ -43,28 +45,6 @@ function formatLatestSummary(sample: SampleSnapshot) {
   const harvest = renderMainSampleValue(sample.declared.harvest);
   const sacks = renderMainSampleValue(sample.declared.sacks);
   return `${owner} | Safra ${harvest} | Sacas ${sacks}`;
-}
-
-const LATEST_REGISTRATION_STATUS_BADGE: Record<
-  SampleStatus,
-  {
-    label: string;
-    tone: 'status-badge-neutral' | 'status-badge-muted' | 'status-badge-warning' | 'status-badge-success' | 'status-badge-danger';
-  }
-> = {
-  PHYSICAL_RECEIVED: { label: 'Recebida', tone: 'status-badge-neutral' },
-  REGISTRATION_IN_PROGRESS: { label: 'Registro em andamento', tone: 'status-badge-neutral' },
-  REGISTRATION_CONFIRMED: { label: 'Impressao pendente', tone: 'status-badge-warning' },
-  QR_PENDING_PRINT: { label: 'Impressao pendente', tone: 'status-badge-warning' },
-  QR_PRINTED: { label: 'Classificacao pendente', tone: 'status-badge-warning' },
-  CLASSIFICATION_IN_PROGRESS: { label: 'Classificacao em andamento', tone: 'status-badge-warning' },
-  CLASSIFIED: { label: 'Classificada', tone: 'status-badge-success' },
-  INVALIDATED: { label: 'Invalidada', tone: 'status-badge-danger' }
-};
-
-function LatestRegistrationStatusBadge({ status }: { status: SampleStatus }) {
-  const badge = LATEST_REGISTRATION_STATUS_BADGE[status];
-  return <span className={`status-badge ${badge.tone}`}>{badge.label}</span>;
 }
 
 function buildOperationModalData(
@@ -116,7 +96,10 @@ function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
         <p className="dashboard-latest-registration-subtitle">{formatCreationTimestamp(sample.createdAt)}</p>
       </div>
       <div className="dashboard-latest-registration-status">
-        <LatestRegistrationStatusBadge status={sample.status} />
+        <div className="status-badge-group">
+          <StatusBadge status={sample.status} />
+          <CommercialStatusBadge status={sample.commercialStatus} />
+        </div>
       </div>
     </Link>
   );
@@ -339,17 +322,14 @@ export default function DashboardPage() {
               <span className="dashboard-action-label">Nova amostra</span>
             </Link>
 
-            <Link href="/classification/scan" className="dashboard-action-link dashboard-action-link-scan">
+            <Link href="/samples" className="dashboard-action-link dashboard-action-link-search">
               <span className="dashboard-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7" rx="1.2" />
-                  <rect x="14" y="3" width="7" height="7" rx="1.2" />
-                  <rect x="3" y="14" width="7" height="7" rx="1.2" />
-                  <path d="M15 14h2v2h2v2h-2v2h-2v-2h-2v-2h2z" />
-                  <path d="M19 20h2" />
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16.2 16.2 4.1 4.1" />
                 </svg>
               </span>
-              <span className="dashboard-action-label">Ler QR code</span>
+              <span className="dashboard-action-label">Buscar amostra</span>
             </Link>
 
             <section className="panel dashboard-total-today-panel">
@@ -413,7 +393,10 @@ export default function DashboardPage() {
                   >
                     <div className="dashboard-modal-item-header">
                       <strong className="dashboard-modal-item-title">{sample.internalLotNumber ?? sample.id}</strong>
-                      <LatestRegistrationStatusBadge status={sample.status} />
+                      <div className="status-badge-group">
+                        <StatusBadge status={sample.status} />
+                        <CommercialStatusBadge status={sample.commercialStatus} />
+                      </div>
                     </div>
                     <p className="dashboard-modal-item-line">
                       <strong>Proprietario:</strong> {renderMainSampleValue(sample.declared.owner)}

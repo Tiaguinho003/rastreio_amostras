@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 import { AppShell } from '../../../components/AppShell';
+import { CommercialStatusBadge } from '../../../components/CommercialStatusBadge';
 import { StatusBadge } from '../../../components/StatusBadge';
 import {
   ApiError,
@@ -21,7 +22,7 @@ import {
   requestQrPrint,
   saveClassificationPartial,
   startClassification,
-  startRegistration,
+  updateCommercialStatus,
   updateClassification,
   updateRegistration,
   uploadClassificationPhoto,
@@ -32,6 +33,7 @@ import { isAdmin } from '../../../lib/roles';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   InvalidateReasonCode,
+  CommercialStatus,
   SampleDetailResponse,
   SampleExportType,
   UpdateReasonCode,
@@ -213,6 +215,12 @@ const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> =
   { value: 'OTHER', label: 'Outro motivo' }
 ];
 
+const COMMERCIAL_STATUS_ACTIONS: Array<{ value: CommercialStatus; label: string }> = [
+  { value: 'SOLD', label: 'Marcar vendido' },
+  { value: 'LOST', label: 'Marcar perdido' },
+  { value: 'OPEN', label: 'Reabrir' }
+];
+
 const HISTORY_EVENT_LABELS: Record<string, string> = {
   SAMPLE_RECEIVED: 'Amostra recebida',
   REGISTRATION_STARTED: 'Registro iniciado',
@@ -230,6 +238,7 @@ const HISTORY_EVENT_LABELS: Record<string, string> = {
   CLASSIFICATION_COMPLETED: 'Classificacao concluida',
   REGISTRATION_UPDATED: 'Registro editado',
   CLASSIFICATION_UPDATED: 'Classificacao editada',
+  COMMERCIAL_STATUS_UPDATED: 'Status comercial atualizado',
   SAMPLE_INVALIDATED: 'Amostra invalidada',
   REPORT_EXPORTED: 'Laudo exportado'
 };
@@ -684,6 +693,9 @@ export default function SampleDetailPage() {
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
+  const [pendingCommercialStatus, setPendingCommercialStatus] = useState<CommercialStatus | null>(null);
+  const [commercialReasonText, setCommercialReasonText] = useState('');
+  const [commercialUpdating, setCommercialUpdating] = useState(false);
 
   const [classificationForm, setClassificationForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [classificationStarting, setClassificationStarting] = useState(false);
@@ -753,6 +765,8 @@ export default function SampleDetailPage() {
     setRevertTargetEventId(null);
     setRevertReasonCode('OTHER');
     setRevertReasonText('');
+    setPendingCommercialStatus(null);
+    setCommercialReasonText('');
   }, [sampleId]);
 
   const printAttempts = useMemo(() => {
@@ -883,6 +897,22 @@ export default function SampleDetailPage() {
     [detail]
   );
   const historyRows = useMemo(() => buildHistoryRows(detail?.events ?? []), [detail]);
+  const canManageCommercialStatus = detail?.sample.status === 'CLASSIFIED';
+  const availableCommercialActions = useMemo(() => {
+    if (!detail) {
+      return [] as Array<{ value: CommercialStatus; label: string }>;
+    }
+
+    if (detail.sample.commercialStatus === 'OPEN') {
+      return COMMERCIAL_STATUS_ACTIONS.filter((action) => action.value === 'SOLD' || action.value === 'LOST');
+    }
+
+    return COMMERCIAL_STATUS_ACTIONS.filter((action) => action.value === 'OPEN');
+  }, [detail]);
+  const selectedCommercialAction = useMemo(
+    () => availableCommercialActions.find((action) => action.value === pendingCommercialStatus) ?? null,
+    [availableCommercialActions, pendingCommercialStatus]
+  );
 
   useEffect(() => {
     if (!detail || !focusClassification || !classificationSectionRef.current) {
@@ -909,26 +939,6 @@ export default function SampleDetailPage() {
         <p className="error">sampleId invalido na rota.</p>
       </AppShell>
     );
-  }
-
-  async function handleStartRegistration() {
-    if (!session || !detail) {
-      return;
-    }
-
-    setError(null);
-    setMessage(null);
-    try {
-      await startRegistration(session, sampleId, detail.sample.version, null);
-      setMessage('Registro iniciado com sucesso.');
-      await loadDetail();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao iniciar registro');
-      }
-    }
   }
 
   async function handleUploadPhoto() {
@@ -1333,6 +1343,52 @@ export default function SampleDetailPage() {
     }
   }
 
+  async function handleUpdateCommercialStatus() {
+    if (!session || !detail || !pendingCommercialStatus) {
+      return;
+    }
+
+    if (detail.sample.status === 'INVALIDATED') {
+      setError('Amostras invalidadas nao podem atualizar status comercial.');
+      return;
+    }
+
+    if (detail.sample.status !== 'CLASSIFIED') {
+      setError('Status comercial so pode ser alterado quando a amostra esta classificada.');
+      return;
+    }
+
+    const normalizedReason = commercialReasonText.trim();
+    if (!normalizedReason) {
+      setError('Informe o motivo da atualizacao do status comercial.');
+      return;
+    }
+
+    setCommercialUpdating(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await updateCommercialStatus(session, sampleId, {
+        expectedVersion: detail.sample.version,
+        toCommercialStatus: pendingCommercialStatus,
+        reasonText: normalizedReason
+      });
+      setPendingCommercialStatus(null);
+      setCommercialReasonText('');
+      setMessage('Status comercial atualizado com sucesso.');
+      await loadDetail();
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setError(cause.message);
+      } else {
+        setError('Falha ao atualizar status comercial');
+      }
+    } finally {
+      setCommercialUpdating(false);
+    }
+  }
+
   async function handleStartClassification() {
     if (!session || !detail || detail.sample.status !== 'QR_PRINTED') {
       return;
@@ -1727,11 +1783,88 @@ export default function SampleDetailPage() {
                 <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
                 <p style={{ margin: '0.3rem 0 0', color: 'var(--muted)' }}>Sample ID: {detail.sample.id}</p>
               </div>
-              <StatusBadge status={detail.sample.status} />
+              <div className="status-badge-group">
+                <StatusBadge status={detail.sample.status} />
+                <CommercialStatusBadge status={detail.sample.commercialStatus} />
+              </div>
             </div>
 
             {error ? <p className="error">{error}</p> : null}
             {message ? <p className="success">{message}</p> : null}
+          </section>
+
+          <section className="panel stack">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0 }}>Status comercial</h3>
+              <CommercialStatusBadge status={detail.sample.commercialStatus} />
+            </div>
+
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              {detail.sample.status === 'INVALIDATED'
+                ? 'Amostra invalidada: o status comercial permanece somente para historico.'
+                : canManageCommercialStatus
+                  ? 'Atualize a situacao comercial da amostra com justificativa.'
+                  : 'O status comercial fica disponivel somente apos a classificacao ser concluida.'}
+            </p>
+
+            {detail.sample.status !== 'INVALIDATED' && canManageCommercialStatus ? (
+              <form
+                className="stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleUpdateCommercialStatus();
+                }}
+              >
+                <div className="row">
+                  {availableCommercialActions.map((action) => (
+                    <button
+                      key={action.value}
+                      type="button"
+                      className={pendingCommercialStatus === action.value ? '' : 'secondary'}
+                      onClick={() => setPendingCommercialStatus(action.value)}
+                      disabled={commercialUpdating}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+
+                <label>
+                  Motivo da atualizacao
+                  <textarea
+                    rows={3}
+                    value={commercialReasonText}
+                    onChange={(event) => setCommercialReasonText(event.target.value)}
+                    placeholder="Descreva o motivo da alteracao comercial"
+                    disabled={commercialUpdating}
+                  />
+                </label>
+
+                <div className="row">
+                  <button
+                    type="submit"
+                    disabled={commercialUpdating || !pendingCommercialStatus || commercialReasonText.trim().length === 0}
+                  >
+                    {commercialUpdating
+                      ? 'Atualizando status comercial...'
+                      : selectedCommercialAction
+                        ? selectedCommercialAction.label
+                        : 'Atualizar status comercial'}
+                  </button>
+                  <button
+                    className="secondary"
+                    type="button"
+                    disabled={commercialUpdating}
+                    onClick={() => {
+                      setPendingCommercialStatus(null);
+                      setCommercialReasonText('');
+                    }}
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </form>
+            ) : null}
           </section>
 
           {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
@@ -1787,20 +1920,6 @@ export default function SampleDetailPage() {
               <p style={{ margin: 0, color: 'var(--muted)' }}>
                 Esta amostra esta em estado terminal e nao permite novas operacoes de fluxo.
               </p>
-            </section>
-          ) : null}
-
-          {detail.sample.status === 'PHYSICAL_RECEIVED' ? (
-            <section className="panel stack">
-              <h3 style={{ margin: 0 }}>Iniciar registro</h3>
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                Esta amostra chegou fisicamente e ainda nao iniciou o registro digital.
-              </p>
-              <div className="row">
-                <button type="button" onClick={handleStartRegistration}>
-                  Iniciar registro agora
-                </button>
-              </div>
             </section>
           ) : null}
 
@@ -2132,7 +2251,10 @@ export default function SampleDetailPage() {
             <section className="panel stack" id="classification-section" ref={classificationSectionRef}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
-                <StatusBadge status={detail.sample.status} />
+                <div className="status-badge-group">
+                  <StatusBadge status={detail.sample.status} />
+                  <CommercialStatusBadge status={detail.sample.commercialStatus} />
+                </div>
               </div>
 
               <p style={{ margin: 0, color: 'var(--muted)' }}>

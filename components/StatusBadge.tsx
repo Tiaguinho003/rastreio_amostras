@@ -2,12 +2,14 @@
 
 import type { SampleStatus } from '../lib/types';
 
+const HIDDEN_STATUS_BADGE = new Set<SampleStatus>(['PHYSICAL_RECEIVED', 'REGISTRATION_IN_PROGRESS']);
+
 const STATUS_LABEL: Record<SampleStatus, string> = {
-  PHYSICAL_RECEIVED: 'Recebida',
-  REGISTRATION_IN_PROGRESS: 'Registro em andamento',
-  REGISTRATION_CONFIRMED: 'Registro confirmado',
-  QR_PENDING_PRINT: 'QR pendente',
-  QR_PRINTED: 'QR impresso',
+  PHYSICAL_RECEIVED: '',
+  REGISTRATION_IN_PROGRESS: '',
+  REGISTRATION_CONFIRMED: 'Impressao pendente',
+  QR_PENDING_PRINT: 'Impressao pendente',
+  QR_PRINTED: 'Classificacao pendente',
   CLASSIFICATION_IN_PROGRESS: 'Classificacao em andamento',
   CLASSIFIED: 'Classificada',
   INVALIDATED: 'Invalidada'
@@ -16,14 +18,18 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
 const STATUS_STYLE: Record<SampleStatus, string> = {
   PHYSICAL_RECEIVED: 'status-badge-neutral',
   REGISTRATION_IN_PROGRESS: 'status-badge-neutral',
-  REGISTRATION_CONFIRMED: 'status-badge-neutral',
-  QR_PENDING_PRINT: 'status-badge-neutral',
-  QR_PRINTED: 'status-badge-muted',
-  CLASSIFICATION_IN_PROGRESS: 'status-badge-warning',
+  REGISTRATION_CONFIRMED: 'status-badge-print-pending',
+  QR_PENDING_PRINT: 'status-badge-print-pending',
+  QR_PRINTED: 'status-badge-warning',
+  CLASSIFICATION_IN_PROGRESS: 'status-badge-classification-progress',
   CLASSIFIED: 'status-badge-success',
   INVALIDATED: 'status-badge-danger'
 };
 
 export function StatusBadge({ status }: { status: SampleStatus }) {
+  if (HIDDEN_STATUS_BADGE.has(status)) {
+    return null;
+  }
+
   return <span className={`status-badge ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>;
 }

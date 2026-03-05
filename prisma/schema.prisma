@@ -33,6 +33,7 @@ enum ModuleType {
   REGISTRATION   @map("registration")
   CLASSIFICATION @map("classification")
   PRINT          @map("print")
+  COMMERCIAL     @map("commercial")
   OCR            @map("ocr")
 }
 
@@ -41,6 +42,7 @@ enum IdempotencyScope {
   QR_PRINT
   QR_REPRINT
   CLASSIFICATION_COMPLETE
+  COMMERCIAL_STATUS_UPDATE
   INVALIDATE
 }
 
@@ -61,8 +63,15 @@ enum SampleEventType {
   CLASSIFICATION_COMPLETED
   REGISTRATION_UPDATED
   CLASSIFICATION_UPDATED
+  COMMERCIAL_STATUS_UPDATED
   SAMPLE_INVALIDATED
   REPORT_EXPORTED
+}
+
+enum CommercialStatus {
+  OPEN
+  SOLD
+  LOST
 }
 
 enum AttachmentKind {
@@ -85,6 +94,7 @@ model Sample {
   id                          String    @id @db.Uuid
   internalLotNumber           String?   @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
   status                      SampleStatus
+  commercialStatus            CommercialStatus @default(OPEN) @map("commercial_status")
   version                     Int       @default(0)
   lastEventSequence           Int       @default(0) @map("last_event_sequence")
   declaredOwner               String?   @map("declared_owner")
@@ -111,6 +121,12 @@ model Sample {
   printJobs   PrintJob[]
 
   @@index([status], map: "idx_sample_status")
+  @@index([commercialStatus], map: "idx_sample_commercial_status")
+  @@index([commercialStatus, updatedAt, id], map: "idx_sample_commercial_updated_id")
+  @@index([updatedAt, id], map: "idx_sample_updated_id")
+  @@index([declaredOwner], map: "idx_sample_declared_owner")
+  @@index([declaredHarvest], map: "idx_sample_declared_harvest")
+  @@index([createdAt], map: "idx_sample_created_at")
   @@map("sample")
 }
 

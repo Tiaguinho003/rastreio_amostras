@@ -23,6 +23,7 @@ function moduleToDb(moduleName) {
     registration: 'REGISTRATION',
     classification: 'CLASSIFICATION',
     print: 'PRINT',
+    commercial: 'COMMERCIAL',
     ocr: 'OCR'
   };
   return map[moduleName];
@@ -33,6 +34,7 @@ function moduleFromDb(moduleName) {
     REGISTRATION: 'registration',
     CLASSIFICATION: 'classification',
     PRINT: 'print',
+    COMMERCIAL: 'commercial',
     OCR: 'ocr'
   };
   return map[moduleName];

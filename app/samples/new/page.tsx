@@ -1,13 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 
 import { AppShell } from '../../../components/AppShell';
-import { createSampleAndPreparePrint, ApiError } from '../../../lib/api-client';
-import { createSampleDraftSchema } from '../../../lib/form-schemas';
-import type { CreateSampleAndPreparePrintResponse } from '../../../lib/types';
+import {
+  ApiError,
+  createSampleAndPreparePrint,
+  recordQrPrintFailed,
+  recordQrPrinted,
+  requestQrReprint
+} from '../../../lib/api-client';
+import { createSampleDraftSchema, qrFailSchema } from '../../../lib/form-schemas';
+import type { CreateSampleAndPreparePrintResponse, PrintAction } from '../../../lib/types';
 import { useRequireAuth } from '../../../lib/use-auth';
 
 function buildDraftId() {
@@ -20,9 +27,29 @@ function buildDraftId() {
 
 const HARVEST_PRESET_OPTIONS = ['24/25', '25/26'] as const;
 const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
+const TECHNICAL_PRINT_ERROR = 'Falha tecnica ao disparar a impressao automatica.';
 
 type RequiredFieldName = 'owner' | 'sacks' | 'harvest' | 'originLot';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
+type LabelModalStep = 'review' | 'awaiting_print_result' | 'failure_reason' | 'failure_actions' | 'completed';
+
+interface PendingDraftPayload {
+  clientDraftId: string;
+  owner: string;
+  sacks: number;
+  harvest: string;
+  originLot: string;
+  receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
+  notes: string | null;
+  printerId: string | null;
+  arrivalPhoto: File | null;
+}
+
+interface ActivePrintAttempt {
+  printAction: PrintAction;
+  attemptNumber: number;
+  printerId: string | null;
+}
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
@@ -59,8 +86,87 @@ function getSchemaFieldErrors(issues: Array<{ path: PropertyKey[]; message: stri
   return next;
 }
 
+function readPositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function readPrintContextFromCreateResult(result: CreateSampleAndPreparePrintResponse): ActivePrintAttempt | null {
+  if (result.print && result.print.status === 'PENDING') {
+    return {
+      printAction: result.print.printAction,
+      attemptNumber: result.print.attemptNumber,
+      printerId: result.print.printerId ?? null
+    };
+  }
+
+  if (!result.event) {
+    return null;
+  }
+
+  if (result.event.eventType !== 'QR_PRINT_REQUESTED' && result.event.eventType !== 'QR_REPRINT_REQUESTED') {
+    return null;
+  }
+
+  const payload = result.event.payload ?? {};
+  const attemptNumber = readPositiveInteger(payload.attemptNumber);
+  if (!attemptNumber) {
+    return null;
+  }
+
+  const rawAction = typeof payload.printAction === 'string' ? payload.printAction.toUpperCase() : null;
+  if (rawAction !== 'PRINT' && rawAction !== 'REPRINT') {
+    return null;
+  }
+
+  return {
+    printAction: rawAction,
+    attemptNumber,
+    printerId: typeof payload.printerId === 'string' ? payload.printerId : null
+  };
+}
+
+function buildModalTitle(step: LabelModalStep) {
+  if (step === 'review') {
+    return 'Confirme os dados da amostra';
+  }
+
+  if (step === 'awaiting_print_result') {
+    return 'Impressao em andamento';
+  }
+
+  if (step === 'failure_reason') {
+    return 'Registrar falha de impressao';
+  }
+
+  if (step === 'failure_actions') {
+    return 'Falha registrada';
+  }
+
+  return 'Impressao confirmada';
+}
+
+function extractCauseMessage(cause: unknown) {
+  if (cause instanceof Error && cause.message) {
+    return cause.message;
+  }
+
+  return TECHNICAL_PRINT_ERROR;
+}
+
 export default function NewSamplePage() {
   const { session, loading, logout } = useRequireAuth();
+  const router = useRouter();
 
   const [clientDraftId, setClientDraftId] = useState(() => buildDraftId());
   const [owner, setOwner] = useState('');
@@ -74,16 +180,32 @@ export default function NewSamplePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(EMPTY_REQUIRED_FIELD_ERRORS);
+
+  const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
   const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
+  const [activePrintAttempt, setActivePrintAttempt] = useState<ActivePrintAttempt | null>(null);
   const [labelModalOpen, setLabelModalOpen] = useState(false);
+  const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalMessage, setModalMessage] = useState<string | null>(null);
+  const [printFailureReason, setPrintFailureReason] = useState('');
+  const [lastFailureReason, setLastFailureReason] = useState<string | null>(null);
+
   const arrivalPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const confirmPhotoEffectTimeoutRef = useRef<number | null>(null);
+  const printConfirmEffectTimeoutRef = useRef<number | null>(null);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
+
   const [showPhotoConfirmEffect, setShowPhotoConfirmEffect] = useState(false);
   const [photoConfirmEffectKey, setPhotoConfirmEffectKey] = useState(0);
+  const [showPrintConfirmEffect, setShowPrintConfirmEffect] = useState(false);
+  const [printConfirmEffectKey, setPrintConfirmEffectKey] = useState(0);
 
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
+  const canCloseModal = labelModalStep === 'review';
+
   const arrivalPhotoPreviewUrl = useMemo(() => {
     if (!arrivalPhoto) {
       return null;
@@ -106,6 +228,10 @@ export default function NewSamplePage() {
     return () => {
       if (confirmPhotoEffectTimeoutRef.current !== null) {
         window.clearTimeout(confirmPhotoEffectTimeoutRef.current);
+      }
+
+      if (printConfirmEffectTimeoutRef.current !== null) {
+        window.clearTimeout(printConfirmEffectTimeoutRef.current);
       }
     };
   }, []);
@@ -134,6 +260,10 @@ export default function NewSamplePage() {
         return;
       }
 
+      if (!canCloseModal) {
+        return;
+      }
+
       event.preventDefault();
       setLabelModalOpen(false);
     };
@@ -141,7 +271,12 @@ export default function NewSamplePage() {
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
     window.setTimeout(() => {
-      labelModalCloseButtonRef.current?.focus();
+      if (canCloseModal) {
+        labelModalCloseButtonRef.current?.focus();
+        return;
+      }
+
+      modalPrimaryActionRef.current?.focus();
     }, 0);
 
     return () => {
@@ -151,7 +286,7 @@ export default function NewSamplePage() {
         lastCreateButtonRef.current?.focus();
       }, 0);
     };
-  }, [labelModalOpen]);
+  }, [canCloseModal, labelModalOpen]);
 
   if (loading || !session) {
     return null;
@@ -163,6 +298,14 @@ export default function NewSamplePage() {
       confirmPhotoEffectTimeoutRef.current = null;
     }
     setShowPhotoConfirmEffect(false);
+  }
+
+  function clearPrintConfirmEffect() {
+    if (printConfirmEffectTimeoutRef.current !== null) {
+      window.clearTimeout(printConfirmEffectTimeoutRef.current);
+      printConfirmEffectTimeoutRef.current = null;
+    }
+    setShowPrintConfirmEffect(false);
   }
 
   function triggerConfirmPhotoEffect() {
@@ -180,6 +323,20 @@ export default function NewSamplePage() {
     }, 980);
   }
 
+  function triggerPrintConfirmEffect() {
+    setPrintConfirmEffectKey((current) => current + 1);
+    setShowPrintConfirmEffect(true);
+
+    if (printConfirmEffectTimeoutRef.current !== null) {
+      window.clearTimeout(printConfirmEffectTimeoutRef.current);
+    }
+
+    printConfirmEffectTimeoutRef.current = window.setTimeout(() => {
+      setShowPrintConfirmEffect(false);
+      printConfirmEffectTimeoutRef.current = null;
+    }, 980);
+  }
+
   function resetDraft() {
     setClientDraftId(buildDraftId());
     setOwner('');
@@ -190,9 +347,17 @@ export default function NewSamplePage() {
     setArrivalPhoto(null);
     setArrivalPhotoReady(false);
     clearConfirmPhotoEffect();
+    clearPrintConfirmEffect();
+    setPendingDraft(null);
     setLabelModalOpen(false);
+    setLabelModalStep('review');
     setCreated(null);
+    setActivePrintAttempt(null);
+    setPrintFailureReason('');
+    setLastFailureReason(null);
     setError(null);
+    setModalError(null);
+    setModalMessage(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
     setSubmitting(false);
     if (arrivalPhotoInputRef.current) {
@@ -213,16 +378,66 @@ export default function NewSamplePage() {
     });
   }
 
-  function handlePrintLabel() {
+  async function triggerBrowserPrint() {
+    if (typeof window.print !== 'function') {
+      throw new Error('Navegador sem suporte a impressao.');
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
     document.body.classList.add('print-label-mode');
-    window.print();
+    try {
+      window.print();
+    } catch (cause) {
+      document.body.classList.remove('print-label-mode');
+      throw cause;
+    }
+  }
+
+  async function registerPrintFailure(
+    sampleId: string,
+    attempt: ActivePrintAttempt,
+    reasonText: string,
+    moveToFailureActions = true
+  ) {
+    if (!session) {
+      throw new Error('Sessao invalida para registrar falha de impressao.');
+    }
+
+    await recordQrPrintFailed(session, sampleId, {
+      printAction: attempt.printAction,
+      attemptNumber: attempt.attemptNumber,
+      printerId: attempt.printerId,
+      error: reasonText
+    });
+
+    if (moveToFailureActions) {
+      setLabelModalStep('failure_actions');
+      setModalMessage('Falha registrada. Voce pode sair ou tentar novamente.');
+      setModalError(null);
+    }
+  }
+
+  async function handleAutomaticPrint(sampleId: string, attempt: ActivePrintAttempt) {
+    try {
+      await triggerBrowserPrint();
+    } catch (cause) {
+      const technicalMessage = `${TECHNICAL_PRINT_ERROR} ${extractCauseMessage(cause)}`;
+      await registerPrintFailure(sampleId, attempt, technicalMessage);
+    }
   }
 
   function closeLabelModal() {
+    if (!canCloseModal) {
+      return;
+    }
+
     setLabelModalOpen(false);
   }
 
-  async function handleCreateSample(trigger?: HTMLButtonElement) {
+  function openReviewModal(trigger?: HTMLButtonElement) {
     if (!session) {
       return;
     }
@@ -232,7 +447,8 @@ export default function NewSamplePage() {
     }
 
     setError(null);
-    setSubmitting(true);
+    setModalError(null);
+    setModalMessage(null);
 
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({
       owner,
@@ -243,7 +459,6 @@ export default function NewSamplePage() {
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
       setRequiredFieldErrors(missingRequiredFieldErrors);
-      setSubmitting(false);
       return;
     }
 
@@ -262,7 +477,6 @@ export default function NewSamplePage() {
       } else {
         setError(parsed.error.issues[0]?.message ?? 'Dados invalidos para criar amostra');
       }
-      setSubmitting(false);
       return;
     }
 
@@ -270,35 +484,215 @@ export default function NewSamplePage() {
 
     if (arrivalPhoto && !arrivalPhotoReady) {
       setError('Confirme a foto no botao de verificacao ou reinicie a selecao antes de criar a amostra.');
-      setSubmitting(false);
       return;
     }
 
+    setPendingDraft({
+      clientDraftId,
+      owner: parsed.data.owner,
+      sacks: parsed.data.sacks,
+      harvest: parsed.data.harvest,
+      originLot: parsed.data.originLot,
+      receivedChannel: parsed.data.receivedChannel,
+      notes: parsed.data.notes ?? null,
+      printerId: null,
+      arrivalPhoto: arrivalPhotoReady ? arrivalPhoto : null
+    });
+
+    setPrintFailureReason('');
+    setLastFailureReason(null);
+    setLabelModalStep('review');
+    setLabelModalOpen(true);
+  }
+
+  async function handleConfirmDraft() {
+    if (!session || !pendingDraft) {
+      return;
+    }
+
+    setSubmitting(true);
+    setModalError(null);
+    setModalMessage(null);
+
     try {
       const result = await createSampleAndPreparePrint(session, {
-        clientDraftId,
-        owner: parsed.data.owner,
-        sacks: parsed.data.sacks,
-        harvest: parsed.data.harvest,
-        originLot: parsed.data.originLot,
-        receivedChannel: parsed.data.receivedChannel,
-        notes: parsed.data.notes ?? null,
-        printerId: null,
-        arrivalPhoto: arrivalPhotoReady ? arrivalPhoto : null
+        clientDraftId: pendingDraft.clientDraftId,
+        owner: pendingDraft.owner,
+        sacks: pendingDraft.sacks,
+        harvest: pendingDraft.harvest,
+        originLot: pendingDraft.originLot,
+        receivedChannel: pendingDraft.receivedChannel,
+        notes: pendingDraft.notes,
+        printerId: pendingDraft.printerId,
+        arrivalPhoto: pendingDraft.arrivalPhoto
       });
 
+      const attempt = readPrintContextFromCreateResult(result);
+      if (!attempt) {
+        throw new Error('Nao foi possivel identificar a tentativa ativa de impressao.');
+      }
+
       setCreated(result);
-      setLabelModalOpen(true);
+      setActivePrintAttempt(attempt);
+      setLabelModalStep('awaiting_print_result');
+      setModalMessage(`Impressao enviada (tentativa ${attempt.attemptNumber}). Confirme o resultado abaixo.`);
+
+      await handleAutomaticPrint(result.sample.id, attempt);
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setModalError(cause.message);
       } else {
-        setError('Falha inesperada ao criar amostra');
+        setModalError(extractCauseMessage(cause));
       }
     } finally {
       setSubmitting(false);
     }
   }
+
+  async function handleConfirmPrint() {
+    if (!session || !created || !activePrintAttempt) {
+      return;
+    }
+
+    setSubmitting(true);
+    setModalError(null);
+    setModalMessage(null);
+
+    try {
+      await recordQrPrinted(session, created.sample.id, {
+        expectedVersion: created.sample.version,
+        printAction: activePrintAttempt.printAction,
+        attemptNumber: activePrintAttempt.attemptNumber,
+        printerId: activePrintAttempt.printerId
+      });
+
+      const shouldMutateSample = created.sample.status === 'QR_PENDING_PRINT';
+      setCreated((current) => {
+        if (!current) {
+          return current;
+        }
+
+        if (!shouldMutateSample) {
+          return current;
+        }
+
+        return {
+          ...current,
+          sample: {
+            ...current.sample,
+            status: 'QR_PRINTED',
+            version: current.sample.version + 1
+          }
+        };
+      });
+
+      triggerPrintConfirmEffect();
+      setLabelModalStep('completed');
+      setModalMessage('Impressao confirmada.');
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setModalError(cause.message);
+      } else {
+        setModalError('Falha ao confirmar impressao');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleOpenFailureReason() {
+    setModalError(null);
+    setModalMessage(null);
+    setPrintFailureReason('');
+    setLabelModalStep('failure_reason');
+  }
+
+  async function handleRegisterFailure() {
+    if (!created || !activePrintAttempt) {
+      return;
+    }
+
+    const parsed = qrFailSchema.safeParse({ error: printFailureReason });
+    if (!parsed.success) {
+      setModalError(parsed.error.issues[0]?.message ?? 'Descreva a falha de impressao');
+      return;
+    }
+
+    setSubmitting(true);
+    setModalError(null);
+    setModalMessage(null);
+
+    try {
+      await registerPrintFailure(created.sample.id, activePrintAttempt, parsed.data.error);
+      setLastFailureReason(parsed.data.error);
+      setPrintFailureReason('');
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setModalError(cause.message);
+      } else {
+        setModalError('Falha ao registrar erro de impressao');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRetryPrint() {
+    if (!session || !created || !activePrintAttempt) {
+      return;
+    }
+
+    setSubmitting(true);
+    setModalError(null);
+    setModalMessage(null);
+
+    try {
+      const retry = await requestQrReprint(session, created.sample.id, {
+        printerId: activePrintAttempt.printerId,
+        reasonText: lastFailureReason
+      });
+
+      const payload = retry.event.payload ?? {};
+      const attemptNumber = readPositiveInteger(payload.attemptNumber);
+      if (!attemptNumber) {
+        throw new Error('Tentativa de reimpressao invalida.');
+      }
+
+      const nextAttempt: ActivePrintAttempt = {
+        printAction: 'REPRINT',
+        attemptNumber,
+        printerId: typeof payload.printerId === 'string' ? payload.printerId : activePrintAttempt.printerId
+      };
+
+      setActivePrintAttempt(nextAttempt);
+      setLabelModalStep('awaiting_print_result');
+      setModalMessage(`Reimpressao enviada (tentativa ${nextAttempt.attemptNumber}). Confirme o resultado abaixo.`);
+
+      await handleAutomaticPrint(created.sample.id, nextAttempt);
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setModalError(cause.message);
+      } else {
+        setModalError(extractCauseMessage(cause));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function previewValue(value: string | number | null | undefined) {
+    if (value === null || value === undefined || value === '') {
+      return 'Nao informado';
+    }
+
+    return String(value);
+  }
+
+  const previewOwner = pendingDraft?.owner ?? printableSample?.declared.owner ?? null;
+  const previewSacks = pendingDraft?.sacks ?? printableSample?.declared.sacks ?? null;
+  const previewHarvest = pendingDraft?.harvest ?? printableSample?.declared.harvest ?? null;
+  const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
+  const previewInternalLot = printableSample?.internalLotNumber ?? null;
 
   return (
     <AppShell session={session} onLogout={logout}>
@@ -430,9 +824,7 @@ export default function NewSamplePage() {
                   placeholder="Ex: Coopercitrus"
                   autoComplete="organization"
                 />
-                {requiredFieldErrors.owner ? (
-                  <span className="new-sample-field-required">{requiredFieldErrors.owner}</span>
-                ) : null}
+                {requiredFieldErrors.owner ? <span className="new-sample-field-required">{requiredFieldErrors.owner}</span> : null}
               </label>
 
               <label className="new-sample-required-field">
@@ -448,9 +840,7 @@ export default function NewSamplePage() {
                   inputMode="numeric"
                   placeholder="Ex: 40"
                 />
-                {requiredFieldErrors.sacks ? (
-                  <span className="new-sample-field-required">{requiredFieldErrors.sacks}</span>
-                ) : null}
+                {requiredFieldErrors.sacks ? <span className="new-sample-field-required">{requiredFieldErrors.sacks}</span> : null}
               </label>
 
               <div className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}>
@@ -482,9 +872,7 @@ export default function NewSamplePage() {
                     </button>
                   ))}
                 </div>
-                {requiredFieldErrors.harvest ? (
-                  <span className="new-sample-field-required">{requiredFieldErrors.harvest}</span>
-                ) : null}
+                {requiredFieldErrors.harvest ? <span className="new-sample-field-required">{requiredFieldErrors.harvest}</span> : null}
               </div>
 
               <label className="new-sample-required-field">
@@ -529,9 +917,9 @@ export default function NewSamplePage() {
           <button
             type="button"
             disabled={submitting || (Boolean(arrivalPhoto) && !arrivalPhotoReady)}
-            onClick={(event) => void handleCreateSample(event.currentTarget)}
+            onClick={(event) => openReviewModal(event.currentTarget)}
           >
-            {submitting ? 'Criando amostra...' : 'Criar amostra'}
+            Criar amostra
           </button>
           <button type="button" className="secondary" disabled={submitting} onClick={resetDraft}>
             Limpar formulario
@@ -539,8 +927,15 @@ export default function NewSamplePage() {
         </div>
       </section>
 
-      {printableSample && labelModalOpen ? (
-        <div className="new-sample-label-modal-backdrop" onClick={closeLabelModal}>
+      {labelModalOpen ? (
+        <div
+          className="new-sample-label-modal-backdrop"
+          onClick={() => {
+            if (canCloseModal) {
+              closeLabelModal();
+            }
+          }}
+        >
           <section
             className="new-sample-label-modal"
             role="dialog"
@@ -550,59 +945,192 @@ export default function NewSamplePage() {
           >
             <header className="new-sample-label-modal-header">
               <h3 id="new-sample-label-modal-title" className="new-sample-label-modal-title">
-                Etiqueta pronta para impressao
+                {buildModalTitle(labelModalStep)}
               </h3>
 
-              <button
-                ref={labelModalCloseButtonRef}
-                type="button"
-                className="new-sample-label-modal-close"
-                onClick={closeLabelModal}
-                aria-label="Fechar modal"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
+              {canCloseModal ? (
+                <button
+                  ref={labelModalCloseButtonRef}
+                  type="button"
+                  className="new-sample-label-modal-close"
+                  onClick={closeLabelModal}
+                  aria-label="Fechar modal"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              ) : null}
             </header>
 
-            <div className="new-sample-label-modal-content">
-              <article id="sample-label-print" className="label-print-card">
-                <div className="label-qr">
-                  <QRCodeCanvas value={created?.qr.value ?? printableSample.id} size={120} />
-                </div>
-                <div className="label-meta">
-                  <p>
-                    <strong>Lote interno:</strong> {printableSample.internalLotNumber ?? 'Nao definido'}
+            {labelModalStep === 'failure_reason' ? (
+              <div className="new-sample-label-modal-content">
+                <article className="panel stack new-sample-failure-panel">
+                  <p style={{ margin: 0, color: 'var(--muted)' }}>
+                    Informe o motivo da falha para registrar a tentativa de impressao.
                   </p>
-                  <p>
-                    <strong>Proprietario:</strong> {printableSample.declared.owner ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Sacas:</strong> {printableSample.declared.sacks ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Safra:</strong> {printableSample.declared.harvest ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Lote origem:</strong> {printableSample.declared.originLot ?? 'Nao informado'}
-                  </p>
-                </div>
-              </article>
-            </div>
+                  <label>
+                    Motivo da falha
+                    <textarea
+                      rows={3}
+                      value={printFailureReason}
+                      onChange={(event) => setPrintFailureReason(event.target.value)}
+                      placeholder="Ex: etiqueta saiu ilegivel"
+                      disabled={submitting}
+                    />
+                  </label>
+                </article>
+              </div>
+            ) : (
+              <div className="new-sample-label-modal-content">
+                <article id="sample-label-print" className="label-print-card new-sample-label-print-card">
+                  {labelModalStep === 'review' ? (
+                    <div className="label-qr new-sample-label-qr-placeholder" aria-hidden="true">
+                      <span>Aguardando confirmacao</span>
+                    </div>
+                  ) : (
+                    <div className="label-qr">
+                      <QRCodeCanvas value={created?.qr.value ?? printableSample?.id ?? 'sample'} size={120} />
+                    </div>
+                  )}
+                  <div className="label-meta">
+                    <p>
+                      <strong>Lote interno:</strong> {previewInternalLot ?? 'Sera gerado ao confirmar'}
+                    </p>
+                    <p>
+                      <strong>Proprietario:</strong> {previewValue(previewOwner)}
+                    </p>
+                    <p>
+                      <strong>Sacas:</strong> {previewValue(previewSacks)}
+                    </p>
+                    <p>
+                      <strong>Safra:</strong> {previewValue(previewHarvest)}
+                    </p>
+                    <p>
+                      <strong>Lote origem:</strong> {previewValue(previewOriginLot)}
+                    </p>
+                  </div>
+
+                  {showPrintConfirmEffect ? (
+                    <span key={printConfirmEffectKey} className="new-sample-print-confirm-fx" aria-hidden="true">
+                      <span className="new-sample-print-confirm-glow" />
+                      <span className="new-sample-print-confirm-ring" />
+                      <span className="new-sample-print-confirm-badge">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="m5 12.5 4.3 4.2L19 7" />
+                        </svg>
+                      </span>
+                      <span className="new-sample-print-spark new-sample-print-spark-a" />
+                      <span className="new-sample-print-spark new-sample-print-spark-b" />
+                      <span className="new-sample-print-spark new-sample-print-spark-c" />
+                      <span className="new-sample-print-spark new-sample-print-spark-d" />
+                      <span className="new-sample-print-spark new-sample-print-spark-e" />
+                    </span>
+                  ) : null}
+                </article>
+              </div>
+            )}
+
+            {modalError ? <p className="error new-sample-label-modal-feedback">{modalError}</p> : null}
+            {modalMessage ? <p className="success new-sample-label-modal-feedback">{modalMessage}</p> : null}
 
             <div className="row new-sample-print-actions new-sample-label-modal-actions">
-              <button type="button" className="new-sample-label-action-print" onClick={handlePrintLabel}>
-                Imprimir
-              </button>
-              <Link
-                href={`/samples/${printableSample.id}`}
-                className="new-sample-link-button new-sample-label-action-details"
-                onClick={closeLabelModal}
-              >
-                Detalhes
-              </Link>
-              <button type="button" className="new-sample-label-action-new" onClick={resetDraft}>
-                Nova
-              </button>
+              {labelModalStep === 'review' ? (
+                <>
+                  <button
+                    ref={modalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={submitting}
+                    onClick={() => void handleConfirmDraft()}
+                  >
+                    {submitting ? 'Confirmando...' : 'Confirmar'}
+                  </button>
+                  <button type="button" className="new-sample-label-action-edit" disabled={submitting} onClick={closeLabelModal}>
+                    Editar
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'awaiting_print_result' ? (
+                <>
+                  <button
+                    ref={modalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={submitting}
+                    onClick={() => void handleConfirmPrint()}
+                  >
+                    {submitting ? 'Confirmando...' : 'Confirmar impressao'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-failure"
+                    disabled={submitting}
+                    onClick={handleOpenFailureReason}
+                  >
+                    Falha na impressao
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'failure_reason' ? (
+                <>
+                  <button
+                    ref={modalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-failure"
+                    disabled={submitting}
+                    onClick={() => void handleRegisterFailure()}
+                  >
+                    {submitting ? 'Registrando...' : 'Registrar falha'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-edit"
+                    disabled={submitting}
+                    onClick={() => setLabelModalStep('awaiting_print_result')}
+                  >
+                    Voltar
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'failure_actions' ? (
+                <>
+                  <button
+                    ref={modalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={submitting}
+                    onClick={() => void handleRetryPrint()}
+                  >
+                    {submitting ? 'Enviando...' : 'Tentar novamente'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-edit"
+                    disabled={submitting}
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    Sair
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'completed' ? (
+                <>
+                  <button ref={modalPrimaryActionRef} type="button" className="new-sample-label-action-new" onClick={resetDraft}>
+                    Nova amostra
+                  </button>
+                  <button type="button" className="new-sample-label-action-edit" onClick={() => router.push('/dashboard')}>
+                    Fechar
+                  </button>
+                  {printableSample ? (
+                    <Link href={`/samples/${printableSample.id}`} className="new-sample-link-button new-sample-label-action-details">
+                      Ver detalhes
+                    </Link>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           </section>
         </div>

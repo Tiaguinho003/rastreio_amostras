@@ -12,6 +12,7 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
+  'COMMERCIAL_STATUS_UPDATED',
   'CLASSIFICATION_UPDATED'
 ]);
 
@@ -216,6 +217,7 @@ function buildSampleCreateData(event) {
   return {
     id: event.sampleId,
     status: event.toStatus,
+    commercialStatus: 'OPEN',
     version: 1,
     lastEventSequence: event.sequenceNumber
   };
@@ -292,6 +294,10 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
         incrementVersionWhenMissing: false
       })
     );
+  }
+
+  if (event.eventType === 'COMMERCIAL_STATUS_UPDATED') {
+    updateData.commercialStatus = event.payload.toCommercialStatus;
   }
 
   return updateData;

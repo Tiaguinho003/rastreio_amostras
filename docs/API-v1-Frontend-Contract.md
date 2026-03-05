@@ -87,7 +87,8 @@ Headers para endpoints protegidos:
 - cria `QR_PRINTED`
 - `PRINT`: aplica transicao `QR_PENDING_PRINT -> QR_PRINTED`
 - `PRINT`: `expectedVersion` obrigatorio
-- `REPRINT`: auditoria sem transicao de status
+- `REPRINT`: se status atual for `QR_PENDING_PRINT`, aplica transicao `QR_PENDING_PRINT -> QR_PRINTED` (com `expectedVersion`)
+- `REPRINT`: nos demais status permitidos, funciona como auditoria sem transicao
 
 ### POST `/api/v1/samples/:sampleId/classification/start`
 - body: `expectedVersion`, `classificationId?`, `notes?`
@@ -137,10 +138,37 @@ Headers para endpoints protegidos:
 - role: `ADMIN`
 - cria `SAMPLE_INVALIDATED`
 
+### POST `/api/v1/samples/:sampleId/commercial-status`
+- body: `expectedVersion`, `toCommercialStatus` (`OPEN` | `SOLD` | `LOST`), `reasonText`, `idempotencyKey?`
+- role: `ADMIN` ou `CLASSIFIER`
+- cria `COMMERCIAL_STATUS_UPDATED`
+- permitido somente quando `sample.status = CLASSIFIED`
+- bloqueado quando `sample.status = INVALIDATED`
+- transicoes permitidas: `OPEN->SOLD`, `OPEN->LOST`, `SOLD->OPEN`, `LOST->OPEN`
+
 ## 3. Leitura
 
-### GET `/api/v1/samples?status=&limit=&offset=`
-- lista snapshot atual de amostras
+### GET `/api/v1/samples?search=&status=&statusGroup=&commercialStatus=&limit=&offset=&page=&lot=&owner=&harvest=&createdDate=&createdMonth=&createdYear=`
+- lista snapshot atual de amostras com filtros combinados por `AND`
+- `limit`: default `30`, max `30`
+- `offset`: legado (mantido por compatibilidade)
+- `page`: pagina 1-based (quando informado, prevalece sobre `offset`)
+- `search`: busca textual automatica por lote interno ou nome de proprietario
+- `lot`: busca por `internalLotNumber` (texto)
+- `owner`: igualdade exata de proprietario (case-insensitive)
+- `statusGroup`: filtro de status operacional agregado:
+- `PRINT_PENDING`
+- `CLASSIFICATION_PENDING`
+- `CLASSIFICATION_IN_PROGRESS`
+- `CLASSIFIED`
+- `commercialStatus`: filtro de status comercial (`OPEN` | `SOLD` | `LOST`)
+- `harvest`: igualdade exata de safra
+- filtros de periodo (timezone de negocio: `America/Sao_Paulo`):
+- `createdDate`: data exata no formato `YYYY-MM-DD`
+- `createdMonth`: mes exato no formato `YYYY-MM`
+- `createdYear`: ano exato no formato `YYYY`
+- somente um filtro de periodo pode ser informado por requisicao
+- retorno `page` inclui: `limit`, `page`, `offset`, `total`, `totalPages`, `hasPrev`, `hasNext`
 
 ### GET `/api/v1/samples/:sampleId`
 - retorna:

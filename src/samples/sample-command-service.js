@@ -19,6 +19,13 @@ const PHOTO_KIND_ALLOWED_STATUSES = {
 const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
+const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'SOLD', 'LOST']);
+const COMMERCIAL_STATUS_TRANSITIONS = {
+  OPEN: new Set(['SOLD', 'LOST']),
+  SOLD: new Set(['OPEN']),
+  LOST: new Set(['OPEN'])
+};
+const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['CLASSIFIED']);
 const MAX_UPDATE_REASON_WORDS = 10;
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
   'REGISTRATION_CONFIRMED',
@@ -108,6 +115,15 @@ function normalizeRequiredInteger(value, fieldName, minValue = 0) {
     throw new HttpError(422, `${fieldName} must be an integer >= ${minValue}`);
   }
   return parsed;
+}
+
+function normalizeCommercialStatus(value, fieldName = 'toCommercialStatus') {
+  const normalized = normalizeRequiredText(value, fieldName).toUpperCase();
+  if (!COMMERCIAL_STATUS_VALUES.has(normalized)) {
+    throw new HttpError(422, `${fieldName} is invalid`);
+  }
+
+  return normalized;
 }
 
 function normalizeRequiredStringArray(value, fieldName) {
@@ -772,6 +788,7 @@ export class SampleCommandService {
 
     let createdThisRequest = false;
     let lastEvent = null;
+    let activePrintAttempt = null;
 
     for (let attempt = 0; attempt < CREATE_SAMPLE_MAX_RETRIES; attempt += 1) {
       const sample = await this.queryService.findSampleOrNull(sampleId);
@@ -888,6 +905,12 @@ export class SampleCommandService {
             actor
           );
           lastEvent = requested.event;
+          activePrintAttempt = {
+            printAction: 'PRINT',
+            attemptNumber: nextAttempt,
+            printerId,
+            status: 'PENDING'
+          };
           continue;
         } catch (error) {
           if (isStatusConflict(error)) {
@@ -903,6 +926,11 @@ export class SampleCommandService {
         sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
         sample.status === 'CLASSIFIED'
       ) {
+        const pendingPrintAttempt =
+          sample.status === 'QR_PENDING_PRINT'
+            ? activePrintAttempt ?? (await this.queryService.findPendingPrintJobOrNull(sample.id))
+            : null;
+
         return {
           statusCode: createdThisRequest ? 201 : 200,
           idempotent: !createdThisRequest,
@@ -916,7 +944,8 @@ export class SampleCommandService {
             value: sample.internalLotNumber ?? sample.id,
             internalLotNumber: sample.internalLotNumber,
             status: sample.status
-          }
+          },
+          print: pendingPrintAttempt
         };
       }
 
@@ -1172,11 +1201,13 @@ export class SampleCommandService {
   async recordQrPrinted(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR printed');
     const printAction = normalizePrintAction(input.printAction ?? 'PRINT');
-    if (printAction === 'PRINT') {
+    const sample = await this.queryService.requireSample(input.sampleId);
+    const mutatesSample = printAction === 'PRINT' || (printAction === 'REPRINT' && sample.status === 'QR_PENDING_PRINT');
+
+    if (mutatesSample) {
       requireExpectedVersion(input.expectedVersion);
     }
 
-    const sample = await this.queryService.requireSample(input.sampleId);
     if (printAction === 'PRINT') {
       assertSampleStatus(sample, ['QR_PENDING_PRINT'], 'record QR printed');
     } else {
@@ -1191,13 +1222,13 @@ export class SampleCommandService {
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null
       },
-      fromStatus: printAction === 'PRINT' ? 'QR_PENDING_PRINT' : null,
-      toStatus: printAction === 'PRINT' ? 'QR_PRINTED' : null,
+      fromStatus: mutatesSample ? 'QR_PENDING_PRINT' : null,
+      toStatus: mutatesSample ? 'QR_PRINTED' : null,
       module: 'print',
       actorContext: actor
     });
 
-    if (printAction === 'PRINT') {
+    if (mutatesSample) {
       return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
     }
 
@@ -1454,6 +1485,63 @@ export class SampleCommandService {
     });
 
     return this.eventService.appendEvent(event);
+  }
+
+  async updateCommercialStatus(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'update commercial status');
+    requireExpectedVersion(input.expectedVersion);
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    if (sample.status === 'INVALIDATED') {
+      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot update commercial status`);
+    }
+
+    if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} status ${sample.status} is invalid for update commercial status. Allowed: CLASSIFIED`
+      );
+    }
+
+    const fromCommercialStatus = sample.commercialStatus ?? 'OPEN';
+    const toCommercialStatus = normalizeCommercialStatus(input.toCommercialStatus);
+    if (fromCommercialStatus === toCommercialStatus) {
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} commercial status is already ${toCommercialStatus}`
+      );
+    }
+
+    const allowedTransitions = COMMERCIAL_STATUS_TRANSITIONS[fromCommercialStatus];
+    if (!allowedTransitions || !allowedTransitions.has(toCommercialStatus)) {
+      throw new HttpError(
+        409,
+        `Commercial status transition ${fromCommercialStatus} -> ${toCommercialStatus} is invalid`
+      );
+    }
+
+    const reasonText = normalizeRequiredText(input.reasonText, 'reasonText');
+    if (reasonText.length > 500) {
+      throw new HttpError(422, 'reasonText must have at most 500 characters');
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'COMMERCIAL_STATUS_UPDATED',
+      sampleId: sample.id,
+      payload: {
+        fromCommercialStatus,
+        toCommercialStatus,
+        reasonText
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'commercial',
+      actorContext: actor,
+      idempotencyScope: 'COMMERCIAL_STATUS_UPDATE',
+      idempotencyKey: input.idempotencyKey ?? randomUUID()
+    });
+
+    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
   }
 
   async invalidateSample(input, actorContext) {

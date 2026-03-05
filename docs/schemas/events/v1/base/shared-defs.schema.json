@@ -31,6 +31,7 @@
         "CLASSIFICATION_COMPLETED",
         "REGISTRATION_UPDATED",
         "CLASSIFICATION_UPDATED",
+        "COMMERCIAL_STATUS_UPDATED",
         "SAMPLE_INVALIDATED",
         "REPORT_EXPORTED"
       ]
@@ -58,7 +59,7 @@
     },
     "moduleType": {
       "type": "string",
-      "enum": ["registration", "classification", "print", "ocr"]
+      "enum": ["registration", "classification", "print", "commercial", "ocr"]
     },
     "idempotencyScope": {
       "type": "string",
@@ -67,8 +68,13 @@
         "QR_PRINT",
         "QR_REPRINT",
         "CLASSIFICATION_COMPLETE",
+        "COMMERCIAL_STATUS_UPDATE",
         "INVALIDATE"
       ]
+    },
+    "commercialStatus": {
+      "type": "string",
+      "enum": ["OPEN", "SOLD", "LOST"]
     },
     "printAction": {
       "type": "string",

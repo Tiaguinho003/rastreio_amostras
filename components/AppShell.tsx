@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { SampleSearchField } from './SampleSearchField';
 import { getRoleLabel } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 
@@ -17,8 +18,7 @@ interface AppShellProps {
 const MAIN_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/samples/new', label: 'Novo Registro' },
-  { href: '/classification/scan', label: 'Ler QR code' },
-  { href: '/samples', label: 'Amostras' }
+  { href: '/samples', label: 'Registros' }
 ] as const;
 
 function isMainNavItemActive(pathname: string, href: string) {
@@ -110,6 +110,10 @@ export function AppShell({ session, onLogout, children }: AppShellProps) {
           </nav>
 
           <div className="topbar-tools">
+            <div className="topbar-search-slot">
+              <SampleSearchField session={session} compact submitLabel="Ir" />
+            </div>
+
             <button type="button" className="topbar-notification-trigger" aria-label="Notificacoes pendentes">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                 <path d="M12 4a5 5 0 0 0-5 5v2.6c0 .8-.3 1.6-.9 2.2l-1 1a1 1 0 0 0 .7 1.7h12.4a1 1 0 0 0 .7-1.7l-1-1a3.1 3.1 0 0 1-.9-2.2V9a5 5 0 0 0-5-5Z" />

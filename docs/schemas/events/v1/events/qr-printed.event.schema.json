@@ -28,6 +28,19 @@
         },
         {
           "properties": {
+            "fromStatus": { "const": "QR_PENDING_PRINT" },
+            "toStatus": { "const": "QR_PRINTED" },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "printAction": { "const": "REPRINT" }
+              },
+              "required": ["printAction"]
+            }
+          }
+        },
+        {
+          "properties": {
             "fromStatus": { "type": "null" },
             "toStatus": { "type": "null" },
             "payload": {

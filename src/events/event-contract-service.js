@@ -11,6 +11,7 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
+  'COMMERCIAL_STATUS_UPDATED',
   'CLASSIFICATION_UPDATED'
 ]);
 
@@ -114,13 +115,20 @@ export class EventContractService {
         nextSample = {
           id: event.sampleId,
           status: event.toStatus,
+          commercialStatus: 'OPEN',
           version: 1
         };
         tx.samples.set(event.sampleId, nextSample);
       } else if (mutatesSample) {
+        const nextCommercialStatus =
+          event.eventType === 'COMMERCIAL_STATUS_UPDATED'
+            ? event?.payload?.toCommercialStatus ?? sample.commercialStatus ?? 'OPEN'
+            : sample.commercialStatus ?? 'OPEN';
+
         nextSample = {
           ...sample,
           status: event.toStatus !== null ? event.toStatus : sample.status,
+          commercialStatus: nextCommercialStatus,
           version: sample.version + 1
         };
         tx.samples.set(event.sampleId, nextSample);

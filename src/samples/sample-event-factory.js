@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { HttpError } from '../contracts/errors.js';
 
 export const SOURCE_TYPES = ['web', 'api', 'worker'];
-export const MODULE_TYPES = ['registration', 'classification', 'print', 'ocr'];
+export const MODULE_TYPES = ['registration', 'classification', 'print', 'commercial', 'ocr'];
 
 export function normalizeActorContext(actorContext) {
   const actorType = actorContext?.actorType ?? 'SYSTEM';

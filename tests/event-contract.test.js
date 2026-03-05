@@ -14,7 +14,8 @@ import {
   photoAddedEvent,
   qrPrintRequestedEvent,
   qrPrintedEvent,
-  reportExportedEvent
+  reportExportedEvent,
+  commercialStatusUpdatedEvent
 } from './helpers/event-builders.js';
 
 function createService() {
@@ -332,6 +333,31 @@ test('report exported is accepted and does not mutate sample version/status', ()
   assert.equal(afterExport.version, beforeExport.version);
 });
 
+test('commercial status updated is accepted and mutates commercial status/version', () => {
+  const { store, service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  const beforeUpdate = store.getSample(sampleId);
+  const updated = service.appendEvent(
+    commercialStatusUpdatedEvent(sampleId, {
+      payload: {
+        fromCommercialStatus: 'OPEN',
+        toCommercialStatus: 'SOLD',
+        reasonText: 'fechamento comercial'
+      }
+    }),
+    { expectedVersion: 1 }
+  );
+  const afterUpdate = store.getSample(sampleId);
+
+  assert.equal(updated.statusCode, 201);
+  assert.equal(updated.event.eventType, 'COMMERCIAL_STATUS_UPDATED');
+  assert.equal(beforeUpdate.commercialStatus, 'OPEN');
+  assert.equal(afterUpdate.commercialStatus, 'SOLD');
+  assert.equal(afterUpdate.version, beforeUpdate.version + 1);
+});
+
 test('qr reprint success is accepted without mutating sample version/status', () => {
   const { store, service } = createService();
   const sampleId = randomUUID();
@@ -360,4 +386,36 @@ test('qr reprint success is accepted without mutating sample version/status', ()
   assert.equal(reprinted.event.eventType, 'QR_PRINTED');
   assert.equal(afterReprint.status, 'QR_PRINTED');
   assert.equal(afterReprint.version, beforeReprint.version);
+});
+
+test('qr reprint success mutates when sample is still QR_PENDING_PRINT', () => {
+  const { store, service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+
+  const beforeReprint = store.getSample(sampleId);
+  assert.equal(beforeReprint.status, 'QR_PENDING_PRINT');
+
+  const reprinted = service.appendEvent(
+    qrPrintedEvent(sampleId, {
+      fromStatus: 'QR_PENDING_PRINT',
+      toStatus: 'QR_PRINTED',
+      payload: {
+        printAction: 'REPRINT',
+        attemptNumber: 1,
+        printerId: 'printer-main'
+      }
+    }),
+    { expectedVersion: beforeReprint.version }
+  );
+  const afterReprint = store.getSample(sampleId);
+
+  assert.equal(reprinted.statusCode, 201);
+  assert.equal(reprinted.event.eventType, 'QR_PRINTED');
+  assert.equal(afterReprint.status, 'QR_PRINTED');
+  assert.equal(afterReprint.version, beforeReprint.version + 1);
 });

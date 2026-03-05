@@ -241,3 +241,24 @@ export function reportExportedEvent(sampleId, overrides = {}) {
     ...eventOverrides
   });
 }
+
+export function commercialStatusUpdatedEvent(sampleId, overrides = {}) {
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
+
+  return buildEvent({
+    eventType: 'COMMERCIAL_STATUS_UPDATED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    idempotencyScope: 'COMMERCIAL_STATUS_UPDATE',
+    idempotencyKey: randomUUID(),
+    payload: {
+      fromCommercialStatus: 'OPEN',
+      toCommercialStatus: 'SOLD',
+      reasonText: 'fechamento comercial',
+      ...payloadOverrides
+    },
+    module: 'commercial',
+    ...eventOverrides
+  });
+}
