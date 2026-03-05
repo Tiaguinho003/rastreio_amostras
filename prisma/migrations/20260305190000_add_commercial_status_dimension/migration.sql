@@ -1,13 +1,27 @@
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1
     FROM pg_type t
     JOIN pg_enum e ON e.enumtypid = t.oid
     WHERE t.typname = 'ModuleType'
       AND e.enumlabel = 'COMMERCIAL'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_enum e ON e.enumtypid = t.oid
+    WHERE t.typname = 'ModuleType'
+      AND e.enumlabel = 'commercial'
   ) THEN
-    ALTER TYPE "ModuleType" ADD VALUE 'COMMERCIAL';
+    ALTER TYPE "ModuleType" RENAME VALUE 'COMMERCIAL' TO 'commercial';
+  ELSIF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_enum e ON e.enumtypid = t.oid
+    WHERE t.typname = 'ModuleType'
+      AND e.enumlabel = 'commercial'
+  ) THEN
+    ALTER TYPE "ModuleType" ADD VALUE 'commercial';
   END IF;
 END
 $$;
