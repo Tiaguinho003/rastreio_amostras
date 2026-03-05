@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
+import { flushSync } from 'react-dom';
 
 import { AppShell } from '../../../components/AppShell';
 import {
@@ -384,7 +385,9 @@ export default function NewSamplePage() {
     }
 
     await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => resolve());
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
     });
 
     document.body.classList.add('print-label-mode');
@@ -532,10 +535,12 @@ export default function NewSamplePage() {
         throw new Error('Nao foi possivel identificar a tentativa ativa de impressao.');
       }
 
-      setCreated(result);
-      setActivePrintAttempt(attempt);
-      setLabelModalStep('awaiting_print_result');
-      setModalMessage(`Impressao enviada (tentativa ${attempt.attemptNumber}). Confirme o resultado abaixo.`);
+      flushSync(() => {
+        setCreated(result);
+        setActivePrintAttempt(attempt);
+        setLabelModalStep('awaiting_print_result');
+        setModalMessage(`Impressao enviada (tentativa ${attempt.attemptNumber}). Confirme o resultado abaixo.`);
+      });
 
       await handleAutomaticPrint(result.sample.id, attempt);
     } catch (cause) {
@@ -988,7 +993,7 @@ export default function NewSamplePage() {
                     </div>
                   ) : (
                     <div className="label-qr">
-                      <QRCodeCanvas value={created?.qr.value ?? printableSample?.id ?? 'sample'} size={120} />
+                      <QRCodeSVG value={created?.qr.value ?? printableSample?.id ?? 'sample'} size={120} />
                     </div>
                   )}
                   <div className="label-meta">
