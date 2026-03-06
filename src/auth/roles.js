@@ -2,7 +2,9 @@ import { HttpError } from '../contracts/errors.js';
 
 export const USER_ROLES = {
   ADMIN: 'ADMIN',
-  CLASSIFIER: 'CLASSIFIER'
+  CLASSIFIER: 'CLASSIFIER',
+  REGISTRATION: 'REGISTRATION',
+  COMMERCIAL: 'COMMERCIAL'
 };
 
 export function assertRoleAllowed(role, allowedRoles, actionLabel) {

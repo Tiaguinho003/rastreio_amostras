@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
 
-const DEFAULT_TTL_SECONDS = 8 * 60 * 60;
+const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
 const HEADER = {
   alg: 'HS256',
   typ: 'JWT'
@@ -44,33 +44,8 @@ function verifySignature(unsignedToken, providedSignature, secret) {
   return timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
-export function issueAccessToken(claims, options) {
+function decodeVerifiedToken(token, options) {
   const { secret, ttlSeconds = DEFAULT_TTL_SECONDS, nowMs = Date.now() } = options;
-  assertSecret(secret);
-
-  const issuedAt = Math.floor(nowMs / 1000);
-  const expiresAt = issuedAt + ttlSeconds;
-  const payload = {
-    sub: claims.userId,
-    role: claims.role,
-    username: claims.username,
-    iat: issuedAt,
-    exp: expiresAt
-  };
-
-  const encodedHeader = base64UrlEncode(JSON.stringify(HEADER));
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-  const unsigned = `${encodedHeader}.${encodedPayload}`;
-  const signature = sign(unsigned, secret);
-
-  return {
-    token: `${unsigned}.${signature}`,
-    expiresAt: new Date(expiresAt * 1000).toISOString()
-  };
-}
-
-export function verifyAccessToken(token, options) {
-  const { secret, nowMs = Date.now() } = options;
   assertSecret(secret);
 
   if (typeof token !== 'string' || token.trim().length === 0) {
@@ -102,20 +77,65 @@ export function verifyAccessToken(token, options) {
     throw new HttpError(401, 'Unsupported access token header');
   }
 
-  if (typeof payload.exp !== 'number' || typeof payload.sub !== 'string' || typeof payload.role !== 'string') {
+  if (
+    typeof payload.exp !== 'number' ||
+    typeof payload.sub !== 'string' ||
+    typeof payload.role !== 'string' ||
+    typeof payload.sid !== 'string'
+  ) {
     throw new HttpError(401, 'Invalid access token claims');
   }
 
   const nowSeconds = Math.floor(nowMs / 1000);
-  if (payload.exp <= nowSeconds) {
+
+  return {
+    payload,
+    expired: payload.exp <= nowSeconds,
+    ttlSeconds
+  };
+}
+
+export function issueAccessToken(claims, options) {
+  const { secret, ttlSeconds = DEFAULT_TTL_SECONDS, nowMs = Date.now() } = options;
+  assertSecret(secret);
+
+  const issuedAt = Math.floor(nowMs / 1000);
+  const expiresAt = issuedAt + ttlSeconds;
+  const payload = {
+    sub: claims.userId,
+    sid: claims.sessionId,
+    role: claims.role,
+    username: claims.username,
+    iat: issuedAt,
+    exp: expiresAt
+  };
+
+  const encodedHeader = base64UrlEncode(JSON.stringify(HEADER));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const unsigned = `${encodedHeader}.${encodedPayload}`;
+  const signature = sign(unsigned, secret);
+
+  return {
+    token: `${unsigned}.${signature}`,
+    expiresAt: new Date(expiresAt * 1000).toISOString()
+  };
+}
+
+export function verifyAccessToken(token, options) {
+  const { secret, nowMs = Date.now(), allowExpired = false } = options;
+  const { payload, expired } = decodeVerifiedToken(token, { secret, nowMs });
+
+  if (expired && !allowExpired) {
     throw new HttpError(401, 'Access token expired');
   }
 
   return {
     userId: payload.sub,
+    sessionId: payload.sid,
     role: payload.role,
     username: payload.username,
     issuedAt: payload.iat,
-    expiresAt: payload.exp
+    expiresAt: payload.exp,
+    expired
   };
 }

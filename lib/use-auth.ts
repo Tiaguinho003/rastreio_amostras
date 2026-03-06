@@ -3,19 +3,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { logout as logoutRequest, recordSessionExpired } from './api-client';
 import { isRoleAllowed } from './roles';
-import { clearSession, getSession, isSessionExpired } from './session';
+import { clearSession, getSession, isSessionExpired, saveSession } from './session';
 import type { SessionData, UserRole } from './types';
 
 export function useAuthState() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     const loaded = getSession();
     if (loaded && !isSessionExpired(loaded)) {
       setSession(loaded);
     } else {
+      if (loaded?.sessionId) {
+        void recordSessionExpired(loaded.sessionId).catch(() => {
+          // best-effort audit
+        });
+        setExpired(true);
+      }
       clearSession();
       setSession(null);
     }
@@ -25,7 +33,16 @@ export function useAuthState() {
   return {
     session,
     loading,
-    setSession
+    setSession,
+    expired,
+    replaceSession(nextSession: SessionData | null) {
+      if (nextSession) {
+        saveSession(nextSession);
+      } else {
+        clearSession();
+      }
+      setSession(nextSession);
+    }
   };
 }
 
@@ -43,7 +60,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   } = options;
 
   const router = useRouter();
-  const { session, loading, setSession } = useAuthState();
+  const { session, loading, replaceSession, expired } = useAuthState();
   const isAuthorized = useMemo(() => {
     if (!session) {
       return false;
@@ -62,28 +79,36 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     }
 
     if (!session) {
-      router.replace(unauthenticatedRedirectTo);
+      router.replace(expired ? `${unauthenticatedRedirectTo}?reason=session-expired` : unauthenticatedRedirectTo);
       return;
     }
 
     if (!isAuthorized) {
       router.replace(unauthorizedRedirectTo);
     }
-  }, [isAuthorized, loading, router, session, unauthenticatedRedirectTo, unauthorizedRedirectTo]);
+  }, [expired, isAuthorized, loading, router, session, unauthenticatedRedirectTo, unauthorizedRedirectTo]);
 
-  const logout = useCallback(() => {
-    clearSession();
-    setSession(null);
+  const logout = useCallback(async () => {
+    if (session) {
+      try {
+        await logoutRequest(session);
+      } catch {
+        // local cleanup still wins
+      }
+    }
+
+    replaceSession(null);
     router.replace('/login');
-  }, [router, setSession]);
+  }, [replaceSession, router, session]);
 
   return useMemo(
     () => ({
       session: isAuthorized ? session : null,
       loading,
       logout,
-      isAuthorized
+      isAuthorized,
+      setSession: replaceSession
     }),
-    [isAuthorized, loading, logout, session]
+    [isAuthorized, loading, logout, replaceSession, session]
   );
 }

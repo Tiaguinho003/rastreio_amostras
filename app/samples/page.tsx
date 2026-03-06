@@ -166,18 +166,6 @@ export default function SamplesPage() {
   const activeHiddenFiltersCount = useMemo(() => countActiveHiddenFilters(appliedHiddenFilters), [appliedHiddenFilters]);
 
   useEffect(() => {
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalDocumentOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = originalBodyOverflow;
-      document.documentElement.style.overflow = originalDocumentOverflow;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!filtersOpen) {
       return;
     }

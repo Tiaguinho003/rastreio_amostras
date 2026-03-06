@@ -16,6 +16,7 @@
     "test:integration:db": "node --test --test-concurrency=1 tests/**/*.integration.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f db",
@@ -27,6 +28,7 @@
     "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "next": "^15.5.12",
+    "nodemailer": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
@@ -39,5 +41,8 @@
     "@types/react-dom": "^19.2.3",
     "prisma": "^6.4.1",
     "typescript": "^5.9.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

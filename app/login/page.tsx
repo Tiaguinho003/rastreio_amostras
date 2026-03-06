@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -9,15 +10,20 @@ import { getSession, isSessionExpired, saveSession } from '../../lib/session';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('classificador');
-  const [password, setPassword] = useState('classificador123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginReason, setLoginReason] = useState<string | null>(null);
 
   useEffect(() => {
     const session = getSession();
     if (session && !isSessionExpired(session)) {
       router.replace('/dashboard');
+    }
+
+    if (typeof window !== 'undefined') {
+      setLoginReason(new URLSearchParams(window.location.search).get('reason'));
     }
   }, [router]);
 
@@ -51,7 +57,14 @@ export default function LoginPage() {
     <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
       <section className="panel" style={{ width: 'min(430px, 92vw)' }}>
         <h2 style={{ marginTop: 0 }}>Entrar no sistema</h2>
-        <p style={{ color: 'var(--muted)' }}>Use seu usuario local para iniciar o fluxo da amostra.</p>
+        <p style={{ color: 'var(--muted)' }}>Use seu usuario e senha para acessar o sistema.</p>
+
+        {loginReason === 'session-expired' ? (
+          <p style={{ color: 'var(--muted)' }}>Sua sessao expirou. Entre novamente.</p>
+        ) : null}
+        {loginReason === 'session-ended' ? (
+          <p style={{ color: 'var(--muted)' }}>Sua sessao foi encerrada. Entre novamente.</p>
+        ) : null}
 
         <form className="stack" onSubmit={handleSubmit}>
           <label>
@@ -74,6 +87,8 @@ export default function LoginPage() {
           <button type="submit" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
+
+          <Link href="/forgot-password">Esqueci minha senha</Link>
         </form>
       </section>
     </main>

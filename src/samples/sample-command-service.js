@@ -4,7 +4,7 @@ import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
-const USER_ACTION_ROLES = [USER_ROLES.ADMIN, USER_ROLES.CLASSIFIER];
+const USER_ACTION_ROLES = [USER_ROLES.ADMIN, USER_ROLES.CLASSIFIER, USER_ROLES.REGISTRATION, USER_ROLES.COMMERCIAL];
 const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
 const CREATE_SAMPLE_MAX_RETRIES = 12;
 const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other']);
@@ -27,6 +27,7 @@ const COMMERCIAL_STATUS_TRANSITIONS = {
 };
 const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['CLASSIFIED']);
 const MAX_UPDATE_REASON_WORDS = 10;
+const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
@@ -45,7 +46,6 @@ const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
 ];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot'];
 const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
-  'dataClassificacao',
   'padrao',
   'catacao',
   'aspecto',
@@ -70,6 +70,15 @@ const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'colorAspect',
   'notes'
 ];
+
+function buildBusinessDateStamp(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -1117,13 +1126,17 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, ['REGISTRATION_CONFIRMED'], 'request QR print');
+    const attemptNumber =
+      input.attemptNumber !== undefined
+        ? normalizeRequiredInteger(input.attemptNumber, 'attemptNumber', 1)
+        : await this.queryService.getNextPrintAttemptNumber(sample.id, 'PRINT');
 
     const event = buildEventEnvelope({
       eventType: 'QR_PRINT_REQUESTED',
       sampleId: sample.id,
       payload: {
         printAction: 'PRINT',
-        attemptNumber: input.attemptNumber,
+        attemptNumber,
         printerId: input.printerId ?? null
       },
       fromStatus: 'REGISTRATION_CONFIRMED',
@@ -1291,9 +1304,13 @@ export class SampleCommandService {
     if (!classificationPhoto) {
       throw new HttpError(409, 'CLASSIFICATION_IN_PROGRESS requires classification photo before completion');
     }
+    const classificationDate = buildBusinessDateStamp();
 
     const payload = {
-      classificationPhotoId: classificationPhoto.id
+      classificationPhotoId: classificationPhoto.id,
+      classificationData: {
+        dataClassificacao: classificationDate
+      }
     };
 
     if (isPlainObject(input.technical)) {
@@ -1301,7 +1318,10 @@ export class SampleCommandService {
     }
 
     if (isPlainObject(input.classificationData)) {
-      payload.classificationData = input.classificationData;
+      payload.classificationData = {
+        ...input.classificationData,
+        dataClassificacao: classificationDate
+      };
     }
 
     if (input.consumptionGrams !== undefined) {
@@ -1545,7 +1565,7 @@ export class SampleCommandService {
   }
 
   async invalidateSample(input, actorContext) {
-    const actor = requireUserActor(actorContext, [USER_ROLES.ADMIN], 'invalidate sample');
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'invalidate sample');
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);

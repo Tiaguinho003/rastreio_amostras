@@ -1,4 +1,6 @@
-export type UserRole = 'ADMIN' | 'CLASSIFIER';
+export type UserRole = 'ADMIN' | 'CLASSIFIER' | 'REGISTRATION' | 'COMMERCIAL';
+export type UserStatus = 'ACTIVE' | 'INACTIVE';
+export type InitialPasswordDecision = 'PENDING' | 'KEPT' | 'CHANGED';
 export type UpdateReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'CANCELLED' | 'OTHER';
 
@@ -46,15 +48,112 @@ export type SampleExportType = 'COMPLETO' | 'COMPRADOR_PARCIAL';
 export interface SessionUser {
   id: string;
   username: string;
-  role: UserRole;
+  email: string;
+  fullName: string;
   displayName: string | null;
+  role: UserRole;
+  status: UserStatus;
+  initialPasswordDecision: InitialPasswordDecision;
+  pendingEmailChange?: PendingEmailChange | null;
 }
 
 export interface SessionData {
   accessToken: string;
   tokenType: 'Bearer';
   expiresAt: string;
+  sessionId: string;
   user: SessionUser;
+}
+
+export interface PendingEmailChange {
+  requestId: string | null;
+  newEmail: string;
+  expiresAt: string;
+}
+
+export interface UserSummary {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  status: UserStatus;
+  initialPasswordDecision: InitialPasswordDecision;
+  lastLoginAt: string | null;
+  lockedUntil: string | null;
+  isLocked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  pendingEmailChange: PendingEmailChange | null;
+}
+
+export interface UserResponse {
+  user: UserSummary;
+}
+
+export interface UserMutationResponse extends UserResponse {
+  sessionRevoked?: boolean;
+}
+
+export interface UserPasswordMutationResponse extends UserResponse {
+  generatedPassword: string;
+}
+
+export interface UsersListResponse {
+  items: UserSummary[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface UserAuditEventResponse {
+  eventId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  reasonText: string | null;
+  createdAt: string;
+  actorUser: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  targetUser: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  metadata: {
+    ip: string | null;
+    userAgent: string | null;
+  };
+}
+
+export interface UserAuditListResponse {
+  items: UserAuditEventResponse[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface PasswordResetRequestResponse {
+  resetRequest: {
+    requestId: string;
+    expiresAt: string;
+    resendAvailableAt: string;
+  };
 }
 
 export interface SampleSnapshot {
@@ -192,6 +291,12 @@ export interface ResolveSampleByQrResponse {
     internalLotNumber: string | null;
     status: SampleStatus;
     commercialStatus: CommercialStatus;
+    declared: {
+      owner: string | null;
+      sacks: number | null;
+      harvest: string | null;
+      originLot: string | null;
+    };
   };
   redirectPath: string;
 }

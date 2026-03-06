@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
+import { flushSync } from 'react-dom';
 
 import { AppShell } from '../../../components/AppShell';
-import { CommercialStatusBadge } from '../../../components/CommercialStatusBadge';
 import { StatusBadge } from '../../../components/StatusBadge';
 import {
   ApiError,
@@ -15,6 +15,7 @@ import {
   exportSamplePdf,
   getSampleDetail,
   invalidateSample,
+  listSampleEvents,
   recordQrPrintFailed,
   recordQrPrinted,
   requestQrReprint,
@@ -29,12 +30,13 @@ import {
   uploadLabelPhoto
 } from '../../../lib/api-client';
 import { invalidateSampleSchema, qrFailSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
-import { isAdmin } from '../../../lib/roles';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   InvalidateReasonCode,
   CommercialStatus,
+  PrintAction,
   SampleDetailResponse,
+  SampleEvent,
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
@@ -65,7 +67,6 @@ type ClassificationFormState = {
   peneiraP13: string;
   peneiraP10: string;
   peneiraFundo: string;
-  completionPercent: string;
 };
 
 type ClassificationSievePayload = {
@@ -81,7 +82,7 @@ type ClassificationSievePayload = {
 };
 
 type ClassificationDataPayload = {
-  dataClassificacao: string | null;
+  dataClassificacao?: string | null;
   padrao: string | null;
   catacao: string | null;
   aspecto: string | null;
@@ -96,6 +97,15 @@ type ClassificationDataPayload = {
   aspectoCor: string | null;
   observacoes: string | null;
   loteOrigem: string | null;
+};
+
+type LabelModalStep = 'review' | 'awaiting_print_result' | 'failure_reason' | 'failure_actions' | 'completed';
+
+type ActiveLabelPrintAttempt = {
+  printAction: PrintAction;
+  attemptNumber: number;
+  printerId: string | null;
+  expectedVersion: number;
 };
 
 type NumericField = {
@@ -149,8 +159,7 @@ const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   peneiraP14: '',
   peneiraP13: '',
   peneiraP10: '',
-  peneiraFundo: '',
-  completionPercent: ''
+  peneiraFundo: ''
 };
 
 const SIEVE_FIELDS: NumericField[] = [
@@ -174,32 +183,6 @@ const NUMERIC_FIELDS: NumericField[] = [
   ...SIEVE_FIELDS
 ];
 
-const CLASSIFICATION_PROGRESS_FIELDS: Array<keyof ClassificationFormState> = [
-  'dataClassificacao',
-  'padrao',
-  'catacao',
-  'aspecto',
-  'bebida',
-  'broca',
-  'pva',
-  'imp',
-  'classificador',
-  'defeito',
-  'umidade',
-  'aspectoCor',
-  'observacoes',
-  'loteOrigem',
-  'peneiraP18',
-  'peneiraP17',
-  'peneiraP16',
-  'peneiraMk',
-  'peneiraP15',
-  'peneiraP14',
-  'peneiraP13',
-  'peneiraP10',
-  'peneiraFundo'
-];
-
 const INVALIDATE_REASON_OPTIONS: Array<{ value: InvalidateReasonCode; label: string }> = [
   { value: 'DUPLICATE', label: 'Duplicada' },
   { value: 'WRONG_SAMPLE', label: 'Amostra incorreta' },
@@ -215,10 +198,16 @@ const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> =
   { value: 'OTHER', label: 'Outro motivo' }
 ];
 
-const COMMERCIAL_STATUS_ACTIONS: Array<{ value: CommercialStatus; label: string }> = [
-  { value: 'SOLD', label: 'Marcar vendido' },
-  { value: 'LOST', label: 'Marcar perdido' },
-  { value: 'OPEN', label: 'Reabrir' }
+const COMMERCIAL_STATUS_LABELS: Record<CommercialStatus, string> = {
+  OPEN: 'Em aberto',
+  SOLD: 'Vendido',
+  LOST: 'Perdido'
+};
+
+const COMMERCIAL_STATUS_SELECT_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [
+  { value: 'OPEN', label: 'Em aberto' },
+  { value: 'SOLD', label: 'Vendido' },
+  { value: 'LOST', label: 'Perdido' }
 ];
 
 const HISTORY_EVENT_LABELS: Record<string, string> = {
@@ -322,6 +311,33 @@ function toDateInput(value: unknown): string {
   return parsed.toISOString().slice(0, 10);
 }
 
+function getTodayDateInput(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateInputLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const directMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (directMatch) {
+    return `${directMatch[3]}/${directMatch[2]}/${directMatch[1]}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return trimmed;
+  }
+
+  return parsed.toLocaleDateString('pt-BR');
+}
+
 function parseNumberInput(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -330,11 +346,6 @@ function parseNumberInput(value: string): number | null {
 
   const parsed = Number(trimmed.replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function readCompletionPercent(value: string): number | null {
-  const parsed = parseNumberInput(value);
-  return parsed === null ? null : parsed;
 }
 
 function validateClassificationForm(form: ClassificationFormState): string | null {
@@ -350,18 +361,15 @@ function validateClassificationForm(form: ClassificationFormState): string | nul
     }
   }
 
-  const completionRaw = form.completionPercent.trim();
-  if (completionRaw) {
-    const completionNumber = Number(completionRaw.replace(',', '.'));
-    if (!Number.isFinite(completionNumber) || completionNumber < 0 || completionNumber > 100) {
-      return 'Percentual de preenchimento deve estar entre 0 e 100.';
-    }
-  }
-
   return null;
 }
 
-function buildClassificationDataPayload(form: ClassificationFormState): ClassificationDataPayload {
+function buildClassificationDataPayload(
+  form: ClassificationFormState,
+  options: {
+    includeAutomaticDate?: boolean;
+  } = {}
+): ClassificationDataPayload {
   const sieve: ClassificationSievePayload = {
     p18: parseNumberInput(form.peneiraP18),
     p17: parseNumberInput(form.peneiraP17),
@@ -375,9 +383,7 @@ function buildClassificationDataPayload(form: ClassificationFormState): Classifi
   };
 
   const hasSieve = Object.values(sieve).some((value) => value !== null);
-
-  return {
-    dataClassificacao: form.dataClassificacao.trim() || null,
+  const payload: ClassificationDataPayload = {
     padrao: form.padrao.trim() || null,
     catacao: form.catacao.trim() || null,
     aspecto: form.aspecto.trim() || null,
@@ -393,11 +399,20 @@ function buildClassificationDataPayload(form: ClassificationFormState): Classifi
     observacoes: form.observacoes.trim() || null,
     loteOrigem: form.loteOrigem.trim() || null
   };
+
+  if (options.includeAutomaticDate) {
+    payload.dataClassificacao = getTodayDateInput();
+  }
+
+  return payload;
 }
 
 function buildClassificationFormState(detail: SampleDetailResponse, user: SessionUser): ClassificationFormState {
   const latestData = isRecord(detail.sample.latestClassification.data) ? detail.sample.latestClassification.data : {};
-  const draftData = isRecord(detail.sample.classificationDraft.snapshot) ? detail.sample.classificationDraft.snapshot : {};
+  const draftData =
+    detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && isRecord(detail.sample.classificationDraft.snapshot)
+      ? detail.sample.classificationDraft.snapshot
+      : {};
   const mergedData = { ...latestData, ...draftData };
 
   const latestSieve = isRecord(latestData.peneirasPercentuais) ? latestData.peneirasPercentuais : {};
@@ -405,11 +420,9 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
   const mergedSieve = { ...latestSieve, ...draftSieve };
 
   const fallbackClassifier = user.displayName ?? user.username;
-  const completionPercent = detail.sample.classificationDraft.completionPercent;
-
   return {
     ...EMPTY_CLASSIFICATION_FORM,
-    dataClassificacao: toDateInput(mergedData.dataClassificacao),
+    dataClassificacao: toDateInput(latestData.dataClassificacao),
     padrao: toText(mergedData.padrao),
     catacao: toText(mergedData.catacao),
     aspecto: toText(mergedData.aspecto),
@@ -431,8 +444,7 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     peneiraP14: toText(mergedSieve.p14),
     peneiraP13: toText(mergedSieve.p13),
     peneiraP10: toText(mergedSieve.p10),
-    peneiraFundo: toText(mergedSieve.fundo),
-    completionPercent: typeof completionPercent === 'number' ? String(completionPercent) : ''
+    peneiraFundo: toText(mergedSieve.fundo)
   };
 }
 
@@ -476,48 +488,6 @@ function readPrintAction(payload: Record<string, unknown>): 'PRINT' | 'REPRINT' 
   }
 
   return null;
-}
-
-function getPendingAttemptByAction(
-  events: SampleDetailResponse['events'],
-  action: 'PRINT' | 'REPRINT'
-): number | null {
-  const requested = new Set<number>();
-  const resolved = new Set<number>();
-
-  for (const event of events) {
-    const payload = isRecord(event.payload) ? event.payload : null;
-    if (!payload) {
-      continue;
-    }
-
-    const attempt = readAttemptNumber(payload);
-    if (attempt === null) {
-      continue;
-    }
-
-    if (event.eventType === 'QR_PRINT_REQUESTED' || event.eventType === 'QR_REPRINT_REQUESTED') {
-      const printAction = readPrintAction(payload);
-      if (printAction === action) {
-        requested.add(attempt);
-      }
-      continue;
-    }
-
-    if (event.eventType === 'QR_PRINTED' || event.eventType === 'QR_PRINT_FAILED') {
-      const printAction = readPrintAction(payload);
-      if (printAction === action) {
-        resolved.add(attempt);
-      }
-    }
-  }
-
-  const pending = Array.from(requested).filter((attempt) => !resolved.has(attempt));
-  if (pending.length === 0) {
-    return null;
-  }
-
-  return Math.max(...pending);
 }
 
 function formatTimestamp(value: string): string {
@@ -648,12 +618,82 @@ function canRequestReprintStatus(status: SampleStatus): boolean {
   );
 }
 
+function isPrintPendingStatus(status: SampleStatus): boolean {
+  return status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT';
+}
+
 function isClassificationStatus(status: SampleStatus): boolean {
   return CLASSIFICATION_STATUSES.includes(status);
 }
 
 function getExportTypeLabel(exportType: SampleExportType): string {
   return exportType === 'COMPLETO' ? 'Completo' : 'Comprador Parcial';
+}
+
+const TECHNICAL_PRINT_ERROR = 'Falha tecnica ao disparar a impressao automatica.';
+const DETAIL_EVENT_PREVIEW_LIMIT = 1;
+const HISTORY_EVENT_LIMIT = 200;
+
+function buildLabelModalTitle(step: LabelModalStep, action: PrintAction | null) {
+  if (step === 'review') {
+    return 'Confirme os dados da etiqueta';
+  }
+
+  if (step === 'awaiting_print_result') {
+    return action === 'REPRINT' ? 'Reimpressao em andamento' : 'Impressao em andamento';
+  }
+
+  if (step === 'failure_reason') {
+    return action === 'REPRINT' ? 'Registrar falha de reimpressao' : 'Registrar falha de impressao';
+  }
+
+  if (step === 'failure_actions') {
+    return 'Falha registrada';
+  }
+
+  return action === 'REPRINT' ? 'Reimpressao confirmada' : 'Impressao confirmada';
+}
+
+function extractCauseMessage(cause: unknown) {
+  if (cause instanceof Error && cause.message) {
+    return cause.message;
+  }
+
+  return TECHNICAL_PRINT_ERROR;
+}
+
+function getLabelPrintActionForStatus(status: SampleStatus): PrintAction | null {
+  if (status === 'REGISTRATION_CONFIRMED') {
+    return 'PRINT';
+  }
+
+  if (canRequestReprintStatus(status)) {
+    return 'REPRINT';
+  }
+
+  return null;
+}
+
+function buildActiveLabelPrintAttempt(
+  event: SampleDetailResponse['events'][number],
+  options: {
+    fallbackAction: PrintAction;
+    fallbackPrinterId: string | null;
+    expectedVersion: number;
+  }
+): ActiveLabelPrintAttempt | null {
+  const payload = isRecord(event.payload) ? event.payload : null;
+  const attemptNumber = payload ? readAttemptNumber(payload) : null;
+  if (!attemptNumber) {
+    return null;
+  }
+
+  return {
+    printAction: payload ? readPrintAction(payload) ?? options.fallbackAction : options.fallbackAction,
+    attemptNumber,
+    printerId: payload && typeof payload.printerId === 'string' ? payload.printerId : options.fallbackPrinterId,
+    expectedVersion: options.expectedVersion
+  };
 }
 
 export default function SampleDetailPage() {
@@ -675,6 +715,7 @@ export default function SampleDetailPage() {
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
+  const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<SampleExportType | null>(null);
   const [exportDestination, setExportDestination] = useState('');
@@ -686,10 +727,16 @@ export default function SampleDetailPage() {
   const [confirming, setConfirming] = useState(false);
 
   const [printerId, setPrinterId] = useState('printer-main');
-  const [printErrorText, setPrintErrorText] = useState('');
-  const [printSubmitting, setPrintSubmitting] = useState(false);
-  const [reprintErrorText, setReprintErrorText] = useState('');
-  const [reprintSubmitting, setReprintSubmitting] = useState(false);
+  const [labelModalOpen, setLabelModalOpen] = useState(false);
+  const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
+  const [labelModalSubmitting, setLabelModalSubmitting] = useState(false);
+  const [labelModalError, setLabelModalError] = useState<string | null>(null);
+  const [labelModalMessage, setLabelModalMessage] = useState<string | null>(null);
+  const [labelPrintFailureReason, setLabelPrintFailureReason] = useState('');
+  const [labelLastFailureReason, setLabelLastFailureReason] = useState<string | null>(null);
+  const [activeLabelPrintAttempt, setActiveLabelPrintAttempt] = useState<ActiveLabelPrintAttempt | null>(null);
+  const [showLabelPrintConfirmEffect, setShowLabelPrintConfirmEffect] = useState(false);
+  const [labelPrintConfirmEffectKey, setLabelPrintConfirmEffectKey] = useState(0);
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
@@ -701,47 +748,120 @@ export default function SampleDetailPage() {
   const [classificationStarting, setClassificationStarting] = useState(false);
   const [classificationSaving, setClassificationSaving] = useState(false);
   const [classificationCompleting, setClassificationCompleting] = useState(false);
+  const [detailInfoTab, setDetailInfoTab] = useState<'CLASSIFICATION' | 'HISTORY'>('CLASSIFICATION');
+  const [historyEvents, setHistoryEvents] = useState<SampleEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const [registrationEditReasonCode, setRegistrationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
+  const [registrationReasonConfirmed, setRegistrationReasonConfirmed] = useState(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
+  const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
   const [classificationUpdating, setClassificationUpdating] = useState(false);
   const [revertTargetEventId, setRevertTargetEventId] = useState<string | null>(null);
   const [revertReasonCode, setRevertReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [revertReasonText, setRevertReasonText] = useState('');
   const [revertingEdit, setRevertingEdit] = useState(false);
+  const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
+  const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
+  const labelPrintConfirmEffectTimeoutRef = useRef<number | null>(null);
+  const classificationPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const classificationSectionRef = useRef<HTMLElement | null>(null);
-  const canInvalidateSample = session ? isAdmin(session.user.role) : false;
+  const canInvalidateSample = Boolean(session);
+
+  const fetchDetail = useCallback(
+    async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
+      if (!session || !sampleId) {
+        return undefined;
+      }
+
+      const shouldShowLoading = showLoading;
+      if (shouldShowLoading) {
+        setLoadingDetail(true);
+      }
+      setError(null);
+
+      try {
+        const response = await getSampleDetail(session, sampleId, {
+          eventLimit
+        });
+        setDetail(response);
+        setOwner(response.sample.declared.owner ?? '');
+        setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
+        setHarvest(response.sample.declared.harvest ?? '');
+        setOriginLot(response.sample.declared.originLot ?? '');
+        setClassificationForm(buildClassificationFormState(response, session.user));
+        return response;
+      } catch (cause) {
+        if (cause instanceof ApiError) {
+          setError(cause.message);
+        } else {
+          setError('Falha ao carregar amostra');
+        }
+        return undefined;
+      } finally {
+        if (shouldShowLoading) {
+          setLoadingDetail(false);
+        }
+      }
+    },
+    [sampleId, session]
+  );
 
   const loadDetail = useCallback(async () => {
+    return fetchDetail({ showLoading: true });
+  }, [fetchDetail]);
+
+  const refreshDetail = useCallback(async () => {
+    return fetchDetail({ showLoading: false });
+  }, [fetchDetail]);
+
+  const loadHistory = useCallback(async () => {
     if (!session || !sampleId) {
-      return;
+      return undefined;
     }
 
-    setLoadingDetail(true);
-    setError(null);
+    setHistoryLoading(true);
+    setHistoryError(null);
 
     try {
-      const response = await getSampleDetail(session, sampleId);
-      setDetail(response);
-      setOwner(response.sample.declared.owner ?? '');
-      setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
-      setHarvest(response.sample.declared.harvest ?? '');
-      setOriginLot(response.sample.declared.originLot ?? '');
-      setClassificationForm(buildClassificationFormState(response, session.user));
+      const response = await listSampleEvents(session, sampleId, {
+        limit: HISTORY_EVENT_LIMIT
+      });
+      setHistoryEvents(response.events);
+      setHistoryLoaded(true);
+      return response.events;
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setHistoryError(cause.message);
       } else {
-        setError('Falha ao carregar amostra');
+        setHistoryError('Falha ao carregar historico da amostra');
       }
+      return undefined;
     } finally {
-      setLoadingDetail(false);
+      setHistoryLoading(false);
     }
   }, [sampleId, session]);
+
+  const syncDetailState = useCallback(
+    async ({ refreshHistory = false } = {}) => {
+      const detailPromise = refreshDetail();
+
+      if (refreshHistory || historyLoaded || detailInfoTab === 'HISTORY') {
+        await Promise.all([detailPromise, loadHistory()]);
+        return;
+      }
+
+      await detailPromise;
+    },
+    [detailInfoTab, historyLoaded, loadHistory, refreshDetail]
+  );
 
   useEffect(() => {
     if (!sampleId) {
@@ -751,142 +871,63 @@ export default function SampleDetailPage() {
   }, [loadDetail, sampleId]);
 
   useEffect(() => {
-    setPrintErrorText('');
-    setReprintErrorText('');
+    if (detailInfoTab !== 'HISTORY' || historyLoaded || historyLoading) {
+      return;
+    }
+
+    void loadHistory();
+  }, [detailInfoTab, historyLoaded, historyLoading, loadHistory]);
+
+  useEffect(() => {
+    if (labelPrintConfirmEffectTimeoutRef.current !== null) {
+      window.clearTimeout(labelPrintConfirmEffectTimeoutRef.current);
+      labelPrintConfirmEffectTimeoutRef.current = null;
+    }
+    setExportTypeSelectorOpen(false);
     setExportConfirmationOpen(false);
     setPendingExportType(null);
     setExportDestination('');
+    setLabelModalOpen(false);
+    setLabelModalStep('review');
+    setLabelModalSubmitting(false);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
+    setLabelPrintFailureReason('');
+    setLabelLastFailureReason(null);
+    setActiveLabelPrintAttempt(null);
+    setShowLabelPrintConfirmEffect(false);
+    setLabelPrintConfirmEffectKey(0);
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
+    setRegistrationReasonConfirmed(false);
+    setDetailInfoTab('CLASSIFICATION');
+    setHistoryEvents([]);
+    setHistoryLoaded(false);
+    setHistoryLoading(false);
+    setHistoryError(null);
     setClassificationEditMode(false);
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
+    setClassificationEditReasonModalOpen(false);
     setRevertTargetEventId(null);
     setRevertReasonCode('OTHER');
     setRevertReasonText('');
     setPendingCommercialStatus(null);
     setCommercialReasonText('');
+    setClassificationSelectedPhoto(null);
+    if (classificationPhotoInputRef.current) {
+      classificationPhotoInputRef.current.value = '';
+    }
   }, [sampleId]);
 
-  const printAttempts = useMemo(() => {
-    if (!detail) {
-      return [] as number[];
-    }
-
-    return detail.events
-      .filter((event) => event.eventType === 'QR_PRINT_REQUESTED')
-      .map((event) => {
-        if (!isRecord(event.payload)) {
-          return null;
-        }
-        if (readPrintAction(event.payload) !== 'PRINT') {
-          return null;
-        }
-        return readAttemptNumber(event.payload);
-      })
-      .filter((value): value is number => value !== null);
-  }, [detail]);
-
-  const reprintAttempts = useMemo(() => {
-    if (!detail) {
-      return [] as number[];
-    }
-
-    return detail.events
-      .filter((event) => event.eventType === 'QR_REPRINT_REQUESTED')
-      .map((event) => {
-        if (!isRecord(event.payload)) {
-          return null;
-        }
-        if (readPrintAction(event.payload) !== 'REPRINT') {
-          return null;
-        }
-        return readAttemptNumber(event.payload);
-      })
-      .filter((value): value is number => value !== null);
-  }, [detail]);
-
-  const nextAttempt = (printAttempts.length ? Math.max(...printAttempts) : 0) + 1;
-  const activeAttempt = printAttempts.length ? Math.max(...printAttempts) : 1;
-  const nextReprintAttempt = (reprintAttempts.length ? Math.max(...reprintAttempts) : 0) + 1;
-  const activeReprintAttempt = useMemo(
-    () => (detail ? getPendingAttemptByAction(detail.events, 'REPRINT') : null),
-    [detail]
-  );
-
-  const printStats = useMemo(() => {
-    if (!detail) {
-      return {
-        totalSuccess: 0,
-        initialSuccess: 0,
-        reprintSuccess: 0,
-        failures: 0,
-        lastSuccess: null as { occurredAt: string; actor: string; action: 'PRINT' | 'REPRINT'; attempt: number | null } | null
-      };
-    }
-
-    let initialSuccess = 0;
-    let reprintSuccess = 0;
-    let failures = 0;
-    let lastSuccess: { occurredAt: string; actor: string; action: 'PRINT' | 'REPRINT'; attempt: number | null } | null = null;
-
-    for (const event of detail.events) {
-      if (!isRecord(event.payload)) {
-        continue;
-      }
-
-      const action = readPrintAction(event.payload);
-      const attempt = readAttemptNumber(event.payload);
-      const actor = event.actorType === 'SYSTEM' ? 'SYSTEM' : event.actorUserId ?? 'Usuario desconhecido';
-
-      if (event.eventType === 'QR_PRINTED' && action) {
-        if (action === 'PRINT') {
-          initialSuccess += 1;
-        } else {
-          reprintSuccess += 1;
-        }
-
-        if (!lastSuccess || new Date(event.occurredAt).getTime() >= new Date(lastSuccess.occurredAt).getTime()) {
-          lastSuccess = {
-            occurredAt: event.occurredAt,
-            actor,
-            action,
-            attempt
-          };
-        }
-      }
-
-      if (event.eventType === 'QR_PRINT_FAILED' && action) {
-        failures += 1;
-      }
-    }
-
-    return {
-      totalSuccess: initialSuccess + reprintSuccess,
-      initialSuccess,
-      reprintSuccess,
-      failures,
-      lastSuccess
-    };
-  }, [detail]);
-
-  const classificationCompletionAuto = useMemo(() => {
-    const total = CLASSIFICATION_PROGRESS_FIELDS.length;
-    if (total === 0) {
-      return 0;
-    }
-
-    const filled = CLASSIFICATION_PROGRESS_FIELDS.filter((key) => classificationForm[key].trim().length > 0).length;
-    return Math.round((filled / total) * 100);
-  }, [classificationForm]);
-
-  const latestClassificationData = useMemo(() => {
-    if (!detail || !isRecord(detail.sample.latestClassification.data)) {
+  const classificationSelectedPhotoPreviewUrl = useMemo(() => {
+    if (!classificationSelectedPhoto) {
       return null;
     }
-    return detail.sample.latestClassification.data;
-  }, [detail]);
+
+    return URL.createObjectURL(classificationSelectedPhoto);
+  }, [classificationSelectedPhoto]);
 
   const arrivalAttachments = useMemo(
     () => detail?.attachments.filter((attachment) => attachment.kind === 'ARRIVAL_PHOTO') ?? [],
@@ -896,23 +937,117 @@ export default function SampleDetailPage() {
     () => detail?.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null,
     [detail]
   );
-  const historyRows = useMemo(() => buildHistoryRows(detail?.events ?? []), [detail]);
-  const canManageCommercialStatus = detail?.sample.status === 'CLASSIFIED';
-  const availableCommercialActions = useMemo(() => {
+  const historyRows = useMemo(() => buildHistoryRows(historyEvents), [historyEvents]);
+  const selectedCommercialStatus = pendingCommercialStatus ?? detail?.sample.commercialStatus ?? 'OPEN';
+  const sampleHeaderSummary = useMemo(() => {
     if (!detail) {
-      return [] as Array<{ value: CommercialStatus; label: string }>;
+      return 'Sem dados de registro';
     }
 
-    if (detail.sample.commercialStatus === 'OPEN') {
-      return COMMERCIAL_STATUS_ACTIONS.filter((action) => action.value === 'SOLD' || action.value === 'LOST');
+    const items: string[] = [];
+    const owner = detail.sample.declared.owner?.trim();
+    const harvest = detail.sample.declared.harvest?.trim();
+    const sacks = detail.sample.declared.sacks;
+
+    if (owner) {
+      items.push(owner);
+    }
+    if (harvest) {
+      items.push(`Safra ${harvest}`);
+    }
+    if (typeof sacks === 'number') {
+      items.push(`${sacks} sacas`);
     }
 
-    return COMMERCIAL_STATUS_ACTIONS.filter((action) => action.value === 'OPEN');
+    return items.length > 0 ? items.join(' · ') : 'Sem dados de registro';
   }, [detail]);
-  const selectedCommercialAction = useMemo(
-    () => availableCommercialActions.find((action) => action.value === pendingCommercialStatus) ?? null,
-    [availableCommercialActions, pendingCommercialStatus]
+  const canQuickPrint = detail
+    ? detail.sample.status === 'REGISTRATION_CONFIRMED' || canRequestReprintStatus(detail.sample.status)
+    : false;
+  const canQuickReport = Boolean(detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment);
+  const labelModalPrintAction =
+    activeLabelPrintAttempt?.printAction ?? (detail ? getLabelPrintActionForStatus(detail.sample.status) : null);
+  const canCloseLabelModal = labelModalStep === 'review';
+  const showQrPrintPendingBadge = Boolean(detail && isPrintPendingStatus(detail.sample.status));
+  const classificationShowsWorkspace = Boolean(
+    detail &&
+      (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
   );
+  const classificationPhotoEditingAllowed = detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS';
+  const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
+  const classificationRecordedDateLabel = classificationForm.dataClassificacao
+    ? formatDateInputLabel(classificationForm.dataClassificacao)
+    : detail?.sample.status === 'CLASSIFIED'
+      ? 'Data nao registrada'
+      : 'Registrada automaticamente na conclusao';
+  const classificationPhotoStatusLabel = classificationPhotoUploading
+    ? 'Salvando foto...'
+    : classificationSelectedPhoto
+      ? classificationSelectedPhoto.name
+      : classificationAttachment
+        ? `Foto ativa: ${classificationAttachment.id}`
+        : classificationPhotoEditingAllowed
+          ? 'Foto obrigatoria para concluir'
+          : 'Foto nao localizada';
+  const classificationCanComplete = !classificationPhotoUploading && !classificationSelectedPhoto && Boolean(classificationAttachment);
+  const classificationEditHighlightActive = classificationEditMode;
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      document.body.classList.remove('sample-detail-print-mode');
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      document.body.classList.remove('sample-detail-print-mode');
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (labelPrintConfirmEffectTimeoutRef.current !== null) {
+        window.clearTimeout(labelPrintConfirmEffectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!labelModalOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !canCloseLabelModal) {
+        return;
+      }
+
+      event.preventDefault();
+      setLabelModalOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    window.setTimeout(() => {
+      if (canCloseLabelModal) {
+        labelModalCloseButtonRef.current?.focus();
+        return;
+      }
+
+      labelModalPrimaryActionRef.current?.focus();
+    }, 0);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      window.setTimeout(() => {
+        lastQuickPrintButtonRef.current?.focus();
+      }, 0);
+    };
+  }, [canCloseLabelModal, labelModalOpen]);
 
   useEffect(() => {
     if (!detail || !focusClassification || !classificationSectionRef.current) {
@@ -929,16 +1064,26 @@ export default function SampleDetailPage() {
     });
   }, [detail, focusClassification]);
 
+  useEffect(() => {
+    if (!classificationSelectedPhotoPreviewUrl) {
+      return;
+    }
+
+    return () => {
+      URL.revokeObjectURL(classificationSelectedPhotoPreviewUrl);
+    };
+  }, [classificationSelectedPhotoPreviewUrl]);
+
   if (loading || !session) {
     return null;
   }
 
   if (!sampleId) {
-    return (
-      <AppShell session={session} onLogout={logout}>
-        <p className="error">sampleId invalido na rota.</p>
-      </AppShell>
-    );
+      return (
+        <AppShell session={session} onLogout={logout}>
+          <p className="error">sampleId invalido na rota.</p>
+        </AppShell>
+      );
   }
 
   async function handleUploadPhoto() {
@@ -955,7 +1100,7 @@ export default function SampleDetailPage() {
       await uploadLabelPhoto(session, sampleId, selectedPhoto, true);
       setSelectedPhoto(null);
       setMessage('Foto enviada com sucesso.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -979,9 +1124,9 @@ export default function SampleDetailPage() {
 
     try {
       await uploadClassificationPhoto(session, sampleId, classificationSelectedPhoto, true);
-      setClassificationSelectedPhoto(null);
+      clearClassificationSelectedPhoto();
       setMessage('Foto da classificacao salva com sucesso.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1008,6 +1153,30 @@ export default function SampleDetailPage() {
     setPendingExportType(exportType);
     setExportDestination('');
     setExportConfirmationOpen(true);
+  }
+
+  function handleOpenExportTypeSelector() {
+    if (!detail) {
+      return;
+    }
+
+    if (detail.sample.status !== 'CLASSIFIED') {
+      setError('A exportacao de laudo so e permitida para amostras classificadas.');
+      return;
+    }
+
+    setError(null);
+    setMessage(null);
+    setExportTypeSelectorOpen(true);
+  }
+
+  function handleCloseExportTypeSelector() {
+    setExportTypeSelectorOpen(false);
+  }
+
+  function handleSelectExportTypeFromModal(exportType: SampleExportType) {
+    setExportTypeSelectorOpen(false);
+    handleOpenExportConfirmation(exportType);
   }
 
   function handleCloseExportConfirmation() {
@@ -1055,7 +1224,6 @@ export default function SampleDetailPage() {
       setExportConfirmationOpen(false);
       setPendingExportType(null);
       setExportDestination('');
-      await loadDetail();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1102,7 +1270,7 @@ export default function SampleDetailPage() {
         declared: parsed.data
       });
       setMessage('Registro confirmado com sucesso.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1114,187 +1282,313 @@ export default function SampleDetailPage() {
     }
   }
 
-  async function handleRequestPrint() {
+  async function triggerBrowserLabelPrint() {
+    if (typeof window.print !== 'function') {
+      throw new Error('Navegador sem suporte a impressao.');
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+
+    document.body.classList.add('sample-detail-print-mode');
+    try {
+      window.print();
+    } catch (cause) {
+      document.body.classList.remove('sample-detail-print-mode');
+      throw cause;
+    }
+  }
+
+  function clearLabelPrintConfirmEffect() {
+    if (labelPrintConfirmEffectTimeoutRef.current !== null) {
+      window.clearTimeout(labelPrintConfirmEffectTimeoutRef.current);
+      labelPrintConfirmEffectTimeoutRef.current = null;
+    }
+
+    setShowLabelPrintConfirmEffect(false);
+  }
+
+  function triggerLabelPrintConfirmEffect() {
+    setLabelPrintConfirmEffectKey((current) => current + 1);
+    setShowLabelPrintConfirmEffect(true);
+
+    if (labelPrintConfirmEffectTimeoutRef.current !== null) {
+      window.clearTimeout(labelPrintConfirmEffectTimeoutRef.current);
+    }
+
+    labelPrintConfirmEffectTimeoutRef.current = window.setTimeout(() => {
+      setShowLabelPrintConfirmEffect(false);
+      labelPrintConfirmEffectTimeoutRef.current = null;
+    }, 980);
+  }
+
+  function resetLabelModal() {
+    clearLabelPrintConfirmEffect();
+    setLabelModalOpen(false);
+    setLabelModalStep('review');
+    setLabelModalSubmitting(false);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
+    setLabelPrintFailureReason('');
+    setLabelLastFailureReason(null);
+    setActiveLabelPrintAttempt(null);
+  }
+
+  function closeLabelModal() {
+    if (!canCloseLabelModal) {
+      return;
+    }
+
+    resetLabelModal();
+  }
+
+  function openLabelReviewModal(trigger?: HTMLButtonElement) {
+    if (!detail) {
+      return;
+    }
+
+    const printAction = getLabelPrintActionForStatus(detail.sample.status);
+    if (!printAction) {
+      setError('A impressao ainda nao esta disponivel para este status.');
+      return;
+    }
+
+    if (trigger) {
+      lastQuickPrintButtonRef.current = trigger;
+    }
+
+    clearLabelPrintConfirmEffect();
+    setError(null);
+    setMessage(null);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
+    setLabelPrintFailureReason('');
+    setLabelLastFailureReason(null);
+    setActiveLabelPrintAttempt(null);
+    setLabelModalStep('review');
+    setLabelModalOpen(true);
+  }
+
+  async function registerLabelPrintFailure(
+    attempt: ActiveLabelPrintAttempt,
+    reasonText: string,
+    moveToFailureActions = true
+  ) {
+    if (!session) {
+      throw new Error('Sessao invalida para registrar falha de impressao.');
+    }
+
+    await recordQrPrintFailed(session, sampleId, {
+      printAction: attempt.printAction,
+      attemptNumber: attempt.attemptNumber,
+      printerId: attempt.printerId,
+      error: reasonText
+    });
+
+    await syncDetailState();
+
+    if (moveToFailureActions) {
+      setLabelModalStep('failure_actions');
+      setLabelModalMessage('Falha registrada. Voce pode sair ou tentar novamente.');
+      setLabelModalError(null);
+    }
+  }
+
+  async function handleAutomaticLabelPrint(attempt: ActiveLabelPrintAttempt) {
+    try {
+      await triggerBrowserLabelPrint();
+    } catch (cause) {
+      const technicalMessage = cause instanceof Error && cause.message ? `${TECHNICAL_PRINT_ERROR} ${cause.message}` : TECHNICAL_PRINT_ERROR;
+      await registerLabelPrintFailure(attempt, technicalMessage);
+    }
+  }
+
+  async function handleSubmitLabelReview() {
     if (!session || !detail) {
       return;
     }
 
-    setPrintSubmitting(true);
+    const printAction = getLabelPrintActionForStatus(detail.sample.status);
+    if (!printAction) {
+      setLabelModalError('A impressao ainda nao esta disponivel para este status.');
+      return;
+    }
+
+    setLabelModalSubmitting(true);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
     setError(null);
     setMessage(null);
 
     try {
-      await requestQrPrint(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        attemptNumber: nextAttempt,
-        printerId: printerId.trim() || null
+      const normalizedPrinterId = printerId.trim() || null;
+      const requested =
+        printAction === 'PRINT'
+          ? await requestQrPrint(session, sampleId, {
+              expectedVersion: detail.sample.version,
+              printerId: normalizedPrinterId
+            })
+          : await requestQrReprint(session, sampleId, {
+              printerId: normalizedPrinterId,
+              reasonText: null
+            });
+
+      const nextPrintAttempt = buildActiveLabelPrintAttempt(requested.event, {
+        fallbackAction: printAction,
+        fallbackPrinterId: normalizedPrinterId,
+        expectedVersion: printAction === 'PRINT' ? detail.sample.version + 1 : detail.sample.version
       });
-      setMessage(`Solicitacao de impressao enviada (tentativa ${nextAttempt}).`);
-      await loadDetail();
+
+      if (!nextPrintAttempt) {
+        throw new Error(
+          printAction === 'PRINT'
+            ? 'Nao foi possivel identificar a tentativa ativa de impressao.'
+            : 'Nao foi possivel identificar a tentativa ativa de reimpressao.'
+        );
+      }
+
+      flushSync(() => {
+        setActiveLabelPrintAttempt(nextPrintAttempt);
+        setLabelModalStep('awaiting_print_result');
+        setLabelModalMessage(
+          printAction === 'PRINT'
+            ? `Impressao enviada (tentativa ${nextPrintAttempt.attemptNumber}). Confirme o resultado abaixo.`
+            : `Reimpressao enviada (tentativa ${nextPrintAttempt.attemptNumber}). Confirme o resultado abaixo.`
+        );
+      });
+
+      void refreshDetail();
+      await handleAutomaticLabelPrint(nextPrintAttempt);
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setLabelModalError(cause.message);
       } else {
-        setError('Falha ao solicitar impressao');
+        setLabelModalError(extractCauseMessage(cause));
       }
     } finally {
-      setPrintSubmitting(false);
+      setLabelModalSubmitting(false);
     }
   }
 
-  async function handleRequestReprint() {
-    if (!session || !detail) {
+  async function handleConfirmLabelPrint() {
+    if (!session || !activeLabelPrintAttempt) {
       return;
     }
 
-    setReprintSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await requestQrReprint(session, sampleId, {
-        attemptNumber: nextReprintAttempt,
-        printerId: printerId.trim() || null,
-        reasonText: null
-      });
-      setMessage(`Solicitacao de reimpressao enviada (tentativa ${nextReprintAttempt}).`);
-      await loadDetail();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao solicitar reimpressao');
-      }
-    } finally {
-      setReprintSubmitting(false);
-    }
-  }
-
-  async function handlePrintFailed() {
-    if (!session || !detail) {
-      return;
-    }
-
-    const parsed = qrFailSchema.safeParse({ error: printErrorText });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Informe o motivo da falha');
-      return;
-    }
-
-    setPrintSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await recordQrPrintFailed(session, sampleId, {
-        attemptNumber: activeAttempt,
-        printerId: printerId.trim() || null,
-        error: parsed.data.error
-      });
-      setMessage(`Falha registrada para tentativa ${activeAttempt}.`);
-      setPrintErrorText('');
-      await loadDetail();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao registrar erro de impressao');
-      }
-    } finally {
-      setPrintSubmitting(false);
-    }
-  }
-
-  async function handleMarkPrinted() {
-    if (!session || !detail) {
-      return;
-    }
-
-    setPrintSubmitting(true);
-    setError(null);
-    setMessage(null);
+    setLabelModalSubmitting(true);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
 
     try {
       await recordQrPrinted(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        attemptNumber: activeAttempt,
-        printerId: printerId.trim() || null
+        expectedVersion: activeLabelPrintAttempt.expectedVersion,
+        printAction: activeLabelPrintAttempt.printAction,
+        attemptNumber: activeLabelPrintAttempt.attemptNumber,
+        printerId: activeLabelPrintAttempt.printerId
       });
-      setMessage(`Amostra marcada como QR impresso (tentativa ${activeAttempt}).`);
-      await loadDetail();
+
+      await syncDetailState();
+      triggerLabelPrintConfirmEffect();
+      setLabelModalStep('completed');
+      setLabelModalMessage(activeLabelPrintAttempt.printAction === 'REPRINT' ? 'Reimpressao confirmada.' : 'Impressao confirmada.');
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setLabelModalError(cause.message);
       } else {
-        setError('Falha ao marcar impressao');
+        setLabelModalError(
+          activeLabelPrintAttempt.printAction === 'REPRINT' ? 'Falha ao confirmar reimpressao' : 'Falha ao confirmar impressao'
+        );
       }
     } finally {
-      setPrintSubmitting(false);
+      setLabelModalSubmitting(false);
     }
   }
 
-  async function handleReprintFailed() {
-    if (!session || !detail || activeReprintAttempt === null) {
+  function handleOpenLabelFailureReason() {
+    setLabelModalError(null);
+    setLabelModalMessage(null);
+    setLabelPrintFailureReason('');
+    setLabelModalStep('failure_reason');
+  }
+
+  async function handleRegisterLabelFailure() {
+    if (!activeLabelPrintAttempt) {
       return;
     }
 
-    const parsed = qrFailSchema.safeParse({ error: reprintErrorText });
+    const parsed = qrFailSchema.safeParse({ error: labelPrintFailureReason });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Informe o motivo da falha');
+      setLabelModalError(parsed.error.issues[0]?.message ?? 'Descreva a falha de impressao');
       return;
     }
 
-    setReprintSubmitting(true);
-    setError(null);
-    setMessage(null);
+    setLabelModalSubmitting(true);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
 
     try {
-      await recordQrPrintFailed(session, sampleId, {
-        attemptNumber: activeReprintAttempt,
-        printerId: printerId.trim() || null,
-        error: parsed.data.error,
-        printAction: 'REPRINT'
-      });
-      setMessage(`Falha registrada para reimpressao ${activeReprintAttempt}.`);
-      setReprintErrorText('');
-      await loadDetail();
+      await registerLabelPrintFailure(activeLabelPrintAttempt, parsed.data.error);
+      setLabelLastFailureReason(parsed.data.error);
+      setLabelPrintFailureReason('');
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setLabelModalError(cause.message);
       } else {
-        setError('Falha ao registrar erro de reimpressao');
+        setLabelModalError(
+          activeLabelPrintAttempt.printAction === 'REPRINT'
+            ? 'Falha ao registrar erro de reimpressao'
+            : 'Falha ao registrar erro de impressao'
+        );
       }
     } finally {
-      setReprintSubmitting(false);
+      setLabelModalSubmitting(false);
     }
   }
 
-  async function handleMarkReprintPrinted() {
-    if (!session || !detail || activeReprintAttempt === null) {
+  async function handleRetryLabelPrint() {
+    if (!session || !detail || !activeLabelPrintAttempt) {
       return;
     }
 
-    setReprintSubmitting(true);
-    setError(null);
-    setMessage(null);
+    setLabelModalSubmitting(true);
+    setLabelModalError(null);
+    setLabelModalMessage(null);
 
     try {
-      await recordQrPrinted(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        attemptNumber: activeReprintAttempt,
-        printerId: printerId.trim() || null,
-        printAction: 'REPRINT'
+      const requested = await requestQrReprint(session, sampleId, {
+        printerId: activeLabelPrintAttempt.printerId,
+        reasonText: labelLastFailureReason
       });
-      setMessage(`Reimpressao marcada como impressa (tentativa ${activeReprintAttempt}).`);
-      await loadDetail();
+
+      const nextPrintAttempt = buildActiveLabelPrintAttempt(requested.event, {
+        fallbackAction: 'REPRINT',
+        fallbackPrinterId: activeLabelPrintAttempt.printerId,
+        expectedVersion: detail.sample.version
+      });
+
+      if (!nextPrintAttempt) {
+        throw new Error('Tentativa de reimpressao invalida.');
+      }
+
+      flushSync(() => {
+        setActiveLabelPrintAttempt(nextPrintAttempt);
+        setLabelModalStep('awaiting_print_result');
+        setLabelModalMessage(`Reimpressao enviada (tentativa ${nextPrintAttempt.attemptNumber}). Confirme o resultado abaixo.`);
+      });
+
+      void refreshDetail();
+      await handleAutomaticLabelPrint(nextPrintAttempt);
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setLabelModalError(cause.message);
       } else {
-        setError('Falha ao marcar reimpressao');
+        setLabelModalError(extractCauseMessage(cause));
       }
     } finally {
-      setReprintSubmitting(false);
+      setLabelModalSubmitting(false);
     }
   }
 
@@ -1331,7 +1625,7 @@ export default function SampleDetailPage() {
       setMessage('Amostra invalidada com sucesso.');
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1343,8 +1637,13 @@ export default function SampleDetailPage() {
     }
   }
 
-  async function handleUpdateCommercialStatus() {
-    if (!session || !detail || !pendingCommercialStatus) {
+  async function handleUpdateCommercialStatus(targetStatusInput?: CommercialStatus) {
+    if (!session || !detail) {
+      return;
+    }
+
+    const targetStatus = targetStatusInput ?? pendingCommercialStatus;
+    if (!targetStatus) {
       return;
     }
 
@@ -1358,11 +1657,13 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const normalizedReason = commercialReasonText.trim();
-    if (!normalizedReason) {
-      setError('Informe o motivo da atualizacao do status comercial.');
+    if (targetStatus === detail.sample.commercialStatus) {
+      setError('Selecione um novo status de mercado para atualizar.');
       return;
     }
+
+    const normalizedReason =
+      commercialReasonText.trim() || `Atualizacao rapida para status de mercado: ${COMMERCIAL_STATUS_LABELS[targetStatus]}.`;
 
     setCommercialUpdating(true);
     setError(null);
@@ -1371,13 +1672,13 @@ export default function SampleDetailPage() {
     try {
       await updateCommercialStatus(session, sampleId, {
         expectedVersion: detail.sample.version,
-        toCommercialStatus: pendingCommercialStatus,
+        toCommercialStatus: targetStatus,
         reasonText: normalizedReason
       });
       setPendingCommercialStatus(null);
       setCommercialReasonText('');
-      setMessage('Status comercial atualizado com sucesso.');
-      await loadDetail();
+      setMessage(`Status de mercado atualizado para ${COMMERCIAL_STATUS_LABELS[targetStatus]}.`);
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1405,7 +1706,7 @@ export default function SampleDetailPage() {
         notes: null
       });
       setMessage('Classificacao iniciada com sucesso.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1429,7 +1730,6 @@ export default function SampleDetailPage() {
     }
 
     const classificationData = buildClassificationDataPayload(classificationForm);
-    const completionPercent = readCompletionPercent(classificationForm.completionPercent);
 
     setClassificationSaving(true);
     setError(null);
@@ -1439,19 +1739,14 @@ export default function SampleDetailPage() {
       const partialPayload: {
         expectedVersion: number;
         snapshotPartial: ClassificationDataPayload;
-        completionPercent?: number;
       } = {
         expectedVersion: detail.sample.version,
         snapshotPartial: { ...classificationData }
       };
 
-      if (completionPercent !== null) {
-        partialPayload.completionPercent = completionPercent;
-      }
-
       await saveClassificationPartial(session, sampleId, partialPayload);
       setMessage('Rascunho de classificacao salvo.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1484,7 +1779,9 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm);
+    const classificationData = buildClassificationDataPayload(classificationForm, {
+      includeAutomaticDate: true
+    });
     const technical: {
       defectsCount?: number;
       moisture?: number;
@@ -1517,7 +1814,7 @@ export default function SampleDetailPage() {
         classifierName: classificationData.classificador
       });
       setMessage('Classificacao concluida com sucesso.');
-      await loadDetail();
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1540,6 +1837,7 @@ export default function SampleDetailPage() {
     setOriginLot(detail.sample.declared.originLot ?? '');
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
+    setRegistrationReasonConfirmed(false);
     setRegistrationEditMode(true);
     setError(null);
     setMessage(null);
@@ -1557,7 +1855,24 @@ export default function SampleDetailPage() {
     setOriginLot(detail.sample.declared.originLot ?? '');
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
+    setRegistrationReasonConfirmed(false);
     setRegistrationEditMode(false);
+  }
+
+  function handleConfirmRegistrationEditReason() {
+    const parsedReason = updateReasonSchema.safeParse({
+      reasonCode: registrationEditReasonCode,
+      reasonText: registrationEditReasonText
+    });
+
+    if (!parsedReason.success) {
+      setRegistrationReasonConfirmed(false);
+      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
+      return;
+    }
+
+    setRegistrationReasonConfirmed(true);
+    setError(null);
   }
 
   async function handleSaveRegistrationUpdate() {
@@ -1567,6 +1882,11 @@ export default function SampleDetailPage() {
 
     if (!canEditRegistrationStatus(detail.sample.status)) {
       setError('Status atual nao permite edicao de registro.');
+      return;
+    }
+
+    if (!registrationReasonConfirmed) {
+      setError('Confirme o motivo da edicao antes de salvar.');
       return;
     }
 
@@ -1607,8 +1927,9 @@ export default function SampleDetailPage() {
       setRegistrationEditMode(false);
       setRegistrationEditReasonCode('OTHER');
       setRegistrationEditReasonText('');
+      setRegistrationReasonConfirmed(false);
       setMessage('Edicao de registro salva com sucesso.');
-      await loadDetail();
+      await syncDetailState({ refreshHistory: true });
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1628,6 +1949,7 @@ export default function SampleDetailPage() {
     setClassificationForm(buildClassificationFormState(detail, session.user));
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
+    setClassificationEditReasonModalOpen(false);
     setClassificationEditMode(true);
     setError(null);
     setMessage(null);
@@ -1639,10 +1961,27 @@ export default function SampleDetailPage() {
     }
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
+    setClassificationEditReasonModalOpen(false);
     setClassificationEditMode(false);
   }
 
-  async function handleSaveClassificationUpdate() {
+  function handleRequestClassificationUpdate() {
+    if (!detail || detail.sample.status === 'INVALIDATED') {
+      return;
+    }
+
+    const validationError = validateClassificationForm(classificationForm);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setClassificationEditReasonModalOpen(true);
+    setError(null);
+    setMessage(null);
+  }
+
+  async function handleConfirmClassificationUpdate() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') {
       return;
     }
@@ -1698,11 +2037,12 @@ export default function SampleDetailPage() {
         reasonText: parsedReason.data.reasonText
       });
 
+      setClassificationEditReasonModalOpen(false);
       setClassificationEditMode(false);
       setClassificationEditReasonCode('OTHER');
       setClassificationEditReasonText('');
       setMessage('Edicao de classificacao salva com sucesso.');
-      await loadDetail();
+      await syncDetailState({ refreshHistory: true });
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1712,6 +2052,14 @@ export default function SampleDetailPage() {
     } finally {
       setClassificationUpdating(false);
     }
+  }
+
+  function closeClassificationEditReasonModal() {
+    if (classificationUpdating) {
+      return;
+    }
+
+    setClassificationEditReasonModalOpen(false);
   }
 
   async function handleConfirmRevertUpdate() {
@@ -1744,7 +2092,7 @@ export default function SampleDetailPage() {
       setRevertReasonCode('OTHER');
       setRevertReasonText('');
       setMessage('Edicao revertida com sucesso.');
-      await loadDetail();
+      await syncDetailState({ refreshHistory: true });
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1763,12 +2111,87 @@ export default function SampleDetailPage() {
     }));
   }
 
+  function getClassificationFieldState(value: string, className?: string) {
+    const isEmpty = classificationFieldsReadOnly && !value.trim();
+    const stateClass = classificationFieldsReadOnly ? (isEmpty ? 'is-empty' : 'is-filled') : '';
+    return {
+      fieldClassName: ['sample-classification-field', className, stateClass]
+        .filter(Boolean)
+        .join(' '),
+      controlClassName: ['sample-classification-control', stateClass].filter(Boolean).join(' '),
+      placeholder: classificationFieldsReadOnly ? '-' : undefined
+    };
+  }
+
+  function renderClassificationInputField(
+    key: keyof ClassificationFormState,
+    label: string,
+    options: {
+      className?: string;
+      inputMode?: 'decimal' | 'numeric' | 'text';
+      type?: 'text';
+    } = {}
+  ) {
+    const fieldState = getClassificationFieldState(classificationForm[key], options.className);
+
+    return (
+      <label key={String(key)} className={fieldState.fieldClassName}>
+        {label}
+        <input
+          type={options.type ?? 'text'}
+          inputMode={options.inputMode}
+          value={classificationForm[key]}
+          onChange={(event) => updateClassificationField(key, event.target.value)}
+          readOnly={classificationFieldsReadOnly}
+          placeholder={fieldState.placeholder}
+          className={fieldState.controlClassName}
+        />
+      </label>
+    );
+  }
+
+  function renderClassificationTextareaField(
+    key: keyof ClassificationFormState,
+    label: string,
+    options: {
+      className?: string;
+      rows?: number;
+    } = {}
+  ) {
+    const fieldState = getClassificationFieldState(classificationForm[key], options.className);
+
+    return (
+      <label className={fieldState.fieldClassName}>
+        {label}
+        <textarea
+          rows={options.rows ?? 2}
+          value={classificationForm[key]}
+          onChange={(event) => updateClassificationField(key, event.target.value)}
+          readOnly={classificationFieldsReadOnly}
+          placeholder={fieldState.placeholder}
+          className={fieldState.controlClassName}
+        />
+      </label>
+    );
+  }
+
+  function clearClassificationSelectedPhoto() {
+    setClassificationSelectedPhoto(null);
+    if (classificationPhotoInputRef.current) {
+      classificationPhotoInputRef.current.value = '';
+    }
+  }
+
   return (
     <AppShell session={session} onLogout={logout}>
       <div className="row" style={{ marginBottom: '1rem' }}>
-        <Link href="/dashboard">
-          <button className="secondary" type="button">
-            Voltar ao dashboard
+        <Link href="/samples">
+          <button className="secondary sample-detail-back-button" type="button">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M19 12H5" />
+              <path d="m11 6-6 6 6 6" />
+            </svg>
+            <span>Registros</span>
           </button>
         </Link>
       </div>
@@ -1778,93 +2201,236 @@ export default function SampleDetailPage() {
       {!loadingDetail && detail ? (
         <div className="stack">
           <section className="panel stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <div>
-                <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
-                <p style={{ margin: '0.3rem 0 0', color: 'var(--muted)' }}>Sample ID: {detail.sample.id}</p>
+            <div className="sample-detail-hero-top">
+              <div className="sample-detail-hero-main">
+                <span className="sample-detail-hero-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9.5Z" />
+                    <path d="M8 21v-5.5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1V21" />
+                    <path d="M9 10h.01" />
+                    <path d="M15 10h.01" />
+                  </svg>
+                </span>
+
+                <div className="sample-detail-hero-text">
+                  <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
+                  <p style={{ margin: 0 }}>{sampleHeaderSummary}</p>
+                </div>
               </div>
-              <div className="status-badge-group">
-                <StatusBadge status={detail.sample.status} />
-                <CommercialStatusBadge status={detail.sample.commercialStatus} />
+
+              <div className="sample-detail-market-control">
+                <label className="sample-detail-market-field">
+                  <span>Status de mercado</span>
+                  <select
+                    value={selectedCommercialStatus}
+                    onChange={(event) => {
+                      const nextStatus = event.target.value as CommercialStatus;
+                      setPendingCommercialStatus(nextStatus);
+                      if (detail.sample.status === 'CLASSIFIED' && nextStatus !== detail.sample.commercialStatus) {
+                        void handleUpdateCommercialStatus(nextStatus);
+                      }
+                    }}
+                    disabled={commercialUpdating || detail.sample.status !== 'CLASSIFIED'}
+                  >
+                    {COMMERCIAL_STATUS_SELECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {commercialUpdating ? <span className="sample-detail-market-saving">Salvando...</span> : null}
               </div>
             </div>
 
             {error ? <p className="error">{error}</p> : null}
             {message ? <p className="success">{message}</p> : null}
+            {detail.sample.status !== 'CLASSIFIED' ? (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>
+                O status de mercado pode ser atualizado quando a amostra estiver classificada.
+              </p>
+            ) : null}
+
           </section>
 
-          <section className="panel stack">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0 }}>Status comercial</h3>
-              <CommercialStatusBadge status={detail.sample.commercialStatus} />
-            </div>
+          <section className="panel sample-detail-main-layout">
+            <article className="stack sample-detail-main-info">
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3 style={{ margin: 0 }}>Informacoes principais da amostra</h3>
+                <div className="sample-detail-edit-tools">
+                  <div className="sample-detail-edit-trigger-slot">
+                    {canEditRegistrationStatus(detail.sample.status) && !registrationEditMode ? (
+                      <button
+                        type="button"
+                        className="secondary sample-detail-icon-action"
+                        onClick={startRegistrationEdit}
+                        aria-label="Editar informacoes principais"
+                        title="Editar informacoes principais"
+                      >
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span className="sample-detail-icon-action sample-detail-icon-placeholder" aria-hidden="true" />
+                    )}
+                  </div>
 
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              {detail.sample.status === 'INVALIDATED'
-                ? 'Amostra invalidada: o status comercial permanece somente para historico.'
-                : canManageCommercialStatus
-                  ? 'Atualize a situacao comercial da amostra com justificativa.'
-                  : 'O status comercial fica disponivel somente apos a classificacao ser concluida.'}
-            </p>
-
-            {detail.sample.status !== 'INVALIDATED' && canManageCommercialStatus ? (
-              <form
-                className="stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleUpdateCommercialStatus();
-                }}
-              >
-                <div className="row">
-                  {availableCommercialActions.map((action) => (
+                  <div className={`sample-detail-edit-reason-row${registrationEditMode ? ' is-active' : ''}`}>
+                    <input
+                      className={`sample-detail-reason-input${registrationReasonConfirmed ? ' is-confirmed' : ''}`}
+                      value={registrationEditReasonText}
+                      onChange={(event) => {
+                        setRegistrationEditReasonText(event.target.value);
+                        if (registrationReasonConfirmed) {
+                          setRegistrationReasonConfirmed(false);
+                        }
+                      }}
+                      placeholder="Motivo da edicao"
+                      disabled={!registrationEditMode || registrationUpdating}
+                    />
                     <button
-                      key={action.value}
                       type="button"
-                      className={pendingCommercialStatus === action.value ? '' : 'secondary'}
-                      onClick={() => setPendingCommercialStatus(action.value)}
-                      disabled={commercialUpdating}
+                      className="sample-detail-icon-action"
+                      onClick={handleConfirmRegistrationEditReason}
+                      disabled={!registrationEditMode || registrationUpdating || registrationEditReasonText.trim().length === 0}
+                      aria-label="Confirmar motivo da edicao"
+                      title="Confirmar motivo da edicao"
                     >
-                      {action.label}
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="m5 12 4.5 4.5L19 7" />
+                      </svg>
                     </button>
-                  ))}
+                  </div>
                 </div>
+              </div>
 
-                <label>
-                  Motivo da atualizacao
-                  <textarea
-                    rows={3}
-                    value={commercialReasonText}
-                    onChange={(event) => setCommercialReasonText(event.target.value)}
-                    placeholder="Descreva o motivo da alteracao comercial"
-                    disabled={commercialUpdating}
-                  />
-                </label>
-
-                <div className="row">
-                  <button
-                    type="submit"
-                    disabled={commercialUpdating || !pendingCommercialStatus || commercialReasonText.trim().length === 0}
-                  >
-                    {commercialUpdating
-                      ? 'Atualizando status comercial...'
-                      : selectedCommercialAction
-                        ? selectedCommercialAction.label
-                        : 'Atualizar status comercial'}
-                  </button>
-                  <button
-                    className="secondary"
-                    type="button"
-                    disabled={commercialUpdating}
-                    onClick={() => {
-                      setPendingCommercialStatus(null);
-                      setCommercialReasonText('');
-                    }}
-                  >
-                    Limpar
-                  </button>
+              <div className="sample-detail-main-facts">
+                <div className="sample-detail-main-fact">
+                  <span>Proprietario</span>
+                  {registrationEditMode ? (
+                    <input
+                      className="sample-detail-inline-input"
+                      value={owner}
+                      onChange={(event) => setOwner(event.target.value)}
+                      disabled={!registrationReasonConfirmed || registrationUpdating}
+                    />
+                  ) : (
+                    <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
+                  )}
                 </div>
-              </form>
-            ) : null}
+                <div className="sample-detail-main-fact">
+                  <span>Sacas</span>
+                  {registrationEditMode ? (
+                    <input
+                      className="sample-detail-inline-input"
+                      value={sacks}
+                      onChange={(event) => setSacks(event.target.value)}
+                      inputMode="numeric"
+                      disabled={!registrationReasonConfirmed || registrationUpdating}
+                    />
+                  ) : (
+                    <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
+                  )}
+                </div>
+                <div className="sample-detail-main-fact">
+                  <span>Safra</span>
+                  {registrationEditMode ? (
+                    <input
+                      className="sample-detail-inline-input"
+                      value={harvest}
+                      onChange={(event) => setHarvest(event.target.value)}
+                      disabled={!registrationReasonConfirmed || registrationUpdating}
+                    />
+                  ) : (
+                    <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
+                  )}
+                </div>
+                <div className="sample-detail-main-fact">
+                  <span>Lote de origem</span>
+                  {registrationEditMode ? (
+                    <input
+                      className="sample-detail-inline-input"
+                      value={originLot}
+                      onChange={(event) => setOriginLot(event.target.value)}
+                      disabled={!registrationReasonConfirmed || registrationUpdating}
+                    />
+                  ) : (
+                    <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
+                  )}
+                </div>
+                <div className="sample-detail-main-fact">
+                  <span>Recebido</span>
+                  <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
+                </div>
+              </div>
+
+              <div className="sample-detail-inline-actions">
+                {registrationEditMode ? (
+                  <>
+                    <button
+                      type="button"
+                      className="sample-detail-icon-action"
+                      onClick={() => void handleSaveRegistrationUpdate()}
+                      disabled={registrationUpdating || !registrationReasonConfirmed}
+                      aria-label="Confirmar edicao do registro"
+                      title="Confirmar edicao do registro"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="m5 12 4.5 4.5L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary sample-detail-icon-action"
+                      onClick={cancelRegistrationEdit}
+                      disabled={registrationUpdating}
+                      aria-label="Cancelar edicao do registro"
+                      title="Cancelar edicao do registro"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="m6 6 12 12" />
+                        <path d="M18 6 6 18" />
+                      </svg>
+                    </button>
+                  </>
+                ) : (
+                  <span className="sample-detail-inline-actions-placeholder" aria-hidden="true" />
+                )}
+              </div>
+            </article>
+
+            <aside className="sample-detail-qr-quick-card">
+              <div className="sample-detail-qr-quick-header">
+                <h3 style={{ margin: 0 }}>QR da amostra</h3>
+                {showQrPrintPendingBadge ? <StatusBadge status={detail.sample.status} /> : null}
+              </div>
+              <div className="sample-detail-qr-quick-code">
+                <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={154} />
+              </div>
+              <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center' }}>
+                Acoes rapidas de impressao e geracao de laudo.
+              </p>
+
+              <div className="row">
+                <button
+                  type="button"
+                  onClick={(event) => openLabelReviewModal(event.currentTarget)}
+                  disabled={!canQuickPrint || labelModalSubmitting}
+                >
+                  {labelModalSubmitting ? 'Processando...' : 'Imprimir'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={handleOpenExportTypeSelector}
+                  disabled={!canQuickReport || Boolean(exportingPdfType)}
+                >
+                  {Boolean(exportingPdfType) ? 'Gerando laudo...' : 'Gerar Laudo'}
+                </button>
+              </div>
+            </aside>
           </section>
 
           {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
@@ -2027,980 +2593,388 @@ export default function SampleDetailPage() {
             </section>
           )}
 
-          {canEditRegistrationStatus(detail.sample.status) ? (
-            <section className="panel stack">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0 }}>Edicao de registro (auditada)</h3>
-                {!registrationEditMode ? (
-                  <button type="button" onClick={startRegistrationEdit}>
-                    Editar registro
-                  </button>
-                ) : null}
-              </div>
+          <section className="panel stack sample-detail-info-switch" id="classification-section" ref={classificationSectionRef}>
+            <div className="sample-detail-info-switch-header" role="tablist" aria-label="Conteudo da amostra">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailInfoTab === 'CLASSIFICATION'}
+                className={detailInfoTab === 'CLASSIFICATION' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                onClick={() => setDetailInfoTab('CLASSIFICATION')}
+              >
+                Classificacao
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailInfoTab === 'HISTORY'}
+                className={detailInfoTab === 'HISTORY' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                onClick={() => setDetailInfoTab('HISTORY')}
+              >
+                Historico
+              </button>
+            </div>
 
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                Todas as alteracoes ficam registradas no historico interno. Justificativa obrigatoria (maximo 10
-                palavras).
-              </p>
-
-              {registrationEditMode ? (
-                <form
-                  className="stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleSaveRegistrationUpdate();
-                  }}
-                >
-                  <label>
-                    Motivo da edicao
-                    <select
-                      value={registrationEditReasonCode}
-                      onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)}
-                    >
-                      {UPDATE_REASON_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Justificativa (maximo 10 palavras)
-                    <input
-                      value={registrationEditReasonText}
-                      onChange={(event) => setRegistrationEditReasonText(event.target.value)}
-                      placeholder="Explique a alteracao"
-                    />
-                  </label>
-
-                  <div className="grid grid-2">
-                    <label>
-                      Proprietario
-                      <input value={owner} onChange={(event) => setOwner(event.target.value)} />
-                    </label>
-
-                    <label>
-                      Sacas
-                      <input value={sacks} onChange={(event) => setSacks(event.target.value)} inputMode="numeric" />
-                    </label>
-
-                    <label>
-                      Safra
-                      <input value={harvest} onChange={(event) => setHarvest(event.target.value)} />
-                    </label>
-
-                    <label>
-                      Lote de origem
-                      <input value={originLot} onChange={(event) => setOriginLot(event.target.value)} />
-                    </label>
-                  </div>
-
-                  <div className="row">
-                    <button type="submit" disabled={registrationUpdating}>
-                      {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-                    </button>
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={cancelRegistrationEdit}
-                      disabled={registrationUpdating}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <p style={{ margin: 0, color: 'var(--muted)' }}>
-                  Clique em <strong>Editar registro</strong> para atualizar os campos do cadastro.
-                </p>
-              )}
-            </section>
-          ) : null}
-
-          {(detail.sample.status === 'REGISTRATION_CONFIRMED' ||
-            detail.sample.status === 'QR_PENDING_PRINT' ||
-            detail.sample.status === 'QR_PRINTED' ||
-            detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
-            detail.sample.status === 'CLASSIFIED') && (
-            <section className="panel stack">
-              <h3 style={{ margin: 0 }}>Geracao e impressao de QR</h3>
-
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <div>
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>ID interno</p>
-                  <strong>{detail.sample.internalLotNumber}</strong>
-                </div>
-                <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={156} />
-              </div>
-
-              <label>
-                Impressora (opcional)
-                <input value={printerId} onChange={(event) => setPrinterId(event.target.value)} />
-              </label>
-
-              <section className="panel stack">
-                <h4 style={{ margin: 0 }}>Resumo de impressao</h4>
-                <div className="grid grid-2">
-                  <p style={{ margin: 0 }}>
-                    <strong>Total impresso:</strong> {printStats.totalSuccess}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Impressao inicial:</strong> {printStats.initialSuccess}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Reimpressoes:</strong> {printStats.reprintSuccess}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Falhas:</strong> {printStats.failures}
-                  </p>
-                </div>
-                <p style={{ margin: 0 }}>
-                  <strong>Ultima impressao:</strong>{' '}
-                  {printStats.lastSuccess
-                    ? `${formatTimestamp(printStats.lastSuccess.occurredAt)} por ${printStats.lastSuccess.actor} (${printStats.lastSuccess.action} tentativa ${printStats.lastSuccess.attempt ?? '-'})`
-                    : 'Nao registrada'}
-                </p>
-              </section>
-
-              {detail.sample.status === 'REGISTRATION_CONFIRMED' ? (
-                <div className="row">
-                  <button type="button" onClick={handleRequestPrint} disabled={printSubmitting}>
-                    {printSubmitting ? 'Solicitando...' : `Solicitar impressao (tentativa ${nextAttempt})`}
-                  </button>
-                </div>
-              ) : null}
-
-              {detail.sample.status === 'QR_PENDING_PRINT' ? (
-                <div className="stack">
-                  <label>
-                    Motivo da falha
-                    <input
-                      value={printErrorText}
-                      onChange={(event) => setPrintErrorText(event.target.value)}
-                      placeholder="Ex.: sem papel"
-                    />
-                  </label>
-
-                  <div className="row">
-                    <button className="danger" type="button" onClick={handlePrintFailed} disabled={printSubmitting}>
-                      Registrar falha
-                    </button>
-                    <button type="button" onClick={handleMarkPrinted} disabled={printSubmitting}>
-                      Marcar como impresso
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {canRequestReprintStatus(detail.sample.status) ? (
-                <section className="panel stack">
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <h4 style={{ margin: 0 }}>Reimpressao</h4>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      Proxima tentativa: {nextReprintAttempt}
-                    </p>
-                  </div>
-
-                  {activeReprintAttempt === null ? (
-                    <div className="row">
-                      <button type="button" onClick={handleRequestReprint} disabled={reprintSubmitting}>
-                        {reprintSubmitting
-                          ? 'Solicitando reimpressao...'
-                          : `Imprimir novamente (tentativa ${nextReprintAttempt})`}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="stack">
-                      <p style={{ margin: 0, color: 'var(--muted)' }}>
-                        Reimpressao pendente na tentativa {activeReprintAttempt}. Marque sucesso ou falha.
-                      </p>
-                      <label>
-                        Motivo da falha (opcional ate registrar)
-                        <input
-                          value={reprintErrorText}
-                          onChange={(event) => setReprintErrorText(event.target.value)}
-                          placeholder="Ex.: sem papel"
-                        />
-                      </label>
-                      <div className="row">
-                        <button
-                          className="danger"
-                          type="button"
-                          onClick={handleReprintFailed}
-                          disabled={reprintSubmitting}
-                        >
-                          Registrar falha reimpressao
-                        </button>
-                        <button type="button" onClick={handleMarkReprintPrinted} disabled={reprintSubmitting}>
-                          Marcar reimpressao como impressa
-                        </button>
+            <div className="sample-detail-info-switch-body">
+              {detailInfoTab === 'CLASSIFICATION' ? (
+                isClassificationStatus(detail.sample.status) ? (
+                  <section className="stack sample-detail-info-pane">
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
+                      <div className="row" style={{ marginLeft: 'auto', justifyContent: 'flex-end' }}>
+                        <StatusBadge status={detail.sample.status} />
                       </div>
                     </div>
-                  )}
-                </section>
-              ) : null}
 
-              {detail.sample.status === 'QR_PRINTED' ? (
-                <p className="success">QR impresso com sucesso. Amostra pronta para classificacao.</p>
-              ) : null}
-            </section>
-          )}
-
-          {isClassificationStatus(detail.sample.status) ? (
-            <section className="panel stack" id="classification-section" ref={classificationSectionRef}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
-                <div className="status-badge-group">
-                  <StatusBadge status={detail.sample.status} />
-                  <CommercialStatusBadge status={detail.sample.commercialStatus} />
-                </div>
-              </div>
-
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                Aqui o classificador pode iniciar, salvar rascunho e concluir classificacao. A foto da classificacao e
-                obrigatoria para concluir.
-              </p>
-
-              {fromQrSource ? (
-                <p className="success" style={{ margin: 0 }}>
-                  Acesso por leitura de QR confirmado para esta amostra.
-                </p>
-              ) : null}
-
-              <section className="grid grid-2">
-                <article className="panel stack">
-                  <h4 style={{ margin: 0 }}>Dados pre-cadastrados</h4>
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>
-                    Confirmacao rapida do que foi preenchido no registro da amostra.
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Proprietario:</strong> {buildReadableValue(detail.sample.declared.owner)}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Lote de origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
-                  </p>
-                </article>
-
-                <article className="panel stack">
-                  <h4 style={{ margin: 0 }}>Resumo da classificacao</h4>
-                  <p style={{ margin: 0 }}>
-                    <strong>Versao mais recente:</strong> {detail.sample.latestClassification.version ?? 'Nao iniciado'}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Rascunho salvo:</strong>{' '}
-                    {detail.sample.classificationDraft.snapshot ? 'Sim' : 'Nao'}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Preenchimento do rascunho:</strong>{' '}
-                    {detail.sample.classificationDraft.completionPercent ?? 'Nao informado'}
-                    {typeof detail.sample.classificationDraft.completionPercent === 'number' ? '%' : ''}
-                  </p>
-                </article>
-              </section>
-
-              {detail.sample.status === 'QR_PRINTED' ? (
-                <div className="row">
-                  <button type="button" onClick={handleStartClassification} disabled={classificationStarting}>
-                    {classificationStarting ? 'Iniciando classificacao...' : 'Iniciar classificacao'}
-                  </button>
-                </div>
-              ) : null}
-
-              {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ? (
-                <form
-                  className="stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleCompleteClassification();
-                  }}
-                >
-                  <section className="panel stack">
-                    <h4 style={{ margin: 0 }}>Foto da classificacao (obrigatoria)</h4>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      Tire ou anexe a foto da amostra classificada. Use <strong>Usar foto</strong> para salvar.
-                    </p>
-
-                    <label>
-                      Captura da classificacao
-                      <input
-                        accept="image/*"
-                        capture="environment"
-                        type="file"
-                        onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
-                      />
-                    </label>
-
-                    {classificationSelectedPhoto ? (
-                      <p style={{ margin: 0 }}>Arquivo selecionado: {classificationSelectedPhoto.name}</p>
+                    {fromQrSource ? (
+                      <p className="success sample-classification-feedback" style={{ margin: 0 }}>
+                        Acesso por leitura de QR confirmado para esta amostra.
+                      </p>
                     ) : null}
 
-                    <div className="row">
-                      <button
-                        type="button"
-                        onClick={handleUploadClassificationPhoto}
-                        disabled={!classificationSelectedPhoto || classificationPhotoUploading}
-                      >
-                        {classificationPhotoUploading ? 'Salvando foto...' : 'Usar foto'}
-                      </button>
-                      <button
-                        className="secondary"
-                        type="button"
-                        onClick={() => setClassificationSelectedPhoto(null)}
-                        disabled={classificationPhotoUploading || !classificationSelectedPhoto}
-                      >
-                        Tentar novamente
-                      </button>
-                    </div>
-
-                    {classificationAttachment ? (
-                      <p className="success" style={{ margin: 0 }}>
-                        Foto de classificacao ativa: {classificationAttachment.id}
-                      </p>
-                    ) : (
-                      <p className="error" style={{ margin: 0 }}>
-                        Nenhuma foto de classificacao salva ainda.
-                      </p>
-                    )}
-                  </section>
-
-                  <div className="grid grid-2">
-                    <label>
-                      Data da classificacao
-                      <input
-                        type="date"
-                        value={classificationForm.dataClassificacao}
-                        onChange={(event) => updateClassificationField('dataClassificacao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Padrao
-                      <input
-                        value={classificationForm.padrao}
-                        onChange={(event) => updateClassificationField('padrao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Catacao
-                      <input
-                        value={classificationForm.catacao}
-                        onChange={(event) => updateClassificationField('catacao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Aspecto
-                      <input
-                        value={classificationForm.aspecto}
-                        onChange={(event) => updateClassificationField('aspecto', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Bebida
-                      <input
-                        value={classificationForm.bebida}
-                        onChange={(event) => updateClassificationField('bebida', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Broca
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.broca}
-                        onChange={(event) => updateClassificationField('broca', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      PVA
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.pva}
-                        onChange={(event) => updateClassificationField('pva', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      IMP
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.imp}
-                        onChange={(event) => updateClassificationField('imp', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Defeito
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.defeito}
-                        onChange={(event) => updateClassificationField('defeito', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Umidade
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.umidade}
-                        onChange={(event) => updateClassificationField('umidade', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Classificador
-                      <input
-                        value={classificationForm.classificador}
-                        onChange={(event) => updateClassificationField('classificador', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Lote de origem (classificacao)
-                      <input
-                        value={classificationForm.loteOrigem}
-                        onChange={(event) => updateClassificationField('loteOrigem', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Aspecto da cor
-                      <input
-                        value={classificationForm.aspectoCor}
-                        onChange={(event) => updateClassificationField('aspectoCor', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Percentual de preenchimento (0-100)
-                      <input
-                        inputMode="decimal"
-                        placeholder={`Sugestao: ${classificationCompletionAuto}%`}
-                        value={classificationForm.completionPercent}
-                        onChange={(event) => updateClassificationField('completionPercent', event.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <label>
-                    Observacoes
-                    <textarea
-                      rows={4}
-                      value={classificationForm.observacoes}
-                      onChange={(event) => updateClassificationField('observacoes', event.target.value)}
-                    />
-                  </label>
-
-                  <section className="panel stack">
-                    <h4 style={{ margin: 0 }}>% de peneira</h4>
-                    <div
-                      className="grid"
-                      style={{
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))'
-                      }}
-                    >
-                      {SIEVE_FIELDS.map((field) => (
-                        <label key={field.key}>
-                          {field.label}
-                          <input
-                            inputMode="decimal"
-                            value={classificationForm[field.key]}
-                            onChange={(event) => updateClassificationField(field.key, event.target.value)}
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="panel stack">
-                    <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <h4 style={{ margin: 0 }}>Edicao auditada</h4>
-                      {!classificationEditMode ? (
-                        <button type="button" className="secondary" onClick={startClassificationEdit}>
-                          Editar classificacao
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {classificationEditMode ? (
-                      <>
-                        <label>
-                          Motivo da edicao
-                          <select
-                            value={classificationEditReasonCode}
-                            onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
-                          >
-                            {UPDATE_REASON_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label>
-                          Justificativa (maximo 10 palavras)
-                          <input
-                            value={classificationEditReasonText}
-                            onChange={(event) => setClassificationEditReasonText(event.target.value)}
-                            placeholder="Explique a alteracao"
-                          />
-                        </label>
-
-                        <div className="row">
-                          <button
-                            type="button"
-                            onClick={handleSaveClassificationUpdate}
-                            disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                          >
-                            {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao auditada'}
-                          </button>
-                          <button
-                            className="secondary"
-                            type="button"
-                            onClick={cancelClassificationEdit}
-                            disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                          >
-                            Cancelar
-                          </button>
+                    {detail.sample.status === 'QR_PRINTED' ? (
+                      <section className="panel sample-classification-start-card">
+                        <div className="sample-classification-start-copy">
+                          <span className="sample-classification-section-kicker">Etapa liberada</span>
+                          <h4 style={{ margin: 0 }}>Classificacao pronta para iniciar</h4>
                         </div>
-                      </>
-                    ) : (
-                      <p style={{ margin: 0, color: 'var(--muted)' }}>
-                        Para registrar alteracoes com motivo, clique em <strong>Editar classificacao</strong>.
-                      </p>
-                    )}
-                  </section>
+                        <button type="button" onClick={handleStartClassification} disabled={classificationStarting}>
+                          {classificationStarting ? 'Iniciando classificacao...' : 'Iniciar classificacao'}
+                        </button>
+                      </section>
+                    ) : null}
 
-                  <div className="row">
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={handleSaveClassificationPartial}
-                      disabled={classificationSaving || classificationCompleting}
-                    >
-                      {classificationSaving ? 'Salvando rascunho...' : 'Salvar parcial'}
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={
-                        classificationCompleting ||
-                        classificationSaving ||
-                        !classificationAttachment ||
-                        classificationPhotoUploading ||
-                        Boolean(classificationSelectedPhoto)
-                      }
-                    >
-                      {classificationCompleting ? 'Concluindo classificacao...' : 'Concluir classificacao'}
-                    </button>
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={() => updateClassificationField('completionPercent', String(classificationCompletionAuto))}
-                      disabled={classificationSaving || classificationCompleting}
-                    >
-                      Aplicar % sugerido
-                    </button>
+                    {classificationShowsWorkspace ? (
+                      <form
+                        className={[
+                          'stack sample-classification-flow',
+                          classificationEditHighlightActive ? 'is-editing' : '',
+                          classificationFieldsReadOnly ? 'is-readonly' : ''
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') {
+                            void handleCompleteClassification();
+                            return;
+                          }
+
+                          if (classificationEditMode) {
+                            handleRequestClassificationUpdate();
+                          }
+                        }}
+                      >
+                        <div className="sample-classification-workspace">
+                          <section className="panel stack sample-classification-photo-panel">
+                            <div className="sample-classification-panel-head is-tight">
+                              <div>
+                                <span className="sample-classification-section-kicker">Foto</span>
+                                <h4 style={{ margin: 0 }}>Imagem da classificacao</h4>
+                              </div>
+                              <span
+                                className={`sample-classification-chip ${
+                                  classificationAttachment ? 'is-ready' : 'is-missing'
+                                }`}
+                              >
+                                {classificationAttachment ? 'Ativa' : 'Obrigatoria'}
+                              </span>
+                            </div>
+
+                            <label
+                              htmlFor="sample-classification-photo-input"
+                              className={`new-sample-photo-stage sample-classification-photo-stage${
+                                classificationPhotoEditingAllowed ? '' : ' is-static'
+                              }`}
+                            >
+                              <input
+                                id="sample-classification-photo-input"
+                                ref={classificationPhotoInputRef}
+                                className="new-sample-file-input"
+                                accept="image/*"
+                                capture="environment"
+                                type="file"
+                                disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
+                                onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
+                              />
+                              {classificationSelectedPhotoPreviewUrl ? (
+                                <img
+                                  src={classificationSelectedPhotoPreviewUrl}
+                                  alt="Pre-visualizacao da foto da classificacao"
+                                  className="new-sample-photo-preview"
+                                />
+                              ) : (
+                                <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
+                                  <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                                      <circle cx="12" cy="13.3" r="3.1" />
+                                    </svg>
+                                  </span>
+                                  <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
+                                  <span className="new-sample-photo-placeholder-text">
+                                    {classificationPhotoEditingAllowed
+                                      ? classificationAttachment
+                                        ? 'Toque para substituir a foto ativa'
+                                        : 'Toque para capturar ou anexar'
+                                      : classificationAttachment
+                                        ? 'Foto registrada para esta classificacao'
+                                        : 'Imagem da classificacao nao localizada'}
+                                  </span>
+                                </span>
+                              )}
+                            </label>
+
+                            <div className="row new-sample-photo-actions sample-classification-photo-actions">
+                              <button
+                                type="button"
+                                className={`new-sample-photo-action-button sample-classification-photo-action${
+                                  classificationSelectedPhoto ? ' is-ready' : ''
+                                }`}
+                                onClick={handleUploadClassificationPhoto}
+                                disabled={!classificationPhotoEditingAllowed || !classificationSelectedPhoto || classificationPhotoUploading}
+                                aria-label="Usar foto selecionada"
+                                title="Usar foto"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="m5 12.5 4.3 4.2L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className="new-sample-photo-action-button secondary sample-classification-photo-action"
+                                onClick={clearClassificationSelectedPhoto}
+                                disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading || !classificationSelectedPhoto}
+                                aria-label="Descartar foto selecionada"
+                                title="Tentar novamente"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="M7 7h5v5" />
+                                  <path d="M7 12a6 6 0 1 0 2.2-4.6L12 12" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            <p className="sample-classification-photo-meta" style={{ margin: 0 }}>
+                              {classificationPhotoStatusLabel}
+                            </p>
+                          </section>
+                          <div className="sample-classification-side-layout">
+                            <div className="sample-classification-side-top">
+                              <section className="panel stack sample-classification-form-panel">
+                                <div className="sample-classification-panel-head">
+                                  <div>
+                                    <span className="sample-classification-section-kicker">Leitura principal</span>
+                                    <h4 style={{ margin: 0 }}>Dados gerais</h4>
+                                  </div>
+                                  <div className="sample-classification-meta-block">
+                                    <span className="sample-classification-meta-label">Data da classificacao</span>
+                                    <strong
+                                      className={`sample-classification-meta-value${
+                                        classificationForm.dataClassificacao ? '' : ' is-muted'
+                                      }`}
+                                    >
+                                      {classificationRecordedDateLabel}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                <div className="grid sample-classification-form-grid">
+                                  {renderClassificationInputField('padrao', 'Padrao')}
+                                  {renderClassificationInputField('catacao', 'Catacao')}
+                                  {renderClassificationInputField('aspecto', 'Aspecto')}
+                                  {renderClassificationInputField('bebida', 'Bebida')}
+                                  {renderClassificationInputField('classificador', 'Classificador')}
+                                  {renderClassificationInputField('loteOrigem', 'Lote de origem')}
+                                  {renderClassificationInputField('aspectoCor', 'Aspecto da cor')}
+                                </div>
+                              </section>
+
+                              <section className="panel stack sample-classification-form-panel">
+                                <div className="sample-classification-panel-head">
+                                  <div>
+                                    <span className="sample-classification-section-kicker">Medidas</span>
+                                    <h4 style={{ margin: 0 }}>Leituras numericas</h4>
+                                  </div>
+                                </div>
+
+                                <div className="grid sample-classification-form-grid">
+                                  {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
+                                  {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
+                                  {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
+                                  {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
+                                  {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
+                                </div>
+
+                                {renderClassificationTextareaField('observacoes', 'Observacoes', {
+                                  className: 'sample-classification-field-span-full',
+                                  rows: 2
+                                })}
+                              </section>
+                            </div>
+
+                            <section className="panel stack sample-classification-form-panel sample-classification-sieve-panel">
+                              <div className="sample-classification-panel-head">
+                                <div>
+                                  <span className="sample-classification-section-kicker">Granulometria</span>
+                                  <h4 style={{ margin: 0 }}>% de peneira</h4>
+                                </div>
+                              </div>
+
+                              <div className="grid sample-classification-sieve-grid">
+                                {SIEVE_FIELDS.map((field) => (
+                                  renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' })
+                                ))}
+                              </div>
+                            </section>
+                          </div>
+                        </div>
+
+                        <div className="sample-classification-footer">
+                          {classificationEditMode ? (
+                            <>
+                              <button
+                                className="secondary"
+                                type="button"
+                                onClick={cancelClassificationEdit}
+                                disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                              >
+                                Cancelar edicao
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleRequestClassificationUpdate}
+                                disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                              >
+                                Salvar edicao
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={startClassificationEdit}
+                              disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                            >
+                              Editar classificacao
+                            </button>
+                          )}
+                          {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && !classificationEditMode ? (
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={handleSaveClassificationPartial}
+                              disabled={classificationSaving || classificationCompleting || classificationUpdating}
+                            >
+                              {classificationSaving ? 'Salvando rascunho...' : 'Salvar parcial'}
+                            </button>
+                          ) : null}
+                          {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ? (
+                            <button
+                              type="submit"
+                              disabled={
+                                classificationCompleting ||
+                                classificationSaving ||
+                                classificationUpdating ||
+                                !classificationCanComplete
+                              }
+                            >
+                              {classificationCompleting ? 'Concluindo classificacao...' : 'Concluir classificacao'}
+                            </button>
+                          ) : null}
+                        </div>
+                      </form>
+                    ) : null}
+                  </section>
+                ) : (
+                  <section className="stack sample-detail-info-pane">
+                    <p style={{ margin: 0, color: 'var(--muted)' }}>
+                      A classificacao fica disponivel apos a impressao inicial do QR da etiqueta.
+                    </p>
+                  </section>
+                )
+              ) : (
+                <section className="stack sample-detail-info-pane">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <h3 style={{ margin: 0 }}>Historico completo da amostra</h3>
+                    <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
+                      {historyLoading
+                        ? 'Carregando...'
+                        : `${historyRows.length} ${historyRows.length === 1 ? 'registro' : 'registros'}`}
+                    </span>
                   </div>
-                </form>
-              ) : null}
 
-              {detail.sample.status === 'CLASSIFIED' ? (
-                <section className="panel stack">
-                  <section className="panel stack">
-                    <h4 style={{ margin: 0 }}>Exportar laudo PDF</h4>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      Escolha o tipo de exportacao. O sistema aplica automaticamente os campos permitidos para cada
-                      tipo e remove do laudo os campos sem valor preenchido.
-                    </p>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      Em todos os tipos, o laudo omite o ID interno da amostra e qualquer Lote de origem.
-                    </p>
-
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      <strong>Completo:</strong> exporta todos os campos preenchidos permitidos no laudo.
-                    </p>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      <strong>Comprador Parcial:</strong> exporta os campos preenchidos, exceto <strong>Proprietario</strong>.
-                    </p>
-
-                    <div className="row">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenExportConfirmation('COMPLETO')}
-                        disabled={Boolean(exportingPdfType) || !classificationAttachment}
-                      >
-                        {exportingPdfType === 'COMPLETO' ? 'Gerando Completo...' : 'Exportar Completo'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenExportConfirmation('COMPRADOR_PARCIAL')}
-                        disabled={Boolean(exportingPdfType) || !classificationAttachment}
-                      >
-                        {exportingPdfType === 'COMPRADOR_PARCIAL'
-                          ? 'Gerando Comprador Parcial...'
-                          : 'Exportar Comprador Parcial'}
-                      </button>
-                    </div>
-                  </section>
-
-                  <h4 style={{ margin: 0 }}>Classificacao final</h4>
-                  <p style={{ margin: 0 }}>
-                    <strong>Foto da classificacao:</strong>{' '}
-                    {classificationAttachment ? classificationAttachment.id : 'Nao localizada'}
+                  <p style={{ margin: 0, color: 'var(--muted)' }}>
+                    Colunas: data/hora, usuario, campo, valor anterior, valor novo e motivo.
                   </p>
-                  {latestClassificationData ? (
-                    <>
-                      <div className="grid grid-2">
-                        <p style={{ margin: 0 }}>
-                          <strong>Data:</strong> {buildReadableValue(latestClassificationData.dataClassificacao)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Padrao:</strong> {buildReadableValue(latestClassificationData.padrao)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Catacao:</strong> {buildReadableValue(latestClassificationData.catacao)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Aspecto:</strong> {buildReadableValue(latestClassificationData.aspecto)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Bebida:</strong> {buildReadableValue(latestClassificationData.bebida)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Broca:</strong> {buildReadableValue(latestClassificationData.broca)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>PVA:</strong> {buildReadableValue(latestClassificationData.pva)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>IMP:</strong> {buildReadableValue(latestClassificationData.imp)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Defeito:</strong> {buildReadableValue(latestClassificationData.defeito)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Umidade:</strong> {buildReadableValue(latestClassificationData.umidade)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Classificador:</strong> {buildReadableValue(latestClassificationData.classificador)}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Lote de origem:</strong> {buildReadableValue(latestClassificationData.loteOrigem)}
-                        </p>
-                      </div>
 
-                      <p style={{ margin: 0 }}>
-                        <strong>Aspecto da cor:</strong> {buildReadableValue(latestClassificationData.aspectoCor)}
+                  {historyError ? (
+                    <div className="stack">
+                      <p className="error" style={{ margin: 0 }}>
+                        {historyError}
                       </p>
-                      <p style={{ margin: 0 }}>
-                        <strong>Observacoes:</strong> {buildReadableValue(latestClassificationData.observacoes)}
-                      </p>
-
-                      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
-                        <p style={{ margin: 0 }}>
-                          <strong>P18:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p18
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P17:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p17
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P16:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p16
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>MK:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.mk
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P15:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p15
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P14:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p14
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P13:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p13
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>P10:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.p10
-                              : null
-                          )}
-                        </p>
-                        <p style={{ margin: 0 }}>
-                          <strong>Fundo:</strong>{' '}
-                          {buildReadableValue(
-                            isRecord(latestClassificationData.peneirasPercentuais)
-                              ? latestClassificationData.peneirasPercentuais.fundo
-                              : null
-                          )}
-                        </p>
+                      <div className="row">
+                        <button type="button" className="secondary" onClick={() => void loadHistory()} disabled={historyLoading}>
+                          Tentar novamente
+                        </button>
                       </div>
-                    </>
+                    </div>
+                  ) : historyLoading ? (
+                    <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando historico...</p>
+                  ) : historyRows.length === 0 ? (
+                    <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhum evento registrado.</p>
                   ) : (
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>
-                      Classificacao concluida, mas sem dados detalhados no snapshot atual.
-                    </p>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Data/Hora</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Usuario</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Evento</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Campo</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Antes</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Depois</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Motivo</th>
+                            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Acoes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historyRows.map((row, index) => (
+                            <tr key={`${row.eventId}-${row.field}-${index}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{formatTimestamp(row.occurredAt)}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.actor}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.eventLabel}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.field}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.before}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.after}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.reason}</td>
+                              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>
+                                {row.reversible && row.showRevertAction ? (
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => {
+                                      setRevertTargetEventId(row.eventId);
+                                      setRevertReasonCode('OTHER');
+                                      setRevertReasonText('');
+                                    }}
+                                  >
+                                    Reverter
+                                  </button>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </section>
-              ) : null}
-            </section>
-          ) : null}
-
-          {detail.sample.status !== 'INVALIDATED' && detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS' ? (
-            <section className="panel stack">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0 }}>Edicao de classificacao (auditada)</h3>
-                {!classificationEditMode ? (
-                  <button type="button" onClick={startClassificationEdit}>
-                    Editar classificacao
-                  </button>
-                ) : null}
-              </div>
-
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                Disponivel em todos os status ativos. A justificativa e obrigatoria e registrada no historico interno.
-              </p>
-
-              {classificationEditMode ? (
-                <form
-                  className="stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleSaveClassificationUpdate();
-                  }}
-                >
-                  <label>
-                    Motivo da edicao
-                    <select
-                      value={classificationEditReasonCode}
-                      onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
-                    >
-                      {UPDATE_REASON_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Justificativa (maximo 10 palavras)
-                    <input
-                      value={classificationEditReasonText}
-                      onChange={(event) => setClassificationEditReasonText(event.target.value)}
-                      placeholder="Explique a alteracao"
-                    />
-                  </label>
-
-                  <div className="grid grid-2">
-                    <label>
-                      Data da classificacao
-                      <input
-                        type="date"
-                        value={classificationForm.dataClassificacao}
-                        onChange={(event) => updateClassificationField('dataClassificacao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Padrao
-                      <input
-                        value={classificationForm.padrao}
-                        onChange={(event) => updateClassificationField('padrao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Catacao
-                      <input
-                        value={classificationForm.catacao}
-                        onChange={(event) => updateClassificationField('catacao', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Aspecto
-                      <input
-                        value={classificationForm.aspecto}
-                        onChange={(event) => updateClassificationField('aspecto', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Bebida
-                      <input
-                        value={classificationForm.bebida}
-                        onChange={(event) => updateClassificationField('bebida', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Broca
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.broca}
-                        onChange={(event) => updateClassificationField('broca', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      PVA
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.pva}
-                        onChange={(event) => updateClassificationField('pva', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      IMP
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.imp}
-                        onChange={(event) => updateClassificationField('imp', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Defeito
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.defeito}
-                        onChange={(event) => updateClassificationField('defeito', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Umidade
-                      <input
-                        inputMode="decimal"
-                        value={classificationForm.umidade}
-                        onChange={(event) => updateClassificationField('umidade', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Classificador
-                      <input
-                        value={classificationForm.classificador}
-                        onChange={(event) => updateClassificationField('classificador', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Lote de origem (classificacao)
-                      <input
-                        value={classificationForm.loteOrigem}
-                        onChange={(event) => updateClassificationField('loteOrigem', event.target.value)}
-                      />
-                    </label>
-
-                    <label>
-                      Aspecto da cor
-                      <input
-                        value={classificationForm.aspectoCor}
-                        onChange={(event) => updateClassificationField('aspectoCor', event.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <label>
-                    Observacoes
-                    <textarea
-                      rows={4}
-                      value={classificationForm.observacoes}
-                      onChange={(event) => updateClassificationField('observacoes', event.target.value)}
-                    />
-                  </label>
-
-                  <section className="panel stack">
-                    <h4 style={{ margin: 0 }}>% de peneira</h4>
-                    <div
-                      className="grid"
-                      style={{
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))'
-                      }}
-                    >
-                      {SIEVE_FIELDS.map((field) => (
-                        <label key={field.key}>
-                          {field.label}
-                          <input
-                            inputMode="decimal"
-                            value={classificationForm[field.key]}
-                            onChange={(event) => updateClassificationField(field.key, event.target.value)}
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-
-                  <div className="row">
-                    <button type="submit" disabled={classificationUpdating}>
-                      {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-                    </button>
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={cancelClassificationEdit}
-                      disabled={classificationUpdating}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <p style={{ margin: 0, color: 'var(--muted)' }}>
-                  Clique em <strong>Editar classificacao</strong> para atualizar os campos e registrar o motivo.
-                </p>
               )}
-            </section>
-          ) : null}
+            </div>
+          </section>
 
           {revertTargetEventId ? (
             <section className="panel stack">
@@ -3049,64 +3023,345 @@ export default function SampleDetailPage() {
             </section>
           ) : null}
 
-          <section className="panel stack">
-            <h3 style={{ margin: 0 }}>Historico completo da amostra</h3>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Colunas: data/hora, usuario, campo, valor anterior, valor novo e motivo.
-            </p>
+        </div>
+      ) : null}
 
-            {historyRows.length === 0 ? (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhum evento registrado.</p>
+      {detail ? (
+        <section className="sample-detail-print-root" aria-hidden="true">
+          <article id="sample-detail-label-print" className="label-print-card sample-detail-label-print-card">
+            <div className="label-qr">
+              <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={120} />
+            </div>
+
+            <div className="label-meta">
+              <p>
+                <strong>Lote interno:</strong> {detail.sample.internalLotNumber ?? detail.sample.id}
+              </p>
+              <p>
+                <strong>Proprietario:</strong> {buildReadableValue(detail.sample.declared.owner)}
+              </p>
+              <p>
+                <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
+              </p>
+              <p>
+                <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
+              </p>
+              <p>
+                <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
+              </p>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {detail && labelModalOpen ? (
+        <div
+          className="new-sample-label-modal-backdrop"
+          onClick={() => {
+            if (canCloseLabelModal) {
+              closeLabelModal();
+            }
+          }}
+        >
+          <section
+            className="new-sample-label-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sample-detail-label-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="new-sample-label-modal-header">
+              <h3 id="sample-detail-label-modal-title" className="new-sample-label-modal-title">
+                {buildLabelModalTitle(labelModalStep, labelModalPrintAction)}
+              </h3>
+
+              {canCloseLabelModal ? (
+                <button
+                  ref={labelModalCloseButtonRef}
+                  type="button"
+                  className="new-sample-label-modal-close"
+                  onClick={closeLabelModal}
+                  aria-label="Fechar modal"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              ) : null}
+            </header>
+
+            {labelModalStep === 'failure_reason' ? (
+              <div className="new-sample-label-modal-content">
+                <article className="panel stack new-sample-failure-panel">
+                  <p style={{ margin: 0, color: 'var(--muted)' }}>
+                    Informe o motivo da falha para registrar a tentativa da etiqueta.
+                  </p>
+                  <label>
+                    Motivo da falha
+                    <textarea
+                      rows={3}
+                      value={labelPrintFailureReason}
+                      onChange={(event) => setLabelPrintFailureReason(event.target.value)}
+                      placeholder="Ex: etiqueta saiu ilegivel"
+                      disabled={labelModalSubmitting}
+                    />
+                  </label>
+                </article>
+              </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Data/Hora</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Usuario</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Evento</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Campo</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Antes</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Depois</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Motivo</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Acoes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyRows.map((row, index) => (
-                      <tr key={`${row.eventId}-${row.field}-${index}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{formatTimestamp(row.occurredAt)}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.actor}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.eventLabel}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.field}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.before}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.after}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.reason}</td>
-                        <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>
-                          {row.reversible && row.showRevertAction ? (
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => {
-                                setRevertTargetEventId(row.eventId);
-                                setRevertReasonCode('OTHER');
-                                setRevertReasonText('');
-                              }}
-                            >
-                              Reverter
-                            </button>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="new-sample-label-modal-content">
+                <article className="label-print-card new-sample-label-print-card">
+                  <div className="label-qr">
+                    <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={120} />
+                  </div>
+
+                  <div className="label-meta">
+                    <p>
+                      <strong>Lote interno:</strong> {detail.sample.internalLotNumber ?? detail.sample.id}
+                    </p>
+                    <p>
+                      <strong>Proprietario:</strong> {buildReadableValue(detail.sample.declared.owner)}
+                    </p>
+                    <p>
+                      <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
+                    </p>
+                    <p>
+                      <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
+                    </p>
+                    <p>
+                      <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
+                    </p>
+                  </div>
+
+                  {showLabelPrintConfirmEffect ? (
+                    <span key={labelPrintConfirmEffectKey} className="new-sample-print-confirm-fx" aria-hidden="true">
+                      <span className="new-sample-print-confirm-glow" />
+                      <span className="new-sample-print-confirm-ring" />
+                      <span className="new-sample-print-confirm-badge">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="m5 12.5 4.3 4.2L19 7" />
+                        </svg>
+                      </span>
+                      <span className="new-sample-print-spark new-sample-print-spark-a" />
+                      <span className="new-sample-print-spark new-sample-print-spark-b" />
+                      <span className="new-sample-print-spark new-sample-print-spark-c" />
+                      <span className="new-sample-print-spark new-sample-print-spark-d" />
+                      <span className="new-sample-print-spark new-sample-print-spark-e" />
+                    </span>
+                  ) : null}
+                </article>
               </div>
             )}
-          </section>
 
+            {labelModalError ? <p className="error new-sample-label-modal-feedback">{labelModalError}</p> : null}
+            {labelModalMessage ? <p className="success new-sample-label-modal-feedback">{labelModalMessage}</p> : null}
+
+            <div className="row new-sample-print-actions new-sample-label-modal-actions">
+              {labelModalStep === 'review' ? (
+                <>
+                  <button
+                    ref={labelModalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={labelModalSubmitting}
+                    onClick={() => void handleSubmitLabelReview()}
+                  >
+                    {labelModalSubmitting
+                      ? 'Confirmando...'
+                      : labelModalPrintAction === 'REPRINT'
+                        ? 'Confirmar reimpressao'
+                        : 'Confirmar impressao'}
+                  </button>
+                  <button type="button" className="new-sample-label-action-edit" disabled={labelModalSubmitting} onClick={closeLabelModal}>
+                    Fechar
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'awaiting_print_result' ? (
+                <>
+                  <button
+                    ref={labelModalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={labelModalSubmitting}
+                    onClick={() => void handleConfirmLabelPrint()}
+                  >
+                    {labelModalSubmitting
+                      ? 'Confirmando...'
+                      : labelModalPrintAction === 'REPRINT'
+                        ? 'Confirmar reimpressao'
+                        : 'Confirmar impressao'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-failure"
+                    disabled={labelModalSubmitting}
+                    onClick={handleOpenLabelFailureReason}
+                  >
+                    {labelModalPrintAction === 'REPRINT' ? 'Falha na reimpressao' : 'Falha na impressao'}
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'failure_reason' ? (
+                <>
+                  <button
+                    ref={labelModalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-failure"
+                    disabled={labelModalSubmitting}
+                    onClick={() => void handleRegisterLabelFailure()}
+                  >
+                    {labelModalSubmitting ? 'Registrando...' : 'Registrar falha'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-edit"
+                    disabled={labelModalSubmitting}
+                    onClick={() => setLabelModalStep('awaiting_print_result')}
+                  >
+                    Voltar
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'failure_actions' ? (
+                <>
+                  <button
+                    ref={labelModalPrimaryActionRef}
+                    type="button"
+                    className="new-sample-label-action-confirm"
+                    disabled={labelModalSubmitting}
+                    onClick={() => void handleRetryLabelPrint()}
+                  >
+                    {labelModalSubmitting ? 'Enviando...' : 'Tentar novamente'}
+                  </button>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-edit"
+                    disabled={labelModalSubmitting}
+                    onClick={resetLabelModal}
+                  >
+                    Fechar
+                  </button>
+                </>
+              ) : null}
+
+              {labelModalStep === 'completed' ? (
+                <button
+                  ref={labelModalPrimaryActionRef}
+                  type="button"
+                  className="new-sample-label-action-new"
+                  onClick={resetLabelModal}
+                >
+                  Fechar
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {classificationEditReasonModalOpen ? (
+        <div
+          className="export-confirm-backdrop"
+          onClick={() => {
+            closeClassificationEditReasonModal();
+          }}
+        >
+          <section
+            className="export-confirm-modal panel stack sample-classification-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="classification-edit-reason-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="classification-edit-reason-modal-title" style={{ margin: 0 }}>
+              Confirmar motivo da edicao
+            </h3>
+
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              Informe o motivo da alteracao para registrar a edicao auditada da classificacao.
+            </p>
+
+            <label>
+              Motivo da edicao
+              <select
+                value={classificationEditReasonCode}
+                onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
+                disabled={classificationUpdating}
+              >
+                {UPDATE_REASON_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Justificativa (maximo 10 palavras)
+              <input
+                value={classificationEditReasonText}
+                onChange={(event) => setClassificationEditReasonText(event.target.value)}
+                placeholder="Explique a alteracao"
+                disabled={classificationUpdating}
+              />
+            </label>
+
+            <div className="row">
+              <button
+                className="secondary"
+                type="button"
+                onClick={closeClassificationEditReasonModal}
+                disabled={classificationUpdating}
+              >
+                Cancelar
+              </button>
+              <button type="button" onClick={handleConfirmClassificationUpdate} disabled={classificationUpdating}>
+                {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {exportTypeSelectorOpen ? (
+        <div
+          className="export-confirm-backdrop"
+          onClick={() => {
+            handleCloseExportTypeSelector();
+          }}
+        >
+          <section
+            className="export-confirm-modal panel stack"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-type-select-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="export-type-select-modal-title" style={{ margin: 0 }}>
+              Escolher tipo de laudo
+            </h3>
+
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              Selecione o tipo de laudo para seguir com o envio e confirmar a exportacao.
+            </p>
+
+            <div className="row">
+              <button type="button" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
+                Completo
+              </button>
+              <button type="button" className="secondary" onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
+                Comprador Parcial
+              </button>
+            </div>
+
+            <div className="row">
+              <button className="secondary" type="button" onClick={handleCloseExportTypeSelector}>
+                Cancelar
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
 

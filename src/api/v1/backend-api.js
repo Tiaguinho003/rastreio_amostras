@@ -22,47 +22,34 @@ function readRequestBody(input) {
   return input?.body ?? {};
 }
 
-function resolveActorContext(input, authService, { headerAuthFallbackEnabled }) {
+function buildRequestContext(input) {
   const headers = input?.headers ?? {};
-  const requestId = readHeader(headers, 'x-request-id') ?? randomUUID();
-  const correlationId = readHeader(headers, 'x-correlation-id') ?? null;
-  const userAgent = readHeader(headers, 'user-agent') ?? null;
-  const ip = readHeader(headers, 'x-forwarded-for') ?? null;
-  const source = String(readHeader(headers, 'x-source') ?? 'web').toLowerCase();
+  return {
+    requestId: readHeader(headers, 'x-request-id') ?? randomUUID(),
+    correlationId: readHeader(headers, 'x-correlation-id') ?? null,
+    userAgent: readHeader(headers, 'user-agent') ?? null,
+    ip: readHeader(headers, 'x-forwarded-for') ?? null,
+    source: String(readHeader(headers, 'x-source') ?? 'web').toLowerCase()
+  };
+}
 
+async function resolveActorContext(input, authService) {
+  if (!authService) {
+    throw new HttpError(501, 'Auth service is not configured');
+  }
+
+  const requestContext = buildRequestContext(input);
+  const headers = input?.headers ?? {};
   const authorization = readHeader(headers, 'authorization');
-  if (authorization && authService) {
-    const authenticated = authService.authenticateAuthorizationHeader(authorization);
-    return {
-      ...authenticated,
-      source,
-      requestId,
-      correlationId,
-      ip,
-      userAgent
-    };
-  }
-
-  if (!headerAuthFallbackEnabled) {
-    throw new HttpError(401, 'Authentication required (Bearer token)');
-  }
-
-  const actorUserId = readHeader(headers, 'x-user-id');
-  const role = readHeader(headers, 'x-user-role');
-
-  if (!actorUserId || !role) {
-    throw new HttpError(401, 'Authentication required (Bearer token or x-user-id/x-user-role headers)');
+  if (!authorization) {
+    throw new HttpError(401, 'Authentication required (Bearer token)', {
+      code: 'AUTH_REQUIRED'
+    });
   }
 
   return {
-    actorType: 'USER',
-    actorUserId,
-    role: typeof role === 'string' ? role.toUpperCase() : role,
-    source,
-    requestId,
-    correlationId,
-    ip,
-    userAgent
+    ...(await authService.authenticateAuthorizationHeader(authorization, requestContext)),
+    ...requestContext
   };
 }
 
@@ -103,15 +90,11 @@ function executeApiForInput(input, handler) {
 
 export function createBackendApiV1({
   authService = null,
+  userService = null,
   commandService,
   queryService,
-  reportService = null,
-  headerAuthFallbackEnabled = true
+  reportService = null
 }) {
-  const actorContextOptions = {
-    headerAuthFallbackEnabled: Boolean(headerAuthFallbackEnabled)
-  };
-
   return {
     health: () =>
       executeApi(async () => ({
@@ -125,14 +108,17 @@ export function createBackendApiV1({
     login: (input) =>
       executeApiForInput(input, async () => {
         if (!authService) {
-          throw new HttpError(501, 'Local auth service is not configured');
+          throw new HttpError(501, 'Auth service is not configured');
         }
 
         const body = readRequestBody(input);
-        const result = authService.login({
-          username: body.username,
-          password: body.password
-        });
+        const result = await authService.login(
+          {
+            username: body.username,
+            password: body.password
+          },
+          buildRequestContext(input)
+        );
 
         return {
           status: 200,
@@ -142,7 +128,7 @@ export function createBackendApiV1({
 
     receiveSample: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
         const result = await commandService.receiveSample(body, actor);
         return { status: result.statusCode, body: result };
@@ -150,7 +136,7 @@ export function createBackendApiV1({
 
     createSampleAndPreparePrint: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
 
         let arrivalPhoto = null;
@@ -189,7 +175,7 @@ export function createBackendApiV1({
 
     startRegistration: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
         const result = await commandService.startRegistration(
@@ -206,7 +192,7 @@ export function createBackendApiV1({
 
     addLabelPhoto: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -234,7 +220,7 @@ export function createBackendApiV1({
 
     confirmRegistration: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -256,7 +242,7 @@ export function createBackendApiV1({
 
     requestQrPrint: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -276,7 +262,7 @@ export function createBackendApiV1({
 
     requestQrReprint: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -296,7 +282,7 @@ export function createBackendApiV1({
 
     recordQrPrintFailed: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -316,7 +302,7 @@ export function createBackendApiV1({
 
     recordQrPrinted: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -336,7 +322,7 @@ export function createBackendApiV1({
 
     startClassification: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -355,7 +341,7 @@ export function createBackendApiV1({
 
     saveClassificationPartial: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -376,7 +362,7 @@ export function createBackendApiV1({
 
     completeClassification: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -400,7 +386,7 @@ export function createBackendApiV1({
 
     updateRegistration: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -421,7 +407,7 @@ export function createBackendApiV1({
 
     updateClassification: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -442,7 +428,7 @@ export function createBackendApiV1({
 
     revertSampleUpdate: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -462,7 +448,7 @@ export function createBackendApiV1({
 
     invalidateSample: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -482,7 +468,7 @@ export function createBackendApiV1({
 
     updateCommercialStatus: (input) =>
       executeApiForInput(input, async () => {
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -502,7 +488,7 @@ export function createBackendApiV1({
 
     listSamples: (input) =>
       executeApiForInput(input, async () => {
-        resolveActorContext(input, authService, actorContextOptions);
+        await resolveActorContext(input, authService);
         const query = input?.query ?? {};
 
         const result = await queryService.listSamples({
@@ -529,7 +515,7 @@ export function createBackendApiV1({
 
     getSampleDetail: (input) =>
       executeApiForInput(input, async () => {
-        resolveActorContext(input, authService, actorContextOptions);
+        await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const query = input?.query ?? {};
 
@@ -549,7 +535,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'Sample report service is not configured');
         }
 
-        const actor = resolveActorContext(input, authService, actorContextOptions);
+        const actor = await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const body = readRequestBody(input);
 
@@ -573,14 +559,14 @@ export function createBackendApiV1({
             destination: exported.destination,
             selectedFields: exported.selectedFields,
             auditEvent: exported.auditEvent,
-            dataBase64: exported.buffer.toString('base64')
+            buffer: exported.buffer
           }
         };
       }),
 
     resolveSampleByQr: (input) =>
       executeApiForInput(input, async () => {
-        resolveActorContext(input, authService, actorContextOptions);
+        await resolveActorContext(input, authService);
         const query = input?.query ?? {};
         const qr =
           typeof query.qr === 'string'
@@ -601,7 +587,13 @@ export function createBackendApiV1({
               id: sample.id,
               internalLotNumber: sample.internalLotNumber,
               status: sample.status,
-              commercialStatus: sample.commercialStatus
+              commercialStatus: sample.commercialStatus,
+              declared: {
+                owner: sample.declared.owner,
+                sacks: sample.declared.sacks,
+                harvest: sample.declared.harvest,
+                originLot: sample.declared.originLot
+              }
             },
             redirectPath: `/samples/${sample.id}?focus=classification&source=qr`
           }
@@ -610,7 +602,7 @@ export function createBackendApiV1({
 
     listSampleEvents: (input) =>
       executeApiForInput(input, async () => {
-        resolveActorContext(input, authService, actorContextOptions);
+        await resolveActorContext(input, authService);
         const sampleId = requireSampleId(input?.params);
         const query = input?.query ?? {};
 
@@ -631,11 +623,423 @@ export function createBackendApiV1({
 
     getDashboardPending: (input) =>
       executeApiForInput(input, async () => {
-        resolveActorContext(input, authService, actorContextOptions);
+        await resolveActorContext(input, authService);
         const dashboard = await queryService.getDashboardPending();
         return {
           status: 200,
           body: dashboard
+        };
+      }),
+
+    logout: (input) =>
+      executeApiForInput(input, async () => {
+        if (!authService) {
+          throw new HttpError(501, 'Auth service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const result = await authService.logout(actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    recordSessionExpired: (input) =>
+      executeApiForInput(input, async () => {
+        if (!authService) {
+          throw new HttpError(501, 'Auth service is not configured');
+        }
+
+        const body = readRequestBody(input);
+        const result = await authService.recordSessionExpired(
+          {
+            sessionId: body.sessionId
+          },
+          buildRequestContext(input)
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    getCurrentUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const result = await userService.getMe(actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    updateCurrentUserProfile: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.updateOwnProfile(
+          {
+            fullName: body.fullName,
+            username: body.username,
+            phone: body.phone
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    changeCurrentUserPassword: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.changeOwnPassword(
+          {
+            password: body.password
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    requestCurrentUserEmailChange: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.requestOwnEmailChange(
+          {
+            email: body.email
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    resendCurrentUserEmailChangeCode: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const result = await userService.resendOwnEmailChangeCode(actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    confirmCurrentUserEmailChange: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.confirmOwnEmailChange(
+          {
+            code: body.code
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    recordInitialPasswordDecision: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.recordInitialPasswordDecision(
+          {
+            decision: body.decision
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    requestPasswordReset: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.requestPasswordReset(
+          {
+            email: body.email
+          },
+          buildRequestContext(input)
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    resetPasswordWithCode: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.resetPasswordWithCode(
+          {
+            email: body.email,
+            code: body.code,
+            password: body.password
+          },
+          buildRequestContext(input)
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    listUsers: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await userService.listUsers(
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            role: query.role,
+            status: query.status
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    getUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const result = await userService.getUser(userId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    createUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await userService.createUser(
+          {
+            fullName: body.fullName,
+            username: body.username,
+            email: body.email,
+            phone: body.phone,
+            password: body.password,
+            role: body.role
+          },
+          actor
+        );
+        return {
+          status: 201,
+          body: result
+        };
+      }),
+
+    updateUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.updateUser(
+          userId,
+          {
+            fullName: body.fullName,
+            username: body.username,
+            email: body.email,
+            phone: body.phone,
+            role: body.role
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    inactivateUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.inactivateUser(
+          userId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    reactivateUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const result = await userService.reactivateUser(userId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    unlockUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const result = await userService.unlockUser(userId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    resetUserPassword: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.resetUserPassword(
+          userId,
+          {
+            password: body.password
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    listUserAuditEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await userService.listAuditEvents(
+          {
+            page: query.page,
+            limit: query.limit
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result
         };
       })
   };

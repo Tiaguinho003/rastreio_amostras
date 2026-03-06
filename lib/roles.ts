@@ -2,7 +2,9 @@ import type { UserRole } from './types';
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: 'Administrador',
-  CLASSIFIER: 'Classificador'
+  CLASSIFIER: 'Classificador',
+  REGISTRATION: 'Registro',
+  COMMERCIAL: 'Comercial'
 };
 
 export function getRoleLabel(role: UserRole): string {

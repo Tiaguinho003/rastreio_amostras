@@ -2,16 +2,18 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { SampleSearchField } from './SampleSearchField';
-import { getRoleLabel } from '../lib/roles';
+import { recordInitialPasswordDecision } from '../lib/api-client';
+import { getRoleLabel, isAdmin } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 
 interface AppShellProps {
   session: SessionData;
-  onLogout: () => void;
+  onLogout: () => Promise<void> | void;
+  onSessionChange?: (session: SessionData | null) => void;
   children: React.ReactNode;
 }
 
@@ -37,16 +39,22 @@ function isMainNavItemActive(pathname: string, href: string) {
   return pathname === href;
 }
 
-export function AppShell({ session, onLogout, children }: AppShellProps) {
+export function AppShell({ session, onLogout, onSessionChange, children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const profileName =
-    typeof session.user.displayName === 'string' && session.user.displayName.trim().length > 0
-      ? session.user.displayName.trim()
+    typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
+      ? session.user.fullName.trim()
       : session.user.username;
+  const navItems = isAdmin(session.user.role)
+    ? [...MAIN_NAV_ITEMS, { href: '/users', label: 'Usuarios' as const }]
+    : MAIN_NAV_ITEMS;
 
   useEffect(() => {
     if (!profileMenuOpen) {
@@ -82,6 +90,32 @@ export function AppShell({ session, onLogout, children }: AppShellProps) {
     };
   }, [profileMenuOpen]);
 
+  async function handleInitialPasswordDecision(decision: 'KEPT' | 'CHANGED') {
+    setDecisionLoading(true);
+    setDecisionError(null);
+
+    try {
+      const response = await recordInitialPasswordDecision(session, decision);
+      if (onSessionChange) {
+        onSessionChange({
+          ...session,
+          user: {
+            ...session.user,
+            ...response.user
+          }
+        });
+      }
+
+      if (decision === 'CHANGED') {
+        router.push('/settings?section=password');
+      }
+    } catch (error) {
+      setDecisionError(error instanceof Error ? error.message : 'Falha ao registrar a escolha');
+    } finally {
+      setDecisionLoading(false);
+    }
+  }
+
   return (
     <>
       <header className="topbar">
@@ -98,7 +132,7 @@ export function AppShell({ session, onLogout, children }: AppShellProps) {
           </Link>
 
           <nav className="topbar-nav" aria-label="Paginas principais">
-            {MAIN_NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -153,7 +187,7 @@ export function AppShell({ session, onLogout, children }: AppShellProps) {
                   </div>
 
                   <Link href="/settings" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
-                    Configuracoes
+                    Meu perfil
                   </Link>
                   <button
                     type="button"
@@ -171,6 +205,46 @@ export function AppShell({ session, onLogout, children }: AppShellProps) {
           </div>
         </div>
       </header>
+
+      {session.user.initialPasswordDecision === 'PENDING' ? (
+        <section className="panel stack" style={{ margin: '1rem auto', width: 'min(1180px, calc(100vw - 2rem))' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0 }}>Senha inicial</h3>
+              <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)' }}>
+                Voce pode manter a senha inicial por enquanto ou ir agora para altera-la.
+              </p>
+              {decisionError ? (
+                <p className="error" style={{ margin: '0.5rem 0 0' }}>
+                  {decisionError}
+                </p>
+              ) : null}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => handleInitialPasswordDecision('KEPT')} disabled={decisionLoading}>
+                {decisionLoading ? 'Salvando...' : 'Manter'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => handleInitialPasswordDecision('CHANGED')}
+                disabled={decisionLoading}
+              >
+                Alterar
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <main>{children}</main>
     </>

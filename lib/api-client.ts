@@ -4,12 +4,18 @@ import type {
   DashboardPendingResponse,
   InvalidateReasonCode,
   ListSamplesResponse,
+  PasswordResetRequestResponse,
   ResolveSampleByQrResponse,
   SampleDetailResponse,
   SampleEventsResponse,
-  UpdateReasonCode,
   SessionData,
-  SampleExportType
+  SampleExportType,
+  UpdateReasonCode,
+  UserAuditListResponse,
+  UserMutationResponse,
+  UserPasswordMutationResponse,
+  UserResponse,
+  UsersListResponse
 } from './types';
 
 export class ApiError extends Error {
@@ -42,7 +48,7 @@ async function parseJsonSafe(response: Response): Promise<Record<string, unknown
 async function request<TResponse>(
   path: string,
   options: {
-    method?: 'GET' | 'POST';
+    method?: 'GET' | 'POST' | 'PATCH';
     body?: JsonValue;
     session?: SessionData | null;
     formData?: FormData;
@@ -108,6 +114,208 @@ export function login(username: string, password: string) {
   return request<SessionData>('/auth/login', {
     method: 'POST',
     body: { username, password }
+  });
+}
+
+export function logout(session: SessionData) {
+  return request<{ ok: boolean }>('/auth/logout', {
+    method: 'POST',
+    session
+  });
+}
+
+export function recordSessionExpired(sessionId: string) {
+  return request<{ ok: boolean }>('/auth/session/expired', {
+    method: 'POST',
+    body: { sessionId }
+  });
+}
+
+export function requestPasswordReset(email: string) {
+  return request<PasswordResetRequestResponse>('/auth/forgot-password/request', {
+    method: 'POST',
+    body: { email }
+  });
+}
+
+export function resetPasswordWithCode(email: string, code: string, password: string) {
+  return request<UserResponse>('/auth/forgot-password/reset', {
+    method: 'POST',
+    body: { email, code, password }
+  });
+}
+
+export function getCurrentUser(session: SessionData) {
+  return request<UserResponse>('/users/me', {
+    method: 'GET',
+    session
+  });
+}
+
+export function updateCurrentUserProfile(
+  session: SessionData,
+  data: {
+    fullName?: string;
+    username?: string;
+    phone?: string | null;
+  }
+) {
+  return request<UserMutationResponse>('/users/me/profile', {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function changeCurrentUserPassword(session: SessionData, password: string) {
+  return request<UserMutationResponse>('/users/me/password', {
+    method: 'POST',
+    session,
+    body: { password }
+  });
+}
+
+export function requestCurrentUserEmailChange(session: SessionData, email: string) {
+  return request<UserResponse>('/users/me/email/request-change', {
+    method: 'POST',
+    session,
+    body: { email }
+  });
+}
+
+export function resendCurrentUserEmailChangeCode(session: SessionData) {
+  return request<UserResponse>('/users/me/email/resend', {
+    method: 'POST',
+    session
+  });
+}
+
+export function confirmCurrentUserEmailChange(session: SessionData, code: string) {
+  return request<UserResponse>('/users/me/email/confirm-change', {
+    method: 'POST',
+    session,
+    body: { code }
+  });
+}
+
+export function recordInitialPasswordDecision(session: SessionData, decision: 'KEPT' | 'CHANGED') {
+  return request<UserResponse>('/users/me/initial-password-decision', {
+    method: 'POST',
+    session,
+    body: { decision }
+  });
+}
+
+export function listUsers(
+  session: SessionData,
+  query: {
+    search?: string;
+    role?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.role) params.set('role', query.role);
+  if (query.status) params.set('status', query.status);
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<UsersListResponse>(`/users${suffix}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function getUser(session: SessionData, userId: string) {
+  return request<UserResponse>(`/users/${userId}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function createUser(
+  session: SessionData,
+  data: {
+    fullName: string;
+    username: string;
+    email: string;
+    phone?: string | null;
+    password: string;
+    role: string;
+  }
+) {
+  return request<UserPasswordMutationResponse>('/users', {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function updateUser(
+  session: SessionData,
+  userId: string,
+  data: {
+    fullName?: string;
+    username?: string;
+    email?: string;
+    phone?: string | null;
+    role?: string;
+  }
+) {
+  return request<UserMutationResponse>(`/users/${userId}`, {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function inactivateUser(session: SessionData, userId: string, reasonText: string) {
+  return request<UserResponse>(`/users/${userId}/inactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText }
+  });
+}
+
+export function reactivateUser(session: SessionData, userId: string) {
+  return request<UserResponse>(`/users/${userId}/reactivate`, {
+    method: 'POST',
+    session
+  });
+}
+
+export function unlockUser(session: SessionData, userId: string) {
+  return request<UserResponse>(`/users/${userId}/unlock`, {
+    method: 'POST',
+    session
+  });
+}
+
+export function resetUserPassword(session: SessionData, userId: string, password: string) {
+  return request<UserPasswordMutationResponse>(`/users/${userId}/password/reset`, {
+    method: 'POST',
+    session,
+    body: { password }
+  });
+}
+
+export function listUserAuditEvents(
+  session: SessionData,
+  query: {
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<UserAuditListResponse>(`/users/audit${suffix}`, {
+    method: 'GET',
+    session
   });
 }
 
@@ -237,8 +445,18 @@ export function startRegistration(session: SessionData, sampleId: string, expect
   });
 }
 
-export function getSampleDetail(session: SessionData, sampleId: string) {
-  return request<SampleDetailResponse>(`/samples/${sampleId}`, {
+export function getSampleDetail(
+  session: SessionData,
+  sampleId: string,
+  query: {
+    eventLimit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (typeof query.eventLimit === 'number') params.set('eventLimit', String(query.eventLimit));
+
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<SampleDetailResponse>(`/samples/${sampleId}${suffix}`, {
     method: 'GET',
     session
   });
@@ -370,18 +588,23 @@ export function requestQrPrint(
   sampleId: string,
   data: {
     expectedVersion: number;
-    attemptNumber: number;
+    attemptNumber?: number;
     printerId?: string | null;
   }
 ) {
+  const body: { [key: string]: JsonValue } = {
+    expectedVersion: data.expectedVersion,
+    printerId: data.printerId ?? null
+  };
+
+  if (typeof data.attemptNumber === 'number') {
+    body.attemptNumber = data.attemptNumber;
+  }
+
   return request<CommandResponse>(`/samples/${sampleId}/qr/print/request`, {
     method: 'POST',
     session,
-    body: {
-      expectedVersion: data.expectedVersion,
-      attemptNumber: data.attemptNumber,
-      printerId: data.printerId ?? null
-    }
+    body
   });
 }
 

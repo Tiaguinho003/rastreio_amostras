@@ -6,8 +6,8 @@ import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
 import { StatusBadge } from './StatusBadge';
-import { ApiError, getSampleDetail, resolveSampleByQr } from '../lib/api-client';
-import type { SampleSnapshot, SessionData } from '../lib/types';
+import { ApiError, resolveSampleByQr } from '../lib/api-client';
+import type { ResolveSampleByQrResponse, SessionData } from '../lib/types';
 
 interface SampleSearchFieldProps {
   session: SessionData;
@@ -31,7 +31,7 @@ export function SampleSearchField({
   const [query, setQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultSample, setResultSample] = useState<SampleSnapshot | null>(null);
+  const [resultSample, setResultSample] = useState<ResolveSampleByQrResponse['sample'] | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
 
   useEffect(() => {
@@ -101,8 +101,7 @@ export function SampleSearchField({
 
     try {
       const resolved = await resolveSampleByQr(session, normalizedQuery);
-      const detail = await getSampleDetail(session, resolved.sample.id);
-      setResultSample(detail.sample);
+      setResultSample(resolved.sample);
       setResultModalOpen(true);
       setQuery('');
     } catch (cause) {

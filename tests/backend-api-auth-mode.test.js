@@ -6,7 +6,7 @@ import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 function createMinimalApi(options = {}) {
   const queryService = {
     async listSamples() {
-      return { items: [], total: 0 };
+      return { items: [], page: { total: 0, totalPages: 1, page: 1, limit: 30, offset: 0, hasPrev: false, hasNext: false } };
     },
     async getDashboardPending() {
       return { pending: [] };
@@ -21,37 +21,17 @@ function createMinimalApi(options = {}) {
   });
 }
 
-test('fallback headers are accepted when header auth fallback is enabled', async () => {
+test('missing bearer token is rejected', async () => {
   const api = createMinimalApi({
-    authService: null,
-    headerAuthFallbackEnabled: true
+    authService: {
+      async authenticateAuthorizationHeader() {
+        throw new Error('should not be called');
+      }
+    }
   });
 
   const result = await api.listSamples({
-    headers: {
-      'x-user-id': '00000000-0000-0000-0000-000000000001',
-      'x-user-role': 'ADMIN'
-    },
-    params: {},
-    query: {},
-    body: {}
-  });
-
-  assert.equal(result.status, 200);
-  assert.equal(Array.isArray(result.body.items), true);
-});
-
-test('fallback headers are rejected when header auth fallback is disabled', async () => {
-  const api = createMinimalApi({
-    authService: null,
-    headerAuthFallbackEnabled: false
-  });
-
-  const result = await api.listSamples({
-    headers: {
-      'x-user-id': '00000000-0000-0000-0000-000000000001',
-      'x-user-role': 'ADMIN'
-    },
+    headers: {},
     params: {},
     query: {},
     body: {}
@@ -61,22 +41,23 @@ test('fallback headers are rejected when header auth fallback is disabled', asyn
   assert.equal(result.body.error.message, 'Authentication required (Bearer token)');
 });
 
-test('bearer auth works with fallback disabled', async () => {
+test('bearer auth works for protected routes', async () => {
   const api = createMinimalApi({
     authService: {
-      authenticateAuthorizationHeader(value) {
+      async authenticateAuthorizationHeader(value) {
         if (value !== 'Bearer token') {
           throw new Error('unexpected token');
         }
+
         return {
           actorType: 'USER',
           actorUserId: '00000000-0000-0000-0000-000000000001',
           role: 'ADMIN',
-          username: 'admin'
+          username: 'admin',
+          sessionId: '00000000-0000-0000-0000-000000000010'
         };
       }
-    },
-    headerAuthFallbackEnabled: false
+    }
   });
 
   const result = await api.listSamples({

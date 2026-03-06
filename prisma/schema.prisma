@@ -90,6 +90,55 @@ enum PrintJobStatus {
   FAILED
 }
 
+enum UserRole {
+  ADMIN
+  CLASSIFIER
+  REGISTRATION
+  COMMERCIAL
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InitialPasswordDecision {
+  PENDING
+  KEPT
+  CHANGED
+}
+
+enum UserSessionEndReason {
+  LOGOUT
+  EXPIRED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  USERNAME_CHANGED
+  ROLE_CHANGED
+  INACTIVATED
+  REVOKED
+}
+
+enum UserAuditEventType {
+  USER_CREATED
+  USER_UPDATED
+  USER_ROLE_CHANGED
+  USER_INACTIVATED
+  USER_REACTIVATED
+  USER_UNLOCKED
+  PASSWORD_CHANGED
+  PASSWORD_RESET_BY_ADMIN
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  SESSION_EXPIRED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  EMAIL_CHANGE_REQUESTED
+  EMAIL_CHANGE_CONFIRMED
+  INITIAL_PASSWORD_DECISION_RECORDED
+}
+
 model Sample {
   id                          String    @id @db.Uuid
   internalLotNumber           String?   @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
@@ -201,4 +250,120 @@ model PrintJob {
   @@unique([sampleId, printAction, attemptNumber], map: "uq_print_job_sample_action_attempt")
   @@index([status, createdAt], map: "idx_print_job_status_created")
   @@map("print_job")
+}
+
+model User {
+  id                      String                  @id @db.Uuid
+  fullName                String                  @map("full_name")
+  username                String
+  usernameCanonical       String                  @unique(map: "uq_user_username_canonical") @map("username_canonical")
+  email                   String
+  emailCanonical          String                  @unique(map: "uq_user_email_canonical") @map("email_canonical")
+  phone                   String?
+  passwordHash            String                  @map("password_hash")
+  role                    UserRole
+  status                  UserStatus              @default(ACTIVE)
+  initialPasswordDecision InitialPasswordDecision @default(PENDING) @map("initial_password_decision")
+  failedLoginAttempts     Int                     @default(0) @map("failed_login_attempts")
+  lockedUntil             DateTime?               @db.Timestamptz(6) @map("locked_until")
+  lastLoginAt             DateTime?               @db.Timestamptz(6) @map("last_login_at")
+  createdAt               DateTime                @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt               DateTime                @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  sessions              UserSession[]
+  passwordResetRequests PasswordResetRequest[]
+  emailChangeRequests   EmailChangeRequest[]
+  auditEventsAsTarget   UserAuditEvent[] @relation("UserAuditTarget")
+  auditEventsAsActor    UserAuditEvent[] @relation("UserAuditActor")
+
+  @@index([status, createdAt, id], map: "idx_user_status_created_id")
+  @@index([role, createdAt, id], map: "idx_user_role_created_id")
+  @@index([createdAt, id], map: "idx_user_created_id")
+  @@map("app_user")
+}
+
+model UserSession {
+  id               String             @id @db.Uuid
+  userId           String             @db.Uuid @map("user_id")
+  expiresAt        DateTime           @db.Timestamptz(6) @map("expires_at")
+  revokedAt        DateTime?          @db.Timestamptz(6) @map("revoked_at")
+  endReason        UserSessionEndReason? @map("end_reason")
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6) @map("created_at")
+  lastSeenAt       DateTime?          @db.Timestamptz(6) @map("last_seen_at")
+  createdIp        String?            @map("created_ip")
+  createdUserAgent String?            @map("created_user_agent")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, createdAt], map: "idx_user_session_user_created")
+  @@index([userId, revokedAt, expiresAt], map: "idx_user_session_lookup")
+  @@index([expiresAt], map: "idx_user_session_expires_at")
+  @@map("user_session")
+}
+
+model PasswordResetRequest {
+  id                String    @id @db.Uuid
+  userId            String    @db.Uuid @map("user_id")
+  emailCanonical    String    @map("email_canonical")
+  codeHash          String    @map("code_hash")
+  expiresAt         DateTime  @db.Timestamptz(6) @map("expires_at")
+  resendAvailableAt DateTime  @db.Timestamptz(6) @map("resend_available_at")
+  retryAvailableAt  DateTime  @db.Timestamptz(6) @map("retry_available_at")
+  failedAttempts    Int       @default(0) @map("failed_attempts")
+  invalidatedAt     DateTime? @db.Timestamptz(6) @map("invalidated_at")
+  consumedAt        DateTime? @db.Timestamptz(6) @map("consumed_at")
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, createdAt], map: "idx_password_reset_user_created")
+  @@index([emailCanonical, createdAt], map: "idx_password_reset_email_created")
+  @@index([retryAvailableAt], map: "idx_password_reset_retry_available")
+  @@map("password_reset_request")
+}
+
+model EmailChangeRequest {
+  id                String    @id @db.Uuid
+  userId            String    @db.Uuid @map("user_id")
+  newEmail          String    @map("new_email")
+  newEmailCanonical String    @map("new_email_canonical")
+  reservationKey    String?   @unique(map: "uq_email_change_reservation_key") @map("reservation_key")
+  codeHash          String    @map("code_hash")
+  expiresAt         DateTime  @db.Timestamptz(6) @map("expires_at")
+  resendAvailableAt DateTime  @db.Timestamptz(6) @map("resend_available_at")
+  retryAvailableAt  DateTime  @db.Timestamptz(6) @map("retry_available_at")
+  failedAttempts    Int       @default(0) @map("failed_attempts")
+  invalidatedAt     DateTime? @db.Timestamptz(6) @map("invalidated_at")
+  consumedAt        DateTime? @db.Timestamptz(6) @map("consumed_at")
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId, createdAt], map: "idx_email_change_user_created")
+  @@index([newEmailCanonical, createdAt], map: "idx_email_change_new_email_created")
+  @@index([retryAvailableAt], map: "idx_email_change_retry_available")
+  @@map("email_change_request")
+}
+
+model UserAuditEvent {
+  eventId           String             @id @db.Uuid @map("event_id")
+  targetUserId      String?            @db.Uuid @map("target_user_id")
+  actorUserId       String?            @db.Uuid @map("actor_user_id")
+  eventType         UserAuditEventType @map("event_type")
+  payload           Json
+  reasonText        String?            @map("reason_text")
+  requestId         String             @map("request_id")
+  correlationId     String?            @map("correlation_id")
+  metadataIp        String?            @map("metadata_ip")
+  metadataUserAgent String?            @map("metadata_user_agent")
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  targetUser User? @relation("UserAuditTarget", fields: [targetUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actorUser  User? @relation("UserAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([targetUserId, createdAt], map: "idx_user_audit_target_created")
+  @@index([actorUserId, createdAt], map: "idx_user_audit_actor_created")
+  @@index([eventType, createdAt], map: "idx_user_audit_event_type_created")
+  @@index([createdAt], map: "idx_user_audit_created")
+  @@map("user_audit_event")
 }

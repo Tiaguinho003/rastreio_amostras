@@ -755,33 +755,16 @@ export class SampleQueryService {
   }
 
   async getNextPrintAttemptNumber(sampleId, printAction = 'PRINT') {
-    const rows = await this.prisma.sampleEvent.findMany({
+    const lastPrintJob = await this.prisma.printJob.findFirst({
       where: {
         sampleId,
-        eventType: { in: ['QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED'] }
+        printAction
       },
-      orderBy: { sequenceNumber: 'asc' },
-      select: { payload: true }
+      orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }],
+      select: { attemptNumber: true }
     });
 
-    let maxAttempt = 0;
-    for (const row of rows) {
-      const payload = row.payload;
-      if (!payload || typeof payload !== 'object') {
-        continue;
-      }
-
-      if (payload.printAction !== printAction) {
-        continue;
-      }
-
-      const attempt = parseAttemptNumberFromPayload(payload);
-      if (attempt && attempt > maxAttempt) {
-        maxAttempt = attempt;
-      }
-    }
-
-    return maxAttempt + 1;
+    return (lastPrintJob?.attemptNumber ?? 0) + 1;
   }
 
   async getSampleDetail(sampleId, options = {}) {

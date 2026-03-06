@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
 import { HttpError } from '../contracts/errors.js';
@@ -114,9 +114,11 @@ export class LocalAuthService {
       throw new HttpError(401, 'Invalid username or password');
     }
 
+    const sessionId = randomUUID();
     const { token, expiresAt } = issueAccessToken(
       {
         userId: user.id,
+        sessionId,
         role: user.role,
         username: user.username
       },
@@ -127,6 +129,7 @@ export class LocalAuthService {
       accessToken: token,
       tokenType: 'Bearer',
       expiresAt,
+      sessionId,
       user: {
         id: user.id,
         username: user.username,
@@ -144,7 +147,8 @@ export class LocalAuthService {
       actorType: 'USER',
       actorUserId: claims.userId,
       role: claims.role,
-      username: claims.username
+      username: claims.username,
+      sessionId: claims.sessionId
     };
   }
 }

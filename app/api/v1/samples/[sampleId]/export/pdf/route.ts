@@ -6,7 +6,7 @@ import { getBackendApi } from '../../../../_lib/backend-api';
 type ExportPdfBody = {
   fileName: string;
   contentType: string;
-  dataBase64: string;
+  buffer: Buffer;
 };
 
 export async function POST(request: NextRequest, context: { params: Promise<{ sampleId: string }> }) {
@@ -26,14 +26,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
   }
 
   const payload = result.body as ExportPdfBody;
-  const pdfBytes = Buffer.from(payload.dataBase64, 'base64');
+  const pdfBytes = Buffer.isBuffer(payload.buffer) ? payload.buffer : Buffer.from(payload.buffer ?? []);
+  const responseBody = new Uint8Array(pdfBytes);
   const safeFileName = typeof payload.fileName === 'string' && payload.fileName.trim() ? payload.fileName : 'laudo.pdf';
   const contentType =
     typeof payload.contentType === 'string' && payload.contentType.trim()
       ? payload.contentType
       : 'application/pdf';
 
-  return new NextResponse(pdfBytes, {
+  return new NextResponse(responseBody, {
     status: 200,
     headers: {
       'Content-Type': contentType,
