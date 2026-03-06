@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
+import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { SamplePdfReportService } from '../src/reports/sample-pdf-report-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
@@ -31,25 +32,18 @@ if (!databaseUrl || !databaseReachable) {
   let commandService;
   let reportService;
   let api;
+  let authService;
+  let classifierAuthHeaders;
+  let adminAuthHeaders;
 
   const tinyPngBuffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8f5i8AAAAASUVORK5CYII=',
     'base64'
   );
 
-  const classifierHeaders = {
-    'x-user-id': '00000000-0000-0000-0000-000000000101',
-    'x-user-role': 'CLASSIFIER'
-  };
-
-  const adminHeaders = {
-    'x-user-id': '00000000-0000-0000-0000-000000000100',
-    'x-user-role': 'ADMIN'
-  };
-
   const actorClassifier = {
     actorType: 'USER',
-    actorUserId: classifierHeaders['x-user-id'],
+    actorUserId: '00000000-0000-0000-0000-000000000101',
     role: 'CLASSIFIER',
     source: 'web',
     ip: '127.0.0.1',
@@ -58,14 +52,14 @@ if (!databaseUrl || !databaseReachable) {
 
   const actorAdmin = {
     actorType: 'USER',
-    actorUserId: adminHeaders['x-user-id'],
+    actorUserId: '00000000-0000-0000-0000-000000000100',
     role: 'ADMIN',
     source: 'web',
     ip: '127.0.0.1',
     userAgent: 'node-test'
   };
 
-  function buildInput({ headers = classifierHeaders, params = {}, query = {}, body = {} } = {}) {
+  function buildInput({ headers = classifierAuthHeaders, params = {}, query = {}, body = {} } = {}) {
     return {
       headers,
       params,
@@ -221,6 +215,41 @@ if (!databaseUrl || !databaseReachable) {
       queryService,
       uploadService
     });
+    authService = new LocalAuthService({
+      secret: 'super-secret-for-backend-api-missing-tests',
+      allowPlaintextPasswords: true,
+      users: [
+        {
+          id: actorAdmin.actorUserId,
+          username: 'admin-test',
+          password: 'admin123',
+          role: actorAdmin.role,
+          displayName: 'Admin Teste'
+        },
+        {
+          id: actorClassifier.actorUserId,
+          username: 'classifier-test',
+          password: 'classifier123',
+          role: actorClassifier.role,
+          displayName: 'Classificador Teste'
+        }
+      ]
+    });
+
+    adminAuthHeaders = {
+      authorization: `Bearer ${authService.login({ username: 'admin-test', password: 'admin123' }).accessToken}`,
+      'x-forwarded-for': actorAdmin.ip,
+      'user-agent': actorAdmin.userAgent,
+      'x-source': actorAdmin.source
+    };
+
+    classifierAuthHeaders = {
+      authorization: `Bearer ${authService.login({ username: 'classifier-test', password: 'classifier123' }).accessToken}`,
+      'x-forwarded-for': actorClassifier.ip,
+      'user-agent': actorClassifier.userAgent,
+      'x-source': actorClassifier.source
+    };
+
     reportService = new SamplePdfReportService({
       queryService,
       commandService,
@@ -228,7 +257,7 @@ if (!databaseUrl || !databaseReachable) {
     });
 
     api = createBackendApiV1({
-      authService: null,
+      authService,
       commandService,
       queryService,
       reportService
@@ -1000,7 +1029,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(exported.body.selectedFields.includes('originLot'), false);
     assert.equal(exported.body.selectedFields.includes('classificationOriginLot'), false);
 
-    const pdfBuffer = Buffer.from(exported.body.dataBase64, 'base64');
+    const pdfBuffer = Buffer.isBuffer(exported.body.buffer)
+      ? exported.body.buffer
+      : Buffer.from(exported.body.buffer ?? []);
     assert.ok(pdfBuffer.length > 100);
     assert.equal(pdfBuffer.subarray(0, 4).toString('utf8'), '%PDF');
 
@@ -1394,13 +1425,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(blockedByOperationalStatus.status, 409);
   });
 
-  test('POST /invalidate enforces ADMIN role and keeps INVALIDATED terminal', async () => {
+  test('POST /invalidate accepts authenticated roles and keeps INVALIDATED terminal', async () => {
     const sampleId = randomUUID();
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
 
-    const forbidden = await api.invalidateSample(
+    const classifierInvalidation = await api.invalidateSample(
       buildInput({
-        headers: classifierHeaders,
+        headers: classifierAuthHeaders,
         params: { sampleId },
         body: {
           expectedVersion: 1,
@@ -1410,36 +1441,22 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    assert.equal(forbidden.status, 403);
+    assert.equal(classifierInvalidation.status, 201);
+    assert.equal(classifierInvalidation.body.event.eventType, 'SAMPLE_INVALIDATED');
 
-    const success = await api.invalidateSample(
+    const alreadyInvalidatedByAdmin = await api.invalidateSample(
       buildInput({
-        headers: adminHeaders,
+        headers: adminAuthHeaders,
         params: { sampleId },
         body: {
-          expectedVersion: 1,
+          expectedVersion: 2,
           reasonCode: 'CANCELLED',
           reasonText: 'cancelamento administrativo'
         }
       })
     );
 
-    assert.equal(success.status, 201);
-    assert.equal(success.body.event.eventType, 'SAMPLE_INVALIDATED');
-
-    const alreadyInvalidated = await api.invalidateSample(
-      buildInput({
-        headers: adminHeaders,
-        params: { sampleId },
-        body: {
-          expectedVersion: 2,
-          reasonCode: 'OTHER',
-          reasonText: 'segunda tentativa'
-        }
-      })
-    );
-
-    assert.equal(alreadyInvalidated.status, 409);
+    assert.equal(alreadyInvalidatedByAdmin.status, 409);
   });
 
   test('GET /events supports pagination and validates query params', async () => {

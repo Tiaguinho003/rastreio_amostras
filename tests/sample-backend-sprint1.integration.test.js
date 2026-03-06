@@ -677,36 +677,36 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('enforces role restrictions: classifier cannot invalidate, admin can', async () => {
+  test('allows invalidation for authenticated operational roles and keeps INVALIDATED terminal', async () => {
     const sampleId = randomUUID();
 
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
 
-    await assert.rejects(
-      () =>
-        commandService.invalidateSample(
-          {
-            sampleId,
-            expectedVersion: 1,
-            reasonCode: 'OTHER',
-            reasonText: 'teste'
-          },
-          actorClassifier
-        ),
-      (error) => error instanceof HttpError && error.status === 403
-    );
-
-    const invalidated = await commandService.invalidateSample(
+    const invalidatedByClassifier = await commandService.invalidateSample(
       {
         sampleId,
         expectedVersion: 1,
         reasonCode: 'OTHER',
         reasonText: 'erro de recepcao'
       },
-      actorAdmin
+      actorClassifier
     );
 
-    assert.equal(invalidated.statusCode, 201);
+    assert.equal(invalidatedByClassifier.statusCode, 201);
+
+    await assert.rejects(
+      () =>
+        commandService.invalidateSample(
+          {
+            sampleId,
+            expectedVersion: 2,
+            reasonCode: 'OTHER',
+            reasonText: 'segunda tentativa'
+          },
+          actorAdmin
+        ),
+      (error) => error instanceof HttpError && error.status === 409
+    );
 
     const sample = await queryService.requireSample(sampleId);
     assert.equal(sample.status, 'INVALIDATED');
