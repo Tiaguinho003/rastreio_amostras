@@ -1,11 +1,9 @@
 'use client';
 
-import { QRCodeCanvas } from 'qrcode.react';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useId, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
-import { CommercialStatusBadge } from './CommercialStatusBadge';
-import { StatusBadge } from './StatusBadge';
+import { SampleLookupResultModal } from './SampleLookupResultModal';
 import { ApiError, resolveSampleByQr } from '../lib/api-client';
 import type { ResolveSampleByQrResponse, SessionData } from '../lib/types';
 
@@ -25,13 +23,11 @@ export function SampleSearchField({
   submitLabel = 'Buscar'
 }: SampleSearchFieldProps) {
   const router = useRouter();
-  const modalTitleId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [query, setQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultSample, setResultSample] = useState<ResolveSampleByQrResponse['sample'] | null>(null);
+  const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
 
   useEffect(() => {
@@ -52,9 +48,6 @@ export function SampleSearchField({
 
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => {
-      closeButtonRef.current?.focus();
-    }, 0);
 
     return () => {
       document.body.style.overflow = previousOverflow;
@@ -79,12 +72,12 @@ export function SampleSearchField({
   }
 
   function handleOpenMoreDetails() {
-    if (!resultSample) {
+    if (!result) {
       return;
     }
 
     setResultModalOpen(false);
-    router.push(`/samples/${resultSample.id}`);
+    router.push(result.redirectPath);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -101,7 +94,7 @@ export function SampleSearchField({
 
     try {
       const resolved = await resolveSampleByQr(session, normalizedQuery);
-      setResultSample(resolved.sample);
+      setResult(resolved);
       setResultModalOpen(true);
       setQuery('');
     } catch (cause) {
@@ -153,79 +146,18 @@ export function SampleSearchField({
           <p className="sample-search-error" role="alert">
             {error}
           </p>
-        ) : null}
+      ) : null}
       </form>
 
-      {resultSample && resultModalOpen ? (
-        <div className="new-sample-label-modal-backdrop" onClick={closeResultModal}>
-          <section
-            className="new-sample-label-modal sample-search-result-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={modalTitleId}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="new-sample-label-modal-header">
-              <h3 id={modalTitleId} className="new-sample-label-modal-title">
-                Amostra localizada
-              </h3>
-
-              <button
-                ref={closeButtonRef}
-                type="button"
-                className="new-sample-label-modal-close"
-                onClick={closeResultModal}
-                aria-label="Fechar modal"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
-
-            <div className="new-sample-label-modal-content">
-              <article className="label-print-card sample-search-label-card">
-                <div className="sample-search-label-status">
-                  <div className="status-badge-group">
-                    <StatusBadge status={resultSample.status} />
-                    <CommercialStatusBadge status={resultSample.commercialStatus} />
-                  </div>
-                </div>
-                <div className="label-qr">
-                  <QRCodeCanvas value={resultSample.internalLotNumber ?? resultSample.id} size={120} />
-                </div>
-                <div className="label-meta">
-                  <p>
-                    <strong>Lote interno:</strong> {resultSample.internalLotNumber ?? 'Nao definido'}
-                  </p>
-                  <p>
-                    <strong>Proprietario:</strong> {resultSample.declared.owner ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Sacas:</strong> {resultSample.declared.sacks ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Safra:</strong> {resultSample.declared.harvest ?? 'Nao informado'}
-                  </p>
-                  <p>
-                    <strong>Lote origem:</strong> {resultSample.declared.originLot ?? 'Nao informado'}
-                  </p>
-                </div>
-              </article>
-            </div>
-
-            <div className="row new-sample-print-actions new-sample-label-modal-actions">
-              <button type="button" className="new-sample-label-action-new" onClick={handleSearchAgain}>
-                Buscar novamente
-              </button>
-              <button
-                type="button"
-                className="new-sample-link-button new-sample-label-action-details"
-                onClick={handleOpenMoreDetails}
-              >
-                Mais informacoes
-              </button>
-            </div>
-          </section>
-        </div>
+      {result && resultModalOpen ? (
+        <SampleLookupResultModal
+          sample={result.sample}
+          title="Amostra localizada"
+          primaryActionLabel="Buscar novamente"
+          onPrimaryAction={handleSearchAgain}
+          onDetails={handleOpenMoreDetails}
+          onClose={closeResultModal}
+        />
       ) : null}
     </>
   );

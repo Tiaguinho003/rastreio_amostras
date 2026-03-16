@@ -47,6 +47,7 @@ DRILL_TS="$(date +%Y%m%d-%H%M%S)"
 START_EPOCH="$(date +%s)"
 REQUEST_ID="bkd003-${DRILL_TS}"
 TMP_DIR="$(mktemp -d)"
+COOKIE_JAR="${TMP_DIR}/cookies.txt"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -56,6 +57,7 @@ trap cleanup EXIT
 LOGIN_PAYLOAD="${TMP_DIR}/login.json"
 LOGIN_STATUS="$(
   curl -sS -o "${LOGIN_PAYLOAD}" -w '%{http_code}' \
+    -c "${COOKIE_JAR}" \
     -H 'Content-Type: application/json' \
     -H "x-request-id: ${REQUEST_ID}-login" \
     -X POST "${API_BASE_URL}/api/v1/auth/login" \
@@ -68,15 +70,13 @@ if [[ "${LOGIN_STATUS}" != "200" ]]; then
   exit 1
 fi
 
-ACCESS_TOKEN="$(node -e "const fs=require('node:fs');const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(typeof j.accessToken!=='string'){process.exit(1);}process.stdout.write(j.accessToken);" "${LOGIN_PAYLOAD}")"
-
 BASELINE_SAMPLE_ID="${BASELINE_SAMPLE_ID:-$(node -e "process.stdout.write(require('node:crypto').randomUUID())")}"
 MUTATED_SAMPLE_ID="${MUTATED_SAMPLE_ID:-$(node -e "process.stdout.write(require('node:crypto').randomUUID())")}"
 
 BASELINE_CREATE_PAYLOAD="${TMP_DIR}/baseline-create.json"
 BASELINE_CREATE_STATUS="$(
   curl -sS -o "${BASELINE_CREATE_PAYLOAD}" -w '%{http_code}' \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -b "${COOKIE_JAR}" \
     -H 'Content-Type: application/json' \
     -H "x-request-id: ${REQUEST_ID}-baseline-create" \
     -X POST "${API_BASE_URL}/api/v1/samples/receive" \
@@ -110,7 +110,7 @@ sha256sum -c "${UPLOADS_BACKUP_FILE}.sha256"
 MUTATED_CREATE_PAYLOAD="${TMP_DIR}/mutated-create.json"
 MUTATED_CREATE_STATUS="$(
   curl -sS -o "${MUTATED_CREATE_PAYLOAD}" -w '%{http_code}' \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -b "${COOKIE_JAR}" \
     -H 'Content-Type: application/json' \
     -H "x-request-id: ${REQUEST_ID}-mutated-create" \
     -X POST "${API_BASE_URL}/api/v1/samples/receive" \
@@ -134,7 +134,7 @@ API_BASE_URL="${API_BASE_URL}" SMOKE_USERNAME="${SMOKE_USERNAME}" SMOKE_PASSWORD
 BASELINE_DETAIL_PAYLOAD="${TMP_DIR}/baseline-detail.json"
 BASELINE_DETAIL_STATUS="$(
   curl -sS -o "${BASELINE_DETAIL_PAYLOAD}" -w '%{http_code}' \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -b "${COOKIE_JAR}" \
     -H "x-request-id: ${REQUEST_ID}-baseline-detail" \
     "${API_BASE_URL}/api/v1/samples/${BASELINE_SAMPLE_ID}"
 )"
@@ -148,7 +148,7 @@ fi
 MUTATED_DETAIL_PAYLOAD="${TMP_DIR}/mutated-detail.json"
 MUTATED_DETAIL_STATUS="$(
   curl -sS -o "${MUTATED_DETAIL_PAYLOAD}" -w '%{http_code}' \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -b "${COOKIE_JAR}" \
     -H "x-request-id: ${REQUEST_ID}-mutated-detail" \
     "${API_BASE_URL}/api/v1/samples/${MUTATED_SAMPLE_ID}"
 )"

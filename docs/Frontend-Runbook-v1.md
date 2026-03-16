@@ -1,5 +1,7 @@
 # Frontend Runbook v1 (Fase 1 + Fase 2)
 
+Status: Historico de desenvolvimento local. Para deploy/homolog/producao, siga primeiro `docs/README.md` e os runbooks operacionais.
+
 ## 1. Pre-requisitos
 
 - PostgreSQL acessivel no `DATABASE_URL`
@@ -7,9 +9,9 @@
 - Variaveis em `.env`:
   - `DATABASE_URL`
   - `AUTH_SECRET`
-  - `AUTH_HEADER_FALLBACK_ENABLED`
-  - `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS`
-  - `LOCAL_AUTH_USERS_JSON`
+  - `BOOTSTRAP_ADMIN_*`
+  - `EMAIL_TRANSPORT`
+  - `SMTP_*` (quando `smtp`)
   - `UPLOADS_DIR`
 
 Recomendado para ambiente local:
@@ -27,32 +29,22 @@ npm run dev
 
 Acesse `http://localhost:3000/login`.
 
-## 3. Usuarios locais MVP
+## 3. Bootstrap inicial do primeiro administrador
 
-Formato recomendado de usuario local:
-
-```json
-[
-  {
-    "id": "00000000-0000-0000-0000-000000000001",
-    "username": "admin",
-    "passwordHash": "$2b$10$...",
-    "role": "ADMIN",
-    "displayName": "Administrador"
-  }
-]
-```
-
-Gerar hash bcrypt (exemplo):
+Variaveis minimas:
 
 ```bash
-node -e "const bcrypt=require('bcryptjs'); console.log(bcrypt.hashSync('trocar-esta-senha', 10));"
+BOOTSTRAP_ADMIN_FULL_NAME="Administrador"
+BOOTSTRAP_ADMIN_USERNAME="admin"
+BOOTSTRAP_ADMIN_EMAIL="admin@example.local"
+BOOTSTRAP_ADMIN_PASSWORD="change-me-now"
 ```
 
-Regras:
-1. Em producao, use `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS=false`.
-2. Em producao, use `AUTH_HEADER_FALLBACK_ENABLED=false`.
-3. Em producao, nao usar senha em texto puro no JSON de usuarios.
+Observacoes:
+
+1. O frontend usa cookie de sessao `HttpOnly`, nao token salvo em `localStorage`.
+2. O bootstrap e usado apenas quando o banco ainda nao possui usuarios.
+3. `LOCAL_AUTH_USERS_JSON` ficou restrito a compatibilidade de seed/testes legados.
 
 ## 4. Fluxo de teste recomendado
 

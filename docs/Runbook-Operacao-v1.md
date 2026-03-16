@@ -4,19 +4,31 @@ Status: Ativo
 Data: 2026-03-04  
 Projeto: Rastreio Interno de Amostras
 
+## Nota de uso atual
+
+Este documento permanece como referencia historica de operacao.
+
+Para o caminho canonico atual, usar primeiro:
+
+1. `docs/Runtime-Canonical-Guide.md`
+2. `docs/Handoff-Implantacao-Internal-Production.md`
+
 ## 1. Objetivo
 
 Definir operacao minima para disponibilidade, diagnostico e resposta inicial a incidente.
 
 ## 2. Endpoints operacionais
 
-1. Healthcheck: `GET /api/health`
-2. API principal: `/api/v1/*`
+1. Liveness: `GET /api/health/live`
+2. Readiness: `GET /api/health/ready`
+3. Alias legado de readiness: `GET /api/health`
+4. API principal: `/api/v1/*`
 
 Verificacao manual:
 
 ```bash
-curl -i http://localhost:3000/api/health
+curl -i http://localhost:3000/api/health/live
+curl -i http://localhost:3000/api/health/ready
 ```
 
 ## 3. Logs e correlacao
@@ -45,11 +57,12 @@ logrotate -d ops/logrotate/rastreio
 
 ## 6. Procedimento rapido de incidente
 
-1. Confirmar status do app (`/api/health`).
-2. Confirmar status do DB (`pg_isready`).
-3. Inspecionar logs do app.
-4. Rodar smoke test para validar fluxo minimo.
-5. Se necessario, executar rollback conforme runbook de deploy.
+1. Confirmar status do app (`/api/health/live`).
+2. Confirmar readiness (`/api/health/ready`).
+3. Confirmar status do DB (`pg_isready`).
+4. Inspecionar logs do app.
+5. Rodar smoke test para validar fluxo minimo.
+6. Se necessario, executar rollback conforme runbook de deploy.
 
 ## 7. Comandos uteis
 

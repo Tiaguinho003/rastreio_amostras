@@ -4,9 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { login, ApiError } from '../../lib/api-client';
+import { login, ApiError, getCurrentSession } from '../../lib/api-client';
 import { loginSchema } from '../../lib/form-schemas';
-import { getSession, isSessionExpired, saveSession } from '../../lib/session';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,14 +16,25 @@ export default function LoginPage() {
   const [loginReason, setLoginReason] = useState<string | null>(null);
 
   useEffect(() => {
-    const session = getSession();
-    if (session && !isSessionExpired(session)) {
-      router.replace('/dashboard');
-    }
+    let active = true;
+
+    getCurrentSession()
+      .then(() => {
+        if (active) {
+          router.replace('/dashboard');
+        }
+      })
+      .catch(() => {
+        // no active cookie session
+      });
 
     if (typeof window !== 'undefined') {
       setLoginReason(new URLSearchParams(window.location.search).get('reason'));
     }
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -39,8 +49,7 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const session = await login(parsed.data.username, parsed.data.password);
-      saveSession(session);
+      await login(parsed.data.username, parsed.data.password);
       router.replace('/dashboard');
     } catch (cause) {
       if (cause instanceof ApiError) {
@@ -54,19 +63,22 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
-      <section className="panel" style={{ width: 'min(430px, 92vw)' }}>
-        <h2 style={{ marginTop: 0 }}>Entrar no sistema</h2>
-        <p style={{ color: 'var(--muted)' }}>Use seu usuario e senha para acessar o sistema.</p>
+    <main className="login-page">
+      <section className="panel login-card">
+        <div className="login-card-copy">
+          <p className="login-card-kicker">Operacao interna</p>
+          <h2 className="login-card-title">Entrar no sistema</h2>
+          <p className="login-card-subtitle">Use seu usuario e senha para acessar o sistema.</p>
+        </div>
 
         {loginReason === 'session-expired' ? (
-          <p style={{ color: 'var(--muted)' }}>Sua sessao expirou. Entre novamente.</p>
+          <p className="login-card-hint">Sua sessao expirou. Entre novamente.</p>
         ) : null}
         {loginReason === 'session-ended' ? (
-          <p style={{ color: 'var(--muted)' }}>Sua sessao foi encerrada. Entre novamente.</p>
+          <p className="login-card-hint">Sua sessao foi encerrada. Entre novamente.</p>
         ) : null}
 
-        <form className="stack" onSubmit={handleSubmit}>
+        <form className="stack login-card-form" onSubmit={handleSubmit}>
           <label>
             Usuario
             <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
@@ -88,7 +100,9 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
 
-          <Link href="/forgot-password">Esqueci minha senha</Link>
+          <Link href="/forgot-password" className="login-card-link">
+            Esqueci minha senha
+          </Link>
         </form>
       </section>
     </main>

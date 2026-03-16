@@ -13,7 +13,6 @@ import {
   resendCurrentUserEmailChangeCode,
   updateCurrentUserProfile
 } from '../../lib/api-client';
-import { clearSession } from '../../lib/session';
 import { useRequireAuth } from '../../lib/use-auth';
 
 export default function SettingsPage() {
@@ -112,7 +111,6 @@ export default function SettingsPage() {
       });
 
       if (response.sessionRevoked) {
-        clearSession();
         setSession(null);
         router.replace('/login?reason=session-ended');
         return;
@@ -218,7 +216,6 @@ export default function SettingsPage() {
 
     try {
       await changeCurrentUserPassword(authSession, password);
-      clearSession();
       setSession(null);
       router.replace('/login?reason=session-ended');
     } catch (cause) {

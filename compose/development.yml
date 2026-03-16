@@ -1,0 +1,27 @@
+# Canonical Compose file for the `development` environment.
+# Phase 1 keeps the legacy root docker-compose.yml for compatibility.
+
+name: rastreio-development
+
+services:
+  db:
+    image: postgres:15.8-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rastreio_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rastreio_app}
+      POSTGRES_DB: ${POSTGRES_DB:-rastreio_test}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+    ports:
+      - "${DEVELOPMENT_DB_PORT:-55432}:5432"
+    volumes:
+      - rastreio_development_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rastreio_app} -d ${POSTGRES_DB:-rastreio_test}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  rastreio_development_pg_data:

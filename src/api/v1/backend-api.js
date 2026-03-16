@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../../contracts/errors.js';
+import { readSessionTokenFromCookieHeader } from '../../auth/session-cookie.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
 
 function readHeader(headers, key) {
@@ -40,9 +41,10 @@ async function resolveActorContext(input, authService) {
 
   const requestContext = buildRequestContext(input);
   const headers = input?.headers ?? {};
-  const authorization = readHeader(headers, 'authorization');
+  const cookieToken = readSessionTokenFromCookieHeader(readHeader(headers, 'cookie'));
+  const authorization = readHeader(headers, 'authorization') ?? (cookieToken ? `Bearer ${cookieToken}` : null);
   if (!authorization) {
-    throw new HttpError(401, 'Authentication required (Bearer token)', {
+    throw new HttpError(401, 'Authentication required', {
       code: 'AUTH_REQUIRED'
     });
   }
@@ -123,6 +125,35 @@ export function createBackendApiV1({
         return {
           status: 200,
           body: result
+        };
+      }),
+
+    getSession: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const currentUser = await userService.getMe(actor);
+
+        return {
+          status: 200,
+          body: {
+            sessionId: actor.sessionId,
+            expiresAt: actor.sessionExpiresAt,
+            user: {
+              id: currentUser.user.id,
+              username: currentUser.user.username,
+              email: currentUser.user.email,
+              fullName: currentUser.user.fullName,
+              displayName: currentUser.user.fullName,
+              role: currentUser.user.role,
+              status: currentUser.user.status,
+              initialPasswordDecision: currentUser.user.initialPasswordDecision,
+              pendingEmailChange: currentUser.user.pendingEmailChange
+            }
+          }
         };
       }),
 

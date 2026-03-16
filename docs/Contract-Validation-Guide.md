@@ -11,7 +11,7 @@ Este guia explica como usar a validacao de contrato de eventos (Ajv), a persiste
 - `src/events/prisma-event-store.js`: repositorio Prisma e operacoes de lock/idempotencia
 - `src/samples/sample-command-service.js`: comandos de negocio para fase 1/fase 2
 - `src/samples/sample-query-service.js`: leitura para lista/detalhe/dashboard
-- `src/auth/local-auth-service.js`: login local e token Bearer (MVP)
+- `src/auth/local-auth-service.js`: auth local legado usado apenas em testes unitarios/contratos
 - `src/uploads/local-upload-service.js`: persistencia local de fotos
 - `src/api/v1/backend-api.js`: handlers API v1 framework-agnosticos para front
 - `prisma/schema.prisma`: modelo relacional oficial
@@ -37,10 +37,10 @@ Este guia explica como usar a validacao de contrato de eventos (Ajv), a persiste
 
 - `DATABASE_URL` (PostgreSQL), ex.:
 - `postgresql://postgres:postgres@localhost:5432/rastreio_test?schema=public`
-- `AUTH_SECRET` (token local auth, minimo 16 chars)
-- `AUTH_HEADER_FALLBACK_ENABLED` (default: `true` em dev/teste, `false` em producao)
-- `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS` (default: `true` em dev/teste, `false` em producao)
-- `LOCAL_AUTH_USERS_JSON` (usuarios locais em JSON)
+- `AUTH_SECRET` (segredo de sessao, minimo 16 chars)
+- `BOOTSTRAP_ADMIN_*` (bootstrap inicial do primeiro administrador)
+- `EMAIL_TRANSPORT` (`smtp` ou `outbox`)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` (quando `EMAIL_TRANSPORT=smtp`)
 - `UPLOADS_DIR` (diretorio local de fotos no MVP)
 
 ## Exemplo de uso (route handler em memoria)

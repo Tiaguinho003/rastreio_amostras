@@ -10,3 +10,4 @@ services:
       - "${APP_PORT:-3001}:3000"
     volumes:
       - ${HOMOLOG_UPLOADS_DIR:-/srv/rastreio/homolog/uploads}:/var/lib/rastreio/uploads
+      - ${HOMOLOG_EMAIL_OUTBOX_DIR:-/srv/rastreio/homolog/email-outbox}:/var/lib/rastreio/email-outbox

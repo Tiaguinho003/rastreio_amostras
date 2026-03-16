@@ -8,5 +8,4 @@ Type=oneshot
 User=rastreio
 Group=rastreio
 WorkingDirectory=/opt/rastreio-interno-amostras
-EnvironmentFile=/opt/rastreio-interno-amostras/.env
-ExecStart=/opt/rastreio-interno-amostras/scripts/ops/run-backup-cycle.sh
+ExecStart=/opt/rastreio-interno-amostras/scripts/runtime/backup.sh internal-production

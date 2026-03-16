@@ -22,21 +22,21 @@ Body:
 Response 200:
 ```json
 {
-  "accessToken": "<jwt>",
-  "tokenType": "Bearer",
   "expiresAt": "2026-02-27T23:00:00.000Z",
+  "sessionId": "11111111-2222-3333-4444-555555555555",
   "user": {
     "id": "00000000-0000-0000-0000-000000000002",
     "username": "classificador",
-    "role": "CLASSIFIER",
-    "displayName": "Classificador"
+    "fullName": "Classificador",
+    "role": "CLASSIFIER"
   }
 }
 ```
 
-Headers para endpoints protegidos:
-- `Authorization: Bearer <token>`
-- fallback dev (sem token): `x-user-id` + `x-user-role`
+Sessao:
+- o login seta cookie `HttpOnly` de sessao (`rastreio_session`)
+- chamadas protegidas devem usar o cookie de sessao automaticamente
+- `GET /api/v1/auth/session` restaura a sessao atual para o frontend
 
 ## 2. Escrita (Comandos)
 

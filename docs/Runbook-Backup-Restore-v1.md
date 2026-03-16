@@ -4,6 +4,20 @@ Status: Ativo
 Data: 2026-03-04  
 Projeto: Rastreio Interno de Amostras
 
+## Nota de uso atual
+
+Este documento permanece como referencia historica de backup/restore.
+
+Para o caminho canonico atual, usar primeiro:
+
+1. `docs/Runtime-Canonical-Guide.md`
+2. `docs/Handoff-Implantacao-Internal-Production.md`
+
+Observacao:
+
+1. o caminho canonico atual de backup para `internal-production` passa primeiro por `scripts/runtime/backup.sh internal-production`
+2. este documento permanece util como referencia de baixo nivel para os scripts `scripts/ops/*`
+
 ## 1. Escopo
 
 Este runbook cobre backup e restore de:

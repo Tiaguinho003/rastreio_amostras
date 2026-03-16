@@ -44,7 +44,27 @@ function formatLatestSummary(sample: SampleSnapshot) {
   const owner = renderMainSampleValue(sample.declared.owner);
   const harvest = renderMainSampleValue(sample.declared.harvest);
   const sacks = renderMainSampleValue(sample.declared.sacks);
-  return `${owner} | Safra ${harvest} | Sacas ${sacks}`;
+  return `${owner} | Safra ${harvest} | Saca ${sacks}`;
+}
+
+function getMobileStatusLabel(status: SampleSnapshot['status']) {
+  if (status === 'QR_PENDING_PRINT' || status === 'REGISTRATION_CONFIRMED') {
+    return 'Impressao pendente';
+  }
+
+  if (status === 'QR_PRINTED') {
+    return 'Classificacao pendente';
+  }
+
+  if (status === 'CLASSIFICATION_IN_PROGRESS') {
+    return 'Em andamento';
+  }
+
+  if (status === 'CLASSIFIED') {
+    return 'Classificada';
+  }
+
+  return 'Em andamento';
 }
 
 function buildOperationModalData(
@@ -90,16 +110,31 @@ function buildOperationModalData(
 function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
   return (
     <Link href={`/samples/${sample.id}`} className="dashboard-latest-registration-card">
+      <div className="dashboard-latest-registration-leading" aria-hidden="true" />
+
       <div className="dashboard-latest-registration-main">
-        <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-        <p className="dashboard-latest-registration-subtitle">{formatLatestSummary(sample)}</p>
-        <p className="dashboard-latest-registration-subtitle">{formatCreationTimestamp(sample.createdAt)}</p>
-      </div>
-      <div className="dashboard-latest-registration-status">
-        <div className="status-badge-group">
-          <StatusBadge status={sample.status} />
-          <CommercialStatusBadge status={sample.commercialStatus} />
+        <div className="dashboard-latest-registration-head">
+          <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
+          <span className="dashboard-latest-registration-pill">{getMobileStatusLabel(sample.status)}</span>
         </div>
+        <p className="dashboard-latest-registration-subtitle">{formatLatestSummary(sample)}</p>
+        <p className="dashboard-latest-registration-meta">
+          <span className="dashboard-latest-registration-meta-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <rect x="4.5" y="5.5" width="15" height="14" rx="2.2" />
+              <path d="M7.5 3.8v3.2" />
+              <path d="M16.5 3.8v3.2" />
+              <path d="M4.5 9.5h15" />
+            </svg>
+          </span>
+          <span>{formatCreationTimestamp(sample.createdAt)}</span>
+        </p>
+      </div>
+
+      <div className="dashboard-latest-registration-trailing" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
       </div>
     </Link>
   );
@@ -189,6 +224,7 @@ export default function DashboardPage() {
   const operationModalData = data ? buildOperationModalData(data, activeOperationPanel) : null;
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
   const totalReceivedToday = data?.todayReceivedTotal ?? 0;
+  const totalPending = data?.totalPending ?? 0;
   const operationModalMetaText = operationModalData
     ? operationModalData.total > operationModalData.items.length
       ? `Exibindo as ${operationModalData.items.length} primeiras amostras da operacao.`
@@ -200,6 +236,22 @@ export default function DashboardPage() {
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="dashboard-page">
+        <section className="dashboard-mobile-welcome">
+          <div className="dashboard-mobile-welcome-copy">
+            <h2 className="dashboard-mobile-welcome-title">Bem-vindo!</h2>
+            <p className="dashboard-mobile-welcome-subtitle">Resumo das operacoes</p>
+          </div>
+
+          <div className="dashboard-mobile-welcome-visual" aria-hidden="true">
+            <div className="dashboard-mobile-welcome-shape shape-a" />
+            <div className="dashboard-mobile-welcome-shape shape-b" />
+            <div className="dashboard-mobile-welcome-photo">
+              <div className="dashboard-mobile-welcome-photo-glow" />
+              <div className="dashboard-mobile-welcome-photo-lines" />
+            </div>
+          </div>
+        </section>
+
         <section className="dashboard-section-column">
           <div className="dashboard-section-heading">
             <h2 className="dashboard-section-title">Operacoes</h2>
@@ -226,8 +278,9 @@ export default function DashboardPage() {
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Impresso pendente</span>
+                    <span className="dashboard-operation-title">Impressoes</span>
                     <strong className="dashboard-operation-total">{data.printPending.total}</strong>
+                    <span className="dashboard-operation-description">Pendentes</span>
                   </span>
                 </button>
 
@@ -250,8 +303,9 @@ export default function DashboardPage() {
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Classificacoes pendentes</span>
+                    <span className="dashboard-operation-title">Classificacoes</span>
                     <strong className="dashboard-operation-total">{data.classificationPending.total}</strong>
+                    <span className="dashboard-operation-description">Pendentes</span>
                   </span>
                 </button>
 
@@ -275,8 +329,9 @@ export default function DashboardPage() {
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Classificacoes em andamento</span>
+                    <span className="dashboard-operation-title">Em andamento</span>
                     <strong className="dashboard-operation-total">{data.classificationInProgress.total}</strong>
+                    <span className="dashboard-operation-description">{totalPending} na fila</span>
                   </span>
                 </button>
               </div>
@@ -290,6 +345,10 @@ export default function DashboardPage() {
           <section className="dashboard-section-column dashboard-section-column-wide">
             <div className="dashboard-section-heading">
               <h2 className="dashboard-section-title">Ultimos registros</h2>
+              <Link href="/samples" className="dashboard-section-link">
+                Ver todos
+                <span aria-hidden="true">›</span>
+              </Link>
             </div>
 
             <section className="panel dashboard-secondary-panel dashboard-secondary-panel-wide">
@@ -311,7 +370,7 @@ export default function DashboardPage() {
             </section>
           </section>
 
-          <section className="dashboard-section-column dashboard-section-column-actions">
+        <section className="dashboard-section-column dashboard-section-column-actions">
             <Link href="/samples/new" className="dashboard-action-link dashboard-action-link-new">
               <span className="dashboard-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">

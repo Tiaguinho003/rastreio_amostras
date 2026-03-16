@@ -17,15 +17,42 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const MAIN_NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/samples/new', label: 'Novo Registro' },
-  { href: '/samples', label: 'Registros' }
+type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'new-sample' | 'settings';
+type MobileRouteMeta = {
+  title: string;
+  subtitle: string;
+  ctaHref?: string;
+  ctaLabel?: string;
+  ctaIcon?: NavIcon;
+};
+
+const DESKTOP_NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
+  { href: '/samples/new', label: 'Novo Registro', icon: 'new-sample' as NavIcon },
+  { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon }
+] as const;
+
+const ADMIN_NAV_ITEM = {
+  href: '/users',
+  label: 'Usuarios',
+  icon: 'users' as NavIcon
+} as const;
+
+const MOBILE_NAV_ITEMS = [
+  { href: '/dashboard', mobileLabel: 'Inicio', icon: 'dashboard' as NavIcon, emphasis: 'default' as const },
+  { href: '/samples', mobileLabel: 'Registros', icon: 'samples' as NavIcon, emphasis: 'default' as const },
+  { href: '/samples/new', mobileLabel: 'Novo', icon: 'new-sample' as NavIcon, emphasis: 'primary' as const },
+  { href: '/camera', mobileLabel: 'Camera', icon: 'camera' as NavIcon, emphasis: 'default' as const },
+  { href: '/settings', mobileLabel: 'Perfil', icon: 'settings' as NavIcon, emphasis: 'default' as const }
 ] as const;
 
 function isMainNavItemActive(pathname: string, href: string) {
   if (href === '/dashboard') {
     return pathname === '/dashboard';
+  }
+
+  if (href === '/camera') {
+    return pathname === '/camera';
   }
 
   if (href === '/samples/new') {
@@ -36,7 +63,127 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/samples' || /^\/samples\/[^/]+$/.test(pathname);
   }
 
+  if (href === '/settings') {
+    return pathname === '/settings';
+  }
+
   return pathname === href;
+}
+
+function renderNavIcon(icon: NavIcon) {
+  if (icon === 'dashboard') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M4.5 5.5h6.5v5.8H4.5Z" />
+        <path d="M13 5.5h6.5v9.1H13Z" />
+        <path d="M4.5 13.3h6.5v5.2H4.5Z" />
+        <path d="M13 16h6.5v2.5H13Z" />
+      </svg>
+    );
+  }
+
+  if (icon === 'new-sample') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+        <circle cx="12" cy="12" r="8.2" />
+      </svg>
+    );
+  }
+
+  if (icon === 'camera') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M5.5 8.4h3l1.4-2.4h4.2l1.4 2.4h3A1.9 1.9 0 0 1 20.4 10v7.2a1.9 1.9 0 0 1-1.9 1.9H5.5a1.9 1.9 0 0 1-1.9-1.9V10a1.9 1.9 0 0 1 1.9-1.6Z" />
+        <circle cx="12" cy="13.5" r="3.3" />
+      </svg>
+    );
+  }
+
+  if (icon === 'samples') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <rect x="4.5" y="5" width="15" height="14" rx="2.4" />
+        <path d="M8 9h8" />
+        <path d="M8 12.5h8" />
+        <path d="M8 16h5" />
+      </svg>
+    );
+  }
+
+  if (icon === 'settings') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M12 12a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" />
+        <path d="M4.8 18.1a8.2 8.2 0 0 1 14.4 0" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <circle cx="12" cy="8.2" r="3.2" />
+      <path d="M5 18.5a7.4 7.4 0 0 1 14 0" />
+      <path d="M18.5 6.2h2" />
+      <path d="M19.5 5.2v2" />
+    </svg>
+  );
+}
+
+function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
+  if (pathname === '/camera') {
+    return {
+      title: 'Captura rapida',
+      subtitle: 'Escaneie QR, confirme a amostra e siga direto para o proximo passo.',
+      ctaHref: '/samples/new',
+      ctaLabel: 'Novo manual',
+      ctaIcon: 'new-sample'
+    };
+  }
+
+  if (pathname === '/samples/new') {
+    return {
+      title: 'Novo registro',
+      subtitle: 'Capture a chegada e confirme os dados minimos da amostra em poucos toques.',
+      ctaHref: '/camera',
+      ctaLabel: 'Usar camera',
+      ctaIcon: 'camera'
+    };
+  }
+
+  if (pathname === '/samples') {
+    return {
+      title: 'Registros',
+      subtitle: 'Busque, filtre e retome amostras em andamento sem perder a fila.',
+      ctaHref: '/samples/new',
+      ctaLabel: 'Novo registro',
+      ctaIcon: 'new-sample'
+    };
+  }
+
+  if (/^\/samples\/[^/]+$/.test(pathname)) {
+    return {
+      title: 'Detalhe da amostra',
+      subtitle: 'Continue a operacao da amostra com classificacao, QR e conferencias no mesmo fluxo.'
+    };
+  }
+
+  if (pathname === '/settings') {
+    return {
+      title: 'Meu perfil',
+      subtitle: 'Atualize seus dados de acesso sem sair do fluxo principal.'
+    };
+  }
+
+  if (pathname === '/users') {
+    return {
+      title: 'Usuarios',
+      subtitle: 'Gerencie acessos e acompanhe a operacao administrativa.'
+    };
+  }
+
+  return null;
 }
 
 export function AppShell({ session, onLogout, onSessionChange, children }: AppShellProps) {
@@ -52,9 +199,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  const navItems = isAdmin(session.user.role)
-    ? [...MAIN_NAV_ITEMS, { href: '/users', label: 'Usuarios' as const }]
-    : MAIN_NAV_ITEMS;
+  const desktopNavItems = isAdmin(session.user.role) ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM] : DESKTOP_NAV_ITEMS;
+  const mobileRouteMeta = resolveMobileRouteMeta(pathname);
 
   useEffect(() => {
     if (!profileMenuOpen) {
@@ -120,6 +266,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     <>
       <header className="topbar">
         <div className="topbar-inner">
+          <div className="topbar-mobile-spacer" aria-hidden="true" />
+
           <Link href="/dashboard" className="topbar-logo-slot" aria-label="Pagina inicial">
             <Image
               src="/logo-safras-branco.png"
@@ -132,7 +280,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           </Link>
 
           <nav className="topbar-nav" aria-label="Paginas principais">
-            {navItems.map((item) => (
+            {desktopNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -186,6 +334,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                     </p>
                   </div>
 
+                  {isAdmin(session.user.role) ? (
+                    <Link href="/users" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                      Usuarios
+                    </Link>
+                  ) : null}
                   <Link href="/settings" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
                     Meu perfil
                   </Link>
@@ -206,47 +359,82 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </div>
       </header>
 
-      {session.user.initialPasswordDecision === 'PENDING' ? (
-        <section className="panel stack" style={{ margin: '1rem auto', width: 'min(1180px, calc(100vw - 2rem))' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '1rem',
-              flexWrap: 'wrap'
-            }}
-          >
-            <div>
-              <h3 style={{ margin: 0 }}>Senha inicial</h3>
-              <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)' }}>
-                Voce pode manter a senha inicial por enquanto ou ir agora para altera-la.
-              </p>
-              {decisionError ? (
-                <p className="error" style={{ margin: '0.5rem 0 0' }}>
-                  {decisionError}
+      <main className="app-shell-main">
+        {mobileRouteMeta ? (
+          <section className="app-shell-mobile-route-header">
+            <div className="app-shell-mobile-route-copy">
+              <p className="app-shell-mobile-route-kicker">Modo mobile</p>
+              <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>
+              <p className="app-shell-mobile-route-subtitle">{mobileRouteMeta.subtitle}</p>
+            </div>
+
+            {mobileRouteMeta.ctaHref && mobileRouteMeta.ctaLabel ? (
+              <Link href={mobileRouteMeta.ctaHref} className="app-shell-mobile-route-cta">
+                <span className="app-shell-mobile-route-cta-icon" aria-hidden="true">
+                  {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'new-sample')}
+                </span>
+                <span>{mobileRouteMeta.ctaLabel}</span>
+              </Link>
+            ) : null}
+          </section>
+        ) : null}
+
+        {session.user.initialPasswordDecision === 'PENDING' ? (
+          <section className="panel stack app-shell-password-banner">
+            <div className="app-shell-password-banner-inner">
+              <div className="app-shell-password-banner-copy">
+                <h3 style={{ margin: 0 }}>Senha inicial</h3>
+                <p className="app-shell-password-banner-text">
+                  Voce pode manter a senha inicial por enquanto ou ir agora para altera-la.
                 </p>
-              ) : null}
-            </div>
+                {decisionError ? (
+                  <p className="error" style={{ margin: '0.5rem 0 0' }}>
+                    {decisionError}
+                  </p>
+                ) : null}
+              </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => handleInitialPasswordDecision('KEPT')} disabled={decisionLoading}>
-                {decisionLoading ? 'Salvando...' : 'Manter'}
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => handleInitialPasswordDecision('CHANGED')}
-                disabled={decisionLoading}
+              <div className="app-shell-password-banner-actions">
+                <button type="button" onClick={() => handleInitialPasswordDecision('KEPT')} disabled={decisionLoading}>
+                  {decisionLoading ? 'Salvando...' : 'Manter'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => handleInitialPasswordDecision('CHANGED')}
+                  disabled={decisionLoading}
+                >
+                  Alterar
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {children}
+      </main>
+
+      <nav className="mobile-tabbar" aria-label="Paginas principais">
+        <div className="mobile-tabbar-inner">
+          {MOBILE_NAV_ITEMS.map((item) => {
+            const active = isMainNavItemActive(pathname, item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`mobile-tabbar-link${item.emphasis === 'primary' ? ' is-primary' : ''}${active ? ' is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
               >
-                Alterar
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <main>{children}</main>
+                <span className="mobile-tabbar-icon" aria-hidden="true">
+                  {renderNavIcon(item.icon)}
+                </span>
+                <span className="mobile-tabbar-label">{item.mobileLabel}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </>
   );
 }

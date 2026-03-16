@@ -17,19 +17,17 @@ Organizar o sistema para deploy em servidor fisico on-premise com operacao estav
 3. Regras criticas de auditoria e append-only no banco (triggers e constraints nas migrations).
 4. Upload local em disco via `UPLOADS_DIR` (MVP).
 5. Pipeline CI de contratos/build/testes em `.github/workflows/contracts.yml`.
-6. Variaveis de ambiente atuais: `DATABASE_URL`, `AUTH_SECRET`, `LOCAL_AUTH_USERS_JSON`, `UPLOADS_DIR`.
+6. Variaveis de ambiente atuais: `DATABASE_URL`, `AUTH_SECRET`, `BOOTSTRAP_ADMIN_*`, `EMAIL_TRANSPORT`, `UPLOADS_DIR`.
 7. `npm run typecheck`, `npm run build`, `npm test` e `npm run test:integration:db` executaram com sucesso no ambiente local.
 
 ## 3. Gaps para producao identificados
 
 ### P0 (bloqueia producao)
 
-1. Auth aceita fallback por header (`x-user-id`/`x-user-role`) se nao houver Bearer valido.
-2. Existe usuario/senha padrao no codigo e no `.env.example`.
-3. `docker-compose.yml` atual sobe somente banco; nao existe empacotamento oficial do app para producao.
-4. Nao existe endpoint HTTP de healthcheck publicado para orquestracao/monitoramento.
-5. Nao existe runbook de deploy/rollback operacional no repositorio.
-6. Nao existe rotina versionada de backup/restore (somente diretriz documental).
+1. PWA publica ainda nao estava implementada.
+2. Runtime de producao ainda estava divergente entre `Dockerfile`, `compose` e runbooks.
+3. `docker-compose.yml` atual sobe somente banco; nao existe publicacao HTTPS versionada no repositorio.
+4. Healthcheck original era superficial e nao validava banco/uploads.
 
 ### P1 (recomendado antes de go-live)
 
@@ -66,11 +64,11 @@ Saida esperada:
 
 Objetivo: eliminar riscos de autenticacao e credencial padrao.
 
-1. Tornar Bearer obrigatorio em producao (desabilitar fallback `x-user-id`/`x-user-role`).
-2. Remover usuarios padrao do codigo para ambiente de producao.
-3. Definir politica de credenciais locais (hash de senha + troca inicial obrigatoria).
+1. Manter autenticacao baseada em sessao persistida em banco.
+2. Entregar sessao ao frontend por cookie `HttpOnly`.
+3. Definir bootstrap inicial por `BOOTSTRAP_ADMIN_*`.
 4. Revisar `.env.example` com placeholders seguros e sem segredos reais.
-5. Validar startup fail-fast para `AUTH_SECRET` fraco ou ausente.
+5. Validar startup fail-fast para `AUTH_SECRET` ausente e SMTP inconsistente.
 
 Saida esperada:
 1. API nao aceita autenticacao insegura no ambiente produtivo.
@@ -82,7 +80,7 @@ Objetivo: tornar deploy reproduzivel no servidor fisico.
 
 1. Criar `Dockerfile` da aplicacao Next.js em modo producao.
 2. Criar `docker-compose.prod.yml` com servicos `app` e `db` (ou apenas `app` se DB externo).
-3. Publicar endpoint HTTP de healthcheck (`/api/health`).
+3. Publicar endpoints de `liveness` e `readiness`.
 4. Definir volumes persistentes:
 5. Banco (`/var/lib/postgresql/data` ou volume nomeado).
 6. Uploads (`UPLOADS_DIR` em path persistente no host).
@@ -90,7 +88,8 @@ Objetivo: tornar deploy reproduzivel no servidor fisico.
 
 Saida esperada:
 1. `docker compose -f docker-compose.prod.yml up -d` sobe stack completa.
-2. Healthcheck retorna `200` apos boot.
+2. `GET /api/health/live` retorna `200` quando o processo esta vivo.
+3. `GET /api/health/ready` retorna `200` apenas com banco, uploads e configuracao validos.
 
 ### Fase 3 - Backup, restore e dados (P0)
 

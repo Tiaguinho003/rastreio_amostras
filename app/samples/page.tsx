@@ -297,8 +297,14 @@ export default function SamplesPage() {
     <AppShell session={session} onLogout={logout}>
       <section className="panel stack samples-page-panel">
         <div className="row samples-page-header-row">
-          <h2 style={{ margin: 0 }}>Registros</h2>
+          <div className="samples-page-header-main">
+            <p className="samples-page-kicker">Fila operacional</p>
+            <h2 className="samples-page-title">Registros</h2>
+          </div>
           <div className="samples-page-filter-control" ref={filtersWrapRef}>
+            <Link href="/samples/new" className="new-sample-link-button secondary samples-page-header-action">
+              Novo registro
+            </Link>
             <button
               type="button"
               className={`samples-page-filter-toggle${filtersOpen ? ' is-open' : ''}`}
@@ -314,6 +320,15 @@ export default function SamplesPage() {
               </svg>
               {activeHiddenFiltersCount > 0 ? <span className="samples-page-filter-badge">{activeHiddenFiltersCount}</span> : null}
             </button>
+
+            {filtersOpen ? (
+              <button
+                type="button"
+                className="samples-page-filter-backdrop"
+                aria-label="Fechar filtros"
+                onClick={() => setFiltersOpen(false)}
+              />
+            ) : null}
 
             <section
               className={`samples-page-filter-popover${filtersOpen ? ' is-open' : ''}`}

@@ -15,6 +15,7 @@ import {
   requestQrReprint
 } from '../../../lib/api-client';
 import { createSampleDraftSchema, qrFailSchema } from '../../../lib/form-schemas';
+import { consumePendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
 import type { CreateSampleAndPreparePrintResponse, PrintAction } from '../../../lib/types';
 import { useRequireAuth } from '../../../lib/use-auth';
 
@@ -203,6 +204,8 @@ export default function NewSamplePage() {
   const [photoConfirmEffectKey, setPhotoConfirmEffectKey] = useState(0);
   const [showPrintConfirmEffect, setShowPrintConfirmEffect] = useState(false);
   const [printConfirmEffectKey, setPrintConfirmEffectKey] = useState(0);
+  const [cameraPhotoHydrated, setCameraPhotoHydrated] = useState(false);
+  const [cameraPhotoRequested, setCameraPhotoRequested] = useState(false);
 
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
   const canCloseModal = labelModalStep === 'review';
@@ -288,6 +291,67 @@ export default function NewSamplePage() {
       }, 0);
     };
   }, [canCloseModal, labelModalOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const source = new URLSearchParams(window.location.search).get('source');
+    if (source === 'camera') {
+      setCameraPhotoRequested(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cameraPhotoHydrated || !cameraPhotoRequested) {
+      return;
+    }
+
+    let active = true;
+    setCameraPhotoHydrated(true);
+
+    void consumePendingArrivalPhoto()
+      .then((photo) => {
+        if (!active) {
+          return;
+        }
+
+        if (!photo) {
+          setError('A foto capturada nao estava mais disponivel. Continue com o registro manualmente.');
+          router.replace('/samples/new');
+          return;
+        }
+
+        setArrivalPhoto(photo);
+        setArrivalPhotoReady(true);
+        setPhotoConfirmEffectKey((current) => current + 1);
+        setShowPhotoConfirmEffect(true);
+
+        if (confirmPhotoEffectTimeoutRef.current !== null) {
+          window.clearTimeout(confirmPhotoEffectTimeoutRef.current);
+        }
+
+        confirmPhotoEffectTimeoutRef.current = window.setTimeout(() => {
+          setShowPhotoConfirmEffect(false);
+          confirmPhotoEffectTimeoutRef.current = null;
+        }, 980);
+
+        router.replace('/samples/new');
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setError('Falha ao recuperar a foto capturada. Continue com o registro manualmente.');
+        router.replace('/samples/new');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [cameraPhotoHydrated, cameraPhotoRequested, router]);
 
   if (loading || !session) {
     return null;
@@ -703,8 +767,17 @@ export default function NewSamplePage() {
     <AppShell session={session} onLogout={logout}>
       <section className="new-sample-page">
         <header className="new-sample-header">
-          <p className="new-sample-kicker">Cadastro inicial</p>
-          <h2 className="new-sample-title">Nova amostra</h2>
+          <div className="new-sample-header-copy">
+            <p className="new-sample-kicker">Cadastro inicial</p>
+            <h2 className="new-sample-title">Nova amostra</h2>
+          </div>
+
+          <div className="new-sample-header-actions">
+            <Link href="/camera" className="new-sample-link-button secondary new-sample-header-cta">
+              Usar camera
+            </Link>
+            <p className="new-sample-header-note">Capture a chegada e confirme o registro em uma sequencia curta de passos.</p>
+          </div>
         </header>
 
         <section className="new-sample-layout">

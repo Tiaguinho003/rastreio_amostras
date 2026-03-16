@@ -7,6 +7,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { flushSync } from 'react-dom';
 
 import { AppShell } from '../../../components/AppShell';
+import { CommercialStatusBadge } from '../../../components/CommercialStatusBadge';
 import { StatusBadge } from '../../../components/StatusBadge';
 import {
   ApiError,
@@ -2184,7 +2185,7 @@ export default function SampleDetailPage() {
 
   return (
     <AppShell session={session} onLogout={logout}>
-      <div className="row" style={{ marginBottom: '1rem' }}>
+      <div className="row sample-detail-back-row" style={{ marginBottom: '1rem' }}>
         <Link href="/samples">
           <button className="secondary sample-detail-back-button" type="button">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -2199,7 +2200,7 @@ export default function SampleDetailPage() {
       {loadingDetail ? <p>Carregando amostra...</p> : null}
 
       {!loadingDetail && detail ? (
-        <div className="stack">
+        <div className="stack sample-detail-page-shell">
           <section className="panel stack">
             <div className="sample-detail-hero-top">
               <div className="sample-detail-hero-main">
@@ -2215,6 +2216,10 @@ export default function SampleDetailPage() {
                 <div className="sample-detail-hero-text">
                   <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
                   <p style={{ margin: 0 }}>{sampleHeaderSummary}</p>
+                  <div className="sample-detail-hero-statuses">
+                    <StatusBadge status={detail.sample.status} />
+                    <CommercialStatusBadge status={detail.sample.commercialStatus} />
+                  </div>
                 </div>
               </div>
 

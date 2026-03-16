@@ -4,6 +4,15 @@ Status: Ativo
 Data: 2026-03-04  
 Projeto: Rastreio Interno de Amostras
 
+## Nota de uso atual
+
+Este documento permanece como referencia historica.
+
+Para a trilha canonica principal de implantacao/operacao, usar:
+
+1. `docs/Runtime-Canonical-Guide.md`
+2. `docs/Handoff-Implantacao-Internal-Production.md`
+
 Guia completo de implantacao e atualizacao:
 1. `docs/Guia-Implantacao-e-Atualizacao-Producao-v1.md`
 
@@ -14,10 +23,9 @@ Guia completo de implantacao e atualizacao:
 3. Variaveis obrigatorias definidas no host:
 4. `DATABASE_URL`
 5. `AUTH_SECRET`
-6. `LOCAL_AUTH_USERS_JSON`
-7. `UPLOADS_DIR`
-8. `AUTH_HEADER_FALLBACK_ENABLED=false` para producao.
-9. `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS=false` para producao.
+6. `BOOTSTRAP_ADMIN_*`
+7. `EMAIL_TRANSPORT` + `SMTP_*` (quando `smtp`)
+8. `UPLOADS_DIR`
 
 ## 2. Validacao local/homolog antes do deploy
 
@@ -56,7 +64,7 @@ docker compose -f docker-compose.prod.yml -f /srv/rastreio/homolog/docker-compos
 1. Validar healthcheck:
 
 ```bash
-curl -i http://localhost:3000/api/health
+curl -i http://localhost:3000/api/health/ready
 ```
 
 2. Rodar smoke test:

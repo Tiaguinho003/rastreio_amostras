@@ -38,7 +38,7 @@ test('missing bearer token is rejected', async () => {
   });
 
   assert.equal(result.status, 401);
-  assert.equal(result.body.error.message, 'Authentication required (Bearer token)');
+  assert.equal(result.body.error.message, 'Authentication required');
 });
 
 test('bearer auth works for protected routes', async () => {
@@ -63,6 +63,39 @@ test('bearer auth works for protected routes', async () => {
   const result = await api.listSamples({
     headers: {
       authorization: 'Bearer token'
+    },
+    params: {},
+    query: {},
+    body: {}
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(Array.isArray(result.body.items), true);
+});
+
+test('session cookie works for protected routes', async () => {
+  const api = createMinimalApi({
+    authService: {
+      async authenticateAuthorizationHeader(value) {
+        if (value !== 'Bearer cookie-token') {
+          throw new Error('unexpected token');
+        }
+
+        return {
+          actorType: 'USER',
+          actorUserId: '00000000-0000-0000-0000-000000000001',
+          role: 'ADMIN',
+          username: 'admin',
+          sessionId: '00000000-0000-0000-0000-000000000010',
+          sessionExpiresAt: new Date(Date.now() + 60_000).toISOString()
+        };
+      }
+    }
+  });
+
+  const result = await api.listSamples({
+    headers: {
+      cookie: 'rastreio_session=cookie-token'
     },
     params: {},
     query: {},

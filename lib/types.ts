@@ -58,8 +58,6 @@ export interface SessionUser {
 }
 
 export interface SessionData {
-  accessToken: string;
-  tokenType: 'Bearer';
   expiresAt: string;
   sessionId: string;
   user: SessionUser;

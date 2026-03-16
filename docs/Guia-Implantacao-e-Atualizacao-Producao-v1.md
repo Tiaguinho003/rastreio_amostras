@@ -4,6 +4,17 @@ Status: Ativo
 Data: 2026-03-04  
 Projeto: Rastreio Interno de Amostras
 
+## Nota de uso atual
+
+Este documento permanece como referencia historica de implantacao on-prem.
+
+Para o caminho principal atual, usar primeiro:
+
+1. `docs/Runtime-Canonical-Guide.md`
+2. `docs/Handoff-Implantacao-Internal-Production.md`
+
+Este arquivo nao deve mais ser tratado como a trilha canonica principal.
+
 ## 1. Objetivo
 
 Este guia descreve o passo a passo completo para:
@@ -107,10 +118,13 @@ Criar arquivo `.env.prod` a partir de `.env.homolog.example` ou `.env.example`, 
 Campos criticos:
 1. `DATABASE_URL`
 2. `AUTH_SECRET`
-3. `LOCAL_AUTH_USERS_JSON` com `passwordHash`
-4. `AUTH_HEADER_FALLBACK_ENABLED=false`
-5. `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS=false`
-6. `UPLOADS_DIR` e `BACKUP_ROOT`
+3. `BOOTSTRAP_ADMIN_FULL_NAME`
+4. `BOOTSTRAP_ADMIN_USERNAME`
+5. `BOOTSTRAP_ADMIN_EMAIL`
+6. `BOOTSTRAP_ADMIN_PASSWORD`
+7. `EMAIL_TRANSPORT`
+8. `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` (quando `EMAIL_TRANSPORT=smtp`)
+9. `UPLOADS_DIR` e `BACKUP_ROOT`
 
 Permissao recomendada:
 
@@ -138,7 +152,18 @@ services:
       - "3000:3000"
     volumes:
       - /srv/rastreio/producao/uploads:/var/lib/rastreio/uploads
+      - /srv/rastreio/producao/email-outbox:/var/lib/rastreio/email-outbox
 ```
+
+## B.7. Preparar proxy reverso publico
+
+Arquivo base de referencia:
+1. `ops/nginx/rastreio.public.conf.example`
+
+Objetivo:
+1. Publicar apenas `80/443`.
+2. Redirecionar `80 -> 443`.
+3. Encaminhar trafego HTTPS para a app em `127.0.0.1:3000`.
 
 ## 5. Fase C - Primeiro deploy em producao
 
@@ -170,7 +195,7 @@ docker compose -f docker-compose.prod.yml -f /srv/rastreio/producao/docker-compo
 Healthcheck:
 
 ```bash
-curl -i http://localhost:3000/api/health
+curl -i http://localhost:3000/api/health/ready
 ```
 
 Smoke test:
@@ -237,6 +262,7 @@ Fluxo recomendado de atualizacao:
 10. carregar `.env.prod`
 11. `docker compose ... up -d --build`
 12. `docker compose ... run --rm app npm run prisma:migrate:deploy`
+13. `docker compose ... run --rm app npm run db:seed`
 13. rodar smoke test.
 
 Comandos no servidor:
@@ -282,8 +308,8 @@ API_BASE_URL=http://localhost:3000 SMOKE_USERNAME="<usuario>" SMOKE_PASSWORD="<s
 1. Nunca editar codigo diretamente no servidor.
 2. Nunca deploy sem tag publicada.
 3. Nunca rodar restore sem confirmacao e backup valido.
-4. Nunca deixar `AUTH_HEADER_FALLBACK_ENABLED=true` em producao.
-5. Nunca deixar `LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS=true` em producao.
+4. Nunca publicar sem `APP_BASE_URL` e TLS definidos.
+5. Nunca publicar com `EMAIL_TRANSPORT=smtp` sem validar `SMTP_*`.
 6. Sempre validar healthcheck + smoke test apos deploy.
 
 ## 10. Definicao de pronto para go-live

@@ -1,3 +1,6 @@
+# Legacy compatibility file kept in root during Phase 1.
+# Canonical development compose: compose/development.yml
+
 services:
   db:
     image: postgres:15.8-alpine

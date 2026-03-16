@@ -55,13 +55,9 @@ async function request<TResponse>(
     signal?: AbortSignal;
   } = {}
 ): Promise<TResponse> {
-  const { method = 'GET', body, session, formData, signal } = options;
+  const { method = 'GET', body, formData, signal } = options;
 
   const headers: HeadersInit = {};
-  if (session?.accessToken) {
-    headers.Authorization = `Bearer ${session.accessToken}`;
-  }
-
   let finalBody: BodyInit | undefined;
   if (formData) {
     finalBody = formData;
@@ -75,6 +71,7 @@ async function request<TResponse>(
     headers,
     body: finalBody,
     cache: 'no-store',
+    credentials: 'same-origin',
     signal
   });
 
@@ -117,17 +114,16 @@ export function login(username: string, password: string) {
   });
 }
 
-export function logout(session: SessionData) {
-  return request<{ ok: boolean }>('/auth/logout', {
-    method: 'POST',
-    session
+export function getCurrentSession() {
+  return request<SessionData>('/auth/session', {
+    method: 'GET'
   });
 }
 
-export function recordSessionExpired(sessionId: string) {
-  return request<{ ok: boolean }>('/auth/session/expired', {
+export function logout(session?: SessionData | null) {
+  return request<{ ok: boolean }>('/auth/logout', {
     method: 'POST',
-    body: { sessionId }
+    session: session ?? null
   });
 }
 
@@ -470,22 +466,17 @@ export async function exportSamplePdf(
     destination?: string | null;
   }
 ) {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json'
-  };
-
-  if (session?.accessToken) {
-    headers.Authorization = `Bearer ${session.accessToken}`;
-  }
-
   const response = await fetch(`${API_BASE}/samples/${sampleId}/export/pdf`, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
       exportType: data.exportType,
       destination: data.destination ?? null
     }),
-    cache: 'no-store'
+    cache: 'no-store',
+    credentials: 'same-origin'
   });
 
   if (!response.ok) {

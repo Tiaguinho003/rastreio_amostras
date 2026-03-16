@@ -3,44 +3,61 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { logout as logoutRequest, recordSessionExpired } from './api-client';
+import { ApiError, getCurrentSession, logout as logoutRequest } from './api-client';
 import { isRoleAllowed } from './roles';
-import { clearSession, getSession, isSessionExpired, saveSession } from './session';
 import type { SessionData, UserRole } from './types';
 
 export function useAuthState() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expired, setExpired] = useState(false);
+  const [failureReason, setFailureReason] = useState<'session-expired' | 'session-ended' | null>(null);
 
   useEffect(() => {
-    const loaded = getSession();
-    if (loaded && !isSessionExpired(loaded)) {
-      setSession(loaded);
-    } else {
-      if (loaded?.sessionId) {
-        void recordSessionExpired(loaded.sessionId).catch(() => {
-          // best-effort audit
-        });
-        setExpired(true);
-      }
-      clearSession();
-      setSession(null);
-    }
-    setLoading(false);
+    let active = true;
+
+    getCurrentSession()
+      .then((currentSession) => {
+        if (!active) {
+          return;
+        }
+
+        setFailureReason(null);
+        setSession(currentSession);
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+
+        if (error instanceof ApiError && error.status === 401) {
+          const maybeCode =
+            error.details && typeof error.details === 'object' && 'code' in error.details
+              ? error.details.code
+              : null;
+          setFailureReason(maybeCode === 'SESSION_EXPIRED' ? 'session-expired' : 'session-ended');
+        } else {
+          setFailureReason(null);
+        }
+
+        setSession(null);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return {
     session,
     loading,
     setSession,
-    expired,
+    failureReason,
     replaceSession(nextSession: SessionData | null) {
-      if (nextSession) {
-        saveSession(nextSession);
-      } else {
-        clearSession();
-      }
       setSession(nextSession);
     }
   };
@@ -60,7 +77,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   } = options;
 
   const router = useRouter();
-  const { session, loading, replaceSession, expired } = useAuthState();
+  const { session, loading, replaceSession, failureReason } = useAuthState();
   const isAuthorized = useMemo(() => {
     if (!session) {
       return false;
@@ -79,22 +96,20 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     }
 
     if (!session) {
-      router.replace(expired ? `${unauthenticatedRedirectTo}?reason=session-expired` : unauthenticatedRedirectTo);
+      router.replace(failureReason ? `${unauthenticatedRedirectTo}?reason=${failureReason}` : unauthenticatedRedirectTo);
       return;
     }
 
     if (!isAuthorized) {
       router.replace(unauthorizedRedirectTo);
     }
-  }, [expired, isAuthorized, loading, router, session, unauthenticatedRedirectTo, unauthorizedRedirectTo]);
+  }, [failureReason, isAuthorized, loading, router, session, unauthenticatedRedirectTo, unauthorizedRedirectTo]);
 
   const logout = useCallback(async () => {
-    if (session) {
-      try {
-        await logoutRequest(session);
-      } catch {
-        // local cleanup still wins
-      }
+    try {
+      await logoutRequest(session);
+    } catch {
+      // local cleanup still wins
     }
 
     replaceSession(null);

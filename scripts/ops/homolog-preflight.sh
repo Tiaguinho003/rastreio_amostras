@@ -65,12 +65,33 @@ echo
 echo "=== Required Environment Variables ==="
 check_var DATABASE_URL
 check_var AUTH_SECRET
-check_var LOCAL_AUTH_USERS_JSON
 check_var UPLOADS_DIR
 check_var BACKUP_ROOT
 check_var API_BASE_URL
 check_var SMOKE_USERNAME
 check_var SMOKE_PASSWORD
+check_var BOOTSTRAP_ADMIN_FULL_NAME
+check_var BOOTSTRAP_ADMIN_USERNAME
+check_var BOOTSTRAP_ADMIN_EMAIL
+check_var BOOTSTRAP_ADMIN_PASSWORD
+check_var EMAIL_TRANSPORT
+
+case "${EMAIL_TRANSPORT:-}" in
+  smtp)
+    check_var SMTP_HOST
+    check_var SMTP_PORT
+    check_var SMTP_FROM
+    ;;
+  outbox)
+    echo "[OK] EMAIL_TRANSPORT uses local outbox"
+    ;;
+  "")
+    ;;
+  *)
+    echo "[FAIL] EMAIL_TRANSPORT must be smtp or outbox"
+    FAILURES=$((FAILURES + 1))
+    ;;
+esac
 
 echo
 echo "=== Safety Checks ==="

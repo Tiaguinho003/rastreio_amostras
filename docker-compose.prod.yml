@@ -1,3 +1,6 @@
+# Legacy compatibility file kept in root during Phase 1.
+# Canonical internal-production compose: compose/internal-production.yml
+
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +12,7 @@ services:
       TZ: America/Sao_Paulo
       PGTZ: America/Sao_Paulo
     volumes:
-      - rastreio_pg_data:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_DIR:-rastreio_pg_data}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rastreio_app} -d ${POSTGRES_DB:-rastreio_prod}"]
       interval: 10s
@@ -30,16 +33,29 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-rastreio_app}:${POSTGRES_PASSWORD:-change-me-postgres-password}@db:5432/${POSTGRES_DB:-rastreio_prod}?schema=public
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
-      AUTH_HEADER_FALLBACK_ENABLED: ${AUTH_HEADER_FALLBACK_ENABLED:-false}
-      LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS: ${LOCAL_AUTH_ALLOW_PLAINTEXT_PASSWORDS:-false}
-      LOCAL_AUTH_USERS_JSON: ${LOCAL_AUTH_USERS_JSON:?LOCAL_AUTH_USERS_JSON is required}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-}
+      BOOTSTRAP_ADMIN_FULL_NAME: ${BOOTSTRAP_ADMIN_FULL_NAME:?BOOTSTRAP_ADMIN_FULL_NAME is required}
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:?BOOTSTRAP_ADMIN_USERNAME is required}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?BOOTSTRAP_ADMIN_EMAIL is required}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?BOOTSTRAP_ADMIN_PASSWORD is required}
+      EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      EMAIL_OUTBOX_DIR: ${EMAIL_OUTBOX_DIR:-/var/lib/rastreio/email-outbox}
+      EMAIL_OUTBOX_FROM: ${EMAIL_OUTBOX_FROM:-rastreio@safras.local}
       UPLOADS_DIR: /var/lib/rastreio/uploads
     volumes:
-      - rastreio_uploads:/var/lib/rastreio/uploads
+      - ${UPLOADS_HOST_DIR:-rastreio_uploads}:/var/lib/rastreio/uploads
+      - ${EMAIL_OUTBOX_HOST_DIR:-rastreio_email_outbox}:/var/lib/rastreio/email-outbox
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health/ready > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -47,3 +63,4 @@ services:
 volumes:
   rastreio_pg_data:
   rastreio_uploads:
+  rastreio_email_outbox:
