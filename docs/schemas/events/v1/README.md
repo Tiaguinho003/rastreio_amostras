@@ -1,28 +1,32 @@
 # Event Schemas v1
 
-Este diretório implementa o contrato de eventos definido em `docs/Event-Contract-v1.md`.
+Status: Suporte tecnico  
+Escopo: schemas JSON Schema usados na validacao do contrato de eventos  
+Ultima revisao: 2026-03-16  
+Documentos relacionados: `docs/API-e-Contratos.md`
 
 ## Estrutura
 
-- `base/`
-- `shared-defs.schema.json`: enums e tipos compartilhados
-- `event-envelope.schema.json`: campos comuns obrigatórios de todo evento
-- `payloads/`: schema de payload por `eventType`
-- `events/`: schema completo por `eventType` (envelope + restrições por tipo)
-- `event.schema.json`: agregador principal (`oneOf`) de todos os eventos v1
+1. `base/`
+   enums e envelope comum.
+2. `payloads/`
+   schema de payload por `eventType`.
+3. `events/`
+   schema completo por evento.
+4. `event.schema.json`
+   agregador principal (`oneOf`) para validacao de todos os eventos v1.
 
 ## Regras aplicadas
 
-- JSON Schema Draft 2020-12
-- Eventos em UPPER_SNAKE_CASE
-- `actorType=USER` exige `actorUserId` UUID
-- `actorType=SYSTEM` exige `actorUserId=null`
-- Eventos de transição exigem `fromStatus` e `toStatus`
-- Eventos sem transição exigem `fromStatus=null` e `toStatus=null`
-- Operações críticas exigem `idempotencyScope` + `idempotencyKey`
+1. JSON Schema Draft 2020-12.
+2. Eventos em `UPPER_SNAKE_CASE`.
+3. `actorType=USER` exige `actorUserId`.
+4. `actorType=SYSTEM` exige `actorUserId=null`.
+5. Eventos de transicao exigem `fromStatus` e `toStatus`.
+6. Operacoes criticas exigem `idempotencyScope` e `idempotencyKey`.
 
-## Uso recomendado
+## Uso
 
-1. Validar contra `event.schema.json` no momento de persistência.
-2. Rejeitar payload inválido com `422`.
-3. Garantir atomicidade: update de `Sample` + insert de `SampleEvent` na mesma transação.
+1. validar contra `event.schema.json` no momento da persistencia;
+2. rejeitar payload invalido com `422`;
+3. manter atomicidade entre materializacao e insert do evento.

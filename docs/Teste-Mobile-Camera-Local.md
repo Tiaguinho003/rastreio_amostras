@@ -1,31 +1,52 @@
-# Teste Mobile de Camera em Desenvolvimento Local
+# Teste Mobile de Camera em Development
+
+Status: Suporte tecnico  
+Escopo: validar camera do navegador em celular durante desenvolvimento local  
+Ultima revisao: 2026-03-16  
+Documentos relacionados: `docs/Operacao-e-Runtime.md`, `README.md`
 
 ## Objetivo
 
 Subir o sistema em HTTPS dentro da rede local para validar no celular:
 
-- permissao de camera do navegador
-- stream da camera traseira e frontal
-- captura de imagem
+1. permissao de camera do navegador;
+2. stream da camera traseira e frontal;
+3. captura de imagem.
 
-Rota de smoke test incluida no projeto:
+Rota de teste incluida no projeto:
 
-- `/dev/camera`
+1. `/dev/camera`
 
 ## Por que HTTPS e obrigatorio
 
-No celular, `getUserMedia` normalmente exige contexto seguro. Em desenvolvimento isso significa:
+Em celular, `getUserMedia` normalmente exige contexto seguro. Em development isso significa:
 
-- `https://localhost` no proprio aparelho, ou
-- `https://IP_DO_PC:3000` com certificado confiavel
+1. `https://localhost` no proprio aparelho; ou
+2. `https://IP_DO_PC:3000` com certificado confiavel.
 
 Sem isso, a pagina pode abrir e a camera continuar bloqueada.
 
 ## Scripts disponiveis
 
-- `npm run dev:mobile:cert`
-- `npm run dev:mobile:https`
-- `npm run dev:mobile:url`
+1. `npm run dev:mobile:cert`
+2. `npm run dev:mobile:https`
+3. `npm run dev:mobile:url`
+
+## Preparacao recomendada
+
+1. copiar o env canonico de development:
+
+```bash
+cp env/examples/development.env.example .env.development
+```
+
+2. subir o banco e aplicar a base:
+
+```bash
+scripts/runtime/compose.sh development up -d db
+scripts/runtime/migrate.sh development
+scripts/runtime/seed.sh development
+```
 
 ## Instalar mkcert no Ubuntu
 
@@ -46,40 +67,37 @@ mkcert -install
 
 ## Fluxo recomendado
 
-1. Descubra o IP do seu computador na rede local:
+1. descubra o IP do seu computador na rede local:
 
 ```bash
 hostname -I
 ```
 
-2. Gere o certificado incluindo o IP do computador:
+2. gere o certificado incluindo o IP do computador:
 
 ```bash
 DEV_LAN_HOSTS="192.168.0.25" npm run dev:mobile:cert
 ```
 
-3. Suba o app em HTTPS:
+3. suba o app em HTTPS:
 
 ```bash
-npm run db:up
-npm run prisma:generate
-npm run prisma:migrate:deploy
 DEV_LAN_HOSTS="192.168.0.25" npm run dev:mobile:https
 ```
 
-4. Mostre as URLs esperadas:
+4. mostre as URLs esperadas:
 
 ```bash
 DEV_LAN_HOSTS="192.168.0.25" npm run dev:mobile:url
 ```
 
-5. Abra no computador:
+5. abra no computador:
 
 ```text
 https://localhost:3000/dev/camera
 ```
 
-6. Abra no celular, na mesma rede Wi-Fi:
+6. abra no celular, na mesma rede Wi-Fi:
 
 ```text
 https://192.168.0.25:3000/dev/camera
@@ -97,6 +115,6 @@ Depois transfira o arquivo `rootCA.pem` dessa pasta para o celular e instale/con
 
 ## Observacoes
 
-- A rota `/dev/camera` so aparece em desenvolvimento. Em producao ela retorna `404`.
-- Se a pagina abrir no celular mas a camera continuar bloqueada, o problema costuma ser certificado nao confiavel no aparelho.
-- Se nao quiser usar `mkcert`, o projeto gera um certificado autoassinado com `openssl`, mas isso e apenas fallback.
+1. A rota `/dev/camera` so existe em development.
+2. Se a pagina abrir no celular mas a camera continuar bloqueada, o problema costuma ser certificado nao confiavel no aparelho.
+3. Se nao quiser usar `mkcert`, o projeto gera certificado autoassinado com `openssl`, mas isso e fallback.

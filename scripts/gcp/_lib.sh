@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+canonical_cloud_env_file() {
+  printf '%s/.env.cloud-homolog\n' "${PROJECT_DIR}"
+}
+
+canonical_cloud_ops_env_file() {
+  printf '%s/.env.cloud-homolog.ops\n' "${PROJECT_DIR}"
+}
+
+source_local_env() {
+  local env_file="$1"
+
+  if [[ ! -f "${env_file}" ]]; then
+    echo "Env file not found: ${env_file}" >&2
+    return 1
+  fi
+
+  set -a
+  # shellcheck disable=SC1090
+  source "${env_file}"
+  set +a
+}
+
+load_cloud_homolog_context() {
+  local env_file
+  local ops_env_file
+
+  env_file="${ENV_FILE:-$(canonical_cloud_env_file)}"
+  ops_env_file="${OPS_ENV_FILE:-$(canonical_cloud_ops_env_file)}"
+
+  source_local_env "${env_file}"
+  source_local_env "${ops_env_file}"
+  derive_cloud_homolog_defaults
+}
+
+derive_cloud_homolog_defaults() {
+  : "${GCLOUD_REGION:=southamerica-east1}"
+  : "${GCLOUD_ARTIFACT_REGISTRY_HOST:=${GCLOUD_REGION}-docker.pkg.dev}"
+  : "${GCLOUD_IMAGE_NAME:=rastreio-interno-amostras}"
+  : "${GCLOUD_IMAGE_TAG:=cloud-homolog}"
+  : "${GCLOUD_CLOUD_RUN_SERVICE:=rastreio-hml-app}"
+  : "${GCLOUD_CLOUD_RUN_MIGRATE_JOB:=rastreio-hml-migrate}"
+  : "${GCLOUD_CLOUD_RUN_SEED_JOB:=rastreio-hml-seed}"
+  : "${GCLOUD_STORAGE_MOUNT_PATH:=/mnt/runtime}"
+  : "${SESSION_COOKIE_SECURE:=auto}"
+  : "${EMAIL_TRANSPORT:=outbox}"
+  : "${MAX_UPLOAD_SIZE_BYTES:=8388608}"
+  : "${GCLOUD_CPU:=1}"
+  : "${GCLOUD_MEMORY:=1Gi}"
+  : "${GCLOUD_CONCURRENCY:=10}"
+  : "${GCLOUD_MIN_INSTANCES:=0}"
+  : "${GCLOUD_MAX_INSTANCES:=3}"
+  : "${GCLOUD_TIMEOUT_SECONDS:=300}"
+  : "${GCLOUD_ALLOW_UNAUTHENTICATED:=true}"
+  : "${GCLOUD_SECRET_DATABASE_URL:=rastreio-hml-database-url}"
+  : "${GCLOUD_SECRET_AUTH_SECRET:=rastreio-hml-auth-secret}"
+  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME:=rastreio-hml-bootstrap-admin-full-name}"
+  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME:=rastreio-hml-bootstrap-admin-username}"
+  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL:=rastreio-hml-bootstrap-admin-email}"
+  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD:=rastreio-hml-bootstrap-admin-password}"
+
+  if [[ -z "${UPLOADS_DIR:-}" ]]; then
+    export UPLOADS_DIR="${GCLOUD_STORAGE_MOUNT_PATH%/}/uploads"
+  fi
+
+  if [[ -z "${EMAIL_OUTBOX_DIR:-}" ]]; then
+    export EMAIL_OUTBOX_DIR="${GCLOUD_STORAGE_MOUNT_PATH%/}/email-outbox"
+  fi
+
+  if [[ -z "${API_BASE_URL:-}" && -n "${APP_BASE_URL:-}" ]]; then
+    export API_BASE_URL="${APP_BASE_URL}"
+  fi
+
+  if [[ -n "${GCLOUD_PROJECT_ID:-}" && -n "${GCLOUD_ARTIFACT_REGISTRY_REPOSITORY:-}" ]]; then
+    export GCLOUD_IMAGE_URI="${GCLOUD_ARTIFACT_REGISTRY_HOST}/${GCLOUD_PROJECT_ID}/${GCLOUD_ARTIFACT_REGISTRY_REPOSITORY}/${GCLOUD_IMAGE_NAME}:${GCLOUD_IMAGE_TAG}"
+  fi
+}
+
+runtime_env_vars_csv() {
+  local app_base_url="${1:-${APP_BASE_URL:-https://app.exemplo.local}}"
+
+  printf 'NODE_ENV=production,APP_BASE_URL=%s,SESSION_COOKIE_SECURE=%s,EMAIL_TRANSPORT=%s,EMAIL_OUTBOX_DIR=%s,EMAIL_OUTBOX_FROM=%s,UPLOADS_DIR=%s,MAX_UPLOAD_SIZE_BYTES=%s' \
+    "${app_base_url}" \
+    "${SESSION_COOKIE_SECURE}" \
+    "${EMAIL_TRANSPORT}" \
+    "${EMAIL_OUTBOX_DIR}" \
+    "${EMAIL_OUTBOX_FROM:-rastreio-homolog@example.local}" \
+    "${UPLOADS_DIR}" \
+    "${MAX_UPLOAD_SIZE_BYTES}"
+}
+
+runtime_secret_mappings_csv() {
+  printf 'DATABASE_URL=%s:latest,AUTH_SECRET=%s:latest,BOOTSTRAP_ADMIN_FULL_NAME=%s:latest,BOOTSTRAP_ADMIN_USERNAME=%s:latest,BOOTSTRAP_ADMIN_EMAIL=%s:latest,BOOTSTRAP_ADMIN_PASSWORD=%s:latest' \
+    "${GCLOUD_SECRET_DATABASE_URL}" \
+    "${GCLOUD_SECRET_AUTH_SECRET}" \
+    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME}" \
+    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME}" \
+    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL}" \
+    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD}"
+}
+
+runtime_volume_spec() {
+  printf 'name=runtime,type=cloud-storage,bucket=%s,mount-options=implicit-dirs;uid=1001;gid=1001' "${GCLOUD_STORAGE_BUCKET}"
+}
+
+runtime_volume_mount_spec() {
+  printf 'volume=runtime,mount-path=%s' "${GCLOUD_STORAGE_MOUNT_PATH}"
+}
+
+service_url() {
+  gcloud run services describe "${GCLOUD_CLOUD_RUN_SERVICE}" \
+    --project "${GCLOUD_PROJECT_ID}" \
+    --region "${GCLOUD_REGION}" \
+    --format='value(status.url)'
+}
+
+cloud_sql_instance_name() {
+  printf '%s\n' "${GCLOUD_CLOUD_SQL_INSTANCE_CONNECTION_NAME##*:}"
+}
+
+bool_is_true() {
+  local raw="${1:-}"
+  case "$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}

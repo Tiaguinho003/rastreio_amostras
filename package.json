@@ -1,9 +1,9 @@
 {
-  "name": "rastreio-interno-amostras-contracts",
+  "name": "rastreio-interno-amostras",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Event contract validation and CI tests for Rastreio Interno de Amostras",
+  "description": "Sistema fullstack para rastreio interno de amostras com registro, QR, classificacao e operacao on-premise",
   "scripts": {
     "dev": "next dev",
     "dev:mobile:cert": "bash scripts/dev/generate-mobile-cert.sh",
@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit",
     "validate:schemas": "node scripts/validate-schemas.js",
     "test:contracts": "node --test tests/event-contract.test.js",
-    "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js tests/session-cookie-policy.test.js",
+    "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js tests/session-cookie-policy.test.js tests/local-upload-service.test.js",
     "test:backend:integration": "node --test tests/sample-backend-sprint1.integration.test.js",
     "test:integration:db": "node --test --test-concurrency=1 tests/**/*.integration.test.js",
     "prisma:generate": "prisma generate",

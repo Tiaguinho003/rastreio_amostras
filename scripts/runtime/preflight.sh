@@ -67,6 +67,23 @@ check_optional_var() {
   fi
 }
 
+check_optional_positive_integer_var() {
+  local key="$1"
+  local value="${!key:-}"
+
+  if [[ -z "${value}" ]]; then
+    warn_line "${key} not set; runtime will use the built-in default."
+    return 0
+  fi
+
+  if [[ "${value}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "[OK] env set: ${key}=${value}"
+  else
+    echo "[FAIL] ${key} must be a positive integer"
+    FAILURES=$((FAILURES + 1))
+  fi
+}
+
 check_session_cookie_secure_setting() {
   local raw="${SESSION_COOKIE_SECURE:-}"
   local normalized
@@ -104,6 +121,7 @@ if [[ "${ENVIRONMENT}" == "development" ]]; then
   check_var AUTH_SECRET
   check_bootstrap_or_legacy_local_auth
   check_var UPLOADS_DIR
+  check_optional_positive_integer_var MAX_UPLOAD_SIZE_BYTES
   check_var BACKUP_ROOT
   check_var API_BASE_URL
   check_session_cookie_secure_setting
@@ -118,6 +136,7 @@ else
   check_var POSTGRES_DATA_DIR
   check_var UPLOADS_HOST_DIR
   check_var EMAIL_OUTBOX_HOST_DIR
+  check_optional_positive_integer_var MAX_UPLOAD_SIZE_BYTES
   check_var BACKUP_ROOT
   check_var AUTH_SECRET
   check_var BOOTSTRAP_ADMIN_FULL_NAME
