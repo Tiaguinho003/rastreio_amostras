@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -65,6 +66,17 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="panel login-card">
+        <div className="login-card-brand" aria-label="Safras">
+          <Image
+            src="/logo-safras-branco.png"
+            alt="Safras"
+            width={220}
+            height={64}
+            priority
+            className="login-card-brand-image"
+          />
+        </div>
+
         <div className="login-card-copy">
           <p className="login-card-kicker">Operacao interna</p>
           <h2 className="login-card-title">Entrar no sistema</h2>
