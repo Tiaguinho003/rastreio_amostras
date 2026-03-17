@@ -1,0 +1,120 @@
+timeout: "1800s"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _GCLOUD_REGION: "southamerica-east1"
+  _GCLOUD_ARTIFACT_REGISTRY_REPOSITORY: "rastreio-homolog"
+  _GCLOUD_IMAGE_NAME: "rastreio-interno-amostras"
+  _GCLOUD_CLOUD_RUN_SERVICE: "rastreio-hml-app"
+  _GCLOUD_CLOUD_RUN_MIGRATE_JOB: "rastreio-hml-migrate"
+  _GCLOUD_CLOUD_RUN_SEED_JOB: "rastreio-hml-seed"
+  _GCLOUD_CLOUD_SQL_INSTANCE_NAME: "rastreio-hml-pg"
+  _GCLOUD_STORAGE_BUCKET: "image-amostras"
+  _GCLOUD_STORAGE_MOUNT_PATH: "/mnt/runtime"
+  _GCLOUD_CPU: "1"
+  _GCLOUD_MEMORY: "1Gi"
+  _GCLOUD_CONCURRENCY: "10"
+  _GCLOUD_MIN_INSTANCES: "0"
+  _GCLOUD_MAX_INSTANCES: "3"
+  _GCLOUD_TIMEOUT_SECONDS: "300"
+  _GCLOUD_ALLOW_UNAUTHENTICATED: "true"
+  _GCLOUD_SECRET_DATABASE_URL: "rastreio-hml-database-url"
+  _GCLOUD_SECRET_AUTH_SECRET: "rastreio-hml-auth-secret"
+  _GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME: "rastreio-hml-bootstrap-admin-full-name"
+  _GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME: "rastreio-hml-bootstrap-admin-username"
+  _GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL: "rastreio-hml-bootstrap-admin-email"
+  _GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD: "rastreio-hml-bootstrap-admin-password"
+  _RUN_SEED: "false"
+
+steps:
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "prepare-cloud-homolog-env"
+    entrypoint: "bash"
+    args:
+      - "-ceu"
+      - |
+        cat > .env.cloud-homolog <<EOF
+        APP_BASE_URL=https://placeholder.invalid
+        SESSION_COOKIE_SECURE=auto
+        EMAIL_TRANSPORT=outbox
+        EMAIL_OUTBOX_DIR=$_GCLOUD_STORAGE_MOUNT_PATH/email-outbox
+        EMAIL_OUTBOX_FROM=rastreio-homolog@example.local
+        UPLOADS_DIR=$_GCLOUD_STORAGE_MOUNT_PATH/uploads
+        MAX_UPLOAD_SIZE_BYTES=8388608
+        EOF
+
+        cat > .env.cloud-homolog.ops <<EOF
+        GCLOUD_PROJECT_ID=$PROJECT_ID
+        GCLOUD_REGION=$_GCLOUD_REGION
+        GCLOUD_ARTIFACT_REGISTRY_REPOSITORY=$_GCLOUD_ARTIFACT_REGISTRY_REPOSITORY
+        GCLOUD_IMAGE_NAME=$_GCLOUD_IMAGE_NAME
+        GCLOUD_IMAGE_TAG=$SHORT_SHA
+        GCLOUD_CLOUD_RUN_SERVICE=$_GCLOUD_CLOUD_RUN_SERVICE
+        GCLOUD_CLOUD_RUN_MIGRATE_JOB=$_GCLOUD_CLOUD_RUN_MIGRATE_JOB
+        GCLOUD_CLOUD_RUN_SEED_JOB=$_GCLOUD_CLOUD_RUN_SEED_JOB
+        GCLOUD_SERVICE_ACCOUNT=rastreio-hml-runtime@$PROJECT_ID.iam.gserviceaccount.com
+        GCLOUD_CLOUD_SQL_INSTANCE_CONNECTION_NAME=$PROJECT_ID:$_GCLOUD_REGION:$_GCLOUD_CLOUD_SQL_INSTANCE_NAME
+        GCLOUD_STORAGE_BUCKET=$_GCLOUD_STORAGE_BUCKET
+        GCLOUD_STORAGE_MOUNT_PATH=$_GCLOUD_STORAGE_MOUNT_PATH
+        GCLOUD_SECRET_DATABASE_URL=$_GCLOUD_SECRET_DATABASE_URL
+        GCLOUD_SECRET_AUTH_SECRET=$_GCLOUD_SECRET_AUTH_SECRET
+        GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME=$_GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME
+        GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME=$_GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME
+        GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL=$_GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL
+        GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD=$_GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD
+        GCLOUD_CPU=$_GCLOUD_CPU
+        GCLOUD_MEMORY=$_GCLOUD_MEMORY
+        GCLOUD_CONCURRENCY=$_GCLOUD_CONCURRENCY
+        GCLOUD_MIN_INSTANCES=$_GCLOUD_MIN_INSTANCES
+        GCLOUD_MAX_INSTANCES=$_GCLOUD_MAX_INSTANCES
+        GCLOUD_TIMEOUT_SECONDS=$_GCLOUD_TIMEOUT_SECONDS
+        GCLOUD_ALLOW_UNAUTHENTICATED=$_GCLOUD_ALLOW_UNAUTHENTICATED
+        EOF
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-image"
+    args:
+      - "build"
+      - "--tag"
+      - "$_GCLOUD_REGION-docker.pkg.dev/$PROJECT_ID/$_GCLOUD_ARTIFACT_REGISTRY_REPOSITORY/$_GCLOUD_IMAGE_NAME:$SHORT_SHA"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-image"
+    args:
+      - "push"
+      - "$_GCLOUD_REGION-docker.pkg.dev/$PROJECT_ID/$_GCLOUD_ARTIFACT_REGISTRY_REPOSITORY/$_GCLOUD_IMAGE_NAME:$SHORT_SHA"
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "deploy-cloud-run"
+    entrypoint: "bash"
+    args:
+      - "-ceu"
+      - |
+        scripts/gcp/deploy-cloud-homolog.sh
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "execute-migrate-job"
+    entrypoint: "bash"
+    args:
+      - "-ceu"
+      - |
+        scripts/gcp/execute-job.sh migrate
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: "execute-seed-job-optional"
+    entrypoint: "bash"
+    args:
+      - "-ceu"
+      - |
+        if [[ "$_RUN_SEED" != "true" ]]; then
+          echo "[cloudbuild] skipping seed execution"
+          exit 0
+        fi
+
+        scripts/gcp/execute-job.sh seed
+
+images:
+  - "$_GCLOUD_REGION-docker.pkg.dev/$PROJECT_ID/$_GCLOUD_ARTIFACT_REGISTRY_REPOSITORY/$_GCLOUD_IMAGE_NAME:$SHORT_SHA"
