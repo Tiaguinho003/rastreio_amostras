@@ -1,12 +1,15 @@
 timeout: "1800s"
 
+logsBucket: "gs://${_GCLOUD_BUILD_LOGS_BUCKET}"
+
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
 
 substitutions:
   _GCLOUD_REGION: "southamerica-east1"
   _GCLOUD_ARTIFACT_REGISTRY_REPOSITORY: "rastreio-homolog"
   _GCLOUD_IMAGE_NAME: "rastreio-interno-amostras"
+  _GCLOUD_BUILD_LOGS_BUCKET: "rastreio-amostras-cloudbuild-logs-461042148674"
   _GCLOUD_CLOUD_RUN_SERVICE: "rastreio-hml-app"
   _GCLOUD_CLOUD_RUN_MIGRATE_JOB: "rastreio-hml-migrate"
   _GCLOUD_CLOUD_RUN_SEED_JOB: "rastreio-hml-seed"
