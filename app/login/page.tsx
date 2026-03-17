@@ -65,22 +65,21 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <section className="panel login-card">
+      <section className="login-card">
         <div className="login-card-brand" aria-label="Safras">
           <Image
-            src="/logo-safras-branco.png"
-            alt="Safras"
-            width={220}
-            height={64}
+            src="/logo-laudo.png"
+            alt="Safras & negocios"
+            width={296}
+            height={296}
             priority
             className="login-card-brand-image"
           />
-        </div>
 
-        <div className="login-card-copy">
-          <p className="login-card-kicker">Operacao interna</p>
-          <h2 className="login-card-title">Entrar no sistema</h2>
-          <p className="login-card-subtitle">Use seu usuario e senha para acessar o sistema.</p>
+          <div className="login-card-copy">
+            <h1 className="login-visually-hidden">Entrar no sistema</h1>
+            <p className="login-card-subtitle">Rastreio interno de amostras</p>
+          </div>
         </div>
 
         {loginReason === 'session-expired' ? (
@@ -90,31 +89,52 @@ export default function LoginPage() {
           <p className="login-card-hint">Sua sessao foi encerrada. Entre novamente.</p>
         ) : null}
 
-        <form className="stack login-card-form" onSubmit={handleSubmit}>
-          <label>
-            Usuario
-            <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
-          </label>
-
-          <label>
-            Senha
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+        <form className="login-card-form" onSubmit={handleSubmit}>
+          <div className="login-card-fields">
+            <Image
+              src="/login-coffee-beans.png"
+              alt=""
+              width={146}
+              height={146}
+              aria-hidden="true"
+              className="login-card-coffee"
             />
-          </label>
 
-          {error ? <p className="error">{error}</p> : null}
+            <label className="login-field-shell login-field-shell-light">
+              <span className="login-visually-hidden">Usuario</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="Usuario"
+                className="login-field-input"
+              />
+            </label>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
+            <label className="login-field-shell login-field-shell-strong">
+              <span className="login-visually-hidden">Senha</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="Senha"
+                className="login-field-input"
+              />
+            </label>
+          </div>
 
           <Link href="/forgot-password" className="login-card-link">
             Esqueci minha senha
           </Link>
+
+          {error ? <p className="error login-card-error">{error}</p> : null}
+
+          <button type="submit" disabled={loading} className="login-card-submit">
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
         </form>
       </section>
     </main>

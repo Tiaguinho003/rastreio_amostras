@@ -30,70 +30,135 @@ body {
   display: grid;
   place-items: center;
   min-height: 100vh;
-  width: min(1120px, 100% - 1rem);
+  width: min(100%, 32rem);
   margin: 0 auto;
-  padding: 1.4rem 0 1.8rem;
+  padding: 1.4rem 1rem 1.8rem;
+  background: #fff;
 }
 
 .login-card {
   width: min(430px, 100%);
   display: grid;
   gap: 1rem;
-  border-radius: 24px;
-  padding: 1.2rem;
-  background:
-    radial-gradient(circle at top, rgba(120, 170, 128, 0.18) 0%, rgba(120, 170, 128, 0) 46%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 244, 236, 0.98) 100%);
+  align-content: start;
+  border-radius: 32px;
+  padding: 1rem 0.9rem 1.25rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .login-card-brand {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 84px;
-  padding: 0.95rem 1rem;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #1f5d43 0%, #173c30 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  display: grid;
+  justify-items: center;
+  align-items: end;
+  gap: 0.65rem;
+  padding: clamp(4rem, 14vh, 7rem) 0 3rem;
 }
 
 .login-card-brand-image {
-  width: min(220px, 100%);
+  width: min(286px, 78vw);
   height: auto;
 }
 
 .login-card-copy {
   display: grid;
-  gap: 0.28rem;
-}
-
-.login-card-kicker {
-  margin: 0;
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.login-card-title {
-  margin: 0;
-  font-size: clamp(1.62rem, 4vw, 2rem);
+  justify-items: center;
+  gap: 0.25rem;
 }
 
 .login-card-subtitle,
 .login-card-hint {
   margin: 0;
-  color: var(--muted);
+  color: #7a766f;
+  text-align: center;
 }
 
 .login-card-form {
-  gap: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.login-card-fields {
+  position: relative;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.login-card-coffee {
+  position: absolute;
+  top: -1.25rem;
+  right: -0.15rem;
+  width: 4.8rem;
+  height: auto;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.login-field-shell {
+  display: block;
+}
+
+.login-field-input {
+  border: 0;
+  border-radius: 999px;
+  padding: 1rem 1.35rem;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  box-shadow: none;
+}
+
+.login-field-input::placeholder {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.login-field-shell-light .login-field-input {
+  background: #6e9a58;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.login-field-shell-strong .login-field-input {
+  background: #006400;
+  color: rgba(255, 255, 255, 0.96);
 }
 
 .login-card-link {
-  color: var(--accent);
+  width: fit-content;
+  margin-left: 1rem;
+  color: #5f513f;
+  font-size: 0.98rem;
+  font-weight: 500;
+}
+
+.login-card-error {
+  margin: 0.15rem 1rem 0;
+}
+
+.login-card-submit {
+  width: 100%;
+  border-radius: 999px;
+  padding: 0.95rem 1.2rem;
+  background: linear-gradient(180deg, #115113 0%, #053c0a 100%);
+  box-shadow: 0 14px 24px rgba(17, 81, 19, 0.18);
+  font-size: 1rem;
   font-weight: 700;
+}
+
+.login-card-submit:hover {
+  background: linear-gradient(180deg, #0e4710 0%, #032f08 100%);
+}
+
+.login-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 a {
@@ -3546,27 +3611,32 @@ button:disabled {
 
 @media (max-width: 900px) {
   .login-page {
-    width: min(1120px, calc(100% - 1rem));
-    padding: 1rem 0 1.4rem;
+    width: 100%;
+    padding: 0.9rem 1rem 1.3rem;
   }
 
   .login-card {
-    padding: 1rem;
-    border-radius: 22px;
+    padding: 0.7rem 0.55rem 1rem;
+    border-radius: 26px;
   }
 
   .login-card-brand {
-    min-height: 76px;
-    padding: 0.85rem 0.9rem;
+    padding: clamp(3.4rem, 12vh, 5.4rem) 0 2.4rem;
   }
 
   .login-card-brand-image {
-    width: min(190px, 100%);
+    width: min(264px, 76vw);
   }
 
   .login-card-subtitle,
   .login-card-hint {
     font-size: 0.92rem;
+  }
+
+  .login-card-coffee {
+    width: 4.55rem;
+    top: -1.05rem;
+    right: 0.1rem;
   }
 
   .grid-2,
