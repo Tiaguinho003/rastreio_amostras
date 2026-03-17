@@ -1,18 +1,19 @@
-# Checklist de Levantamento do Servidor On-Prem
+# Checklist do Host On-Prem
 
-Status: Em preenchimento  
-Data: 2026-03-04  
-Projeto: Rastreio Interno de Amostras
+Status: Suporte operacional  
+Escopo: coleta minima de dados do host para instalar `internal-production`  
+Ultima revisao: 2026-03-16  
+Documentos relacionados: `docs/Operacao-e-Runtime.md`
 
 ## 1. Como usar este documento
 
-1. Preencher todos os campos marcados como obrigatorios antes da configuracao final de producao.
-2. Validar respostas com Infra/SecOps e registrar responsavel por item.
-3. Usar este checklist como entrada para a Fase 2 e Fase 3 do `Plano-Producao-v1.md`.
+1. Preencher todos os campos marcados como obrigatorios antes da primeira instalacao `internal-production`.
+2. Validar respostas com Infra e registrar responsavel por item.
+3. Usar este checklist como entrada para preparar tanto o piloto persistente quanto o servidor oficial.
 
-## 2. Dados gerais do ambiente (obrigatorio)
+## 2. Dados gerais da instalacao (obrigatorio)
 
-1. [ ] Ambiente alvo: `HOMOLOG` ou `PRODUCAO`
+1. [ ] Instalacao alvo: `internal-production` piloto local ou `internal-production` servidor oficial
 2. [ ] Nome do servidor (hostname):
 3. [ ] Responsavel tecnico pelo host:
 4. [ ] Time responsavel por backup:
@@ -135,10 +136,9 @@ Referencia inicial para MVP (ajustar apos carga real):
 
 ## 13. Resultado final do checklist
 
-1. [ ] Aprovado para preparar ambiente de homolog
-2. [ ] Aprovado para preparar ambiente de producao
+1. [ ] Aprovado para preparar a instalacao piloto `internal-production`
+2. [ ] Aprovado para preparar a instalacao oficial `internal-production`
 3. [ ] Pendencias abertas (listar abaixo):
 4. [ ] Pendencia 1:
 5. [ ] Pendencia 2:
 6. [ ] Pendencia 3:
-

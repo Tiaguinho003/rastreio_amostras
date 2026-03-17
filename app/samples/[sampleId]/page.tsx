@@ -1599,7 +1599,7 @@ export default function SampleDetailPage() {
     }
 
     if (!canInvalidateSample) {
-      setError('Somente usuarios ADMIN podem invalidar amostras.');
+      setError('Sua sessao atual nao permite invalidar esta amostra.');
       return;
     }
 
@@ -2440,9 +2440,9 @@ export default function SampleDetailPage() {
 
           {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
             <section className="panel stack">
-              <h3 style={{ margin: 0 }}>Controle administrativo</h3>
+              <h3 style={{ margin: 0 }}>Controle de invalidacao</h3>
               <p style={{ margin: 0, color: 'var(--muted)' }}>
-                Acao restrita para ADMIN. A invalidacao encerra a amostra em status terminal.
+                Acao sensivel. A invalidacao encerra a amostra em status terminal.
               </p>
 
               <form

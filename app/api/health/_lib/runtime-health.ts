@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 
 import { resolveSessionCookieSecureMode } from '../../../../src/auth/session-cookie-policy.js';
 import { getPrismaClient } from '../../../../src/db/prisma-client.js';
+import { resolveMaxUploadSizeBytes } from '../../../../src/uploads/upload-policy.js';
 
 type CheckStatus = 'ok' | 'error';
 
@@ -33,6 +34,15 @@ function resolveUploadsDir() {
   return path.resolve(process.cwd(), 'data/uploads');
 }
 
+function resolveEmailOutboxDir() {
+  const configured = process.env.EMAIL_OUTBOX_DIR;
+  if (typeof configured === 'string' && configured.trim().length > 0) {
+    return configured.trim();
+  }
+
+  return path.resolve(process.cwd(), 'data/email-outbox');
+}
+
 function readRequiredConfig(name: string, missing: string[]) {
   const value = process.env[name];
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -49,6 +59,7 @@ function validateRuntimeConfig(): CheckResult {
   const configuredTransport = process.env.EMAIL_TRANSPORT?.trim().toLowerCase();
   const transport = configuredTransport && configuredTransport.length > 0 ? configuredTransport : process.env.NODE_ENV === 'production' ? 'smtp' : 'outbox';
   let sessionCookieSecureMode: string | null = null;
+  let maxUploadSizeBytes: number | null = null;
 
   if (!['smtp', 'outbox'].includes(transport)) {
     invalid.push('EMAIL_TRANSPORT');
@@ -58,6 +69,12 @@ function validateRuntimeConfig(): CheckResult {
     sessionCookieSecureMode = resolveSessionCookieSecureMode(process.env.SESSION_COOKIE_SECURE);
   } catch {
     invalid.push('SESSION_COOKIE_SECURE');
+  }
+
+  try {
+    maxUploadSizeBytes = resolveMaxUploadSizeBytes(process.env.MAX_UPLOAD_SIZE_BYTES);
+  } catch {
+    invalid.push('MAX_UPLOAD_SIZE_BYTES');
   }
 
   if (transport === 'smtp') {
@@ -72,7 +89,9 @@ function validateRuntimeConfig(): CheckResult {
         details: {
           transport,
           uploadsDir: resolveUploadsDir(),
-          sessionCookieSecureMode
+          emailOutboxDir: resolveEmailOutboxDir(),
+          sessionCookieSecureMode,
+          maxUploadSizeBytes
         }
       }
     : {
@@ -82,7 +101,9 @@ function validateRuntimeConfig(): CheckResult {
           transport,
           invalid,
           uploadsDir: resolveUploadsDir(),
-          sessionCookieSecureMode
+          emailOutboxDir: resolveEmailOutboxDir(),
+          sessionCookieSecureMode,
+          maxUploadSizeBytes
         }
       };
 }
@@ -109,6 +130,30 @@ async function validateUploads(): Promise<CheckResult> {
   };
 }
 
+async function validateEmailOutbox(): Promise<CheckResult> {
+  const transport = process.env.EMAIL_TRANSPORT?.trim().toLowerCase() || (process.env.NODE_ENV === 'production' ? 'smtp' : 'outbox');
+  if (transport !== 'outbox') {
+    return {
+      status: 'ok',
+      details: {
+        mode: transport
+      }
+    };
+  }
+
+  const outboxDir = resolveEmailOutboxDir();
+  await fs.mkdir(outboxDir, { recursive: true });
+  await fs.access(outboxDir, fsConstants.R_OK | fsConstants.W_OK);
+
+  return {
+    status: 'ok',
+    details: {
+      path: outboxDir,
+      mode: transport
+    }
+  };
+}
+
 export function createLivenessResponse() {
   return NextResponse.json(
     {
@@ -127,6 +172,7 @@ export async function createReadinessResponse() {
 
   let database: CheckResult = { status: 'ok' };
   let uploads: CheckResult = { status: 'ok' };
+  let emailOutbox: CheckResult = { status: 'ok' };
 
   if (config.status === 'ok') {
     try {
@@ -151,9 +197,21 @@ export async function createReadinessResponse() {
         }
       };
     }
+
+    try {
+      emailOutbox = await validateEmailOutbox();
+    } catch (error) {
+      emailOutbox = {
+        status: 'error',
+        details: {
+          message: error instanceof Error ? error.message : 'Email outbox readiness check failed',
+          path: resolveEmailOutboxDir()
+        }
+      };
+    }
   }
 
-  const overallStatus = [config.status, database.status, uploads.status].every((item) => item === 'ok') ? 'ok' : 'error';
+  const overallStatus = [config.status, database.status, uploads.status, emailOutbox.status].every((item) => item === 'ok') ? 'ok' : 'error';
 
   return NextResponse.json(
     {
@@ -162,7 +220,8 @@ export async function createReadinessResponse() {
       checks: {
         config,
         database,
-        uploads
+        uploads,
+        emailOutbox
       }
     },
     {

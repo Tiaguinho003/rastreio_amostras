@@ -1,28 +1,48 @@
-# Docs Index
+# Documentacao Canonica
 
-Base canonica de runtime:
+Status: Ativo  
+Escopo: indice oficial, ordem de leitura e fronteira de autoridade da documentacao  
+Ultima revisao: 2026-03-16  
+Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 
-1. `docs/Modelo-Operacional-e-Instalacoes.md`
-2. `docs/Runtime-Canonical-Guide.md`
-3. `docs/Handoff-Implantacao-Internal-Production.md`
-4. `docs/Runtime-Base-Phase-1.md` (historico da Fase 1)
+## Leitura recomendada
 
-Artefatos operacionais historicos ainda preservados no repositorio:
+1. `README.md`
+2. `docs/Produto-e-Fluxos.md`
+3. `docs/Arquitetura-Tecnica.md`
+4. `docs/Operacao-e-Runtime.md`
+5. `docs/API-e-Contratos.md`
+
+## Documentos canonicos
+
+1. `docs/Produto-e-Fluxos.md`
+   Funcao: descreve o que o sistema faz hoje, quem usa, estados da amostra, regras operacionais e decisoes de escopo.
+2. `docs/Arquitetura-Tecnica.md`
+   Funcao: consolida stack, componentes, modelo de dados, autenticacao, storage, laudos e testes.
+3. `docs/Operacao-e-Runtime.md`
+   Funcao: define ambientes oficiais, envs, Compose, scripts canonicos, health, smoke, backup e operacao.
+4. `docs/API-e-Contratos.md`
+   Funcao: referencia oficial de rotas, contratos internos, eventos, idempotencia e validacao.
+5. `docs/Documentation-Inventory.md`
+   Funcao: registra o destino dos documentos antigos e as decisoes de consolidacao feitas nesta revisao.
+6. `docs/Homologacao-Google-Cloud.md`
+   Funcao: runbook oficial de homologacao no Google Cloud com Cloud Run, Cloud SQL, Cloud Storage e Cloud Run Jobs.
+
+## Documentos de suporte
 
 1. `docs/Checklist-Servidor-OnPrem.md`
-2. `docs/Guia-Implantacao-e-Atualizacao-Producao-v1.md`
-3. `docs/Runbook-Deploy-OnPrem-v1.md`
-4. `docs/Runbook-Operacao-v1.md`
-5. `docs/Runbook-Backup-Restore-v1.md`
-6. `docs/API-v1-Frontend-Contract.md`
-7. `docs/Teste-Mobile-Camera-Local.md`
+   Uso: checklist operacional para preparar uma instalacao `internal-production`.
+2. `docs/Teste-Mobile-Camera-Local.md`
+   Uso: validar camera mobile em desenvolvimento local com HTTPS.
+3. `docs/schemas/events/v1/README.md`
+   Uso: navegar pelos schemas JSON do contrato de eventos.
+4. `scripts/gcp/README.md`
+   Uso: localizar os wrappers operacionais da homologacao Google Cloud.
 
-Leitura recomendada nesta fase:
+## Regras de manutencao
 
-1. usar `docs/Modelo-Operacional-e-Instalacoes.md` para distinguir sistema, perfil e host
-2. usar `docs/Runtime-Canonical-Guide.md` para operar o caminho canonico atual
-3. usar `docs/Handoff-Implantacao-Internal-Production.md` para entregar o sistema a quem tem shell real no host
-4. usar `docs/Runtime-Base-Phase-1.md` como historico de como a base foi aberta
-5. usar os runbooks antigos apenas como referencia de compatibilidade e contexto
-
-Arquivos de plano, backlog ou historico continuam uteis, mas ainda nao representam sozinhos a nova organizacao canonica aberta nesta fase.
+1. Documento canonico e a unica fonte de verdade para seu tema.
+2. Documento de suporte pode detalhar um procedimento, mas nao pode redefinir regra de negocio, arquitetura ou runtime.
+3. Backlog, fase, handoff e runbook transitario nao substituem documentacao canonica.
+4. Historico textual so permanece quando agrega rastreabilidade real; o restante fica confiado ao Git.
+5. Arquivos em `compose/`, `env/examples/` e `scripts/runtime/` usam `README.md` locais apenas como ponteiro para o fluxo canonico.

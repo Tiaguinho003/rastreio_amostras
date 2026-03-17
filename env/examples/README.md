@@ -1,21 +1,19 @@
 # Env Examples Canonicos
 
-Arquivos canonicos desta fase:
+Status: Ponteiro local  
+Escopo: localizar os env examples oficiais por ambiente  
+Ultima revisao: 2026-03-16  
+Documentos relacionados: `docs/Operacao-e-Runtime.md`
+
+## Arquivos oficiais
 
 1. `env/examples/development.env.example` -> copiar para `.env.development`
 2. `env/examples/internal-production.env.example` -> copiar para `.env.internal-production`
 3. `env/examples/internal-production.ops.env.example` -> copiar para `.env.internal-production.ops`
+4. `env/examples/cloud-homolog.env.example` -> copiar para `.env.cloud-homolog`
+5. `env/examples/cloud-homolog.ops.env.example` -> copiar para `.env.cloud-homolog.ops`
 
-Objetivo:
+## Regra
 
-1. Separar `development` do runtime e da operacao de `internal-production`.
-2. Manter `.env.internal-production.ops` como overlay operacional enxuto, sem duplicar variaveis que ja pertencem ao runtime.
-3. Manter os arquivos raiz antigos apenas como compatibilidade temporaria.
-
-Compatibilidade preservada:
-
-1. `.env.example`
-2. `.env.prod.example`
-3. `.env.homolog.example`
-
-Esses arquivos legados ainda permanecem no repositorio, mas nao sao mais o caminho canonico introduzido nesta fase.
+1. esses arquivos suportam os ambientes `development`, `cloud-homolog` e `internal-production`;
+2. `.env.example`, `.env.prod.example` e `.env.homolog.example` continuam apenas como compatibilidade legada.

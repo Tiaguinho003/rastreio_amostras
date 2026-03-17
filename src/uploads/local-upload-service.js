@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 
 import { HttpError } from '../contracts/errors.js';
+import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './upload-policy.js';
 
 const ATTACHMENT_KIND_TO_FOLDER = {
   ARRIVAL_PHOTO: 'arrival',
@@ -15,12 +16,17 @@ function sanitizeFileName(fileName) {
 }
 
 export class LocalUploadService {
-  constructor({ baseDir }) {
+  constructor({ baseDir, maxUploadSizeBytes = DEFAULT_MAX_UPLOAD_SIZE_BYTES }) {
     if (typeof baseDir !== 'string' || baseDir.length === 0) {
       throw new Error('LocalUploadService requires baseDir');
     }
 
+    if (!Number.isInteger(maxUploadSizeBytes) || maxUploadSizeBytes <= 0) {
+      throw new Error('LocalUploadService requires a positive maxUploadSizeBytes');
+    }
+
     this.baseDir = baseDir;
+    this.maxUploadSizeBytes = maxUploadSizeBytes;
   }
 
   async saveSamplePhoto({ sampleId, kind, buffer, mimeType = null, originalFileName = null }) {
@@ -35,6 +41,11 @@ export class LocalUploadService {
     if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
       throw new HttpError(422, 'file buffer is required');
     }
+
+    assertAcceptedUploadSize(buffer.length, {
+      limitBytes: this.maxUploadSizeBytes,
+      fieldLabel: 'Uploaded image'
+    });
 
     const attachmentId = randomUUID();
     const safeName = sanitizeFileName(originalFileName);
