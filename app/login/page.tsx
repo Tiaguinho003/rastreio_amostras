@@ -14,7 +14,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loginReason, setLoginReason] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -28,10 +27,6 @@ export default function LoginPage() {
       .catch(() => {
         // no active cookie session
       });
-
-    if (typeof window !== 'undefined') {
-      setLoginReason(new URLSearchParams(window.location.search).get('reason'));
-    }
 
     return () => {
       active = false;
@@ -75,43 +70,35 @@ export default function LoginPage() {
             priority
             className="login-card-brand-image"
           />
-
-          <div className="login-card-copy">
-            <h1 className="login-visually-hidden">Entrar no sistema</h1>
-            <p className="login-card-subtitle">Rastreio interno de amostras</p>
-          </div>
+          <h1 className="login-visually-hidden">Entrar no sistema</h1>
         </div>
-
-        {loginReason === 'session-expired' ? (
-          <p className="login-card-hint">Sua sessao expirou. Entre novamente.</p>
-        ) : null}
-        {loginReason === 'session-ended' ? (
-          <p className="login-card-hint">Sua sessao foi encerrada. Entre novamente.</p>
-        ) : null}
 
         <form className="login-card-form" onSubmit={handleSubmit}>
           <div className="login-card-fields">
-            <Image
-              src="/login-coffee-beans.png"
-              alt=""
-              width={146}
-              height={146}
-              aria-hidden="true"
-              className="login-card-coffee"
-            />
+            <div className="login-field-anchor">
+              <div className="login-card-coffee-frame" aria-hidden="true">
+                <Image
+                  src="/login-coffee-beans.png"
+                  alt=""
+                  width={200}
+                  height={267}
+                  className="login-card-coffee"
+                />
+              </div>
 
-            <label className="login-field-shell login-field-shell-light">
-              <span className="login-visually-hidden">Usuario</span>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                autoCapitalize="none"
-                spellCheck={false}
-                placeholder="Usuario"
-                className="login-field-input"
-              />
-            </label>
+              <label className="login-field-shell login-field-shell-light">
+                <span className="login-visually-hidden">Usuario</span>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="Usuario"
+                  className="login-field-input"
+                />
+              </label>
+            </div>
 
             <label className="login-field-shell login-field-shell-strong">
               <span className="login-visually-hidden">Senha</span>
@@ -126,15 +113,33 @@ export default function LoginPage() {
             </label>
           </div>
 
-          <Link href="/forgot-password" className="login-card-link">
-            Esqueci minha senha
-          </Link>
+          <div className="login-card-actions">
+            <Link href="/forgot-password" className="login-card-link">
+              Esqueci minha senha
+            </Link>
 
-          {error ? <p className="error login-card-error">{error}</p> : null}
+            <button
+              type="submit"
+              disabled={loading}
+              className="login-card-submit"
+              aria-label={loading ? 'Entrando...' : 'Entrar'}
+              title={loading ? 'Entrando...' : 'Entrar'}
+            >
+              <Image
+                src="/login-enter-icon.png"
+                alt=""
+                width={42}
+                height={42}
+                aria-hidden="true"
+                className="login-card-submit-icon"
+              />
+              <span className="login-visually-hidden">{loading ? 'Entrando...' : 'Entrar'}</span>
+            </button>
+          </div>
 
-          <button type="submit" disabled={loading} className="login-card-submit">
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
+          <div className="login-card-feedback" aria-live="polite">
+            {error ? <p className="error login-card-error">{error}</p> : null}
+          </div>
         </form>
       </section>
     </main>
