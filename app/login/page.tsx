@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { login, ApiError, getCurrentSession } from '../../lib/api-client';
@@ -10,14 +10,13 @@ import { loginSchema } from '../../lib/form-schemas';
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotPasswordRequestedByQuery, setForgotPasswordRequestedByQuery] = useState(false);
   const forgotPasswordTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const forgotPasswordRequestedByQuery = searchParams.get('modal') === 'forgot-password';
 
   useEffect(() => {
     let active = true;
@@ -38,10 +37,17 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
-    if (forgotPasswordRequestedByQuery) {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const requestedByQuery = new URLSearchParams(window.location.search).get('modal') === 'forgot-password';
+    setForgotPasswordRequestedByQuery(requestedByQuery);
+
+    if (requestedByQuery) {
       setForgotPasswordOpen(true);
     }
-  }, [forgotPasswordRequestedByQuery]);
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,11 +82,12 @@ export default function LoginPage() {
     setForgotPasswordOpen(false);
 
     if (forgotPasswordRequestedByQuery) {
-      const nextParams = new URLSearchParams(searchParams.toString());
-      nextParams.delete('modal');
-      const nextQuery = nextParams.toString();
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('modal');
+      const nextPath = `${nextUrl.pathname}${nextUrl.search}`;
 
-      router.replace(nextQuery ? `/login?${nextQuery}` : '/login', { scroll: false });
+      setForgotPasswordRequestedByQuery(false);
+      router.replace(nextPath || '/login', { scroll: false });
     }
   }
 
