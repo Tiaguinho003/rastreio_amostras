@@ -4,6 +4,7 @@ import type {
   DashboardPendingResponse,
   InvalidateReasonCode,
   ListSamplesResponse,
+  PasswordResetCodeVerificationResponse,
   PasswordResetRequestResponse,
   ResolveSampleByQrResponse,
   SampleDetailResponse,
@@ -131,6 +132,13 @@ export function requestPasswordReset(email: string) {
   return request<PasswordResetRequestResponse>('/auth/forgot-password/request', {
     method: 'POST',
     body: { email }
+  });
+}
+
+export function verifyPasswordResetCode(email: string, code: string) {
+  return request<PasswordResetCodeVerificationResponse>('/auth/forgot-password/verify-code', {
+    method: 'POST',
+    body: { email, code }
   });
 }
 

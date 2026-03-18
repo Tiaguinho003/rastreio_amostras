@@ -94,6 +94,18 @@ function maskEmailForPayload(value) {
   return `${visible}${'*'.repeat(Math.max(1, local.length - visible.length))}@${domain}`;
 }
 
+function normalizePasswordResetCode(value, fieldName = 'code') {
+  const normalized = normalizeRequiredText(value, fieldName, 6);
+  if (!/^\d{6}$/.test(normalized)) {
+    throw new HttpError(422, 'Codigo invalido', {
+      code: 'INVALID_CODE',
+      field: fieldName
+    });
+  }
+
+  return normalized;
+}
+
 export class UserService {
   constructor({ prisma, emailService }) {
     this.prisma = prisma;
@@ -160,6 +172,96 @@ export class UserService {
         retryAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS),
         resendAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS)
       }
+    });
+  }
+
+  async loadPasswordResetContext(tx, emailInput, now = nowUtc()) {
+    const email = normalizeEmail(emailInput);
+    const emailCanonical = normalizeCanonical(email);
+
+    const user = await tx.user.findFirst({
+      where: {
+        emailCanonical
+      },
+      select: USER_SELECT
+    });
+
+    if (!user) {
+      throw new HttpError(404, 'Email nao encontrado. Revise o email informado.', {
+        code: 'EMAIL_NOT_FOUND'
+      });
+    }
+
+    if (user.status === USER_STATUSES.INACTIVE) {
+      throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
+        code: 'ACCOUNT_INACTIVE'
+      });
+    }
+
+    if (isLocked(user, now)) {
+      throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
+        code: 'ACCOUNT_LOCKED',
+        lockedUntil: toIsoString(user.lockedUntil)
+      });
+    }
+
+    const request = await tx.passwordResetRequest.findFirst({
+      where: {
+        userId: user.id,
+        invalidatedAt: null,
+        consumedAt: null,
+        expiresAt: {
+          gt: now
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    if (!request) {
+      throw new HttpError(404, 'Nao existe pedido valido de recuperacao para esse email', {
+        code: 'PASSWORD_RESET_REQUEST_INVALID'
+      });
+    }
+
+    return {
+      email,
+      emailCanonical,
+      user,
+      request
+    };
+  }
+
+  async assertPasswordResetCode(tx, request, code, now = nowUtc()) {
+    if (request.codeHash === hashCode(code)) {
+      return;
+    }
+
+    const failedAttempts = request.failedAttempts + 1;
+    const data = {
+      failedAttempts
+    };
+
+    if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
+      data.invalidatedAt = now;
+      data.retryAvailableAt = buildBlockedRetryAt(now);
+      data.resendAvailableAt = buildBlockedRetryAt(now);
+    }
+
+    await tx.passwordResetRequest.update({
+      where: { id: request.id },
+      data
+    });
+
+    if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
+      throw new HttpError(429, 'Pedido invalidado. Solicite novamente em 5 minutos.', {
+        code: 'PASSWORD_RESET_REQUEST_LOCKED'
+      });
+    }
+
+    throw new HttpError(422, 'Codigo invalido', {
+      code: 'INVALID_CODE'
     });
   }
 
@@ -1349,87 +1451,31 @@ export class UserService {
     });
   }
 
+  async verifyPasswordResetCode(input) {
+    const code = normalizePasswordResetCode(input.code);
+    const now = nowUtc();
+
+    return this.prisma.$transaction(async (tx) => {
+      const { request } = await this.loadPasswordResetContext(tx, input.email, now);
+      await this.assertPasswordResetCode(tx, request, code, now);
+
+      return {
+        verification: {
+          verified: true
+        }
+      };
+    });
+  }
+
   async resetPasswordWithCode(input, actorContext) {
-    const email = normalizeEmail(input.email);
-    const emailCanonical = normalizeCanonical(email);
-    const code = normalizeRequiredText(input.code, 'code', 6);
+    const code = normalizePasswordResetCode(input.code);
     const password = normalizePassword(input.password);
     const passwordHash = await hashPassword(password);
     const now = nowUtc();
 
     return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findFirst({
-        where: {
-          emailCanonical
-        },
-        select: USER_SELECT
-      });
-
-      if (!user) {
-        throw new HttpError(404, 'Email nao encontrado. Revise o email informado.', {
-          code: 'EMAIL_NOT_FOUND'
-        });
-      }
-
-      if (user.status === USER_STATUSES.INACTIVE) {
-        throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-          code: 'ACCOUNT_INACTIVE'
-        });
-      }
-
-      if (isLocked(user, now)) {
-        throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
-          code: 'ACCOUNT_LOCKED',
-          lockedUntil: toIsoString(user.lockedUntil)
-        });
-      }
-
-      const request = await tx.passwordResetRequest.findFirst({
-        where: {
-          userId: user.id,
-          invalidatedAt: null,
-          consumedAt: null,
-          expiresAt: {
-            gt: now
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-
-      if (!request) {
-        throw new HttpError(404, 'Nao existe pedido valido de recuperacao para esse email', {
-          code: 'PASSWORD_RESET_REQUEST_INVALID'
-        });
-      }
-
-      if (request.codeHash !== hashCode(code)) {
-        const failedAttempts = request.failedAttempts + 1;
-        const data = {
-          failedAttempts
-        };
-        if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
-          data.invalidatedAt = now;
-          data.retryAvailableAt = buildBlockedRetryAt(now);
-          data.resendAvailableAt = buildBlockedRetryAt(now);
-        }
-
-        await tx.passwordResetRequest.update({
-          where: { id: request.id },
-          data
-        });
-
-        if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
-          throw new HttpError(429, 'Pedido invalidado. Solicite novamente em 5 minutos.', {
-            code: 'PASSWORD_RESET_REQUEST_LOCKED'
-          });
-        }
-
-        throw new HttpError(422, 'Codigo invalido', {
-          code: 'INVALID_CODE'
-        });
-      }
+      const { user, request } = await this.loadPasswordResetContext(tx, input.email, now);
+      await this.assertPasswordResetCode(tx, request, code, now);
 
       const updated = await tx.user.update({
         where: { id: user.id },

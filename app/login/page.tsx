@@ -1,19 +1,23 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
+import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { login, ApiError, getCurrentSession } from '../../lib/api-client';
 import { loginSchema } from '../../lib/form-schemas';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const forgotPasswordTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const forgotPasswordRequestedByQuery = searchParams.get('modal') === 'forgot-password';
 
   useEffect(() => {
     let active = true;
@@ -32,6 +36,12 @@ export default function LoginPage() {
       active = false;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (forgotPasswordRequestedByQuery) {
+      setForgotPasswordOpen(true);
+    }
+  }, [forgotPasswordRequestedByQuery]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +65,22 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleOpenForgotPassword() {
+    setForgotPasswordOpen(true);
+  }
+
+  function handleCloseForgotPassword() {
+    setForgotPasswordOpen(false);
+
+    if (forgotPasswordRequestedByQuery) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete('modal');
+      const nextQuery = nextParams.toString();
+
+      router.replace(nextQuery ? `/login?${nextQuery}` : '/login', { scroll: false });
     }
   }
 
@@ -114,9 +140,14 @@ export default function LoginPage() {
           </div>
 
           <div className="login-card-actions">
-            <Link href="/forgot-password" className="login-card-link">
+            <button
+              ref={forgotPasswordTriggerRef}
+              type="button"
+              className="login-card-link"
+              onClick={handleOpenForgotPassword}
+            >
               Esqueci minha senha
-            </Link>
+            </button>
 
             <button
               type="submit"
@@ -142,6 +173,12 @@ export default function LoginPage() {
           </div>
         </form>
       </section>
+
+      <ForgotPasswordModal
+        open={forgotPasswordOpen}
+        onClose={handleCloseForgotPassword}
+        returnFocusRef={forgotPasswordTriggerRef}
+      />
     </main>
   );
 }

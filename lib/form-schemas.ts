@@ -5,6 +5,27 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Senha e obrigatoria')
 });
 
+export const forgotPasswordRequestSchema = z.object({
+  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido')
+});
+
+export const forgotPasswordVerifyCodeSchema = z.object({
+  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos'),
+});
+
+export const forgotPasswordResetSchema = z.object({
+  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido'),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos'),
+  password: z.string().min(8, 'Nova senha deve ter pelo menos 8 caracteres')
+});
+
 export const receiveSampleSchema = z.object({
   receivedChannel: z.enum(['in_person', 'courier', 'driver', 'other']),
   notes: z.string().max(500).optional().nullable()

@@ -844,6 +844,26 @@ export function createBackendApiV1({
         };
       }),
 
+    verifyPasswordResetCode: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const body = readRequestBody(input);
+        const result = await userService.verifyPasswordResetCode(
+          {
+            email: body.email,
+            code: body.code
+          },
+          buildRequestContext(input)
+        );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
     resetPasswordWithCode: (input) =>
       executeApiForInput(input, async () => {
         if (!userService) {

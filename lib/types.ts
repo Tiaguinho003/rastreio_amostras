@@ -154,6 +154,12 @@ export interface PasswordResetRequestResponse {
   };
 }
 
+export interface PasswordResetCodeVerificationResponse {
+  verification: {
+    verified: true;
+  };
+}
+
 export interface SampleSnapshot {
   id: string;
   internalLotNumber: string | null;
