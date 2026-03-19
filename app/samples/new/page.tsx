@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { flushSync } from 'react-dom';
 
@@ -166,7 +166,7 @@ function extractCauseMessage(cause: unknown) {
   return TECHNICAL_PRINT_ERROR;
 }
 
-export default function NewSamplePage() {
+function NewSamplePageContent() {
   const { session, loading, logout } = useRequireAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1288,5 +1288,13 @@ export default function NewSamplePage() {
         </div>
       ) : null}
     </AppShell>
+  );
+}
+
+export default function NewSamplePage() {
+  return (
+    <Suspense fallback={null}>
+      <NewSamplePageContent />
+    </Suspense>
   );
 }
