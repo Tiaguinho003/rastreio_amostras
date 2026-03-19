@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
@@ -25,6 +26,17 @@ interface OperationModalData {
 const DASHBOARD_LATEST_LIMIT = 20;
 const DASHBOARD_MODAL_VISIBLE_ITEMS = 3;
 
+function formatDashboardGreetingName(fullName: string | null | undefined, username: string) {
+  const baseName = typeof fullName === 'string' && fullName.trim().length > 0 ? fullName.trim() : username.trim();
+  const firstName = baseName.split(/\s+/)[0] ?? baseName;
+
+  if (!firstName) {
+    return 'Usuario';
+  }
+
+  return firstName;
+}
+
 function renderMainSampleValue(value: string | number | null) {
   if (value === null || value === '') {
     return 'Nao informado';
@@ -45,26 +57,6 @@ function formatLatestSummary(sample: SampleSnapshot) {
   const harvest = renderMainSampleValue(sample.declared.harvest);
   const sacks = renderMainSampleValue(sample.declared.sacks);
   return `${owner} | Safra ${harvest} | Saca ${sacks}`;
-}
-
-function getMobileStatusLabel(status: SampleSnapshot['status']) {
-  if (status === 'QR_PENDING_PRINT' || status === 'REGISTRATION_CONFIRMED') {
-    return 'Impressao pendente';
-  }
-
-  if (status === 'QR_PRINTED') {
-    return 'Classificacao pendente';
-  }
-
-  if (status === 'CLASSIFICATION_IN_PROGRESS') {
-    return 'Em andamento';
-  }
-
-  if (status === 'CLASSIFIED') {
-    return 'Classificada';
-  }
-
-  return 'Em andamento';
 }
 
 function buildOperationModalData(
@@ -115,7 +107,7 @@ function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
       <div className="dashboard-latest-registration-main">
         <div className="dashboard-latest-registration-head">
           <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-          <span className="dashboard-latest-registration-pill">{getMobileStatusLabel(sample.status)}</span>
+          <StatusBadge status={sample.status} />
         </div>
         <p className="dashboard-latest-registration-subtitle">{formatLatestSummary(sample)}</p>
         <p className="dashboard-latest-registration-meta">
@@ -225,6 +217,7 @@ export default function DashboardPage() {
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
   const totalReceivedToday = data?.todayReceivedTotal ?? 0;
   const totalPending = data?.totalPending ?? 0;
+  const greetingName = formatDashboardGreetingName(session.user.fullName, session.user.username);
   const operationModalMetaText = operationModalData
     ? operationModalData.total > operationModalData.items.length
       ? `Exibindo as ${operationModalData.items.length} primeiras amostras da operacao.`
@@ -238,16 +231,20 @@ export default function DashboardPage() {
       <section className="dashboard-page">
         <section className="dashboard-mobile-welcome">
           <div className="dashboard-mobile-welcome-copy">
-            <h2 className="dashboard-mobile-welcome-title">Bem-vindo!</h2>
-            <p className="dashboard-mobile-welcome-subtitle">Resumo das operacoes</p>
+            <p className="dashboard-mobile-welcome-kicker">BEM VINDO,</p>
+            <h2 className="dashboard-mobile-welcome-title">{greetingName}</h2>
           </div>
 
           <div className="dashboard-mobile-welcome-visual" aria-hidden="true">
-            <div className="dashboard-mobile-welcome-shape shape-a" />
-            <div className="dashboard-mobile-welcome-shape shape-b" />
             <div className="dashboard-mobile-welcome-photo">
-              <div className="dashboard-mobile-welcome-photo-glow" />
-              <div className="dashboard-mobile-welcome-photo-lines" />
+              <Image
+                src="/dashboard-coffee-cup.png"
+                alt=""
+                width={450}
+                height={360}
+                className="dashboard-mobile-welcome-photo-image"
+                priority
+              />
             </div>
           </div>
         </section>
@@ -344,9 +341,9 @@ export default function DashboardPage() {
         <section className="dashboard-secondary-grid">
           <section className="dashboard-section-column dashboard-section-column-wide">
             <div className="dashboard-section-heading">
-              <h2 className="dashboard-section-title">Ultimos registros</h2>
+              <h2 className="dashboard-section-title">Ultimos Registros</h2>
               <Link href="/samples" className="dashboard-section-link">
-                Ver todos
+                Ver todas
                 <span aria-hidden="true">›</span>
               </Link>
             </div>
@@ -370,7 +367,7 @@ export default function DashboardPage() {
             </section>
           </section>
 
-        <section className="dashboard-section-column dashboard-section-column-actions">
+          <section className="dashboard-section-column dashboard-section-column-actions">
             <Link href="/samples/new" className="dashboard-action-link dashboard-action-link-new">
               <span className="dashboard-action-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">

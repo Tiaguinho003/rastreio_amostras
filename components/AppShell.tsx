@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { MobileHeaderSearch } from './MobileHeaderSearch';
 import { SampleSearchField } from './SampleSearchField';
 import { recordInitialPasswordDecision } from '../lib/api-client';
 import { getRoleLabel, isAdmin } from '../lib/roles';
@@ -40,10 +41,8 @@ const ADMIN_NAV_ITEM = {
 
 const MOBILE_NAV_ITEMS = [
   { href: '/dashboard', mobileLabel: 'Inicio', icon: 'dashboard' as NavIcon, emphasis: 'default' as const },
-  { href: '/samples', mobileLabel: 'Registros', icon: 'samples' as NavIcon, emphasis: 'default' as const },
-  { href: '/samples/new', mobileLabel: 'Novo', icon: 'new-sample' as NavIcon, emphasis: 'primary' as const },
-  { href: '/camera', mobileLabel: 'Camera', icon: 'camera' as NavIcon, emphasis: 'default' as const },
-  { href: '/settings', mobileLabel: 'Perfil', icon: 'settings' as NavIcon, emphasis: 'default' as const }
+  { href: '/camera', mobileLabel: 'Camera', icon: 'camera' as NavIcon, emphasis: 'primary' as const },
+  { href: '/samples', mobileLabel: 'Registros', icon: 'samples' as NavIcon, emphasis: 'default' as const }
 ] as const;
 
 function isMainNavItemActive(pathname: string, href: string) {
@@ -189,6 +188,7 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
 export function AppShell({ session, onLogout, onSessionChange, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -201,6 +201,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       : session.user.username;
   const desktopNavItems = isAdmin(session.user.role) ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM] : DESKTOP_NAV_ITEMS;
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
+  const isCameraRoute = pathname === '/camera';
 
   useEffect(() => {
     if (!profileMenuOpen) {
@@ -296,15 +297,31 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               <SampleSearchField session={session} compact submitLabel="Ir" />
             </div>
 
-            <button type="button" className="topbar-notification-trigger" aria-label="Notificacoes pendentes">
+            <MobileHeaderSearch
+              session={session}
+              open={mobileSearchOpen}
+              onOpenChange={(open) => {
+                setMobileSearchOpen(open);
+                if (open) {
+                  setProfileMenuOpen(false);
+                }
+              }}
+            />
+
+            <Link
+              href="/samples/new"
+              className="topbar-mobile-create-link"
+              aria-label="Criar nova amostra"
+              onClick={() => {
+                setMobileSearchOpen(false);
+                setProfileMenuOpen(false);
+              }}
+            >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M12 4a5 5 0 0 0-5 5v2.6c0 .8-.3 1.6-.9 2.2l-1 1a1 1 0 0 0 .7 1.7h12.4a1 1 0 0 0 .7-1.7l-1-1a3.1 3.1 0 0 1-.9-2.2V9a5 5 0 0 0-5-5Z" />
-                <path d="M9.5 18a2.5 2.5 0 0 0 5 0" />
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
               </svg>
-              <span className="topbar-notification-badge" aria-hidden="true">
-                2
-              </span>
-            </button>
+            </Link>
 
             <div className="topbar-profile" ref={profileMenuRef}>
               <button
@@ -315,7 +332,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 aria-expanded={profileMenuOpen}
                 aria-controls="topbar-profile-menu"
                 aria-label="Abrir menu de perfil"
-                onClick={() => setProfileMenuOpen((current) => !current)}
+                onClick={() =>
+                  setProfileMenuOpen((current) => {
+                    const next = !current;
+                    if (next) {
+                      setMobileSearchOpen(false);
+                    }
+                    return next;
+                  })
+                }
               >
                 <span className="topbar-profile-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -359,8 +384,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </div>
       </header>
 
-      <main className="app-shell-main">
-        {mobileRouteMeta ? (
+      <main className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}`}>
+        {mobileRouteMeta && !isCameraRoute ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">
               <p className="app-shell-mobile-route-kicker">Modo mobile</p>

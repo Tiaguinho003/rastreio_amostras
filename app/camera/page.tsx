@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -42,6 +41,14 @@ function isPermissionLikeError(error: unknown) {
   return /permission|notallowed|denied|secure context/i.test(error.message);
 }
 
+function buildCameraPhotoHandoffId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `camera-photo-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function CameraPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
@@ -63,13 +70,12 @@ export default function CameraPage() {
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<CapturedPhotoState | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
-  const [manualSearchOpen, setManualSearchOpen] = useState(false);
-  const [manualQuery, setManualQuery] = useState('');
-  const [manualSubmitting, setManualSubmitting] = useState(false);
-  const [manualError, setManualError] = useState<string | null>(null);
 
-  const scannerBlocked = resultModalOpen || Boolean(capturedPhoto) || manualSearchOpen || photoSaving;
+  const scannerBlocked = resultModalOpen || Boolean(capturedPhoto) || photoSaving;
   const canCapturePhoto = cameraStatus === 'scanning' && !scannerBlocked;
+  const reviewMode = Boolean(capturedPhoto);
+  const manualDisabled = photoSaving || reviewMode;
+  const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning' || reviewMode;
   const cameraStateLabel = useMemo(() => {
     if (cameraStatus === 'starting') {
       return 'Abrindo camera';
@@ -180,7 +186,6 @@ export default function CameraPage() {
     setResult(resolved);
     setResultModalOpen(true);
     setCameraError(null);
-    setManualError(null);
     setStatusMessage('Amostra localizada. Confira a etiqueta antes de continuar.');
   }, []);
 
@@ -224,8 +229,8 @@ export default function CameraPage() {
           return;
         }
 
-        setCameraError(`${readErrorMessage(error, 'Falha ao localizar a amostra.')} Use a busca manual se precisar.`);
-        setStatusMessage('Nao foi possivel confirmar este QR. Tente outro codigo ou use a busca manual.');
+        setCameraError(`${readErrorMessage(error, 'Falha ao localizar a amostra.')} Use o botao Manual se precisar.`);
+        setStatusMessage('Nao foi possivel confirmar este QR. Tente novamente ou siga pelo botao Manual.');
         scheduleScannerRestart();
       } finally {
         resolvingScanRef.current = false;
@@ -327,62 +332,17 @@ export default function CameraPage() {
     };
   }, [destroyScanner]);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   if (loading || !session) {
     return null;
-  }
-
-  async function handleManualSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const normalizedQuery = manualQuery.trim();
-    if (!normalizedQuery) {
-      setManualError('Informe o numero da amostra.');
-      return;
-    }
-
-    setManualSubmitting(true);
-    setManualError(null);
-    setCameraError(null);
-    stopScanner();
-
-    try {
-      const currentSession = sessionRef.current;
-      if (!currentSession) {
-        setManualError('Sua sessao expirou. Entre novamente para continuar.');
-        return;
-      }
-
-      const resolved = await resolveSampleByQr(currentSession, normalizedQuery);
-      if (!mountedRef.current) {
-        return;
-      }
-
-      handleResolvedSample(resolved);
-      setManualQuery('');
-    } catch (error) {
-      if (!mountedRef.current) {
-        return;
-      }
-
-      setManualError(readErrorMessage(error, 'Falha ao localizar a amostra.'));
-    } finally {
-      setManualSubmitting(false);
-    }
-  }
-
-  function handleToggleManualSearch() {
-    setManualSearchOpen((current) => {
-      const next = !current;
-      if (next) {
-        stopScanner();
-        setStatusMessage('Digite manualmente o codigo ou conteudo do QR da amostra.');
-      } else {
-        setManualError(null);
-        setStatusMessage(DEFAULT_STATUS_MESSAGE);
-      }
-
-      return next;
-    });
   }
 
   async function handleCapturePhoto() {
@@ -451,6 +411,7 @@ export default function CameraPage() {
 
   async function handleUseCapturedPhoto() {
     if (!capturedPhoto) {
+      console.warn('CAMERA_SAVE', { stage: 'skip-no-photo' });
       return;
     }
 
@@ -458,10 +419,20 @@ export default function CameraPage() {
     setCameraError(null);
 
     try {
-      await savePendingArrivalPhoto(capturedPhoto.file);
-      router.push('/samples/new?source=camera');
+      const handoffId = buildCameraPhotoHandoffId();
+      console.info('CAMERA_SAVE', {
+        stage: 'before-save',
+        handoffId,
+        fileName: capturedPhoto.file.name,
+        fileSize: capturedPhoto.file.size
+      });
+      await savePendingArrivalPhoto(capturedPhoto.file, { confirmed: true, handoffId });
+      console.info('CAMERA_SAVE', { stage: 'after-save', handoffId });
+      console.info('CAMERA_NAVIGATE', { to: `/samples/new?source=camera&handoff=${handoffId}` });
+      router.push(`/samples/new?source=camera&handoff=${encodeURIComponent(handoffId)}`);
     } catch (error) {
       setPhotoSaving(false);
+      console.error('CAMERA_SAVE', { stage: 'error', message: readErrorMessage(error, 'Falha ao preparar a foto capturada.') });
       setCameraError(`${readErrorMessage(error, 'Falha ao preparar a foto capturada.')} Tente novamente.`);
     }
   }
@@ -483,115 +454,85 @@ export default function CameraPage() {
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="camera-hub-page">
-        <header className="camera-hub-header">
-          <div className="camera-hub-header-copy">
-            <p className="camera-hub-kicker">Fluxo rapido mobile</p>
-            <h2 className="camera-hub-title">Camera inteligente</h2>
-            <p className="camera-hub-subtitle">Leitura automatica de QR com atalho direto para um novo registro por foto.</p>
-          </div>
-
-          <div className="camera-hub-header-actions">
-            <Link href="/samples/new" className="new-sample-link-button secondary">
-              Novo manual
-            </Link>
-            <Link href="/samples" className="new-sample-link-button secondary">
-              Registros
-            </Link>
-          </div>
-        </header>
-
-        <section className="panel camera-hub-panel">
+        <section className="camera-hub-panel">
           <div className={`camera-hub-stage${capturedPhoto ? ' is-review' : ''}`}>
+            <video ref={videoRef} className="camera-hub-video" autoPlay muted playsInline />
             {capturedPhoto ? (
               <img src={capturedPhoto.previewUrl} alt="Pre-visualizacao da foto capturada" className="camera-hub-preview" />
-            ) : (
-              <video ref={videoRef} className="camera-hub-video" autoPlay muted playsInline />
-            )}
+            ) : null}
             <div ref={overlayRef} className="camera-hub-overlay" aria-hidden="true" />
 
             <div className="camera-hub-headline">
               <span className={`camera-hub-status-badge is-${cameraStatus}`}>{cameraStateLabel}</span>
-              <p className="camera-hub-status-text" aria-live="polite">
-                {statusMessage}
-              </p>
+              {showStatusText
+                ? cameraError
+                  ? (
+                    <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
+                      {cameraError}
+                    </p>
+                    )
+                  : (
+                    <p className="camera-hub-status-text" aria-live="polite">
+                      {statusMessage}
+                    </p>
+                    )
+                : null}
             </div>
 
-            {capturedPhoto ? (
-              <div className="camera-hub-review-actions">
-                <button type="button" onClick={handleUseCapturedPhoto} disabled={photoSaving}>
-                  {photoSaving ? 'Preparando...' : 'Usar foto'}
-                </button>
-                <button type="button" className="secondary" onClick={handleDiscardCapturedPhoto} disabled={photoSaving}>
-                  Tentar novamente
-                </button>
-              </div>
-            ) : (
-              <div className="camera-hub-capture-strip">
+            <div className="camera-hub-top-actions">
+              <button
+                type="button"
+                className={`camera-hub-manual-action${manualDisabled ? ' is-disabled' : ''}`}
+                onClick={() => router.push('/samples/new')}
+                disabled={manualDisabled}
+              >
+                Manual
+              </button>
+            </div>
+
+            <div className="camera-hub-capture-strip">
+              <button
+                type="button"
+                className={`camera-hub-side-action is-discard${reviewMode ? ' is-ready' : ''}`}
+                onClick={handleDiscardCapturedPhoto}
+                disabled={!reviewMode || photoSaving}
+                aria-label="Descartar foto capturada"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M6 6l12 12" />
+                  <path d="M18 6 6 18" />
+                </svg>
+              </button>
+
+              <div className="camera-hub-capture-button-wrap">
                 <button
                   type="button"
                   className="camera-hub-capture-button"
                   onClick={handleCapturePhoto}
-                  disabled={!canCapturePhoto || manualSubmitting}
+                  disabled={!canCapturePhoto}
                   aria-label="Capturar foto da amostra"
                 >
                   <span className="camera-hub-capture-button-core" aria-hidden="true" />
                 </button>
               </div>
-            )}
-          </div>
 
-          <div className="camera-hub-support">
-            <div>
-              <strong>Atalhos manuais</strong>
-              <p className="camera-hub-support-text">Se a leitura falhar, digite o codigo ou siga para um novo registro sem sair do fluxo.</p>
-            </div>
-
-            <div className="camera-hub-support-actions">
-              <button type="button" className="secondary" onClick={handleToggleManualSearch} disabled={photoSaving}>
-                {manualSearchOpen ? 'Fechar digitacao' : 'Digitar codigo'}
+              <button
+                type="button"
+                className={`camera-hub-side-action is-confirm${reviewMode ? ' is-ready' : ''}`}
+                onClick={handleUseCapturedPhoto}
+                disabled={!reviewMode || photoSaving}
+                aria-label="Confirmar foto capturada"
+              >
+                {photoSaving ? (
+                  <span className="camera-hub-side-action-spinner" aria-hidden="true" />
+                ) : (
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="m5 12.5 4.3 4.2L19 7" />
+                  </svg>
+                )}
               </button>
-              <Link href="/samples/new" className="new-sample-link-button secondary">
-                Novo registro
-              </Link>
             </div>
           </div>
-
-          {cameraError ? (
-            <p className="camera-hub-error" role="alert">
-              {cameraError}
-            </p>
-          ) : null}
-
-          {manualSearchOpen ? (
-            <section className="camera-hub-manual-card">
-              <form className="sample-search camera-hub-manual-search" onSubmit={handleManualSearchSubmit} role="search">
-                <label className="sample-search-field">
-                  <span className="sample-search-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m16.2 16.2 4.1 4.1" />
-                    </svg>
-                  </span>
-                  <input
-                    value={manualQuery}
-                    onChange={(event) => setManualQuery(event.target.value)}
-                    placeholder="Digite o numero da amostra ou o conteudo do QR"
-                    autoComplete="off"
-                    spellCheck={false}
-                    disabled={manualSubmitting}
-                  />
-                </label>
-                <button type="submit" className="sample-search-submit" disabled={manualSubmitting}>
-                  {manualSubmitting ? 'Buscando...' : 'Buscar'}
-                </button>
-                {manualError ? (
-                  <p className="sample-search-error" role="alert">
-                    {manualError}
-                  </p>
-                ) : null}
-              </form>
-            </section>
-          ) : null}
         </section>
       </section>
 

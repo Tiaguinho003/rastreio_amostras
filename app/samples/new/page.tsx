@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { flushSync } from 'react-dom';
@@ -15,7 +15,7 @@ import {
   requestQrReprint
 } from '../../../lib/api-client';
 import { createSampleDraftSchema, qrFailSchema } from '../../../lib/form-schemas';
-import { consumePendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
+import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
 import type { CreateSampleAndPreparePrintResponse, PrintAction } from '../../../lib/types';
 import { useRequireAuth } from '../../../lib/use-auth';
 
@@ -169,6 +169,7 @@ function extractCauseMessage(cause: unknown) {
 export default function NewSamplePage() {
   const { session, loading, logout } = useRequireAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [clientDraftId, setClientDraftId] = useState(() => buildDraftId());
   const [owner, setOwner] = useState('');
@@ -199,16 +200,30 @@ export default function NewSamplePage() {
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const modalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
+  const pageMountedRef = useRef(true);
+  const cameraHydrationRequestRef = useRef(0);
 
   const [showPhotoConfirmEffect, setShowPhotoConfirmEffect] = useState(false);
   const [photoConfirmEffectKey, setPhotoConfirmEffectKey] = useState(0);
   const [showPrintConfirmEffect, setShowPrintConfirmEffect] = useState(false);
   const [printConfirmEffectKey, setPrintConfirmEffectKey] = useState(0);
-  const [cameraPhotoHydrated, setCameraPhotoHydrated] = useState(false);
-  const [cameraPhotoRequested, setCameraPhotoRequested] = useState(false);
+  const [arrivalPhotoSource, setArrivalPhotoSource] = useState<'camera' | 'manual' | null>(null);
+  const [activeCameraHandoffId, setActiveCameraHandoffId] = useState<string | null>(null);
 
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
   const canCloseModal = labelModalStep === 'review';
+  const cameraSourceParam = searchParams.get('source');
+  const cameraHandoffParam = searchParams.get('handoff');
+
+  function clearCameraHandoffRouteState() {
+    if (cameraSourceParam === 'camera' || cameraHandoffParam) {
+      console.info('NEW_SAMPLE_ROUTE_CLEAR', {
+        source: cameraSourceParam,
+        handoff: cameraHandoffParam
+      });
+      router.replace('/samples/new');
+    }
+  }
 
   const arrivalPhotoPreviewUrl = useMemo(() => {
     if (!arrivalPhoto) {
@@ -219,6 +234,22 @@ export default function NewSamplePage() {
   }, [arrivalPhoto]);
 
   useEffect(() => {
+    pageMountedRef.current = true;
+    return () => {
+      pageMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    console.info('NEW_SAMPLE_ROUTE_STATE', {
+      source: cameraSourceParam,
+      handoff: cameraHandoffParam,
+      activeCameraHandoffId,
+      hydrationRequest: cameraHydrationRequestRef.current
+    });
+  }, [activeCameraHandoffId, cameraHandoffParam, cameraSourceParam]);
+
+  useEffect(() => {
     if (!arrivalPhotoPreviewUrl) {
       return;
     }
@@ -227,6 +258,16 @@ export default function NewSamplePage() {
       URL.revokeObjectURL(arrivalPhotoPreviewUrl);
     };
   }, [arrivalPhotoPreviewUrl]);
+
+  useEffect(() => {
+    console.info('NEW_SAMPLE_APPLY', {
+      arrivalPhoto: Boolean(arrivalPhoto),
+      arrivalPhotoReady,
+      arrivalPhotoSource,
+      activeCameraHandoffId,
+      previewUrl: Boolean(arrivalPhotoPreviewUrl)
+    });
+  }, [activeCameraHandoffId, arrivalPhoto, arrivalPhotoPreviewUrl, arrivalPhotoReady, arrivalPhotoSource]);
 
   useEffect(() => {
     return () => {
@@ -293,65 +334,57 @@ export default function NewSamplePage() {
   }, [canCloseModal, labelModalOpen]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (cameraSourceParam !== 'camera' || !cameraHandoffParam || activeCameraHandoffId === cameraHandoffParam) {
       return;
     }
 
-    const source = new URLSearchParams(window.location.search).get('source');
-    if (source === 'camera') {
-      setCameraPhotoRequested(true);
-    }
-  }, []);
+    const requestId = cameraHydrationRequestRef.current + 1;
+    cameraHydrationRequestRef.current = requestId;
+    console.info('NEW_SAMPLE_READ_START', { handoffId: cameraHandoffParam });
 
-  useEffect(() => {
-    if (cameraPhotoHydrated || !cameraPhotoRequested) {
-      return;
-    }
-
-    let active = true;
-    setCameraPhotoHydrated(true);
-
-    void consumePendingArrivalPhoto()
+    void readPendingArrivalPhoto(cameraHandoffParam)
       .then((photo) => {
-        if (!active) {
+        if (!pageMountedRef.current || cameraHydrationRequestRef.current !== requestId) {
+          console.warn('NEW_SAMPLE_READ_ABORTED', { handoffId: cameraHandoffParam, requestId });
           return;
         }
 
         if (!photo) {
+          console.warn('NEW_SAMPLE_READ_RESULT', { handoffId: cameraHandoffParam, found: false });
           setError('A foto capturada nao estava mais disponivel. Continue com o registro manualmente.');
-          router.replace('/samples/new');
+          clearCameraHandoffRouteState();
           return;
         }
 
-        setArrivalPhoto(photo);
-        setArrivalPhotoReady(true);
-        setPhotoConfirmEffectKey((current) => current + 1);
-        setShowPhotoConfirmEffect(true);
-
-        if (confirmPhotoEffectTimeoutRef.current !== null) {
-          window.clearTimeout(confirmPhotoEffectTimeoutRef.current);
+        console.info('NEW_SAMPLE_READ_RESULT', {
+          handoffId: photo.handoffId,
+          found: true,
+          confirmed: photo.confirmed,
+          fileName: photo.file.name,
+          fileSize: photo.file.size
+        });
+        setArrivalPhoto(photo.file);
+        setArrivalPhotoReady(photo.confirmed);
+        setArrivalPhotoSource('camera');
+        setActiveCameraHandoffId(photo.handoffId);
+        if (photo.confirmed) {
+          playConfirmPhotoEffect();
+        } else {
+          clearConfirmPhotoEffect();
         }
-
-        confirmPhotoEffectTimeoutRef.current = window.setTimeout(() => {
-          setShowPhotoConfirmEffect(false);
-          confirmPhotoEffectTimeoutRef.current = null;
-        }, 980);
-
-        router.replace('/samples/new');
+        setError(null);
       })
       .catch(() => {
-        if (!active) {
+        if (!pageMountedRef.current || cameraHydrationRequestRef.current !== requestId) {
+          console.warn('NEW_SAMPLE_READ_ABORTED', { handoffId: cameraHandoffParam, phase: 'catch', requestId });
           return;
         }
 
+        console.error('NEW_SAMPLE_READ_ERROR', { handoffId: cameraHandoffParam });
         setError('Falha ao recuperar a foto capturada. Continue com o registro manualmente.');
-        router.replace('/samples/new');
+        clearCameraHandoffRouteState();
       });
-
-    return () => {
-      active = false;
-    };
-  }, [cameraPhotoHydrated, cameraPhotoRequested, router]);
+  }, [activeCameraHandoffId, cameraHandoffParam, cameraSourceParam]);
 
   if (loading || !session) {
     return null;
@@ -375,6 +408,10 @@ export default function NewSamplePage() {
 
   function triggerConfirmPhotoEffect() {
     setArrivalPhotoReady(true);
+    playConfirmPhotoEffect();
+  }
+
+  function playConfirmPhotoEffect() {
     setPhotoConfirmEffectKey((current) => current + 1);
     setShowPhotoConfirmEffect(true);
 
@@ -403,6 +440,11 @@ export default function NewSamplePage() {
   }
 
   function resetDraft() {
+    if (activeCameraHandoffId) {
+      void clearPendingArrivalPhoto(activeCameraHandoffId);
+    }
+    console.info('NEW_SAMPLE_RESET', { activeCameraHandoffId });
+    clearCameraHandoffRouteState();
     setClientDraftId(buildDraftId());
     setOwner('');
     setSacks('');
@@ -411,6 +453,9 @@ export default function NewSamplePage() {
     setNotes('');
     setArrivalPhoto(null);
     setArrivalPhotoReady(false);
+    setArrivalPhotoSource(null);
+    setActiveCameraHandoffId(null);
+    cameraHydrationRequestRef.current += 1;
     clearConfirmPhotoEffect();
     clearPrintConfirmEffect();
     setPendingDraft(null);
@@ -593,6 +638,16 @@ export default function NewSamplePage() {
         printerId: pendingDraft.printerId,
         arrivalPhoto: pendingDraft.arrivalPhoto
       });
+
+      if (activeCameraHandoffId) {
+        await clearPendingArrivalPhoto(activeCameraHandoffId);
+        setActiveCameraHandoffId(null);
+      }
+      console.info('NEW_SAMPLE_CREATE_SUCCESS', {
+        activeCameraHandoffId,
+        hadArrivalPhoto: Boolean(pendingDraft.arrivalPhoto)
+      });
+      clearCameraHandoffRouteState();
 
       const attempt = readPrintContextFromCreateResult(result);
       if (!attempt) {
@@ -800,8 +855,19 @@ export default function NewSamplePage() {
                 capture="environment"
                 type="file"
                 onChange={(event) => {
+                  if (activeCameraHandoffId) {
+                    void clearPendingArrivalPhoto(activeCameraHandoffId);
+                  }
+                  console.info('NEW_SAMPLE_MANUAL_REPLACE', {
+                    previousHandoffId: activeCameraHandoffId,
+                    hasFile: Boolean(event.target.files?.[0])
+                  });
+                  clearCameraHandoffRouteState();
                   setArrivalPhoto(event.target.files?.[0] ?? null);
                   setArrivalPhotoReady(false);
+                  setArrivalPhotoSource(event.target.files?.[0] ? 'manual' : null);
+                  setActiveCameraHandoffId(null);
+                  cameraHydrationRequestRef.current += 1;
                   clearConfirmPhotoEffect();
                 }}
               />
@@ -848,8 +914,8 @@ export default function NewSamplePage() {
                 className={`new-sample-photo-action-button${arrivalPhotoReady ? ' is-ready' : ''}`}
                 onClick={triggerConfirmPhotoEffect}
                 disabled={!arrivalPhoto || arrivalPhotoReady || submitting}
-                aria-label="Usar foto selecionada"
-                title="Usar foto"
+                aria-label={arrivalPhotoReady ? 'Foto ja confirmada' : 'Usar foto selecionada'}
+                title={arrivalPhotoReady ? 'Foto ja confirmada' : 'Usar foto'}
               >
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                   <path d="m5 12.5 4.3 4.2L19 7" />
@@ -859,8 +925,16 @@ export default function NewSamplePage() {
                 type="button"
                 className="new-sample-photo-action-button secondary"
                 onClick={() => {
+                  if (activeCameraHandoffId) {
+                    void clearPendingArrivalPhoto(activeCameraHandoffId);
+                  }
+                  console.info('NEW_SAMPLE_REMOVE_PHOTO', { activeCameraHandoffId, arrivalPhotoSource });
+                  clearCameraHandoffRouteState();
                   setArrivalPhoto(null);
                   setArrivalPhotoReady(false);
+                  setArrivalPhotoSource(null);
+                  setActiveCameraHandoffId(null);
+                  cameraHydrationRequestRef.current += 1;
                   clearConfirmPhotoEffect();
                   if (arrivalPhotoInputRef.current) {
                     arrivalPhotoInputRef.current.value = '';
