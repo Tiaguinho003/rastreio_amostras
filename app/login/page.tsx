@@ -8,6 +8,58 @@ import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { login, ApiError, getCurrentSession } from '../../lib/api-client';
 import { loginSchema } from '../../lib/form-schemas';
 
+async function normalizeViewportBeforeNavigation() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+
+  const viewport = window.visualViewport;
+  if (!viewport || viewport.scale <= 1.01) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      viewport.removeEventListener('resize', handleResize);
+      window.clearTimeout(timeoutId);
+      resolve();
+    };
+
+    const handleResize = () => {
+      if ((window.visualViewport?.scale ?? 1) <= 1.01) {
+        finish();
+      }
+    };
+
+    const timeoutId = window.setTimeout(finish, 240);
+    viewport.addEventListener('resize', handleResize);
+  });
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -17,6 +69,31 @@ export default function LoginPage() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordRequestedByQuery, setForgotPasswordRequestedByQuery] = useState(false);
   const forgotPasswordTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverflowX = document.body.style.overflowX;
+    const previousBodyOverflowY = document.body.style.overflowY;
+    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overflowX = 'hidden';
+    document.body.style.overflowY = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overflowX = previousBodyOverflowX;
+      document.body.style.overflowY = previousBodyOverflowY;
+      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +139,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(parsed.data.username, parsed.data.password);
+      await normalizeViewportBeforeNavigation();
       router.replace('/dashboard');
     } catch (cause) {
       if (cause instanceof ApiError) {
