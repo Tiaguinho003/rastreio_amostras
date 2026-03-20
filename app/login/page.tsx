@@ -108,32 +108,20 @@ export default function LoginPage() {
 
         <form className="login-card-form" onSubmit={handleSubmit}>
           <div className="login-card-fields">
-            <div className="login-field-anchor">
-              <div className="login-card-coffee-frame" aria-hidden="true">
-                <Image
-                  src="/login-coffee-beans.png"
-                  alt=""
-                  width={200}
-                  height={267}
-                  className="login-card-coffee"
-                />
-              </div>
+            <label className="login-field-shell">
+              <span className="login-visually-hidden">Usuario</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="Usuário"
+                className="login-field-input"
+              />
+            </label>
 
-              <label className="login-field-shell login-field-shell-light">
-                <span className="login-visually-hidden">Usuario</span>
-                <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  placeholder="Usuario"
-                  className="login-field-input"
-                />
-              </label>
-            </div>
-
-            <label className="login-field-shell login-field-shell-strong">
+            <label className="login-field-shell">
               <span className="login-visually-hidden">Senha</span>
               <input
                 type="password"
@@ -153,7 +141,7 @@ export default function LoginPage() {
               className="login-card-link"
               onClick={handleOpenForgotPassword}
             >
-              Esqueci minha senha
+              Esqueceu a senha?
             </button>
 
             <button
