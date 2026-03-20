@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,19 +22,8 @@ interface OperationModalData {
   items: SampleSnapshot[];
 }
 
-const DASHBOARD_LATEST_LIMIT = 20;
+const DASHBOARD_LATEST_LIMIT = 5;
 const DASHBOARD_MODAL_VISIBLE_ITEMS = 3;
-
-function formatDashboardGreetingName(fullName: string | null | undefined, username: string) {
-  const baseName = typeof fullName === 'string' && fullName.trim().length > 0 ? fullName.trim() : username.trim();
-  const firstName = baseName.split(/\s+/)[0] ?? baseName;
-
-  if (!firstName) {
-    return 'Usuario';
-  }
-
-  return firstName;
-}
 
 function renderMainSampleValue(value: string | number | null) {
   if (value === null || value === '') {
@@ -217,7 +205,6 @@ export default function DashboardPage() {
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
   const totalReceivedToday = data?.todayReceivedTotal ?? 0;
   const totalPending = data?.totalPending ?? 0;
-  const greetingName = formatDashboardGreetingName(session.user.fullName, session.user.username);
   const operationModalMetaText = operationModalData
     ? operationModalData.total > operationModalData.items.length
       ? `Exibindo as ${operationModalData.items.length} primeiras amostras da operacao.`
@@ -229,26 +216,6 @@ export default function DashboardPage() {
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="dashboard-page">
-        <section className="dashboard-mobile-welcome">
-          <div className="dashboard-mobile-welcome-copy">
-            <p className="dashboard-mobile-welcome-kicker">BEM VINDO,</p>
-            <h2 className="dashboard-mobile-welcome-title">{greetingName}</h2>
-          </div>
-
-          <div className="dashboard-mobile-welcome-visual" aria-hidden="true">
-            <div className="dashboard-mobile-welcome-photo">
-              <Image
-                src="/dashboard-coffee-cup.png"
-                alt=""
-                width={450}
-                height={360}
-                className="dashboard-mobile-welcome-photo-image"
-                priority
-              />
-            </div>
-          </div>
-        </section>
-
         <section className="dashboard-section-column">
           <div className="dashboard-section-heading">
             <h2 className="dashboard-section-title">Operacoes</h2>
