@@ -7,16 +7,25 @@ import { QRCodeSVG } from 'qrcode.react';
 import { flushSync } from 'react-dom';
 
 import { AppShell } from '../../../components/AppShell';
+import { ClientLookupField } from '../../../components/clients/ClientLookupField';
+import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
+import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
 import {
   ApiError,
   createSampleAndPreparePrint,
+  getClient,
   recordQrPrintFailed,
   recordQrPrinted,
   requestQrReprint
 } from '../../../lib/api-client';
 import { createSampleDraftSchema, qrFailSchema } from '../../../lib/form-schemas';
 import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
-import type { CreateSampleAndPreparePrintResponse, PrintAction } from '../../../lib/types';
+import type {
+  ClientRegistrationSummary,
+  ClientSummary,
+  CreateSampleAndPreparePrintResponse,
+  PrintAction
+} from '../../../lib/types';
 import { useRequireAuth } from '../../../lib/use-auth';
 
 function buildDraftId() {
@@ -38,6 +47,8 @@ type LabelModalStep = 'review' | 'awaiting_print_result' | 'failure_reason' | 'f
 interface PendingDraftPayload {
   clientDraftId: string;
   owner: string;
+  ownerClientId: string | null;
+  ownerRegistrationId: string | null;
   sacks: number;
   harvest: string;
   originLot: string;
@@ -173,6 +184,12 @@ function NewSamplePageContent() {
 
   const [clientDraftId, setClientDraftId] = useState(() => buildDraftId());
   const [owner, setOwner] = useState('');
+  const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
+  const [ownerRegistrations, setOwnerRegistrations] = useState<ClientRegistrationSummary[]>([]);
+  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(null);
+  const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
@@ -182,6 +199,7 @@ function NewSamplePageContent() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(EMPTY_REQUIRED_FIELD_ERRORS);
 
   const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
@@ -258,6 +276,52 @@ function NewSamplePageContent() {
       URL.revokeObjectURL(arrivalPhotoPreviewUrl);
     };
   }, [arrivalPhotoPreviewUrl]);
+
+  useEffect(() => {
+    if (!session || !selectedOwnerClient) {
+      setOwnerRegistrations([]);
+      setSelectedOwnerRegistrationId(null);
+      setOwnerRegistrationLoading(false);
+      setOwner(selectedOwnerClient?.displayName ?? '');
+      return;
+    }
+
+    let active = true;
+    setOwnerRegistrationLoading(true);
+    setError(null);
+    setOwner(selectedOwnerClient.displayName ?? '');
+
+    getClient(session, selectedOwnerClient.id)
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
+        setOwnerRegistrations(activeRegistrations);
+        if (!activeRegistrations.some((registration) => registration.id === selectedOwnerRegistrationId)) {
+          setSelectedOwnerRegistrationId(null);
+        }
+      })
+      .catch((cause) => {
+        if (!active) {
+          return;
+        }
+
+        setOwnerRegistrations([]);
+        setSelectedOwnerRegistrationId(null);
+        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario');
+      })
+      .finally(() => {
+        if (active) {
+          setOwnerRegistrationLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOwnerClient, session]);
 
   useEffect(() => {
     console.info('NEW_SAMPLE_APPLY', {
@@ -447,6 +511,12 @@ function NewSamplePageContent() {
     clearCameraHandoffRouteState();
     setClientDraftId(buildDraftId());
     setOwner('');
+    setSelectedOwnerClient(null);
+    setOwnerRegistrations([]);
+    setSelectedOwnerRegistrationId(null);
+    setOwnerRegistrationLoading(false);
+    setQuickCreateOpen(false);
+    setQuickCreateSeed('');
     setSacks('');
     setHarvest('');
     setOriginLot('');
@@ -466,6 +536,7 @@ function NewSamplePageContent() {
     setPrintFailureReason('');
     setLastFailureReason(null);
     setError(null);
+    setMessage(null);
     setModalError(null);
     setModalMessage(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
@@ -559,8 +630,17 @@ function NewSamplePageContent() {
     }
 
     setError(null);
+    setMessage(null);
     setModalError(null);
     setModalMessage(null);
+
+    if (!selectedOwnerClient) {
+      setRequiredFieldErrors((current) => ({
+        ...current,
+        owner: REQUIRED_FIELD_MESSAGE
+      }));
+      return;
+    }
 
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({
       owner,
@@ -602,6 +682,8 @@ function NewSamplePageContent() {
     setPendingDraft({
       clientDraftId,
       owner: parsed.data.owner,
+      ownerClientId: selectedOwnerClient?.id ?? null,
+      ownerRegistrationId: selectedOwnerRegistrationId ?? null,
       sacks: parsed.data.sacks,
       harvest: parsed.data.harvest,
       originLot: parsed.data.originLot,
@@ -630,6 +712,8 @@ function NewSamplePageContent() {
       const result = await createSampleAndPreparePrint(session, {
         clientDraftId: pendingDraft.clientDraftId,
         owner: pendingDraft.owner,
+        ownerClientId: pendingDraft.ownerClientId,
+        ownerRegistrationId: pendingDraft.ownerRegistrationId,
         sacks: pendingDraft.sacks,
         harvest: pendingDraft.harvest,
         originLot: pendingDraft.originLot,
@@ -963,21 +1047,27 @@ function NewSamplePageContent() {
             </div>
 
             <div className="grid grid-2 new-sample-required-grid">
-              <label className="new-sample-required-field">
-                Proprietario
-                <input
-                  value={owner}
-                  className={requiredFieldErrors.owner ? 'new-sample-input-error' : undefined}
-                  aria-invalid={Boolean(requiredFieldErrors.owner)}
-                  onChange={(event) => {
-                    setOwner(event.target.value);
+              <div className="new-sample-required-field">
+                <ClientLookupField
+                  session={session}
+                  label="Proprietario"
+                  kind="owner"
+                  selectedClient={selectedOwnerClient}
+                  onSelectClient={(client) => {
+                    setSelectedOwnerClient(client);
+                    setOwner(client?.displayName ?? '');
+                    setSelectedOwnerRegistrationId(null);
                     clearRequiredFieldError('owner');
+                    setError(null);
                   }}
-                  placeholder="Ex: Coopercitrus"
-                  autoComplete="organization"
+                  onRequestCreate={(searchTerm) => {
+                    setQuickCreateSeed(searchTerm);
+                    setQuickCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar proprietario"
                 />
                 {requiredFieldErrors.owner ? <span className="new-sample-field-required">{requiredFieldErrors.owner}</span> : null}
-              </label>
+              </div>
 
               <label className="new-sample-required-field">
                 Sacas
@@ -1043,6 +1133,21 @@ function NewSamplePageContent() {
                   <span className="new-sample-field-required">{requiredFieldErrors.originLot}</span>
                 ) : null}
               </label>
+
+              <div className="new-sample-required-field">
+                <ClientRegistrationSelect
+                  label="Inscricao do proprietario (opcional)"
+                  registrations={ownerRegistrations}
+                  value={selectedOwnerRegistrationId}
+                  disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                  onChange={setSelectedOwnerRegistrationId}
+                />
+                {ownerRegistrationLoading ? (
+                  <span className="new-sample-field-required" style={{ color: 'var(--muted)' }}>
+                    Carregando inscricoes...
+                  </span>
+                ) : null}
+              </div>
             </div>
           </article>
 
@@ -1064,6 +1169,7 @@ function NewSamplePageContent() {
         </section>
 
         {error ? <p className="error">{error}</p> : null}
+        {message ? <p className="success">{message}</p> : null}
 
         <div className="row new-sample-actions">
           <button
@@ -1287,6 +1393,26 @@ function NewSamplePageContent() {
           </section>
         </div>
       ) : null}
+
+      <ClientQuickCreateModal
+        session={session}
+        open={quickCreateOpen}
+        title="Cadastro rapido de proprietario"
+        description="Crie o cliente do proprietario sem sair do fluxo da nova amostra."
+        initialSearch={quickCreateSeed}
+        initialPersonType="PJ"
+        initialIsSeller
+        initialIsBuyer={false}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={(client) => {
+          setQuickCreateOpen(false);
+          setSelectedOwnerClient(client);
+          setOwner(client.displayName ?? '');
+          setSelectedOwnerRegistrationId(null);
+          clearRequiredFieldError('owner');
+          setMessage('Cliente criado e selecionado para a amostra.');
+        }}
+      />
     </AppShell>
   );
 }

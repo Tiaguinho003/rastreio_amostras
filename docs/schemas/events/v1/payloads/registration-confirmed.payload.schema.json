@@ -19,6 +19,14 @@
       "required": ["owner", "sacks", "harvest", "originLot"],
       "additionalProperties": false
     },
+    "ownerClientId": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "ownerRegistrationId": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
     "labelPhotos": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },

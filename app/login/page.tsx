@@ -92,7 +92,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-page">
+    <main className="login-page mobile-edge-shell mobile-edge-shell-login">
       <section className="login-card">
         <div className="login-card-brand" aria-label="Safras">
           <Image

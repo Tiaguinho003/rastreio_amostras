@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/loss-recorded.payload.schema.json",
+  "title": "LOSS_RECORDED payload",
+  "type": "object",
+  "properties": {
+    "movementId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+    "movementType": { "const": "LOSS" },
+    "status": { "const": "ACTIVE" },
+    "quantitySacks": { "type": "integer", "minimum": 1 },
+    "movementDate": { "type": "string", "format": "date" },
+    "notes": { "type": ["string", "null"] },
+    "lossReasonText": { "type": "string", "minLength": 1 },
+    "soldSacks": { "type": "integer", "minimum": 0 },
+    "lostSacks": { "type": "integer", "minimum": 0 },
+    "availableSacks": { "type": "integer", "minimum": 0 },
+    "commercialStatus": { "$ref": "../base/shared-defs.schema.json#/$defs/commercialStatus" }
+  },
+  "required": [
+    "movementId",
+    "movementType",
+    "status",
+    "quantitySacks",
+    "movementDate",
+    "lossReasonText",
+    "soldSacks",
+    "lostSacks",
+    "availableSacks",
+    "commercialStatus"
+  ],
+  "additionalProperties": false
+}

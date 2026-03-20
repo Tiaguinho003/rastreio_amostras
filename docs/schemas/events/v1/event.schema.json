@@ -19,6 +19,12 @@
     { "$ref": "./events/classification-completed.event.schema.json" },
     { "$ref": "./events/registration-updated.event.schema.json" },
     { "$ref": "./events/classification-updated.event.schema.json" },
+    { "$ref": "./events/sale-created.event.schema.json" },
+    { "$ref": "./events/sale-updated.event.schema.json" },
+    { "$ref": "./events/sale-cancelled.event.schema.json" },
+    { "$ref": "./events/loss-recorded.event.schema.json" },
+    { "$ref": "./events/loss-updated.event.schema.json" },
+    { "$ref": "./events/loss-cancelled.event.schema.json" },
     { "$ref": "./events/commercial-status-updated.event.schema.json" },
     { "$ref": "./events/sample-invalidated.event.schema.json" },
     { "$ref": "./events/report-exported.event.schema.json" }

@@ -20,6 +20,7 @@ const STATUS_FILTER_OPTIONS = [
 ] as const;
 const COMMERCIAL_FILTER_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [
   { value: 'OPEN', label: 'Em aberto' },
+  { value: 'PARTIALLY_SOLD', label: 'Venda parcial' },
   { value: 'SOLD', label: 'Vendido' },
   { value: 'LOST', label: 'Perdido' }
 ];
@@ -28,6 +29,7 @@ type StatusGroupFilter = '' | (typeof STATUS_FILTER_OPTIONS)[number]['value'];
 
 interface HiddenFilters {
   owner: string;
+  buyer: string;
   statusGroup: StatusGroupFilter;
   commercialStatus: '' | CommercialStatus;
   harvest: string;
@@ -37,6 +39,7 @@ interface HiddenFilters {
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   owner: '',
+  buyer: '',
   statusGroup: '',
   commercialStatus: '',
   harvest: '',
@@ -59,6 +62,7 @@ function formatDate(value: string) {
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
     filters.owner.trim().length > 0 ||
+    filters.buyer.trim().length > 0 ||
     filters.statusGroup.length > 0 ||
     filters.commercialStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
@@ -69,6 +73,7 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
 function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
   return {
     owner: filters.owner.trim(),
+    buyer: filters.buyer.trim(),
     statusGroup: filters.statusGroup,
     commercialStatus: filters.commercialStatus,
     harvest: filters.harvest.trim(),
@@ -80,6 +85,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
 function countActiveHiddenFilters(filters: HiddenFilters) {
   let count = 0;
   if (filters.owner.trim()) count += 1;
+  if (filters.buyer.trim()) count += 1;
   if (filters.statusGroup) count += 1;
   if (filters.commercialStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
@@ -212,6 +218,7 @@ export default function SamplesPage() {
         page: currentPage,
         search: appliedSearch || undefined,
         owner: appliedHiddenFilters.owner || undefined,
+        buyer: appliedHiddenFilters.buyer || undefined,
         statusGroup: appliedHiddenFilters.statusGroup || undefined,
         commercialStatus: appliedHiddenFilters.commercialStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
@@ -354,6 +361,23 @@ export default function SamplesPage() {
                   />
                 </label>
 
+                <label className="samples-page-filter">
+                  <span className="samples-page-filter-label">Comprador</span>
+                  <input
+                    value={draftHiddenFilters.buyer}
+                    onChange={(event) =>
+                      setDraftHiddenFilters((current) => ({
+                        ...current,
+                        buyer: event.target.value
+                      }))
+                    }
+                    placeholder="Nome, documento ou codigo do comprador"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Filtro por comprador"
+                  />
+                </label>
+
                 <div className="samples-page-filter">
                   <span className="samples-page-filter-label">Status</span>
                   <div className="samples-page-status-chip-row">
@@ -483,7 +507,7 @@ export default function SamplesPage() {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Pesquisas amostra"
+              placeholder="Lote ou proprietario"
               autoComplete="off"
               spellCheck={false}
               aria-label="Pesquisar por lote ou proprietario"

@@ -14,6 +14,10 @@ import {
   photoAddedEvent,
   qrPrintRequestedEvent,
   qrPrintedEvent,
+  saleCreatedEvent,
+  saleUpdatedEvent,
+  lossRecordedEvent,
+  lossCancelledEvent,
   reportExportedEvent,
   commercialStatusUpdatedEvent
 } from './helpers/event-builders.js';
@@ -98,6 +102,28 @@ test('registration confirmed accepts payload without label photos', () => {
   assert.equal(confirmed.statusCode, 201);
   assert.equal(confirmed.event.eventType, 'REGISTRATION_CONFIRMED');
   assert.equal(store.getEvents(sampleId).length, 3);
+});
+
+test('registration confirmed accepts optional structured owner binding', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+
+  const confirmed = service.appendEvent(
+    registrationConfirmedEvent(sampleId, {
+      payload: {
+        ownerClientId: randomUUID(),
+        ownerRegistrationId: randomUUID()
+      }
+    }),
+    { expectedVersion: 2 }
+  );
+
+  assert.equal(confirmed.statusCode, 201);
+  assert.equal(confirmed.event.payload.ownerClientId !== undefined, true);
+  assert.equal(confirmed.event.payload.ownerRegistrationId !== undefined, true);
 });
 
 test('idempotency returns same event and does not duplicate history', () => {
@@ -190,6 +216,58 @@ test('expectedVersion mismatch returns 409 and does not append event', () => {
   const sample = store.getSample(sampleId);
   assert.equal(sample.status, 'PHYSICAL_RECEIVED');
   assert.equal(sample.version, 1);
+});
+
+test('sale and loss events are accepted by the contract validator', () => {
+  const { service, store } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+  service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_STARTED',
+      sampleId,
+      fromStatus: 'QR_PRINTED',
+      toStatus: 'CLASSIFICATION_IN_PROGRESS',
+      payload: {},
+      module: 'classification'
+    }),
+    { expectedVersion: 5 }
+  );
+  service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_COMPLETED',
+      sampleId,
+      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      toStatus: 'CLASSIFIED',
+      payload: {
+        classificationPhotoId: randomUUID()
+      },
+      module: 'classification',
+      idempotencyScope: 'CLASSIFICATION_COMPLETE',
+      idempotencyKey: randomUUID()
+    }),
+    { expectedVersion: 6 }
+  );
+
+  const created = service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 7 });
+  const updated = service.appendEvent(saleUpdatedEvent(sampleId, { payload: { movementId: created.event.payload.movementId } }), {
+    expectedVersion: 8
+  });
+  const loss = service.appendEvent(lossRecordedEvent(sampleId), { expectedVersion: 9 });
+  const cancelled = service.appendEvent(
+    lossCancelledEvent(sampleId, { payload: { movementId: loss.event.payload.movementId } }),
+    { expectedVersion: 10 }
+  );
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(updated.statusCode, 201);
+  assert.equal(cancelled.statusCode, 201);
+  assert.equal(store.getEvents(sampleId).length, 11);
 });
 
 test('atomicity rolls back sample mutation if event append fails mid-operation', () => {

@@ -2,8 +2,8 @@
 
 Status: Ativo  
 Escopo: fluxo canonico de homologacao no Google Cloud com Cloud Run, Cloud SQL e Cloud Storage montado  
-Ultima revisao: 2026-03-16  
-Documentos relacionados: `docs/Operacao-e-Runtime.md`, `docs/Arquitetura-Tecnica.md`, `scripts/gcp/README.md`
+Ultima revisao: 2026-03-20  
+Documentos relacionados: `docs/Operacao-e-Runtime.md`, `docs/Arquitetura-Tecnica.md`, `docs/Checklist-Homologacao-Cloud-Run.md`, `scripts/gcp/README.md`
 
 ## Topologia canonica
 
@@ -111,3 +111,5 @@ scripts/gcp/smoke.sh
 6. exportar PDF com foto funciona;
 7. fotos persistem apos novo deploy;
 8. arquivos de outbox aparecem no bucket montado.
+
+Para o roteiro operacional completo de pre-push, deploy e aceite funcional, usar `docs/Checklist-Homologacao-Cloud-Run.md`.

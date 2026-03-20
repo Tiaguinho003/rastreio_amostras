@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
 
+import { ClientService } from '../src/clients/client-service.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
@@ -24,6 +25,7 @@ if (!databaseUrl || !databaseReachable) {
   const eventStore = new PrismaEventStore(prisma);
   const eventService = new EventContractDbService({ store: eventStore });
   const queryService = new SampleQueryService({ prisma });
+  const clientService = new ClientService({ prisma });
 
   const actorClassifier = {
     actorType: 'USER',
@@ -46,14 +48,43 @@ if (!databaseUrl || !databaseReachable) {
   let uploadDir;
   let uploadService;
   let commandService;
+  let sellerClientSequence = 0;
+
+  function nextSequenceDigits(sequence, length) {
+    return String(sequence).padStart(length, '0').slice(-length);
+  }
+
+  async function createSellerClient(overrides = {}) {
+    sellerClientSequence += 1;
+    const suffix = nextSequenceDigits(sellerClientSequence, 14);
+    const defaultName = `Cliente Sprint ${sellerClientSequence} LTDA`;
+
+    return clientService.createClient(
+      {
+        personType: 'PJ',
+        legalName: overrides.legalName ?? defaultName,
+        tradeName: overrides.tradeName ?? overrides.legalName ?? defaultName,
+        cnpj: overrides.cnpj ?? suffix,
+        phone: overrides.phone ?? '35 99999-0000',
+        isBuyer: overrides.isBuyer ?? true,
+        isSeller: overrides.isSeller ?? true
+      },
+      actorClassifier
+    );
+  }
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
   async function moveSampleToRegistrationConfirmed(sampleId) {
+    const ownerClient = await createSellerClient({
+      legalName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`,
+      tradeName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`
+    });
+
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
 
     await commandService.startRegistration(
@@ -79,8 +110,9 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 2,
+        ownerClientId: ownerClient.client.id,
         declared: {
-          owner: 'Fazenda Teste',
+          owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
           originLot: `ORIG-${sampleId.slice(0, 8)}`
@@ -139,7 +171,8 @@ if (!databaseUrl || !databaseReachable) {
     commandService = new SampleCommandService({
       eventService,
       queryService,
-      uploadService
+      uploadService,
+      clientService
     });
   });
 
@@ -156,6 +189,10 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirms registration without label photos when business flow does not require image yet', async () => {
     const sampleId = randomUUID();
+    const ownerClient = await createSellerClient({
+      legalName: 'Fazenda Sem Foto',
+      tradeName: 'Fazenda Sem Foto'
+    });
 
     await commandService.receiveSample(
       {
@@ -179,8 +216,9 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 2,
+        ownerClientId: ownerClient.client.id,
         declared: {
-          owner: 'Fazenda Sem Foto',
+          owner: ownerClient.client.displayName,
           sacks: 7,
           harvest: '25/26',
           originLot: 'ORIG-NO-PHOTO'
@@ -197,6 +235,10 @@ if (!databaseUrl || !databaseReachable) {
 
   test('executes phase1 + phase2 flow and exposes read model for frontend', async () => {
     const sampleId = randomUUID();
+    const ownerClient = await createSellerClient({
+      legalName: 'Fazenda Teste',
+      tradeName: 'Fazenda Teste'
+    });
 
     const received = await commandService.receiveSample(
       {
@@ -234,8 +276,9 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 2,
+        ownerClientId: ownerClient.client.id,
         declared: {
-          owner: 'Fazenda Teste',
+          owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
           originLot: 'ORIG-999'

@@ -31,7 +31,73 @@ const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 const MAX_QR_PARTS = 64;
 const UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'AM-\\d{4}-\\d{6}';
-const COMMERCIAL_STATUSES = ['OPEN', 'SOLD', 'LOST'];
+const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
+const SAMPLE_OWNER_INCLUDE = {
+  ownerClient: {
+    select: {
+      id: true,
+      code: true,
+      personType: true,
+      fullName: true,
+      legalName: true,
+      tradeName: true,
+      cpf: true,
+      cnpj: true,
+      phone: true,
+      isBuyer: true,
+      isSeller: true,
+      status: true
+    }
+  },
+  ownerRegistration: {
+    select: {
+      id: true,
+      clientId: true,
+      status: true,
+      registrationNumber: true,
+      registrationType: true,
+      addressLine: true,
+      district: true,
+      city: true,
+      state: true,
+      postalCode: true,
+      complement: true
+    }
+  }
+};
+const SAMPLE_MOVEMENT_INCLUDE = {
+  buyerClient: {
+    select: {
+      id: true,
+      code: true,
+      personType: true,
+      fullName: true,
+      legalName: true,
+      tradeName: true,
+      cpf: true,
+      cnpj: true,
+      phone: true,
+      isBuyer: true,
+      isSeller: true,
+      status: true
+    }
+  },
+  buyerRegistration: {
+    select: {
+      id: true,
+      clientId: true,
+      status: true,
+      registrationNumber: true,
+      registrationType: true,
+      addressLine: true,
+      district: true,
+      city: true,
+      state: true,
+      postalCode: true,
+      complement: true
+    }
+  }
+};
 
 function tryDecodeURIComponent(value) {
   try {
@@ -331,10 +397,144 @@ function resolveCommercialStatus(commercialStatus) {
 
   const normalizedUpper = normalized.toUpperCase();
   if (!COMMERCIAL_STATUSES.includes(normalizedUpper)) {
-    throw new HttpError(422, 'commercialStatus must be one of: OPEN, SOLD, LOST');
+    throw new HttpError(422, 'commercialStatus must be one of: OPEN, PARTIALLY_SOLD, SOLD, LOST');
   }
 
   return normalizedUpper;
+}
+
+function buildBuyerMovementFilter(buyer) {
+  const normalizedBuyer = normalizeOptionalText(buyer);
+  if (!normalizedBuyer) {
+    return null;
+  }
+
+  const numericSearch = Number.parseInt(normalizedBuyer, 10);
+  const exactCode = Number.isSafeInteger(numericSearch) && String(numericSearch) === normalizedBuyer ? numericSearch : null;
+  const digits = normalizedBuyer.replace(/\D+/g, '');
+
+  const clientOr = [
+    {
+      fullName: {
+        contains: normalizedBuyer,
+        mode: 'insensitive'
+      }
+    },
+    {
+      legalName: {
+        contains: normalizedBuyer,
+        mode: 'insensitive'
+      }
+    },
+    {
+      tradeName: {
+        contains: normalizedBuyer,
+        mode: 'insensitive'
+      }
+    }
+  ];
+
+  if (digits) {
+    clientOr.push({
+      cpf: {
+        contains: digits
+      }
+    });
+    clientOr.push({
+      cnpj: {
+        contains: digits
+      }
+    });
+  }
+
+  if (exactCode !== null) {
+    clientOr.push({
+      code: exactCode
+    });
+  }
+
+  return {
+    movements: {
+      some: {
+        movementType: 'SALE',
+        status: 'ACTIVE',
+        buyerClient: {
+          is: {
+            OR: clientOr
+          }
+        }
+      }
+    }
+  };
+}
+
+function mapOwnerClient(ownerClient) {
+  if (!ownerClient) {
+    return null;
+  }
+
+  return {
+    id: ownerClient.id,
+    code: ownerClient.code,
+    personType: ownerClient.personType,
+    displayName: ownerClient.personType === 'PF' ? ownerClient.fullName ?? null : ownerClient.legalName ?? null,
+    fullName: ownerClient.fullName ?? null,
+    legalName: ownerClient.legalName ?? null,
+    tradeName: ownerClient.tradeName ?? null,
+    cpf: ownerClient.cpf ?? null,
+    cnpj: ownerClient.cnpj ?? null,
+    phone: ownerClient.phone ?? null,
+    isBuyer: ownerClient.isBuyer,
+    isSeller: ownerClient.isSeller,
+    status: ownerClient.status
+  };
+}
+
+function mapOwnerRegistration(ownerRegistration) {
+  if (!ownerRegistration) {
+    return null;
+  }
+
+  return {
+    id: ownerRegistration.id,
+    clientId: ownerRegistration.clientId,
+    status: ownerRegistration.status,
+    registrationNumber: ownerRegistration.registrationNumber,
+    registrationType: ownerRegistration.registrationType,
+    addressLine: ownerRegistration.addressLine,
+    district: ownerRegistration.district,
+    city: ownerRegistration.city,
+    state: ownerRegistration.state,
+    postalCode: ownerRegistration.postalCode,
+    complement: ownerRegistration.complement ?? null
+  };
+}
+
+function mapSampleMovement(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    sampleId: row.sampleId,
+    movementType: row.movementType,
+    status: row.status,
+    buyerClientId: row.buyerClientId ?? null,
+    buyerRegistrationId: row.buyerRegistrationId ?? null,
+    quantitySacks: row.quantitySacks,
+    movementDate: new Date(row.movementDate).toISOString().slice(0, 10),
+    notes: row.notes ?? null,
+    lossReasonText: row.reasonText ?? null,
+    buyerClientSnapshot: toObjectOrNull(row.buyerClientSnapshot),
+    buyerRegistrationSnapshot: toObjectOrNull(row.buyerRegistrationSnapshot),
+    version: row.version,
+    cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    buyerClient: mapOwnerClient(row.buyerClient),
+    buyerRegistration: mapOwnerRegistration(row.buyerRegistration)
+  };
 }
 
 function mapSample(row) {
@@ -351,12 +551,22 @@ function mapSample(row) {
     commercialStatus: row.commercialStatus,
     version: row.version,
     lastEventSequence: row.lastEventSequence,
+    ownerClientId: row.ownerClientId ?? null,
+    ownerRegistrationId: row.ownerRegistrationId ?? null,
+    soldSacks: row.soldSacks ?? 0,
+    lostSacks: row.lostSacks ?? 0,
+    availableSacks:
+      typeof row.declaredSacks === 'number'
+        ? Math.max(0, row.declaredSacks - (row.soldSacks ?? 0) - (row.lostSacks ?? 0))
+        : null,
     declared: {
       owner: row.declaredOwner,
       sacks: row.declaredSacks,
       harvest: row.declaredHarvest,
       originLot: row.declaredOriginLot
     },
+    ownerClient: mapOwnerClient(row.ownerClient),
+    ownerRegistration: mapOwnerRegistration(row.ownerRegistration),
     labelPhotoCount: row.labelPhotoCount,
     latestClassification: {
       version: row.latestClassificationVersion,
@@ -433,7 +643,10 @@ export class SampleQueryService {
   }
 
   async findSampleOrNull(sampleId) {
-    const sample = await this.prisma.sample.findUnique({ where: { id: sampleId } });
+    const sample = await this.prisma.sample.findUnique({
+      where: { id: sampleId },
+      include: SAMPLE_OWNER_INCLUDE
+    });
     return mapSample(sample);
   }
 
@@ -491,7 +704,8 @@ export class SampleQueryService {
       where: {
         OR: orConditions
       },
-      take: 50
+      take: 50,
+      include: SAMPLE_OWNER_INCLUDE
     });
 
     if (rows.length === 0) {
@@ -588,6 +802,7 @@ export class SampleQueryService {
     page = null,
     lot = null,
     owner = null,
+    buyer = null,
     harvest = null,
     createdDate = null,
     createdMonth = null,
@@ -667,6 +882,11 @@ export class SampleQueryService {
       });
     }
 
+    const buyerFilter = buildBuyerMovementFilter(buyer);
+    if (buyerFilter) {
+      conditions.push(buyerFilter);
+    }
+
     const normalizedHarvest = normalizeOptionalText(harvest);
     if (normalizedHarvest) {
       conditions.push({
@@ -690,7 +910,8 @@ export class SampleQueryService {
         where,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
-        take: safeLimit
+        take: safeLimit,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.count({ where })
     ]);
@@ -728,6 +949,56 @@ export class SampleQueryService {
     });
 
     return rows.map(mapEvent);
+  }
+
+  async findSampleMovementOrNull(sampleId, movementId) {
+    const row = await this.prisma.sampleMovement.findFirst({
+      where: {
+        sampleId,
+        id: movementId
+      },
+      include: SAMPLE_MOVEMENT_INCLUDE
+    });
+
+    return mapSampleMovement(row);
+  }
+
+  async requireSampleMovement(sampleId, movementId) {
+    const movement = await this.findSampleMovementOrNull(sampleId, movementId);
+    if (!movement) {
+      throw new HttpError(404, `Movement ${movementId} does not exist for sample ${sampleId}`);
+    }
+
+    return movement;
+  }
+
+  async listSampleMovements(sampleId, { movementType = null, status = null } = {}) {
+    const normalizedMovementType =
+      typeof movementType === 'string' && movementType.trim().length > 0 ? movementType.trim().toUpperCase() : null;
+    const normalizedStatus =
+      typeof status === 'string' && status.trim().length > 0 ? status.trim().toUpperCase() : null;
+
+    if (normalizedMovementType && normalizedMovementType !== 'SALE' && normalizedMovementType !== 'LOSS') {
+      throw new HttpError(422, 'movementType must be one of: SALE, LOSS');
+    }
+
+    if (normalizedStatus && normalizedStatus !== 'ACTIVE' && normalizedStatus !== 'CANCELLED') {
+      throw new HttpError(422, 'status must be one of: ACTIVE, CANCELLED');
+    }
+
+    const where = {
+      sampleId,
+      ...(normalizedMovementType ? { movementType: normalizedMovementType } : {}),
+      ...(normalizedStatus ? { status: normalizedStatus } : {})
+    };
+
+    const rows = await this.prisma.sampleMovement.findMany({
+      where,
+      include: SAMPLE_MOVEMENT_INCLUDE,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+    });
+
+    return rows.map((row) => mapSampleMovement(row));
   }
 
   async findSampleEventOrNull(sampleId, eventId) {
@@ -769,15 +1040,17 @@ export class SampleQueryService {
 
   async getSampleDetail(sampleId, options = {}) {
     const sample = await this.requireSample(sampleId);
-    const [attachments, events] = await Promise.all([
+    const [attachments, events, movements] = await Promise.all([
       this.listAttachments(sampleId),
-      this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 })
+      this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
+      this.listSampleMovements(sampleId)
     ]);
 
     return {
       sample,
       attachments,
-      events
+      events,
+      movements
     };
   }
 
@@ -809,7 +1082,8 @@ export class SampleQueryService {
           status: { in: PENDING_STATUSES }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT
+        take: DASHBOARD_LIST_LIMIT,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.groupBy({
         by: ['status'],
@@ -827,7 +1101,8 @@ export class SampleQueryService {
           }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT
+        take: DASHBOARD_LIST_LIMIT,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.groupBy({
         by: ['status'],
@@ -843,7 +1118,8 @@ export class SampleQueryService {
           status: { in: CLASSIFICATION_PENDING_STATUSES }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT
+        take: DASHBOARD_LIST_LIMIT,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.groupBy({
         by: ['status'],
@@ -859,14 +1135,16 @@ export class SampleQueryService {
           status: { in: CLASSIFICATION_IN_PROGRESS_STATUSES }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT
+        take: DASHBOARD_LIST_LIMIT,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.findMany({
         where: {
           status: { in: LATEST_REGISTRATION_STATUSES }
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: DASHBOARD_LIST_LIMIT
+        take: DASHBOARD_LIST_LIMIT,
+        include: SAMPLE_OWNER_INCLUDE
       }),
       this.prisma.sample.count({
         where: {

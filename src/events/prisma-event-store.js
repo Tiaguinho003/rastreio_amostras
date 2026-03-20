@@ -259,6 +259,89 @@ class PrismaEventStoreTx {
     });
   }
 
+  async findSampleMovement(sampleId, movementId) {
+    return this.tx.sampleMovement.findFirst({
+      where: {
+        id: movementId,
+        sampleId
+      }
+    });
+  }
+
+  async createSampleMovementFromEvent(event) {
+    const payload = event.payload;
+    return this.tx.sampleMovement.create({
+      data: {
+        id: payload.movementId,
+        sampleId: event.sampleId,
+        movementType: payload.movementType,
+        status: 'ACTIVE',
+        buyerClientId: payload.buyerClientId ?? null,
+        buyerRegistrationId: payload.buyerRegistrationId ?? null,
+        quantitySacks: payload.quantitySacks,
+        movementDate: new Date(payload.movementDate),
+        notes: payload.notes ?? null,
+        reasonText: payload.lossReasonText ?? null,
+        buyerClientSnapshot: payload.buyerClientSnapshot ?? null,
+        buyerRegistrationSnapshot: payload.buyerRegistrationSnapshot ?? null,
+        version: 1,
+        cancelledAt: null
+      }
+    });
+  }
+
+  async updateSampleMovementFromEvent(event) {
+    const payload = event.payload;
+    const movementId = payload.movementId;
+    const after = payload.after ?? {};
+
+    const existing = await this.findSampleMovement(event.sampleId, movementId);
+    if (!existing) {
+      return null;
+    }
+
+    const data = {
+      ...(Object.prototype.hasOwnProperty.call(after, 'movementType') ? { movementType: after.movementType } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientId') ? { buyerClientId: after.buyerClientId ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerRegistrationId')
+        ? { buyerRegistrationId: after.buyerRegistrationId ?? null }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'quantitySacks') ? { quantitySacks: after.quantitySacks } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'movementDate') ? { movementDate: new Date(after.movementDate) } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'notes') ? { notes: after.notes ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'lossReasonText') ? { reasonText: after.lossReasonText ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientSnapshot')
+        ? { buyerClientSnapshot: after.buyerClientSnapshot ?? null }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerRegistrationSnapshot')
+        ? { buyerRegistrationSnapshot: after.buyerRegistrationSnapshot ?? null }
+        : {}),
+      version: { increment: 1 }
+    };
+
+    return this.tx.sampleMovement.update({
+      where: { id: movementId },
+      data
+    });
+  }
+
+  async cancelSampleMovementFromEvent(event) {
+    const payload = event.payload;
+    const existing = await this.findSampleMovement(event.sampleId, payload.movementId);
+    if (!existing) {
+      return null;
+    }
+
+    return this.tx.sampleMovement.update({
+      where: { id: payload.movementId },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(event.occurredAt),
+        version: { increment: 1 }
+      }
+    });
+  }
+
   async completePrintJobFromResultEvent(event, resultEventId) {
     const status = event.eventType === 'QR_PRINTED' ? 'SUCCESS' : 'FAILED';
     const updateResult = await this.tx.printJob.updateMany({

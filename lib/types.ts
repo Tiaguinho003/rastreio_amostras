@@ -3,6 +3,19 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE';
 export type InitialPasswordDecision = 'PENDING' | 'KEPT' | 'CHANGED';
 export type UpdateReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'CANCELLED' | 'OTHER';
+export type ClientPersonType = 'PF' | 'PJ';
+export type ClientStatus = 'ACTIVE' | 'INACTIVE';
+export type ClientRegistrationStatus = 'ACTIVE' | 'INACTIVE';
+export type ClientLookupKind = 'owner' | 'buyer' | 'any';
+export type ClientAuditEventType =
+  | 'CLIENT_CREATED'
+  | 'CLIENT_UPDATED'
+  | 'CLIENT_INACTIVATED'
+  | 'CLIENT_REACTIVATED'
+  | 'CLIENT_REGISTRATION_CREATED'
+  | 'CLIENT_REGISTRATION_UPDATED'
+  | 'CLIENT_REGISTRATION_INACTIVATED'
+  | 'CLIENT_REGISTRATION_REACTIVATED';
 
 export type SampleStatus =
   | 'PHYSICAL_RECEIVED'
@@ -14,9 +27,11 @@ export type SampleStatus =
   | 'CLASSIFIED'
   | 'INVALIDATED';
 
-export type CommercialStatus = 'OPEN' | 'SOLD' | 'LOST';
+export type CommercialStatus = 'OPEN' | 'PARTIALLY_SOLD' | 'SOLD' | 'LOST';
 export type PrintAction = 'PRINT' | 'REPRINT';
 export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type SampleMovementType = 'SALE' | 'LOSS';
+export type SampleMovementStatus = 'ACTIVE' | 'CANCELLED';
 
 export type SampleExportField =
   | 'internalLotNumber'
@@ -146,6 +161,120 @@ export interface UserAuditListResponse {
   };
 }
 
+export interface ClientSummary {
+  id: string;
+  code: number;
+  personType: ClientPersonType;
+  displayName: string | null;
+  fullName: string | null;
+  legalName: string | null;
+  tradeName: string | null;
+  cpf: string | null;
+  cnpj: string | null;
+  document: string | null;
+  phone: string | null;
+  isBuyer: boolean;
+  isSeller: boolean;
+  status: ClientStatus;
+  registrationCount: number;
+  activeRegistrationCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ClientRegistrationSummary {
+  id: string;
+  clientId: string;
+  status: ClientRegistrationStatus;
+  registrationNumber: string;
+  registrationType: string;
+  addressLine: string;
+  district: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  complement: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ClientResponse {
+  client: ClientSummary;
+}
+
+export interface ClientsListResponse {
+  items: ClientSummary[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface ClientLookupResponse {
+  items: ClientSummary[];
+}
+
+export interface ClientDetailResponse extends ClientResponse {
+  registrations: ClientRegistrationSummary[];
+}
+
+export interface ClientRegistrationMutationResponse {
+  client: {
+    id: string;
+    code: number;
+    displayName: string | null;
+  };
+  registration: ClientRegistrationSummary;
+}
+
+export interface ClientAuditEventResponse {
+  eventId: string;
+  eventType: ClientAuditEventType | string;
+  payload: Record<string, unknown>;
+  reasonText: string | null;
+  createdAt: string | null;
+  actorUser: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  targetClient: {
+    id: string;
+    code: number;
+    displayName: string | null;
+    status: ClientStatus;
+    personType: ClientPersonType;
+  } | null;
+  targetRegistration: {
+    id: string;
+    registrationNumber: string;
+    registrationType: string;
+    status: ClientRegistrationStatus;
+  } | null;
+  metadata: {
+    ip: string | null;
+    userAgent: string | null;
+  };
+}
+
+export interface ClientAuditListResponse {
+  items: ClientAuditEventResponse[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
 export interface PasswordResetRequestResponse {
   resetRequest: {
     requestId: string;
@@ -167,12 +296,45 @@ export interface SampleSnapshot {
   commercialStatus: CommercialStatus;
   version: number;
   lastEventSequence: number;
+  ownerClientId?: string | null;
+  ownerRegistrationId?: string | null;
   declared: {
     owner: string | null;
     sacks: number | null;
     harvest: string | null;
     originLot: string | null;
   };
+  ownerClient?: {
+    id: string;
+    code: number;
+    personType: ClientPersonType;
+    displayName: string | null;
+    fullName: string | null;
+    legalName: string | null;
+    tradeName: string | null;
+    cpf: string | null;
+    cnpj: string | null;
+    phone: string | null;
+    isBuyer: boolean;
+    isSeller: boolean;
+    status: ClientStatus;
+  } | null;
+  ownerRegistration?: {
+    id: string;
+    clientId: string;
+    status: ClientRegistrationStatus;
+    registrationNumber: string;
+    registrationType: string;
+    addressLine: string;
+    district: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    complement: string | null;
+  } | null;
+  soldSacks?: number;
+  lostSacks?: number;
+  availableSacks?: number | null;
   labelPhotoCount: number;
   latestClassification: {
     version: number | null;
@@ -235,6 +397,33 @@ export interface SampleDetailResponse {
   sample: SampleSnapshot;
   attachments: SampleAttachment[];
   events: SampleEvent[];
+  movements?: SampleMovement[];
+}
+
+export interface SampleMovement {
+  id: string;
+  sampleId: string;
+  movementType: SampleMovementType;
+  status: SampleMovementStatus;
+  buyerClientId: string | null;
+  buyerRegistrationId: string | null;
+  quantitySacks: number;
+  movementDate: string;
+  notes: string | null;
+  lossReasonText: string | null;
+  buyerClientSnapshot: Record<string, unknown> | null;
+  buyerRegistrationSnapshot: Record<string, unknown> | null;
+  version: number;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  buyerClient: SampleSnapshot['ownerClient'] | null;
+  buyerRegistration: SampleSnapshot['ownerRegistration'] | null;
+}
+
+export interface SampleMovementsResponse {
+  sampleId: string;
+  movements: SampleMovement[];
 }
 
 export interface ListSamplesResponse {

@@ -19,13 +19,16 @@ const PHOTO_KIND_ALLOWED_STATUSES = {
 const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
-const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'SOLD', 'LOST']);
-const COMMERCIAL_STATUS_TRANSITIONS = {
-  OPEN: new Set(['SOLD', 'LOST']),
-  SOLD: new Set(['OPEN']),
-  LOST: new Set(['OPEN'])
-};
+const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
 const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['CLASSIFIED']);
+const MOVEMENT_TYPES = {
+  SALE: 'SALE',
+  LOSS: 'LOSS'
+};
+const MOVEMENT_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  CANCELLED: 'CANCELLED'
+};
 const MAX_UPDATE_REASON_WORDS = 10;
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
@@ -70,6 +73,17 @@ const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'colorAspect',
   'notes'
 ];
+const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
+  'movementType',
+  'buyerClientId',
+  'buyerRegistrationId',
+  'quantitySacks',
+  'movementDate',
+  'notes',
+  'lossReasonText'
+]);
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function buildBusinessDateStamp(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -124,6 +138,154 @@ function normalizeRequiredInteger(value, fieldName, minValue = 0) {
     throw new HttpError(422, `${fieldName} must be an integer >= ${minValue}`);
   }
   return parsed;
+}
+
+function normalizeNullableUuid(value, fieldName) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new HttpError(422, `${fieldName} must be a UUID string`);
+  }
+
+  const normalized = value.trim();
+  if (!UUID_REGEX.test(normalized)) {
+    throw new HttpError(422, `${fieldName} must be a valid UUID`);
+  }
+
+  return normalized.toLowerCase();
+}
+
+function normalizeMovementType(value, fieldName = 'movementType') {
+  const normalized = normalizeRequiredText(value, fieldName).toUpperCase();
+  if (!Object.values(MOVEMENT_TYPES).includes(normalized)) {
+    throw new HttpError(422, `${fieldName} is invalid`);
+  }
+
+  return normalized;
+}
+
+function normalizeMovementDate(value, fieldName = 'movementDate') {
+  const normalized = normalizeRequiredText(value, fieldName);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new HttpError(422, `${fieldName} must follow YYYY-MM-DD format`);
+  }
+
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== normalized) {
+    throw new HttpError(422, `${fieldName} must be a valid calendar date`);
+  }
+
+  return normalized;
+}
+
+function normalizeMovementNotes(value, fieldName = 'notes', { required = false } = {}) {
+  if (required) {
+    return normalizeRequiredText(value, fieldName, 500);
+  }
+
+  return normalizeOptionalText(value, fieldName, 500);
+}
+
+function normalizeLossReasonText(value, fieldName = 'lossReasonText') {
+  return normalizeRequiredText(value, fieldName, 500);
+}
+
+function normalizeMovementQuantity(value, fieldName = 'quantitySacks') {
+  return normalizeRequiredInteger(value, fieldName, 1);
+}
+
+function readCurrentCommercialSummary(sample) {
+  return {
+    declaredSacks: typeof sample?.declared?.sacks === 'number' ? sample.declared.sacks : null,
+    soldSacks: typeof sample?.soldSacks === 'number' ? sample.soldSacks : 0,
+    lostSacks: typeof sample?.lostSacks === 'number' ? sample.lostSacks : 0
+  };
+}
+
+function resolveCommercialStatusFromTotals({ declaredSacks, soldSacks, lostSacks }) {
+  if (declaredSacks === null || declaredSacks <= 0) {
+    return 'OPEN';
+  }
+
+  if (soldSacks === 0 && lostSacks === declaredSacks) {
+    return 'LOST';
+  }
+
+  if (soldSacks === declaredSacks && lostSacks === 0) {
+    return 'SOLD';
+  }
+
+  if (soldSacks > 0) {
+    return 'PARTIALLY_SOLD';
+  }
+
+  return 'OPEN';
+}
+
+function buildCommercialProjection({ declaredSacks, soldSacks, lostSacks }) {
+  if (declaredSacks === null) {
+    return {
+      soldSacks,
+      lostSacks,
+      availableSacks: 0,
+      commercialStatus: 'OPEN'
+    };
+  }
+
+  const availableSacks = declaredSacks - soldSacks - lostSacks;
+  if (availableSacks < 0) {
+    throw new HttpError(409, 'Commercial movements exceed declared sacks for this sample');
+  }
+
+  return {
+    soldSacks,
+    lostSacks,
+    availableSacks,
+    commercialStatus: resolveCommercialStatusFromTotals({
+      declaredSacks,
+      soldSacks,
+      lostSacks
+    })
+  };
+}
+
+function buildBuyerSnapshot(binding) {
+  if (!binding) {
+    return {
+      buyerClientId: null,
+      buyerRegistrationId: null,
+      buyerClientSnapshot: null,
+      buyerRegistrationSnapshot: null
+    };
+  }
+
+  return {
+    buyerClientId: binding.buyerClientId,
+    buyerRegistrationId: binding.buyerRegistrationId,
+    buyerClientSnapshot: binding.buyerClient,
+    buyerRegistrationSnapshot: binding.buyerRegistration
+  };
+}
+
+function formatMovementSnapshot(movement) {
+  return {
+    movementType: movement.movementType,
+    buyerClientId: movement.buyerClientId ?? null,
+    buyerRegistrationId: movement.buyerRegistrationId ?? null,
+    quantitySacks: movement.quantitySacks,
+    movementDate: movement.movementDate,
+    notes: movement.notes ?? null,
+    lossReasonText: movement.lossReasonText ?? null,
+    buyerClientSnapshot: movement.buyerClientSnapshot ?? null,
+    buyerRegistrationSnapshot: movement.buyerRegistrationSnapshot ?? null,
+    status: movement.status
+  };
 }
 
 function normalizeCommercialStatus(value, fieldName = 'toCommercialStatus') {
@@ -296,7 +458,7 @@ function normalizeRegistrationFieldValue(fieldName, value) {
 }
 
 function parseRegistrationUpdatePatch(after) {
-  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared']);
+  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId']);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
   const declared = hasOwn(after, 'declared') ? after.declared : undefined;
@@ -304,7 +466,9 @@ function parseRegistrationUpdatePatch(after) {
     assertNoUnknownKeys(declared, new Set(REGISTRATION_EDITABLE_FIELDS), 'after.declared');
   }
 
-  const patch = {};
+  const patch = {
+    declared: {}
+  };
   for (const field of REGISTRATION_EDITABLE_FIELDS) {
     const hasTopLevel = hasOwn(after, field);
     const hasDeclared = isPlainObject(declared) && hasOwn(declared, field);
@@ -314,10 +478,24 @@ function parseRegistrationUpdatePatch(after) {
     }
 
     const selected = hasDeclared ? declared[field] : after[field];
-    patch[field] = normalizeRegistrationFieldValue(field, selected);
+    patch.declared[field] = normalizeRegistrationFieldValue(field, selected);
   }
 
-  if (Object.keys(patch).length === 0) {
+  if (hasOwn(after, 'ownerClientId')) {
+    patch.hasOwnerClientId = true;
+    patch.ownerClientId = normalizeNullableUuid(after.ownerClientId, 'after.ownerClientId');
+  }
+
+  if (hasOwn(after, 'ownerRegistrationId')) {
+    patch.hasOwnerRegistrationId = true;
+    patch.ownerRegistrationId = normalizeNullableUuid(after.ownerRegistrationId, 'after.ownerRegistrationId');
+  }
+
+  if (
+    Object.keys(patch.declared).length === 0 &&
+    patch.hasOwnerClientId !== true &&
+    patch.hasOwnerRegistrationId !== true
+  ) {
     throw new HttpError(422, 'after must include at least one editable registration field');
   }
 
@@ -478,18 +656,65 @@ function parseClassificationUpdatePatch(after) {
   };
 }
 
+function parseMovementUpdatePatch(after) {
+  assertNoUnknownKeys(after, MOVEMENT_UPDATE_EDITABLE_FIELDS, 'after');
+
+  const patch = {};
+
+  if (hasOwn(after, 'movementType')) {
+    patch.movementType = normalizeMovementType(after.movementType);
+  }
+  if (hasOwn(after, 'buyerClientId')) {
+    patch.buyerClientId = normalizeNullableUuid(after.buyerClientId, 'after.buyerClientId');
+  }
+  if (hasOwn(after, 'buyerRegistrationId')) {
+    patch.buyerRegistrationId = normalizeNullableUuid(after.buyerRegistrationId, 'after.buyerRegistrationId');
+  }
+  if (hasOwn(after, 'quantitySacks')) {
+    patch.quantitySacks = normalizeMovementQuantity(after.quantitySacks, 'after.quantitySacks');
+  }
+  if (hasOwn(after, 'movementDate')) {
+    patch.movementDate = normalizeMovementDate(after.movementDate, 'after.movementDate');
+  }
+  if (hasOwn(after, 'notes')) {
+    patch.notes = normalizeMovementNotes(after.notes, 'after.notes');
+  }
+  if (hasOwn(after, 'lossReasonText')) {
+    patch.lossReasonText = normalizeMovementNotes(after.lossReasonText, 'after.lossReasonText', { required: true });
+  }
+
+  if (Object.keys(patch).length === 0) {
+    throw new HttpError(422, 'after must include at least one editable movement field');
+  }
+
+  return patch;
+}
+
 function buildRegistrationUpdatePayload(sample, parsedPatch) {
   const currentDeclared = isPlainObject(sample.declared) ? sample.declared : {};
   const beforeDeclared = {};
   const afterDeclared = {};
+  const hasStructuredPatch =
+    parsedPatch.hasOwnerClientId === true || parsedPatch.hasOwnerRegistrationId === true;
+  const currentOwnerClientId = sample.ownerClientId ?? null;
+  const currentOwnerRegistrationId = sample.ownerRegistrationId ?? null;
+  const nextOwnerClientId = parsedPatch.resolvedOwnerBinding?.ownerClientId ?? null;
+  const nextOwnerRegistrationId = parsedPatch.resolvedOwnerBinding?.ownerRegistrationId ?? null;
+  const nextOwnerDisplayName = parsedPatch.resolvedOwnerBinding?.displayName ?? null;
+  const before = {};
+  const after = {};
 
   for (const field of REGISTRATION_EDITABLE_FIELDS) {
-    if (!hasOwn(parsedPatch, field)) {
+    if (!hasOwn(parsedPatch.declared, field)) {
+      continue;
+    }
+
+    if (field === 'owner' && currentOwnerClientId) {
       continue;
     }
 
     const currentValue = hasOwn(currentDeclared, field) ? currentDeclared[field] : null;
-    const nextValue = parsedPatch[field];
+    const nextValue = parsedPatch.declared[field];
     if (valuesEqual(currentValue, nextValue)) {
       continue;
     }
@@ -498,18 +723,141 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
     afterDeclared[field] = nextValue;
   }
 
-  if (Object.keys(afterDeclared).length === 0) {
+  if (hasStructuredPatch) {
+    if (!valuesEqual(currentOwnerClientId, nextOwnerClientId)) {
+      before.ownerClientId = currentOwnerClientId;
+      after.ownerClientId = nextOwnerClientId;
+    }
+
+    if (!valuesEqual(currentOwnerRegistrationId, nextOwnerRegistrationId)) {
+      before.ownerRegistrationId = currentOwnerRegistrationId;
+      after.ownerRegistrationId = nextOwnerRegistrationId;
+    }
+
+    const currentOwnerValue = hasOwn(currentDeclared, 'owner') ? currentDeclared.owner : null;
+    if (!valuesEqual(currentOwnerValue, nextOwnerDisplayName)) {
+      beforeDeclared.owner = currentOwnerValue;
+      afterDeclared.owner = nextOwnerDisplayName;
+    }
+  }
+
+  if (Object.keys(afterDeclared).length > 0) {
+    before.declared = beforeDeclared;
+    after.declared = afterDeclared;
+  }
+
+  if (Object.keys(after).length === 0) {
     return null;
   }
 
   return {
-    before: {
-      declared: beforeDeclared
-    },
-    after: {
-      declared: afterDeclared
-    }
+    before,
+    after
   };
+}
+
+async function resolveStructuredOwnerForWrite({
+  sample,
+  inputOwnerClientId,
+  inputOwnerRegistrationId,
+  hasOwnerClientId = false,
+  hasOwnerRegistrationId = false,
+  clientService,
+  mode
+}) {
+  const currentOwnerClientId = sample?.ownerClientId ?? null;
+  const currentOwnerRegistrationId = sample?.ownerRegistrationId ?? null;
+
+  if (!clientService) {
+    if (mode === 'create' || mode === 'confirm') {
+      throw new Error('clientService is required for create/confirm owner binding support');
+    }
+
+    if (
+      (inputOwnerClientId !== undefined && inputOwnerClientId !== null) ||
+      (inputOwnerRegistrationId !== undefined && inputOwnerRegistrationId !== null)
+    ) {
+      throw new Error('clientService is required for ownerClientId/ownerRegistrationId support');
+    }
+
+    return null;
+  }
+
+  if (mode === 'create' || mode === 'confirm') {
+    if (inputOwnerClientId === undefined || inputOwnerClientId === null) {
+      if (inputOwnerRegistrationId !== undefined && inputOwnerRegistrationId !== null) {
+        throw new HttpError(422, 'ownerRegistrationId requires ownerClientId');
+      }
+
+      throw new HttpError(422, 'ownerClientId is required');
+    }
+
+    return clientService.resolveOwnerBinding({
+      ownerClientId: inputOwnerClientId,
+      ownerRegistrationId: inputOwnerRegistrationId ?? null
+    });
+  }
+
+  let nextOwnerClientId = currentOwnerClientId;
+  let nextOwnerRegistrationId = currentOwnerRegistrationId;
+  let touched = false;
+
+  if (hasOwnerClientId) {
+    touched = true;
+    if (inputOwnerClientId === null) {
+      if (currentOwnerClientId !== null) {
+        throw new HttpError(422, 'ownerClientId cannot be cleared once a sample is linked');
+      }
+
+      nextOwnerClientId = null;
+      nextOwnerRegistrationId = null;
+    } else {
+      const ownerChanged = inputOwnerClientId !== currentOwnerClientId;
+      nextOwnerClientId = inputOwnerClientId;
+
+      if (ownerChanged) {
+        nextOwnerRegistrationId = hasOwnerRegistrationId ? inputOwnerRegistrationId ?? null : null;
+      } else if (hasOwnerRegistrationId) {
+        nextOwnerRegistrationId = inputOwnerRegistrationId ?? null;
+      }
+    }
+  } else if (hasOwnerRegistrationId) {
+    touched = true;
+    if (!currentOwnerClientId) {
+      throw new HttpError(422, 'ownerRegistrationId requires ownerClientId');
+    }
+
+    nextOwnerClientId = currentOwnerClientId;
+    nextOwnerRegistrationId = inputOwnerRegistrationId ?? null;
+  }
+
+  if (!touched) {
+    return null;
+  }
+
+  if (!nextOwnerClientId) {
+    return null;
+  }
+
+  return clientService.resolveOwnerBinding({
+    ownerClientId: nextOwnerClientId,
+    ownerRegistrationId: nextOwnerRegistrationId
+  });
+}
+
+async function resolveBuyerBindingForMovement({
+  clientService,
+  buyerClientId,
+  buyerRegistrationId
+}) {
+  if (!clientService) {
+    throw new Error('clientService is required for sale movements');
+  }
+
+  return clientService.resolveBuyerBinding({
+    buyerClientId,
+    buyerRegistrationId
+  });
 }
 
 function buildClassificationUpdatePayload(sample, parsedPatch) {
@@ -704,13 +1052,19 @@ function requireUserActor(actorContext, allowedRoles, actionLabel) {
   return actor;
 }
 
-function normalizeDeclaredFields(declared) {
+function normalizeDeclaredFields(declared, options = {}) {
   if (!declared || typeof declared !== 'object') {
     throw new HttpError(422, 'declared fields are required');
   }
 
+  const resolvedOwnerName = typeof options.resolvedOwnerName === 'string' ? options.resolvedOwnerName.trim() : null;
+  const owner =
+    resolvedOwnerName && resolvedOwnerName.length > 0
+      ? resolvedOwnerName
+      : normalizeRequiredText(declared.owner, 'owner');
+
   return {
-    owner: declared.owner,
+    owner,
     sacks: declared.sacks,
     harvest: declared.harvest,
     originLot: declared.originLot
@@ -746,10 +1100,11 @@ function isInternalLotNumberUniqueConflict(error) {
 }
 
 export class SampleCommandService {
-  constructor({ eventService, queryService, uploadService = null }) {
+  constructor({ eventService, queryService, uploadService = null, clientService = null }) {
     this.eventService = eventService;
     this.queryService = queryService;
     this.uploadService = uploadService;
+    this.clientService = clientService;
   }
 
   async receiveSample(input, actorContext) {
@@ -776,8 +1131,17 @@ export class SampleCommandService {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'create sample');
 
     const clientDraftId = normalizeRequiredText(input.clientDraftId, 'clientDraftId');
+    const ownerBinding = await resolveStructuredOwnerForWrite({
+      sample: null,
+      inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
+      inputOwnerRegistrationId: normalizeNullableUuid(input.ownerRegistrationId, 'ownerRegistrationId'),
+      clientService: this.clientService,
+      mode: 'create'
+    });
     const declared = {
-      owner: normalizeRequiredText(input.owner, 'owner'),
+      owner:
+        ownerBinding?.displayName ??
+        normalizeRequiredText(input.owner, 'owner'),
       sacks: normalizeSacks(input.sacks),
       harvest: normalizeRequiredText(input.harvest, 'harvest'),
       originLot: normalizeRequiredText(input.originLot, 'originLot')
@@ -884,6 +1248,8 @@ export class SampleCommandService {
               sampleId,
               expectedVersion: sample.version,
               declared,
+              ownerClientId: ownerBinding?.ownerClientId ?? null,
+              ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
               labelPhotoIds: arrivalPhotoIds,
               ocr: normalizeOcrPayload(null),
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`
@@ -1081,7 +1447,16 @@ export class SampleCommandService {
       ? input.labelPhotoIds
       : await this.queryService.listAttachmentIds(sample.id, { kind: PHOTO_KINDS.ARRIVAL });
 
-    const declared = normalizeDeclaredFields(input.declared);
+    const ownerBinding = await resolveStructuredOwnerForWrite({
+      sample,
+      inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
+      inputOwnerRegistrationId: normalizeNullableUuid(input.ownerRegistrationId, 'ownerRegistrationId'),
+      clientService: this.clientService,
+      mode: 'confirm'
+    });
+    const declared = normalizeDeclaredFields(input.declared, {
+      resolvedOwnerName: ownerBinding?.displayName ?? null
+    });
     const ocr = normalizeOcrPayload(input.ocr);
     const maxRetries = input.sampleLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
@@ -1095,6 +1470,8 @@ export class SampleCommandService {
         payload: {
           sampleLotNumber,
           declared,
+          ownerClientId: ownerBinding?.ownerClientId ?? null,
+          ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
           labelPhotos: attachmentIds,
           ocr
         },
@@ -1364,9 +1741,48 @@ export class SampleCommandService {
     const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
     const reasonText = normalizeUpdateReasonText(input.reasonText);
     const parsedPatch = parseRegistrationUpdatePatch(input.after ?? input.changes ?? {});
-    const updatePayload = buildRegistrationUpdatePayload(sample, parsedPatch);
+    const ownerBinding = await resolveStructuredOwnerForWrite({
+      sample,
+      inputOwnerClientId: parsedPatch.ownerClientId,
+      inputOwnerRegistrationId: parsedPatch.ownerRegistrationId,
+      hasOwnerClientId: parsedPatch.hasOwnerClientId === true,
+      hasOwnerRegistrationId: parsedPatch.hasOwnerRegistrationId === true,
+      clientService: this.clientService,
+      mode: 'update'
+    });
+    const effectivePatch = {
+      ...parsedPatch,
+      resolvedOwnerBinding: ownerBinding
+    };
+    const updatePayload = buildRegistrationUpdatePayload(sample, effectivePatch);
     if (!updatePayload) {
       throw new HttpError(409, 'No registration changes detected');
+    }
+
+    const nextDeclaredSacks =
+      updatePayload.after?.declared && Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'sacks')
+        ? updatePayload.after.declared.sacks
+        : null;
+    if (typeof nextDeclaredSacks === 'number') {
+      const currentCommercial = readCurrentCommercialSummary(sample);
+      const projection = buildCommercialProjection({
+        declaredSacks: nextDeclaredSacks,
+        soldSacks: currentCommercial.soldSacks,
+        lostSacks: currentCommercial.lostSacks
+      });
+      updatePayload.after.soldSacks = projection.soldSacks;
+      updatePayload.after.lostSacks = projection.lostSacks;
+      updatePayload.after.commercialStatus = projection.commercialStatus;
+
+      if (sample.soldSacks === projection.soldSacks) {
+        delete updatePayload.after.soldSacks;
+      }
+      if (sample.lostSacks === projection.lostSacks) {
+        delete updatePayload.after.lostSacks;
+      }
+      if (sample.commercialStatus === projection.commercialStatus) {
+        delete updatePayload.after.commercialStatus;
+      }
     }
 
     const event = buildEventEnvelope({
@@ -1413,6 +1829,288 @@ export class SampleCommandService {
       fromStatus: null,
       toStatus: null,
       module: 'classification',
+      actorContext: actor
+    });
+
+    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+  }
+
+  async createSampleMovement(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'create sample movement');
+    requireExpectedVersion(input.expectedVersion);
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    if (sample.status === 'INVALIDATED') {
+      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot receive commercial movements`);
+    }
+    if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
+      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to create commercial movements`);
+    }
+
+    const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
+    if (declaredSacks === null) {
+      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+    }
+
+    const movementType = normalizeMovementType(input.movementType);
+    const quantitySacks = normalizeMovementQuantity(input.quantitySacks);
+    const movementDate = normalizeMovementDate(input.movementDate);
+    const notes = normalizeMovementNotes(input.notes, 'notes', {
+      required: movementType === MOVEMENT_TYPES.SALE
+    });
+
+    let buyerBinding = null;
+    let lossReasonText = null;
+    if (movementType === MOVEMENT_TYPES.SALE) {
+      const buyerClientId = normalizeNullableUuid(input.buyerClientId, 'buyerClientId');
+      const buyerRegistrationId = normalizeNullableUuid(input.buyerRegistrationId, 'buyerRegistrationId');
+      if (!buyerClientId) {
+        throw new HttpError(422, 'buyerClientId is required for SALE');
+      }
+      buyerBinding = await resolveBuyerBindingForMovement({
+        clientService: this.clientService,
+        buyerClientId,
+        buyerRegistrationId: buyerRegistrationId ?? null
+      });
+      if (input.lossReasonText !== undefined && input.lossReasonText !== null) {
+        throw new HttpError(422, 'lossReasonText is not allowed for SALE');
+      }
+    } else {
+      if (input.buyerClientId !== undefined && input.buyerClientId !== null) {
+        throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
+      }
+      if (input.buyerRegistrationId !== undefined && input.buyerRegistrationId !== null) {
+        throw new HttpError(422, 'buyerRegistrationId is not allowed for LOSS');
+      }
+      lossReasonText = normalizeLossReasonText(input.lossReasonText);
+    }
+
+    const projection = buildCommercialProjection({
+      declaredSacks,
+      soldSacks: soldSacks + (movementType === MOVEMENT_TYPES.SALE ? quantitySacks : 0),
+      lostSacks: lostSacks + (movementType === MOVEMENT_TYPES.LOSS ? quantitySacks : 0)
+    });
+
+    const movementId = randomUUID();
+    const payload = {
+      movementId,
+      movementType,
+      status: MOVEMENT_STATUSES.ACTIVE,
+      quantitySacks,
+      movementDate,
+      notes,
+      ...(movementType === MOVEMENT_TYPES.SALE ? buildBuyerSnapshot(buyerBinding) : {}),
+      ...(movementType === MOVEMENT_TYPES.LOSS ? { lossReasonText } : {}),
+      soldSacks: projection.soldSacks,
+      lostSacks: projection.lostSacks,
+      availableSacks: projection.availableSacks,
+      commercialStatus: projection.commercialStatus
+    };
+
+    const event = buildEventEnvelope({
+      eventType: movementType === MOVEMENT_TYPES.SALE ? 'SALE_CREATED' : 'LOSS_RECORDED',
+      sampleId: sample.id,
+      payload,
+      fromStatus: null,
+      toStatus: null,
+      module: 'commercial',
+      actorContext: actor
+    });
+
+    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+  }
+
+  async updateSampleMovement(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'update sample movement');
+    requireExpectedVersion(input.expectedVersion);
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    if (sample.status === 'INVALIDATED') {
+      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot update commercial movements`);
+    }
+    if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
+      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to update commercial movements`);
+    }
+
+    const movementId = normalizeRequiredText(input.movementId, 'movementId');
+    const movement = await this.queryService.requireSampleMovement(sample.id, movementId);
+    if (movement.status !== MOVEMENT_STATUSES.ACTIVE) {
+      throw new HttpError(409, `Movement ${movement.id} is ${movement.status} and cannot be updated`);
+    }
+
+    const patch = parseMovementUpdatePatch(input.after ?? input.changes ?? {});
+    const nextMovementType = patch.movementType ?? movement.movementType;
+    const nextQuantitySacks = patch.quantitySacks ?? movement.quantitySacks;
+    const nextMovementDate = patch.movementDate ?? movement.movementDate;
+    const nextNotes =
+      patch.notes !== undefined
+        ? patch.notes
+        : movement.notes;
+
+    let buyerBinding = null;
+    let nextBuyerClientId = null;
+    let nextBuyerRegistrationId = null;
+    let nextLossReasonText = null;
+
+    if (nextMovementType === MOVEMENT_TYPES.SALE) {
+      const shouldRebindBuyer =
+        movement.movementType !== MOVEMENT_TYPES.SALE ||
+        patch.buyerClientId !== undefined ||
+        patch.buyerRegistrationId !== undefined ||
+        patch.movementType !== undefined;
+      const nextClientId =
+        patch.buyerClientId !== undefined ? patch.buyerClientId : movement.buyerClientId;
+      const nextRegistrationId =
+        patch.buyerRegistrationId !== undefined
+          ? patch.buyerRegistrationId
+          : patch.buyerClientId !== undefined && patch.buyerClientId !== movement.buyerClientId
+            ? null
+            : movement.buyerRegistrationId;
+
+      if (!nextClientId) {
+        throw new HttpError(422, 'buyerClientId is required for SALE');
+      }
+
+      if (shouldRebindBuyer) {
+        buyerBinding = await resolveBuyerBindingForMovement({
+          clientService: this.clientService,
+          buyerClientId: nextClientId,
+          buyerRegistrationId: nextRegistrationId
+        });
+        nextBuyerClientId = buyerBinding.buyerClientId;
+        nextBuyerRegistrationId = buyerBinding.buyerRegistrationId;
+      } else {
+        nextBuyerClientId = movement.buyerClientId;
+        nextBuyerRegistrationId = movement.buyerRegistrationId;
+      }
+      nextLossReasonText = null;
+
+      if (!nextNotes) {
+        throw new HttpError(422, 'notes is required for SALE');
+      }
+    } else {
+      if (patch.buyerClientId !== undefined && patch.buyerClientId !== null) {
+        throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
+      }
+      if (patch.buyerRegistrationId !== undefined && patch.buyerRegistrationId !== null) {
+        throw new HttpError(422, 'buyerRegistrationId is not allowed for LOSS');
+      }
+      nextBuyerClientId = null;
+      nextBuyerRegistrationId = null;
+      nextLossReasonText =
+        patch.lossReasonText !== undefined ? patch.lossReasonText : movement.lossReasonText;
+      if (!nextLossReasonText) {
+        throw new HttpError(422, 'lossReasonText is required for LOSS');
+      }
+    }
+
+    const beforeSnapshot = formatMovementSnapshot(movement);
+    const afterSnapshot = {
+      movementType: nextMovementType,
+      buyerClientId: nextBuyerClientId,
+      buyerRegistrationId: nextBuyerRegistrationId,
+      quantitySacks: nextQuantitySacks,
+      movementDate: nextMovementDate,
+      notes: nextNotes ?? null,
+      lossReasonText: nextLossReasonText,
+      buyerClientSnapshot:
+        nextMovementType === MOVEMENT_TYPES.SALE
+          ? buyerBinding?.buyerClient ?? movement.buyerClientSnapshot ?? null
+          : null,
+      buyerRegistrationSnapshot:
+        nextMovementType === MOVEMENT_TYPES.SALE
+          ? buyerBinding?.buyerRegistration ?? movement.buyerRegistrationSnapshot ?? null
+          : null,
+      status: movement.status
+    };
+
+    if (valuesEqual(beforeSnapshot, afterSnapshot)) {
+      throw new HttpError(409, 'No movement changes detected');
+    }
+
+    const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
+    if (declaredSacks === null) {
+      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+    }
+
+    const projection = buildCommercialProjection({
+      declaredSacks,
+      soldSacks:
+        soldSacks -
+        (movement.movementType === MOVEMENT_TYPES.SALE ? movement.quantitySacks : 0) +
+        (nextMovementType === MOVEMENT_TYPES.SALE ? nextQuantitySacks : 0),
+      lostSacks:
+        lostSacks -
+        (movement.movementType === MOVEMENT_TYPES.LOSS ? movement.quantitySacks : 0) +
+        (nextMovementType === MOVEMENT_TYPES.LOSS ? nextQuantitySacks : 0)
+    });
+
+    const event = buildEventEnvelope({
+      eventType: nextMovementType === MOVEMENT_TYPES.SALE ? 'SALE_UPDATED' : 'LOSS_UPDATED',
+      sampleId: sample.id,
+      payload: {
+        movementId: movement.id,
+        before: beforeSnapshot,
+        after: afterSnapshot,
+        reasonText: normalizeRequiredText(input.reasonText, 'reasonText', 500),
+        soldSacks: projection.soldSacks,
+        lostSacks: projection.lostSacks,
+        availableSacks: projection.availableSacks,
+        commercialStatus: projection.commercialStatus
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'commercial',
+      actorContext: actor
+    });
+
+    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+  }
+
+  async cancelSampleMovement(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'cancel sample movement');
+    requireExpectedVersion(input.expectedVersion);
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    if (sample.status === 'INVALIDATED') {
+      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot cancel commercial movements`);
+    }
+    if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
+      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to cancel commercial movements`);
+    }
+
+    const movementId = normalizeRequiredText(input.movementId, 'movementId');
+    const movement = await this.queryService.requireSampleMovement(sample.id, movementId);
+    if (movement.status !== MOVEMENT_STATUSES.ACTIVE) {
+      throw new HttpError(409, `Movement ${movement.id} is already ${movement.status}`);
+    }
+
+    const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
+    if (declaredSacks === null) {
+      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+    }
+
+    const projection = buildCommercialProjection({
+      declaredSacks,
+      soldSacks: soldSacks - (movement.movementType === MOVEMENT_TYPES.SALE ? movement.quantitySacks : 0),
+      lostSacks: lostSacks - (movement.movementType === MOVEMENT_TYPES.LOSS ? movement.quantitySacks : 0)
+    });
+
+    const event = buildEventEnvelope({
+      eventType: movement.movementType === MOVEMENT_TYPES.SALE ? 'SALE_CANCELLED' : 'LOSS_CANCELLED',
+      sampleId: sample.id,
+      payload: {
+        movementId: movement.id,
+        movementType: movement.movementType,
+        reasonText: normalizeRequiredText(input.reasonText, 'reasonText', 500),
+        soldSacks: projection.soldSacks,
+        lostSacks: projection.lostSacks,
+        availableSacks: projection.availableSacks,
+        commercialStatus: projection.commercialStatus
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'commercial',
       actorContext: actor
     });
 
@@ -1508,60 +2206,30 @@ export class SampleCommandService {
   }
 
   async updateCommercialStatus(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'update commercial status');
-    requireExpectedVersion(input.expectedVersion);
+    const toCommercialStatus = normalizeCommercialStatus(input.toCommercialStatus);
+    if (toCommercialStatus !== 'LOST') {
+      throw new HttpError(422, 'Commercial status is now automatic. Only LOST can be triggered manually.');
+    }
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    if (sample.status === 'INVALIDATED') {
-      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot update commercial status`);
+    const currentCommercial = readCurrentCommercialSummary(sample);
+    const projection = buildCommercialProjection(currentCommercial);
+    if (projection.availableSacks <= 0) {
+      throw new HttpError(409, `Sample ${sample.id} has no remaining sacks to mark as lost`);
     }
 
-    if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
-      throw new HttpError(
-        409,
-        `Sample ${sample.id} status ${sample.status} is invalid for update commercial status. Allowed: CLASSIFIED`
-      );
-    }
-
-    const fromCommercialStatus = sample.commercialStatus ?? 'OPEN';
-    const toCommercialStatus = normalizeCommercialStatus(input.toCommercialStatus);
-    if (fromCommercialStatus === toCommercialStatus) {
-      throw new HttpError(
-        409,
-        `Sample ${sample.id} commercial status is already ${toCommercialStatus}`
-      );
-    }
-
-    const allowedTransitions = COMMERCIAL_STATUS_TRANSITIONS[fromCommercialStatus];
-    if (!allowedTransitions || !allowedTransitions.has(toCommercialStatus)) {
-      throw new HttpError(
-        409,
-        `Commercial status transition ${fromCommercialStatus} -> ${toCommercialStatus} is invalid`
-      );
-    }
-
-    const reasonText = normalizeRequiredText(input.reasonText, 'reasonText');
-    if (reasonText.length > 500) {
-      throw new HttpError(422, 'reasonText must have at most 500 characters');
-    }
-
-    const event = buildEventEnvelope({
-      eventType: 'COMMERCIAL_STATUS_UPDATED',
-      sampleId: sample.id,
-      payload: {
-        fromCommercialStatus,
-        toCommercialStatus,
-        reasonText
+    return this.createSampleMovement(
+      {
+        sampleId: sample.id,
+        expectedVersion: input.expectedVersion,
+        movementType: MOVEMENT_TYPES.LOSS,
+        quantitySacks: projection.availableSacks,
+        movementDate: buildBusinessDateStamp(),
+        notes: null,
+        lossReasonText: input.reasonText
       },
-      fromStatus: null,
-      toStatus: null,
-      module: 'commercial',
-      actorContext: actor,
-      idempotencyScope: 'COMMERCIAL_STATUS_UPDATE',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
-    });
-
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+      actorContext
+    );
   }
 
   async invalidateSample(input, actorContext) {

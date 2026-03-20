@@ -18,7 +18,7 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'new-sample' | 'settings';
+type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'new-sample' | 'settings';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -30,7 +30,8 @@ type MobileRouteMeta = {
 const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
   { href: '/samples/new', label: 'Novo Registro', icon: 'new-sample' as NavIcon },
-  { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon }
+  { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon },
+  { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon }
 ] as const;
 
 const ADMIN_NAV_ITEM = {
@@ -60,6 +61,10 @@ function isMainNavItemActive(pathname: string, href: string) {
 
   if (href === '/samples') {
     return pathname === '/samples' || /^\/samples\/[^/]+$/.test(pathname);
+  }
+
+  if (href === '/clients') {
+    return pathname === '/clients';
   }
 
   if (href === '/settings') {
@@ -107,6 +112,17 @@ function renderNavIcon(icon: NavIcon) {
         <path d="M8 9h8" />
         <path d="M8 12.5h8" />
         <path d="M8 16h5" />
+      </svg>
+    );
+  }
+
+  if (icon === 'clients') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M5.2 8.8a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6Z" />
+        <path d="M15.8 7.8a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z" />
+        <path d="M3.5 19.2a4.5 4.5 0 0 1 3.9-4.5h1.7A4.5 4.5 0 0 1 13 19.2" />
+        <path d="M13.4 19.2a3.7 3.7 0 0 1 3.2-3.7h1A3.7 3.7 0 0 1 20.5 19.2" />
       </svg>
     );
   }
@@ -179,6 +195,13 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
     return {
       title: 'Usuarios',
       subtitle: 'Gerencie acessos e acompanhe a operacao administrativa.'
+    };
+  }
+
+  if (pathname === '/clients') {
+    return {
+      title: 'Clientes',
+      subtitle: 'Cadastre, consulte e mantenha inscricoes e auditoria dos clientes operacionais.'
     };
   }
 
@@ -264,7 +287,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   }
 
   return (
-    <>
+    <div className="app-shell-root mobile-edge-shell mobile-edge-shell-auth">
       <header className="topbar">
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
@@ -364,6 +387,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                       Usuarios
                     </Link>
                   ) : null}
+                  <Link href="/clients" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                    Clientes
+                  </Link>
                   <Link href="/settings" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
                     Meu perfil
                   </Link>
@@ -460,6 +486,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           })}
         </div>
       </nav>
-    </>
+    </div>
   );
 }

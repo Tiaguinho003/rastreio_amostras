@@ -11,6 +11,12 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
+  'SALE_CREATED',
+  'SALE_UPDATED',
+  'SALE_CANCELLED',
+  'LOSS_RECORDED',
+  'LOSS_UPDATED',
+  'LOSS_CANCELLED',
   'COMMERCIAL_STATUS_UPDATED',
   'CLASSIFICATION_UPDATED'
 ]);
@@ -116,7 +122,15 @@ export class EventContractService {
           id: event.sampleId,
           status: event.toStatus,
           commercialStatus: 'OPEN',
-          version: 1
+          version: 1,
+          ownerClientId: null,
+          ownerRegistrationId: null,
+          declared: {
+            owner: null,
+            sacks: null,
+            harvest: null,
+            originLot: null
+          }
         };
         tx.samples.set(event.sampleId, nextSample);
       } else if (mutatesSample) {
@@ -131,6 +145,78 @@ export class EventContractService {
           commercialStatus: nextCommercialStatus,
           version: sample.version + 1
         };
+
+        if (event.eventType === 'REGISTRATION_CONFIRMED') {
+          nextSample.ownerClientId = Object.prototype.hasOwnProperty.call(event.payload, 'ownerClientId')
+            ? event.payload.ownerClientId ?? null
+            : sample.ownerClientId ?? null;
+          nextSample.ownerRegistrationId = Object.prototype.hasOwnProperty.call(event.payload, 'ownerRegistrationId')
+            ? event.payload.ownerRegistrationId ?? null
+            : sample.ownerRegistrationId ?? null;
+          nextSample.declared = {
+            owner: event.payload.declared?.owner ?? null,
+            sacks: event.payload.declared?.sacks ?? null,
+            harvest: event.payload.declared?.harvest ?? null,
+            originLot: event.payload.declared?.originLot ?? null
+          };
+        }
+
+        if (event.eventType === 'REGISTRATION_UPDATED') {
+          const after = event.payload.after ?? {};
+          const declaredAfter = after.declared ?? {};
+
+          if (Object.prototype.hasOwnProperty.call(after, 'ownerClientId')) {
+            nextSample.ownerClientId = after.ownerClientId ?? null;
+          }
+          if (Object.prototype.hasOwnProperty.call(after, 'ownerRegistrationId')) {
+            nextSample.ownerRegistrationId = after.ownerRegistrationId ?? null;
+          }
+
+          nextSample.declared = {
+            owner: Object.prototype.hasOwnProperty.call(declaredAfter, 'owner')
+              ? declaredAfter.owner
+              : sample.declared?.owner ?? null,
+            sacks: Object.prototype.hasOwnProperty.call(declaredAfter, 'sacks')
+              ? declaredAfter.sacks
+              : sample.declared?.sacks ?? null,
+            harvest: Object.prototype.hasOwnProperty.call(declaredAfter, 'harvest')
+              ? declaredAfter.harvest
+              : sample.declared?.harvest ?? null,
+            originLot: Object.prototype.hasOwnProperty.call(declaredAfter, 'originLot')
+              ? declaredAfter.originLot
+              : sample.declared?.originLot ?? null
+          };
+
+          if (Object.prototype.hasOwnProperty.call(after, 'soldSacks')) {
+            nextSample.soldSacks = after.soldSacks;
+          }
+          if (Object.prototype.hasOwnProperty.call(after, 'lostSacks')) {
+            nextSample.lostSacks = after.lostSacks;
+          }
+          if (Object.prototype.hasOwnProperty.call(after, 'commercialStatus')) {
+            nextSample.commercialStatus = after.commercialStatus;
+          }
+        }
+
+        if (
+          event.eventType === 'SALE_CREATED' ||
+          event.eventType === 'SALE_UPDATED' ||
+          event.eventType === 'SALE_CANCELLED' ||
+          event.eventType === 'LOSS_RECORDED' ||
+          event.eventType === 'LOSS_UPDATED' ||
+          event.eventType === 'LOSS_CANCELLED'
+        ) {
+          if (Object.prototype.hasOwnProperty.call(event.payload, 'soldSacks')) {
+            nextSample.soldSacks = event.payload.soldSacks;
+          }
+          if (Object.prototype.hasOwnProperty.call(event.payload, 'lostSacks')) {
+            nextSample.lostSacks = event.payload.lostSacks;
+          }
+          if (Object.prototype.hasOwnProperty.call(event.payload, 'commercialStatus')) {
+            nextSample.commercialStatus = event.payload.commercialStatus;
+          }
+        }
+
         tx.samples.set(event.sampleId, nextSample);
       } else {
         nextSample = sample;

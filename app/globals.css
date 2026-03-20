@@ -7,6 +7,12 @@
   --accent: #2f6b4a;
   --accent-strong: #24553a;
   --danger: #b83232;
+  --mobile-edge-fill-base: linear-gradient(180deg, #1f5d43 0%, #173c30 100%);
+  --mobile-page-bg-base:
+    radial-gradient(circle at 10% 8%, #f8f4eb 0%, rgba(248, 244, 235, 0) 42%),
+    linear-gradient(180deg, #f4f1ea 0%, var(--bg) 58%, #e9e5dd 100%);
+  --mobile-edge-fill: var(--mobile-edge-fill-base);
+  --mobile-page-bg: var(--mobile-page-bg-base);
   --topbar-bg-start: #1f5d43;
   --topbar-bg-end: #173c30;
   --topbar-ink: #f4f7f2;
@@ -17,14 +23,42 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  min-height: 100%;
+}
+
+body {
+  position: relative;
   margin: 0;
   font-family: 'Trebuchet MS', 'Segoe UI', 'Noto Sans', sans-serif;
-  background:
-    radial-gradient(circle at 10% 8%, #f8f4eb 0%, rgba(248, 244, 235, 0) 42%),
-    linear-gradient(180deg, #f4f1ea 0%, var(--bg) 58%, #e9e5dd 100%);
+  background: var(--mobile-page-bg-base);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
+}
+
+.mobile-edge-shell {
+  --mobile-edge-fill: var(--mobile-edge-fill-base);
+  --mobile-page-bg: var(--mobile-page-bg-base);
+}
+
+.app-shell-root {
+  position: relative;
+}
+
+.mobile-edge-shell-auth {
+  --mobile-edge-fill:
+    linear-gradient(180deg, rgba(31, 93, 67, 0.98) 0%, rgba(23, 60, 48, 0.99) 100%);
+  --mobile-page-bg: var(--mobile-page-bg-base);
+}
+
+.mobile-edge-shell-login {
+  --mobile-edge-fill:
+    radial-gradient(circle at top, rgba(255, 249, 238, 0.84) 0%, rgba(255, 249, 238, 0) 34%),
+    linear-gradient(180deg, #f8f4ea 0%, #efe7d7 100%);
+  --mobile-page-bg:
+    radial-gradient(circle at 16% 12%, rgba(255, 250, 240, 0.95) 0%, rgba(255, 250, 240, 0) 28%),
+    linear-gradient(180deg, #f8f4ea 0%, #efe7d7 100%);
 }
 
 .login-page {
@@ -614,6 +648,12 @@ button:disabled {
   background: #eceff2;
   border-color: #c9d0d8;
   color: #44505d;
+}
+
+.commercial-status-badge-partially-sold {
+  background: #f5eed6;
+  border-color: #e4d29a;
+  color: #7a5d17;
 }
 
 .commercial-status-badge-sold {
@@ -3870,10 +3910,323 @@ button:disabled {
   text-align: right;
 }
 
+.client-lookup-field,
+.client-registration-select {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.client-lookup-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+}
+
+.client-lookup-clear {
+  min-width: 5.4rem;
+}
+
+.client-lookup-selection,
+.client-lookup-feedback,
+.client-modal-description,
+.clients-page-subtitle,
+.sample-commercial-summary-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.client-lookup-dropdown {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.6rem;
+  background: #fff;
+}
+
+.client-lookup-empty {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  color: var(--muted);
+}
+
+.client-lookup-create {
+  justify-self: start;
+}
+
+.client-lookup-list {
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.client-lookup-option {
+  width: 100%;
+  display: grid;
+  gap: 0.18rem;
+  text-align: left;
+  border: 1px solid rgba(112, 133, 115, 0.16);
+  border-radius: 12px;
+  background: #f8f4ea;
+  color: #3c4637;
+}
+
+.client-lookup-option:hover {
+  background: #efe7d7;
+}
+
+.client-lookup-option-title {
+  font-weight: 700;
+}
+
+.client-lookup-option-meta {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.client-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(18, 25, 20, 0.42);
+  backdrop-filter: blur(7px);
+}
+
+.client-modal {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  gap: 0.9rem;
+}
+
+.sample-movement-modal {
+  width: min(780px, 100%);
+}
+
+.client-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.client-modal-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.client-modal-flag,
+.clients-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #45503f;
+}
+
+.clients-page-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.clients-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.clients-page-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.clients-list-panel,
+.clients-detail-column {
+  min-height: 0;
+}
+
+.clients-detail-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.clients-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.clients-list-item {
+  width: 100%;
+  display: grid;
+  gap: 0.18rem;
+  text-align: left;
+  border: 1px solid rgba(114, 128, 111, 0.18);
+  border-radius: 14px;
+  background: #fff;
+  color: #3a4537;
+}
+
+.clients-list-item:hover {
+  background: #f8f3e7;
+}
+
+.clients-list-item.is-active {
+  border-color: rgba(84, 123, 90, 0.42);
+  background: #eef5eb;
+}
+
+.clients-list-item span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.clients-registration-list,
+.clients-audit-list,
+.sample-movement-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.clients-registration-item,
+.clients-audit-item,
+.sample-movement-card {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(113, 126, 109, 0.16);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.85rem;
+}
+
+.clients-audit-item-head,
+.sample-movement-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sample-movement-card-body {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.sample-movement-card-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.sample-commercial-summary-card {
+  gap: 1rem;
+}
+
+.sample-commercial-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.sample-commercial-summary-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.82rem;
+  border-radius: 14px;
+  border: 1px solid rgba(102, 118, 99, 0.16);
+  background: #fbf8f1;
+}
+
+.sample-commercial-summary-item span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.sample-commercial-summary-item strong {
+  font-size: 1.3rem;
+  color: #344430;
+}
+
+.sample-detail-lookup-slot {
+  display: grid;
+  gap: 0.55rem;
+}
+
 @media (max-width: 900px) {
+  .clients-page-header,
+  .clients-audit-item-head,
+  .sample-movement-card-head {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .clients-page-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sample-commercial-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .client-lookup-shell {
+    grid-template-columns: 1fr;
+  }
+
+  html {
+    background-color: #1f5d43;
+  }
+
+  body {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    background-color: #1f5d43;
+    overscroll-behavior-y: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: var(--mobile-edge-fill-base);
+    z-index: -1;
+  }
+
+  .mobile-edge-shell {
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
+    min-height: 100dvh;
+    background: var(--mobile-page-bg);
+  }
+
+  .mobile-edge-shell::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: var(--mobile-edge-fill);
+    z-index: -1;
+  }
+
+  .app-shell-root {
+    min-height: 100dvh;
+  }
+
   .login-page {
     width: 100%;
-    padding: 0.9rem 1rem 1.3rem;
+    min-height: 100dvh;
+    margin: 0;
+    padding: calc(env(safe-area-inset-top) + 0.9rem) 1rem calc(env(safe-area-inset-bottom) + 1.3rem);
+    background: transparent;
   }
 
   .login-card {
@@ -3960,7 +4313,7 @@ button:disabled {
     z-index: 50;
     border-bottom: 0;
     border-radius: 0 0 28px 28px;
-    background: linear-gradient(135deg, #0c5a37 0%, #0d4a30 48%, #0b2f27 100%);
+    background: var(--mobile-edge-fill);
     box-shadow: 0 16px 28px rgba(7, 18, 13, 0.24);
   }
 
@@ -4250,6 +4603,8 @@ button:disabled {
   }
 
   .app-shell-main {
+    min-height: 100dvh;
+    background: var(--mobile-page-bg);
     padding:
       calc(env(safe-area-inset-top) + 5.85rem)
       0
@@ -4278,8 +4633,8 @@ button:disabled {
     right: 0;
     bottom: 0;
     z-index: 45;
-    padding: 0 0.4rem calc(env(safe-area-inset-bottom) + 0.08rem);
-    background: transparent;
+    padding: 0 0.4rem 0;
+    background: var(--mobile-edge-fill);
     box-shadow: none;
     overflow: visible;
   }
@@ -4807,7 +5162,7 @@ button:disabled {
     gap: 0.32rem;
   }
 
-  main,
+  .app-shell-main,
   .topbar-inner {
     width: min(1120px, 100% - 1rem);
   }

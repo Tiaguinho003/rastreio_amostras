@@ -1,4 +1,11 @@
 import type {
+  ClientAuditListResponse,
+  ClientDetailResponse,
+  ClientLookupKind,
+  ClientLookupResponse,
+  ClientRegistrationMutationResponse,
+  ClientResponse,
+  ClientsListResponse,
   CommandResponse,
   CreateSampleAndPreparePrintResponse,
   DashboardPendingResponse,
@@ -8,6 +15,7 @@ import type {
   PasswordResetRequestResponse,
   ResolveSampleByQrResponse,
   SampleDetailResponse,
+  SampleMovementsResponse,
   SampleEventsResponse,
   SessionData,
   SampleExportType,
@@ -233,6 +241,207 @@ export function listUsers(
   });
 }
 
+export function listClients(
+  session: SessionData,
+  query: {
+    search?: string;
+    status?: string;
+    personType?: string;
+    isBuyer?: boolean;
+    isSeller?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.status) params.set('status', query.status);
+  if (query.personType) params.set('personType', query.personType);
+  if (typeof query.isBuyer === 'boolean') params.set('isBuyer', String(query.isBuyer));
+  if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+
+  return request<ClientsListResponse>(`/clients${suffix}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function lookupClients(
+  session: SessionData,
+  query: {
+    search: string;
+    kind?: ClientLookupKind;
+  }
+) {
+  const params = new URLSearchParams();
+  params.set('search', query.search);
+  if (query.kind) params.set('kind', query.kind);
+
+  return request<ClientLookupResponse>(`/clients/lookup?${params.toString()}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function getClient(session: SessionData, clientId: string) {
+  return request<ClientDetailResponse>(`/clients/${clientId}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function createClient(
+  session: SessionData,
+  data: {
+    personType: 'PF' | 'PJ';
+    fullName?: string;
+    legalName?: string;
+    tradeName?: string | null;
+    cpf?: string;
+    cnpj?: string;
+    phone?: string | null;
+    isBuyer: boolean;
+    isSeller: boolean;
+  }
+) {
+  return request<ClientResponse>('/clients', {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function updateClient(
+  session: SessionData,
+  clientId: string,
+  data: {
+    personType?: 'PF' | 'PJ';
+    fullName?: string;
+    legalName?: string;
+    tradeName?: string | null;
+    cpf?: string;
+    cnpj?: string;
+    phone?: string | null;
+    isBuyer?: boolean;
+    isSeller?: boolean;
+    reasonText: string;
+  }
+) {
+  return request<ClientResponse>(`/clients/${clientId}`, {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function inactivateClient(session: SessionData, clientId: string, reasonText: string) {
+  return request<ClientResponse>(`/clients/${clientId}/inactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText }
+  });
+}
+
+export function reactivateClient(session: SessionData, clientId: string, reasonText: string) {
+  return request<ClientResponse>(`/clients/${clientId}/reactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText }
+  });
+}
+
+export function listClientAuditEvents(
+  session: SessionData,
+  clientId: string,
+  query: {
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+
+  return request<ClientAuditListResponse>(`/clients/${clientId}/audit${suffix}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function createClientRegistration(
+  session: SessionData,
+  clientId: string,
+  data: {
+    registrationNumber: string;
+    registrationType: string;
+    addressLine: string;
+    district: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    complement?: string | null;
+  }
+) {
+  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations`, {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function updateClientRegistration(
+  session: SessionData,
+  clientId: string,
+  registrationId: string,
+  data: {
+    registrationNumber?: string;
+    registrationType?: string;
+    addressLine?: string;
+    district?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    complement?: string | null;
+    reasonText: string;
+  }
+) {
+  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}`, {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function inactivateClientRegistration(
+  session: SessionData,
+  clientId: string,
+  registrationId: string,
+  reasonText: string
+) {
+  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}/inactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText }
+  });
+}
+
+export function reactivateClientRegistration(
+  session: SessionData,
+  clientId: string,
+  registrationId: string,
+  reasonText: string
+) {
+  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}/reactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText }
+  });
+}
+
 export function getUser(session: SessionData, userId: string) {
   return request<UserResponse>(`/users/${userId}`, {
     method: 'GET',
@@ -340,6 +549,7 @@ export function listSamples(
     page?: number;
     lot?: string;
     owner?: string;
+    buyer?: string;
     statusGroup?: string;
     commercialStatus?: string;
     harvest?: string;
@@ -357,6 +567,7 @@ export function listSamples(
   if (typeof query.page === 'number') params.set('page', String(query.page));
   if (query.lot) params.set('lot', query.lot);
   if (query.owner) params.set('owner', query.owner);
+  if (query.buyer) params.set('buyer', query.buyer);
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
   if (query.harvest) params.set('harvest', query.harvest);
@@ -388,6 +599,8 @@ export function createSampleAndPreparePrint(
   data: {
     clientDraftId: string;
     owner: string;
+    ownerClientId?: string | null;
+    ownerRegistrationId?: string | null;
     sacks: number;
     harvest: string;
     originLot: string;
@@ -401,6 +614,12 @@ export function createSampleAndPreparePrint(
     const formData = new FormData();
     formData.append('clientDraftId', data.clientDraftId);
     formData.append('owner', data.owner);
+    if (data.ownerClientId) {
+      formData.append('ownerClientId', data.ownerClientId);
+    }
+    if (data.ownerRegistrationId) {
+      formData.append('ownerRegistrationId', data.ownerRegistrationId);
+    }
     formData.append('sacks', String(data.sacks));
     formData.append('harvest', data.harvest);
     formData.append('originLot', data.originLot);
@@ -428,6 +647,8 @@ export function createSampleAndPreparePrint(
     body: {
       clientDraftId: data.clientDraftId,
       owner: data.owner,
+      ownerClientId: data.ownerClientId ?? null,
+      ownerRegistrationId: data.ownerRegistrationId ?? null,
       sacks: data.sacks,
       harvest: data.harvest,
       originLot: data.originLot,
@@ -553,6 +774,8 @@ export function confirmRegistration(
   sampleId: string,
   data: {
     expectedVersion: number;
+    ownerClientId?: string | null;
+    ownerRegistrationId?: string | null;
     declared: {
       owner: string;
       sacks: number;
@@ -566,6 +789,8 @@ export function confirmRegistration(
     session,
     body: {
       expectedVersion: data.expectedVersion,
+      ownerClientId: data.ownerClientId ?? null,
+      ownerRegistrationId: data.ownerRegistrationId ?? null,
       declared: data.declared,
       ocr: {
         provider: 'LOCAL',
@@ -925,7 +1150,7 @@ export function updateCommercialStatus(
   sampleId: string,
   data: {
     expectedVersion: number;
-    toCommercialStatus: 'OPEN' | 'SOLD' | 'LOST';
+    toCommercialStatus: 'OPEN' | 'PARTIALLY_SOLD' | 'SOLD' | 'LOST';
     reasonText: string;
     idempotencyKey?: string;
   }
@@ -944,6 +1169,76 @@ export function updateCommercialStatus(
     method: 'POST',
     session,
     body
+  });
+}
+
+export function listSampleMovements(
+  session: SessionData,
+  sampleId: string,
+  query: { movementType?: string; status?: string } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.movementType) params.set('movementType', query.movementType);
+  if (query.status) params.set('status', query.status);
+  const suffix = params.size ? `?${params.toString()}` : '';
+
+  return request<SampleMovementsResponse>(`/samples/${sampleId}/movements${suffix}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function createSampleMovement(
+  session: SessionData,
+  sampleId: string,
+  data: {
+    expectedVersion: number;
+    movementType: 'SALE' | 'LOSS';
+    buyerClientId?: string | null;
+    buyerRegistrationId?: string | null;
+    quantitySacks: number;
+    movementDate: string;
+    notes?: string | null;
+    lossReasonText?: string | null;
+  }
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/movements`, {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function updateSampleMovement(
+  session: SessionData,
+  sampleId: string,
+  movementId: string,
+  data: {
+    expectedVersion: number;
+    after: { [key: string]: JsonValue };
+    reasonText: string;
+  }
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/movements/${movementId}`, {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function cancelSampleMovement(
+  session: SessionData,
+  sampleId: string,
+  movementId: string,
+  data: {
+    expectedVersion: number;
+    reasonText: string;
+  }
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/movements/${movementId}/cancel`, {
+    method: 'POST',
+    session,
+    body: data
   });
 }
 

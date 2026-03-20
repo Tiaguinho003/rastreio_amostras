@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/loss-cancelled.event.schema.json",
+  "title": "LOSS_CANCELLED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "LOSS_CANCELLED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/loss-cancelled.payload.schema.json" },
+        "fromStatus": { "type": "null" },
+        "toStatus": { "type": "null" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
+    }
+  ]
+}

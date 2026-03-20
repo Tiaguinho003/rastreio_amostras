@@ -76,6 +76,7 @@ export function registrationStartedEvent(sampleId) {
 }
 
 export function registrationConfirmedEvent(sampleId, overrides = {}) {
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
   return buildEvent({
     eventType: 'REGISTRATION_CONFIRMED',
     sampleId,
@@ -102,10 +103,11 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
           originLot: 0.6
         },
         rawTextRef: null
-      }
+      },
+      ...payloadOverrides
     },
     module: 'registration',
-    ...overrides
+    ...eventOverrides
   });
 }
 
@@ -256,6 +258,139 @@ export function commercialStatusUpdatedEvent(sampleId, overrides = {}) {
       fromCommercialStatus: 'OPEN',
       toCommercialStatus: 'SOLD',
       reasonText: 'fechamento comercial',
+      ...payloadOverrides
+    },
+    module: 'commercial',
+    ...eventOverrides
+  });
+}
+
+export function saleCreatedEvent(sampleId, overrides = {}) {
+  const movementId = randomUUID();
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
+
+  return buildEvent({
+    eventType: 'SALE_CREATED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      movementId,
+      movementType: 'SALE',
+      status: 'ACTIVE',
+      buyerClientId: randomUUID(),
+      buyerRegistrationId: null,
+      quantitySacks: 5,
+      movementDate: '2026-03-19',
+      notes: 'venda parcial',
+      buyerClientSnapshot: {
+        id: randomUUID(),
+        displayName: 'Comprador XPTO'
+      },
+      buyerRegistrationSnapshot: null,
+      soldSacks: 5,
+      lostSacks: 0,
+      availableSacks: 5,
+      commercialStatus: 'PARTIALLY_SOLD',
+      ...payloadOverrides
+    },
+    module: 'commercial',
+    ...eventOverrides
+  });
+}
+
+export function lossRecordedEvent(sampleId, overrides = {}) {
+  const movementId = randomUUID();
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
+
+  return buildEvent({
+    eventType: 'LOSS_RECORDED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      movementId,
+      movementType: 'LOSS',
+      status: 'ACTIVE',
+      quantitySacks: 3,
+      movementDate: '2026-03-19',
+      notes: null,
+      lossReasonText: 'quebra de lote',
+      soldSacks: 0,
+      lostSacks: 3,
+      availableSacks: 7,
+      commercialStatus: 'OPEN',
+      ...payloadOverrides
+    },
+    module: 'commercial',
+    ...eventOverrides
+  });
+}
+
+export function saleUpdatedEvent(sampleId, overrides = {}) {
+  const movementId = randomUUID();
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
+
+  return buildEvent({
+    eventType: 'SALE_UPDATED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      movementId,
+      before: {
+        movementType: 'SALE',
+        buyerClientId: randomUUID(),
+        buyerRegistrationId: null,
+        quantitySacks: 5,
+        movementDate: '2026-03-19',
+        notes: 'venda parcial',
+        lossReasonText: null,
+        buyerClientSnapshot: { id: randomUUID(), displayName: 'Comprador XPTO' },
+        buyerRegistrationSnapshot: null,
+        status: 'ACTIVE'
+      },
+      after: {
+        movementType: 'SALE',
+        buyerClientId: randomUUID(),
+        buyerRegistrationId: null,
+        quantitySacks: 6,
+        movementDate: '2026-03-20',
+        notes: 'venda editada',
+        lossReasonText: null,
+        buyerClientSnapshot: { id: randomUUID(), displayName: 'Comprador Atualizado' },
+        buyerRegistrationSnapshot: null,
+        status: 'ACTIVE'
+      },
+      reasonText: 'ajuste comercial',
+      soldSacks: 6,
+      lostSacks: 0,
+      availableSacks: 4,
+      commercialStatus: 'PARTIALLY_SOLD',
+      ...payloadOverrides
+    },
+    module: 'commercial',
+    ...eventOverrides
+  });
+}
+
+export function lossCancelledEvent(sampleId, overrides = {}) {
+  const movementId = randomUUID();
+  const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
+
+  return buildEvent({
+    eventType: 'LOSS_CANCELLED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      movementId,
+      movementType: 'LOSS',
+      reasonText: 'cancelamento da perda',
+      soldSacks: 0,
+      lostSacks: 0,
+      availableSacks: 10,
+      commercialStatus: 'OPEN',
       ...payloadOverrides
     },
     module: 'commercial',

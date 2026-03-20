@@ -9,10 +9,12 @@ import { PrismaClient } from '@prisma/client';
 
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
+import { ClientService } from '../src/clients/client-service.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { SamplePdfReportService } from '../src/reports/sample-pdf-report-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
+import { buildEventEnvelope } from '../src/samples/sample-event-factory.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { LocalUploadService } from '../src/uploads/local-upload-service.js';
 
@@ -26,6 +28,7 @@ if (!databaseUrl || !databaseReachable) {
   const eventStore = new PrismaEventStore(prisma);
   const eventService = new EventContractDbService({ store: eventStore });
   const queryService = new SampleQueryService({ prisma });
+  const clientService = new ClientService({ prisma });
 
   let uploadDir;
   let uploadService;
@@ -83,13 +86,63 @@ if (!databaseUrl || !databaseReachable) {
     return `${year}-${month}-${day}`;
   }
 
+  let sellerClientSequence = 0;
+  let registrationSequence = 0;
+
+  function nextSequenceDigits(sequence, length) {
+    return String(sequence).padStart(length, '0').slice(-length);
+  }
+
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+    );
+  }
+
+  async function createSellerClient(overrides = {}) {
+    sellerClientSequence += 1;
+    const suffix = nextSequenceDigits(sellerClientSequence, 14);
+    const defaultName = `Cliente Seller ${sellerClientSequence} LTDA`;
+
+    return clientService.createClient(
+      {
+        personType: 'PJ',
+        legalName: overrides.legalName ?? defaultName,
+        tradeName: overrides.tradeName ?? overrides.legalName ?? defaultName,
+        cnpj: overrides.cnpj ?? suffix,
+        phone: overrides.phone ?? '35 3531-4046',
+        isBuyer: overrides.isBuyer ?? true,
+        isSeller: overrides.isSeller ?? true
+      },
+      actorClassifier
+    );
+  }
+
+  async function createClientRegistration(clientId, overrides = {}) {
+    registrationSequence += 1;
+
+    return clientService.createRegistration(
+      clientId,
+      {
+        registrationNumber: overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
+        registrationType: overrides.registrationType ?? 'estadual',
+        addressLine: overrides.addressLine ?? 'Av. Oliveira Rezende, 1397',
+        district: overrides.district ?? 'JD Bernadete',
+        city: overrides.city ?? 'Sao Sebastiao do Paraiso',
+        state: overrides.state ?? 'MG',
+        postalCode: overrides.postalCode ?? '37950-078',
+        complement: overrides.complement ?? null
+      },
+      actorClassifier
     );
   }
 
   async function moveSampleToRegistrationConfirmed(sampleId) {
+    const ownerClient = await createSellerClient({
+      legalName: `Proprietario ${sampleId.slice(0, 8)} LTDA`,
+      tradeName: `Proprietario ${sampleId.slice(0, 8)} LTDA`
+    });
+
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
 
     await commandService.startRegistration(
@@ -115,8 +168,9 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 2,
+        ownerClientId: ownerClient.client.id,
         declared: {
-          owner: 'Fazenda Teste',
+          owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
           originLot: 'ORIG-001'
@@ -136,6 +190,70 @@ if (!databaseUrl || !databaseReachable) {
       },
       actorClassifier
     );
+
+    return ownerClient;
+  }
+
+  async function moveLegacySampleToRegistrationConfirmed(sampleId) {
+    await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
+
+    await commandService.startRegistration(
+      {
+        sampleId,
+        expectedVersion: 1,
+        notes: null
+      },
+      actorClassifier
+    );
+
+    await commandService.addLabelPhoto(
+      {
+        sampleId,
+        fileBuffer: Buffer.from(`photo-${sampleId}`),
+        mimeType: 'image/jpeg',
+        originalFileName: 'etiqueta.jpg'
+      },
+      actorClassifier
+    );
+
+    const attachmentIds = await queryService.listAttachmentIds(sampleId, {
+      kind: 'ARRIVAL_PHOTO'
+    });
+    const sampleLotNumber = await queryService.getNextInternalLotNumber(new Date().getUTCFullYear());
+
+    const event = buildEventEnvelope({
+      eventType: 'REGISTRATION_CONFIRMED',
+      sampleId,
+      payload: {
+        sampleLotNumber,
+        declared: {
+          owner: 'Fazenda Teste',
+          sacks: 11,
+          harvest: '25/26',
+          originLot: 'ORIG-001'
+        },
+        labelPhotos: attachmentIds,
+        ocr: {
+          provider: 'LOCAL',
+          overallConfidence: 0.8,
+          fieldConfidence: {
+            owner: 0.9,
+            sacks: 0.8,
+            harvest: 0.8,
+            originLot: 0.7
+          },
+          rawTextRef: null
+        }
+      },
+      fromStatus: 'REGISTRATION_IN_PROGRESS',
+      toStatus: 'REGISTRATION_CONFIRMED',
+      module: 'registration',
+      actorContext: actorClassifier,
+      idempotencyScope: 'REGISTRATION_CONFIRM',
+      idempotencyKey: randomUUID()
+    });
+
+    await eventService.appendEvent(event, { expectedVersion: 2 });
   }
 
   async function moveSampleToQrPrinted(sampleId) {
@@ -213,7 +331,8 @@ if (!databaseUrl || !databaseReachable) {
     commandService = new SampleCommandService({
       eventService,
       queryService,
-      uploadService
+      uploadService,
+      clientService
     });
     authService = new LocalAuthService({
       secret: 'super-secret-for-backend-api-missing-tests',
@@ -258,6 +377,7 @@ if (!databaseUrl || !databaseReachable) {
 
     api = createBackendApiV1({
       authService,
+      clientService,
       commandService,
       queryService,
       reportService
@@ -497,14 +617,35 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(after.version, before.version);
   });
 
-  test('POST /samples/create creates sample without photo and prepares QR print', async () => {
-    const clientDraftId = randomUUID();
+  test('POST /samples/create requires owner client and prepares QR print', async () => {
+    const missingOwnerClient = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          owner: 'Fazenda Nova Era',
+          sacks: 14,
+          harvest: '25/26',
+          originLot: 'ORIG-SEM-FOTO',
+          receivedChannel: 'in_person',
+          notes: 'criacao sem foto',
+          printerId: 'printer-main'
+        }
+      })
+    );
+
+    assert.equal(missingOwnerClient.status, 422);
+    assert.equal(missingOwnerClient.body.error.message, 'ownerClientId is required');
+
+    const ownerClient = await createSellerClient({
+      legalName: 'Fazenda Nova Era',
+      tradeName: 'Fazenda Nova Era'
+    });
 
     const created = await api.createSampleAndPreparePrint(
       buildInput({
         body: {
-          clientDraftId,
-          owner: 'Fazenda Nova Era',
+          clientDraftId: randomUUID(),
+          ownerClientId: ownerClient.client.id,
           sacks: 14,
           harvest: '25/26',
           originLot: 'ORIG-SEM-FOTO',
@@ -517,7 +658,8 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.sample.status, 'QR_PENDING_PRINT');
-    assert.equal(created.body.sample.declared.owner, 'Fazenda Nova Era');
+    assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
+    assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
     assert.equal(created.body.sample.labelPhotoCount, 0);
     assert.equal(created.body.qr.value, created.body.sample.internalLotNumber ?? created.body.sample.id);
     assert.equal(created.body.print?.printAction, 'PRINT');
@@ -533,13 +675,16 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('POST /samples/create accepts optional arrival photo and persists it before registration confirmation', async () => {
-    const clientDraftId = randomUUID();
+    const ownerClient = await createSellerClient({
+      legalName: 'Fazenda Com Foto',
+      tradeName: 'Fazenda Com Foto'
+    });
 
     const created = await api.createSampleAndPreparePrint(
       buildInput({
         body: {
-          clientDraftId,
-          owner: 'Fazenda Com Foto',
+          clientDraftId: randomUUID(),
+          ownerClientId: ownerClient.client.id,
           sacks: 9,
           harvest: '25/26',
           originLot: 'ORIG-COM-FOTO',
@@ -568,14 +713,249 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  test('POST /samples/create persists structured owner and syncs declared owner from client displayName', async () => {
+    const ownerClient = await createSellerClient({
+      legalName: 'Atlantica Exportacao e Importacao S/A',
+      tradeName: 'Atlantica Exportacao e Importacao S/A',
+      cnpj: '03.936.815/0001-75'
+    });
+    const ownerRegistration = await createClientRegistration(ownerClient.client.id, {
+      registrationNumber: '3940945840042',
+      addressLine: 'Av. Princesa do Sul, 1885',
+      district: 'Rezende',
+      city: 'Varginha',
+      postalCode: '37062-447'
+    });
+
+    const created = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          owner: 'Texto legado divergente',
+          ownerClientId: ownerClient.client.id,
+          ownerRegistrationId: ownerRegistration.registration.id,
+          sacks: 12,
+          harvest: '25/26',
+          originLot: 'ORIG-OWNER-LINKED',
+          receivedChannel: 'in_person'
+        }
+      })
+    );
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
+    assert.equal(created.body.sample.ownerRegistrationId, ownerRegistration.registration.id);
+    assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
+
+    const detail = await queryService.getSampleDetail(created.body.sample.id, { eventLimit: 20 });
+    assert.equal(detail.sample.ownerClientId, ownerClient.client.id);
+    assert.equal(detail.sample.ownerRegistrationId, ownerRegistration.registration.id);
+    assert.equal(detail.sample.declared.owner, ownerClient.client.displayName);
+
+    const registrationConfirmed = detail.events.find((event) => event.eventType === 'REGISTRATION_CONFIRMED');
+    assert.equal(registrationConfirmed?.payload?.ownerClientId, ownerClient.client.id);
+    assert.equal(registrationConfirmed?.payload?.ownerRegistrationId, ownerRegistration.registration.id);
+  });
+
+  test('POST /registration/update can attach structured owner to a legacy sample and clear previous registration on owner change', async () => {
+    const sampleId = randomUUID();
+    await moveLegacySampleToRegistrationConfirmed(sampleId);
+
+    const firstOwner = await createSellerClient();
+    const firstRegistration = await createClientRegistration(firstOwner.client.id);
+
+    const attached = await api.updateRegistration(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 3,
+          after: {
+            ownerClientId: firstOwner.client.id,
+            ownerRegistrationId: firstRegistration.registration.id
+          },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'vincular cliente'
+        }
+      })
+    );
+
+    assert.equal(attached.status, 201);
+    assert.equal(attached.body.event.eventType, 'REGISTRATION_UPDATED');
+
+    const attachedSample = await queryService.requireSample(sampleId);
+    assert.equal(attachedSample.ownerClientId, firstOwner.client.id);
+    assert.equal(attachedSample.ownerRegistrationId, firstRegistration.registration.id);
+    assert.equal(attachedSample.declared.owner, firstOwner.client.displayName);
+
+    const secondOwner = await createSellerClient({
+      legalName: 'Cliente Segundo Proprietario LTDA',
+      tradeName: 'Cliente Segundo Proprietario LTDA',
+      cnpj: '11.222.333/0001-44'
+    });
+
+    const switched = await api.updateRegistration(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: attachedSample.version,
+          after: {
+            ownerClientId: secondOwner.client.id
+          },
+          reasonCode: 'TYPO',
+          reasonText: 'trocar cliente'
+        }
+      })
+    );
+
+    assert.equal(switched.status, 201);
+    assert.equal(switched.body.event.eventType, 'REGISTRATION_UPDATED');
+
+    const switchedSample = await queryService.requireSample(sampleId);
+    assert.equal(switchedSample.ownerClientId, secondOwner.client.id);
+    assert.equal(switchedSample.ownerRegistrationId, null);
+    assert.equal(switchedSample.declared.owner, secondOwner.client.displayName);
+  });
+
+  test('structured owner validation blocks inactive non-seller or mismatched registration', async () => {
+    const inactiveOwner = await createSellerClient({
+      legalName: 'Cliente Inativo LTDA',
+      tradeName: 'Cliente Inativo LTDA',
+      cnpj: '55.666.777/0001-88'
+    });
+
+    await clientService.inactivateClient(
+      inactiveOwner.client.id,
+      {
+        reasonText: 'bloqueado'
+      },
+      actorAdmin
+    );
+
+    const inactiveResult = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          ownerClientId: inactiveOwner.client.id,
+          sacks: 10,
+          harvest: '25/26',
+          originLot: 'ORIG-INACTIVE'
+        }
+      })
+    );
+
+    assert.equal(inactiveResult.status, 422);
+
+    const buyerOnlyOwner = await createSellerClient({
+      legalName: 'Comprador Apenas LTDA',
+      tradeName: 'Comprador Apenas LTDA',
+      cnpj: '88.777.666/0001-55',
+      isBuyer: true,
+      isSeller: false
+    });
+
+    const buyerOnlyResult = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          ownerClientId: buyerOnlyOwner.client.id,
+          sacks: 10,
+          harvest: '25/26',
+          originLot: 'ORIG-NOT-SELLER'
+        }
+      })
+    );
+
+    assert.equal(buyerOnlyResult.status, 422);
+
+    const ownerA = await createSellerClient({
+      legalName: 'Proprietario A LTDA',
+      tradeName: 'Proprietario A LTDA',
+      cnpj: '12.123.123/0001-12'
+    });
+    const ownerB = await createSellerClient({
+      legalName: 'Proprietario B LTDA',
+      tradeName: 'Proprietario B LTDA',
+      cnpj: '13.123.123/0001-13'
+    });
+    const ownerBRegistration = await createClientRegistration(ownerB.client.id, {
+      registrationNumber: '998877665544'
+    });
+
+    const mismatchedRegistration = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          ownerClientId: ownerA.client.id,
+          ownerRegistrationId: ownerBRegistration.registration.id,
+          sacks: 10,
+          harvest: '25/26',
+          originLot: 'ORIG-MISMATCH'
+        }
+      })
+    );
+
+    assert.equal(mismatchedRegistration.status, 422);
+  });
+
+  test('updating owner client display name synchronizes declared owner on linked samples without bumping sample version', async () => {
+    const ownerClient = await createSellerClient({
+      legalName: 'Cliente Original LTDA',
+      tradeName: 'Cliente Original LTDA',
+      cnpj: '99.888.777/0001-66'
+    });
+
+    const created = await api.createSampleAndPreparePrint(
+      buildInput({
+        body: {
+          clientDraftId: randomUUID(),
+          ownerClientId: ownerClient.client.id,
+          sacks: 15,
+          harvest: '25/26',
+          originLot: 'ORIG-SYNC-OWNER'
+        }
+      })
+    );
+
+    assert.equal(created.status, 201);
+    const before = await queryService.requireSample(created.body.sample.id);
+    assert.equal(before.declared.owner, 'Cliente Original LTDA');
+
+    const updatedClient = await clientService.updateClient(
+      ownerClient.client.id,
+      {
+        legalName: 'Cliente Renomeado LTDA',
+        tradeName: 'Cliente Renomeado LTDA',
+        isBuyer: true,
+        isSeller: true,
+        reasonText: 'renomear cliente'
+      },
+      actorAdmin
+    );
+
+    assert.equal(updatedClient.client.displayName, 'Cliente Renomeado LTDA');
+
+    const after = await queryService.requireSample(created.body.sample.id);
+    assert.equal(after.declared.owner, 'Cliente Renomeado LTDA');
+    assert.equal(after.version, before.version);
+    assert.equal(after.updatedAt, before.updatedAt);
+  });
+
   test('POST /samples/create is idempotent by clientDraftId and avoids duplicate samples', async () => {
     const clientDraftId = randomUUID();
+    const firstOwner = await createSellerClient({
+      legalName: 'Fazenda Idempotente',
+      tradeName: 'Fazenda Idempotente'
+    });
+    const secondOwner = await createSellerClient({
+      legalName: 'Outro Proprietario Idempotente',
+      tradeName: 'Outro Proprietario Idempotente'
+    });
 
     const first = await api.createSampleAndPreparePrint(
       buildInput({
         body: {
           clientDraftId,
-          owner: 'Fazenda Idempotente',
+          ownerClientId: firstOwner.client.id,
           sacks: 20,
           harvest: '25/26',
           originLot: 'ORIG-001',
@@ -588,7 +968,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         body: {
           clientDraftId,
-          owner: 'Outro nome que nao deve sobrescrever',
+          ownerClientId: secondOwner.client.id,
           sacks: 99,
           harvest: '99/00',
           originLot: 'ORIG-999',
@@ -600,7 +980,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(first.status, 201);
     assert.equal(second.status, 200);
     assert.equal(second.body.sample.id, first.body.sample.id);
-    assert.equal(second.body.sample.declared.owner, 'Fazenda Idempotente');
+    assert.equal(second.body.sample.declared.owner, firstOwner.client.displayName);
 
     const list = await queryService.listSamples({ limit: 10, offset: 0 });
     assert.equal(list.page.total, 1);
@@ -613,13 +993,26 @@ if (!databaseUrl || !databaseReachable) {
     const dateInSaoPaulo = formatDateInSaoPaulo();
     const monthInSaoPaulo = dateInSaoPaulo.slice(0, 7);
     const yearInSaoPaulo = dateInSaoPaulo.slice(0, 4);
+    const ownerClientIds = new Map();
 
     for (let index = 0; index < 35; index += 1) {
+      const ownerName = index === 10 ? targetOwner : `Fazenda ${index % 4}`;
+      let ownerClientId = ownerClientIds.get(ownerName) ?? null;
+
+      if (!ownerClientId) {
+        const ownerClient = await createSellerClient({
+          legalName: ownerName,
+          tradeName: ownerName
+        });
+        ownerClientId = ownerClient.client.id;
+        ownerClientIds.set(ownerName, ownerClientId);
+      }
+
       const created = await api.createSampleAndPreparePrint(
         buildInput({
           body: {
             clientDraftId: randomUUID(),
-            owner: index === 10 ? targetOwner : `Fazenda ${index % 4}`,
+            ownerClientId,
             sacks: 5 + index,
             harvest: index === 10 ? targetHarvest : '25/26',
             originLot: `ORIG-${String(index + 1).padStart(3, '0')}`,
@@ -751,11 +1144,16 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('GET /samples supports statusGroup filter options', async () => {
+    const printPendingOwner = await createSellerClient({
+      legalName: 'Fazenda Print Pendente',
+      tradeName: 'Fazenda Print Pendente'
+    });
+
     const printPending = await api.createSampleAndPreparePrint(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
-          owner: 'Fazenda Print Pendente',
+          ownerClientId: printPendingOwner.client.id,
           sacks: 20,
           harvest: '25/26',
           originLot: 'ORIG-PRINT',
@@ -833,12 +1231,22 @@ if (!databaseUrl || !databaseReachable) {
   test('GET /samples supports commercialStatus filter options', async () => {
     const soldSampleId = randomUUID();
     await moveSampleToClassified(soldSampleId);
-    await commandService.updateCommercialStatus(
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Comercial LTDA',
+      tradeName: 'Comprador Comercial LTDA',
+      cnpj: '77.777.777/0001-77',
+      isBuyer: true,
+      isSeller: false
+    });
+    await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
         expectedVersion: 7,
-        toCommercialStatus: 'SOLD',
-        reasonText: 'fechamento'
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 11,
+        movementDate: '2026-03-19',
+        notes: 'lote completo'
       },
       actorClassifier
     );
@@ -851,6 +1259,21 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 7,
         toCommercialStatus: 'LOST',
         reasonText: 'extravio'
+      },
+      actorClassifier
+    );
+
+    const partialSampleId = randomUUID();
+    await moveSampleToClassified(partialSampleId);
+    await commandService.createSampleMovement(
+      {
+        sampleId: partialSampleId,
+        expectedVersion: 7,
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 4,
+        movementDate: '2026-03-19',
+        notes: 'venda parcial'
       },
       actorClassifier
     );
@@ -868,6 +1291,17 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(soldFiltered.status, 200);
     assert.equal(soldFiltered.body.page.total, 1);
     assert.equal(soldFiltered.body.items[0].commercialStatus, 'SOLD');
+
+    const partialFiltered = await api.listSamples(
+      buildInput({
+        query: {
+          commercialStatus: 'PARTIALLY_SOLD'
+        }
+      })
+    );
+    assert.equal(partialFiltered.status, 200);
+    assert.equal(partialFiltered.body.page.total, 1);
+    assert.equal(partialFiltered.body.items[0].commercialStatus, 'PARTIALLY_SOLD');
 
     const lostFiltered = await api.listSamples(
       buildInput({
@@ -1131,7 +1565,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('POST /registration/update updates declared snapshot and enforces version conflict', async () => {
     const sampleId = randomUUID();
-    await moveSampleToRegistrationConfirmed(sampleId);
+    await moveLegacySampleToRegistrationConfirmed(sampleId);
 
     const updated = await api.updateRegistration(
       buildInput({
@@ -1367,7 +1801,7 @@ if (!databaseUrl || !databaseReachable) {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
 
-    const updatedToSold = await api.updateCommercialStatus(
+    const rejectedAutomatic = await api.updateCommercialStatus(
       buildInput({
         params: { sampleId },
         body: {
@@ -1378,36 +1812,78 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    assert.equal(updatedToSold.status, 201);
-    assert.equal(updatedToSold.body.event.eventType, 'COMMERCIAL_STATUS_UPDATED');
-    assert.equal(updatedToSold.body.sample.commercialStatus, 'SOLD');
+    assert.equal(rejectedAutomatic.status, 422);
 
-    const invalidTransition = await api.updateCommercialStatus(
+    const markedLost = await api.updateCommercialStatus(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          toCommercialStatus: 'LOST',
+          reasonText: 'extravio total'
+        }
+      })
+    );
+
+    assert.equal(markedLost.status, 201);
+    assert.equal(markedLost.body.event.eventType, 'LOSS_RECORDED');
+    assert.equal(markedLost.body.sample.commercialStatus, 'LOST');
+    assert.equal(markedLost.body.sample.lostSacks, 11);
+
+    const noRemaining = await api.updateCommercialStatus(
       buildInput({
         params: { sampleId },
         body: {
           expectedVersion: 8,
           toCommercialStatus: 'LOST',
-          reasonText: 'tentativa invalida'
+          reasonText: 'segunda tentativa'
         }
       })
     );
 
-    assert.equal(invalidTransition.status, 409);
+    assert.equal(noRemaining.status, 409);
 
-    const reopened = await api.updateCommercialStatus(
+    const partialSampleId = randomUUID();
+    await moveSampleToClassified(partialSampleId);
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Parcial LTDA',
+      tradeName: 'Comprador Parcial LTDA',
+      cnpj: '66.555.444/0001-33',
+      isBuyer: true,
+      isSeller: false
+    });
+    const partialSale = await api.createSampleMovement(
       buildInput({
-        params: { sampleId },
+        params: { sampleId: partialSampleId },
         body: {
-          expectedVersion: 8,
-          toCommercialStatus: 'OPEN',
-          reasonText: 'reabertura'
+          expectedVersion: 7,
+          movementType: 'SALE',
+          buyerClientId: buyer.client.id,
+          quantitySacks: 4,
+          movementDate: '2026-03-19',
+          notes: 'parcial'
         }
       })
     );
 
-    assert.equal(reopened.status, 201);
-    assert.equal(reopened.body.sample.commercialStatus, 'OPEN');
+    assert.equal(partialSale.status, 201);
+
+    const lostRemaining = await api.updateCommercialStatus(
+      buildInput({
+        params: { sampleId: partialSampleId },
+        body: {
+          expectedVersion: partialSale.body.sample.version,
+          toCommercialStatus: 'LOST',
+          reasonText: 'restante perdido'
+        }
+      })
+    );
+
+    assert.equal(lostRemaining.status, 201);
+    assert.equal(lostRemaining.body.event.eventType, 'LOSS_RECORDED');
+    assert.equal(lostRemaining.body.sample.commercialStatus, 'PARTIALLY_SOLD');
+    assert.equal(lostRemaining.body.sample.soldSacks, 4);
+    assert.equal(lostRemaining.body.sample.lostSacks, 7);
 
     const nonClassifiedSampleId = randomUUID();
     await moveSampleToQrPrinted(nonClassifiedSampleId);
@@ -1416,13 +1892,299 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId: nonClassifiedSampleId },
         body: {
           expectedVersion: 5,
-          toCommercialStatus: 'SOLD',
+          toCommercialStatus: 'LOST',
           reasonText: 'deveria falhar'
         }
       })
     );
 
     assert.equal(blockedByOperationalStatus.status, 409);
+  });
+
+  test('sample movements create update list cancel and recalculate commercial summary', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+
+    const buyerA = await createSellerClient({
+      legalName: 'Comprador A LTDA',
+      tradeName: 'Comprador A LTDA',
+      cnpj: '22.333.444/0001-55',
+      isBuyer: true,
+      isSeller: false
+    });
+    const buyerB = await createSellerClient({
+      legalName: 'Comprador B LTDA',
+      tradeName: 'Comprador B LTDA',
+      cnpj: '33.444.555/0001-66',
+      isBuyer: true,
+      isSeller: false
+    });
+
+    const createdSale = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          movementType: 'SALE',
+          buyerClientId: buyerA.client.id,
+          quantitySacks: 5,
+          movementDate: '2026-03-19',
+          notes: 'venda inicial'
+        }
+      })
+    );
+
+    assert.equal(createdSale.status, 201);
+    assert.equal(createdSale.body.event.eventType, 'SALE_CREATED');
+    assert.equal(createdSale.body.sample.commercialStatus, 'PARTIALLY_SOLD');
+    assert.equal(createdSale.body.sample.soldSacks, 5);
+    const sampleAfterCreatedSale = await queryService.requireSample(sampleId);
+    assert.equal(sampleAfterCreatedSale.availableSacks, 6);
+
+    const updatedSale = await api.updateSampleMovement(
+      buildInput({
+        params: {
+          sampleId,
+          movementId: createdSale.body.event.payload.movementId
+        },
+        body: {
+          expectedVersion: createdSale.body.sample.version,
+          after: {
+            buyerClientId: buyerB.client.id,
+            quantitySacks: 6,
+            notes: 'venda revisada'
+          },
+          reasonText: 'ajuste comercial'
+        }
+      })
+    );
+
+    assert.equal(updatedSale.status, 201);
+    assert.equal(updatedSale.body.event.eventType, 'SALE_UPDATED');
+    assert.equal(updatedSale.body.sample.soldSacks, 6);
+    const sampleAfterUpdatedSale = await queryService.requireSample(sampleId);
+    assert.equal(sampleAfterUpdatedSale.availableSacks, 5);
+
+    const createdLoss = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: updatedSale.body.sample.version,
+          movementType: 'LOSS',
+          quantitySacks: 2,
+          movementDate: '2026-03-20',
+          lossReasonText: 'quebra de lote'
+        }
+      })
+    );
+
+    assert.equal(createdLoss.status, 201);
+    assert.equal(createdLoss.body.event.eventType, 'LOSS_RECORDED');
+    assert.equal(createdLoss.body.sample.lostSacks, 2);
+    assert.equal(createdLoss.body.sample.commercialStatus, 'PARTIALLY_SOLD');
+
+    const movements = await api.listSampleMovements(
+      buildInput({
+        params: { sampleId }
+      })
+    );
+
+    assert.equal(movements.status, 200);
+    assert.equal(movements.body.movements.length, 2);
+    assert.equal(movements.body.movements[0].createdAt >= movements.body.movements[1].createdAt, true);
+
+    const cancelledLoss = await api.cancelSampleMovement(
+      buildInput({
+        params: {
+          sampleId,
+          movementId: createdLoss.body.event.payload.movementId
+        },
+        body: {
+          expectedVersion: createdLoss.body.sample.version,
+          reasonText: 'cancelar perda'
+        }
+      })
+    );
+
+    assert.equal(cancelledLoss.status, 201);
+    assert.equal(cancelledLoss.body.event.eventType, 'LOSS_CANCELLED');
+    assert.equal(cancelledLoss.body.sample.lostSacks, 0);
+    assert.equal(cancelledLoss.body.sample.commercialStatus, 'PARTIALLY_SOLD');
+  });
+
+  test('sample movement validations block inactive buyer, non-buyer client and non-classified sample', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+
+    const inactiveBuyer = await createSellerClient({
+      legalName: 'Comprador Inativo LTDA',
+      tradeName: 'Comprador Inativo LTDA',
+      cnpj: '44.555.666/0001-77',
+      isBuyer: true,
+      isSeller: false
+    });
+    await clientService.inactivateClient(
+      inactiveBuyer.client.id,
+      {
+        reasonText: 'inativado'
+      },
+      actorAdmin
+    );
+
+    const inactiveBuyerResult = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          movementType: 'SALE',
+          buyerClientId: inactiveBuyer.client.id,
+          quantitySacks: 2,
+          movementDate: '2026-03-19',
+          notes: 'deve falhar'
+        }
+      })
+    );
+    assert.equal(inactiveBuyerResult.status, 422);
+
+    const sellerOnlyClient = await createSellerClient({
+      legalName: 'Vendedor Somente LTDA',
+      tradeName: 'Vendedor Somente LTDA',
+      cnpj: '55.666.777/0001-88',
+      isBuyer: false,
+      isSeller: true
+    });
+
+    const nonBuyerResult = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          movementType: 'SALE',
+          buyerClientId: sellerOnlyClient.client.id,
+          quantitySacks: 2,
+          movementDate: '2026-03-19',
+          notes: 'deve falhar'
+        }
+      })
+    );
+    assert.equal(nonBuyerResult.status, 422);
+
+    const nonClassifiedSampleId = randomUUID();
+    await moveSampleToQrPrinted(nonClassifiedSampleId);
+    const validBuyer = await createSellerClient({
+      legalName: 'Comprador Valido LTDA',
+      tradeName: 'Comprador Valido LTDA',
+      cnpj: '66.777.888/0001-99',
+      isBuyer: true,
+      isSeller: false
+    });
+
+    const blockedByStatus = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId: nonClassifiedSampleId },
+        body: {
+          expectedVersion: 5,
+          movementType: 'SALE',
+          buyerClientId: validBuyer.client.id,
+          quantitySacks: 2,
+          movementDate: '2026-03-19',
+          notes: 'deve falhar'
+        }
+      })
+    );
+    assert.equal(blockedByStatus.status, 409);
+  });
+
+  test('loss without sales keeps commercial status OPEN', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+
+    const createdLoss = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          movementType: 'LOSS',
+          quantitySacks: 2,
+          movementDate: '2026-03-19',
+          lossReasonText: 'quebra parcial'
+        }
+      })
+    );
+
+    assert.equal(createdLoss.status, 201);
+    assert.equal(createdLoss.body.event.eventType, 'LOSS_RECORDED');
+    assert.equal(createdLoss.body.sample.commercialStatus, 'OPEN');
+    assert.equal(createdLoss.body.sample.lostSacks, 2);
+    const sampleAfterLoss = await queryService.requireSample(sampleId);
+    assert.equal(sampleAfterLoss.availableSacks, 9);
+  });
+
+  test('registration update recalculates commercial status and blocks declared sacks below sold plus lost', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Registro LTDA',
+      tradeName: 'Comprador Registro LTDA',
+      cnpj: '77.888.999/0001-00',
+      isBuyer: true,
+      isSeller: false
+    });
+
+    const createdSale = await api.createSampleMovement(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: 7,
+          movementType: 'SALE',
+          buyerClientId: buyer.client.id,
+          quantitySacks: 5,
+          movementDate: '2026-03-19',
+          notes: 'venda parcial'
+        }
+      })
+    );
+
+    const reduced = await api.updateRegistration(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: createdSale.body.sample.version,
+          after: {
+            declared: {
+              sacks: 5
+            }
+          },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'ajuste de volume'
+        }
+      })
+    );
+
+    assert.equal(reduced.status, 201);
+    const reducedSample = await queryService.requireSample(sampleId);
+    assert.equal(reducedSample.declared.sacks, 5);
+    assert.equal(reducedSample.commercialStatus, 'SOLD');
+    assert.equal(reducedSample.availableSacks, 0);
+
+    const invalidReduction = await api.updateRegistration(
+      buildInput({
+        params: { sampleId },
+        body: {
+          expectedVersion: reducedSample.version,
+          after: {
+            declared: {
+              sacks: 4
+            }
+          },
+          reasonCode: 'DATA_FIX',
+          reasonText: 'deve falhar'
+        }
+      })
+    );
+
+    assert.equal(invalidReduction.status, 409);
   });
 
   test('POST /invalidate accepts authenticated roles and keeps INVALIDATED terminal', async () => {

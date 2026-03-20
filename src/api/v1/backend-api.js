@@ -72,6 +72,14 @@ function readOptionalQueryString(value) {
   return normalized.length > 0 ? normalized : null;
 }
 
+function assignIfDefined(target, key, value) {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+
+  return target;
+}
+
 function readPageQuery(value) {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -93,6 +101,7 @@ function executeApiForInput(input, handler) {
 export function createBackendApiV1({
   authService = null,
   userService = null,
+  clientService = null,
   commandService,
   queryService,
   reportService = null
@@ -190,6 +199,8 @@ export function createBackendApiV1({
           {
             clientDraftId: body.clientDraftId,
             owner: body.owner,
+            ownerClientId: body.ownerClientId,
+            ownerRegistrationId: body.ownerRegistrationId,
             sacks: body.sacks,
             harvest: body.harvest,
             originLot: body.originLot,
@@ -261,6 +272,8 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             sampleLotNumber: body.sampleLotNumber,
             declared: body.declared,
+            ownerClientId: body.ownerClientId,
+            ownerRegistrationId: body.ownerRegistrationId,
             ocr: body.ocr,
             labelPhotoIds: body.labelPhotoIds,
             idempotencyKey: body.idempotencyKey
@@ -530,6 +543,7 @@ export function createBackendApiV1({
           page: readPageQuery(query.page),
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
+          buyer: readOptionalQueryString(query.buyer),
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           harvest: readOptionalQueryString(query.harvest),
@@ -652,6 +666,106 @@ export function createBackendApiV1({
         };
       }),
 
+    listSampleMovements: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const query = input?.query ?? {};
+
+        const movements = await queryService.listSampleMovements(sampleId, {
+          movementType: readOptionalQueryString(query.movementType),
+          status: readOptionalQueryString(query.status)
+        });
+
+        return {
+          status: 200,
+          body: {
+            sampleId,
+            movements
+          }
+        };
+      }),
+
+    createSampleMovement: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const body = readRequestBody(input);
+
+        const result = await commandService.createSampleMovement(
+          {
+            sampleId,
+            expectedVersion: body.expectedVersion,
+            movementType: body.movementType,
+            buyerClientId: body.buyerClientId,
+            buyerRegistrationId: body.buyerRegistrationId,
+            quantitySacks: body.quantitySacks,
+            movementDate: body.movementDate,
+            notes: body.notes ?? null,
+            lossReasonText: body.lossReasonText
+          },
+          actor
+        );
+
+        return {
+          status: result.statusCode,
+          body: result
+        };
+      }),
+
+    updateSampleMovement: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const movementId = input?.params?.movementId;
+        if (typeof movementId !== 'string' || movementId.length === 0) {
+          throw new HttpError(422, 'movementId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await commandService.updateSampleMovement(
+          {
+            sampleId,
+            movementId,
+            expectedVersion: body.expectedVersion,
+            after: body.after ?? body.changes ?? {},
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: result.statusCode,
+          body: result
+        };
+      }),
+
+    cancelSampleMovement: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const movementId = input?.params?.movementId;
+        if (typeof movementId !== 'string' || movementId.length === 0) {
+          throw new HttpError(422, 'movementId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await commandService.cancelSampleMovement(
+          {
+            sampleId,
+            movementId,
+            expectedVersion: body.expectedVersion,
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: result.statusCode,
+          body: result
+        };
+      }),
+
     getDashboardPending: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
@@ -659,6 +773,359 @@ export function createBackendApiV1({
         return {
           status: 200,
           body: dashboard
+        };
+      }),
+
+    listClients: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await clientService.listClients(
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            status: query.status,
+            personType: query.personType,
+            isBuyer: query.isBuyer,
+            isSeller: query.isSeller
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    lookupClients: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await clientService.lookupClients(
+          {
+            search: query.search,
+            kind: query.kind
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    getClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const result = await clientService.getClient(clientId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    createClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await clientService.createClient(
+          {
+            personType: body.personType,
+            fullName: body.fullName,
+            legalName: body.legalName,
+            tradeName: body.tradeName,
+            cpf: body.cpf,
+            cnpj: body.cnpj,
+            phone: body.phone,
+            isBuyer: body.isBuyer,
+            isSeller: body.isSeller
+          },
+          actor
+        );
+
+        return {
+          status: 201,
+          body: result
+        };
+      }),
+
+    updateClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const updatePayload = {};
+        assignIfDefined(updatePayload, 'personType', body.personType);
+        assignIfDefined(updatePayload, 'fullName', body.fullName);
+        assignIfDefined(updatePayload, 'legalName', body.legalName);
+        assignIfDefined(updatePayload, 'tradeName', body.tradeName);
+        assignIfDefined(updatePayload, 'cpf', body.cpf);
+        assignIfDefined(updatePayload, 'cnpj', body.cnpj);
+        assignIfDefined(updatePayload, 'phone', body.phone);
+        assignIfDefined(updatePayload, 'isBuyer', body.isBuyer);
+        assignIfDefined(updatePayload, 'isSeller', body.isSeller);
+        assignIfDefined(updatePayload, 'reasonText', body.reasonText);
+
+        const result = await clientService.updateClient(
+          clientId,
+          updatePayload,
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    inactivateClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await clientService.inactivateClient(
+          clientId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    reactivateClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await clientService.reactivateClient(
+          clientId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    listClientAuditEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        const query = input?.query ?? {};
+        const result = await clientService.listAuditEvents(
+          clientId,
+          {
+            page: query.page,
+            limit: query.limit
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    createClientRegistration: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await clientService.createRegistration(
+          clientId,
+          {
+            registrationNumber: body.registrationNumber,
+            registrationType: body.registrationType,
+            addressLine: body.addressLine,
+            district: body.district,
+            city: body.city,
+            state: body.state,
+            postalCode: body.postalCode,
+            complement: body.complement
+          },
+          actor
+        );
+
+        return {
+          status: 201,
+          body: result
+        };
+      }),
+
+    updateClientRegistration: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        const registrationId = input?.params?.registrationId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        if (typeof registrationId !== 'string' || registrationId.length === 0) {
+          throw new HttpError(422, 'registrationId path param is required');
+        }
+        const body = readRequestBody(input);
+        const updatePayload = {};
+        assignIfDefined(updatePayload, 'registrationNumber', body.registrationNumber);
+        assignIfDefined(updatePayload, 'registrationType', body.registrationType);
+        assignIfDefined(updatePayload, 'addressLine', body.addressLine);
+        assignIfDefined(updatePayload, 'district', body.district);
+        assignIfDefined(updatePayload, 'city', body.city);
+        assignIfDefined(updatePayload, 'state', body.state);
+        assignIfDefined(updatePayload, 'postalCode', body.postalCode);
+        assignIfDefined(updatePayload, 'complement', body.complement);
+        assignIfDefined(updatePayload, 'reasonText', body.reasonText);
+
+        const result = await clientService.updateRegistration(
+          clientId,
+          registrationId,
+          updatePayload,
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    inactivateClientRegistration: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        const registrationId = input?.params?.registrationId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        if (typeof registrationId !== 'string' || registrationId.length === 0) {
+          throw new HttpError(422, 'registrationId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await clientService.inactivateRegistration(
+          clientId,
+          registrationId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    reactivateClientRegistration: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        const registrationId = input?.params?.registrationId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        if (typeof registrationId !== 'string' || registrationId.length === 0) {
+          throw new HttpError(422, 'registrationId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await clientService.reactivateRegistration(
+          clientId,
+          registrationId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
         };
       }),
 

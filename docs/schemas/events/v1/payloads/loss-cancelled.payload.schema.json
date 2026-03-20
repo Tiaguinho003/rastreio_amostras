@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/loss-cancelled.payload.schema.json",
+  "title": "LOSS_CANCELLED payload",
+  "type": "object",
+  "properties": {
+    "movementId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+    "movementType": { "const": "LOSS" },
+    "reasonText": { "type": "string", "minLength": 1 },
+    "soldSacks": { "type": "integer", "minimum": 0 },
+    "lostSacks": { "type": "integer", "minimum": 0 },
+    "availableSacks": { "type": "integer", "minimum": 0 },
+    "commercialStatus": { "$ref": "../base/shared-defs.schema.json#/$defs/commercialStatus" }
+  },
+  "required": ["movementId", "movementType", "reasonText", "soldSacks", "lostSacks", "availableSacks", "commercialStatus"],
+  "additionalProperties": false
+}

@@ -7,13 +7,18 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { flushSync } from 'react-dom';
 
 import { AppShell } from '../../../components/AppShell';
+import { ClientLookupField } from '../../../components/clients/ClientLookupField';
+import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
+import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
 import { CommercialStatusBadge } from '../../../components/CommercialStatusBadge';
+import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import { StatusBadge } from '../../../components/StatusBadge';
 import {
   ApiError,
   completeClassification,
   confirmRegistration,
   exportSamplePdf,
+  getClient,
   getSampleDetail,
   invalidateSample,
   listSampleEvents,
@@ -24,7 +29,6 @@ import {
   requestQrPrint,
   saveClassificationPartial,
   startClassification,
-  updateCommercialStatus,
   updateClassification,
   updateRegistration,
   uploadClassificationPhoto,
@@ -33,8 +37,9 @@ import {
 import { invalidateSampleSchema, qrFailSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
+  ClientRegistrationSummary,
+  ClientSummary,
   InvalidateReasonCode,
-  CommercialStatus,
   PrintAction,
   SampleDetailResponse,
   SampleEvent,
@@ -199,18 +204,6 @@ const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> =
   { value: 'OTHER', label: 'Outro motivo' }
 ];
 
-const COMMERCIAL_STATUS_LABELS: Record<CommercialStatus, string> = {
-  OPEN: 'Em aberto',
-  SOLD: 'Vendido',
-  LOST: 'Perdido'
-};
-
-const COMMERCIAL_STATUS_SELECT_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [
-  { value: 'OPEN', label: 'Em aberto' },
-  { value: 'SOLD', label: 'Vendido' },
-  { value: 'LOST', label: 'Perdido' }
-];
-
 const HISTORY_EVENT_LABELS: Record<string, string> = {
   SAMPLE_RECEIVED: 'Amostra recebida',
   REGISTRATION_STARTED: 'Registro iniciado',
@@ -228,6 +221,12 @@ const HISTORY_EVENT_LABELS: Record<string, string> = {
   CLASSIFICATION_COMPLETED: 'Classificacao concluida',
   REGISTRATION_UPDATED: 'Registro editado',
   CLASSIFICATION_UPDATED: 'Classificacao editada',
+  SALE_CREATED: 'Venda registrada',
+  SALE_UPDATED: 'Venda editada',
+  SALE_CANCELLED: 'Venda cancelada',
+  LOSS_RECORDED: 'Perda registrada',
+  LOSS_UPDATED: 'Perda editada',
+  LOSS_CANCELLED: 'Perda cancelada',
   COMMERCIAL_STATUS_UPDATED: 'Status comercial atualizado',
   SAMPLE_INVALIDATED: 'Amostra invalidada',
   REPORT_EXPORTED: 'Laudo exportado'
@@ -697,6 +696,33 @@ function buildActiveLabelPrintAttempt(
   };
 }
 
+function mapSampleOwnerClientToSummary(client: SampleDetailResponse['sample']['ownerClient']): ClientSummary | null {
+  if (!client) {
+    return null;
+  }
+
+  return {
+    id: client.id,
+    code: client.code,
+    personType: client.personType,
+    displayName: client.displayName,
+    fullName: client.fullName,
+    legalName: client.legalName,
+    tradeName: client.tradeName,
+    cpf: client.cpf,
+    cnpj: client.cnpj,
+    document: client.personType === 'PF' ? client.cpf : client.cnpj,
+    phone: client.phone,
+    isBuyer: client.isBuyer,
+    isSeller: client.isSeller,
+    status: client.status,
+    registrationCount: 0,
+    activeRegistrationCount: 0,
+    createdAt: null,
+    updatedAt: null
+  };
+}
+
 export default function SampleDetailPage() {
   const { session, loading, logout } = useRequireAuth();
   const params = useParams<{ sampleId: string }>();
@@ -722,6 +748,12 @@ export default function SampleDetailPage() {
   const [exportDestination, setExportDestination] = useState('');
 
   const [owner, setOwner] = useState('');
+  const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
+  const [ownerRegistrations, setOwnerRegistrations] = useState<ClientRegistrationSummary[]>([]);
+  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(null);
+  const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
+  const [ownerQuickCreateOpen, setOwnerQuickCreateOpen] = useState(false);
+  const [ownerQuickCreateSeed, setOwnerQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
@@ -741,9 +773,6 @@ export default function SampleDetailPage() {
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
-  const [pendingCommercialStatus, setPendingCommercialStatus] = useState<CommercialStatus | null>(null);
-  const [commercialReasonText, setCommercialReasonText] = useState('');
-  const [commercialUpdating, setCommercialUpdating] = useState(false);
 
   const [classificationForm, setClassificationForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [classificationStarting, setClassificationStarting] = useState(false);
@@ -794,6 +823,8 @@ export default function SampleDetailPage() {
         });
         setDetail(response);
         setOwner(response.sample.declared.owner ?? '');
+        setSelectedOwnerClient(mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null));
+        setSelectedOwnerRegistrationId(response.sample.ownerRegistrationId ?? null);
         setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
         setHarvest(response.sample.declared.harvest ?? '');
         setOriginLot(response.sample.declared.originLot ?? '');
@@ -822,6 +853,51 @@ export default function SampleDetailPage() {
   const refreshDetail = useCallback(async () => {
     return fetchDetail({ showLoading: false });
   }, [fetchDetail]);
+
+  useEffect(() => {
+    if (!session || !selectedOwnerClient) {
+      setOwnerRegistrations([]);
+      setOwnerRegistrationLoading(false);
+      setSelectedOwnerRegistrationId(null);
+      setOwner(selectedOwnerClient?.displayName ?? detail?.sample.declared.owner ?? '');
+      return;
+    }
+
+    let active = true;
+    setOwnerRegistrationLoading(true);
+    setOwner(selectedOwnerClient.displayName ?? '');
+
+    getClient(session, selectedOwnerClient.id)
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
+        setOwnerRegistrations(activeRegistrations);
+        if (!activeRegistrations.some((registration) => registration.id === selectedOwnerRegistrationId)) {
+          setSelectedOwnerRegistrationId(null);
+        }
+      })
+      .catch((cause) => {
+        if (!active) {
+          return;
+        }
+
+        setOwnerRegistrations([]);
+        setSelectedOwnerRegistrationId(null);
+        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario');
+      })
+      .finally(() => {
+        if (active) {
+          setOwnerRegistrationLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [detail?.sample.declared.owner, selectedOwnerClient, session]);
 
   const loadHistory = useCallback(async () => {
     if (!session || !sampleId) {
@@ -914,8 +990,12 @@ export default function SampleDetailPage() {
     setRevertTargetEventId(null);
     setRevertReasonCode('OTHER');
     setRevertReasonText('');
-    setPendingCommercialStatus(null);
-    setCommercialReasonText('');
+    setSelectedOwnerClient(null);
+    setOwnerRegistrations([]);
+    setSelectedOwnerRegistrationId(null);
+    setOwnerRegistrationLoading(false);
+    setOwnerQuickCreateOpen(false);
+    setOwnerQuickCreateSeed('');
     setClassificationSelectedPhoto(null);
     if (classificationPhotoInputRef.current) {
       classificationPhotoInputRef.current.value = '';
@@ -939,7 +1019,6 @@ export default function SampleDetailPage() {
     [detail]
   );
   const historyRows = useMemo(() => buildHistoryRows(historyEvents), [historyEvents]);
-  const selectedCommercialStatus = pendingCommercialStatus ?? detail?.sample.commercialStatus ?? 'OPEN';
   const sampleHeaderSummary = useMemo(() => {
     if (!detail) {
       return 'Sem dados de registro';
@@ -1252,8 +1331,13 @@ export default function SampleDetailPage() {
     setError(null);
     setMessage(null);
 
+    if (!selectedOwnerClient) {
+      setError('Selecione um cliente proprietario antes de confirmar o registro.');
+      return;
+    }
+
     const parsed = registrationFormSchema.safeParse({
-      owner,
+      owner: selectedOwnerClient.displayName ?? owner,
       sacks,
       harvest,
       originLot
@@ -1268,6 +1352,8 @@ export default function SampleDetailPage() {
     try {
       await confirmRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
+        ownerClientId: selectedOwnerClient.id,
+        ownerRegistrationId: selectedOwnerRegistrationId,
         declared: parsed.data
       });
       setMessage('Registro confirmado com sucesso.');
@@ -1638,59 +1724,6 @@ export default function SampleDetailPage() {
     }
   }
 
-  async function handleUpdateCommercialStatus(targetStatusInput?: CommercialStatus) {
-    if (!session || !detail) {
-      return;
-    }
-
-    const targetStatus = targetStatusInput ?? pendingCommercialStatus;
-    if (!targetStatus) {
-      return;
-    }
-
-    if (detail.sample.status === 'INVALIDATED') {
-      setError('Amostras invalidadas nao podem atualizar status comercial.');
-      return;
-    }
-
-    if (detail.sample.status !== 'CLASSIFIED') {
-      setError('Status comercial so pode ser alterado quando a amostra esta classificada.');
-      return;
-    }
-
-    if (targetStatus === detail.sample.commercialStatus) {
-      setError('Selecione um novo status de mercado para atualizar.');
-      return;
-    }
-
-    const normalizedReason =
-      commercialReasonText.trim() || `Atualizacao rapida para status de mercado: ${COMMERCIAL_STATUS_LABELS[targetStatus]}.`;
-
-    setCommercialUpdating(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await updateCommercialStatus(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        toCommercialStatus: targetStatus,
-        reasonText: normalizedReason
-      });
-      setPendingCommercialStatus(null);
-      setCommercialReasonText('');
-      setMessage(`Status de mercado atualizado para ${COMMERCIAL_STATUS_LABELS[targetStatus]}.`);
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao atualizar status comercial');
-      }
-    } finally {
-      setCommercialUpdating(false);
-    }
-  }
-
   async function handleStartClassification() {
     if (!session || !detail || detail.sample.status !== 'QR_PRINTED') {
       return;
@@ -1833,6 +1866,8 @@ export default function SampleDetailPage() {
     }
 
     setOwner(detail.sample.declared.owner ?? '');
+    setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
+    setSelectedOwnerRegistrationId(detail.sample.ownerRegistrationId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -1851,6 +1886,8 @@ export default function SampleDetailPage() {
     }
 
     setOwner(detail.sample.declared.owner ?? '');
+    setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
+    setSelectedOwnerRegistrationId(detail.sample.ownerRegistrationId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -1891,8 +1928,13 @@ export default function SampleDetailPage() {
       return;
     }
 
+    if (!selectedOwnerClient) {
+      setError('Selecione um cliente proprietario antes de salvar a edicao.');
+      return;
+    }
+
     const parsedForm = registrationFormSchema.safeParse({
-      owner,
+      owner: selectedOwnerClient.displayName ?? owner,
       sacks,
       harvest,
       originLot
@@ -1919,7 +1961,9 @@ export default function SampleDetailPage() {
       await updateRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
         after: {
-          declared: parsedForm.data
+          declared: parsedForm.data,
+          ownerClientId: selectedOwnerClient.id,
+          ownerRegistrationId: selectedOwnerRegistrationId
         },
         reasonCode: parsedReason.data.reasonCode,
         reasonText: parsedReason.data.reasonText
@@ -2224,37 +2268,17 @@ export default function SampleDetailPage() {
               </div>
 
               <div className="sample-detail-market-control">
-                <label className="sample-detail-market-field">
-                  <span>Status de mercado</span>
-                  <select
-                    value={selectedCommercialStatus}
-                    onChange={(event) => {
-                      const nextStatus = event.target.value as CommercialStatus;
-                      setPendingCommercialStatus(nextStatus);
-                      if (detail.sample.status === 'CLASSIFIED' && nextStatus !== detail.sample.commercialStatus) {
-                        void handleUpdateCommercialStatus(nextStatus);
-                      }
-                    }}
-                    disabled={commercialUpdating || detail.sample.status !== 'CLASSIFIED'}
-                  >
-                    {COMMERCIAL_STATUS_SELECT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {commercialUpdating ? <span className="sample-detail-market-saving">Salvando...</span> : null}
+                <p className="sample-commercial-summary-copy" style={{ margin: 0 }}>
+                  Status comercial automatico. Use o bloco de movimentacoes abaixo para registrar vendas, perdas e a perda manual do saldo restante.
+                </p>
               </div>
             </div>
 
             {error ? <p className="error">{error}</p> : null}
             {message ? <p className="success">{message}</p> : null}
-            {detail.sample.status !== 'CLASSIFIED' ? (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>
-                O status de mercado pode ser atualizado quando a amostra estiver classificada.
-              </p>
-            ) : null}
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              A acao manual de perda total do saldo restante so fica disponivel quando a amostra estiver classificada.
+            </p>
 
           </section>
 
@@ -2315,14 +2339,46 @@ export default function SampleDetailPage() {
                 <div className="sample-detail-main-fact">
                   <span>Proprietario</span>
                   {registrationEditMode ? (
-                    <input
-                      className="sample-detail-inline-input"
-                      value={owner}
-                      onChange={(event) => setOwner(event.target.value)}
-                      disabled={!registrationReasonConfirmed || registrationUpdating}
-                    />
+                    <div className="sample-detail-lookup-slot">
+                      <ClientLookupField
+                        session={session}
+                        label="Cliente proprietario"
+                        kind="owner"
+                        selectedClient={selectedOwnerClient}
+                        disabled={!registrationReasonConfirmed || registrationUpdating}
+                        onSelectClient={(client) => {
+                          setSelectedOwnerClient(client);
+                          setOwner(client?.displayName ?? '');
+                          setSelectedOwnerRegistrationId(null);
+                          setError(null);
+                        }}
+                        onRequestCreate={(searchTerm) => {
+                          setOwnerQuickCreateSeed(searchTerm);
+                          setOwnerQuickCreateOpen(true);
+                        }}
+                        createLabel="Cadastrar proprietario"
+                      />
+                    </div>
                   ) : (
                     <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
+                  )}
+                </div>
+                <div className="sample-detail-main-fact">
+                  <span>Inscricao do proprietario</span>
+                  {registrationEditMode ? (
+                    <div className="sample-detail-lookup-slot">
+                      <ClientRegistrationSelect
+                        label="Inscricao"
+                        registrations={ownerRegistrations}
+                        value={selectedOwnerRegistrationId}
+                        disabled={!selectedOwnerClient || ownerRegistrationLoading || !registrationReasonConfirmed || registrationUpdating}
+                        onChange={setSelectedOwnerRegistrationId}
+                      />
+                    </div>
+                  ) : (
+                    <strong className="sample-detail-inline-value">
+                      {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
+                    </strong>
                   )}
                 </div>
                 <div className="sample-detail-main-fact">
@@ -2437,6 +2493,16 @@ export default function SampleDetailPage() {
               </div>
             </aside>
           </section>
+
+          <SampleMovementsPanel
+            session={session}
+            sampleId={sampleId}
+            sample={detail.sample}
+            movements={detail.movements ?? []}
+            onRefresh={async () => {
+              await syncDetailState({ refreshHistory: true });
+            }}
+          />
 
           {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
             <section className="panel stack">
@@ -2563,10 +2629,31 @@ export default function SampleDetailPage() {
                       void handleConfirmRegistration();
                     }}
                   >
-                    <label>
-                      Proprietario
-                      <input value={owner} onChange={(event) => setOwner(event.target.value)} />
-                    </label>
+                    <ClientLookupField
+                      session={session}
+                      label="Proprietario"
+                      kind="owner"
+                      selectedClient={selectedOwnerClient}
+                      onSelectClient={(client) => {
+                        setSelectedOwnerClient(client);
+                        setOwner(client?.displayName ?? '');
+                        setSelectedOwnerRegistrationId(null);
+                        setError(null);
+                      }}
+                      onRequestCreate={(searchTerm) => {
+                        setOwnerQuickCreateSeed(searchTerm);
+                        setOwnerQuickCreateOpen(true);
+                      }}
+                      createLabel="Cadastrar proprietario"
+                    />
+
+                    <ClientRegistrationSelect
+                      label="Inscricao do proprietario (opcional)"
+                      registrations={ownerRegistrations}
+                      value={selectedOwnerRegistrationId}
+                      disabled={!selectedOwnerClient || ownerRegistrationLoading || confirming}
+                      onChange={setSelectedOwnerRegistrationId}
+                    />
 
                     <label>
                       Sacas
@@ -3265,6 +3352,25 @@ export default function SampleDetailPage() {
           </section>
         </div>
       ) : null}
+
+      <ClientQuickCreateModal
+        session={session}
+        open={ownerQuickCreateOpen}
+        title="Cadastro rapido de proprietario"
+        description="Crie o cliente do proprietario sem sair do fluxo da amostra."
+        initialSearch={ownerQuickCreateSeed}
+        initialPersonType="PJ"
+        initialIsSeller
+        initialIsBuyer={false}
+        onClose={() => setOwnerQuickCreateOpen(false)}
+        onCreated={(client) => {
+          setOwnerQuickCreateOpen(false);
+          setSelectedOwnerClient(client);
+          setOwner(client.displayName ?? '');
+          setSelectedOwnerRegistrationId(null);
+          setMessage('Cliente proprietario criado e selecionado com sucesso.');
+        }}
+      />
 
       {classificationEditReasonModalOpen ? (
         <div

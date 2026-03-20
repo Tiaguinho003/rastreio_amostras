@@ -16,6 +16,10 @@ import {
   qrReprintRequestedEvent,
   qrPrintFailedEvent,
   qrPrintedEvent,
+  saleCreatedEvent,
+  saleUpdatedEvent,
+  lossRecordedEvent,
+  lossCancelledEvent,
   reportExportedEvent,
   commercialStatusUpdatedEvent,
   sampleInvalidatedEvent
@@ -33,7 +37,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -105,6 +109,65 @@ if (!databaseUrl || !databaseReachable) {
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
     assert.equal(count, 3);
+  });
+
+  test('projects structured owner binding into sample snapshot', async () => {
+    const sampleId = randomUUID();
+    const clientId = randomUUID();
+    const registrationId = randomUUID();
+
+    await prisma.client.create({
+      data: {
+        id: clientId,
+        personType: 'PJ',
+        legalName: 'Atlantica Exportacao e Importacao S/A',
+        tradeName: 'Atlantica Exportacao e Importacao S/A',
+        cnpj: '03936815000175',
+        documentCanonical: '03936815000175',
+        isBuyer: true,
+        isSeller: true,
+        status: 'ACTIVE'
+      }
+    });
+
+    await prisma.clientRegistration.create({
+      data: {
+        id: registrationId,
+        clientId,
+        status: 'ACTIVE',
+        registrationNumber: '3940945840042',
+        registrationNumberCanonical: '3940945840042',
+        registrationType: 'estadual',
+        addressLine: 'Av. Princesa do Sul, 1885',
+        district: 'Rezende',
+        city: 'Varginha',
+        state: 'MG',
+        postalCode: '37062-447'
+      }
+    });
+
+    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(
+      registrationConfirmedEvent(sampleId, {
+        payload: {
+          ownerClientId: clientId,
+          ownerRegistrationId: registrationId,
+          declared: {
+            owner: 'Atlantica Exportacao e Importacao S/A',
+            sacks: 10,
+            harvest: '24/25',
+            originLot: 'LOTE-ORIGEM-001'
+          }
+        }
+      }),
+      { expectedVersion: 2 }
+    );
+
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sample.ownerClientId, clientId);
+    assert.equal(sample.ownerRegistrationId, registrationId);
+    assert.equal(sample.declaredOwner, 'Atlantica Exportacao e Importacao S/A');
   });
 
   test('print attempt uniqueness returns existing event by sample/action/attempt', async () => {
@@ -437,6 +500,184 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(beforeUpdate.commercialStatus, 'OPEN');
     assert.equal(afterUpdate.commercialStatus, 'SOLD');
     assert.equal(afterUpdate.version, beforeUpdate.version + 1);
+  });
+
+  test('materializes sale/loss events into sample_movement and commercial projection', async () => {
+    const sampleId = randomUUID();
+    const buyerClientId = randomUUID();
+    const updatedBuyerClientId = randomUUID();
+    const classificationPhotoId = randomUUID();
+
+    await prisma.client.create({
+      data: {
+        id: buyerClientId,
+        personType: 'PJ',
+        legalName: 'Comprador Inicial LTDA',
+        tradeName: 'Comprador Inicial LTDA',
+        cnpj: '10101010000110',
+        documentCanonical: '10101010000110',
+        isBuyer: true,
+        isSeller: false,
+        status: 'ACTIVE'
+      }
+    });
+
+    await prisma.client.create({
+      data: {
+        id: updatedBuyerClientId,
+        personType: 'PJ',
+        legalName: 'Comprador Atualizado LTDA',
+        tradeName: 'Comprador Atualizado LTDA',
+        cnpj: '20202020000120',
+        documentCanonical: '20202020000120',
+        isBuyer: true,
+        isSeller: false,
+        status: 'ACTIVE'
+      }
+    });
+
+    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+    await service.appendEvent(
+      buildEvent({
+        eventType: 'CLASSIFICATION_STARTED',
+        sampleId,
+        fromStatus: 'QR_PRINTED',
+        toStatus: 'CLASSIFICATION_IN_PROGRESS',
+        payload: {},
+        module: 'classification'
+      }),
+      { expectedVersion: 5 }
+    );
+    await service.appendEvent(
+      photoAddedEvent(sampleId, {
+        payload: {
+          attachmentId: classificationPhotoId,
+          kind: 'CLASSIFICATION_PHOTO',
+          storagePath: `samples/${sampleId}/classification/foto.png`,
+          fileName: 'foto.png',
+          mimeType: 'image/png',
+          sizeBytes: 1024,
+          checksumSha256: null
+        }
+      })
+    );
+    await service.appendEvent(
+      buildEvent({
+        eventType: 'CLASSIFICATION_COMPLETED',
+        sampleId,
+        fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+        toStatus: 'CLASSIFIED',
+        payload: {
+          classificationPhotoId
+        },
+        module: 'classification',
+        idempotencyScope: 'CLASSIFICATION_COMPLETE',
+        idempotencyKey: randomUUID()
+      }),
+      { expectedVersion: 6 }
+    );
+
+    const saleCreated = await service.appendEvent(
+      saleCreatedEvent(sampleId, {
+        payload: {
+          buyerClientId,
+          buyerClientSnapshot: {
+            id: buyerClientId,
+            displayName: 'Comprador Inicial LTDA'
+          }
+        }
+      }),
+      { expectedVersion: 7 }
+    );
+    const saleMovement = await prisma.sampleMovement.findUnique({
+      where: { id: saleCreated.event.payload.movementId }
+    });
+    assert.equal(saleMovement.movementType, 'SALE');
+    assert.equal(saleMovement.quantitySacks, 5);
+
+    const sampleAfterSale = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sampleAfterSale.soldSacks, 5);
+    assert.equal(sampleAfterSale.commercialStatus, 'PARTIALLY_SOLD');
+
+    await service.appendEvent(
+      saleUpdatedEvent(sampleId, {
+        payload: {
+          movementId: saleCreated.event.payload.movementId,
+          before: {
+            movementType: 'SALE',
+            buyerClientId,
+            buyerRegistrationId: null,
+            quantitySacks: 5,
+            movementDate: '2026-03-19',
+            notes: 'venda parcial',
+            lossReasonText: null,
+            buyerClientSnapshot: {
+              id: buyerClientId,
+              displayName: 'Comprador Inicial LTDA'
+            },
+            buyerRegistrationSnapshot: null,
+            status: 'ACTIVE'
+          },
+          after: {
+            movementType: 'SALE',
+            buyerClientId: updatedBuyerClientId,
+            buyerRegistrationId: null,
+            quantitySacks: 6,
+            movementDate: '2026-03-20',
+            notes: 'venda editada',
+            lossReasonText: null,
+            buyerClientSnapshot: {
+              id: updatedBuyerClientId,
+              displayName: 'Comprador Atualizado LTDA'
+            },
+            buyerRegistrationSnapshot: null,
+            status: 'ACTIVE'
+          }
+        }
+      }),
+      { expectedVersion: 8 }
+    );
+
+    const updatedSaleMovement = await prisma.sampleMovement.findUnique({
+      where: { id: saleCreated.event.payload.movementId }
+    });
+    assert.equal(updatedSaleMovement.quantitySacks, 6);
+
+    const lossCreated = await service.appendEvent(
+      lossRecordedEvent(sampleId, {
+        payload: {
+          soldSacks: 6,
+          lostSacks: 3,
+          availableSacks: 1,
+          commercialStatus: 'PARTIALLY_SOLD'
+        }
+      }),
+      { expectedVersion: 9 }
+    );
+    const sampleAfterLoss = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sampleAfterLoss.lostSacks, 3);
+    assert.equal(sampleAfterLoss.commercialStatus, 'PARTIALLY_SOLD');
+
+    await service.appendEvent(
+      lossCancelledEvent(sampleId, {
+        payload: {
+          movementId: lossCreated.event.payload.movementId
+        }
+      }),
+      { expectedVersion: 10 }
+    );
+
+    const cancelledLossMovement = await prisma.sampleMovement.findUnique({
+      where: { id: lossCreated.event.payload.movementId }
+    });
+    assert.equal(cancelledLossMovement.status, 'CANCELLED');
+
+    const sampleAfterLossCancel = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sampleAfterLossCancel.lostSacks, 0);
   });
 }
 

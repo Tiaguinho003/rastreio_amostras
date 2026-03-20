@@ -63,6 +63,12 @@ enum SampleEventType {
   CLASSIFICATION_COMPLETED
   REGISTRATION_UPDATED
   CLASSIFICATION_UPDATED
+  SALE_CREATED
+  SALE_UPDATED
+  SALE_CANCELLED
+  LOSS_RECORDED
+  LOSS_UPDATED
+  LOSS_CANCELLED
   COMMERCIAL_STATUS_UPDATED
   SAMPLE_INVALIDATED
   REPORT_EXPORTED
@@ -70,8 +76,45 @@ enum SampleEventType {
 
 enum CommercialStatus {
   OPEN
+  PARTIALLY_SOLD
   SOLD
   LOST
+}
+
+enum ClientPersonType {
+  PF
+  PJ
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ClientRegistrationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SampleMovementType {
+  SALE
+  LOSS
+}
+
+enum SampleMovementStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum ClientAuditEventType {
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  CLIENT_INACTIVATED
+  CLIENT_REACTIVATED
+  CLIENT_REGISTRATION_CREATED
+  CLIENT_REGISTRATION_UPDATED
+  CLIENT_REGISTRATION_INACTIVATED
+  CLIENT_REGISTRATION_REACTIVATED
 }
 
 enum AttachmentKind {
@@ -146,10 +189,14 @@ model Sample {
   commercialStatus            CommercialStatus @default(OPEN) @map("commercial_status")
   version                     Int       @default(0)
   lastEventSequence           Int       @default(0) @map("last_event_sequence")
+  ownerClientId               String?   @db.Uuid @map("owner_client_id")
+  ownerRegistrationId         String?   @db.Uuid @map("owner_registration_id")
   declaredOwner               String?   @map("declared_owner")
   declaredSacks               Int?      @map("declared_sacks")
   declaredHarvest             String?   @map("declared_harvest")
   declaredOriginLot           String?   @map("declared_origin_lot")
+  soldSacks                   Int       @default(0) @map("sold_sacks")
+  lostSacks                   Int       @default(0) @map("lost_sacks")
   labelPhotoCount             Int       @default(0) @map("label_photo_count")
   latestClassificationVersion Int?      @map("latest_classification_version")
   latestClassificationData    Json?     @map("latest_classification_data")
@@ -165,9 +212,12 @@ model Sample {
   updatedAt                   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
   createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
 
-  events      SampleEvent[]
-  attachments SampleAttachment[]
-  printJobs   PrintJob[]
+  ownerClient       Client?             @relation("SampleOwnerClient", fields: [ownerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ownerRegistration ClientRegistration? @relation("SampleOwnerRegistration", fields: [ownerRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events            SampleEvent[]
+  attachments       SampleAttachment[]
+  printJobs         PrintJob[]
+  movements         SampleMovement[]
 
   @@index([status], map: "idx_sample_status")
   @@index([commercialStatus], map: "idx_sample_commercial_status")
@@ -176,6 +226,8 @@ model Sample {
   @@index([declaredOwner], map: "idx_sample_declared_owner")
   @@index([declaredHarvest], map: "idx_sample_declared_harvest")
   @@index([createdAt], map: "idx_sample_created_at")
+  @@index([ownerClientId], map: "idx_sample_owner_client")
+  @@index([ownerRegistrationId], map: "idx_sample_owner_registration")
   @@map("sample")
 }
 
@@ -275,11 +327,122 @@ model User {
   emailChangeRequests   EmailChangeRequest[]
   auditEventsAsTarget   UserAuditEvent[] @relation("UserAuditTarget")
   auditEventsAsActor    UserAuditEvent[] @relation("UserAuditActor")
+  clientAuditEventsAsActor ClientAuditEvent[] @relation("ClientAuditActor")
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
   @@index([createdAt, id], map: "idx_user_created_id")
   @@map("app_user")
+}
+
+model Client {
+  id                String            @id @db.Uuid
+  code              Int               @unique(map: "uq_client_code") @default(autoincrement())
+  personType        ClientPersonType  @map("person_type")
+  fullName          String?           @map("full_name")
+  legalName         String?           @map("legal_name")
+  tradeName         String?           @map("trade_name")
+  cpf               String?
+  cnpj              String?
+  documentCanonical String            @unique(map: "uq_client_document_canonical") @map("document_canonical")
+  phone             String?
+  isBuyer           Boolean           @default(false) @map("is_buyer")
+  isSeller          Boolean           @default(false) @map("is_seller")
+  status            ClientStatus      @default(ACTIVE)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  registrations       ClientRegistration[]
+  ownedSamples        Sample[]           @relation("SampleOwnerClient")
+  buyerMovements      SampleMovement[]   @relation("SampleMovementBuyerClient")
+  auditEventsAsTarget ClientAuditEvent[] @relation("ClientAuditTarget")
+
+  @@index([status, code], map: "idx_client_status_code")
+  @@index([createdAt, id], map: "idx_client_created_id")
+  @@map("client")
+}
+
+model ClientRegistration {
+  id                         String                   @id @db.Uuid
+  clientId                   String                   @db.Uuid @map("client_id")
+  status                     ClientRegistrationStatus @default(ACTIVE)
+  registrationNumber         String                   @map("registration_number")
+  registrationNumberCanonical String                  @unique(map: "uq_client_registration_number_canonical") @map("registration_number_canonical")
+  registrationType           String                   @map("registration_type")
+  addressLine                String                   @map("address_line")
+  district                   String
+  city                       String
+  state                      String                   @db.VarChar(2)
+  postalCode                 String                   @map("postal_code")
+  complement                 String?
+  createdAt                  DateTime                 @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt                  DateTime                 @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  client                      Client             @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ownerSamples                Sample[]           @relation("SampleOwnerRegistration")
+  buyerMovements              SampleMovement[]   @relation("SampleMovementBuyerRegistration")
+  auditEventsAsTarget         ClientAuditEvent[] @relation("ClientAuditTargetRegistration")
+
+  @@unique([id, clientId], map: "uq_client_registration_id_client")
+  @@index([clientId, status, createdAt], map: "idx_client_registration_client_status_created")
+  @@map("client_registration")
+}
+
+model ClientAuditEvent {
+  eventId              String               @id @db.Uuid @map("event_id")
+  targetClientId       String?              @db.Uuid @map("target_client_id")
+  targetRegistrationId String?              @db.Uuid @map("target_registration_id")
+  actorUserId          String?              @db.Uuid @map("actor_user_id")
+  eventType            ClientAuditEventType @map("event_type")
+  payload              Json
+  reasonText           String?              @map("reason_text")
+  requestId            String               @map("request_id")
+  correlationId        String?              @map("correlation_id")
+  metadataIp           String?              @map("metadata_ip")
+  metadataUserAgent    String?              @map("metadata_user_agent")
+  createdAt            DateTime             @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  targetClient       Client?             @relation("ClientAuditTarget", fields: [targetClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  targetRegistration ClientRegistration? @relation("ClientAuditTargetRegistration", fields: [targetRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actorUser          User?               @relation("ClientAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([targetClientId, createdAt], map: "idx_client_audit_target_created")
+  @@index([targetRegistrationId, createdAt], map: "idx_client_audit_registration_created")
+  @@index([actorUserId, createdAt], map: "idx_client_audit_actor_created")
+  @@index([eventType, createdAt], map: "idx_client_audit_event_type_created")
+  @@index([createdAt], map: "idx_client_audit_created")
+  @@map("client_audit_event")
+}
+
+model SampleMovement {
+  id                       String               @id @db.Uuid
+  sampleId                 String               @db.Uuid @map("sample_id")
+  movementType             SampleMovementType   @map("movement_type")
+  status                   SampleMovementStatus @default(ACTIVE)
+  buyerClientId            String?              @db.Uuid @map("buyer_client_id")
+  buyerRegistrationId      String?              @db.Uuid @map("buyer_registration_id")
+  quantitySacks            Int                  @map("quantity_sacks")
+  movementDate             DateTime             @db.Date @map("movement_date")
+  notes                    String?
+  reasonText               String?              @map("reason_text")
+  buyerClientSnapshot      Json?                @map("buyer_client_snapshot")
+  buyerRegistrationSnapshot Json?               @map("buyer_registration_snapshot")
+  version                  Int                  @default(0)
+  cancelledAt              DateTime?            @db.Timestamptz(6) @map("cancelled_at")
+  createdAt                DateTime             @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt                DateTime             @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  sample            Sample              @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  buyerClient       Client?             @relation("SampleMovementBuyerClient", fields: [buyerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  buyerRegistration ClientRegistration? @relation("SampleMovementBuyerRegistration", fields: [buyerRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([sampleId, status, movementDate, id], map: "idx_sample_movement_sample_status_date_id")
+  @@index([sampleId, movementType, status, movementDate, id], map: "idx_sample_movement_sample_type_status_date_id")
+  @@index([buyerClientId, movementType, status, movementDate, id], map: "idx_sample_movement_buyer_type_status_date_id")
+  @@index([sampleId, status, createdAt, id], map: "idx_sample_movement_sample_status_created_id")
+  @@index([sampleId, movementType, status, createdAt, id], map: "idx_sample_movement_sample_type_status_created_id")
+  @@index([buyerClientId, movementType, status, createdAt, id], map: "idx_sample_movement_buyer_type_status_created_id")
+  @@map("sample_movement")
 }
 
 model UserSession {

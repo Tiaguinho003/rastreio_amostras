@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
       const body = {
         clientDraftId: formData.get('clientDraftId'),
         owner: formData.get('owner'),
+        ownerClientId: formData.get('ownerClientId'),
+        ownerRegistrationId: formData.get('ownerRegistrationId'),
         sacks: formData.get('sacks'),
         harvest: formData.get('harvest'),
         originLot: formData.get('originLot'),

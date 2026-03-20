@@ -32,12 +32,16 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 
 1. `docs/Checklist-Servidor-OnPrem.md`
    Uso: checklist operacional para preparar uma instalacao `internal-production`.
-2. `docs/Teste-Mobile-Camera-Local.md`
+2. `docs/Checklist-Homologacao-Cloud-Run.md`
+   Uso: checklist operacional de pre-push, deploy e aceite funcional para `cloud-homolog` no Cloud Run.
+3. `docs/Teste-Mobile-Camera-Local.md`
    Uso: validar camera mobile em desenvolvimento local com HTTPS.
-3. `docs/schemas/events/v1/README.md`
+4. `docs/schemas/events/v1/README.md`
    Uso: navegar pelos schemas JSON do contrato de eventos.
-4. `scripts/gcp/README.md`
+5. `scripts/gcp/README.md`
    Uso: localizar os wrappers operacionais da homologacao Google Cloud.
+6. `docs/Conferencia-Fases-1a4.md`
+   Uso: checklist oficial de conferencia das fases 1 a 4 com banco, contratos, backend e regressao.
 
 ## Regras de manutencao
 

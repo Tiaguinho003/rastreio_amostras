@@ -31,6 +31,12 @@
         "CLASSIFICATION_COMPLETED",
         "REGISTRATION_UPDATED",
         "CLASSIFICATION_UPDATED",
+        "SALE_CREATED",
+        "SALE_UPDATED",
+        "SALE_CANCELLED",
+        "LOSS_RECORDED",
+        "LOSS_UPDATED",
+        "LOSS_CANCELLED",
         "COMMERCIAL_STATUS_UPDATED",
         "SAMPLE_INVALIDATED",
         "REPORT_EXPORTED"
@@ -74,7 +80,7 @@
     },
     "commercialStatus": {
       "type": "string",
-      "enum": ["OPEN", "SOLD", "LOST"]
+      "enum": ["OPEN", "PARTIALLY_SOLD", "SOLD", "LOST"]
     },
     "printAction": {
       "type": "string",

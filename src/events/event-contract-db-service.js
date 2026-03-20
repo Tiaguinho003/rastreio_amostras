@@ -12,6 +12,12 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
+  'SALE_CREATED',
+  'SALE_UPDATED',
+  'SALE_CANCELLED',
+  'LOSS_RECORDED',
+  'LOSS_UPDATED',
+  'LOSS_CANCELLED',
   'COMMERCIAL_STATUS_UPDATED',
   'CLASSIFICATION_UPDATED'
 ]);
@@ -240,6 +246,12 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const labelPhotos = Array.isArray(event.payload.labelPhotos) ? event.payload.labelPhotos : [];
 
     updateData.internalLotNumber = event.payload.sampleLotNumber;
+    if (hasOwn(event.payload, 'ownerClientId')) {
+      updateData.ownerClientId = event.payload.ownerClientId ?? null;
+      updateData.ownerRegistrationId = hasOwn(event.payload, 'ownerRegistrationId')
+        ? event.payload.ownerRegistrationId ?? null
+        : null;
+    }
     updateData.declaredOwner = event.payload.declared.owner;
     updateData.declaredSacks = event.payload.declared.sacks;
     updateData.declaredHarvest = event.payload.declared.harvest;
@@ -251,6 +263,9 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const after = event.payload.after ?? {};
     const declaredAfter = after.declared ?? {};
 
+    if (hasOwn(after, 'ownerClientId')) updateData.ownerClientId = after.ownerClientId;
+    if (hasOwn(after, 'ownerRegistrationId')) updateData.ownerRegistrationId = after.ownerRegistrationId;
+
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;
     if (hasOwn(after, 'sacks')) updateData.declaredSacks = after.sacks;
     if (hasOwn(after, 'harvest')) updateData.declaredHarvest = after.harvest;
@@ -260,6 +275,10 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(declaredAfter, 'sacks')) updateData.declaredSacks = declaredAfter.sacks;
     if (hasOwn(declaredAfter, 'harvest')) updateData.declaredHarvest = declaredAfter.harvest;
     if (hasOwn(declaredAfter, 'originLot')) updateData.declaredOriginLot = declaredAfter.originLot;
+
+    if (hasOwn(after, 'soldSacks')) updateData.soldSacks = after.soldSacks;
+    if (hasOwn(after, 'lostSacks')) updateData.lostSacks = after.lostSacks;
+    if (hasOwn(after, 'commercialStatus')) updateData.commercialStatus = after.commercialStatus;
   }
 
   if (event.eventType === 'CLASSIFICATION_SAVED_PARTIAL') {
@@ -298,6 +317,25 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
 
   if (event.eventType === 'COMMERCIAL_STATUS_UPDATED') {
     updateData.commercialStatus = event.payload.toCommercialStatus;
+  }
+
+  if (
+    event.eventType === 'SALE_CREATED' ||
+    event.eventType === 'SALE_UPDATED' ||
+    event.eventType === 'SALE_CANCELLED' ||
+    event.eventType === 'LOSS_RECORDED' ||
+    event.eventType === 'LOSS_UPDATED' ||
+    event.eventType === 'LOSS_CANCELLED'
+  ) {
+    if (hasOwn(event.payload, 'soldSacks')) {
+      updateData.soldSacks = event.payload.soldSacks;
+    }
+    if (hasOwn(event.payload, 'lostSacks')) {
+      updateData.lostSacks = event.payload.lostSacks;
+    }
+    if (hasOwn(event.payload, 'commercialStatus')) {
+      updateData.commercialStatus = event.payload.commercialStatus;
+    }
   }
 
   return updateData;
@@ -409,6 +447,24 @@ export class EventContractDbService {
 
         if (event.eventType === 'PHOTO_ADDED') {
           await tx.createAttachmentFromEvent(event);
+        }
+
+        if (event.eventType === 'SALE_CREATED' || event.eventType === 'LOSS_RECORDED') {
+          await tx.createSampleMovementFromEvent(event);
+        }
+
+        if (event.eventType === 'SALE_UPDATED' || event.eventType === 'LOSS_UPDATED') {
+          const updatedMovement = await tx.updateSampleMovementFromEvent(event);
+          if (!updatedMovement) {
+            throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
+          }
+        }
+
+        if (event.eventType === 'SALE_CANCELLED' || event.eventType === 'LOSS_CANCELLED') {
+          const cancelledMovement = await tx.cancelSampleMovementFromEvent(event);
+          if (!cancelledMovement) {
+            throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
+          }
         }
 
         if (simulateFailureAfterSampleMutation) {
