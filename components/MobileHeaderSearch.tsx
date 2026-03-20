@@ -114,8 +114,8 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
     }
 
     if (!open) {
-      measureAvailableWidth();
       setError(null);
+      measureAvailableWidth();
       onOpenChange(true);
       return;
     }

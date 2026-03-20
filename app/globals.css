@@ -4329,7 +4329,7 @@ button:disabled {
     inset: 0 0 auto;
     z-index: 50;
     border-bottom: 0;
-    border-radius: 0;
+    border-radius: 0 0 20px 20px;
     background: var(--mobile-edge-fill);
     box-shadow: 0 4px 12px rgba(7, 18, 13, 0.08);
   }
@@ -4621,29 +4621,17 @@ button:disabled {
 
   .app-shell-main {
     position: relative;
-    z-index: 55;
+    z-index: 0;
     min-height: 100dvh;
     width: 100%;
-    background: transparent;
+    background: var(--mobile-page-bg);
     padding:
-      calc(env(safe-area-inset-top) + 6.55rem)
+      calc(env(safe-area-inset-top) + 6.1rem)
       0.5rem
       calc(env(safe-area-inset-bottom) + 6.95rem);
     margin: 0;
     box-sizing: border-box;
     overflow: hidden;
-  }
-
-  .app-shell-main::before {
-    content: '';
-    position: absolute;
-    top: calc(env(safe-area-inset-top) + 4.45rem);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 44px 44px 0 0;
-    background: var(--mobile-page-bg);
-    z-index: -1;
   }
 
   .app-shell-password-banner {
