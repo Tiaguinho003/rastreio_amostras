@@ -22,7 +22,7 @@ interface OperationModalData {
   items: SampleSnapshot[];
 }
 
-const DASHBOARD_LATEST_LIMIT = 5;
+const DASHBOARD_LATEST_LIMIT = 10;
 const DASHBOARD_MODAL_VISIBLE_ITEMS = 3;
 
 function renderMainSampleValue(value: string | number | null) {

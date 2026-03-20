@@ -78,10 +78,9 @@ function renderNavIcon(icon: NavIcon) {
   if (icon === 'dashboard') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M4.5 5.5h6.5v5.8H4.5Z" />
-        <path d="M13 5.5h6.5v9.1H13Z" />
-        <path d="M4.5 13.3h6.5v5.2H4.5Z" />
-        <path d="M13 16h6.5v2.5H13Z" />
+        <path d="M4.8 10.2 12 4.8l7.2 5.4" />
+        <path d="M6.6 9.6V19h10.8V9.6" />
+        <path d="M10.2 19v-5.2h3.6V19" />
       </svg>
     );
   }
@@ -477,10 +476,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 className={`mobile-tabbar-link${item.emphasis === 'primary' ? ' is-primary' : ''}${active ? ' is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
               >
-                <span className="mobile-tabbar-icon" aria-hidden="true">
-                  {renderNavIcon(item.icon)}
+                <span className="mobile-tabbar-pill">
+                  <span className="mobile-tabbar-icon" aria-hidden="true">
+                    {renderNavIcon(item.icon)}
+                  </span>
+                  <span className="mobile-tabbar-label">{item.mobileLabel}</span>
                 </span>
-                <span className="mobile-tabbar-label">{item.mobileLabel}</span>
               </Link>
             );
           })}
