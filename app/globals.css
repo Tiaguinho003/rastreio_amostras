@@ -47,8 +47,7 @@ body {
 }
 
 .mobile-edge-shell-auth {
-  --mobile-edge-fill:
-    linear-gradient(180deg, rgba(31, 93, 67, 0.98) 0%, rgba(23, 60, 48, 0.99) 100%);
+  --mobile-edge-fill: #1f5d43;
   --mobile-page-bg: var(--mobile-page-bg-base);
 }
 
@@ -4292,9 +4291,9 @@ button:disabled {
     inset: 0 0 auto;
     z-index: 50;
     border-bottom: 0;
-    border-radius: 0 0 28px 28px;
+    border-radius: 0;
     background: var(--mobile-edge-fill);
-    box-shadow: 0 16px 28px rgba(7, 18, 13, 0.24);
+    box-shadow: 0 4px 12px rgba(7, 18, 13, 0.08);
   }
 
   .topbar-inner {
@@ -4583,15 +4582,30 @@ button:disabled {
   }
 
   .app-shell-main {
+    position: relative;
+    z-index: 55;
     min-height: 100dvh;
     width: 100%;
-    background: var(--mobile-page-bg);
+    background: transparent;
     padding:
-      calc(env(safe-area-inset-top) + 5.85rem)
+      calc(env(safe-area-inset-top) + 6.55rem)
       0.5rem
       calc(env(safe-area-inset-bottom) + 6.95rem);
     margin: 0;
     box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .app-shell-main::before {
+    content: '';
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 4.45rem);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 44px 44px 0 0;
+    background: var(--mobile-page-bg);
+    z-index: -1;
   }
 
   .app-shell-password-banner {
@@ -4615,7 +4629,7 @@ button:disabled {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 45;
+    z-index: 70;
     padding: 0;
     background: transparent;
     box-shadow: none;
@@ -4829,14 +4843,23 @@ button:disabled {
   .dashboard-secondary-grid {
     gap: 0.6rem;
     min-height: 0;
+    margin-top: 0.55rem;
   }
 
   .dashboard-latest-registration-scroll {
     flex: 1;
     min-height: 0;
-    max-height: none;
-    overflow: hidden;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-right: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-latest-registration-scroll::-webkit-scrollbar {
+    display: none;
   }
 
   .dashboard-latest-registration-list {
@@ -4915,7 +4938,7 @@ button:disabled {
   .dashboard-page {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 0.55rem;
+    gap: 1rem;
     height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12.8rem);
     overflow: hidden;
   }
@@ -4925,7 +4948,13 @@ button:disabled {
   }
 
   .dashboard-section-column-wide {
+    grid-template-rows: auto minmax(0, 1fr);
     min-height: 0;
+  }
+
+  .dashboard-secondary-panel-wide {
+    min-height: 0;
+    height: 100%;
   }
 
   .dashboard-secondary-panel {
