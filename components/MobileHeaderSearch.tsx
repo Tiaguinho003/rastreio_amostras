@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, resolveSampleByQr } from '../lib/api-client';
@@ -15,9 +15,9 @@ interface MobileHeaderSearchProps {
 
 export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeaderSearchProps) {
   const router = useRouter();
-  const panelId = useId();
+  const titleId = useId();
+  const descriptionId = useId();
   const inputId = useId();
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
@@ -25,27 +25,9 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
-  const [panelWidth, setPanelWidth] = useState<number | null>(null);
 
   const normalizedQuery = query.trim();
-  const canSubmit = open && normalizedQuery.length > 0 && !submitting;
-
-  function measureAvailableWidth() {
-    if (!triggerRef.current) {
-      return;
-    }
-
-    const logoElement = document.querySelector('.topbar-logo-slot');
-    if (!(logoElement instanceof HTMLElement)) {
-      setPanelWidth(null);
-      return;
-    }
-
-    const logoRect = logoElement.getBoundingClientRect();
-    const triggerRect = triggerRef.current.getBoundingClientRect();
-    const nextWidth = Math.max(0, Math.floor(triggerRect.left - logoRect.right - 12));
-    setPanelWidth(nextWidth);
-  }
+  const canSubmit = normalizedQuery.length > 0 && !submitting;
 
   function closeSearch(options?: { returnFocus?: boolean }) {
     if (submitting) {
@@ -53,7 +35,10 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
     }
 
     onOpenChange(false);
-    if (options?.returnFocus) {
+    setError(null);
+    setQuery('');
+
+    if (options?.returnFocus ?? true) {
       window.setTimeout(() => {
         triggerRef.current?.focus();
       }, 0);
@@ -62,30 +47,15 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
 
   useEffect(() => {
     if (!open) {
-      setQuery('');
-      setError(null);
-      setPanelWidth(null);
       return;
     }
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const focusTimeout = window.setTimeout(() => {
       inputRef.current?.focus();
-    }, 120);
-
-    const onWindowResize = () => {
-      measureAvailableWidth();
-    };
-
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (!containerRef.current?.contains(target)) {
-        closeSearch();
-      }
-    };
+    }, 80);
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
@@ -96,33 +66,14 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
       closeSearch({ returnFocus: true });
     };
 
-    window.addEventListener('resize', onWindowResize);
-    document.addEventListener('mousedown', onDocumentMouseDown);
     document.addEventListener('keydown', onDocumentKeyDown);
 
     return () => {
       window.clearTimeout(focusTimeout);
-      window.removeEventListener('resize', onWindowResize);
-      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onDocumentKeyDown);
     };
   }, [open, submitting]);
-
-  function handleTriggerClick() {
-    if (canSubmit) {
-      return;
-    }
-
-    if (!open) {
-      setError(null);
-      measureAvailableWidth();
-      onOpenChange(true);
-      return;
-    }
-
-    setError(null);
-    inputRef.current?.focus();
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -140,6 +91,7 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
       setResult(resolved);
       onOpenChange(false);
       setResultModalOpen(true);
+      setQuery('');
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -153,7 +105,7 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
 
   function handleSearchAgain() {
     setResultModalOpen(false);
-    measureAvailableWidth();
+    setError(null);
     onOpenChange(true);
   }
 
@@ -172,61 +124,105 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className={`topbar-mobile-search${open ? ' is-open' : ''}`}
-        style={panelWidth !== null ? ({ '--topbar-mobile-search-panel-width': `${panelWidth}px` } as CSSProperties) : undefined}
-      >
-        <form className="topbar-mobile-search-shell" onSubmit={handleSubmit} role="search" aria-label="Buscar amostra por lote interno">
-          <div id={panelId} className="topbar-mobile-search-panel" aria-hidden={!open}>
-            <label htmlFor={inputId} className="topbar-mobile-search-field">
-              <input
-                id={inputId}
-                ref={inputRef}
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  if (error) {
-                    setError(null);
-                  }
-                }}
-                placeholder="Numero do lote"
-                autoComplete="off"
-                spellCheck={false}
-                disabled={submitting || !open}
-                tabIndex={open ? 0 : -1}
-                aria-label="Numero do lote"
-              />
-            </label>
+      <div className="topbar-mobile-search">
+        <button
+          ref={triggerRef}
+          type="button"
+          className={`topbar-mobile-search-trigger${open ? ' is-active' : ''}`}
+          aria-label={open ? 'Fechar busca por lote' : 'Abrir busca por lote'}
+          aria-expanded={open}
+          aria-controls={titleId}
+          disabled={submitting}
+          onClick={() => {
+            if (open) {
+              closeSearch({ returnFocus: true });
+              return;
+            }
 
-            {error ? (
-              <p className="topbar-mobile-search-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-
-          <button
-            ref={triggerRef}
-            type={canSubmit ? 'submit' : 'button'}
-            className={`topbar-mobile-search-trigger${open ? ' is-active' : ''}`}
-            aria-label={canSubmit ? 'Buscar lote' : 'Abrir busca por lote'}
-            aria-expanded={open}
-            aria-controls={panelId}
-            disabled={submitting}
-            onClick={handleTriggerClick}
-          >
-            {submitting ? (
-              <span className="topbar-mobile-search-spinner" aria-hidden="true" />
-            ) : (
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m16.2 16.2 4.1 4.1" />
-              </svg>
-            )}
-          </button>
-        </form>
+            onOpenChange(true);
+          }}
+        >
+          {submitting ? (
+            <span className="topbar-mobile-search-spinner" aria-hidden="true" />
+          ) : (
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+          )}
+        </button>
       </div>
+
+      {open ? (
+        <div className="app-modal-backdrop" onClick={() => closeSearch()}>
+          <section
+            className="app-modal app-modal-search"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h2 id={titleId} className="app-modal-title">
+                  Buscar amostra
+                </h2>
+                <p id={descriptionId} className="app-modal-description">
+                  Digite o numero do lote para localizar a amostra.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={() => closeSearch({ returnFocus: true })}
+                aria-label="Fechar modal"
+                disabled={submitting}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <form className="app-modal-content app-modal-search-form" onSubmit={handleSubmit}>
+              <label htmlFor={inputId} className="app-modal-field">
+                <span className="app-modal-label">Numero do lote</span>
+                <input
+                  id={inputId}
+                  ref={inputRef}
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    if (error) {
+                      setError(null);
+                    }
+                  }}
+                  placeholder="Ex: AM-2026-000123"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={submitting}
+                  aria-label="Numero do lote"
+                  className="app-modal-input"
+                />
+              </label>
+
+              <div className="app-modal-feedback" aria-live="polite">
+                {error ? (
+                  <p className="error app-modal-feedback-text" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="app-modal-actions">
+                <button type="submit" className="app-modal-submit" disabled={!canSubmit}>
+                  {submitting ? 'Buscando...' : 'Buscar'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       {result && resultModalOpen ? (
         <SampleLookupResultModal

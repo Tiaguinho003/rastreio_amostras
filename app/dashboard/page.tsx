@@ -17,14 +17,11 @@ interface OperationModalData {
   modalId: string;
   title: string;
   emptyMessage: string;
-  toneClass: string;
   total: number;
   items: SampleSnapshot[];
 }
 
 const DASHBOARD_LATEST_LIMIT = 10;
-const DASHBOARD_MODAL_VISIBLE_ITEMS = 3;
-
 function renderMainSampleValue(value: string | number | null) {
   if (value === null || value === '') {
     return 'Nao informado';
@@ -60,7 +57,6 @@ function buildOperationModalData(
       modalId: 'dashboard-operation-modal-print-pending',
       title: 'Impressao pendente',
       emptyMessage: 'Nenhuma amostra com impressao pendente.',
-      toneClass: 'dashboard-modal-tone-print',
       total: data.printPending.total,
       items: data.printPending.items
     };
@@ -71,7 +67,6 @@ function buildOperationModalData(
       modalId: 'dashboard-operation-modal-classification-pending',
       title: 'Classificacoes pendentes',
       emptyMessage: 'Nenhuma amostra com classificacao pendente.',
-      toneClass: 'dashboard-modal-tone-classification-pending',
       total: data.classificationPending.total,
       items: data.classificationPending.items
     };
@@ -81,7 +76,6 @@ function buildOperationModalData(
     modalId: 'dashboard-operation-modal-classification-in-progress',
     title: 'Classificacoes em andamento',
     emptyMessage: 'Nenhuma amostra com classificacao em andamento.',
-    toneClass: 'dashboard-modal-tone-classification-progress',
     total: data.classificationInProgress.total,
     items: data.classificationInProgress.items
   };
@@ -205,14 +199,6 @@ export default function DashboardPage() {
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
   const totalReceivedToday = data?.todayReceivedTotal ?? 0;
   const totalPending = data?.totalPending ?? 0;
-  const operationModalMetaText = operationModalData
-    ? operationModalData.total > operationModalData.items.length
-      ? `Exibindo as ${operationModalData.items.length} primeiras amostras da operacao.`
-      : operationModalData.items.length > DASHBOARD_MODAL_VISIBLE_ITEMS
-        ? `Exibicao inicial de ${DASHBOARD_MODAL_VISIBLE_ITEMS} amostras. Role para ver as demais.`
-        : null
-    : null;
-
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="dashboard-page">
@@ -372,22 +358,22 @@ export default function DashboardPage() {
         <div className="dashboard-modal-backdrop" onClick={closeOperationModal}>
           <section
             id={operationModalData.modalId}
-            className={`dashboard-modal ${operationModalData.toneClass}`}
+            className="app-modal app-modal-dashboard"
             role="dialog"
             aria-modal="true"
             aria-labelledby="dashboard-operation-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="dashboard-modal-header">
-              <div className="dashboard-modal-title-wrap">
-                <h3 id="dashboard-operation-modal-title" className="dashboard-modal-title">
+            <div className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="dashboard-operation-modal-title" className="app-modal-title">
                   {operationModalData.title}
                 </h3>
               </div>
               <button
                 ref={modalCloseButtonRef}
                 type="button"
-                className="dashboard-modal-close"
+                className="app-modal-close"
                 onClick={closeOperationModal}
                 aria-label="Fechar modal"
               >
@@ -395,36 +381,28 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="dashboard-modal-meta">
-              <p className="dashboard-modal-meta-chip">
-                <strong>{operationModalData.total}</strong>
-                <span>total</span>
-              </p>
-              {operationModalMetaText ? <p className="dashboard-modal-meta-text">{operationModalMetaText}</p> : null}
-            </div>
-
             {operationModalData.items.length === 0 ? (
-              <p className="dashboard-modal-empty">{operationModalData.emptyMessage}</p>
+              <p className="app-modal-empty">{operationModalData.emptyMessage}</p>
             ) : (
-              <div className="dashboard-modal-list">
+              <div className="app-modal-list">
                 {operationModalData.items.map((sample) => (
                   <Link
                     key={sample.id}
                     href={`/samples/${sample.id}`}
-                    className="dashboard-modal-item"
+                    className="app-modal-card"
                     onClick={closeOperationModal}
                   >
-                    <div className="dashboard-modal-item-header">
-                      <strong className="dashboard-modal-item-title">{sample.internalLotNumber ?? sample.id}</strong>
-                      <div className="status-badge-group">
+                    <div className="app-modal-card-head">
+                      <strong className="app-modal-card-title">{sample.internalLotNumber ?? sample.id}</strong>
+                      <div className="app-modal-status-row">
                         <StatusBadge status={sample.status} />
                         <CommercialStatusBadge status={sample.commercialStatus} />
                       </div>
                     </div>
-                    <p className="dashboard-modal-item-line">
+                    <p className="app-modal-card-line">
                       <strong>Proprietario:</strong> {renderMainSampleValue(sample.declared.owner)}
                     </p>
-                    <p className="dashboard-modal-item-line">
+                    <p className="app-modal-card-line">
                       <strong>Criada em:</strong> {formatCreationTimestamp(sample.createdAt)}
                     </p>
                   </Link>

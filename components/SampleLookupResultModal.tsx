@@ -29,60 +29,65 @@ export function SampleLookupResultModal({
   const titleId = useId();
 
   return (
-    <div className="new-sample-label-modal-backdrop" onClick={onClose}>
+    <div className="app-modal-backdrop" onClick={onClose}>
       <section
-        className="new-sample-label-modal sample-search-result-modal"
+        className="app-modal app-modal-lookup-result"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="new-sample-label-modal-header">
-          <h3 id={titleId} className="new-sample-label-modal-title">
-            {title}
-          </h3>
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id={titleId} className="app-modal-title">
+              {title}
+            </h3>
+            <p className="app-modal-description">Confira os dados principais antes de abrir os detalhes.</p>
+          </div>
 
-          <button type="button" className="new-sample-label-modal-close" onClick={onClose} aria-label="Fechar modal" autoFocus>
+          <button type="button" className="app-modal-close" onClick={onClose} aria-label="Fechar modal" autoFocus>
             <span aria-hidden="true">×</span>
           </button>
         </header>
 
-        <div className="new-sample-label-modal-content">
-          <article className="label-print-card sample-search-label-card">
-            <div className="sample-search-label-status">
+        <div className="app-modal-content">
+          <article className="app-modal-lookup-layout">
+            <div className="app-modal-status-row">
               <div className="status-badge-group">
                 <StatusBadge status={sample.status} />
                 <CommercialStatusBadge status={sample.commercialStatus} />
               </div>
             </div>
-            <div className="label-qr">
+
+            <div className="app-modal-lookup-qr">
               <QRCodeCanvas value={sample.internalLotNumber ?? sample.id} size={120} />
             </div>
-            <div className="label-meta">
-              <p>
+
+            <div className="app-modal-lookup-meta">
+              <p className="app-modal-card-line">
                 <strong>Lote interno:</strong> {sample.internalLotNumber ?? 'Nao definido'}
               </p>
-              <p>
+              <p className="app-modal-card-line">
                 <strong>Proprietario:</strong> {sample.declared.owner ?? 'Nao informado'}
               </p>
-              <p>
+              <p className="app-modal-card-line">
                 <strong>Sacas:</strong> {sample.declared.sacks ?? 'Nao informado'}
               </p>
-              <p>
+              <p className="app-modal-card-line">
                 <strong>Safra:</strong> {sample.declared.harvest ?? 'Nao informado'}
               </p>
-              <p>
+              <p className="app-modal-card-line">
                 <strong>Lote origem:</strong> {sample.declared.originLot ?? 'Nao informado'}
               </p>
             </div>
           </article>
         </div>
 
-        <div className="row new-sample-print-actions new-sample-label-modal-actions">
-          <button type="button" className="new-sample-label-action-new" onClick={onPrimaryAction}>
+        <div className="app-modal-actions">
+          <button type="button" className="app-modal-secondary" onClick={onPrimaryAction}>
             {primaryActionLabel}
           </button>
-          <button type="button" className="new-sample-link-button new-sample-label-action-details" onClick={onDetails}>
+          <button type="button" className="app-modal-submit" onClick={onDetails}>
             {detailsLabel}
           </button>
         </div>
