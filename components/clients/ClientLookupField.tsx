@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 
 import { ApiError, lookupClients } from '../../lib/api-client';
 import type { ClientLookupKind, ClientSummary, SessionData } from '../../lib/types';
@@ -11,6 +11,7 @@ type ClientLookupFieldProps = {
   kind: ClientLookupKind;
   selectedClient: ClientSummary | null;
   onSelectClient: (client: ClientSummary | null) => void;
+  inputRef?: Ref<HTMLInputElement>;
   disabled?: boolean;
   placeholder?: string;
   emptyMessage?: string;
@@ -32,6 +33,7 @@ export function ClientLookupField({
   kind,
   selectedClient,
   onSelectClient,
+  inputRef,
   disabled = false,
   placeholder = 'Busque por nome, documento ou codigo',
   emptyMessage = 'Nenhum cliente encontrado.',
@@ -144,6 +146,7 @@ export function ClientLookupField({
       <div className="client-lookup-shell">
         <input
           id={inputId}
+          ref={inputRef}
           value={search}
           disabled={disabled}
           placeholder={placeholder}

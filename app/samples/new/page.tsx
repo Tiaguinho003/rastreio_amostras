@@ -43,6 +43,7 @@ const TECHNICAL_PRINT_ERROR = 'Falha tecnica ao disparar a impressao automatica.
 type RequiredFieldName = 'owner' | 'sacks' | 'harvest' | 'originLot';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 type LabelModalStep = 'review' | 'awaiting_print_result' | 'failure_reason' | 'failure_actions' | 'completed';
+type NewSampleStep = 'photo' | 'details';
 
 interface PendingDraftPayload {
   clientDraftId: string;
@@ -196,6 +197,8 @@ function NewSamplePageContent() {
   const [notes, setNotes] = useState('');
   const [arrivalPhoto, setArrivalPhoto] = useState<File | null>(null);
   const [arrivalPhotoReady, setArrivalPhotoReady] = useState(false);
+  const [currentStep, setCurrentStep] = useState<NewSampleStep>('photo');
+  const [notesExpanded, setNotesExpanded] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,8 +216,15 @@ function NewSamplePageContent() {
   const [lastFailureReason, setLastFailureReason] = useState<string | null>(null);
 
   const arrivalPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const ownerInputRef = useRef<HTMLInputElement | null>(null);
+  const sacksInputRef = useRef<HTMLInputElement | null>(null);
+  const harvestInputRef = useRef<HTMLInputElement | null>(null);
+  const originLotInputRef = useRef<HTMLInputElement | null>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const stageBodyRef = useRef<HTMLDivElement | null>(null);
   const confirmPhotoEffectTimeoutRef = useRef<number | null>(null);
   const printConfirmEffectTimeoutRef = useRef<number | null>(null);
+  const invalidFocusTimeoutRef = useRef<number | null>(null);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const modalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -342,8 +352,16 @@ function NewSamplePageContent() {
       if (printConfirmEffectTimeoutRef.current !== null) {
         window.clearTimeout(printConfirmEffectTimeoutRef.current);
       }
+
+      if (invalidFocusTimeoutRef.current !== null) {
+        window.clearTimeout(invalidFocusTimeoutRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    stageBodyRef.current?.scrollTo({ top: 0 });
+  }, [currentStep]);
 
   useEffect(() => {
     const handleAfterPrint = () => {
@@ -429,6 +447,7 @@ function NewSamplePageContent() {
         });
         setArrivalPhoto(photo.file);
         setArrivalPhotoReady(photo.confirmed);
+        setCurrentStep('photo');
         setArrivalPhotoSource('camera');
         setActiveCameraHandoffId(photo.handoffId);
         if (photo.confirmed) {
@@ -472,6 +491,7 @@ function NewSamplePageContent() {
 
   function triggerConfirmPhotoEffect() {
     setArrivalPhotoReady(true);
+    setError(null);
     playConfirmPhotoEffect();
   }
 
@@ -503,6 +523,80 @@ function NewSamplePageContent() {
     }, 980);
   }
 
+  function clearArrivalPhoto() {
+    if (activeCameraHandoffId) {
+      void clearPendingArrivalPhoto(activeCameraHandoffId);
+    }
+
+    console.info('NEW_SAMPLE_REMOVE_PHOTO', { activeCameraHandoffId, arrivalPhotoSource });
+    clearCameraHandoffRouteState();
+    setArrivalPhoto(null);
+    setArrivalPhotoReady(false);
+    setArrivalPhotoSource(null);
+    setActiveCameraHandoffId(null);
+    cameraHydrationRequestRef.current += 1;
+    clearConfirmPhotoEffect();
+    setError(null);
+    if (arrivalPhotoInputRef.current) {
+      arrivalPhotoInputRef.current.value = '';
+    }
+  }
+
+  function focusRequiredField(field: RequiredFieldName) {
+    if (invalidFocusTimeoutRef.current !== null) {
+      window.clearTimeout(invalidFocusTimeoutRef.current);
+    }
+
+    setCurrentStep('details');
+    invalidFocusTimeoutRef.current = window.setTimeout(() => {
+      const target =
+        field === 'owner'
+          ? ownerInputRef.current
+          : field === 'sacks'
+            ? sacksInputRef.current
+            : field === 'harvest'
+              ? harvestInputRef.current
+              : originLotInputRef.current;
+
+      target?.focus();
+      target?.scrollIntoView({ block: 'nearest' });
+      invalidFocusTimeoutRef.current = null;
+    }, 60);
+  }
+
+  function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
+    const firstInvalidField = (['owner', 'sacks', 'harvest', 'originLot'] as const).find((field) => Boolean(fieldErrors[field]));
+    if (!firstInvalidField) {
+      return;
+    }
+
+    focusRequiredField(firstInvalidField);
+  }
+
+  function handleContinueFromPhoto() {
+    setError(null);
+    setMessage(null);
+
+    if (arrivalPhoto && !arrivalPhotoReady) {
+      setError('Confirme a foto no botao de verificacao ou remova a imagem antes de continuar.');
+      return;
+    }
+
+    setCurrentStep('details');
+  }
+
+  function handlePhotoSecondaryAction() {
+    setError(null);
+    setMessage(null);
+
+    if (arrivalPhoto) {
+      clearArrivalPhoto();
+      return;
+    }
+
+    setCurrentStep('details');
+  }
+
   function resetDraft() {
     if (activeCameraHandoffId) {
       void clearPendingArrivalPhoto(activeCameraHandoffId);
@@ -523,6 +617,8 @@ function NewSamplePageContent() {
     setNotes('');
     setArrivalPhoto(null);
     setArrivalPhotoReady(false);
+    setCurrentStep('photo');
+    setNotesExpanded(false);
     setArrivalPhotoSource(null);
     setActiveCameraHandoffId(null);
     cameraHydrationRequestRef.current += 1;
@@ -639,6 +735,7 @@ function NewSamplePageContent() {
         ...current,
         owner: REQUIRED_FIELD_MESSAGE
       }));
+      focusRequiredField('owner');
       return;
     }
 
@@ -651,6 +748,7 @@ function NewSamplePageContent() {
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
       setRequiredFieldErrors(missingRequiredFieldErrors);
+      focusFirstInvalidField(missingRequiredFieldErrors);
       return;
     }
 
@@ -666,6 +764,7 @@ function NewSamplePageContent() {
       const schemaFieldErrors = getSchemaFieldErrors(parsed.error.issues);
       if (hasRequiredFieldErrors(schemaFieldErrors)) {
         setRequiredFieldErrors(schemaFieldErrors);
+        focusFirstInvalidField(schemaFieldErrors);
       } else {
         setError(parsed.error.issues[0]?.message ?? 'Dados invalidos para criar amostra');
       }
@@ -675,6 +774,7 @@ function NewSamplePageContent() {
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
 
     if (arrivalPhoto && !arrivalPhotoReady) {
+      setCurrentStep('photo');
       setError('Confirme a foto no botao de verificacao ou reinicie a selecao antes de criar a amostra.');
       return;
     }
@@ -901,287 +1001,313 @@ function NewSamplePageContent() {
   const previewHarvest = pendingDraft?.harvest ?? printableSample?.declared.harvest ?? null;
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
+  const photoSecondaryActionLabel = arrivalPhoto ? 'Remover foto' : 'Pular foto';
+  const hasNotes = notes.trim().length > 0;
+  const notesToggleTitle = hasNotes && !notesExpanded ? 'Observacao adicionada' : 'Adicionar observacao';
 
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="new-sample-page">
         <header className="new-sample-header">
-          <div className="new-sample-header-copy">
-            <p className="new-sample-kicker">Cadastro inicial</p>
-            <h2 className="new-sample-title">Nova amostra</h2>
-          </div>
-
-          <div className="new-sample-header-actions">
-            <Link href="/camera" className="new-sample-link-button secondary new-sample-header-cta">
-              Usar camera
-            </Link>
-            <p className="new-sample-header-note">Capture a chegada e confirme o registro em uma sequencia curta de passos.</p>
-          </div>
+          <h2 className="new-sample-title">Nova amostra</h2>
         </header>
 
-        <section className="new-sample-layout">
-          <article className="new-sample-step-card new-sample-card-photo">
-            <div className="new-sample-step-head">
-              <span className="new-sample-step-index" aria-hidden="true">
-                1
-              </span>
-              <div className="new-sample-step-copy">
-                <h3 className="new-sample-step-title">Foto da chegada (opcional)</h3>
-              </div>
-            </div>
+        {(error || message) ? (
+          <div className="new-sample-feedback-stack">
+            {error ? <p className="error">{error}</p> : null}
+            {message ? <p className="success">{message}</p> : null}
+          </div>
+        ) : null}
 
-            <label htmlFor="new-sample-arrival-photo-input" className="new-sample-photo-stage">
-              <input
-                id="new-sample-arrival-photo-input"
-                className="new-sample-file-input"
-                ref={arrivalPhotoInputRef}
-                accept="image/*"
-                capture="environment"
-                type="file"
-                onChange={(event) => {
-                  if (activeCameraHandoffId) {
-                    void clearPendingArrivalPhoto(activeCameraHandoffId);
-                  }
-                  console.info('NEW_SAMPLE_MANUAL_REPLACE', {
-                    previousHandoffId: activeCameraHandoffId,
-                    hasFile: Boolean(event.target.files?.[0])
-                  });
-                  clearCameraHandoffRouteState();
-                  setArrivalPhoto(event.target.files?.[0] ?? null);
-                  setArrivalPhotoReady(false);
-                  setArrivalPhotoSource(event.target.files?.[0] ? 'manual' : null);
-                  setActiveCameraHandoffId(null);
-                  cameraHydrationRequestRef.current += 1;
-                  clearConfirmPhotoEffect();
-                }}
-              />
-              {arrivalPhotoPreviewUrl ? (
-                <img
-                  src={arrivalPhotoPreviewUrl}
-                  alt="Pre-visualizacao da foto de chegada"
-                  className="new-sample-photo-preview"
-                />
-              ) : (
-                <span className="new-sample-photo-placeholder">
-                  <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                      <circle cx="12" cy="13.3" r="3.1" />
-                    </svg>
+        <section className="new-sample-stage-shell">
+          <div ref={stageBodyRef} className={`new-sample-stage-body${currentStep === 'details' ? ' is-scrollable' : ''}`}>
+            {currentStep === 'photo' ? (
+              <article className="new-sample-step-card new-sample-stage-card new-sample-card-photo">
+                <div className="new-sample-step-head new-sample-step-head-spread">
+                  <div className="new-sample-step-copy">
+                    <div className="new-sample-step-progress-inline" aria-label="Etapa 1 de 2">
+                      <span className="new-sample-step-count">1/2</span>
+                      <div className="new-sample-step-track" aria-hidden="true">
+                        <span className="new-sample-step-track-segment is-complete" />
+                        <span className="new-sample-step-track-segment" />
+                      </div>
+                    </div>
+                    <h3 className="new-sample-step-title">Foto da chegada</h3>
+                  </div>
+                  <span
+                    className={`new-sample-photo-status${arrivalPhotoReady ? ' is-ready' : arrivalPhoto ? ' is-pending' : ' is-empty'}`}
+                  >
+                    {arrivalPhotoReady ? 'Foto pronta' : arrivalPhoto ? 'Confirmacao pendente' : 'Opcional'}
                   </span>
-                  <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
-                  <span className="new-sample-photo-placeholder-text">Toque para capturar ou anexar imagem</span>
-                </span>
-              )}
+                </div>
 
-              {showPhotoConfirmEffect ? (
-                <span key={photoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
-                  <span className="new-sample-photo-confirm-glow" />
-                  <span className="new-sample-photo-confirm-ring" />
-                  <span className="new-sample-photo-confirm-badge">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m5 12.5 4.3 4.2L19 7" />
-                    </svg>
-                  </span>
-                  <span className="new-sample-photo-spark new-sample-photo-spark-a" />
-                  <span className="new-sample-photo-spark new-sample-photo-spark-b" />
-                  <span className="new-sample-photo-spark new-sample-photo-spark-c" />
-                  <span className="new-sample-photo-spark new-sample-photo-spark-d" />
-                  <span className="new-sample-photo-spark new-sample-photo-spark-e" />
-                </span>
-              ) : null}
-            </label>
+                <label htmlFor="new-sample-arrival-photo-input" className="new-sample-photo-stage">
+                  <input
+                    id="new-sample-arrival-photo-input"
+                    className="new-sample-file-input"
+                    ref={arrivalPhotoInputRef}
+                    accept="image/*"
+                    capture="environment"
+                    type="file"
+                    onChange={(event) => {
+                      if (activeCameraHandoffId) {
+                        void clearPendingArrivalPhoto(activeCameraHandoffId);
+                      }
+                      console.info('NEW_SAMPLE_MANUAL_REPLACE', {
+                        previousHandoffId: activeCameraHandoffId,
+                        hasFile: Boolean(event.target.files?.[0])
+                      });
+                      clearCameraHandoffRouteState();
+                      setArrivalPhoto(event.target.files?.[0] ?? null);
+                      setArrivalPhotoReady(false);
+                      setArrivalPhotoSource(event.target.files?.[0] ? 'manual' : null);
+                      setActiveCameraHandoffId(null);
+                      cameraHydrationRequestRef.current += 1;
+                      clearConfirmPhotoEffect();
+                      setError(null);
+                    }}
+                  />
+                  {arrivalPhotoPreviewUrl ? (
+                    <img
+                      src={arrivalPhotoPreviewUrl}
+                      alt="Pre-visualizacao da foto de chegada"
+                      className="new-sample-photo-preview"
+                    />
+                  ) : (
+                    <span className="new-sample-photo-placeholder">
+                      <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                          <circle cx="12" cy="13.3" r="3.1" />
+                        </svg>
+                      </span>
+                      <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
+                      <span className="new-sample-photo-placeholder-text">Toque para capturar ou anexar imagem</span>
+                    </span>
+                  )}
 
-            <div className="row new-sample-photo-actions">
-              <button
-                type="button"
-                className={`new-sample-photo-action-button${arrivalPhotoReady ? ' is-ready' : ''}`}
-                onClick={triggerConfirmPhotoEffect}
-                disabled={!arrivalPhoto || arrivalPhotoReady || submitting}
-                aria-label={arrivalPhotoReady ? 'Foto ja confirmada' : 'Usar foto selecionada'}
-                title={arrivalPhotoReady ? 'Foto ja confirmada' : 'Usar foto'}
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="m5 12.5 4.3 4.2L19 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="new-sample-photo-action-button secondary"
-                onClick={() => {
-                  if (activeCameraHandoffId) {
-                    void clearPendingArrivalPhoto(activeCameraHandoffId);
-                  }
-                  console.info('NEW_SAMPLE_REMOVE_PHOTO', { activeCameraHandoffId, arrivalPhotoSource });
-                  clearCameraHandoffRouteState();
-                  setArrivalPhoto(null);
-                  setArrivalPhotoReady(false);
-                  setArrivalPhotoSource(null);
-                  setActiveCameraHandoffId(null);
-                  cameraHydrationRequestRef.current += 1;
-                  clearConfirmPhotoEffect();
-                  if (arrivalPhotoInputRef.current) {
-                    arrivalPhotoInputRef.current.value = '';
-                  }
-                }}
-                disabled={!arrivalPhoto || submitting}
-                aria-label="Descartar foto e selecionar novamente"
-                title="Tentar novamente"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M7 7h5v5" />
-                  <path d="M7 12a6 6 0 1 0 2.2-4.6L12 12" />
-                </svg>
-              </button>
-            </div>
-          </article>
+                  {showPhotoConfirmEffect ? (
+                    <span key={photoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
+                      <span className="new-sample-photo-confirm-glow" />
+                      <span className="new-sample-photo-confirm-ring" />
+                      <span className="new-sample-photo-confirm-badge">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="m5 12.5 4.3 4.2L19 7" />
+                        </svg>
+                      </span>
+                      <span className="new-sample-photo-spark new-sample-photo-spark-a" />
+                      <span className="new-sample-photo-spark new-sample-photo-spark-b" />
+                      <span className="new-sample-photo-spark new-sample-photo-spark-c" />
+                      <span className="new-sample-photo-spark new-sample-photo-spark-d" />
+                      <span className="new-sample-photo-spark new-sample-photo-spark-e" />
+                    </span>
+                  ) : null}
+                </label>
 
-          <article className="new-sample-step-card new-sample-card-required">
-            <div className="new-sample-step-head">
-              <span className="new-sample-step-index" aria-hidden="true">
-                2
-              </span>
-              <div className="new-sample-step-copy">
-                <h3 className="new-sample-step-title">Dados obrigatorios</h3>
-              </div>
-            </div>
-
-            <div className="grid grid-2 new-sample-required-grid">
-              <div className="new-sample-required-field">
-                <ClientLookupField
-                  session={session}
-                  label="Proprietario"
-                  kind="owner"
-                  selectedClient={selectedOwnerClient}
-                  onSelectClient={(client) => {
-                    setSelectedOwnerClient(client);
-                    setOwner(client?.displayName ?? '');
-                    setSelectedOwnerRegistrationId(null);
-                    clearRequiredFieldError('owner');
-                    setError(null);
-                  }}
-                  onRequestCreate={(searchTerm) => {
-                    setQuickCreateSeed(searchTerm);
-                    setQuickCreateOpen(true);
-                  }}
-                  createLabel="Cadastrar proprietario"
-                />
-                {requiredFieldErrors.owner ? <span className="new-sample-field-required">{requiredFieldErrors.owner}</span> : null}
-              </div>
-
-              <label className="new-sample-required-field">
-                Sacas
-                <input
-                  value={sacks}
-                  className={requiredFieldErrors.sacks ? 'new-sample-input-error' : undefined}
-                  aria-invalid={Boolean(requiredFieldErrors.sacks)}
-                  onChange={(event) => {
-                    setSacks(event.target.value);
-                    clearRequiredFieldError('sacks');
-                  }}
-                  inputMode="numeric"
-                  placeholder="Ex: 40"
-                />
-                {requiredFieldErrors.sacks ? <span className="new-sample-field-required">{requiredFieldErrors.sacks}</span> : null}
-              </label>
-
-              <div className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}>
-                <label htmlFor="new-sample-harvest-input">Safra</label>
-                <input
-                  id="new-sample-harvest-input"
-                  className={requiredFieldErrors.harvest ? 'new-sample-input-error' : undefined}
-                  aria-invalid={Boolean(requiredFieldErrors.harvest)}
-                  value={harvest}
-                  onChange={(event) => {
-                    setHarvest(event.target.value);
-                    clearRequiredFieldError('harvest');
-                  }}
-                  placeholder="Ex: 25/26"
-                />
-                <div className="new-sample-harvest-options">
-                  {HARVEST_PRESET_OPTIONS.map((option) => (
+                {arrivalPhoto && !arrivalPhotoReady ? (
+                  <div className="new-sample-photo-toolbar">
                     <button
-                      key={option}
                       type="button"
-                      className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
-                      onClick={() => {
-                        setHarvest(option);
-                        clearRequiredFieldError('harvest');
-                      }}
+                      className="new-sample-photo-confirm-button"
+                      onClick={triggerConfirmPhotoEffect}
                       disabled={submitting}
                     >
-                      {option}
+                      Confirmar foto
                     </button>
-                  ))}
+                  </div>
+                ) : null}
+              </article>
+            ) : (
+              <article className="new-sample-step-card new-sample-stage-card new-sample-card-details">
+                <div className="new-sample-step-head new-sample-step-head-spread">
+                  <div className="new-sample-step-copy">
+                    <div className="new-sample-step-progress-inline" aria-label="Etapa 2 de 2">
+                      <span className="new-sample-step-count">2/2</span>
+                      <div className="new-sample-step-track" aria-hidden="true">
+                        <span className="new-sample-step-track-segment is-complete" />
+                        <span className="new-sample-step-track-segment is-complete" />
+                      </div>
+                    </div>
+                    <h3 className="new-sample-step-title">Dados da amostra</h3>
+                  </div>
+                  <button type="button" className="new-sample-inline-reset" disabled={submitting} onClick={resetDraft}>
+                    Limpar
+                  </button>
                 </div>
-                {requiredFieldErrors.harvest ? <span className="new-sample-field-required">{requiredFieldErrors.harvest}</span> : null}
-              </div>
 
-              <label className="new-sample-required-field">
-                Lote de origem
-                <input
-                  value={originLot}
-                  className={requiredFieldErrors.originLot ? 'new-sample-input-error' : undefined}
-                  aria-invalid={Boolean(requiredFieldErrors.originLot)}
-                  onChange={(event) => {
-                    setOriginLot(event.target.value);
-                    clearRequiredFieldError('originLot');
-                  }}
-                  placeholder="Codigo do lote"
-                />
-                {requiredFieldErrors.originLot ? (
-                  <span className="new-sample-field-required">{requiredFieldErrors.originLot}</span>
-                ) : null}
-              </label>
+                <div className="grid grid-2 new-sample-required-grid">
+                  <div className="new-sample-required-field">
+                    <ClientLookupField
+                      session={session}
+                      label="Proprietario"
+                      kind="owner"
+                      inputRef={ownerInputRef}
+                      selectedClient={selectedOwnerClient}
+                      onSelectClient={(client) => {
+                        setSelectedOwnerClient(client);
+                        setOwner(client?.displayName ?? '');
+                        setSelectedOwnerRegistrationId(null);
+                        clearRequiredFieldError('owner');
+                        setError(null);
+                      }}
+                      onRequestCreate={(searchTerm) => {
+                        setQuickCreateSeed(searchTerm);
+                        setQuickCreateOpen(true);
+                      }}
+                      createLabel="Cadastrar proprietario"
+                    />
+                    {requiredFieldErrors.owner ? <span className="new-sample-field-required">{requiredFieldErrors.owner}</span> : null}
+                  </div>
 
-              <div className="new-sample-required-field">
-                <ClientRegistrationSelect
-                  label="Inscricao do proprietario (opcional)"
-                  registrations={ownerRegistrations}
-                  value={selectedOwnerRegistrationId}
-                  disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                  onChange={setSelectedOwnerRegistrationId}
-                />
-                {ownerRegistrationLoading ? (
-                  <span className="new-sample-field-required" style={{ color: 'var(--muted)' }}>
-                    Carregando inscricoes...
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </article>
+                  <div className="new-sample-required-field">
+                    <ClientRegistrationSelect
+                      label="Inscricao do proprietario (opcional)"
+                      registrations={ownerRegistrations}
+                      value={selectedOwnerRegistrationId}
+                      disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                      onChange={setSelectedOwnerRegistrationId}
+                    />
+                    {ownerRegistrationLoading ? (
+                      <span className="new-sample-field-required" style={{ color: 'var(--muted)' }}>
+                        Carregando inscricoes...
+                      </span>
+                    ) : null}
+                  </div>
 
-          <article className="new-sample-step-card new-sample-card-notes">
-            <div className="new-sample-step-head">
-              <span className="new-sample-step-index" aria-hidden="true">
-                3
-              </span>
-              <div className="new-sample-step-copy">
-                <h3 className="new-sample-step-title">Observacoes (opcional)</h3>
-              </div>
-            </div>
+                  <label className="new-sample-required-field">
+                    Sacas
+                    <input
+                      ref={sacksInputRef}
+                      value={sacks}
+                      className={requiredFieldErrors.sacks ? 'new-sample-input-error' : undefined}
+                      aria-invalid={Boolean(requiredFieldErrors.sacks)}
+                      onChange={(event) => {
+                        setSacks(event.target.value);
+                        clearRequiredFieldError('sacks');
+                      }}
+                      inputMode="numeric"
+                      placeholder="Ex: 40"
+                    />
+                    {requiredFieldErrors.sacks ? <span className="new-sample-field-required">{requiredFieldErrors.sacks}</span> : null}
+                  </label>
 
-            <label>
-              Observacoes do recebimento
-              <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="" />
-            </label>
-          </article>
+                  <div className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}>
+                    <label htmlFor="new-sample-harvest-input">Safra</label>
+                    <input
+                      id="new-sample-harvest-input"
+                      ref={harvestInputRef}
+                      className={requiredFieldErrors.harvest ? 'new-sample-input-error' : undefined}
+                      aria-invalid={Boolean(requiredFieldErrors.harvest)}
+                      value={harvest}
+                      onChange={(event) => {
+                        setHarvest(event.target.value);
+                        clearRequiredFieldError('harvest');
+                      }}
+                      placeholder="Ex: 25/26"
+                    />
+                    <div className="new-sample-harvest-options">
+                      {HARVEST_PRESET_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setHarvest(option);
+                            clearRequiredFieldError('harvest');
+                          }}
+                          disabled={submitting}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                    {requiredFieldErrors.harvest ? <span className="new-sample-field-required">{requiredFieldErrors.harvest}</span> : null}
+                  </div>
+
+                  <label className="new-sample-required-field">
+                    Lote de origem
+                    <input
+                      ref={originLotInputRef}
+                      value={originLot}
+                      className={requiredFieldErrors.originLot ? 'new-sample-input-error' : undefined}
+                      aria-invalid={Boolean(requiredFieldErrors.originLot)}
+                      onChange={(event) => {
+                        setOriginLot(event.target.value);
+                        clearRequiredFieldError('originLot');
+                      }}
+                      placeholder="Codigo do lote"
+                    />
+                    {requiredFieldErrors.originLot ? (
+                      <span className="new-sample-field-required">{requiredFieldErrors.originLot}</span>
+                    ) : null}
+                  </label>
+                </div>
+
+                <section className="new-sample-notes-panel">
+                  <button
+                    type="button"
+                    className={`new-sample-notes-toggle${notesExpanded ? ' is-open' : ''}`}
+                    aria-expanded={notesExpanded}
+                    onClick={() => setNotesExpanded((current) => !current)}
+                  >
+                    <span className="new-sample-notes-toggle-copy">
+                      <span className="new-sample-notes-toggle-title">{notesExpanded ? 'Observacoes do recebimento' : notesToggleTitle}</span>
+                      {hasNotes && !notesExpanded ? <span className="new-sample-notes-toggle-preview">{notes.trim()}</span> : null}
+                    </span>
+                    <span className="new-sample-notes-toggle-action">{notesExpanded ? 'Ocultar' : 'Abrir'}</span>
+                  </button>
+
+                  {notesExpanded ? (
+                    <label className="new-sample-notes-field">
+                      Observacoes do recebimento
+                      <textarea
+                        ref={notesTextareaRef}
+                        rows={3}
+                        value={notes}
+                        onChange={(event) => setNotes(event.target.value)}
+                        placeholder=""
+                      />
+                    </label>
+                  ) : null}
+                </section>
+              </article>
+            )}
+          </div>
         </section>
 
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
-
         <div className="row new-sample-actions">
-          <button
-            type="button"
-            disabled={submitting || (Boolean(arrivalPhoto) && !arrivalPhotoReady)}
-            onClick={(event) => openReviewModal(event.currentTarget)}
-          >
-            Criar amostra
-          </button>
-          <button type="button" className="secondary" disabled={submitting} onClick={resetDraft}>
-            Limpar formulario
-          </button>
+          {currentStep === 'photo' ? (
+            <>
+              <button type="button" className="secondary" disabled={submitting} onClick={handlePhotoSecondaryAction}>
+                {photoSecondaryActionLabel}
+              </button>
+              <button type="button" disabled={submitting} onClick={handleContinueFromPhoto}>
+                Continuar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="secondary"
+                disabled={submitting}
+                onClick={() => {
+                  setError(null);
+                  setMessage(null);
+                  setCurrentStep('photo');
+                }}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={submitting || (Boolean(arrivalPhoto) && !arrivalPhotoReady)}
+                onClick={(event) => openReviewModal(event.currentTarget)}
+              >
+                Criar amostra
+              </button>
+            </>
+          )}
         </div>
       </section>
 

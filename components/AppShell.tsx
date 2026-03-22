@@ -156,33 +156,6 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
     };
   }
 
-  if (pathname === '/samples/new') {
-    return {
-      title: 'Novo registro',
-      subtitle: 'Capture a chegada e confirme os dados minimos da amostra em poucos toques.',
-      ctaHref: '/camera',
-      ctaLabel: 'Usar camera',
-      ctaIcon: 'camera'
-    };
-  }
-
-  if (pathname === '/samples') {
-    return {
-      title: 'Registros',
-      subtitle: 'Busque, filtre e retome amostras em andamento sem perder a fila.',
-      ctaHref: '/samples/new',
-      ctaLabel: 'Novo registro',
-      ctaIcon: 'new-sample'
-    };
-  }
-
-  if (/^\/samples\/[^/]+$/.test(pathname)) {
-    return {
-      title: 'Detalhe da amostra',
-      subtitle: 'Continue a operacao da amostra com classificacao, QR e conferencias no mesmo fluxo.'
-    };
-  }
-
   if (pathname === '/settings') {
     return {
       title: 'Meu perfil',
@@ -413,7 +386,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         {mobileRouteMeta && !isCameraRoute ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">
-              <p className="app-shell-mobile-route-kicker">Modo mobile</p>
               <h1 className="app-shell-mobile-route-title">{mobileRouteMeta.title}</h1>
               <p className="app-shell-mobile-route-subtitle">{mobileRouteMeta.subtitle}</p>
             </div>
