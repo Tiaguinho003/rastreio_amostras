@@ -10,7 +10,6 @@ import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
-import { CommercialStatusBadge } from '../../../components/CommercialStatusBadge';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import { StatusBadge } from '../../../components/StatusBadge';
 import {
@@ -21,28 +20,25 @@ import {
   getClient,
   getSampleDetail,
   invalidateSample,
-  listSampleEvents,
   recordQrPrintFailed,
   recordQrPrinted,
   requestQrReprint,
-  revertSampleUpdate,
   requestQrPrint,
   saveClassificationPartial,
   startClassification,
   updateClassification,
   updateRegistration,
-  uploadClassificationPhoto,
-  uploadLabelPhoto
+  uploadClassificationPhoto
 } from '../../../lib/api-client';
 import { invalidateSampleSchema, qrFailSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ClientRegistrationSummary,
   ClientSummary,
+  CommercialStatus,
   InvalidateReasonCode,
   PrintAction,
   SampleDetailResponse,
-  SampleEvent,
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
@@ -130,20 +126,6 @@ const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
   'CLASSIFIED'
 ];
 
-type HistoryRow = {
-  eventId: string;
-  eventType: string;
-  eventLabel: string;
-  occurredAt: string;
-  actor: string;
-  field: string;
-  before: string;
-  after: string;
-  reason: string;
-  reversible: boolean;
-  showRevertAction: boolean;
-};
-
 const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   dataClassificacao: '',
   padrao: '',
@@ -205,74 +187,6 @@ const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> =
   { value: 'MISSING_INFO', label: 'Informacao faltante' },
   { value: 'OTHER', label: 'Outro motivo' }
 ];
-
-const HISTORY_EVENT_LABELS: Record<string, string> = {
-  SAMPLE_RECEIVED: 'Amostra recebida',
-  REGISTRATION_STARTED: 'Registro iniciado',
-  PHOTO_ADDED: 'Foto adicionada',
-  OCR_EXTRACTED: 'OCR extraido',
-  OCR_FAILED: 'OCR com falha',
-  OCR_CONFIRMED: 'OCR confirmado',
-  REGISTRATION_CONFIRMED: 'Registro confirmado',
-  QR_PRINT_REQUESTED: 'Impressao de QR solicitada',
-  QR_PRINT_FAILED: 'Falha na impressao de QR',
-  QR_PRINTED: 'QR impresso',
-  QR_REPRINT_REQUESTED: 'Reimpressao de QR solicitada',
-  CLASSIFICATION_STARTED: 'Classificacao iniciada',
-  CLASSIFICATION_SAVED_PARTIAL: 'Classificacao parcial salva',
-  CLASSIFICATION_COMPLETED: 'Classificacao concluida',
-  REGISTRATION_UPDATED: 'Registro editado',
-  CLASSIFICATION_UPDATED: 'Classificacao editada',
-  SALE_CREATED: 'Venda registrada',
-  SALE_UPDATED: 'Venda editada',
-  SALE_CANCELLED: 'Venda cancelada',
-  LOSS_RECORDED: 'Perda registrada',
-  LOSS_UPDATED: 'Perda editada',
-  LOSS_CANCELLED: 'Perda cancelada',
-  COMMERCIAL_STATUS_UPDATED: 'Status comercial atualizado',
-  SAMPLE_INVALIDATED: 'Amostra invalidada',
-  REPORT_EXPORTED: 'Laudo exportado'
-};
-
-const HISTORY_FIELD_LABELS: Record<string, string> = {
-  'declared.owner': 'Proprietario',
-  'declared.sacks': 'Quantidade de sacas',
-  'declared.harvest': 'Safra',
-  'declared.originLot': 'Lote de origem',
-  'classificationData.dataClassificacao': 'Data da classificacao',
-  'classificationData.padrao': 'Padrao',
-  'classificationData.catacao': 'Catacao',
-  'classificationData.aspecto': 'Aspecto',
-  'classificationData.bebida': 'Bebida',
-  'classificationData.broca': 'Broca',
-  'classificationData.pva': 'PVA',
-  'classificationData.imp': 'IMP',
-  'classificationData.classificador': 'Classificador',
-  'classificationData.defeito': 'Defeito',
-  'classificationData.umidade': 'Umidade',
-  'classificationData.aspectoCor': 'Aspecto da cor',
-  'classificationData.observacoes': 'Observacoes',
-  'classificationData.loteOrigem': 'Lote de origem (classificacao)',
-  'classificationData.peneirasPercentuais': 'Peneiras (%)',
-  'classificationData.peneirasPercentuais.p18': 'Peneira 18 (%)',
-  'classificationData.peneirasPercentuais.p17': 'Peneira 17 (%)',
-  'classificationData.peneirasPercentuais.p16': 'Peneira 16 (%)',
-  'classificationData.peneirasPercentuais.mk': 'Peneira MK (%)',
-  'classificationData.peneirasPercentuais.p15': 'Peneira 15 (%)',
-  'classificationData.peneirasPercentuais.p14': 'Peneira 14 (%)',
-  'classificationData.peneirasPercentuais.p13': 'Peneira 13 (%)',
-  'classificationData.peneirasPercentuais.p10': 'Peneira 10 (%)',
-  'classificationData.peneirasPercentuais.fundo': 'Fundo (%)',
-  'classificationData.consumoGramas': 'Consumo (gramas)',
-  'technical.type': 'Tipo tecnico',
-  'technical.screen': 'Peneira tecnica',
-  'technical.defectsCount': 'Defeitos (tecnico)',
-  'technical.moisture': 'Umidade (tecnico)',
-  'technical.density': 'Densidade (tecnico)',
-  'technical.colorAspect': 'Aspecto de cor (tecnico)',
-  'technical.notes': 'Observacoes tecnicas',
-  consumptionGrams: 'Consumo (gramas)'
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -501,112 +415,6 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString('pt-BR');
 }
 
-function normalizeHistoryValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'Nao informado';
-  }
-
-  if (typeof value === 'string') {
-    return value.trim() || 'Nao informado';
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Sim' : 'Nao';
-  }
-
-  if (Array.isArray(value) || isRecord(value)) {
-    return JSON.stringify(value);
-  }
-
-  return String(value);
-}
-
-function flattenChangeObject(value: unknown, prefix = ''): Record<string, unknown> {
-  if (!isRecord(value)) {
-    return {};
-  }
-
-  const flattened: Record<string, unknown> = {};
-  for (const [key, nested] of Object.entries(value)) {
-    const nextPath = prefix ? `${prefix}.${key}` : key;
-    if (isRecord(nested)) {
-      const nestedFlattened = flattenChangeObject(nested, nextPath);
-      if (Object.keys(nestedFlattened).length === 0) {
-        flattened[nextPath] = nested;
-      } else {
-        Object.assign(flattened, nestedFlattened);
-      }
-      continue;
-    }
-
-    flattened[nextPath] = nested;
-  }
-
-  return flattened;
-}
-
-function translateHistoryEvent(eventType: string): string {
-  return HISTORY_EVENT_LABELS[eventType] ?? eventType;
-}
-
-function translateHistoryField(fieldPath: string): string {
-  return HISTORY_FIELD_LABELS[fieldPath] ?? fieldPath;
-}
-
-function buildHistoryRows(events: SampleDetailResponse['events']): HistoryRow[] {
-  const rows: HistoryRow[] = [];
-
-  for (const event of events) {
-    const payload = isRecord(event.payload) ? event.payload : {};
-    const actor = event.actorType === 'SYSTEM' ? 'SYSTEM' : event.actorUserId ?? 'Usuario desconhecido';
-    const reason = typeof payload.reasonText === 'string' && payload.reasonText.trim() ? payload.reasonText : '-';
-    const reversible = event.eventType === 'REGISTRATION_UPDATED' || event.eventType === 'CLASSIFICATION_UPDATED';
-    const beforeFlat = flattenChangeObject(payload.before);
-    const afterFlat = flattenChangeObject(payload.after);
-    const keys = Array.from(new Set([...Object.keys(beforeFlat), ...Object.keys(afterFlat)]));
-    const changedKeys = keys.filter((key) => normalizeHistoryValue(beforeFlat[key]) !== normalizeHistoryValue(afterFlat[key]));
-
-    if (!reversible || changedKeys.length === 0) {
-      rows.push({
-        eventId: event.eventId,
-        eventType: event.eventType,
-        eventLabel: translateHistoryEvent(event.eventType),
-        occurredAt: event.occurredAt,
-        actor,
-        field: '-',
-        before: '-',
-        after: '-',
-        reason,
-        reversible,
-        showRevertAction: reversible
-      });
-      continue;
-    }
-
-    changedKeys.forEach((key, index) => {
-      rows.push({
-        eventId: event.eventId,
-        eventType: event.eventType,
-        eventLabel: translateHistoryEvent(event.eventType),
-        occurredAt: event.occurredAt,
-        actor,
-        field: translateHistoryField(key),
-        before: normalizeHistoryValue(beforeFlat[key]),
-        after: normalizeHistoryValue(afterFlat[key]),
-        reason,
-        reversible,
-        showRevertAction: index === 0
-      });
-    });
-  }
-
-  return rows;
-}
-
 function canEditRegistrationStatus(status: SampleStatus): boolean {
   return REGISTRATION_EDITABLE_STATUSES.includes(status);
 }
@@ -634,7 +442,92 @@ function getExportTypeLabel(exportType: SampleExportType): string {
 
 const TECHNICAL_PRINT_ERROR = 'Falha tecnica ao disparar a impressao automatica.';
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
-const HISTORY_EVENT_LIMIT = 200;
+const DEFAULT_REGISTRATION_UPDATE_REASON_CODE: UpdateReasonCode = 'OTHER';
+const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
+
+function getOperationalStatusDotTone(status: SampleStatus) {
+  if (status === 'PHYSICAL_RECEIVED' || status === 'REGISTRATION_IN_PROGRESS') {
+    return 'neutral';
+  }
+
+  if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
+    return 'warning';
+  }
+
+  if (status === 'QR_PRINTED') {
+    return 'pending';
+  }
+
+  if (status === 'CLASSIFICATION_IN_PROGRESS') {
+    return 'progress';
+  }
+
+  if (status === 'CLASSIFIED') {
+    return 'success';
+  }
+
+  return 'danger';
+}
+
+function getOperationalStatusDotLabel(status: SampleStatus) {
+  if (status === 'PHYSICAL_RECEIVED') {
+    return 'Recebida fisicamente';
+  }
+
+  if (status === 'REGISTRATION_IN_PROGRESS') {
+    return 'Registro em andamento';
+  }
+
+  if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
+    return 'Impressao pendente';
+  }
+
+  if (status === 'QR_PRINTED') {
+    return 'Classificacao pendente';
+  }
+
+  if (status === 'CLASSIFICATION_IN_PROGRESS') {
+    return 'Classificacao em andamento';
+  }
+
+  if (status === 'CLASSIFIED') {
+    return 'Classificada';
+  }
+
+  return 'Invalidada';
+}
+
+function getCommercialStatusDotTone(status: CommercialStatus) {
+  if (status === 'OPEN') {
+    return 'open';
+  }
+
+  if (status === 'PARTIALLY_SOLD') {
+    return 'partial';
+  }
+
+  if (status === 'SOLD') {
+    return 'sold';
+  }
+
+  return 'lost';
+}
+
+function getCommercialStatusDotLabel(status: CommercialStatus) {
+  if (status === 'OPEN') {
+    return 'Em aberto';
+  }
+
+  if (status === 'PARTIALLY_SOLD') {
+    return 'Venda parcial';
+  }
+
+  if (status === 'SOLD') {
+    return 'Vendido';
+  }
+
+  return 'Perdido';
+}
 
 function buildLabelModalTitle(step: LabelModalStep, action: PrintAction | null) {
   if (step === 'review') {
@@ -738,11 +631,11 @@ export default function SampleDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [manualMode, setManualMode] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
+  const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(null);
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
+  const [showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] = useState(false);
+  const [classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] = useState(0);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
@@ -775,6 +668,7 @@ export default function SampleDetailPage() {
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
+  const [invalidateModalOpen, setInvalidateModalOpen] = useState(false);
 
   const [classificationForm, setClassificationForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [classificationStarting, setClassificationStarting] = useState(false);
@@ -782,30 +676,24 @@ export default function SampleDetailPage() {
   const [classificationCompleting, setClassificationCompleting] = useState(false);
   const [classificationStep, setClassificationStep] = useState<ClassificationStep>('PHOTO');
   const [detailSection, setDetailSection] = useState<SampleDetailSection>('GENERAL');
-  const [historyEvents, setHistoryEvents] = useState<SampleEvent[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
-  const [registrationEditReasonCode, setRegistrationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
-  const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
-  const [registrationReasonConfirmed, setRegistrationReasonConfirmed] = useState(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
   const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
   const [classificationUpdating, setClassificationUpdating] = useState(false);
-  const [revertTargetEventId, setRevertTargetEventId] = useState<string | null>(null);
-  const [revertReasonCode, setRevertReasonCode] = useState<UpdateReasonCode>('OTHER');
-  const [revertReasonText, setRevertReasonText] = useState('');
-  const [revertingEdit, setRevertingEdit] = useState(false);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
+  const invalidateModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPrintConfirmEffectTimeoutRef = useRef<number | null>(null);
+  const classificationPhotoConfirmEffectTimeoutRef = useRef<number | null>(null);
+  const classificationAdvanceStepTimeoutRef = useRef<number | null>(null);
   const classificationPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const classificationSectionRef = useRef<HTMLElement | null>(null);
+  const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
   const canInvalidateSample = Boolean(session);
 
   const fetchDetail = useCallback(
@@ -902,45 +790,11 @@ export default function SampleDetailPage() {
     };
   }, [detail?.sample.declared.owner, selectedOwnerClient, session]);
 
-  const loadHistory = useCallback(async () => {
-    if (!session || !sampleId) {
-      return undefined;
-    }
-
-    setHistoryLoading(true);
-    setHistoryError(null);
-
-    try {
-      const response = await listSampleEvents(session, sampleId, {
-        limit: HISTORY_EVENT_LIMIT
-      });
-      setHistoryEvents(response.events);
-      setHistoryLoaded(true);
-      return response.events;
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setHistoryError(cause.message);
-      } else {
-        setHistoryError('Falha ao carregar historico da amostra');
-      }
-      return undefined;
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [sampleId, session]);
-
   const syncDetailState = useCallback(
-    async ({ refreshHistory = false } = {}) => {
-      const detailPromise = refreshDetail();
-
-      if (refreshHistory || historyLoaded || detailSection === 'GENERAL') {
-        await Promise.all([detailPromise, loadHistory()]);
-        return;
-      }
-
-      await detailPromise;
+    async (_options: { refreshHistory?: boolean } = {}) => {
+      await refreshDetail();
     },
-    [detailSection, historyLoaded, loadHistory, refreshDetail]
+    [refreshDetail]
   );
 
   useEffect(() => {
@@ -949,14 +803,6 @@ export default function SampleDetailPage() {
     }
     void loadDetail();
   }, [loadDetail, sampleId]);
-
-  useEffect(() => {
-    if (detailSection !== 'GENERAL' || historyLoaded || historyLoading) {
-      return;
-    }
-
-    void loadHistory();
-  }, [detailSection, historyLoaded, historyLoading, loadHistory]);
 
   useEffect(() => {
     if (labelPrintConfirmEffectTimeoutRef.current !== null) {
@@ -978,22 +824,15 @@ export default function SampleDetailPage() {
     setShowLabelPrintConfirmEffect(false);
     setLabelPrintConfirmEffectKey(0);
     setRegistrationEditMode(false);
-    setRegistrationEditReasonCode('OTHER');
-    setRegistrationEditReasonText('');
-    setRegistrationReasonConfirmed(false);
     setClassificationStep('PHOTO');
     setDetailSection('GENERAL');
-    setHistoryEvents([]);
-    setHistoryLoaded(false);
-    setHistoryLoading(false);
-    setHistoryError(null);
     setClassificationEditMode(false);
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
     setClassificationEditReasonModalOpen(false);
-    setRevertTargetEventId(null);
-    setRevertReasonCode('OTHER');
-    setRevertReasonText('');
+    setInvalidateModalOpen(false);
+    setInvalidateReasonCode('OTHER');
+    setInvalidateReasonText('');
     setSelectedOwnerClient(null);
     setOwnerRegistrations([]);
     setSelectedOwnerRegistrationId(null);
@@ -1001,6 +840,9 @@ export default function SampleDetailPage() {
     setOwnerQuickCreateOpen(false);
     setOwnerQuickCreateSeed('');
     setClassificationSelectedPhoto(null);
+    setClassificationSavedPhotoFile(null);
+    setShowClassificationPhotoConfirmEffect(false);
+    setClassificationPhotoConfirmEffectKey(0);
     if (classificationPhotoInputRef.current) {
       classificationPhotoInputRef.current.value = '';
     }
@@ -1014,15 +856,18 @@ export default function SampleDetailPage() {
     return URL.createObjectURL(classificationSelectedPhoto);
   }, [classificationSelectedPhoto]);
 
-  const arrivalAttachments = useMemo(
-    () => detail?.attachments.filter((attachment) => attachment.kind === 'ARRIVAL_PHOTO') ?? [],
-    [detail]
-  );
+  const classificationSavedPhotoPreviewUrl = useMemo(() => {
+    if (!classificationSavedPhotoFile) {
+      return null;
+    }
+
+    return URL.createObjectURL(classificationSavedPhotoFile);
+  }, [classificationSavedPhotoFile]);
+
   const classificationAttachment = useMemo(
     () => detail?.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null,
     [detail]
   );
-  const historyRows = useMemo(() => buildHistoryRows(historyEvents), [historyEvents]);
   const canQuickPrint = detail
     ? detail.sample.status === 'REGISTRATION_CONFIRMED' || canRequestReprintStatus(detail.sample.status)
     : false;
@@ -1030,32 +875,28 @@ export default function SampleDetailPage() {
   const labelModalPrintAction =
     activeLabelPrintAttempt?.printAction ?? (detail ? getLabelPrintActionForStatus(detail.sample.status) : null);
   const canCloseLabelModal = labelModalStep === 'review';
-  const showQrPrintPendingBadge = Boolean(detail && isPrintPendingStatus(detail.sample.status));
   const classificationShowsWorkspace = Boolean(
     detail &&
       (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
   );
   const classificationPhotoEditingAllowed = detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS';
   const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
-  const classificationRecordedDateLabel = classificationForm.dataClassificacao
-    ? formatDateInputLabel(classificationForm.dataClassificacao)
-    : detail?.sample.status === 'CLASSIFIED'
-      ? 'Data nao registrada'
-      : 'Registrada automaticamente na conclusao';
+  const classificationVisiblePhotoPreviewUrl = classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl;
   const classificationPhotoStatusLabel = classificationPhotoUploading
     ? 'Salvando foto...'
     : classificationSelectedPhoto
       ? classificationSelectedPhoto.name
-      : classificationAttachment
-        ? `Foto ativa: ${classificationAttachment.id}`
-        : classificationPhotoEditingAllowed
-          ? 'Foto obrigatoria para concluir'
-          : 'Foto nao localizada';
+      : '';
   const classificationCanComplete = !classificationPhotoUploading && !classificationSelectedPhoto && Boolean(classificationAttachment);
+  const classificationCanAccessDataSteps = Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
   const classificationEditHighlightActive = classificationEditMode;
   const classificationStepNumber = classificationStep === 'PHOTO' ? 1 : classificationStep === 'GENERAL' ? 2 : 3;
   const classificationStepTitle =
     classificationStep === 'PHOTO' ? 'Foto da classificacao' : classificationStep === 'GENERAL' ? 'Dados gerais' : 'Leituras e peneiras';
+  const classificationTabDotTone = detail ? getOperationalStatusDotTone(detail.sample.status) : null;
+  const classificationTabDotLabel = detail ? getOperationalStatusDotLabel(detail.sample.status) : null;
+  const commercialTabDotTone = detail ? getCommercialStatusDotTone(detail.sample.commercialStatus) : null;
+  const commercialTabDotLabel = detail ? getCommercialStatusDotLabel(detail.sample.commercialStatus) : null;
 
   useEffect(() => {
     const handleAfterPrint = () => {
@@ -1074,6 +915,12 @@ export default function SampleDetailPage() {
     return () => {
       if (labelPrintConfirmEffectTimeoutRef.current !== null) {
         window.clearTimeout(labelPrintConfirmEffectTimeoutRef.current);
+      }
+      if (classificationPhotoConfirmEffectTimeoutRef.current !== null) {
+        window.clearTimeout(classificationPhotoConfirmEffectTimeoutRef.current);
+      }
+      if (classificationAdvanceStepTimeoutRef.current !== null) {
+        window.clearTimeout(classificationAdvanceStepTimeoutRef.current);
       }
     };
   }, []);
@@ -1115,24 +962,51 @@ export default function SampleDetailPage() {
   }, [canCloseLabelModal, labelModalOpen]);
 
   useEffect(() => {
+    if (!invalidateModalOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || invalidating) {
+        return;
+      }
+
+      event.preventDefault();
+      setInvalidateModalOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    window.setTimeout(() => {
+      invalidateModalCloseButtonRef.current?.focus();
+    }, 0);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      window.setTimeout(() => {
+        lastInvalidateTriggerRef.current?.focus();
+      }, 0);
+    };
+  }, [invalidateModalOpen, invalidating]);
+
+  useEffect(() => {
     if (!detail || !focusClassification) {
       return;
     }
 
     if (detailSection !== 'CLASSIFICATION') {
       setDetailSection('CLASSIFICATION');
-      return;
     }
-
-    if (!classificationSectionRef.current) {
-      return;
-    }
-
-    classificationSectionRef.current.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
   }, [detail, detailSection, focusClassification]);
+
+  useEffect(() => {
+    if (!classificationCanAccessDataSteps && classificationStep !== 'PHOTO') {
+      setClassificationStep('PHOTO');
+    }
+  }, [classificationCanAccessDataSteps, classificationStep]);
 
   useEffect(() => {
     if (!classificationSelectedPhotoPreviewUrl) {
@@ -1143,6 +1017,20 @@ export default function SampleDetailPage() {
       URL.revokeObjectURL(classificationSelectedPhotoPreviewUrl);
     };
   }, [classificationSelectedPhotoPreviewUrl]);
+
+  useEffect(() => {
+    if (!classificationSavedPhotoPreviewUrl) {
+      return;
+    }
+
+    return () => {
+      URL.revokeObjectURL(classificationSavedPhotoPreviewUrl);
+    };
+  }, [classificationSavedPhotoPreviewUrl]);
+
+  useEffect(() => {
+    classificationStepBodyRef.current?.scrollTo({ top: 0 });
+  }, [classificationStep]);
 
   if (loading || !session) {
     return null;
@@ -1156,47 +1044,44 @@ export default function SampleDetailPage() {
       );
   }
 
-  async function handleUploadPhoto() {
-    if (!session || !selectedPhoto || !detail) {
-      setError('Selecione uma foto antes de enviar.');
-      return;
-    }
-
-    setPhotoUploading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await uploadLabelPhoto(session, sampleId, selectedPhoto, true);
-      setSelectedPhoto(null);
-      setMessage('Foto enviada com sucesso.');
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao enviar foto');
-      }
-    } finally {
-      setPhotoUploading(false);
-    }
-  }
-
   async function handleUploadClassificationPhoto() {
     if (!session || !classificationSelectedPhoto || !detail) {
       setError('Selecione uma foto de classificacao antes de usar.');
       return;
     }
 
+    const nextPreviewFile = classificationSelectedPhoto;
     setClassificationPhotoUploading(true);
     setError(null);
     setMessage(null);
 
     try {
-      await uploadClassificationPhoto(session, sampleId, classificationSelectedPhoto, true);
-      clearClassificationSelectedPhoto();
+      await uploadClassificationPhoto(session, sampleId, nextPreviewFile, true);
+      setClassificationSavedPhotoFile(nextPreviewFile);
+      setClassificationSelectedPhoto(null);
+      if (classificationPhotoInputRef.current) {
+        classificationPhotoInputRef.current.value = '';
+      }
       setMessage('Foto da classificacao salva com sucesso.');
       await syncDetailState();
+      setClassificationPhotoConfirmEffectKey((current) => current + 1);
+      setShowClassificationPhotoConfirmEffect(true);
+
+      if (classificationPhotoConfirmEffectTimeoutRef.current !== null) {
+        window.clearTimeout(classificationPhotoConfirmEffectTimeoutRef.current);
+      }
+      classificationPhotoConfirmEffectTimeoutRef.current = window.setTimeout(() => {
+        setShowClassificationPhotoConfirmEffect(false);
+        classificationPhotoConfirmEffectTimeoutRef.current = null;
+      }, 980);
+
+      if (classificationAdvanceStepTimeoutRef.current !== null) {
+        window.clearTimeout(classificationAdvanceStepTimeoutRef.current);
+      }
+      classificationAdvanceStepTimeoutRef.current = window.setTimeout(() => {
+        setClassificationStep('GENERAL');
+        classificationAdvanceStepTimeoutRef.current = null;
+      }, 760);
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -1699,6 +1584,7 @@ export default function SampleDetailPage() {
         reasonCode: parsed.data.reasonCode,
         reasonText: parsed.data.reasonText
       });
+      setInvalidateModalOpen(false);
       setMessage('Amostra invalidada com sucesso.');
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
@@ -1784,6 +1670,25 @@ export default function SampleDetailPage() {
     }
   }
 
+  function handleAdvanceFromClassificationPhoto() {
+    if (classificationSelectedPhoto) {
+      void handleUploadClassificationPhoto();
+      return;
+    }
+
+    if (classificationCanAccessDataSteps) {
+      setClassificationStep('GENERAL');
+      return;
+    }
+
+    setError('Selecione e salve uma foto da classificacao antes de continuar.');
+  }
+
+  function handleAdvanceFromClassificationGeneral() {
+    setError(null);
+    setClassificationStep('MEASURES');
+  }
+
   async function handleCompleteClassification() {
     if (!session || !detail || detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS') {
       return;
@@ -1866,9 +1771,6 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
-    setRegistrationEditReasonCode('OTHER');
-    setRegistrationEditReasonText('');
-    setRegistrationReasonConfirmed(false);
     setRegistrationEditMode(true);
     setError(null);
     setMessage(null);
@@ -1886,26 +1788,7 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
-    setRegistrationEditReasonCode('OTHER');
-    setRegistrationEditReasonText('');
-    setRegistrationReasonConfirmed(false);
     setRegistrationEditMode(false);
-  }
-
-  function handleConfirmRegistrationEditReason() {
-    const parsedReason = updateReasonSchema.safeParse({
-      reasonCode: registrationEditReasonCode,
-      reasonText: registrationEditReasonText
-    });
-
-    if (!parsedReason.success) {
-      setRegistrationReasonConfirmed(false);
-      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
-      return;
-    }
-
-    setRegistrationReasonConfirmed(true);
-    setError(null);
   }
 
   async function handleSaveRegistrationUpdate() {
@@ -1915,11 +1798,6 @@ export default function SampleDetailPage() {
 
     if (!canEditRegistrationStatus(detail.sample.status)) {
       setError('Status atual nao permite edicao de registro.');
-      return;
-    }
-
-    if (!registrationReasonConfirmed) {
-      setError('Confirme o motivo da edicao antes de salvar.');
       return;
     }
 
@@ -1939,15 +1817,6 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const parsedReason = updateReasonSchema.safeParse({
-      reasonCode: registrationEditReasonCode,
-      reasonText: registrationEditReasonText
-    });
-    if (!parsedReason.success) {
-      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
-      return;
-    }
-
     setRegistrationUpdating(true);
     setError(null);
     setMessage(null);
@@ -1960,16 +1829,13 @@ export default function SampleDetailPage() {
           ownerClientId: selectedOwnerClient.id,
           ownerRegistrationId: selectedOwnerRegistrationId
         },
-        reasonCode: parsedReason.data.reasonCode,
-        reasonText: parsedReason.data.reasonText
+        reasonCode: DEFAULT_REGISTRATION_UPDATE_REASON_CODE,
+        reasonText: DEFAULT_REGISTRATION_UPDATE_REASON_TEXT
       });
 
       setRegistrationEditMode(false);
-      setRegistrationEditReasonCode('OTHER');
-      setRegistrationEditReasonText('');
-      setRegistrationReasonConfirmed(false);
       setMessage('Edicao de registro salva com sucesso.');
-      await syncDetailState({ refreshHistory: true });
+      await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setError(cause.message);
@@ -2102,48 +1968,6 @@ export default function SampleDetailPage() {
     setClassificationEditReasonModalOpen(false);
   }
 
-  async function handleConfirmRevertUpdate() {
-    if (!session || !detail || !revertTargetEventId) {
-      return;
-    }
-
-    const parsedReason = updateReasonSchema.safeParse({
-      reasonCode: revertReasonCode,
-      reasonText: revertReasonText
-    });
-    if (!parsedReason.success) {
-      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
-      return;
-    }
-
-    setRevertingEdit(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await revertSampleUpdate(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        targetEventId: revertTargetEventId,
-        reasonCode: parsedReason.data.reasonCode,
-        reasonText: parsedReason.data.reasonText
-      });
-
-      setRevertTargetEventId(null);
-      setRevertReasonCode('OTHER');
-      setRevertReasonText('');
-      setMessage('Edicao revertida com sucesso.');
-      await syncDetailState({ refreshHistory: true });
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setError(cause.message);
-      } else {
-        setError('Falha ao reverter edicao');
-      }
-    } finally {
-      setRevertingEdit(false);
-    }
-  }
-
   function updateClassificationField(key: keyof ClassificationFormState, value: string) {
     setClassificationForm((current) => ({
       ...current,
@@ -2224,651 +2048,497 @@ export default function SampleDetailPage() {
 
   return (
     <AppShell session={session} onLogout={logout}>
-      <div className="row sample-detail-back-row" style={{ marginBottom: '1rem' }}>
-        <Link href="/samples">
-          <button className="secondary sample-detail-back-button" type="button">
+      <section className="sample-detail-page">
+        <div className="row sample-detail-back-row">
+          <Link href="/samples" className="sample-detail-back-button">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="M19 12H5" />
               <path d="m11 6-6 6 6 6" />
             </svg>
             <span>Registros</span>
-          </button>
-        </Link>
-      </div>
+          </Link>
+        </div>
 
-      {loadingDetail ? <p>Carregando amostra...</p> : null}
+        {loadingDetail ? <p>Carregando amostra...</p> : null}
 
-      {!loadingDetail && detail ? (
-        <div className="stack sample-detail-page-shell">
-          <section className="panel stack sample-detail-hero-panel">
-            <div className="sample-detail-hero-top">
-              <div className="sample-detail-hero-main">
-                <span className="sample-detail-hero-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9.5Z" />
-                    <path d="M8 21v-5.5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1V21" />
-                    <path d="M9 10h.01" />
-                    <path d="M15 10h.01" />
-                  </svg>
-                </span>
+        {!loadingDetail && detail ? (
+          <div className="stack sample-detail-page-shell">
+            <section className="panel stack sample-detail-hero-panel">
+              <div className="sample-detail-hero-top">
+                <div className="sample-detail-hero-main">
+                  <span className="sample-detail-hero-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9.5Z" />
+                      <path d="M8 21v-5.5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1V21" />
+                      <path d="M9 10h.01" />
+                      <path d="M15 10h.01" />
+                    </svg>
+                  </span>
 
-                <div className="sample-detail-hero-text">
-                  <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
-                  <p style={{ margin: 0 }}>{buildReadableValue(detail.sample.declared.owner)}</p>
-                  <div className="sample-detail-hero-statuses">
-                    <StatusBadge status={detail.sample.status} />
-                    <CommercialStatusBadge status={detail.sample.commercialStatus} />
+                  <div className="sample-detail-hero-text">
+                    <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
+                    <p style={{ margin: 0 }}>{buildReadableValue(detail.sample.declared.owner)}</p>
                   </div>
                 </div>
+
+                {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
+                  <div className="sample-detail-hero-actions">
+                    <button
+                      type="button"
+                      className="sample-detail-hero-action is-danger"
+                      onClick={(event) => {
+                        lastInvalidateTriggerRef.current = event.currentTarget;
+                        setInvalidateModalOpen(true);
+                        setInvalidateReasonCode('OTHER');
+                        setInvalidateReasonText('');
+                        setError(null);
+                        setMessage(null);
+                      }}
+                      aria-label="Invalidar amostra"
+                      title="Invalidar amostra"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <circle cx="12" cy="12" r="8" />
+                        <path d="m8.6 15.4 6.8-6.8" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : null}
               </div>
+
+              {error ? <p className="error">{error}</p> : null}
+              {message ? <p className="success">{message}</p> : null}
+            </section>
+
+            <div className="sample-detail-info-switch-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes da amostra">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={detailSection === 'GENERAL'}
+                  className={detailSection === 'GENERAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                  onClick={() => setDetailSection('GENERAL')}
+                >
+                  <span className="sample-detail-info-tab-label">Geral</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={detailSection === 'CLASSIFICATION'}
+                  className={detailSection === 'CLASSIFICATION' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                  onClick={() => setDetailSection('CLASSIFICATION')}
+                  aria-label={classificationTabDotLabel ? `Classificacao - ${classificationTabDotLabel}` : 'Classificacao'}
+                >
+                  <span className="sample-detail-info-tab-label">Classificacao</span>
+                  {classificationTabDotTone ? (
+                    <span
+                      className={`sample-detail-info-tab-dot is-${classificationTabDotTone}`}
+                      aria-hidden="true"
+                      title={classificationTabDotLabel ?? undefined}
+                    />
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={detailSection === 'COMMERCIAL'}
+                  className={detailSection === 'COMMERCIAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                  onClick={() => setDetailSection('COMMERCIAL')}
+                  aria-label={commercialTabDotLabel ? `Comercial - ${commercialTabDotLabel}` : 'Comercial'}
+                >
+                  <span className="sample-detail-info-tab-label">Comercial</span>
+                  {commercialTabDotTone ? (
+                    <span
+                      className={`sample-detail-info-tab-dot is-commercial-${commercialTabDotTone}`}
+                      aria-hidden="true"
+                      title={commercialTabDotLabel ?? undefined}
+                    />
+                  ) : null}
+                </button>
             </div>
 
-            {error ? <p className="error">{error}</p> : null}
-            {message ? <p className="success">{message}</p> : null}
-          </section>
+            <section className="panel stack sample-detail-content-switch sample-detail-content-panel">
+              <div className={`sample-detail-info-switch-body${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
+                {detailSection === 'GENERAL' ? (
+                  <section className="stack sample-detail-info-pane sample-detail-general-pane">
+                    <section className="panel sample-detail-main-layout sample-detail-main-layout-general">
+                      <article className={`stack sample-detail-main-info sample-detail-main-info-grid${registrationEditMode ? ' is-editing' : ''}`}>
+                        <div className="sample-detail-general-qr-block">
+                          <div className="sample-detail-qr-quick-code">
+                            <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={156} />
+                          </div>
 
-          <section className="panel stack sample-detail-content-switch">
-            <div className="sample-detail-info-switch-header" role="tablist" aria-label="Secoes da amostra">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={detailSection === 'GENERAL'}
-                className={detailSection === 'GENERAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                onClick={() => setDetailSection('GENERAL')}
-              >
-                Geral
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={detailSection === 'CLASSIFICATION'}
-                className={detailSection === 'CLASSIFICATION' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                onClick={() => setDetailSection('CLASSIFICATION')}
-              >
-                Classificacao
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={detailSection === 'COMMERCIAL'}
-                className={detailSection === 'COMMERCIAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                onClick={() => setDetailSection('COMMERCIAL')}
-              >
-                Comercial
-              </button>
-            </div>
+                          <div className="row sample-detail-qr-quick-actions">
+                            <button
+                              type="button"
+                              className="sample-detail-qr-action"
+                              onClick={(event) => openLabelReviewModal(event.currentTarget)}
+                              disabled={!canQuickPrint || labelModalSubmitting}
+                              aria-label="Imprimir etiqueta da amostra"
+                              title="Imprimir etiqueta da amostra"
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M7 8V4.8h10V8" />
+                                <rect x="5" y="9" width="14" height="7" rx="1.8" />
+                                <path d="M8 14h8" />
+                                <path d="M8 16.8h8V20H8z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className="sample-detail-qr-action secondary"
+                              onClick={handleOpenExportTypeSelector}
+                              disabled={!canQuickReport || Boolean(exportingPdfType)}
+                              aria-label="Gerar laudo da amostra"
+                              title="Gerar laudo da amostra"
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M7 4.8h7l3 3V19.2H7z" />
+                                <path d="M14 4.8v3h3" />
+                                <path d="M9 12h6" />
+                                <path d="M9 15h6" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
 
-            <div className={`sample-detail-info-switch-body${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
-              {detailSection === 'GENERAL' ? (
-                <section className="stack sample-detail-info-pane">
-                  <section className="panel sample-detail-main-layout">
-                    <article className="stack sample-detail-main-info">
-                      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <h3 style={{ margin: 0 }}>Informacoes principais da amostra</h3>
-                        <div className="sample-detail-edit-tools">
-                          <div className="sample-detail-edit-trigger-slot">
-                            {canEditRegistrationStatus(detail.sample.status) && !registrationEditMode ? (
-                              <button
-                                type="button"
-                                className="secondary sample-detail-icon-action"
-                                onClick={startRegistrationEdit}
-                                aria-label="Editar informacoes principais"
-                                title="Editar informacoes principais"
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="M12 20h9" />
-                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                </svg>
-                              </button>
+                        <div className="sample-detail-card-head sample-detail-card-head-general">
+                          <h3 className="sample-detail-card-title">Informacoes</h3>
+                        </div>
+
+                        <div className="sample-detail-main-facts sample-detail-main-facts-columns">
+                          <div className="sample-detail-main-fact">
+                            <span>Proprietario</span>
+                            {registrationEditMode ? (
+                              <div className="sample-detail-lookup-slot">
+                                <ClientLookupField
+                                  session={session}
+                                  label="Cliente proprietario"
+                                  kind="owner"
+                                  selectedClient={selectedOwnerClient}
+                                  disabled={registrationUpdating}
+                                  compact
+                                  onSelectClient={(client) => {
+                                    setSelectedOwnerClient(client);
+                                    setOwner(client?.displayName ?? '');
+                                    setSelectedOwnerRegistrationId(null);
+                                    setError(null);
+                                  }}
+                                  onRequestCreate={(searchTerm) => {
+                                    setOwnerQuickCreateSeed(searchTerm);
+                                    setOwnerQuickCreateOpen(true);
+                                  }}
+                                  createLabel="Cadastrar proprietario"
+                                />
+                              </div>
                             ) : (
-                              <span className="sample-detail-icon-action sample-detail-icon-placeholder" aria-hidden="true" />
+                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
                             )}
                           </div>
 
-                          <div className={`sample-detail-edit-reason-row${registrationEditMode ? ' is-active' : ''}`}>
-                            <input
-                              className={`sample-detail-reason-input${registrationReasonConfirmed ? ' is-confirmed' : ''}`}
-                              value={registrationEditReasonText}
-                              onChange={(event) => {
-                                setRegistrationEditReasonText(event.target.value);
-                                if (registrationReasonConfirmed) {
-                                  setRegistrationReasonConfirmed(false);
-                                }
-                              }}
-                              placeholder="Motivo da edicao"
-                              disabled={!registrationEditMode || registrationUpdating}
-                            />
-                            <button
-                              type="button"
-                              className="sample-detail-icon-action"
-                              onClick={handleConfirmRegistrationEditReason}
-                              disabled={!registrationEditMode || registrationUpdating || registrationEditReasonText.trim().length === 0}
-                              aria-label="Confirmar motivo da edicao"
-                              title="Confirmar motivo da edicao"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="m5 12 4.5 4.5L19 7" />
-                              </svg>
-                            </button>
+                          <div className="sample-detail-main-fact is-wide-value">
+                            <span>Inscricao do proprietario</span>
+                            {registrationEditMode ? (
+                              <div className="sample-detail-lookup-slot">
+                                <ClientRegistrationSelect
+                                  label="Inscricao"
+                                  registrations={ownerRegistrations}
+                                  value={selectedOwnerRegistrationId}
+                                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
+                                  onChange={setSelectedOwnerRegistrationId}
+                                  placeholder="Selecionar"
+                                  compact
+                                />
+                              </div>
+                            ) : (
+                              <strong className="sample-detail-inline-value">
+                                {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
+                              </strong>
+                            )}
+                          </div>
+
+                          <div className="sample-detail-main-fact">
+                            <span>Sacas</span>
+                            {registrationEditMode ? (
+                              <input
+                                className="sample-detail-inline-input"
+                                value={sacks}
+                                onChange={(event) => setSacks(event.target.value)}
+                                inputMode="numeric"
+                                disabled={registrationUpdating}
+                              />
+                            ) : (
+                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
+                            )}
+                          </div>
+
+                          <div className="sample-detail-main-fact">
+                            <span>Safra</span>
+                            {registrationEditMode ? (
+                              <input
+                                className="sample-detail-inline-input"
+                                value={harvest}
+                                onChange={(event) => setHarvest(event.target.value)}
+                                disabled={registrationUpdating}
+                              />
+                            ) : (
+                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
+                            )}
+                          </div>
+
+                          <div className="sample-detail-main-fact">
+                            <span>Lote de origem</span>
+                            {registrationEditMode ? (
+                              <input
+                                className="sample-detail-inline-input"
+                                value={originLot}
+                                onChange={(event) => setOriginLot(event.target.value)}
+                                disabled={registrationUpdating}
+                              />
+                            ) : (
+                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
+                            )}
+                          </div>
+
+                          <div className="sample-detail-main-fact is-wide-value">
+                            <span>Recebido</span>
+                            <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="sample-detail-main-facts">
-                        <div className="sample-detail-main-fact">
-                          <span>Proprietario</span>
+                        <div className="sample-detail-inline-actions sample-detail-inline-actions-bottom">
                           {registrationEditMode ? (
-                            <div className="sample-detail-lookup-slot">
-                              <ClientLookupField
-                                session={session}
-                                label="Cliente proprietario"
-                                kind="owner"
-                                selectedClient={selectedOwnerClient}
-                                disabled={!registrationReasonConfirmed || registrationUpdating}
-                                onSelectClient={(client) => {
-                                  setSelectedOwnerClient(client);
-                                  setOwner(client?.displayName ?? '');
-                                  setSelectedOwnerRegistrationId(null);
-                                  setError(null);
-                                }}
-                                onRequestCreate={(searchTerm) => {
-                                  setOwnerQuickCreateSeed(searchTerm);
-                                  setOwnerQuickCreateOpen(true);
-                                }}
-                                createLabel="Cadastrar proprietario"
-                              />
-                            </div>
+                            <>
+                              <button
+                                type="button"
+                                className="sample-detail-icon-action"
+                                onClick={() => void handleSaveRegistrationUpdate()}
+                                disabled={registrationUpdating}
+                                aria-label="Confirmar edicao do registro"
+                                title="Confirmar edicao do registro"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="m5 12 4.5 4.5L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary sample-detail-icon-action"
+                                onClick={cancelRegistrationEdit}
+                                disabled={registrationUpdating}
+                                aria-label="Cancelar edicao do registro"
+                                title="Cancelar edicao do registro"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="m6 6 12 12" />
+                                  <path d="M18 6 6 18" />
+                                </svg>
+                              </button>
+                            </>
                           ) : (
-                            <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
-                          )}
-                        </div>
-                        <div className="sample-detail-main-fact">
-                          <span>Inscricao do proprietario</span>
-                          {registrationEditMode ? (
-                            <div className="sample-detail-lookup-slot">
-                              <ClientRegistrationSelect
-                                label="Inscricao"
-                                registrations={ownerRegistrations}
-                                value={selectedOwnerRegistrationId}
-                                disabled={!selectedOwnerClient || ownerRegistrationLoading || !registrationReasonConfirmed || registrationUpdating}
-                                onChange={setSelectedOwnerRegistrationId}
-                              />
-                            </div>
-                          ) : (
-                            <strong className="sample-detail-inline-value">
-                              {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
-                            </strong>
-                          )}
-                        </div>
-                        <div className="sample-detail-main-fact">
-                          <span>Sacas</span>
-                          {registrationEditMode ? (
-                            <input
-                              className="sample-detail-inline-input"
-                              value={sacks}
-                              onChange={(event) => setSacks(event.target.value)}
-                              inputMode="numeric"
-                              disabled={!registrationReasonConfirmed || registrationUpdating}
-                            />
-                          ) : (
-                            <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
-                          )}
-                        </div>
-                        <div className="sample-detail-main-fact">
-                          <span>Safra</span>
-                          {registrationEditMode ? (
-                            <input
-                              className="sample-detail-inline-input"
-                              value={harvest}
-                              onChange={(event) => setHarvest(event.target.value)}
-                              disabled={!registrationReasonConfirmed || registrationUpdating}
-                            />
-                          ) : (
-                            <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
-                          )}
-                        </div>
-                        <div className="sample-detail-main-fact">
-                          <span>Lote de origem</span>
-                          {registrationEditMode ? (
-                            <input
-                              className="sample-detail-inline-input"
-                              value={originLot}
-                              onChange={(event) => setOriginLot(event.target.value)}
-                              disabled={!registrationReasonConfirmed || registrationUpdating}
-                            />
-                          ) : (
-                            <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
-                          )}
-                        </div>
-                        <div className="sample-detail-main-fact">
-                          <span>Recebido</span>
-                          <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
-                        </div>
-                      </div>
-
-                      <div className="sample-detail-inline-actions">
-                        {registrationEditMode ? (
-                          <>
-                            <button
-                              type="button"
-                              className="sample-detail-icon-action"
-                              onClick={() => void handleSaveRegistrationUpdate()}
-                              disabled={registrationUpdating || !registrationReasonConfirmed}
-                              aria-label="Confirmar edicao do registro"
-                              title="Confirmar edicao do registro"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="m5 12 4.5 4.5L19 7" />
-                              </svg>
-                            </button>
                             <button
                               type="button"
                               className="secondary sample-detail-icon-action"
-                              onClick={cancelRegistrationEdit}
-                              disabled={registrationUpdating}
-                              aria-label="Cancelar edicao do registro"
-                              title="Cancelar edicao do registro"
+                              onClick={startRegistrationEdit}
+                              aria-label="Editar informacoes principais"
+                              title="Editar informacoes principais"
                             >
                               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="m6 6 12 12" />
-                                <path d="M18 6 6 18" />
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                               </svg>
                             </button>
-                          </>
-                        ) : (
-                          <span className="sample-detail-inline-actions-placeholder" aria-hidden="true" />
-                        )}
-                      </div>
-                    </article>
-
-                    <aside className="sample-detail-qr-quick-card">
-                      <div className="sample-detail-qr-quick-header">
-                        <h3 style={{ margin: 0 }}>QR da amostra</h3>
-                        {showQrPrintPendingBadge ? <StatusBadge status={detail.sample.status} /> : null}
-                      </div>
-                      <div className="sample-detail-qr-quick-code">
-                        <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={154} />
-                      </div>
-
-                      <div className="row">
-                        <button
-                          type="button"
-                          onClick={(event) => openLabelReviewModal(event.currentTarget)}
-                          disabled={!canQuickPrint || labelModalSubmitting}
-                        >
-                          {labelModalSubmitting ? 'Processando...' : 'Imprimir'}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={handleOpenExportTypeSelector}
-                          disabled={!canQuickReport || Boolean(exportingPdfType)}
-                        >
-                          {Boolean(exportingPdfType) ? 'Gerando laudo...' : 'Gerar Laudo'}
-                        </button>
-                      </div>
-                    </aside>
-                  </section>
-
-                  {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
-                    <section className="panel stack">
-                      <h3 style={{ margin: 0 }}>Controle de invalidacao</h3>
-
-                      <form
-                        className="stack"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void handleInvalidateSample();
-                        }}
-                      >
-                        <label>
-                          Motivo da invalidacao
-                          <select
-                            value={invalidateReasonCode}
-                            onChange={(event) => setInvalidateReasonCode(event.target.value as InvalidateReasonCode)}
-                          >
-                            {INVALIDATE_REASON_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label>
-                          Detalhes
-                          <textarea
-                            rows={3}
-                            value={invalidateReasonText}
-                            onChange={(event) => setInvalidateReasonText(event.target.value)}
-                            placeholder="Descreva o motivo da invalidacao"
-                          />
-                        </label>
-
-                        <div className="row">
-                          <button className="danger" type="submit" disabled={invalidating}>
-                            {invalidating ? 'Invalidando...' : 'Invalidar amostra'}
-                          </button>
+                          )}
                         </div>
-                      </form>
+                      </article>
                     </section>
-                  ) : null}
 
-                  {detail.sample.status === 'INVALIDATED' ? (
-                    <section className="panel stack">
-                      <h3 style={{ margin: 0 }}>Amostra invalidada</h3>
-                    </section>
-                  ) : null}
-
-                  <section className="panel stack">
-                    <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <h3 style={{ margin: 0 }}>Historico completo da amostra</h3>
-                      <span style={{ color: 'var(--muted)', fontSize: '0.86rem' }}>
-                        {historyLoading
-                          ? 'Carregando...'
-                          : `${historyRows.length} ${historyRows.length === 1 ? 'registro' : 'registros'}`}
-                      </span>
-                    </div>
-
-                    {historyError ? (
-                      <div className="stack">
-                        <p className="error" style={{ margin: 0 }}>
-                          {historyError}
+                    {detail.sample.status === 'INVALIDATED' ? (
+                      <section className="panel stack sample-detail-status-note">
+                        <h3 className="sample-detail-card-title">Amostra invalidada</h3>
+                        <p style={{ margin: 0, color: 'var(--muted)' }}>
+                          Esta amostra foi retirada do fluxo operacional e permanece apenas para consulta.
                         </p>
-                        <div className="row">
-                          <button type="button" className="secondary" onClick={() => void loadHistory()} disabled={historyLoading}>
-                            Tentar novamente
-                          </button>
-                        </div>
-                      </div>
-                    ) : historyLoading ? (
-                      <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando historico...</p>
-                    ) : historyRows.length === 0 ? (
-                      <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhum evento registrado.</p>
-                    ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Data/Hora</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Usuario</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Evento</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Campo</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Antes</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Depois</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Motivo</th>
-                              <th style={{ textAlign: 'left', padding: '0.5rem' }}>Acoes</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {historyRows.map((row, index) => (
-                              <tr key={`${row.eventId}-${row.field}-${index}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{formatTimestamp(row.occurredAt)}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.actor}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.eventLabel}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.field}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.before}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.after}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.reason}</td>
-                                <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>
-                                  {row.reversible && row.showRevertAction ? (
-                                    <button
-                                      type="button"
-                                      className="secondary"
-                                      onClick={() => {
-                                        setRevertTargetEventId(row.eventId);
-                                        setRevertReasonCode('OTHER');
-                                        setRevertReasonText('');
-                                      }}
-                                    >
-                                      Reverter
-                                    </button>
-                                  ) : (
-                                    '-'
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
-
-                  {revertTargetEventId ? (
-                    <section className="panel stack">
-                      <h3 style={{ margin: 0 }}>Reverter edicao</h3>
-
-                      <label>
-                        Motivo da reversao
-                        <select value={revertReasonCode} onChange={(event) => setRevertReasonCode(event.target.value as UpdateReasonCode)}>
-                          {UPDATE_REASON_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label>
-                        Justificativa (maximo 10 palavras)
-                        <input
-                          value={revertReasonText}
-                          onChange={(event) => setRevertReasonText(event.target.value)}
-                          placeholder="Explique a reversao"
-                        />
-                      </label>
-
-                      <div className="row">
-                        <button type="button" onClick={handleConfirmRevertUpdate} disabled={revertingEdit}>
-                          {revertingEdit ? 'Revertendo...' : 'Confirmar reversao'}
-                        </button>
-                        <button
-                          className="secondary"
-                          type="button"
-                          disabled={revertingEdit}
-                          onClick={() => {
-                            setRevertTargetEventId(null);
-                            setRevertReasonCode('OTHER');
-                            setRevertReasonText('');
-                          }}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </section>
-                  ) : null}
-                </section>
-              ) : detailSection === 'CLASSIFICATION' ? (
-                isClassificationStatus(detail.sample.status) ? (
-                  <section className="stack sample-detail-info-pane" id="classification-section" ref={classificationSectionRef}>
-                    <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
-                      <div className="row" style={{ marginLeft: 'auto', justifyContent: 'flex-end' }}>
-                        <StatusBadge status={detail.sample.status} />
-                      </div>
-                    </div>
-
-                    {fromQrSource ? (
-                      <p className="success sample-classification-feedback" style={{ margin: 0 }}>
-                        Acesso por leitura de QR confirmado para esta amostra.
-                      </p>
-                    ) : null}
-
-                    {detail.sample.status === 'QR_PRINTED' ? (
-                      <section className="panel sample-classification-start-card">
-                        <div className="sample-classification-start-copy">
-                          <h4 style={{ margin: 0 }}>Classificacao pronta para iniciar</h4>
-                        </div>
-                        <button type="button" onClick={handleStartClassification} disabled={classificationStarting}>
-                          {classificationStarting ? 'Iniciando classificacao...' : 'Iniciar classificacao'}
-                        </button>
                       </section>
                     ) : null}
-
-                    {classificationShowsWorkspace ? (
-                      <form
-                        className={[
-                          'stack sample-classification-flow',
-                          'sample-classification-step-shell',
-                          classificationEditHighlightActive ? 'is-editing' : '',
-                          classificationFieldsReadOnly ? 'is-readonly' : ''
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          if (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') {
-                            void handleCompleteClassification();
-                            return;
-                          }
-
-                          if (classificationEditMode) {
-                            handleRequestClassificationUpdate();
-                          }
-                        }}
-                      >
-                        <div className="sample-classification-step-header">
-                          <div className="sample-classification-step-summary">
-                            <span className="new-sample-step-count">{classificationStepNumber}/3</span>
-                            <h4 className="sample-classification-step-title">{classificationStepTitle}</h4>
-                          </div>
-                          <div className="sample-classification-step-switch" role="tablist" aria-label="Etapas da classificacao">
-                            <button
-                              type="button"
-                              className={classificationStep === 'PHOTO' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                              onClick={() => setClassificationStep('PHOTO')}
-                            >
-                              Foto
-                            </button>
-                            <button
-                              type="button"
-                              className={classificationStep === 'GENERAL' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                              onClick={() => setClassificationStep('GENERAL')}
-                            >
-                              Dados
-                            </button>
-                            <button
-                              type="button"
-                              className={classificationStep === 'MEASURES' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                              onClick={() => setClassificationStep('MEASURES')}
-                            >
-                              Leituras
-                            </button>
-                          </div>
+                  </section>
+                ) : detailSection === 'CLASSIFICATION' ? (
+                  isClassificationStatus(detail.sample.status) ? (
+                    <section className="stack sample-detail-info-pane sample-detail-classification-pane" id="classification-section" ref={classificationSectionRef}>
+                      <div className="row" style={{ justifyContent: 'space-between' }}>
+                        <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
+                        <div className="row" style={{ marginLeft: 'auto', justifyContent: 'flex-end' }}>
+                          <StatusBadge status={detail.sample.status} />
                         </div>
+                      </div>
 
-                        <div className="sample-classification-step-body">
-                          {classificationStep === 'PHOTO' ? (
-                            <section className="panel stack sample-classification-photo-panel">
-                              <div className="sample-classification-panel-head is-tight">
-                                <div>
-                                  <h4 style={{ margin: 0 }}>Imagem da classificacao</h4>
-                                </div>
-                                <span
-                                  className={`sample-classification-chip ${
-                                    classificationAttachment ? 'is-ready' : 'is-missing'
-                                  }`}
-                                >
-                                  {classificationAttachment ? 'Ativa' : 'Obrigatoria'}
-                                </span>
-                              </div>
+                      {fromQrSource ? (
+                        <p className="success sample-classification-feedback" style={{ margin: 0 }}>
+                          Acesso por leitura de QR confirmado para esta amostra.
+                        </p>
+                      ) : null}
 
-                              <label
-                                htmlFor="sample-classification-photo-input"
-                                className={`new-sample-photo-stage sample-classification-photo-stage${
-                                  classificationPhotoEditingAllowed ? '' : ' is-static'
-                                }`}
+                      {detail.sample.status === 'QR_PRINTED' ? (
+                        <section className="panel sample-classification-start-card">
+                          <div className="sample-classification-start-copy">
+                            <h4 style={{ margin: 0 }}>Classificacao pronta para iniciar</h4>
+                          </div>
+                          <button type="button" onClick={handleStartClassification} disabled={classificationStarting}>
+                            {classificationStarting ? 'Iniciando classificacao...' : 'Iniciar classificacao'}
+                          </button>
+                        </section>
+                      ) : null}
+
+                      {classificationShowsWorkspace ? (
+                        <form
+                          className={[
+                            'stack sample-classification-flow',
+                            'sample-classification-step-shell',
+                            classificationEditHighlightActive ? 'is-editing' : '',
+                            classificationFieldsReadOnly ? 'is-readonly' : ''
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            if (classificationStep === 'PHOTO') {
+                              handleAdvanceFromClassificationPhoto();
+                              return;
+                            }
+
+                            if (classificationStep === 'GENERAL') {
+                              handleAdvanceFromClassificationGeneral();
+                              return;
+                            }
+
+                            if (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') {
+                              void handleCompleteClassification();
+                              return;
+                            }
+
+                            if (classificationEditMode) {
+                              handleRequestClassificationUpdate();
+                            }
+                          }}
+                        >
+                          <div className="sample-classification-step-header">
+                            <div className="sample-classification-step-summary">
+                              <span className="new-sample-step-count">{classificationStepNumber}/3</span>
+                              <h4 className="sample-classification-step-title">{classificationStepTitle}</h4>
+                            </div>
+                            <div className="sample-classification-step-switch" role="tablist" aria-label="Etapas da classificacao">
+                              <button
+                                type="button"
+                                className={classificationStep === 'PHOTO' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
+                                onClick={() => setClassificationStep('PHOTO')}
                               >
-                                <input
-                                  id="sample-classification-photo-input"
-                                  ref={classificationPhotoInputRef}
-                                  className="new-sample-file-input"
-                                  accept="image/*"
-                                  capture="environment"
-                                  type="file"
-                                  disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                                  onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
-                                />
-                                {classificationSelectedPhotoPreviewUrl ? (
-                                  <img
-                                    src={classificationSelectedPhotoPreviewUrl}
-                                    alt="Pre-visualizacao da foto da classificacao"
-                                    className="new-sample-photo-preview"
-                                  />
-                                ) : (
-                                  <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
-                                    <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                        <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                                        <circle cx="12" cy="13.3" r="3.1" />
-                                      </svg>
-                                    </span>
-                                    <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
-                                    <span className="new-sample-photo-placeholder-text">
-                                      {classificationPhotoEditingAllowed
-                                        ? classificationAttachment
-                                          ? 'Toque para substituir a foto ativa'
-                                          : 'Toque para capturar ou anexar'
-                                        : classificationAttachment
-                                          ? 'Foto registrada para esta classificacao'
-                                          : 'Imagem da classificacao nao localizada'}
-                                    </span>
-                                  </span>
-                                )}
-                              </label>
+                                Foto
+                              </button>
+                              <button
+                                type="button"
+                                className={classificationStep === 'GENERAL' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
+                                onClick={() => setClassificationStep('GENERAL')}
+                                disabled={!classificationCanAccessDataSteps}
+                                aria-disabled={!classificationCanAccessDataSteps}
+                              >
+                                Dados
+                              </button>
+                              <button
+                                type="button"
+                                className={classificationStep === 'MEASURES' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
+                                onClick={() => setClassificationStep('MEASURES')}
+                                disabled={!classificationCanAccessDataSteps}
+                                aria-disabled={!classificationCanAccessDataSteps}
+                              >
+                                Leituras
+                              </button>
+                            </div>
+                          </div>
 
-                              <div className="row new-sample-photo-actions sample-classification-photo-actions">
-                                <button
-                                  type="button"
-                                  className={`new-sample-photo-action-button sample-classification-photo-action${
-                                    classificationSelectedPhoto ? ' is-ready' : ''
+                          <div ref={classificationStepBodyRef} className="sample-classification-step-body">
+                            {classificationStep === 'PHOTO' ? (
+                              <section className="panel stack sample-classification-photo-panel">
+                                <div className="sample-classification-panel-head is-tight">
+                                  <div>
+                                    <h4 style={{ margin: 0 }}>Imagem da classificacao</h4>
+                                  </div>
+                                  {!classificationAttachment ? <span className="sample-classification-chip is-missing">Obrigatoria</span> : null}
+                                </div>
+
+                                <label
+                                  htmlFor="sample-classification-photo-input"
+                                  className={`new-sample-photo-stage sample-classification-photo-stage${
+                                    classificationPhotoEditingAllowed ? '' : ' is-static'
                                   }`}
-                                  onClick={handleUploadClassificationPhoto}
-                                  disabled={!classificationPhotoEditingAllowed || !classificationSelectedPhoto || classificationPhotoUploading}
-                                  aria-label="Usar foto selecionada"
-                                  title="Usar foto"
                                 >
-                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="m5 12.5 4.3 4.2L19 7" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="new-sample-photo-action-button secondary sample-classification-photo-action"
-                                  onClick={clearClassificationSelectedPhoto}
-                                  disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading || !classificationSelectedPhoto}
-                                  aria-label="Descartar foto selecionada"
-                                  title="Tentar novamente"
-                                >
-                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="M7 7h5v5" />
-                                    <path d="M7 12a6 6 0 1 0 2.2-4.6L12 12" />
-                                  </svg>
-                                </button>
-                              </div>
+                                  <input
+                                    id="sample-classification-photo-input"
+                                    ref={classificationPhotoInputRef}
+                                    className="new-sample-file-input"
+                                    accept="image/*"
+                                    capture="environment"
+                                    type="file"
+                                    disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
+                                    onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
+                                  />
 
-                              <p className="sample-classification-photo-meta" style={{ margin: 0 }}>
-                                {classificationPhotoStatusLabel}
-                              </p>
-                            </section>
-                          ) : null}
+                                  {classificationVisiblePhotoPreviewUrl ? (
+                                    <img
+                                      src={classificationVisiblePhotoPreviewUrl}
+                                      alt="Pre-visualizacao da foto da classificacao"
+                                      className="new-sample-photo-preview"
+                                    />
+                                  ) : (
+                                    <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
+                                      <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                          <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                                          <circle cx="12" cy="13.3" r="3.1" />
+                                        </svg>
+                                      </span>
+                                      <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
+                                      <span className="new-sample-photo-placeholder-text">
+                                        {classificationPhotoEditingAllowed
+                                          ? classificationAttachment
+                                            ? 'Toque para substituir a foto'
+                                            : 'Toque para capturar ou anexar'
+                                          : classificationAttachment
+                                            ? 'Foto registrada para esta classificacao'
+                                            : 'Imagem da classificacao nao localizada'}
+                                      </span>
+                                    </span>
+                                  )}
+
+                                  {showClassificationPhotoConfirmEffect ? (
+                                    <span key={classificationPhotoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
+                                      <span className="new-sample-photo-confirm-glow" />
+                                      <span className="new-sample-photo-confirm-ring" />
+                                      <span className="new-sample-photo-confirm-badge">
+                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                          <path d="m5 12.5 4.3 4.2L19 7" />
+                                        </svg>
+                                      </span>
+                                      <span className="new-sample-photo-spark new-sample-photo-spark-a" />
+                                      <span className="new-sample-photo-spark new-sample-photo-spark-b" />
+                                      <span className="new-sample-photo-spark new-sample-photo-spark-c" />
+                                      <span className="new-sample-photo-spark new-sample-photo-spark-d" />
+                                      <span className="new-sample-photo-spark new-sample-photo-spark-e" />
+                                    </span>
+                                  ) : null}
+                                </label>
+
+                                {classificationPhotoStatusLabel ? (
+                                  <p className="sample-classification-photo-meta" style={{ margin: 0 }}>
+                                    {classificationPhotoStatusLabel}
+                                  </p>
+                                ) : null}
+                              </section>
+                            ) : null}
 
                           {classificationStep === 'GENERAL' ? (
                             <section className="panel stack sample-classification-form-panel">
                               <div className="sample-classification-panel-head">
                                 <div>
                                   <h4 style={{ margin: 0 }}>Dados gerais</h4>
-                                </div>
-                                <div className="sample-classification-meta-block">
-                                  <span className="sample-classification-meta-label">Data da classificacao</span>
-                                  <strong
-                                    className={`sample-classification-meta-value${
-                                      classificationForm.dataClassificacao ? '' : ' is-muted'
-                                    }`}
-                                  >
-                                    {classificationRecordedDateLabel}
-                                  </strong>
                                 </div>
                               </div>
 
@@ -2922,83 +2592,206 @@ export default function SampleDetailPage() {
                               </section>
                             </div>
                           ) : null}
-                        </div>
+                          </div>
 
-                        <div className="sample-classification-footer">
-                          {classificationEditMode ? (
-                            <>
-                              <button
-                                className="secondary"
-                                type="button"
-                                onClick={cancelClassificationEdit}
-                                disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                              >
-                                Cancelar edicao
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleRequestClassificationUpdate}
-                                disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                              >
-                                Salvar edicao
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className="secondary"
-                              type="button"
-                              onClick={startClassificationEdit}
-                              disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                            >
-                              Editar classificacao
-                            </button>
-                          )}
-                          {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && !classificationEditMode ? (
-                            <button
-                              className="secondary"
-                              type="button"
-                              onClick={handleSaveClassificationPartial}
-                              disabled={classificationSaving || classificationCompleting || classificationUpdating}
-                            >
-                              {classificationSaving ? 'Salvando rascunho...' : 'Salvar parcial'}
-                            </button>
-                          ) : null}
-                          {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ? (
-                            <button
-                              type="submit"
-                              disabled={
-                                classificationCompleting ||
-                                classificationSaving ||
-                                classificationUpdating ||
-                                !classificationCanComplete
-                              }
-                            >
-                              {classificationCompleting ? 'Concluindo classificacao...' : 'Concluir classificacao'}
-                            </button>
-                          ) : null}
-                        </div>
-                      </form>
-                    ) : null}
-                  </section>
+                          <div className="sample-classification-footer">
+                            {classificationEditMode ? (
+                              <>
+                                <button
+                                  className="secondary"
+                                  type="button"
+                                  onClick={cancelClassificationEdit}
+                                  disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                                >
+                                  Cancelar edicao
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleRequestClassificationUpdate}
+                                  disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                                >
+                                  Salvar edicao
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {classificationStep !== 'PHOTO' ? (
+                                  <button
+                                    className="secondary sample-classification-edit-icon"
+                                    type="button"
+                                    onClick={startClassificationEdit}
+                                    disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                                    aria-label="Editar classificacao"
+                                    title="Editar classificacao"
+                                  >
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="M12 20h9" />
+                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                    </svg>
+                                  </button>
+                                ) : null}
+
+                                {classificationStep === 'PHOTO' ? (
+                                  <button
+                                    type="submit"
+                                    disabled={
+                                      classificationPhotoUploading ||
+                                      (!classificationSelectedPhoto && !classificationCanAccessDataSteps)
+                                    }
+                                  >
+                                    {classificationPhotoUploading ? 'Salvando...' : 'Salvar e avancar'}
+                                  </button>
+                                ) : null}
+
+                                {classificationStep === 'GENERAL' ? (
+                                  <button
+                                    type="submit"
+                                    disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                                  >
+                                    Salvar e avancar
+                                  </button>
+                                ) : null}
+
+                                {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && classificationStep === 'MEASURES' ? (
+                                  <>
+                                    <button
+                                      className="secondary"
+                                      type="button"
+                                      onClick={handleSaveClassificationPartial}
+                                      disabled={classificationSaving || classificationCompleting || classificationUpdating}
+                                    >
+                                      {classificationSaving ? 'Salvando rascunho...' : 'Salvar parcial'}
+                                    </button>
+                                    <button
+                                      type="submit"
+                                      disabled={
+                                        classificationCompleting ||
+                                        classificationSaving ||
+                                        classificationUpdating ||
+                                        !classificationCanComplete
+                                      }
+                                    >
+                                      {classificationCompleting ? 'Salvando...' : 'Salvar e concluir'}
+                                    </button>
+                                  </>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        </form>
+                      ) : null}
+                    </section>
+                  ) : (
+                    <section className="stack sample-detail-info-pane sample-detail-empty-pane" id="classification-section" ref={classificationSectionRef}>
+                      <p style={{ margin: 0, color: 'var(--muted)' }}>Classificacao indisponivel no status atual.</p>
+                    </section>
+                  )
                 ) : (
-                  <section className="stack sample-detail-info-pane sample-detail-empty-pane" id="classification-section" ref={classificationSectionRef}>
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>Classificacao indisponivel no status atual.</p>
+                  <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
+                    <SampleMovementsPanel
+                      session={session}
+                      sampleId={sampleId}
+                      sample={detail.sample}
+                      movements={detail.movements ?? []}
+                      onRefresh={async () => {
+                        await syncDetailState();
+                      }}
+                    />
                   </section>
-                )
-              ) : (
-                <section className="stack sample-detail-info-pane">
-                  <SampleMovementsPanel
-                    session={session}
-                    sampleId={sampleId}
-                    sample={detail.sample}
-                    movements={detail.movements ?? []}
-                    onRefresh={async () => {
-                      await syncDetailState({ refreshHistory: true });
-                    }}
-                  />
-                </section>
-              )}
-            </div>
+                )}
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </section>
+
+      {detail && invalidateModalOpen ? (
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            if (!invalidating) {
+              setInvalidateModalOpen(false);
+            }
+          }}
+        >
+          <section
+            className="app-modal sample-detail-invalidate-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sample-detail-invalidate-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="sample-detail-invalidate-modal-title" className="app-modal-title">
+                  Invalidar amostra
+                </h3>
+                <p className="app-modal-description">Retire a amostra do fluxo apenas quando a operacao realmente exigir.</p>
+              </div>
+              <button
+                ref={invalidateModalCloseButtonRef}
+                type="button"
+                className="app-modal-close"
+                onClick={() => {
+                  if (!invalidating) {
+                    setInvalidateModalOpen(false);
+                  }
+                }}
+                aria-label="Fechar modal de invalidacao"
+                disabled={invalidating}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <form
+              className="app-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleInvalidateSample();
+              }}
+            >
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da invalidacao</span>
+                <select className="app-modal-input" value={invalidateReasonCode} onChange={(event) => setInvalidateReasonCode(event.target.value as InvalidateReasonCode)}>
+                  {INVALIDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Detalhes</span>
+                <textarea
+                  className="app-modal-input sample-detail-invalidate-textarea"
+                  rows={4}
+                  value={invalidateReasonText}
+                  onChange={(event) => setInvalidateReasonText(event.target.value)}
+                  placeholder="Descreva o motivo da invalidacao"
+                  disabled={invalidating}
+                />
+              </label>
+
+              <div className="app-modal-actions sample-detail-invalidate-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => {
+                    if (!invalidating) {
+                      setInvalidateModalOpen(false);
+                    }
+                  }}
+                  disabled={invalidating}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="danger sample-detail-invalidate-submit" disabled={invalidating}>
+                  {invalidating ? 'Invalidando...' : 'Invalidar'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}

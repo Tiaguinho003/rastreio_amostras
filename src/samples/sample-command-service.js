@@ -30,6 +30,8 @@ const MOVEMENT_STATUSES = {
   CANCELLED: 'CANCELLED'
 };
 const MAX_UPDATE_REASON_WORDS = 10;
+const DEFAULT_REGISTRATION_UPDATE_REASON_CODE = 'OTHER';
+const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
   'REGISTRATION_CONFIRMED',
@@ -1738,8 +1740,14 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, REGISTRATION_UPDATE_ALLOWED_STATUSES, 'update registration');
-    const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
-    const reasonText = normalizeUpdateReasonText(input.reasonText);
+    const reasonCode =
+      typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
+        ? normalizeUpdateReasonCode(input.reasonCode)
+        : DEFAULT_REGISTRATION_UPDATE_REASON_CODE;
+    const reasonText =
+      typeof input.reasonText === 'string' && input.reasonText.trim().length > 0
+        ? normalizeUpdateReasonText(input.reasonText)
+        : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
     const parsedPatch = parseRegistrationUpdatePatch(input.after ?? input.changes ?? {});
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,

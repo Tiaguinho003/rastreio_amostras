@@ -1030,6 +1030,7 @@ function NewSamplePageContent() {
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
   const photoSecondaryActionLabel = arrivalPhoto ? 'Remover foto' : 'Pular foto';
+  const detailsPhotoStatusLabel = arrivalPhotoReady ? 'Foto confirmada' : arrivalPhoto ? 'Foto pendente' : 'Sem foto';
 
   return (
     <AppShell session={session} onLogout={logout}>
@@ -1048,7 +1049,7 @@ function NewSamplePageContent() {
         <section className="new-sample-stage-shell">
           <div
             ref={stageBodyRef}
-            className={`new-sample-stage-body is-${currentStep}-step${currentStep === 'details' ? ' is-scrollable' : ''}`}
+            className={`new-sample-stage-body is-${currentStep}-step${currentStep === 'details' ? ' is-static-step' : ''}`}
           >
             {currentStep === 'photo' ? (
               <article className="new-sample-step-card new-sample-stage-card new-sample-card-photo">
@@ -1175,8 +1176,17 @@ function NewSamplePageContent() {
                   </button>
                 </div>
 
+                <div className="new-sample-details-overview" aria-label="Resumo da etapa">
+                  <span className="new-sample-details-pill is-accent">Etapa final</span>
+                  <span
+                    className={`new-sample-details-pill${arrivalPhotoReady ? ' is-ready' : arrivalPhoto ? ' is-pending' : ' is-empty'}`}
+                  >
+                    {detailsPhotoStatusLabel}
+                  </span>
+                </div>
+
                 <div className="new-sample-step-body-content new-sample-step-body-content-details">
-                  <div className="grid grid-2 new-sample-required-grid">
+                  <div className="grid grid-2 new-sample-required-grid new-sample-details-grid">
                     <div className="new-sample-required-field">
                       <ClientLookupField
                         session={session}
@@ -1288,10 +1298,11 @@ function NewSamplePageContent() {
                       />
                     </label>
 
-                    <label className="new-sample-required-field new-sample-required-field-full">
+                    <label className="new-sample-required-field new-sample-required-field-full new-sample-notes-field">
                       Observacoes
                       <textarea
-                        rows={3}
+                        className="new-sample-notes-textarea"
+                        rows={1}
                         value={notes}
                         onChange={(event) => setNotes(event.target.value)}
                         placeholder="Opcional"

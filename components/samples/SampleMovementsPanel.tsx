@@ -1,17 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import {
   ApiError,
   cancelSampleMovement,
   createSampleMovement,
-  updateCommercialStatus,
   updateSampleMovement
 } from '../../lib/api-client';
 import type {
   SampleMovement,
-  SampleMovementStatus,
   SampleMovementType,
   SampleSnapshot,
   SessionData
@@ -27,24 +25,13 @@ type SampleMovementsPanelProps = {
   onRefresh: () => Promise<void>;
 };
 
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return 'Nao informado';
-  }
-
-  return new Date(value).toLocaleString('pt-BR');
-}
-
 export function SampleMovementsPanel({
   session,
   sampleId,
   sample,
-  movements,
+  movements: _movements,
   onRefresh
 }: SampleMovementsPanelProps) {
-  const availableSacks = sample.availableSacks ?? 0;
-  const [movementTypeFilter, setMovementTypeFilter] = useState<'ALL' | SampleMovementType>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | SampleMovementStatus>('ALL');
   const [createType, setCreateType] = useState<SampleMovementType>('SALE');
   const [createOpen, setCreateOpen] = useState(false);
   const [editMovement, setEditMovement] = useState<SampleMovement | null>(null);
@@ -54,56 +41,26 @@ export function SampleMovementsPanel({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const filteredMovements = useMemo(() => {
-    return movements.filter((movement) => {
-      if (movementTypeFilter !== 'ALL' && movement.movementType !== movementTypeFilter) {
-        return false;
-      }
-
-      if (statusFilter !== 'ALL' && movement.status !== statusFilter) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [movementTypeFilter, movements, statusFilter]);
-
-  async function handleMarkLost() {
-    if (availableSacks <= 0) {
-      setError('Nao ha saldo disponivel para marcar como perdido.');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await updateCommercialStatus(session, sampleId, {
-        expectedVersion: sample.version,
-        toCommercialStatus: 'LOST',
-        reasonText: `Registrar perda manual do saldo restante de ${availableSacks} sacas.`
-      });
-      setMessage('Perda do saldo restante registrada com sucesso.');
-      await onRefresh();
-    } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao registrar perda do saldo restante');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <section className="stack">
-      <SampleCommercialSummaryCard sample={sample} updating={saving} onMarkLost={() => void handleMarkLost()} />
+    <section className="sample-commercial-stack">
+      <SampleCommercialSummaryCard sample={sample} />
 
-      <section className="panel stack">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
+      <section className="panel stack sample-movement-panel-card">
+        <div className="sample-movement-panel-head">
+          <div className="sample-movement-panel-copy">
             <h3 style={{ margin: 0 }}>Movimentacoes comerciais</h3>
           </div>
+        </div>
 
-          <div className="row">
+        {error ? <p className="error">{error}</p> : null}
+        {message ? <p className="success">{message}</p> : null}
+
+        <div className="sample-movement-panel-body">
+          <p className="sample-movement-empty">
+            Use as acoes abaixo para registrar uma venda ou uma perda nesta amostra.
+          </p>
+
+          <div className="sample-movement-panel-actions sample-movement-panel-actions-bottom">
             <button
               type="button"
               className="secondary"
@@ -131,94 +88,6 @@ export function SampleMovementsPanel({
             </button>
           </div>
         </div>
-
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
-
-        <div className="grid grid-2">
-          <label>
-            Tipo
-            <select value={movementTypeFilter} onChange={(event) => setMovementTypeFilter(event.target.value as 'ALL' | SampleMovementType)}>
-              <option value="ALL">Todos</option>
-              <option value="SALE">Vendas</option>
-              <option value="LOSS">Perdas</option>
-            </select>
-          </label>
-
-          <label>
-            Status
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'ALL' | SampleMovementStatus)}>
-              <option value="ALL">Todos</option>
-              <option value="ACTIVE">Ativas</option>
-              <option value="CANCELLED">Canceladas</option>
-            </select>
-          </label>
-        </div>
-
-        {filteredMovements.length === 0 ? (
-          <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhuma movimentacao encontrada com os filtros atuais.</p>
-        ) : (
-          <div className="sample-movement-list">
-            {filteredMovements.map((movement) => (
-              <article className="sample-movement-card" key={movement.id}>
-                <div className="sample-movement-card-head">
-                  <div>
-                    <strong>{movement.movementType === 'SALE' ? 'Venda' : 'Perda'}</strong>
-                    <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)' }}>
-                      {movement.quantitySacks} sacas · {movement.status === 'ACTIVE' ? 'Ativa' : 'Cancelada'}
-                    </p>
-                  </div>
-                  <span className="sample-movement-card-meta">{formatDateTime(movement.createdAt)}</span>
-                </div>
-
-                <div className="sample-movement-card-body">
-                  <p style={{ margin: 0 }}>
-                    <strong>Data do movimento:</strong> {movement.movementDate}
-                  </p>
-                  {movement.buyerClient ? (
-                    <p style={{ margin: 0 }}>
-                      <strong>Comprador:</strong> {movement.buyerClient.displayName ?? 'Nao informado'}
-                    </p>
-                  ) : null}
-                  {movement.buyerRegistration ? (
-                    <p style={{ margin: 0 }}>
-                      <strong>Inscricao:</strong> {movement.buyerRegistration.registrationNumber}
-                    </p>
-                  ) : null}
-                  {movement.lossReasonText ? (
-                    <p style={{ margin: 0 }}>
-                      <strong>Motivo da perda:</strong> {movement.lossReasonText}
-                    </p>
-                  ) : null}
-                  {movement.notes ? (
-                    <p style={{ margin: 0 }}>
-                      <strong>Observacoes:</strong> {movement.notes}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="row">
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={saving || sample.status !== 'CLASSIFIED' || movement.status === 'CANCELLED'}
-                    onClick={() => setEditMovement(movement)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={saving || sample.status !== 'CLASSIFIED' || movement.status === 'CANCELLED'}
-                    onClick={() => setCancelMovement(movement)}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
       </section>
 
       <SampleMovementModal

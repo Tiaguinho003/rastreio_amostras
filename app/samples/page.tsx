@@ -29,6 +29,7 @@ const COMMERCIAL_FILTER_OPTIONS: Array<{ value: CommercialStatus; label: string 
 type PeriodMode = 'exact' | 'month' | 'year';
 type StatusGroupFilter = '' | (typeof STATUS_FILTER_OPTIONS)[number]['value'];
 type RecordsMode = 'samples' | 'clients';
+type FilterSectionId = 'owner' | 'buyer' | 'status' | 'commercialStatus' | 'harvest' | 'sacks' | 'period';
 
 interface HiddenFilters {
   owner: string;
@@ -53,6 +54,8 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   periodMode: 'exact',
   periodValue: ''
 };
+
+const FILTER_SECTION_ORDER: FilterSectionId[] = ['owner', 'buyer', 'status', 'commercialStatus', 'harvest', 'sacks', 'period'];
 
 function renderSampleValue(value: string | number | null) {
   if (value === null || value === '') {
@@ -227,6 +230,112 @@ function normalizePeriodValueForMode(periodMode: PeriodMode, value: string) {
   return value;
 }
 
+function getStatusGroupLabel(value: StatusGroupFilter) {
+  return STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Todos os status';
+}
+
+function getCommercialStatusLabel(value: '' | CommercialStatus) {
+  return COMMERCIAL_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Qualquer status';
+}
+
+function formatPeriodSummary(filters: HiddenFilters) {
+  const periodValue = filters.periodValue.trim();
+  if (!periodValue) {
+    return 'Qualquer data';
+  }
+
+  if (filters.periodMode === 'month') {
+    const [year, month] = periodValue.split('-');
+    return year && month ? `Mes ${month}/${year}` : `Mes ${periodValue}`;
+  }
+
+  if (filters.periodMode === 'year') {
+    return `Ano ${periodValue}`;
+  }
+
+  const [year, month, day] = periodValue.split('-');
+  return year && month && day ? `Data ${day}/${month}/${year}` : `Data ${periodValue}`;
+}
+
+function formatSacksSummary(filters: HiddenFilters) {
+  const sacksMin = filters.sacksMin.trim();
+  const sacksMax = filters.sacksMax.trim();
+
+  if (sacksMin && sacksMax) {
+    return `De ${sacksMin} ate ${sacksMax}`;
+  }
+
+  if (sacksMin) {
+    return `Minimo ${sacksMin}`;
+  }
+
+  if (sacksMax) {
+    return `Ate ${sacksMax}`;
+  }
+
+  return 'Qualquer volume';
+}
+
+function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilters) {
+  if (sectionId === 'owner') {
+    return filters.owner.trim().length > 0;
+  }
+
+  if (sectionId === 'buyer') {
+    return filters.buyer.trim().length > 0;
+  }
+
+  if (sectionId === 'status') {
+    return filters.statusGroup.length > 0;
+  }
+
+  if (sectionId === 'commercialStatus') {
+    return filters.commercialStatus.length > 0;
+  }
+
+  if (sectionId === 'harvest') {
+    return filters.harvest.trim().length > 0;
+  }
+
+  if (sectionId === 'sacks') {
+    return filters.sacksMin.trim().length > 0 || filters.sacksMax.trim().length > 0;
+  }
+
+  return filters.periodValue.trim().length > 0;
+}
+
+function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
+  if (sectionId === 'owner') {
+    return filters.owner.trim() || 'Qualquer proprietario';
+  }
+
+  if (sectionId === 'buyer') {
+    return filters.buyer.trim() || 'Qualquer comprador';
+  }
+
+  if (sectionId === 'status') {
+    return getStatusGroupLabel(filters.statusGroup);
+  }
+
+  if (sectionId === 'commercialStatus') {
+    return getCommercialStatusLabel(filters.commercialStatus);
+  }
+
+  if (sectionId === 'harvest') {
+    return filters.harvest.trim() || 'Qualquer safra';
+  }
+
+  if (sectionId === 'sacks') {
+    return formatSacksSummary(filters);
+  }
+
+  return formatPeriodSummary(filters);
+}
+
+function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
+  return FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'owner';
+}
+
 export default function SamplesPage() {
   const { session, loading, logout } = useRequireAuth();
   const [recordsMode, setRecordsMode] = useState<RecordsMode>('samples');
@@ -243,6 +352,7 @@ export default function SamplesPage() {
   const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId>('owner');
   const [clientItems, setClientItems] = useState<ClientSummary[]>([]);
   const [clientTotal, setClientTotal] = useState(0);
   const [clientTotalPages, setClientTotalPages] = useState(1);
@@ -261,7 +371,8 @@ export default function SamplesPage() {
   const [clientDetailError, setClientDetailError] = useState<string | null>(null);
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
 
-  const filtersWrapRef = useRef<HTMLDivElement | null>(null);
+  const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const clientDetailCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastClientTriggerRef = useRef<HTMLButtonElement | null>(null);
   const hasDraftHiddenFilters = useMemo(() => hasAnyHiddenFilter(draftHiddenFilters), [draftHiddenFilters]);
@@ -271,36 +382,37 @@ export default function SamplesPage() {
   useEffect(() => {
     if (recordsMode !== 'samples') {
       setFiltersOpen(false);
+      setDraftHiddenFilters(appliedHiddenFilters);
+      setActiveFilterSection(getInitialFilterSection(appliedHiddenFilters));
     }
-  }, [recordsMode]);
+  }, [appliedHiddenFilters, recordsMode]);
 
   useEffect(() => {
     if (!filtersOpen) {
       return;
     }
 
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (!filtersWrapRef.current?.contains(target)) {
-        setFiltersOpen(false);
-      }
-    };
+    const previousOverflow = document.body.style.overflow;
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setFiltersOpen(false);
+        event.preventDefault();
+        closeFilters();
       }
     };
 
-    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onDocumentKeyDown);
+    window.setTimeout(() => {
+      filterCloseButtonRef.current?.focus();
+    }, 0);
+
     return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onDocumentKeyDown);
+      window.setTimeout(() => {
+        lastFilterTriggerRef.current?.focus();
+      }, 0);
     };
   }, [filtersOpen]);
 
@@ -495,14 +607,18 @@ export default function SamplesPage() {
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setAppliedHiddenFilters(normalizeHiddenFilters(draftHiddenFilters));
+    const nextFilters = normalizeHiddenFilters(draftHiddenFilters);
+    setAppliedHiddenFilters(nextFilters);
+    setDraftHiddenFilters(nextFilters);
     setCurrentPage(1);
+    setActiveFilterSection(getInitialFilterSection(nextFilters));
     setFiltersOpen(false);
   }
 
   function handleClearFiltersOnly() {
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
+    setActiveFilterSection('owner');
     setCurrentPage(1);
     setError(null);
   }
@@ -526,6 +642,23 @@ export default function SamplesPage() {
 
   function closeClientDetail() {
     setClientDetailOpen(false);
+  }
+
+  function openFilters(trigger: HTMLButtonElement) {
+    lastFilterTriggerRef.current = trigger;
+    setDraftHiddenFilters(appliedHiddenFilters);
+    setActiveFilterSection(getInitialFilterSection(appliedHiddenFilters));
+    setFiltersOpen(true);
+  }
+
+  function closeFilters() {
+    setDraftHiddenFilters(appliedHiddenFilters);
+    setActiveFilterSection(getInitialFilterSection(appliedHiddenFilters));
+    setFiltersOpen(false);
+  }
+
+  function toggleFilterSection(sectionId: FilterSectionId) {
+    setActiveFilterSection((current) => (current === sectionId ? current : sectionId));
   }
 
   async function refreshClientsList(nextSearch = appliedClientSearch, nextPage = clientPage) {
@@ -564,6 +697,56 @@ export default function SamplesPage() {
     selectedClientDetail?.isSeller ? 'Proprietario/Vendedor' : null,
     selectedClientDetail?.isBuyer ? 'Comprador' : null
   ].filter((value): value is string => Boolean(value));
+  const currentVisiblePage = recordsMode === 'samples' ? currentPage : clientPage;
+  const currentVisibleTotalPages = recordsMode === 'samples' ? totalPages : clientTotalPages;
+  const paginationHasPrev = recordsMode === 'samples' ? hasPrev : clientHasPrev;
+  const paginationHasNext = recordsMode === 'samples' ? hasNext : clientHasNext;
+  const paginationBusy = recordsMode === 'samples' ? loadingList : loadingClients;
+  const currentTotalLabel = recordsMode === 'samples' ? `${total} registros` : `${clientTotal} clientes`;
+  const filterSections: Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }> = [
+    {
+      id: 'owner',
+      label: 'Proprietario',
+      summary: getFilterSectionSummary('owner', draftHiddenFilters),
+      active: hasFilterSectionValue('owner', draftHiddenFilters)
+    },
+    {
+      id: 'buyer',
+      label: 'Comprador',
+      summary: getFilterSectionSummary('buyer', draftHiddenFilters),
+      active: hasFilterSectionValue('buyer', draftHiddenFilters)
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      summary: getFilterSectionSummary('status', draftHiddenFilters),
+      active: hasFilterSectionValue('status', draftHiddenFilters)
+    },
+    {
+      id: 'commercialStatus',
+      label: 'Status comercial',
+      summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters),
+      active: hasFilterSectionValue('commercialStatus', draftHiddenFilters)
+    },
+    {
+      id: 'harvest',
+      label: 'Safra',
+      summary: getFilterSectionSummary('harvest', draftHiddenFilters),
+      active: hasFilterSectionValue('harvest', draftHiddenFilters)
+    },
+    {
+      id: 'sacks',
+      label: 'Sacas',
+      summary: getFilterSectionSummary('sacks', draftHiddenFilters),
+      active: hasFilterSectionValue('sacks', draftHiddenFilters)
+    },
+    {
+      id: 'period',
+      label: 'Periodo',
+      summary: getFilterSectionSummary('period', draftHiddenFilters),
+      active: hasFilterSectionValue('period', draftHiddenFilters)
+    }
+  ];
 
   return (
     <AppShell session={session} onLogout={logout}>
@@ -643,14 +826,22 @@ export default function SamplesPage() {
           ) : null}
 
           {recordsMode === 'samples' ? (
-            <div className="samples-page-filter-control" ref={filtersWrapRef}>
+            <div className="samples-page-filter-control">
               <button
                 type="button"
                 className={`samples-page-filter-toggle${filtersOpen ? ' is-open' : ''}`}
                 aria-haspopup="dialog"
                 aria-expanded={filtersOpen}
-                aria-label="Abrir filtros"
-                onClick={() => setFiltersOpen((current) => !current)}
+                aria-controls="samples-filter-modal"
+                aria-label={filtersOpen ? 'Fechar filtros' : 'Abrir filtros'}
+                onClick={(event) => {
+                  if (filtersOpen) {
+                    closeFilters();
+                    return;
+                  }
+
+                  openFilters(event.currentTarget);
+                }}
               >
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                   <path d="M4 6h16" />
@@ -659,208 +850,6 @@ export default function SamplesPage() {
                 </svg>
                 {activeHiddenFiltersCount > 0 ? <span className="samples-page-filter-badge">{activeHiddenFiltersCount}</span> : null}
               </button>
-
-              {filtersOpen ? (
-                <button
-                  type="button"
-                  className="samples-page-filter-backdrop"
-                  aria-label="Fechar filtros"
-                  onClick={() => setFiltersOpen(false)}
-                />
-              ) : null}
-
-              <section
-                className={`samples-page-filter-popover${filtersOpen ? ' is-open' : ''}`}
-                aria-hidden={!filtersOpen}
-                role="dialog"
-                aria-label="Filtros"
-              >
-                <form className="stack" onSubmit={handleApplyFilters}>
-                  <label className="samples-page-filter">
-                    <span className="samples-page-filter-label">Proprietario</span>
-                    <input
-                      value={draftHiddenFilters.owner}
-                      onChange={(event) =>
-                        setDraftHiddenFilters((current) => ({
-                          ...current,
-                          owner: event.target.value
-                        }))
-                      }
-                      placeholder="Nome exato do proprietario"
-                      autoComplete="off"
-                      spellCheck={false}
-                      aria-label="Filtro por proprietario"
-                    />
-                  </label>
-
-                  <label className="samples-page-filter">
-                    <span className="samples-page-filter-label">Comprador</span>
-                    <input
-                      value={draftHiddenFilters.buyer}
-                      onChange={(event) =>
-                        setDraftHiddenFilters((current) => ({
-                          ...current,
-                          buyer: event.target.value
-                        }))
-                      }
-                      placeholder="Nome, documento ou codigo do comprador"
-                      autoComplete="off"
-                      spellCheck={false}
-                      aria-label="Filtro por comprador"
-                    />
-                  </label>
-
-                  <div className="samples-page-filter">
-                    <span className="samples-page-filter-label">Status</span>
-                    <div className="samples-page-status-chip-row">
-                      {STATUS_FILTER_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`samples-page-status-chip${draftHiddenFilters.statusGroup === option.value ? ' is-selected' : ''}`}
-                          onClick={() =>
-                            setDraftHiddenFilters((current) => ({
-                              ...current,
-                              statusGroup: current.statusGroup === option.value ? '' : option.value
-                            }))
-                          }
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="samples-page-filter">
-                    <span className="samples-page-filter-label">Status comercial</span>
-                    <div className="samples-page-harvest-chip-row">
-                      {COMMERCIAL_FILTER_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`samples-page-harvest-chip${
-                            draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''
-                          }`}
-                          onClick={() =>
-                            setDraftHiddenFilters((current) => ({
-                              ...current,
-                              commercialStatus: current.commercialStatus === option.value ? '' : option.value
-                            }))
-                          }
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="samples-page-filter">
-                    <span className="samples-page-filter-label">Safra</span>
-                    <div className="samples-page-harvest-chip-row">
-                      {HARVEST_OPTIONS.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          className={`samples-page-harvest-chip${draftHiddenFilters.harvest === option ? ' is-selected' : ''}`}
-                          onClick={() =>
-                            setDraftHiddenFilters((current) => ({
-                              ...current,
-                              harvest: current.harvest === option ? '' : option
-                            }))
-                          }
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="samples-page-filter">
-                    <span className="samples-page-filter-label">Sacas</span>
-                    <div className="samples-page-period-grid">
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={draftHiddenFilters.sacksMin}
-                        onChange={(event) =>
-                          setDraftHiddenFilters((current) => ({
-                            ...current,
-                            sacksMin: event.target.value.replace(/\D+/g, '')
-                          }))
-                        }
-                        placeholder="De"
-                        aria-label="Quantidade minima de sacas"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={draftHiddenFilters.sacksMax}
-                        onChange={(event) =>
-                          setDraftHiddenFilters((current) => ({
-                            ...current,
-                            sacksMax: event.target.value.replace(/\D+/g, '')
-                          }))
-                        }
-                        placeholder="Ate"
-                        aria-label="Quantidade maxima de sacas"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="samples-page-filter samples-page-period-filter">
-                    <span className="samples-page-filter-label">Periodo</span>
-                    <div className="samples-page-period-grid">
-                      <select
-                        value={draftHiddenFilters.periodMode}
-                        onChange={(event) =>
-                          setDraftHiddenFilters((current) => ({
-                            ...current,
-                            periodMode: event.target.value as PeriodMode,
-                            periodValue: ''
-                          }))
-                        }
-                        aria-label="Modo do periodo"
-                      >
-                        <option value="exact">Data</option>
-                        <option value="month">Mes</option>
-                        <option value="year">Ano</option>
-                      </select>
-                      <input
-                        type={getPeriodInputType(draftHiddenFilters.periodMode)}
-                        value={draftHiddenFilters.periodValue}
-                        onChange={(event) =>
-                          setDraftHiddenFilters((current) => ({
-                            ...current,
-                            periodValue: normalizePeriodValueForMode(current.periodMode, event.target.value)
-                          }))
-                        }
-                        placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
-                        inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
-                        min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
-                        max={draftHiddenFilters.periodMode === 'year' ? '2100' : undefined}
-                        step={draftHiddenFilters.periodMode === 'year' ? '1' : undefined}
-                        aria-label={getPeriodInputLabel(draftHiddenFilters.periodMode)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="row samples-page-filter-actions">
-                    <button type="submit">Aplicar filtros</button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={handleClearFiltersOnly}
-                      disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
-                    >
-                      Limpar filtros
-                    </button>
-                  </div>
-                </form>
-              </section>
             </div>
           ) : null}
         </div>
@@ -956,14 +945,13 @@ export default function SamplesPage() {
         )}
 
         <footer className="samples-page-footer">
-          <p style={{ margin: 0, color: 'var(--muted)' }}>
-            Total encontrado: {recordsMode === 'samples' ? total : clientTotal}
-          </p>
-          <div className="row samples-page-pagination-controls">
+          <p className="samples-page-footer-meta">{currentTotalLabel}</p>
+          <div className="samples-page-pagination-controls" role="group" aria-label="Paginacao da lista">
             <button
               type="button"
-              className="secondary"
-              disabled={recordsMode === 'samples' ? !hasPrev || loadingList : !clientHasPrev || loadingClients}
+              className="samples-page-pagination-button"
+              aria-label="Pagina anterior"
+              disabled={!paginationHasPrev || paginationBusy}
               onClick={() => {
                 if (recordsMode === 'samples') {
                   setCurrentPage((page) => page - 1);
@@ -973,15 +961,21 @@ export default function SamplesPage() {
                 setClientPage((page) => page - 1);
               }}
             >
-              Anterior
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="m14.5 6-6 6 6 6" />
+              </svg>
+              <span className="login-visually-hidden">Anterior</span>
             </button>
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Pagina {recordsMode === 'samples' ? currentPage : clientPage} de {recordsMode === 'samples' ? totalPages : clientTotalPages}
+            <p className="samples-page-pagination-counter">
+              <strong>{currentVisiblePage}</strong>
+              <span>/</span>
+              <span>{currentVisibleTotalPages}</span>
             </p>
             <button
               type="button"
-              className="secondary"
-              disabled={recordsMode === 'samples' ? !hasNext || loadingList : !clientHasNext || loadingClients}
+              className="samples-page-pagination-button"
+              aria-label="Proxima pagina"
+              disabled={!paginationHasNext || paginationBusy}
               onClick={() => {
                 if (recordsMode === 'samples') {
                   setCurrentPage((page) => page + 1);
@@ -991,11 +985,290 @@ export default function SamplesPage() {
                 setClientPage((page) => page + 1);
               }}
             >
-              Proximo
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="m9.5 6 6 6-6 6" />
+              </svg>
+              <span className="login-visually-hidden">Proximo</span>
             </button>
           </div>
         </footer>
       </section>
+
+      {filtersOpen ? (
+        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
+          <section
+            id="samples-filter-modal"
+            className="app-modal samples-filter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="samples-filter-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header samples-filter-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="samples-filter-modal-title" className="app-modal-title">
+                  Filtros
+                </h3>
+              </div>
+              <button
+                ref={filterCloseButtonRef}
+                type="button"
+                className="app-modal-close"
+                onClick={closeFilters}
+                aria-label="Fechar filtros"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
+              <div className="samples-filter-modal-content">
+                <div className="samples-filter-section-list">
+                  {filterSections.map((section) => (
+                    <section
+                      key={section.id}
+                      className={`samples-filter-section${activeFilterSection === section.id ? ' is-open' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="samples-filter-section-trigger"
+                        aria-expanded={activeFilterSection === section.id}
+                        onClick={() => toggleFilterSection(section.id)}
+                      >
+                        <span className="samples-filter-section-copy">
+                          <span className="samples-filter-section-label">{section.label}</span>
+                          <span className={`samples-filter-section-summary${section.active ? ' is-active' : ''}`}>
+                            {section.summary}
+                          </span>
+                        </span>
+                        <span className="samples-filter-section-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </span>
+                      </button>
+
+                      {activeFilterSection === section.id ? (
+                        <div className="samples-filter-section-body">
+                          {section.id === 'owner' ? (
+                            <label className="samples-page-filter">
+                              <span className="samples-page-filter-label">Nome do proprietario</span>
+                              <input
+                                className="app-modal-input samples-filter-input"
+                                value={draftHiddenFilters.owner}
+                                onChange={(event) =>
+                                  setDraftHiddenFilters((current) => ({
+                                    ...current,
+                                    owner: event.target.value
+                                  }))
+                                }
+                                placeholder="Nome exato do proprietario"
+                                autoComplete="off"
+                                spellCheck={false}
+                                aria-label="Filtro por proprietario"
+                              />
+                            </label>
+                          ) : null}
+
+                          {section.id === 'buyer' ? (
+                            <label className="samples-page-filter">
+                              <span className="samples-page-filter-label">Identificacao do comprador</span>
+                              <input
+                                className="app-modal-input samples-filter-input"
+                                value={draftHiddenFilters.buyer}
+                                onChange={(event) =>
+                                  setDraftHiddenFilters((current) => ({
+                                    ...current,
+                                    buyer: event.target.value
+                                  }))
+                                }
+                                placeholder="Nome, documento ou codigo"
+                                autoComplete="off"
+                                spellCheck={false}
+                                aria-label="Filtro por comprador"
+                              />
+                            </label>
+                          ) : null}
+
+                          {section.id === 'status' ? (
+                            <div className="samples-page-filter">
+                              <span className="samples-page-filter-label">Status operacional</span>
+                              <div className="samples-filter-chip-row">
+                                {STATUS_FILTER_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    className={`samples-filter-chip samples-filter-chip-status${
+                                      draftHiddenFilters.statusGroup === option.value ? ' is-selected' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setDraftHiddenFilters((current) => ({
+                                        ...current,
+                                        statusGroup: current.statusGroup === option.value ? '' : option.value
+                                      }))
+                                    }
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {section.id === 'commercialStatus' ? (
+                            <div className="samples-page-filter">
+                              <span className="samples-page-filter-label">Status comercial</span>
+                              <div className="samples-filter-chip-row">
+                                {COMMERCIAL_FILTER_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    className={`samples-filter-chip samples-filter-chip-harvest${
+                                      draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setDraftHiddenFilters((current) => ({
+                                        ...current,
+                                        commercialStatus: current.commercialStatus === option.value ? '' : option.value
+                                      }))
+                                    }
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {section.id === 'harvest' ? (
+                            <div className="samples-page-filter">
+                              <span className="samples-page-filter-label">Safra</span>
+                              <div className="samples-filter-chip-row">
+                                {HARVEST_OPTIONS.map((option) => (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    className={`samples-filter-chip samples-filter-chip-harvest${
+                                      draftHiddenFilters.harvest === option ? ' is-selected' : ''
+                                    }`}
+                                    onClick={() =>
+                                      setDraftHiddenFilters((current) => ({
+                                        ...current,
+                                        harvest: current.harvest === option ? '' : option
+                                      }))
+                                    }
+                                  >
+                                    {option}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {section.id === 'sacks' ? (
+                            <div className="samples-page-filter">
+                              <span className="samples-page-filter-label">Faixa de sacas</span>
+                              <div className="samples-filter-split-grid">
+                                <input
+                                  className="app-modal-input samples-filter-input"
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  inputMode="numeric"
+                                  value={draftHiddenFilters.sacksMin}
+                                  onChange={(event) =>
+                                    setDraftHiddenFilters((current) => ({
+                                      ...current,
+                                      sacksMin: event.target.value.replace(/\D+/g, '')
+                                    }))
+                                  }
+                                  placeholder="De"
+                                  aria-label="Quantidade minima de sacas"
+                                />
+                                <input
+                                  className="app-modal-input samples-filter-input"
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  inputMode="numeric"
+                                  value={draftHiddenFilters.sacksMax}
+                                  onChange={(event) =>
+                                    setDraftHiddenFilters((current) => ({
+                                      ...current,
+                                      sacksMax: event.target.value.replace(/\D+/g, '')
+                                    }))
+                                  }
+                                  placeholder="Ate"
+                                  aria-label="Quantidade maxima de sacas"
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {section.id === 'period' ? (
+                            <div className="samples-page-filter samples-page-period-filter">
+                              <span className="samples-page-filter-label">Periodo</span>
+                              <div className="samples-filter-split-grid">
+                                <select
+                                  className="app-modal-input samples-filter-input"
+                                  value={draftHiddenFilters.periodMode}
+                                  onChange={(event) =>
+                                    setDraftHiddenFilters((current) => ({
+                                      ...current,
+                                      periodMode: event.target.value as PeriodMode,
+                                      periodValue: ''
+                                    }))
+                                  }
+                                  aria-label="Modo do periodo"
+                                >
+                                  <option value="exact">Data</option>
+                                  <option value="month">Mes</option>
+                                  <option value="year">Ano</option>
+                                </select>
+                                <input
+                                  className="app-modal-input samples-filter-input"
+                                  type={getPeriodInputType(draftHiddenFilters.periodMode)}
+                                  value={draftHiddenFilters.periodValue}
+                                  onChange={(event) =>
+                                    setDraftHiddenFilters((current) => ({
+                                      ...current,
+                                      periodValue: normalizePeriodValueForMode(current.periodMode, event.target.value)
+                                    }))
+                                  }
+                                  placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
+                                  inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
+                                  min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
+                                  max={draftHiddenFilters.periodMode === 'year' ? '2100' : undefined}
+                                  step={draftHiddenFilters.periodMode === 'year' ? '1' : undefined}
+                                  aria-label={getPeriodInputLabel(draftHiddenFilters.periodMode)}
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </section>
+                  ))}
+                </div>
+              </div>
+
+              <div className="app-modal-actions samples-filter-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={handleClearFiltersOnly}
+                  disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
+                >
+                  Limpar
+                </button>
+                <button type="submit" className="app-modal-submit">
+                  Aplicar
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       {clientDetailOpen ? (
         <div className="client-modal-backdrop" onClick={closeClientDetail}>

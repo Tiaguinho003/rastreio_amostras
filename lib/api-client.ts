@@ -1048,17 +1048,23 @@ export function updateRegistration(
   data: {
     expectedVersion: number;
     after: { [key: string]: JsonValue };
-    reasonCode: UpdateReasonCode;
-    reasonText: string;
+    reasonCode?: UpdateReasonCode;
+    reasonText?: string;
     before?: { [key: string]: JsonValue };
   }
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    after: data.after,
-    reasonCode: data.reasonCode,
-    reasonText: data.reasonText
+    after: data.after
   };
+
+  if (data.reasonCode) {
+    body.reasonCode = data.reasonCode;
+  }
+
+  if (typeof data.reasonText === 'string') {
+    body.reasonText = data.reasonText;
+  }
 
   if (data.before) {
     body.before = data.before;

@@ -19,6 +19,7 @@ type ClientLookupFieldProps = {
   emptyMessage?: string;
   onRequestCreate?: (search: string) => void;
   createLabel?: string;
+  compact?: boolean;
 };
 
 function getClientDocument(client: ClientSummary) {
@@ -42,7 +43,8 @@ export function ClientLookupField({
   placeholder = 'Busque por nome, documento ou codigo',
   emptyMessage = 'Nenhum cliente encontrado.',
   onRequestCreate,
-  createLabel = 'Cadastrar cliente'
+  createLabel = 'Cadastrar cliente',
+  compact = false
 }: ClientLookupFieldProps) {
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
@@ -145,9 +147,11 @@ export function ClientLookupField({
   }
 
   return (
-    <div className={`client-lookup-field${invalid ? ' is-invalid' : ''}`} ref={wrapRef}>
-      <label htmlFor={inputId}>{label}</label>
-      <div className="client-lookup-shell">
+    <div className={`client-lookup-field${invalid ? ' is-invalid' : ''}${compact ? ' is-compact' : ''}`} ref={wrapRef}>
+      <label htmlFor={inputId} className={compact ? 'login-visually-hidden' : undefined}>
+        {label}
+      </label>
+      <div className={`client-lookup-shell${compact ? ' is-compact' : ''}`}>
         <input
           id={inputId}
           ref={inputRef}
@@ -169,7 +173,7 @@ export function ClientLookupField({
             }
           }}
         />
-        {selectedClient ? (
+        {selectedClient && !compact ? (
           <button
             type="button"
             className="secondary client-lookup-clear"
@@ -188,16 +192,16 @@ export function ClientLookupField({
         ) : null}
       </div>
 
-      {selectedClient ? (
+      {selectedClient && !compact ? (
         <p className="client-lookup-selection">
           Cliente selecionado: <strong>{selectedClient.displayName ?? 'Sem nome'}</strong> · Codigo {selectedClient.code}
         </p>
       ) : null}
 
-      {error ? <p className="error client-lookup-feedback">{error}</p> : null}
+      {error && !compact ? <p className="error client-lookup-feedback">{error}</p> : null}
 
       {open && (loading || error || normalizedSearch.length >= 2) ? (
-        <div className="client-lookup-dropdown">
+        <div className={`client-lookup-dropdown${compact ? ' is-compact' : ''}`}>
           {loading ? <p className="client-lookup-empty">Buscando clientes...</p> : null}
           {!loading && normalizedSearch.length >= 2 && items.length === 0 && !error ? (
             <div className="client-lookup-empty">
