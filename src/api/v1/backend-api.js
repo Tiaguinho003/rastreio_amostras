@@ -547,6 +547,8 @@ export function createBackendApiV1({
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           harvest: readOptionalQueryString(query.harvest),
+          sacksMin: readOptionalQueryString(query.sacksMin),
+          sacksMax: readOptionalQueryString(query.sacksMax),
           createdDate: readOptionalQueryString(query.createdDate),
           createdMonth: readOptionalQueryString(query.createdMonth),
           createdYear: readOptionalQueryString(query.createdYear)

@@ -21,9 +21,6 @@ export function SampleCommercialSummaryCard({
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ margin: 0 }}>Resumo comercial</h3>
-          <p className="sample-commercial-summary-copy">
-            O status comercial agora e calculado automaticamente pelas movimentacoes ativas da amostra.
-          </p>
         </div>
         <CommercialStatusBadge status={sample.commercialStatus} />
       </div>

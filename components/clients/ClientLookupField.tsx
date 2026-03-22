@@ -12,6 +12,8 @@ type ClientLookupFieldProps = {
   selectedClient: ClientSummary | null;
   onSelectClient: (client: ClientSummary | null) => void;
   inputRef?: Ref<HTMLInputElement>;
+  invalid?: boolean;
+  invalidText?: string;
   disabled?: boolean;
   placeholder?: string;
   emptyMessage?: string;
@@ -34,6 +36,8 @@ export function ClientLookupField({
   selectedClient,
   onSelectClient,
   inputRef,
+  invalid = false,
+  invalidText = 'Obrigatorio',
   disabled = false,
   placeholder = 'Busque por nome, documento ou codigo',
   emptyMessage = 'Nenhum cliente encontrado.',
@@ -141,7 +145,7 @@ export function ClientLookupField({
   }
 
   return (
-    <div className="client-lookup-field" ref={wrapRef}>
+    <div className={`client-lookup-field${invalid ? ' is-invalid' : ''}`} ref={wrapRef}>
       <label htmlFor={inputId}>{label}</label>
       <div className="client-lookup-shell">
         <input
@@ -149,8 +153,9 @@ export function ClientLookupField({
           ref={inputRef}
           value={search}
           disabled={disabled}
-          placeholder={placeholder}
+          placeholder={invalid && !search ? invalidText : placeholder}
           autoComplete="off"
+          aria-invalid={invalid}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
             const nextValue = event.target.value;
@@ -191,12 +196,9 @@ export function ClientLookupField({
 
       {error ? <p className="error client-lookup-feedback">{error}</p> : null}
 
-      {open ? (
+      {open && (loading || error || normalizedSearch.length >= 2) ? (
         <div className="client-lookup-dropdown">
           {loading ? <p className="client-lookup-empty">Buscando clientes...</p> : null}
-          {!loading && normalizedSearch.length < 2 ? (
-            <p className="client-lookup-empty">Digite pelo menos 2 caracteres para buscar.</p>
-          ) : null}
           {!loading && normalizedSearch.length >= 2 && items.length === 0 && !error ? (
             <div className="client-lookup-empty">
               <p style={{ margin: 0 }}>{emptyMessage}</p>

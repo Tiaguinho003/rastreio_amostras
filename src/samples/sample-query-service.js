@@ -267,6 +267,42 @@ function normalizeOptionalText(value) {
   return normalized.length > 0 ? normalized : null;
 }
 
+function parseSacksRangeValue(value, fieldName) {
+  const normalized = normalizeOptionalText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    throw new HttpError(422, `${fieldName} must be a positive integer`);
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new HttpError(422, `${fieldName} must be a positive integer`);
+  }
+
+  return parsed;
+}
+
+function resolveSacksRange({ sacksMin = null, sacksMax = null }) {
+  const min = parseSacksRangeValue(sacksMin, 'sacksMin');
+  const max = parseSacksRangeValue(sacksMax, 'sacksMax');
+
+  if (min !== null && max !== null && min > max) {
+    throw new HttpError(422, 'sacksMin cannot be greater than sacksMax');
+  }
+
+  if (min === null && max === null) {
+    return null;
+  }
+
+  return {
+    gte: min ?? undefined,
+    lte: max ?? undefined
+  };
+}
+
 function parseCreatedDateRangeInSaoPaulo(createdDate) {
   const normalized = normalizeOptionalText(createdDate);
   if (!normalized) {
@@ -804,6 +840,8 @@ export class SampleQueryService {
     owner = null,
     buyer = null,
     harvest = null,
+    sacksMin = null,
+    sacksMax = null,
     createdDate = null,
     createdMonth = null,
     createdYear = null
@@ -818,6 +856,10 @@ export class SampleQueryService {
       createdDate,
       createdMonth,
       createdYear
+    });
+    const sacksRange = resolveSacksRange({
+      sacksMin,
+      sacksMax
     });
 
     const conditions = [];
@@ -891,6 +933,12 @@ export class SampleQueryService {
     if (normalizedHarvest) {
       conditions.push({
         declaredHarvest: normalizedHarvest
+      });
+    }
+
+    if (sacksRange) {
+      conditions.push({
+        declaredSacks: sacksRange
       });
     }
 

@@ -36,6 +36,8 @@ interface HiddenFilters {
   statusGroup: StatusGroupFilter;
   commercialStatus: '' | CommercialStatus;
   harvest: string;
+  sacksMin: string;
+  sacksMax: string;
   periodMode: PeriodMode;
   periodValue: string;
 }
@@ -46,6 +48,8 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   statusGroup: '',
   commercialStatus: '',
   harvest: '',
+  sacksMin: '',
+  sacksMax: '',
   periodMode: 'exact',
   periodValue: ''
 };
@@ -134,6 +138,8 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.statusGroup.length > 0 ||
     filters.commercialStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
+    filters.sacksMin.trim().length > 0 ||
+    filters.sacksMax.trim().length > 0 ||
     filters.periodValue.trim().length > 0
   );
 }
@@ -145,6 +151,8 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     statusGroup: filters.statusGroup,
     commercialStatus: filters.commercialStatus,
     harvest: filters.harvest.trim(),
+    sacksMin: filters.sacksMin.trim(),
+    sacksMax: filters.sacksMax.trim(),
     periodMode: filters.periodMode,
     periodValue: filters.periodValue.trim()
   };
@@ -157,6 +165,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.statusGroup) count += 1;
   if (filters.commercialStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
+  if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodValue.trim()) count += 1;
   return count;
 }
@@ -316,6 +325,8 @@ export default function SamplesPage() {
         statusGroup: appliedHiddenFilters.statusGroup || undefined,
         commercialStatus: appliedHiddenFilters.commercialStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
+        sacksMin: appliedHiddenFilters.sacksMin || undefined,
+        sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters)
       },
       {
@@ -761,6 +772,42 @@ export default function SamplesPage() {
                           {option}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="samples-page-filter">
+                    <span className="samples-page-filter-label">Sacas</span>
+                    <div className="samples-page-period-grid">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={draftHiddenFilters.sacksMin}
+                        onChange={(event) =>
+                          setDraftHiddenFilters((current) => ({
+                            ...current,
+                            sacksMin: event.target.value.replace(/\D+/g, '')
+                          }))
+                        }
+                        placeholder="De"
+                        aria-label="Quantidade minima de sacas"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={draftHiddenFilters.sacksMax}
+                        onChange={(event) =>
+                          setDraftHiddenFilters((current) => ({
+                            ...current,
+                            sacksMax: event.target.value.replace(/\D+/g, '')
+                          }))
+                        }
+                        placeholder="Ate"
+                        aria-label="Quantidade maxima de sacas"
+                      />
                     </div>
                   </div>
 

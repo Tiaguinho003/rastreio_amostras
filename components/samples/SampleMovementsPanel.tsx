@@ -101,9 +101,6 @@ export function SampleMovementsPanel({
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0 }}>Movimentacoes comerciais</h3>
-            <p className="sample-commercial-summary-copy">
-              Vendas e perdas ficam registradas na mesma linha operacional, ordenadas da mais nova para a mais antiga.
-            </p>
           </div>
 
           <div className="row">
