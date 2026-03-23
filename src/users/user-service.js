@@ -1352,6 +1352,14 @@ export class UserService {
     const email = normalizeEmail(input.email);
     const emailCanonical = normalizeCanonical(email);
     const now = nowUtc();
+    const genericTiming = buildRequestTiming(now);
+    const genericResponse = {
+      resetRequest: {
+        requestId: randomUUID(),
+        expiresAt: toIsoString(genericTiming.expiresAt),
+        resendAvailableAt: toIsoString(genericTiming.resendAvailableAt)
+      }
+    };
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findFirst({
@@ -1362,22 +1370,15 @@ export class UserService {
       });
 
       if (!user) {
-        throw new HttpError(404, 'Email nao encontrado. Revise o email informado.', {
-          code: 'EMAIL_NOT_FOUND'
-        });
+        return genericResponse;
       }
 
       if (user.status === USER_STATUSES.INACTIVE) {
-        throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-          code: 'ACCOUNT_INACTIVE'
-        });
+        return genericResponse;
       }
 
       if (isLocked(user, now)) {
-        throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
-          code: 'ACCOUNT_LOCKED',
-          lockedUntil: toIsoString(user.lockedUntil)
-        });
+        return genericResponse;
       }
 
       const latest = await tx.passwordResetRequest.findFirst({
@@ -1390,9 +1391,8 @@ export class UserService {
       });
 
       if (latest && new Date(latest.retryAvailableAt).getTime() > now.getTime()) {
-        throw new HttpError(429, 'Aguarde 5 minutos para solicitar um novo codigo', {
-          code: 'PASSWORD_RESET_REQUEST_LOCKED',
-          retryAvailableAt: toIsoString(latest.retryAvailableAt)
+        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
+          code: 'PASSWORD_RESET_RATE_LIMITED'
         });
       }
 
@@ -1403,9 +1403,8 @@ export class UserService {
         new Date(latest.expiresAt).getTime() > now.getTime() &&
         new Date(latest.resendAvailableAt).getTime() > now.getTime()
       ) {
-        throw new HttpError(429, 'Aguarde 1 minuto para reenviar o codigo', {
-          code: 'PASSWORD_RESET_RESEND_NOT_AVAILABLE',
-          resendAvailableAt: toIsoString(latest.resendAvailableAt)
+        throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
+          code: 'PASSWORD_RESET_RATE_LIMITED'
         });
       }
 
@@ -1597,8 +1596,8 @@ export class UserService {
           }
         });
 
-        throw new HttpError(401, 'Usuario nao encontrado', {
-          code: 'USERNAME_NOT_FOUND'
+        throw new HttpError(401, 'Usuario ou senha invalidos', {
+          code: 'INVALID_CREDENTIALS'
         });
       }
 
@@ -1667,8 +1666,8 @@ export class UserService {
         });
       }
 
-      throw new HttpError(401, 'Senha incorreta', {
-        code: 'INVALID_PASSWORD'
+      throw new HttpError(401, 'Usuario ou senha invalidos', {
+        code: 'INVALID_CREDENTIALS'
       });
     });
   }
@@ -1695,7 +1694,7 @@ export class UserService {
     });
 
     if (!user) {
-      await this.registerLoginFailure({ username, actorContext });
+      return this.registerLoginFailure({ username, actorContext });
     }
 
     if (user.status === USER_STATUSES.INACTIVE) {
@@ -1731,7 +1730,7 @@ export class UserService {
 
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
-      await this.registerLoginFailure({ username, actorContext });
+      return this.registerLoginFailure({ username, actorContext });
     }
 
     return user;

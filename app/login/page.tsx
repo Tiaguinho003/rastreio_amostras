@@ -8,58 +8,6 @@ import { ForgotPasswordModal } from '../../components/ForgotPasswordModal';
 import { login, ApiError, getCurrentSession } from '../../lib/api-client';
 import { loginSchema } from '../../lib/form-schemas';
 
-async function normalizeViewportBeforeNavigation() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement) {
-    activeElement.blur();
-  }
-
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  });
-
-  const viewport = window.visualViewport;
-  if (!viewport || viewport.scale <= 1.01) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    let settled = false;
-
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      viewport.removeEventListener('resize', handleResize);
-      window.clearTimeout(timeoutId);
-      resolve();
-    };
-
-    const handleResize = () => {
-      if ((window.visualViewport?.scale ?? 1) <= 1.01) {
-        finish();
-      }
-    };
-
-    const timeoutId = window.setTimeout(finish, 240);
-    viewport.addEventListener('resize', handleResize);
-  });
-
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -139,7 +87,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(parsed.data.username, parsed.data.password);
-      await normalizeViewportBeforeNavigation();
       router.replace('/dashboard');
     } catch (cause) {
       if (cause instanceof ApiError) {
@@ -206,6 +153,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                autoCapitalize="none"
                 placeholder="Senha"
                 className="login-field-input"
               />
@@ -229,14 +177,15 @@ export default function LoginPage() {
               aria-label={loading ? 'Entrando...' : 'Entrar'}
               title={loading ? 'Entrando...' : 'Entrar'}
             >
-              <Image
-                src="/login-enter-icon.png"
-                alt=""
-                width={42}
-                height={42}
+              <svg
+                viewBox="0 0 48 48"
+                fill="currentColor"
                 aria-hidden="true"
                 className="login-card-submit-icon"
-              />
+              >
+                <path d="M20 4h18a6 6 0 0 1 6 6v28a6 6 0 0 1-6 6H20v-5h18a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1H20V4z" />
+                <path d="M4 22h22.34l-7.17-7.17L22 12l12 12-12 12-2.83-2.83L26.34 26H4v-4z" />
+              </svg>
               <span className="login-visually-hidden">{loading ? 'Entrando...' : 'Entrar'}</span>
             </button>
           </div>
