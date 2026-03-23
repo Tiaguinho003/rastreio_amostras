@@ -17,6 +17,12 @@ import {
   updateClient,
   updateClientRegistration
 } from '../../lib/api-client';
+import {
+  formatClientDocument,
+  maskCpfInput,
+  maskCnpjInput,
+  maskPhoneInput
+} from '../../lib/client-field-formatters';
 import { useRequireAuth } from '../../lib/use-auth';
 import type {
   ClientAuditEventResponse,
@@ -44,6 +50,21 @@ function blankClientForm(personType: ClientPersonType = 'PJ') {
   };
 }
 
+function clientSummaryToForm(client: ClientSummary) {
+  return {
+    personType: client.personType,
+    fullName: client.fullName ?? '',
+    legalName: client.legalName ?? '',
+    tradeName: client.tradeName ?? '',
+    cpf: maskCpfInput(client.cpf ?? ''),
+    cnpj: maskCnpjInput(client.cnpj ?? ''),
+    phone: maskPhoneInput(client.phone ?? ''),
+    isBuyer: client.isBuyer,
+    isSeller: client.isSeller,
+    reasonText: ''
+  };
+}
+
 function blankRegistrationForm() {
   return {
     registrationNumber: '',
@@ -63,7 +84,7 @@ function clientDocument(client: ClientSummary | null) {
     return null;
   }
 
-  return client.document ?? client.cpf ?? client.cnpj ?? null;
+  return formatClientDocument(client.document ?? client.cpf ?? client.cnpj ?? null, client.personType);
 }
 
 function clientDisplayName(client: ClientSummary | null) {
@@ -204,18 +225,7 @@ export default function ClientsPage() {
 
         setSelectedClient(detailResponse.client);
         setRegistrations(detailResponse.registrations);
-        setClientForm({
-          personType: detailResponse.client.personType,
-          fullName: detailResponse.client.fullName ?? '',
-          legalName: detailResponse.client.legalName ?? '',
-          tradeName: detailResponse.client.tradeName ?? '',
-          cpf: detailResponse.client.cpf ?? '',
-          cnpj: detailResponse.client.cnpj ?? '',
-          phone: detailResponse.client.phone ?? '',
-          isBuyer: detailResponse.client.isBuyer,
-          isSeller: detailResponse.client.isSeller,
-          reasonText: ''
-        });
+        setClientForm(clientSummaryToForm(detailResponse.client));
         setAuditItems(auditResponse.items);
         setAuditTotalPages(auditResponse.page.totalPages);
       })
@@ -295,18 +305,7 @@ export default function ClientsPage() {
     setRegistrations(detailResponse.registrations);
     setAuditItems(auditResponse.items);
     setAuditTotalPages(auditResponse.page.totalPages);
-    setClientForm({
-      personType: detailResponse.client.personType,
-      fullName: detailResponse.client.fullName ?? '',
-      legalName: detailResponse.client.legalName ?? '',
-      tradeName: detailResponse.client.tradeName ?? '',
-      cpf: detailResponse.client.cpf ?? '',
-      cnpj: detailResponse.client.cnpj ?? '',
-      phone: detailResponse.client.phone ?? '',
-      isBuyer: detailResponse.client.isBuyer,
-      isSeller: detailResponse.client.isSeller,
-      reasonText: ''
-    });
+    setClientForm(clientSummaryToForm(detailResponse.client));
   }
 
   async function handleClientSubmit(event: FormEvent<HTMLFormElement>) {
@@ -755,8 +754,9 @@ export default function ClientsPage() {
                     Telefone
                     <input
                       value={clientForm.phone}
-                      onChange={(event) => setClientForm((current) => ({ ...current, phone: event.target.value }))}
+                      onChange={(event) => setClientForm((current) => ({ ...current, phone: maskPhoneInput(event.target.value) }))}
                       disabled={savingClient}
+                      placeholder="(xx)xxxx-xxxx ou (xx)xxxxx-xxxx"
                     />
                   </label>
 
@@ -774,7 +774,7 @@ export default function ClientsPage() {
                         CPF
                         <input
                           value={clientForm.cpf}
-                          onChange={(event) => setClientForm((current) => ({ ...current, cpf: event.target.value }))}
+                          onChange={(event) => setClientForm((current) => ({ ...current, cpf: maskCpfInput(event.target.value) }))}
                           disabled={savingClient}
                         />
                       </label>
@@ -801,7 +801,7 @@ export default function ClientsPage() {
                         CNPJ
                         <input
                           value={clientForm.cnpj}
-                          onChange={(event) => setClientForm((current) => ({ ...current, cnpj: event.target.value }))}
+                          onChange={(event) => setClientForm((current) => ({ ...current, cnpj: maskCnpjInput(event.target.value) }))}
                           disabled={savingClient}
                         />
                       </label>

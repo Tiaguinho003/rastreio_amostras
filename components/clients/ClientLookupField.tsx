@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 
 import { ApiError, lookupClients } from '../../lib/api-client';
+import { formatClientDocument } from '../../lib/client-field-formatters';
 import type { ClientLookupKind, ClientSummary, SessionData } from '../../lib/types';
 
 type ClientLookupFieldProps = {
@@ -23,11 +24,7 @@ type ClientLookupFieldProps = {
 };
 
 function getClientDocument(client: ClientSummary) {
-  if (client.document) {
-    return client.document;
-  }
-
-  return client.personType === 'PF' ? client.cpf : client.cnpj;
+  return formatClientDocument(client.document ?? (client.personType === 'PF' ? client.cpf : client.cnpj), client.personType);
 }
 
 export function ClientLookupField({

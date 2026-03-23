@@ -4,7 +4,6 @@ import {
   buildAuditContext,
   buildDiff,
   normalizeOptionalText,
-  normalizePhone,
   normalizeRequiredText,
   readLimitQuery,
   readPageQuery,
@@ -44,7 +43,7 @@ export const CLIENT_LOOKUP_KINDS = {
 };
 
 export const CLIENT_LIST_LIMIT_DEFAULT = 10;
-export const CLIENT_LIST_LIMIT_MAX = 20;
+export const CLIENT_LIST_LIMIT_MAX = 30;
 export const CLIENT_AUDIT_LIMIT_DEFAULT = 10;
 export const CLIENT_AUDIT_LIMIT_MAX = 20;
 export const CLIENT_LOOKUP_LIMIT = 8;
@@ -168,6 +167,23 @@ function normalizeCnpj(value, fieldName = 'cnpj') {
   return normalized;
 }
 
+function normalizeClientPhone(value, fieldName = 'phone') {
+  const normalized = normalizeOptionalText(value, fieldName, 40);
+  if (!normalized) {
+    return null;
+  }
+
+  const digits = normalizeDigits(normalized);
+  if (digits.length !== 10 && digits.length !== 11) {
+    throw new HttpError(422, `${fieldName} is invalid`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName
+    });
+  }
+
+  return digits;
+}
+
 function normalizeReasonText(value, fieldName = 'reasonText') {
   return normalizeRequiredText(value, fieldName, 300);
 }
@@ -248,7 +264,7 @@ function buildClientWriteData({
       cpf: normalizedCpf,
       cnpj: null,
       documentCanonical: normalizedCpf,
-      phone: normalizePhone(phone),
+      phone: normalizeClientPhone(phone),
       ...flags
     };
   }
@@ -265,7 +281,7 @@ function buildClientWriteData({
     cpf: null,
     cnpj: normalizedCnpj,
     documentCanonical: normalizedCnpj,
-    phone: normalizePhone(phone),
+    phone: normalizeClientPhone(phone),
     ...flags
   };
 }

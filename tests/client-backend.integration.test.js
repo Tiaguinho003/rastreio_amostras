@@ -144,11 +144,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pf.body.client.personType, 'PF');
     assert.equal(pf.body.client.displayName, 'Francisco Sales Darcadia');
     assert.equal(pf.body.client.document, '01617970832');
+    assert.equal(pf.body.client.phone, '35999118089');
 
     assert.equal(pj.status, 201);
     assert.equal(pj.body.client.personType, 'PJ');
     assert.equal(pj.body.client.displayName, 'Atlantica Exportacao e Importacao S/A');
     assert.equal(pj.body.client.document, '03936815000175');
+    assert.equal(pj.body.client.phone, '3532220495');
 
     const byName = await api.listClients(
       buildInput({
@@ -185,6 +187,43 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(byCode.status, 200);
     assert.equal(byCode.body.page.total, 1);
     assert.equal(byCode.body.items[0].id, pf.body.client.id);
+  });
+
+  test('GET /clients accepts limit 30 and rejects values above the new maximum', async () => {
+    for (let index = 0; index < 31; index += 1) {
+      const created = await createPfClient({
+        fullName: `Cliente limite ${index + 1}`,
+        cpf: String(70000000000 + index)
+      });
+
+      assert.equal(created.status, 201);
+    }
+
+    const paged = await api.listClients(
+      buildInput({
+        query: {
+          page: '1',
+          limit: '30'
+        }
+      })
+    );
+
+    assert.equal(paged.status, 200);
+    assert.equal(paged.body.items.length, 30);
+    assert.equal(paged.body.page.limit, 30);
+    assert.equal(paged.body.page.total, 31);
+    assert.equal(paged.body.page.hasNext, true);
+
+    const aboveMax = await api.listClients(
+      buildInput({
+        query: {
+          limit: '31'
+        }
+      })
+    );
+
+    assert.equal(aboveMax.status, 422);
+    assert.equal(aboveMax.body.error.message, 'limit must be an integer between 1 and 30');
   });
 
   test('GET /clients/lookup filters active buyers and sellers', async () => {

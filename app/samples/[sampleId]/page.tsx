@@ -884,15 +884,22 @@ export default function SampleDetailPage() {
   const classificationVisiblePhotoPreviewUrl = classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl;
   const classificationPhotoStatusLabel = classificationPhotoUploading
     ? 'Salvando foto...'
-    : classificationSelectedPhoto
-      ? classificationSelectedPhoto.name
-      : '';
+    : '';
   const classificationCanComplete = !classificationPhotoUploading && !classificationSelectedPhoto && Boolean(classificationAttachment);
   const classificationCanAccessDataSteps = Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
   const classificationEditHighlightActive = classificationEditMode;
   const classificationStepNumber = classificationStep === 'PHOTO' ? 1 : classificationStep === 'GENERAL' ? 2 : 3;
   const classificationStepTitle =
     classificationStep === 'PHOTO' ? 'Foto da classificacao' : classificationStep === 'GENERAL' ? 'Dados gerais' : 'Leituras e peneiras';
+  const classificationStepBusy =
+    classificationPhotoUploading || classificationSaving || classificationCompleting || classificationUpdating;
+  const classificationCanGoPrev = !classificationEditMode && classificationStep !== 'PHOTO' && !classificationStepBusy;
+  const classificationCanGoNext =
+    !classificationEditMode &&
+    !classificationStepBusy &&
+    (classificationStep === 'PHOTO'
+      ? classificationCanAccessDataSteps && !classificationSelectedPhoto
+      : classificationStep === 'GENERAL');
   const classificationTabDotTone = detail ? getOperationalStatusDotTone(detail.sample.status) : null;
   const classificationTabDotLabel = detail ? getOperationalStatusDotLabel(detail.sample.status) : null;
   const commercialTabDotTone = detail ? getCommercialStatusDotTone(detail.sample.commercialStatus) : null;
@@ -1689,6 +1696,28 @@ export default function SampleDetailPage() {
     setClassificationStep('MEASURES');
   }
 
+  function handleGoBackClassificationStep() {
+    if (classificationStep === 'GENERAL') {
+      setClassificationStep('PHOTO');
+      return;
+    }
+
+    if (classificationStep === 'MEASURES') {
+      setClassificationStep('GENERAL');
+    }
+  }
+
+  function handleGoForwardClassificationStep() {
+    if (classificationStep === 'PHOTO') {
+      handleAdvanceFromClassificationPhoto();
+      return;
+    }
+
+    if (classificationStep === 'GENERAL') {
+      handleAdvanceFromClassificationGeneral();
+    }
+  }
+
   async function handleCompleteClassification() {
     if (!session || !detail || detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS') {
       return;
@@ -2162,152 +2191,9 @@ export default function SampleDetailPage() {
                   <section className="stack sample-detail-info-pane sample-detail-general-pane">
                     <section className="panel sample-detail-main-layout sample-detail-main-layout-general">
                       <article className={`stack sample-detail-main-info sample-detail-main-info-grid${registrationEditMode ? ' is-editing' : ''}`}>
-                        <div className="sample-detail-general-qr-block">
-                          <div className="sample-detail-qr-quick-code">
-                            <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={156} />
-                          </div>
-
-                          <div className="row sample-detail-qr-quick-actions">
-                            <button
-                              type="button"
-                              className="sample-detail-qr-action"
-                              onClick={(event) => openLabelReviewModal(event.currentTarget)}
-                              disabled={!canQuickPrint || labelModalSubmitting}
-                              aria-label="Imprimir etiqueta da amostra"
-                              title="Imprimir etiqueta da amostra"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="M7 8V4.8h10V8" />
-                                <rect x="5" y="9" width="14" height="7" rx="1.8" />
-                                <path d="M8 14h8" />
-                                <path d="M8 16.8h8V20H8z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className="sample-detail-qr-action secondary"
-                              onClick={handleOpenExportTypeSelector}
-                              disabled={!canQuickReport || Boolean(exportingPdfType)}
-                              aria-label="Gerar laudo da amostra"
-                              title="Gerar laudo da amostra"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="M7 4.8h7l3 3V19.2H7z" />
-                                <path d="M14 4.8v3h3" />
-                                <path d="M9 12h6" />
-                                <path d="M9 15h6" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="sample-detail-card-head sample-detail-card-head-general">
-                          <h3 className="sample-detail-card-title">Informacoes</h3>
-                        </div>
-
-                        <div className="sample-detail-main-facts sample-detail-main-facts-columns">
-                          <div className="sample-detail-main-fact">
-                            <span>Proprietario</span>
-                            {registrationEditMode ? (
-                              <div className="sample-detail-lookup-slot">
-                                <ClientLookupField
-                                  session={session}
-                                  label="Cliente proprietario"
-                                  kind="owner"
-                                  selectedClient={selectedOwnerClient}
-                                  disabled={registrationUpdating}
-                                  compact
-                                  onSelectClient={(client) => {
-                                    setSelectedOwnerClient(client);
-                                    setOwner(client?.displayName ?? '');
-                                    setSelectedOwnerRegistrationId(null);
-                                    setError(null);
-                                  }}
-                                  onRequestCreate={(searchTerm) => {
-                                    setOwnerQuickCreateSeed(searchTerm);
-                                    setOwnerQuickCreateOpen(true);
-                                  }}
-                                  createLabel="Cadastrar proprietario"
-                                />
-                              </div>
-                            ) : (
-                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
-                            )}
-                          </div>
-
-                          <div className="sample-detail-main-fact is-wide-value">
-                            <span>Inscricao do proprietario</span>
-                            {registrationEditMode ? (
-                              <div className="sample-detail-lookup-slot">
-                                <ClientRegistrationSelect
-                                  label="Inscricao"
-                                  registrations={ownerRegistrations}
-                                  value={selectedOwnerRegistrationId}
-                                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
-                                  onChange={setSelectedOwnerRegistrationId}
-                                  placeholder="Selecionar"
-                                  compact
-                                />
-                              </div>
-                            ) : (
-                              <strong className="sample-detail-inline-value">
-                                {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
-                              </strong>
-                            )}
-                          </div>
-
-                          <div className="sample-detail-main-fact">
-                            <span>Sacas</span>
-                            {registrationEditMode ? (
-                              <input
-                                className="sample-detail-inline-input"
-                                value={sacks}
-                                onChange={(event) => setSacks(event.target.value)}
-                                inputMode="numeric"
-                                disabled={registrationUpdating}
-                              />
-                            ) : (
-                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
-                            )}
-                          </div>
-
-                          <div className="sample-detail-main-fact">
-                            <span>Safra</span>
-                            {registrationEditMode ? (
-                              <input
-                                className="sample-detail-inline-input"
-                                value={harvest}
-                                onChange={(event) => setHarvest(event.target.value)}
-                                disabled={registrationUpdating}
-                              />
-                            ) : (
-                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
-                            )}
-                          </div>
-
-                          <div className="sample-detail-main-fact">
-                            <span>Lote de origem</span>
-                            {registrationEditMode ? (
-                              <input
-                                className="sample-detail-inline-input"
-                                value={originLot}
-                                onChange={(event) => setOriginLot(event.target.value)}
-                                disabled={registrationUpdating}
-                              />
-                            ) : (
-                              <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
-                            )}
-                          </div>
-
-                          <div className="sample-detail-main-fact is-wide-value">
-                            <span>Recebido</span>
-                            <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
-                          </div>
-                        </div>
-
-                        <div className="sample-detail-inline-actions sample-detail-inline-actions-bottom">
+                        <div className="sample-detail-edit-tools sample-detail-edit-tools-general">
                           {registrationEditMode ? (
-                            <>
+                            <div className="sample-detail-edit-trigger-slot">
                               <button
                                 type="button"
                                 className="sample-detail-icon-action"
@@ -2333,21 +2219,166 @@ export default function SampleDetailPage() {
                                   <path d="M18 6 6 18" />
                                 </svg>
                               </button>
-                            </>
+                            </div>
                           ) : (
-                            <button
-                              type="button"
-                              className="secondary sample-detail-icon-action"
-                              onClick={startRegistrationEdit}
-                              aria-label="Editar informacoes principais"
-                              title="Editar informacoes principais"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="M12 20h9" />
-                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                              </svg>
-                            </button>
+                            <div className="sample-detail-edit-trigger-slot">
+                              <button
+                                type="button"
+                                className="secondary sample-detail-icon-action"
+                                onClick={startRegistrationEdit}
+                                aria-label="Editar informacoes principais"
+                                title="Editar informacoes principais"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="M12 20h9" />
+                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                </svg>
+                              </button>
+                            </div>
                           )}
+                        </div>
+
+                        <div className="sample-detail-general-stage">
+                          <div className="sample-detail-general-card-top">
+                            <div className="sample-detail-general-qr-block">
+                              <div className="sample-detail-qr-quick-code">
+                                <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={156} />
+                              </div>
+
+                              <div className="row sample-detail-qr-quick-actions">
+                                <button
+                                  type="button"
+                                  className="sample-detail-qr-action"
+                                  onClick={(event) => openLabelReviewModal(event.currentTarget)}
+                                  disabled={!canQuickPrint || labelModalSubmitting}
+                                  aria-label="Imprimir etiqueta da amostra"
+                                  title="Imprimir etiqueta da amostra"
+                                >
+                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M7 8V4.8h10V8" />
+                                    <rect x="5" y="9" width="14" height="7" rx="1.8" />
+                                    <path d="M8 14h8" />
+                                    <path d="M8 16.8h8V20H8z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="sample-detail-qr-action secondary"
+                                  onClick={handleOpenExportTypeSelector}
+                                  disabled={!canQuickReport || Boolean(exportingPdfType)}
+                                  aria-label="Gerar laudo da amostra"
+                                  title="Gerar laudo da amostra"
+                                >
+                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M7 4.8h7l3 3V19.2H7z" />
+                                    <path d="M14 4.8v3h3" />
+                                    <path d="M9 12h6" />
+                                    <path d="M9 15h6" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="sample-detail-main-facts sample-detail-main-facts-columns sample-detail-main-facts-general">
+                            <div className="sample-detail-main-fact">
+                              <span>Proprietario</span>
+                              {registrationEditMode ? (
+                                <div className="sample-detail-lookup-slot">
+                                  <ClientLookupField
+                                    session={session}
+                                    label="Cliente proprietario"
+                                    kind="owner"
+                                    selectedClient={selectedOwnerClient}
+                                    disabled={registrationUpdating}
+                                    compact
+                                    onSelectClient={(client) => {
+                                      setSelectedOwnerClient(client);
+                                      setOwner(client?.displayName ?? '');
+                                      setSelectedOwnerRegistrationId(null);
+                                      setError(null);
+                                    }}
+                                    onRequestCreate={(searchTerm) => {
+                                      setOwnerQuickCreateSeed(searchTerm);
+                                      setOwnerQuickCreateOpen(true);
+                                    }}
+                                    createLabel="Cadastrar proprietario"
+                                  />
+                                </div>
+                              ) : (
+                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
+                              )}
+                            </div>
+
+                            <div className="sample-detail-main-fact is-wide-value">
+                              <span>Inscricao do proprietario</span>
+                              {registrationEditMode ? (
+                                <div className="sample-detail-lookup-slot">
+                                  <ClientRegistrationSelect
+                                    label="Inscricao"
+                                    registrations={ownerRegistrations}
+                                    value={selectedOwnerRegistrationId}
+                                    disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
+                                    onChange={setSelectedOwnerRegistrationId}
+                                    placeholder="Selecionar"
+                                    compact
+                                  />
+                                </div>
+                              ) : (
+                                <strong className="sample-detail-inline-value">
+                                  {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
+                                </strong>
+                              )}
+                            </div>
+
+                            <div className="sample-detail-main-fact">
+                              <span>Sacas</span>
+                              {registrationEditMode ? (
+                                <input
+                                  className="sample-detail-inline-input"
+                                  value={sacks}
+                                  onChange={(event) => setSacks(event.target.value)}
+                                  inputMode="numeric"
+                                  disabled={registrationUpdating}
+                                />
+                              ) : (
+                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
+                              )}
+                            </div>
+
+                            <div className="sample-detail-main-fact">
+                              <span>Safra</span>
+                              {registrationEditMode ? (
+                                <input
+                                  className="sample-detail-inline-input"
+                                  value={harvest}
+                                  onChange={(event) => setHarvest(event.target.value)}
+                                  disabled={registrationUpdating}
+                                />
+                              ) : (
+                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
+                              )}
+                            </div>
+
+                            <div className="sample-detail-main-fact">
+                              <span>Lote de origem</span>
+                              {registrationEditMode ? (
+                                <input
+                                  className="sample-detail-inline-input"
+                                  value={originLot}
+                                  onChange={(event) => setOriginLot(event.target.value)}
+                                  disabled={registrationUpdating}
+                                />
+                              ) : (
+                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
+                              )}
+                            </div>
+
+                            <div className="sample-detail-main-fact is-wide-value">
+                              <span>Recebido</span>
+                              <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
+                            </div>
+                          </div>
                         </div>
                       </article>
                     </section>
@@ -2421,10 +2452,6 @@ export default function SampleDetailPage() {
                           }}
                         >
                           <div className="sample-classification-step-header">
-                            <div className="sample-classification-step-summary">
-                              <span className="new-sample-step-count">{classificationStepNumber}/3</span>
-                              <h4 className="sample-classification-step-title">{classificationStepTitle}</h4>
-                            </div>
                             <div className="sample-classification-step-switch" role="tablist" aria-label="Etapas da classificacao">
                               <button
                                 type="button"
@@ -2457,91 +2484,121 @@ export default function SampleDetailPage() {
                           <div ref={classificationStepBodyRef} className="sample-classification-step-body">
                             {classificationStep === 'PHOTO' ? (
                               <section className="panel stack sample-classification-photo-panel">
-                                <div className="sample-classification-panel-head is-tight">
-                                  <div>
-                                    <h4 style={{ margin: 0 }}>Imagem da classificacao</h4>
-                                  </div>
-                                  {!classificationAttachment ? <span className="sample-classification-chip is-missing">Obrigatoria</span> : null}
-                                </div>
-
-                                <label
-                                  htmlFor="sample-classification-photo-input"
-                                  className={`new-sample-photo-stage sample-classification-photo-stage${
-                                    classificationPhotoEditingAllowed ? '' : ' is-static'
-                                  }`}
-                                >
-                                  <input
-                                    id="sample-classification-photo-input"
-                                    ref={classificationPhotoInputRef}
-                                    className="new-sample-file-input"
-                                    accept="image/*"
-                                    capture="environment"
-                                    type="file"
-                                    disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                                    onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
-                                  />
-
-                                  {classificationVisiblePhotoPreviewUrl ? (
-                                    <img
-                                      src={classificationVisiblePhotoPreviewUrl}
-                                      alt="Pre-visualizacao da foto da classificacao"
-                                      className="new-sample-photo-preview"
+                                <div className="sample-classification-photo-shell">
+                                  <label
+                                    htmlFor="sample-classification-photo-input"
+                                    className={`new-sample-photo-stage sample-classification-photo-stage${
+                                      classificationPhotoEditingAllowed ? '' : ' is-static'
+                                    }`}
+                                  >
+                                    <input
+                                      id="sample-classification-photo-input"
+                                      ref={classificationPhotoInputRef}
+                                      className="new-sample-file-input"
+                                      accept="image/*"
+                                      capture="environment"
+                                      type="file"
+                                      disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
+                                      onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
                                     />
-                                  ) : (
-                                    <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
-                                      <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                          <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                                          <circle cx="12" cy="13.3" r="3.1" />
-                                        </svg>
-                                      </span>
-                                      <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
-                                      <span className="new-sample-photo-placeholder-text">
-                                        {classificationPhotoEditingAllowed
-                                          ? classificationAttachment
-                                            ? 'Toque para substituir a foto'
-                                            : 'Toque para capturar ou anexar'
-                                          : classificationAttachment
-                                            ? 'Foto registrada para esta classificacao'
-                                            : 'Imagem da classificacao nao localizada'}
-                                      </span>
-                                    </span>
-                                  )}
 
-                                  {showClassificationPhotoConfirmEffect ? (
-                                    <span key={classificationPhotoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
-                                      <span className="new-sample-photo-confirm-glow" />
-                                      <span className="new-sample-photo-confirm-ring" />
-                                      <span className="new-sample-photo-confirm-badge">
-                                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                          <path d="m5 12.5 4.3 4.2L19 7" />
-                                        </svg>
+                                    {classificationVisiblePhotoPreviewUrl ? (
+                                      <img
+                                        src={classificationVisiblePhotoPreviewUrl}
+                                        alt="Pre-visualizacao da foto da classificacao"
+                                        className="new-sample-photo-preview"
+                                      />
+                                    ) : (
+                                      <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
+                                        <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
+                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                            <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                                            <circle cx="12" cy="13.3" r="3.1" />
+                                          </svg>
+                                        </span>
+                                        <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
+                                        <span className="new-sample-photo-placeholder-text">
+                                          {classificationPhotoEditingAllowed
+                                            ? classificationAttachment
+                                              ? 'Toque para substituir a foto'
+                                              : 'Toque para capturar ou anexar'
+                                            : classificationAttachment
+                                              ? 'Foto registrada para esta classificacao'
+                                              : 'Imagem da classificacao nao localizada'}
+                                        </span>
                                       </span>
-                                      <span className="new-sample-photo-spark new-sample-photo-spark-a" />
-                                      <span className="new-sample-photo-spark new-sample-photo-spark-b" />
-                                      <span className="new-sample-photo-spark new-sample-photo-spark-c" />
-                                      <span className="new-sample-photo-spark new-sample-photo-spark-d" />
-                                      <span className="new-sample-photo-spark new-sample-photo-spark-e" />
-                                    </span>
-                                  ) : null}
-                                </label>
+                                    )}
 
-                                {classificationPhotoStatusLabel ? (
-                                  <p className="sample-classification-photo-meta" style={{ margin: 0 }}>
-                                    {classificationPhotoStatusLabel}
-                                  </p>
-                                ) : null}
+                                    {showClassificationPhotoConfirmEffect ? (
+                                      <span key={classificationPhotoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
+                                        <span className="new-sample-photo-confirm-glow" />
+                                        <span className="new-sample-photo-confirm-ring" />
+                                        <span className="new-sample-photo-confirm-badge">
+                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                            <path d="m5 12.5 4.3 4.2L19 7" />
+                                          </svg>
+                                        </span>
+                                        <span className="new-sample-photo-spark new-sample-photo-spark-a" />
+                                        <span className="new-sample-photo-spark new-sample-photo-spark-b" />
+                                        <span className="new-sample-photo-spark new-sample-photo-spark-c" />
+                                        <span className="new-sample-photo-spark new-sample-photo-spark-d" />
+                                        <span className="new-sample-photo-spark new-sample-photo-spark-e" />
+                                      </span>
+                                    ) : null}
+
+                                    {classificationPhotoEditingAllowed ? (
+                                      <div className="sample-classification-photo-inline-actions">
+                                        <button
+                                          type="button"
+                                          className={`sample-classification-photo-inline-button sample-classification-photo-inline-icon${
+                                            classificationAttachment || classificationSelectedPhoto ? ' is-ready is-discard' : ''
+                                          }`}
+                                          onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            classificationPhotoInputRef.current?.click();
+                                          }}
+                                          disabled={classificationPhotoUploading}
+                                          aria-label={classificationAttachment ? 'Enviar nova foto' : 'Adicionar foto'}
+                                          title={classificationAttachment ? 'Enviar nova foto' : 'Adicionar foto'}
+                                        >
+                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                            <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                                            <circle cx="12" cy="13.3" r="3.1" />
+                                          </svg>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          className={`sample-classification-photo-inline-button sample-classification-photo-inline-icon is-confirm${
+                                            classificationSelectedPhoto ? ' is-ready' : ''
+                                          }`}
+                                          onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            void handleUploadClassificationPhoto();
+                                          }}
+                                          disabled={classificationPhotoUploading || !classificationSelectedPhoto}
+                                          aria-label="Salvar foto da classificacao"
+                                          title="Salvar foto da classificacao"
+                                        >
+                                          {classificationPhotoUploading ? (
+                                            <span className="sample-classification-photo-inline-spinner" aria-hidden="true" />
+                                          ) : (
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                              <path d="m5 12.5 4.3 4.2L19 7" />
+                                            </svg>
+                                          )}
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                  </label>
+                                </div>
                               </section>
                             ) : null}
 
                           {classificationStep === 'GENERAL' ? (
                             <section className="panel stack sample-classification-form-panel">
-                              <div className="sample-classification-panel-head">
-                                <div>
-                                  <h4 style={{ margin: 0 }}>Dados gerais</h4>
-                                </div>
-                              </div>
-
                               <div className="grid sample-classification-form-grid">
                                 {renderClassificationInputField('padrao', 'Padrao')}
                                 {renderClassificationInputField('catacao', 'Catacao')}
@@ -2557,12 +2614,6 @@ export default function SampleDetailPage() {
                           {classificationStep === 'MEASURES' ? (
                             <div className="sample-classification-step-pane-stack">
                               <section className="panel stack sample-classification-form-panel">
-                                <div className="sample-classification-panel-head">
-                                  <div>
-                                    <h4 style={{ margin: 0 }}>Leituras numericas</h4>
-                                  </div>
-                                </div>
-
                                 <div className="grid sample-classification-form-grid">
                                   {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
                                   {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
@@ -2578,12 +2629,6 @@ export default function SampleDetailPage() {
                               </section>
 
                               <section className="panel stack sample-classification-form-panel sample-classification-sieve-panel">
-                                <div className="sample-classification-panel-head">
-                                  <div>
-                                    <h4 style={{ margin: 0 }}>% de peneira</h4>
-                                  </div>
-                                </div>
-
                                 <div className="grid sample-classification-sieve-grid">
                                   {SIEVE_FIELDS.map((field) => (
                                     renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' })
@@ -2595,6 +2640,20 @@ export default function SampleDetailPage() {
                           </div>
 
                           <div className="sample-classification-footer">
+                            <button
+                              className="secondary sample-classification-nav-arrow"
+                              type="button"
+                              onClick={handleGoBackClassificationStep}
+                              disabled={!classificationCanGoPrev}
+                              aria-label="Voltar etapa da classificacao"
+                              title="Voltar"
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M15 6 9 12l6 6" />
+                              </svg>
+                            </button>
+
+                            <div className="sample-classification-footer-actions">
                             {classificationEditMode ? (
                               <>
                                 <button
@@ -2620,7 +2679,7 @@ export default function SampleDetailPage() {
                                     className="secondary sample-classification-edit-icon"
                                     type="button"
                                     onClick={startClassificationEdit}
-                                    disabled={classificationUpdating || classificationSaving || classificationCompleting}
+                                    disabled={classificationStepBusy}
                                     aria-label="Editar classificacao"
                                     title="Editar classificacao"
                                   >
@@ -2628,27 +2687,6 @@ export default function SampleDetailPage() {
                                       <path d="M12 20h9" />
                                       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                                     </svg>
-                                  </button>
-                                ) : null}
-
-                                {classificationStep === 'PHOTO' ? (
-                                  <button
-                                    type="submit"
-                                    disabled={
-                                      classificationPhotoUploading ||
-                                      (!classificationSelectedPhoto && !classificationCanAccessDataSteps)
-                                    }
-                                  >
-                                    {classificationPhotoUploading ? 'Salvando...' : 'Salvar e avancar'}
-                                  </button>
-                                ) : null}
-
-                                {classificationStep === 'GENERAL' ? (
-                                  <button
-                                    type="submit"
-                                    disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                                  >
-                                    Salvar e avancar
                                   </button>
                                 ) : null}
 
@@ -2677,6 +2715,20 @@ export default function SampleDetailPage() {
                                 ) : null}
                               </>
                             )}
+                            </div>
+
+                            <button
+                              className="secondary sample-classification-nav-arrow"
+                              type="button"
+                              onClick={handleGoForwardClassificationStep}
+                              disabled={!classificationCanGoNext}
+                              aria-label="Avancar etapa da classificacao"
+                              title="Avancar"
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                              </svg>
+                            </button>
                           </div>
                         </form>
                       ) : null}

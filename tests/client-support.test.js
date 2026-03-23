@@ -47,8 +47,24 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
   assert.equal(normalized.fullName, 'Francisco Sales Darcadia');
   assert.equal(normalized.cpf, '01617970832');
   assert.equal(normalized.documentCanonical, '01617970832');
+  assert.equal(normalized.phone, '35999990000');
   assert.equal(normalized.legalName, null);
   assert.equal(normalized.cnpj, null);
+});
+
+test('normalizeCreateClientInput rejects invalid phone lengths', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PF',
+        fullName: 'Francisco Sales Darcadia',
+        cpf: '016.179.708-32',
+        phone: '(35)999-000',
+        isBuyer: false,
+        isSeller: true
+      }),
+    /phone is invalid/
+  );
 });
 
 test('normalizeUpdateClientInput supports switching from PF to PJ', () => {
