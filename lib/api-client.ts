@@ -252,7 +252,8 @@ export function listClients(
     isSeller?: boolean;
     page?: number;
     limit?: number;
-  } = {}
+  } = {},
+  options: { signal?: AbortSignal } = {}
 ) {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
@@ -266,7 +267,8 @@ export function listClients(
 
   return request<ClientsListResponse>(`/clients${suffix}`, {
     method: 'GET',
-    session
+    session,
+    signal: options.signal
   });
 }
 
@@ -287,10 +289,11 @@ export function lookupClients(
   });
 }
 
-export function getClient(session: SessionData, clientId: string) {
+export function getClient(session: SessionData, clientId: string, options: { signal?: AbortSignal } = {}) {
   return request<ClientDetailResponse>(`/clients/${clientId}`, {
     method: 'GET',
-    session
+    session,
+    signal: options.signal
   });
 }
 
@@ -360,7 +363,8 @@ export function listClientAuditEvents(
   query: {
     page?: number;
     limit?: number;
-  } = {}
+  } = {},
+  options: { signal?: AbortSignal } = {}
 ) {
   const params = new URLSearchParams();
   if (typeof query.page === 'number') params.set('page', String(query.page));
@@ -369,7 +373,8 @@ export function listClientAuditEvents(
 
   return request<ClientAuditListResponse>(`/clients/${clientId}/audit${suffix}`, {
     method: 'GET',
-    session
+    session,
+    signal: options.signal
   });
 }
 

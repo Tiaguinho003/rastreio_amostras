@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
@@ -69,6 +69,44 @@ function renderSampleValue(value: string | number | null) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR');
+}
+
+function getStatusThemeClass(status: string): string {
+  switch (status) {
+    case 'REGISTRATION_CONFIRMED':
+    case 'QR_PENDING_PRINT':
+      return 'is-status-print-pending';
+    case 'QR_PRINTED':
+      return 'is-status-classification-pending';
+    case 'CLASSIFICATION_IN_PROGRESS':
+      return 'is-status-classification-progress';
+    case 'CLASSIFIED':
+      return 'is-status-success';
+    case 'INVALIDATED':
+      return 'is-status-danger';
+    default:
+      return 'is-status-neutral';
+  }
+}
+
+function getCommercialLabel(status: string): string {
+  switch (status) {
+    case 'OPEN': return 'Em aberto';
+    case 'PARTIALLY_SOLD': return 'Venda parcial';
+    case 'SOLD': return 'Vendido';
+    case 'LOST': return 'Perdido';
+    default: return '';
+  }
+}
+
+function getCommercialStatusTheme(status: string): string {
+  switch (status) {
+    case 'OPEN': return 'is-commercial-open';
+    case 'PARTIALLY_SOLD': return 'is-commercial-partial';
+    case 'SOLD': return 'is-commercial-sold';
+    case 'LOST': return 'is-commercial-lost';
+    default: return '';
+  }
 }
 
 function formatSampleCardSummary(sample: SampleSnapshot) {
@@ -338,17 +376,149 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
   return FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'owner';
 }
 
+/* ── Samples list reducer ── */
+
+interface SamplesListState {
+  items: SampleSnapshot[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  loading: boolean;
+  error: string | null;
+}
+
+type SamplesListAction =
+  | { type: 'fetch' }
+  | { type: 'success'; items: SampleSnapshot[]; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean }
+  | { type: 'error'; message: string }
+  | { type: 'setPage'; page: number };
+
+const SAMPLES_INITIAL: SamplesListState = {
+  items: [],
+  total: 0,
+  totalPages: 1,
+  currentPage: 1,
+  hasPrev: false,
+  hasNext: false,
+  loading: true,
+  error: null
+};
+
+function samplesListReducer(state: SamplesListState, action: SamplesListAction): SamplesListState {
+  switch (action.type) {
+    case 'fetch':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return {
+        ...state,
+        items: action.items,
+        total: action.total,
+        totalPages: action.totalPages,
+        hasPrev: action.hasPrev,
+        hasNext: action.hasNext,
+        loading: false,
+        error: null
+      };
+    case 'error':
+      return { ...state, loading: false, error: action.message };
+    case 'setPage':
+      return { ...state, currentPage: action.page };
+    default:
+      return state;
+  }
+}
+
+/* ── Clients list reducer ── */
+
+interface ClientsListState {
+  items: ClientSummary[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  loading: boolean;
+  error: string | null;
+  selectedId: string | null;
+  detail: ClientSummary | null;
+  registrations: ClientRegistrationSummary[];
+  detailOpen: boolean;
+  detailLoading: boolean;
+  detailError: string | null;
+}
+
+type ClientsListAction =
+  | { type: 'fetch' }
+  | { type: 'success'; items: ClientSummary[]; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean }
+  | { type: 'error'; message: string }
+  | { type: 'setPage'; page: number }
+  | { type: 'selectClient'; id: string | null }
+  | { type: 'openDetail' }
+  | { type: 'closeDetail' }
+  | { type: 'fetchDetail' }
+  | { type: 'detailSuccess'; client: ClientSummary; registrations: ClientRegistrationSummary[] }
+  | { type: 'detailError'; message: string };
+
+const CLIENTS_INITIAL: ClientsListState = {
+  items: [],
+  total: 0,
+  totalPages: 1,
+  currentPage: 1,
+  hasPrev: false,
+  hasNext: false,
+  loading: false,
+  error: null,
+  selectedId: null,
+  detail: null,
+  registrations: [],
+  detailOpen: false,
+  detailLoading: false,
+  detailError: null
+};
+
+function clientsListReducer(state: ClientsListState, action: ClientsListAction): ClientsListState {
+  switch (action.type) {
+    case 'fetch':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return {
+        ...state,
+        items: action.items,
+        total: action.total,
+        totalPages: action.totalPages,
+        hasPrev: action.hasPrev,
+        hasNext: action.hasNext,
+        loading: false,
+        error: null
+      };
+    case 'error':
+      return { ...state, loading: false, error: action.message };
+    case 'setPage':
+      return { ...state, currentPage: action.page };
+    case 'selectClient':
+      return { ...state, selectedId: action.id };
+    case 'openDetail':
+      return { ...state, detailOpen: true, detailError: null };
+    case 'closeDetail':
+      return { ...state, detailOpen: false, detail: null, registrations: [], detailError: null };
+    case 'fetchDetail':
+      return { ...state, detailLoading: true, detailError: null };
+    case 'detailSuccess':
+      return { ...state, detailLoading: false, detail: action.client, registrations: action.registrations, detailError: null };
+    case 'detailError':
+      return { ...state, detailLoading: false, detailError: action.message };
+    default:
+      return state;
+  }
+}
+
 export default function SamplesPage() {
   const { session, loading, logout } = useRequireAuth();
   const [recordsMode, setRecordsMode] = useState<RecordsMode>('samples');
-  const [items, setItems] = useState<SampleSnapshot[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasPrev, setHasPrev] = useState(false);
-  const [hasNext, setHasNext] = useState(false);
-  const [loadingList, setLoadingList] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [samplesState, dispatchSamples] = useReducer(samplesListReducer, SAMPLES_INITIAL);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
@@ -356,25 +526,15 @@ export default function SamplesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
-  const [clientItems, setClientItems] = useState<ClientSummary[]>([]);
-  const [clientTotal, setClientTotal] = useState(0);
-  const [clientTotalPages, setClientTotalPages] = useState(1);
-  const [clientPage, setClientPage] = useState(1);
-  const [clientHasPrev, setClientHasPrev] = useState(false);
-  const [clientHasNext, setClientHasNext] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [clientError, setClientError] = useState<string | null>(null);
+
+  const [clientsState, dispatchClients] = useReducer(clientsListReducer, CLIENTS_INITIAL);
+  const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
   const [clientSearchInput, setClientSearchInput] = useState('');
   const [appliedClientSearch, setAppliedClientSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [selectedClientDetail, setSelectedClientDetail] = useState<ClientSummary | null>(null);
-  const clientDetailTrapRef = useFocusTrap(selectedClientDetail !== null);
-  const [selectedClientRegistrations, setSelectedClientRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [clientDetailOpen, setClientDetailOpen] = useState(false);
-  const [loadingClientDetail, setLoadingClientDetail] = useState(false);
-  const [clientDetailError, setClientDetailError] = useState<string | null>(null);
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
 
+  const samplesScrollRef = useRef<HTMLDivElement | null>(null);
+  const clientsScrollRef = useRef<HTMLDivElement | null>(null);
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterSectionRefs = useRef<Partial<Record<FilterSectionId, HTMLElement | null>>>({});
@@ -383,6 +543,23 @@ export default function SamplesPage() {
   const hasDraftHiddenFilters = useMemo(() => hasAnyHiddenFilter(draftHiddenFilters), [draftHiddenFilters]);
   const hasAppliedHiddenFilters = useMemo(() => hasAnyHiddenFilter(appliedHiddenFilters), [appliedHiddenFilters]);
   const activeHiddenFiltersCount = useMemo(() => countActiveHiddenFilters(appliedHiddenFilters), [appliedHiddenFilters]);
+  const filterSections = useMemo<Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }>>(() => [
+    { id: 'owner', label: 'Proprietario', summary: getFilterSectionSummary('owner', draftHiddenFilters), active: hasFilterSectionValue('owner', draftHiddenFilters) },
+    { id: 'buyer', label: 'Comprador', summary: getFilterSectionSummary('buyer', draftHiddenFilters), active: hasFilterSectionValue('buyer', draftHiddenFilters) },
+    { id: 'status', label: 'Status', summary: getFilterSectionSummary('status', draftHiddenFilters), active: hasFilterSectionValue('status', draftHiddenFilters) },
+    { id: 'commercialStatus', label: 'Status comercial', summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters), active: hasFilterSectionValue('commercialStatus', draftHiddenFilters) },
+    { id: 'harvest', label: 'Safra', summary: getFilterSectionSummary('harvest', draftHiddenFilters), active: hasFilterSectionValue('harvest', draftHiddenFilters) },
+    { id: 'sacks', label: 'Sacas', summary: getFilterSectionSummary('sacks', draftHiddenFilters), active: hasFilterSectionValue('sacks', draftHiddenFilters) },
+    { id: 'period', label: 'Periodo', summary: getFilterSectionSummary('period', draftHiddenFilters), active: hasFilterSectionValue('period', draftHiddenFilters) }
+  ], [draftHiddenFilters]);
+
+  useEffect(() => {
+    samplesScrollRef.current?.scrollTo({ top: 0 });
+  }, [samplesState.currentPage]);
+
+  useEffect(() => {
+    clientsScrollRef.current?.scrollTo({ top: 0 });
+  }, [clientsState.currentPage]);
 
   useEffect(() => {
     if (recordsMode !== 'samples') {
@@ -408,11 +585,12 @@ export default function SamplesPage() {
 
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onDocumentKeyDown);
-    window.setTimeout(() => {
+    const openFocusTimer = window.setTimeout(() => {
       filterCloseButtonRef.current?.focus();
     }, 0);
 
     return () => {
+      window.clearTimeout(openFocusTimer);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onDocumentKeyDown);
       window.setTimeout(() => {
@@ -427,16 +605,20 @@ export default function SamplesPage() {
     }
 
     const currentSection = filterSectionRefs.current[activeFilterSection];
-    if (!currentSection) {
+    if (!currentSection || !currentSection.isConnected) {
       return;
     }
 
-    window.setTimeout(() => {
-      currentSection.scrollIntoView({
-        block: 'start',
-        inline: 'nearest'
-      });
+    const scrollTimer = window.setTimeout(() => {
+      if (currentSection.isConnected) {
+        currentSection.scrollIntoView({
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
     }, 0);
+
+    return () => window.clearTimeout(scrollTimer);
   }, [activeFilterSection, filtersOpen]);
 
   useEffect(() => {
@@ -446,14 +628,13 @@ export default function SamplesPage() {
 
     const abortController = new AbortController();
     let active = true;
-    setLoadingList(true);
-    setError(null);
+    dispatchSamples({ type: 'fetch' });
 
     listSamples(
       session,
       {
         limit: SAMPLE_PAGE_LIMIT,
-        page: currentPage,
+        page: samplesState.currentPage,
         search: appliedSearch || undefined,
         owner: appliedHiddenFilters.owner || undefined,
         buyer: appliedHiddenFilters.buyer || undefined,
@@ -473,11 +654,7 @@ export default function SamplesPage() {
           return;
         }
 
-        setItems(response.items);
-        setTotal(response.page.total);
-        setTotalPages(response.page.totalPages);
-        setHasPrev(response.page.hasPrev);
-        setHasNext(response.page.hasNext);
+        dispatchSamples({ type: 'success', items: response.items, total: response.page.total, totalPages: response.page.totalPages, hasPrev: response.page.hasPrev, hasNext: response.page.hasNext });
       })
       .catch((cause) => {
         if (!active) {
@@ -488,105 +665,91 @@ export default function SamplesPage() {
           return;
         }
 
-        if (cause instanceof ApiError) {
-          setError(cause.message);
-        } else {
-          setError('Falha ao carregar registros');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingList(false);
-        }
+        dispatchSamples({ type: 'error', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar registros' });
       });
 
     return () => {
       active = false;
       abortController.abort();
     };
-  }, [appliedHiddenFilters, appliedSearch, currentPage, recordsMode, session]);
+  }, [appliedHiddenFilters, appliedSearch, samplesState.currentPage, recordsMode, session]);
 
   useEffect(() => {
     if (!session || recordsMode !== 'clients') {
       return;
     }
 
+    const abortController = new AbortController();
     let active = true;
-    setLoadingClients(true);
-    setClientError(null);
+    dispatchClients({ type: 'fetch' });
 
     listClients(session, {
       search: appliedClientSearch || undefined,
-      page: clientPage,
+      page: clientsState.currentPage,
       limit: CLIENT_PAGE_LIMIT
-    })
+    }, { signal: abortController.signal })
       .then((response) => {
         if (!active) {
           return;
         }
 
-        setClientItems(response.items);
-        setClientTotal(response.page.total);
-        setClientTotalPages(response.page.totalPages);
-        setClientHasPrev(response.page.hasPrev);
-        setClientHasNext(response.page.hasNext);
+        dispatchClients({ type: 'success', items: response.items, total: response.page.total, totalPages: response.page.totalPages, hasPrev: response.page.hasPrev, hasNext: response.page.hasNext });
       })
       .catch((cause) => {
         if (!active) {
           return;
         }
 
-        setClientError(cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes');
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingClients(false);
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+          return;
         }
+
+        dispatchClients({ type: 'error', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes' });
       });
 
     return () => {
       active = false;
+      abortController.abort();
     };
-  }, [appliedClientSearch, clientPage, recordsMode, session]);
+  }, [appliedClientSearch, clientsState.currentPage, recordsMode, session]);
 
   useEffect(() => {
-    if (!session || !clientDetailOpen || !selectedClientId) {
+    if (!session || !clientsState.detailOpen || !clientsState.selectedId) {
       return;
     }
 
+    const abortController = new AbortController();
     let active = true;
-    setLoadingClientDetail(true);
-    setClientDetailError(null);
+    dispatchClients({ type: 'fetchDetail' });
 
-    getClient(session, selectedClientId)
+    getClient(session, clientsState.selectedId, { signal: abortController.signal })
       .then((response) => {
         if (!active) {
           return;
         }
 
-        setSelectedClientDetail(response.client);
-        setSelectedClientRegistrations(response.registrations);
+        dispatchClients({ type: 'detailSuccess', client: response.client, registrations: response.registrations });
       })
       .catch((cause) => {
         if (!active) {
           return;
         }
 
-        setClientDetailError(cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente');
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingClientDetail(false);
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+          return;
         }
+
+        dispatchClients({ type: 'detailError', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente' });
       });
 
     return () => {
       active = false;
+      abortController.abort();
     };
-  }, [clientDetailOpen, selectedClientId, session]);
+  }, [clientsState.detailOpen, clientsState.selectedId, session]);
 
   useEffect(() => {
-    if (!clientDetailOpen) {
+    if (!clientsState.detailOpen) {
       return;
     }
 
@@ -598,34 +761,35 @@ export default function SamplesPage() {
       }
 
       event.preventDefault();
-      setClientDetailOpen(false);
+      dispatchClients({ type: 'closeDetail' });
     };
 
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => {
+    const openFocusTimer = window.setTimeout(() => {
       clientDetailCloseButtonRef.current?.focus();
     }, 0);
 
     return () => {
+      window.clearTimeout(openFocusTimer);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
       window.setTimeout(() => {
         lastClientTriggerRef.current?.focus();
       }, 0);
     };
-  }, [clientDetailOpen]);
+  }, [clientsState.detailOpen]);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedSearch(searchInput.trim());
-    setCurrentPage(1);
+    dispatchSamples({ type: 'setPage', page: 1 });
   }
 
   function handleClientSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedClientSearch(clientSearchInput.trim());
-    setClientPage(1);
+    dispatchClients({ type: 'setPage', page: 1 });
   }
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
@@ -633,7 +797,7 @@ export default function SamplesPage() {
     const nextFilters = normalizeHiddenFilters(draftHiddenFilters);
     setAppliedHiddenFilters(nextFilters);
     setDraftHiddenFilters(nextFilters);
-    setCurrentPage(1);
+    dispatchSamples({ type: 'setPage', page: 1 });
     setActiveFilterSection(getInitialFilterSection(nextFilters));
     setFiltersOpen(false);
   }
@@ -642,29 +806,25 @@ export default function SamplesPage() {
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setActiveFilterSection('owner');
-    setCurrentPage(1);
-    setError(null);
+    dispatchSamples({ type: 'setPage', page: 1 });
   }
 
   function handleRecordsModeChange(nextMode: RecordsMode) {
     setRecordsMode(nextMode);
     setFiltersOpen(false);
     if (nextMode !== 'clients') {
-      setClientDetailOpen(false);
+      dispatchClients({ type: 'closeDetail' });
     }
   }
 
   function openClientDetail(clientId: string, trigger: HTMLButtonElement) {
     lastClientTriggerRef.current = trigger;
-    setSelectedClientId(clientId);
-    setSelectedClientDetail(null);
-    setSelectedClientRegistrations([]);
-    setClientDetailError(null);
-    setClientDetailOpen(true);
+    dispatchClients({ type: 'selectClient', id: clientId });
+    dispatchClients({ type: 'openDetail' });
   }
 
   function closeClientDetail() {
-    setClientDetailOpen(false);
+    dispatchClients({ type: 'closeDetail' });
   }
 
   function openFilters(trigger: HTMLButtonElement) {
@@ -684,13 +844,12 @@ export default function SamplesPage() {
     setActiveFilterSection((current) => (current === sectionId ? null : sectionId));
   }
 
-  async function refreshClientsList(nextSearch = appliedClientSearch, nextPage = clientPage) {
+  async function refreshClientsList(nextSearch = appliedClientSearch, nextPage = clientsState.currentPage) {
     if (!session) {
       return;
     }
 
-    setLoadingClients(true);
-    setClientError(null);
+    dispatchClients({ type: 'fetch' });
 
     try {
       const response = await listClients(session, {
@@ -699,15 +858,19 @@ export default function SamplesPage() {
         limit: CLIENT_PAGE_LIMIT
       });
 
-      setClientItems(response.items);
-      setClientTotal(response.page.total);
-      setClientTotalPages(response.page.totalPages);
-      setClientHasPrev(response.page.hasPrev);
-      setClientHasNext(response.page.hasNext);
+      dispatchClients({
+        type: 'success',
+        items: response.items,
+        total: response.page.total,
+        totalPages: response.page.totalPages,
+        hasPrev: response.page.hasPrev,
+        hasNext: response.page.hasNext
+      });
     } catch (cause) {
-      setClientError(cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes');
-    } finally {
-      setLoadingClients(false);
+      dispatchClients({
+        type: 'error',
+        message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes'
+      });
     }
   }
 
@@ -715,266 +878,127 @@ export default function SamplesPage() {
     return null;
   }
 
-  const selectedClientDocument = clientDocument(selectedClientDetail);
+  const selectedClientDocument = clientDocument(clientsState.detail);
   const selectedClientRoles = [
-    selectedClientDetail?.isSeller ? 'Proprietario/Vendedor' : null,
-    selectedClientDetail?.isBuyer ? 'Comprador' : null
+    clientsState.detail?.isSeller ? 'Proprietario/Vendedor' : null,
+    clientsState.detail?.isBuyer ? 'Comprador' : null
   ].filter((value): value is string => Boolean(value));
-  const currentVisiblePage = recordsMode === 'samples' ? currentPage : clientPage;
-  const currentVisibleTotalPages = recordsMode === 'samples' ? totalPages : clientTotalPages;
-  const paginationHasPrev = recordsMode === 'samples' ? hasPrev : clientHasPrev;
-  const paginationHasNext = recordsMode === 'samples' ? hasNext : clientHasNext;
-  const paginationBusy = recordsMode === 'samples' ? loadingList : loadingClients;
-  const currentTotalLabel = recordsMode === 'samples' ? `${total} registros` : `${clientTotal} clientes`;
-  const filterSections: Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }> = [
-    {
-      id: 'owner',
-      label: 'Proprietario',
-      summary: getFilterSectionSummary('owner', draftHiddenFilters),
-      active: hasFilterSectionValue('owner', draftHiddenFilters)
-    },
-    {
-      id: 'buyer',
-      label: 'Comprador',
-      summary: getFilterSectionSummary('buyer', draftHiddenFilters),
-      active: hasFilterSectionValue('buyer', draftHiddenFilters)
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      summary: getFilterSectionSummary('status', draftHiddenFilters),
-      active: hasFilterSectionValue('status', draftHiddenFilters)
-    },
-    {
-      id: 'commercialStatus',
-      label: 'Status comercial',
-      summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters),
-      active: hasFilterSectionValue('commercialStatus', draftHiddenFilters)
-    },
-    {
-      id: 'harvest',
-      label: 'Safra',
-      summary: getFilterSectionSummary('harvest', draftHiddenFilters),
-      active: hasFilterSectionValue('harvest', draftHiddenFilters)
-    },
-    {
-      id: 'sacks',
-      label: 'Sacas',
-      summary: getFilterSectionSummary('sacks', draftHiddenFilters),
-      active: hasFilterSectionValue('sacks', draftHiddenFilters)
-    },
-    {
-      id: 'period',
-      label: 'Periodo',
-      summary: getFilterSectionSummary('period', draftHiddenFilters),
-      active: hasFilterSectionValue('period', draftHiddenFilters)
-    }
-  ];
-  function renderFilterSectionBody(sectionId: FilterSectionId) {
-    if (sectionId === 'owner') {
-      return (
-        <label className="samples-page-filter">
-          <span className="samples-page-filter-label">Nome do proprietario</span>
+  const currentVisiblePage = recordsMode === 'samples' ? samplesState.currentPage : clientsState.currentPage;
+  const currentVisibleTotalPages = recordsMode === 'samples' ? samplesState.totalPages : clientsState.totalPages;
+  const paginationHasPrev = recordsMode === 'samples' ? samplesState.hasPrev : clientsState.hasPrev;
+  const paginationHasNext = recordsMode === 'samples' ? samplesState.hasNext : clientsState.hasNext;
+  const paginationBusy = recordsMode === 'samples' ? samplesState.loading : clientsState.loading;
+  const currentTotalLabel = recordsMode === 'samples' ? `${samplesState.total} registros` : `${clientsState.total} clientes`;
+
+  function renderFilterFields() {
+    return (
+      <div className="samples-filter-fields">
+        <label className="samples-filter-field">
+          <span className="samples-filter-field-label">Proprietario</span>
           <input
-            className="app-modal-input samples-filter-input"
+            className="samples-filter-field-input"
             value={draftHiddenFilters.owner}
-            onChange={(event) =>
-              setDraftHiddenFilters((current) => ({
-                ...current,
-                owner: event.target.value
-              }))
-            }
-            placeholder="Nome exato do proprietario"
+            onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, owner: event.target.value }))}
+            placeholder="Nome do proprietario"
             autoComplete="off"
             spellCheck={false}
-            aria-label="Filtro por proprietario"
           />
         </label>
-      );
-    }
 
-    if (sectionId === 'buyer') {
-      return (
-        <label className="samples-page-filter">
-          <span className="samples-page-filter-label">Identificacao do comprador</span>
+        <label className="samples-filter-field">
+          <span className="samples-filter-field-label">Comprador</span>
           <input
-            className="app-modal-input samples-filter-input"
+            className="samples-filter-field-input"
             value={draftHiddenFilters.buyer}
-            onChange={(event) =>
-              setDraftHiddenFilters((current) => ({
-                ...current,
-                buyer: event.target.value
-              }))
-            }
+            onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, buyer: event.target.value }))}
             placeholder="Nome, documento ou codigo"
             autoComplete="off"
             spellCheck={false}
-            aria-label="Filtro por comprador"
           />
         </label>
-      );
-    }
 
-    if (sectionId === 'status') {
-      return (
-        <div className="samples-page-filter">
-          <span className="samples-page-filter-label">Status operacional</span>
-          <div className="samples-filter-chip-row">
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`samples-filter-chip samples-filter-chip-status${
-                  draftHiddenFilters.statusGroup === option.value ? ' is-selected' : ''
-                }`}
-                onClick={() =>
-                  setDraftHiddenFilters((current) => ({
-                    ...current,
-                    statusGroup: current.statusGroup === option.value ? '' : option.value
-                  }))
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (sectionId === 'commercialStatus') {
-      return (
-        <div className="samples-page-filter">
-          <span className="samples-page-filter-label">Status comercial</span>
+        <div className="samples-filter-field">
+          <span className="samples-filter-field-label">Comercial</span>
           <div className="samples-filter-chip-row">
             {COMMERCIAL_FILTER_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className={`samples-filter-chip samples-filter-chip-harvest${
-                  draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''
-                }`}
-                onClick={() =>
-                  setDraftHiddenFilters((current) => ({
-                    ...current,
-                    commercialStatus: current.commercialStatus === option.value ? '' : option.value
-                  }))
-                }
+                className={`samples-filter-chip${draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''}`}
+                onClick={() => setDraftHiddenFilters((c) => ({ ...c, commercialStatus: c.commercialStatus === option.value ? '' : option.value }))}
               >
                 {option.label}
               </button>
             ))}
           </div>
         </div>
-      );
-    }
 
-    if (sectionId === 'harvest') {
-      return (
-        <div className="samples-page-filter">
-          <span className="samples-page-filter-label">Safra</span>
+        <div className="samples-filter-field">
+          <span className="samples-filter-field-label">Safra</span>
           <div className="samples-filter-chip-row">
             {HARVEST_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
-                className={`samples-filter-chip samples-filter-chip-harvest${
-                  draftHiddenFilters.harvest === option ? ' is-selected' : ''
-                }`}
-                onClick={() =>
-                  setDraftHiddenFilters((current) => ({
-                    ...current,
-                    harvest: current.harvest === option ? '' : option
-                  }))
-                }
+                className={`samples-filter-chip${draftHiddenFilters.harvest === option ? ' is-selected' : ''}`}
+                onClick={() => setDraftHiddenFilters((c) => ({ ...c, harvest: c.harvest === option ? '' : option }))}
               >
                 {option}
               </button>
             ))}
           </div>
         </div>
-      );
-    }
 
-    if (sectionId === 'sacks') {
-      return (
-        <div className="samples-page-filter">
-          <span className="samples-page-filter-label">Faixa de sacas</span>
+        <div className="samples-filter-field">
+          <span className="samples-filter-field-label">Sacas</span>
           <div className="samples-filter-split-grid">
             <input
-              className="app-modal-input samples-filter-input"
+              className="samples-filter-field-input"
               type="number"
               min="1"
               step="1"
               inputMode="numeric"
               value={draftHiddenFilters.sacksMin}
-              onChange={(event) =>
-                setDraftHiddenFilters((current) => ({
-                  ...current,
-                  sacksMin: event.target.value.replace(/\D+/g, '')
-                }))
-              }
+              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, sacksMin: event.target.value.replace(/\D+/g, '') }))}
               placeholder="De"
-              aria-label="Quantidade minima de sacas"
             />
             <input
-              className="app-modal-input samples-filter-input"
+              className="samples-filter-field-input"
               type="number"
               min="1"
               step="1"
               inputMode="numeric"
               value={draftHiddenFilters.sacksMax}
-              onChange={(event) =>
-                setDraftHiddenFilters((current) => ({
-                  ...current,
-                  sacksMax: event.target.value.replace(/\D+/g, '')
-                }))
-              }
+              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, sacksMax: event.target.value.replace(/\D+/g, '') }))}
               placeholder="Ate"
-              aria-label="Quantidade maxima de sacas"
             />
           </div>
         </div>
-      );
-    }
 
-    return (
-      <div className="samples-page-filter samples-page-period-filter">
-        <span className="samples-page-filter-label">Periodo</span>
-        <div className="samples-filter-split-grid">
-          <select
-            className="app-modal-input samples-filter-input"
-            value={draftHiddenFilters.periodMode}
-            onChange={(event) =>
-              setDraftHiddenFilters((current) => ({
-                ...current,
-                periodMode: event.target.value as PeriodMode,
-                periodValue: ''
-              }))
-            }
-            aria-label="Modo do periodo"
-          >
-            <option value="exact">Data</option>
-            <option value="month">Mes</option>
-            <option value="year">Ano</option>
-          </select>
-          <input
-            className="app-modal-input samples-filter-input"
-            type={getPeriodInputType(draftHiddenFilters.periodMode)}
-            value={draftHiddenFilters.periodValue}
-            onChange={(event) =>
-              setDraftHiddenFilters((current) => ({
-                ...current,
-                periodValue: normalizePeriodValueForMode(current.periodMode, event.target.value)
-              }))
-            }
-            placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
-            inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
-            min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
-            max={draftHiddenFilters.periodMode === 'year' ? '2100' : undefined}
-            step={draftHiddenFilters.periodMode === 'year' ? '1' : undefined}
-            aria-label={getPeriodInputLabel(draftHiddenFilters.periodMode)}
-          />
+        <div className="samples-filter-field">
+          <span className="samples-filter-field-label">Periodo</span>
+          <div className="samples-filter-split-grid">
+            <select
+              className="samples-filter-field-input"
+              value={draftHiddenFilters.periodMode}
+              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, periodMode: event.target.value as PeriodMode, periodValue: '' }))}
+            >
+              <option value="exact">Data</option>
+              <option value="month">Mes</option>
+              <option value="year">Ano</option>
+            </select>
+            <input
+              className="samples-filter-field-input"
+              type={getPeriodInputType(draftHiddenFilters.periodMode)}
+              value={draftHiddenFilters.periodValue}
+              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, periodValue: normalizePeriodValueForMode(c.periodMode, event.target.value) }))}
+              placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
+              inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
+              min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
+              max={draftHiddenFilters.periodMode === 'year' ? '2100' : undefined}
+              step={draftHiddenFilters.periodMode === 'year' ? '1' : undefined}
+            />
+          </div>
         </div>
       </div>
     );
@@ -1086,10 +1110,10 @@ export default function SamplesPage() {
           ) : null}
         </div>
 
-        {recordsMode === 'samples' ? (error ? <p className="error">{error}</p> : null) : clientError ? <p className="error">{clientError}</p> : null}
+        {recordsMode === 'samples' ? (samplesState.error ? <p className="error">{samplesState.error}</p> : null) : clientsState.error ? <p className="error">{clientsState.error}</p> : null}
 
         {recordsMode === 'samples' ? (
-          loadingList ? (
+          samplesState.loading ? (
             <section className="samples-page-list-area">
               <header className="samples-page-list-header">
                 <p className="samples-page-list-total">{currentTotalLabel}</p>
@@ -1098,7 +1122,7 @@ export default function SamplesPage() {
                 <p className="samples-page-empty">Carregando registros...</p>
               </div>
             </section>
-          ) : items.length === 0 ? (
+          ) : samplesState.items.length === 0 ? (
             <section className="samples-page-list-area">
               <header className="samples-page-list-header">
                 <p className="samples-page-list-total">{currentTotalLabel}</p>
@@ -1114,28 +1138,21 @@ export default function SamplesPage() {
               <header className="samples-page-list-header">
                 <p className="samples-page-list-total">{currentTotalLabel}</p>
               </header>
-              <div className="samples-page-list-scroll" aria-label="Lista de registros cadastrados">
+              <div ref={samplesScrollRef} className="samples-page-list-scroll" aria-label="Lista de registros cadastrados">
                 <div className="samples-page-list">
-                  {items.map((sample) => (
-                    <Link key={sample.id} href={`/samples/${sample.id}`} className="dashboard-latest-registration-card samples-page-item">
-                      <div className="dashboard-latest-registration-leading" aria-hidden="true" />
-
-                      <div className="dashboard-latest-registration-main">
-                        <div className="dashboard-latest-registration-head">
-                          <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-                          <div className="status-badge-group">
-                            <StatusBadge status={sample.status} />
-                            <CommercialStatusBadge status={sample.commercialStatus} />
-                          </div>
-                        </div>
+                  {samplesState.items.map((sample) => (
+                    <Link key={sample.id} href={`/samples/${sample.id}`} className={`dashboard-latest-registration-card samples-page-item ${getStatusThemeClass(sample.status)}`}>
+                      <div className="samples-page-item-main">
+                        <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
                         <p className="dashboard-latest-registration-subtitle">{formatSampleCardSummary(sample)}</p>
                         <p className="dashboard-latest-registration-meta">{formatSampleCardMeta(sample)}</p>
                       </div>
 
-                      <div className="dashboard-latest-registration-trailing" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                          <path d="m9 6 6 6-6 6" />
-                        </svg>
+                      <div className="samples-page-item-indicator">
+                        <span className={`samples-page-item-commercial ${getCommercialStatusTheme(sample.commercialStatus)}`}>
+                          {getCommercialLabel(sample.commercialStatus)}
+                        </span>
+                        <span className="samples-page-item-dot" aria-hidden="true" />
                       </div>
                     </Link>
                   ))}
@@ -1143,7 +1160,7 @@ export default function SamplesPage() {
               </div>
             </section>
           )
-        ) : loadingClients ? (
+        ) : clientsState.loading ? (
           <section className="samples-page-list-area">
             <header className="samples-page-list-header">
               <p className="samples-page-list-total">{currentTotalLabel}</p>
@@ -1152,7 +1169,7 @@ export default function SamplesPage() {
               <p className="samples-page-empty">Carregando clientes...</p>
             </div>
           </section>
-        ) : clientItems.length === 0 ? (
+        ) : clientsState.items.length === 0 ? (
           <section className="samples-page-list-area">
             <header className="samples-page-list-header">
               <p className="samples-page-list-total">{currentTotalLabel}</p>
@@ -1161,6 +1178,15 @@ export default function SamplesPage() {
               <p className="samples-page-empty">
                 {appliedClientSearch ? 'Nenhum cliente encontrado para a pesquisa aplicada.' : 'Nenhum cliente cadastrado.'}
               </p>
+              {!appliedClientSearch ? (
+                <button
+                  type="button"
+                  className="samples-page-empty-action"
+                  onClick={() => setClientQuickCreateOpen(true)}
+                >
+                  Cadastrar primeiro cliente
+                </button>
+              ) : null}
             </div>
           </section>
         ) : (
@@ -1168,9 +1194,9 @@ export default function SamplesPage() {
             <header className="samples-page-list-header">
               <p className="samples-page-list-total">{currentTotalLabel}</p>
             </header>
-            <div className="samples-page-list-scroll" aria-label="Lista de clientes cadastrados">
+            <div ref={clientsScrollRef} className="samples-page-list-scroll" aria-label="Lista de clientes cadastrados">
               <div className="samples-page-list">
-                {clientItems.map((client) => (
+                {clientsState.items.map((client) => (
                   <button
                     key={client.id}
                     type="button"
@@ -1211,11 +1237,11 @@ export default function SamplesPage() {
               disabled={!paginationHasPrev || paginationBusy}
               onClick={() => {
                 if (recordsMode === 'samples') {
-                  setCurrentPage((page) => page - 1);
+                  dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 });
                   return;
                 }
 
-                setClientPage((page) => page - 1);
+                dispatchClients({ type: 'setPage', page: clientsState.currentPage - 1 });
               }}
             >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -1235,11 +1261,11 @@ export default function SamplesPage() {
               disabled={!paginationHasNext || paginationBusy}
               onClick={() => {
                 if (recordsMode === 'samples') {
-                  setCurrentPage((page) => page + 1);
+                  dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 });
                   return;
                 }
 
-                setClientPage((page) => page + 1);
+                dispatchClients({ type: 'setPage', page: clientsState.currentPage + 1 });
               }}
             >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -1281,45 +1307,7 @@ export default function SamplesPage() {
 
             <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
               <div className="samples-filter-modal-content">
-                <div className="samples-filter-section-list">
-                  {filterSections.map((section) => (
-                    <section
-                      key={section.id}
-                      ref={(node) => {
-                        filterSectionRefs.current[section.id] = node;
-                      }}
-                      className={`samples-filter-section${activeFilterSection === section.id ? ' is-open' : ''}${
-                        section.active ? ' is-active' : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        className="samples-filter-section-trigger"
-                        aria-expanded={activeFilterSection === section.id}
-                        aria-controls={`samples-filter-section-${section.id}`}
-                        onClick={() => toggleFilterSection(section.id)}
-                      >
-                        <span className="samples-filter-section-copy">
-                          <span className="samples-filter-section-label-row">
-                            <span className="samples-filter-section-label">{section.label}</span>
-                            {section.active ? <span className="samples-filter-section-status-dot" aria-hidden="true" /> : null}
-                          </span>
-                        </span>
-                        <span className="samples-filter-section-icon" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        </span>
-                      </button>
-
-                      {activeFilterSection === section.id ? (
-                        <div id={`samples-filter-section-${section.id}`} className="samples-filter-section-body">
-                          {renderFilterSectionBody(section.id)}
-                        </div>
-                      ) : null}
-                    </section>
-                  ))}
-                </div>
+                {renderFilterFields()}
               </div>
 
               <div className="app-modal-actions samples-filter-modal-actions">
@@ -1340,7 +1328,7 @@ export default function SamplesPage() {
         </div>
       ) : null}
 
-      {clientDetailOpen ? (
+      {clientsState.detailOpen ? (
         <div className="client-modal-backdrop" onClick={closeClientDetail}>
           <section
             ref={clientDetailTrapRef}
@@ -1353,13 +1341,13 @@ export default function SamplesPage() {
             <div className="client-modal-header">
               <div className="records-client-detail-header-copy">
                 <h3 id="records-client-detail-title" style={{ margin: 0 }}>
-                  {selectedClientDetail ? clientDisplayName(selectedClientDetail) : 'Cliente'}
+                  {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
                 </h3>
-                {selectedClientDetail ? (
+                {clientsState.detail ? (
                   <div className="records-client-detail-header-meta">
-                    <span className="records-client-detail-code">Codigo {selectedClientDetail.code}</span>
-                    <span className={`status-badge records-client-status-badge ${clientStatusBadgeClass(selectedClientDetail.status)}`}>
-                      {clientStatusLabel(selectedClientDetail.status)}
+                    <span className="records-client-detail-code">Codigo {clientsState.detail.code}</span>
+                    <span className={`status-badge records-client-status-badge ${clientStatusBadgeClass(clientsState.detail.status)}`}>
+                      {clientStatusLabel(clientsState.detail.status)}
                     </span>
                   </div>
                 ) : null}
@@ -1375,26 +1363,26 @@ export default function SamplesPage() {
               </button>
             </div>
 
-            {loadingClientDetail ? (
+            {clientsState.detailLoading ? (
               <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando detalhes do cliente...</p>
-            ) : clientDetailError ? (
+            ) : clientsState.detailError ? (
               <p className="error" style={{ margin: 0 }}>
-                {clientDetailError}
+                {clientsState.detailError}
               </p>
-            ) : selectedClientDetail ? (
+            ) : clientsState.detail ? (
               <>
                 <article className="panel stack records-client-detail-summary">
                   <p className="records-client-detail-line">
                     <strong>Documento:</strong> {selectedClientDocument ?? 'Nao informado'}
                   </p>
                   <p className="records-client-detail-line">
-                    <strong>Telefone:</strong> {formatPhone(selectedClientDetail.phone) ?? 'Nao informado'}
+                    <strong>Telefone:</strong> {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
                   </p>
                   <p className="records-client-detail-line">
-                    <strong>Tipo:</strong> {selectedClientDetail.personType}
+                    <strong>Tipo:</strong> {clientsState.detail.personType}
                   </p>
                   <p className="records-client-detail-line">
-                    <strong>Inscricoes:</strong> {selectedClientDetail.activeRegistrationCount}/{selectedClientDetail.registrationCount} ativas
+                    <strong>Inscricoes:</strong> {clientsState.detail.activeRegistrationCount}/{clientsState.detail.registrationCount} ativas
                   </p>
                   <div className="records-client-detail-roles">
                     {selectedClientRoles.length > 0 ? (
@@ -1412,14 +1400,14 @@ export default function SamplesPage() {
                 <article className="panel stack records-client-detail-registrations">
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <h4 style={{ margin: 0 }}>Inscricoes</h4>
-                    <span style={{ color: 'var(--muted)' }}>{selectedClientRegistrations.length}</span>
+                    <span style={{ color: 'var(--muted)' }}>{clientsState.registrations.length}</span>
                   </div>
 
-                  {selectedClientRegistrations.length === 0 ? (
+                  {clientsState.registrations.length === 0 ? (
                     <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhuma inscricao cadastrada.</p>
                   ) : (
                     <div className="clients-registration-list">
-                      {selectedClientRegistrations.map((registration) => (
+                      {clientsState.registrations.map((registration) => (
                         <article key={registration.id} className="clients-registration-item records-client-registration-item">
                           <div className="records-client-registration-head">
                             <div>
@@ -1460,13 +1448,10 @@ export default function SamplesPage() {
           setRecordsMode('clients');
           setClientSearchInput('');
           setAppliedClientSearch('');
-          setClientPage(1);
-          setSelectedClientId(client.id);
-          setSelectedClientDetail(client);
-          setSelectedClientRegistrations([]);
-          setClientDetailError(null);
-          setClientError(null);
-          setClientDetailOpen(true);
+          dispatchClients({ type: 'setPage', page: 1 });
+          dispatchClients({ type: 'selectClient', id: client.id });
+          dispatchClients({ type: 'openDetail' });
+          dispatchClients({ type: 'detailSuccess', client, registrations: [] });
           void refreshClientsList('', 1);
         }}
       />

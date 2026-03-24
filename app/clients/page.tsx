@@ -157,6 +157,7 @@ export default function ClientsPage() {
       return;
     }
 
+    const abortController = new AbortController();
     let active = true;
     setLoadingList(true);
     setError(null);
@@ -169,7 +170,7 @@ export default function ClientsPage() {
       isSeller: isSellerFilter === 'all' ? undefined : isSellerFilter === 'true',
       page,
       limit: 10
-    })
+    }, { signal: abortController.signal })
       .then((response) => {
         if (!active) {
           return;
@@ -187,9 +188,15 @@ export default function ClientsPage() {
         }
       })
       .catch((cause) => {
-        if (active) {
-          setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes');
+        if (!active) {
+          return;
         }
+
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+          return;
+        }
+
+        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes');
       })
       .finally(() => {
         if (active) {
@@ -199,6 +206,7 @@ export default function ClientsPage() {
 
     return () => {
       active = false;
+      abortController.abort();
     };
   }, [appliedSearch, isBuyerFilter, isSellerFilter, mode, page, personTypeFilter, selectedClientId, session, statusFilter]);
 
@@ -207,16 +215,17 @@ export default function ClientsPage() {
       return;
     }
 
+    const abortController = new AbortController();
     let active = true;
     setLoadingDetail(true);
     setError(null);
 
     Promise.all([
-      getClient(session, selectedClientId),
+      getClient(session, selectedClientId, { signal: abortController.signal }),
       listClientAuditEvents(session, selectedClientId, {
         page: auditPage,
         limit: 10
-      })
+      }, { signal: abortController.signal })
     ])
       .then(([detailResponse, auditResponse]) => {
         if (!active) {
@@ -230,9 +239,15 @@ export default function ClientsPage() {
         setAuditTotalPages(auditResponse.page.totalPages);
       })
       .catch((cause) => {
-        if (active) {
-          setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente');
+        if (!active) {
+          return;
         }
+
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+          return;
+        }
+
+        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente');
       })
       .finally(() => {
         if (active) {
@@ -242,6 +257,7 @@ export default function ClientsPage() {
 
     return () => {
       active = false;
+      abortController.abort();
     };
   }, [auditPage, mode, selectedClientId, session]);
 
