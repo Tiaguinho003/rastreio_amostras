@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 
 import { ApiError, requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from '../lib/api-client';
+import { useFocusTrap } from '../lib/use-focus-trap';
 import { forgotPasswordRequestSchema, forgotPasswordResetSchema, forgotPasswordVerifyCodeSchema } from '../lib/form-schemas';
 
 const OTP_LENGTH = 6;
@@ -18,7 +19,7 @@ interface ForgotPasswordModalProps {
 export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPasswordModalProps) {
   const titleId = useId();
   const descriptionId = useId();
-  const modalRef = useRef<HTMLElement | null>(null);
+  const focusTrapRef = useFocusTrap(open);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const otpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -212,27 +213,6 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
       if (event.key === 'Escape' && !busy) {
         event.preventDefault();
         handleClose();
-        return;
-      }
-
-      if (event.key === 'Tab' && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-          'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusable.length === 0) {
-          return;
-        }
-
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
       }
     }
 
@@ -346,7 +326,7 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
       }}
     >
       <section
-        ref={modalRef}
+        ref={focusTrapRef}
         className="login-modal"
         role="dialog"
         aria-modal="true"

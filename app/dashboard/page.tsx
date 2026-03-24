@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
 import { StatusBadge } from '../../components/StatusBadge';
 import { ApiError, getDashboardPending } from '../../lib/api-client';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
 
@@ -119,12 +120,13 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardPendingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeOperationPanel, setActiveOperationPanel] = useState<OperationPanel>(null);
+  const focusTrapRef = useFocusTrap(activeOperationPanel !== null);
   const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastOperationTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
+  const refreshDashboard = useCallback(() => {
     if (!session) {
-      return;
+      return () => {};
     }
 
     let active = true;
@@ -152,6 +154,27 @@ export default function DashboardPage() {
   }, [session]);
 
   useEffect(() => {
+    return refreshDashboard();
+  }, [refreshDashboard]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refreshDashboard();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session, refreshDashboard]);
+
+  useEffect(() => {
     if (!activeOperationPanel) {
       return;
     }
@@ -159,12 +182,10 @@ export default function DashboardPage() {
     const previousOverflow = document.body.style.overflow;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setActiveOperationPanel(null);
       }
-
-      event.preventDefault();
-      setActiveOperationPanel(null);
     };
 
     document.body.style.overflow = 'hidden';
@@ -286,7 +307,32 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <p className="dashboard-empty-state">Carregando dashboard...</p>
+              <div className="dashboard-operations-grid">
+                <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
+                  <span className="dashboard-skeleton-circle" />
+                  <span className="dashboard-skeleton-content">
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-lg" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                  </span>
+                </div>
+                <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
+                  <span className="dashboard-skeleton-circle" />
+                  <span className="dashboard-skeleton-content">
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-lg" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                  </span>
+                </div>
+                <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
+                  <span className="dashboard-skeleton-circle" />
+                  <span className="dashboard-skeleton-content">
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-lg" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                  </span>
+                </div>
+              </div>
             )}
           </section>
         </section>
@@ -315,7 +361,18 @@ export default function DashboardPage() {
                   </div>
                 )
               ) : (
-                <p className="dashboard-empty-state">Carregando ultimos registros...</p>
+                <div className="dashboard-latest-registration-list" aria-hidden="true">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="dashboard-skeleton-registration-card">
+                      <span className="dashboard-skeleton-leading" />
+                      <span className="dashboard-skeleton-registration-content">
+                        <span className="dashboard-skeleton-line dashboard-skeleton-line-md" />
+                        <span className="dashboard-skeleton-line dashboard-skeleton-line-full" />
+                        <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
           </section>
@@ -357,6 +414,7 @@ export default function DashboardPage() {
       {operationModalData ? (
         <div className="dashboard-modal-backdrop" onClick={closeOperationModal}>
           <section
+            ref={focusTrapRef}
             id={operationModalData.modalId}
             className="app-modal app-modal-dashboard"
             role="dialog"

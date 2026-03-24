@@ -3326,6 +3326,85 @@ button:disabled {
   color: var(--muted);
 }
 
+@keyframes dashboard-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.dashboard-skeleton-card {
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: none;
+}
+
+.dashboard-skeleton-circle {
+  width: 2.22rem;
+  height: 2.22rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.06) 75%);
+  background-size: 200% 100%;
+  animation: dashboard-shimmer 1.5s ease-in-out infinite;
+}
+
+.dashboard-skeleton-content {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-skeleton-line {
+  height: 0.75rem;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.06) 75%);
+  background-size: 200% 100%;
+  animation: dashboard-shimmer 1.5s ease-in-out infinite;
+}
+
+.dashboard-skeleton-line-sm {
+  width: 45%;
+}
+
+.dashboard-skeleton-line-md {
+  width: 60%;
+}
+
+.dashboard-skeleton-line-lg {
+  width: 35%;
+  height: 1.6rem;
+}
+
+.dashboard-skeleton-line-full {
+  width: 85%;
+}
+
+.dashboard-skeleton-registration-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 4.55rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.dashboard-skeleton-leading {
+  width: 0.3rem;
+  height: 2.8rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.06) 75%);
+  background-size: 200% 100%;
+  animation: dashboard-shimmer 1.5s ease-in-out infinite;
+}
+
+.dashboard-skeleton-registration-content {
+  display: grid;
+  gap: 0.4rem;
+}
+
 .dashboard-muted-text {
   margin: 0;
   color: var(--muted);

@@ -31,6 +31,7 @@ import {
   uploadClassificationPhoto
 } from '../../../lib/api-client';
 import { invalidateSampleSchema, qrFailSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
+import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ClientRegistrationSummary,
@@ -683,6 +684,11 @@ export default function SampleDetailPage() {
   const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
   const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
   const [classificationUpdating, setClassificationUpdating] = useState(false);
+  const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
+  const labelTrapRef = useFocusTrap(labelModalOpen);
+  const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
+  const exportTypeTrapRef = useFocusTrap(exportTypeSelectorOpen);
+  const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -2767,6 +2773,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={invalidateTrapRef}
             className="app-modal sample-detail-invalidate-modal"
             role="dialog"
             aria-modal="true"
@@ -2886,6 +2893,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={labelTrapRef}
             className="new-sample-label-modal"
             role="dialog"
             aria-modal="true"
@@ -3110,6 +3118,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={classificationEditTrapRef}
             className="export-confirm-modal panel stack sample-classification-edit-modal"
             role="dialog"
             aria-modal="true"
@@ -3174,6 +3183,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={exportTypeTrapRef}
             className="export-confirm-modal panel stack"
             role="dialog"
             aria-modal="true"
@@ -3214,6 +3224,7 @@ export default function SampleDetailPage() {
           }}
         >
           <section
+            ref={exportConfirmTrapRef}
             className="export-confirm-modal panel stack"
             role="dialog"
             aria-modal="true"

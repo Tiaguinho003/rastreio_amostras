@@ -8,6 +8,7 @@ import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
 import { StatusBadge } from '../../components/StatusBadge';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
 import { ApiError, getClient, listClients, listSamples } from '../../lib/api-client';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type { ClientRegistrationSummary, ClientStatus, ClientSummary, CommercialStatus, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -353,6 +354,7 @@ export default function SamplesPage() {
   const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
   const [clientItems, setClientItems] = useState<ClientSummary[]>([]);
   const [clientTotal, setClientTotal] = useState(0);
@@ -366,6 +368,7 @@ export default function SamplesPage() {
   const [appliedClientSearch, setAppliedClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientDetail, setSelectedClientDetail] = useState<ClientSummary | null>(null);
+  const clientDetailTrapRef = useFocusTrap(selectedClientDetail !== null);
   const [selectedClientRegistrations, setSelectedClientRegistrations] = useState<ClientRegistrationSummary[]>([]);
   const [clientDetailOpen, setClientDetailOpen] = useState(false);
   const [loadingClientDetail, setLoadingClientDetail] = useState(false);
@@ -1251,6 +1254,7 @@ export default function SamplesPage() {
       {filtersOpen ? (
         <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={closeFilters}>
           <section
+            ref={filtersTrapRef}
             id="samples-filter-modal"
             className="app-modal samples-filter-modal"
             role="dialog"
@@ -1339,6 +1343,7 @@ export default function SamplesPage() {
       {clientDetailOpen ? (
         <div className="client-modal-backdrop" onClick={closeClientDetail}>
           <section
+            ref={clientDetailTrapRef}
             className="client-modal panel stack records-client-detail-modal"
             role="dialog"
             aria-modal="true"

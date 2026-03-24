@@ -26,6 +26,7 @@ import type {
   CreateSampleAndPreparePrintResponse,
   PrintAction
 } from '../../../lib/types';
+import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 
 function buildDraftId() {
@@ -209,6 +210,7 @@ function NewSamplePageContent() {
   const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
   const [activePrintAttempt, setActivePrintAttempt] = useState<ActivePrintAttempt | null>(null);
   const [labelModalOpen, setLabelModalOpen] = useState(false);
+  const labelTrapRef = useFocusTrap(labelModalOpen);
   const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<string | null>(null);
@@ -1349,6 +1351,7 @@ function NewSamplePageContent() {
           }}
         >
           <section
+            ref={labelTrapRef}
             className="new-sample-label-modal"
             role="dialog"
             aria-modal="true"
