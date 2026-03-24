@@ -1,11 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ApiError, resolveSampleByQr } from '../../lib/api-client';
+import { compressImage } from '../../lib/compress-image';
 import { savePendingArrivalPhoto } from '../../lib/mobile-camera-photo-store';
 import type { ResolveSampleByQrResponse } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -49,11 +50,15 @@ function buildCameraPhotoHandoffId() {
   return `camera-photo-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export default function CameraPage() {
+function CameraPageContent() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isArrivalPhotoIntent = searchParams.get('intent') === 'arrival-photo';
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const scannerClassRef = useRef<QrScannerClass | null>(null);
   const scannerRef = useRef<QrScannerInstance | null>(null);
   const sessionRef = useRef(session);
@@ -409,6 +414,37 @@ export default function CameraPage() {
     setCameraError(null);
   }
 
+  async function handleGalleryImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const rawFile = event.target.files?.[0] ?? null;
+    if (!rawFile) {
+      return;
+    }
+
+    stopScanner();
+    setCameraError(null);
+
+    try {
+      const compressed = await compressImage(rawFile);
+      setCapturedPhoto((current) => {
+        if (current?.previewUrl) {
+          URL.revokeObjectURL(current.previewUrl);
+        }
+
+        return {
+          file: compressed,
+          previewUrl: URL.createObjectURL(compressed)
+        };
+      });
+      setStatusMessage('Foto importada. Confirme se deseja usa-la no novo registro.');
+    } catch {
+      setCameraError('Falha ao processar a imagem selecionada. Tente novamente.');
+    }
+
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = '';
+    }
+  }
+
   async function handleUseCapturedPhoto() {
     if (!capturedPhoto) {
       console.warn('CAMERA_SAVE', { stage: 'skip-no-photo' });
@@ -419,17 +455,25 @@ export default function CameraPage() {
     setCameraError(null);
 
     try {
+      const compressed = await compressImage(capturedPhoto.file);
       const handoffId = buildCameraPhotoHandoffId();
       console.info('CAMERA_SAVE', {
         stage: 'before-save',
         handoffId,
-        fileName: capturedPhoto.file.name,
-        fileSize: capturedPhoto.file.size
+        fileName: compressed.name,
+        fileSize: compressed.size
       });
-      await savePendingArrivalPhoto(capturedPhoto.file, { confirmed: true, handoffId });
+      await savePendingArrivalPhoto(compressed, { confirmed: true, handoffId });
       console.info('CAMERA_SAVE', { stage: 'after-save', handoffId });
-      console.info('CAMERA_NAVIGATE', { to: `/samples/new?source=camera&handoff=${handoffId}` });
-      router.push(`/samples/new?source=camera&handoff=${encodeURIComponent(handoffId)}`);
+
+      const returnUrl = `/samples/new?source=camera&handoff=${encodeURIComponent(handoffId)}`;
+      console.info('CAMERA_NAVIGATE', { to: returnUrl });
+
+      if (isArrivalPhotoIntent) {
+        router.replace(returnUrl);
+      } else {
+        router.push(returnUrl);
+      }
     } catch (error) {
       setPhotoSaving(false);
       console.error('CAMERA_SAVE', { stage: 'error', message: readErrorMessage(error, 'Falha ao preparar a foto capturada.') });
@@ -480,14 +524,35 @@ export default function CameraPage() {
             </div>
 
             <div className="camera-hub-top-actions">
-              <button
-                type="button"
-                className={`camera-hub-manual-action${manualDisabled ? ' is-disabled' : ''}`}
-                onClick={() => router.push('/samples/new')}
-                disabled={manualDisabled}
-              >
-                Manual
-              </button>
+              {isArrivalPhotoIntent ? (
+                <>
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="camera-hub-gallery-input"
+                    onChange={handleGalleryImport}
+                    tabIndex={-1}
+                  />
+                  <button
+                    type="button"
+                    className={`camera-hub-manual-action${manualDisabled ? ' is-disabled' : ''}`}
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={manualDisabled}
+                  >
+                    Galeria
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`camera-hub-manual-action${manualDisabled ? ' is-disabled' : ''}`}
+                  onClick={() => router.push('/samples/new')}
+                  disabled={manualDisabled}
+                >
+                  Manual
+                </button>
+              )}
             </div>
 
             <div className="camera-hub-capture-strip">
@@ -547,5 +612,13 @@ export default function CameraPage() {
         />
       ) : null}
     </AppShell>
+  );
+}
+
+export default function CameraPage() {
+  return (
+    <Suspense fallback={null}>
+      <CameraPageContent />
+    </Suspense>
   );
 }

@@ -148,7 +148,7 @@ export function ClientLookupField({
       <label htmlFor={inputId} className={compact ? 'login-visually-hidden' : undefined}>
         {label}
       </label>
-      <div className={`client-lookup-shell${compact ? ' is-compact' : ''}`}>
+      <div className={`client-lookup-shell${compact ? ' is-compact' : ''}${selectedClient ? ' has-selection' : ''}`}>
         <input
           id={inputId}
           ref={inputRef}
@@ -173,8 +173,9 @@ export function ClientLookupField({
         {selectedClient && !compact ? (
           <button
             type="button"
-            className="secondary client-lookup-clear"
+            className="client-lookup-inline-clear"
             disabled={disabled}
+            aria-label="Remover proprietario"
             onClick={() => {
               lastSelectedIdRef.current = null;
               setSearch('');
@@ -184,16 +185,13 @@ export function ClientLookupField({
               onSelectClient(null);
             }}
           >
-            Limpar
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
           </button>
         ) : null}
       </div>
-
-      {selectedClient && !compact ? (
-        <p className="client-lookup-selection">
-          Cliente selecionado: <strong>{selectedClient.displayName ?? 'Sem nome'}</strong> · Codigo {selectedClient.code}
-        </p>
-      ) : null}
 
       {error && !compact ? <p className="error client-lookup-feedback">{error}</p> : null}
 
