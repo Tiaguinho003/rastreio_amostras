@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
-import { StatusBadge } from '../../components/StatusBadge';
 import { ApiError, getDashboardPending } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -20,6 +18,7 @@ interface OperationModalData {
   emptyMessage: string;
   total: number;
   items: SampleSnapshot[];
+  themeClass: string;
 }
 
 const DASHBOARD_LATEST_LIMIT = 10;
@@ -59,7 +58,8 @@ function buildOperationModalData(
       title: 'Impressao pendente',
       emptyMessage: 'Nenhuma amostra com impressao pendente.',
       total: data.printPending.total,
-      items: data.printPending.items
+      items: data.printPending.items,
+      themeClass: 'is-status-print-pending'
     };
   }
 
@@ -69,7 +69,8 @@ function buildOperationModalData(
       title: 'Classificacoes pendentes',
       emptyMessage: 'Nenhuma amostra com classificacao pendente.',
       total: data.classificationPending.total,
-      items: data.classificationPending.items
+      items: data.classificationPending.items,
+      themeClass: 'is-status-classification-pending'
     };
   }
 
@@ -78,20 +79,34 @@ function buildOperationModalData(
     title: 'Classificacoes em andamento',
     emptyMessage: 'Nenhuma amostra com classificacao em andamento.',
     total: data.classificationInProgress.total,
-    items: data.classificationInProgress.items
+    items: data.classificationInProgress.items,
+    themeClass: 'is-status-classification-progress'
   };
+}
+
+function getStatusThemeClass(status: string): string {
+  switch (status) {
+    case 'REGISTRATION_CONFIRMED':
+    case 'QR_PENDING_PRINT':
+      return 'is-status-print-pending';
+    case 'QR_PRINTED':
+      return 'is-status-classification-pending';
+    case 'CLASSIFICATION_IN_PROGRESS':
+      return 'is-status-classification-progress';
+    case 'CLASSIFIED':
+      return 'is-status-success';
+    case 'INVALIDATED':
+      return 'is-status-danger';
+    default:
+      return 'is-status-neutral';
+  }
 }
 
 function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
   return (
-    <Link href={`/samples/${sample.id}`} className="dashboard-latest-registration-card">
-      <div className="dashboard-latest-registration-leading" aria-hidden="true" />
-
+    <Link href={`/samples/${sample.id}`} className={`dashboard-latest-registration-card ${getStatusThemeClass(sample.status)}`}>
       <div className="dashboard-latest-registration-main">
-        <div className="dashboard-latest-registration-head">
-          <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-          <StatusBadge status={sample.status} />
-        </div>
+        <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
         <p className="dashboard-latest-registration-subtitle">{formatLatestSummary(sample)}</p>
         <p className="dashboard-latest-registration-meta">
           <span className="dashboard-latest-registration-meta-icon" aria-hidden="true">
@@ -105,6 +120,8 @@ function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
           <span>{formatCreationTimestamp(sample.createdAt)}</span>
         </p>
       </div>
+
+      <div className="dashboard-latest-registration-leading" aria-hidden="true" />
 
       <div className="dashboard-latest-registration-trailing" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -416,7 +433,7 @@ export default function DashboardPage() {
           <section
             ref={focusTrapRef}
             id={operationModalData.modalId}
-            className="app-modal app-modal-dashboard"
+            className={`app-modal app-modal-dashboard ${operationModalData.themeClass}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="dashboard-operation-modal-title"
@@ -450,19 +467,16 @@ export default function DashboardPage() {
                     className="app-modal-card"
                     onClick={closeOperationModal}
                   >
-                    <div className="app-modal-card-head">
+                    <div className="app-modal-card-body">
                       <strong className="app-modal-card-title">{sample.internalLotNumber ?? sample.id}</strong>
-                      <div className="app-modal-status-row">
-                        <StatusBadge status={sample.status} />
-                        <CommercialStatusBadge status={sample.commercialStatus} />
-                      </div>
+                      <p className="app-modal-card-line">
+                        {renderMainSampleValue(sample.declared.owner)}
+                      </p>
+                      <p className="app-modal-card-meta">
+                        {formatCreationTimestamp(sample.createdAt)}
+                      </p>
                     </div>
-                    <p className="app-modal-card-line">
-                      <strong>Proprietario:</strong> {renderMainSampleValue(sample.declared.owner)}
-                    </p>
-                    <p className="app-modal-card-line">
-                      <strong>Criada em:</strong> {formatCreationTimestamp(sample.createdAt)}
-                    </p>
+                    <span className="app-modal-card-indicator" aria-hidden="true" />
                   </Link>
                 ))}
               </div>

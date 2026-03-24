@@ -12,9 +12,10 @@ interface MobileHeaderSearchProps {
   session: SessionData;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onModalActiveChange?: (active: boolean) => void;
 }
 
-export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeaderSearchProps) {
+export function MobileHeaderSearch({ session, open, onOpenChange, onModalActiveChange }: MobileHeaderSearchProps) {
   const router = useRouter();
   const titleId = useId();
   const descriptionId = useId();
@@ -30,6 +31,11 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
 
   const normalizedQuery = query.trim();
   const canSubmit = normalizedQuery.length > 0 && !submitting;
+  const anyModalActive = open || resultModalOpen;
+
+  useEffect(() => {
+    onModalActiveChange?.(anyModalActive);
+  }, [anyModalActive, onModalActiveChange]);
 
   function closeSearch(options?: { returnFocus?: boolean }) {
     if (submitting) {

@@ -184,6 +184,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const pathname = usePathname();
   const router = useRouter();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileHeaderModalActive, setMobileHeaderModalActive] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -260,7 +261,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
   return (
     <div className="app-shell-root mobile-edge-shell mobile-edge-shell-auth">
-      <header className="topbar">
+      <header className={`topbar${mobileHeaderModalActive ? ' is-modal-elevated' : ''}`}>
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
 
@@ -301,6 +302,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                   setProfileMenuOpen(false);
                 }
               }}
+              onModalActiveChange={setMobileHeaderModalActive}
             />
 
             <Link
