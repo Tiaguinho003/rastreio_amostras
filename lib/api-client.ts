@@ -10,6 +10,7 @@ import type {
   CreateSampleAndPreparePrintResponse,
   DashboardPendingResponse,
   InvalidateReasonCode,
+  PendingPrintQueueResponse,
   ListSamplesResponse,
   PasswordResetCodeVerificationResponse,
   PasswordResetRequestResponse,
@@ -534,6 +535,18 @@ export function listUserAuditEvents(
 
 export function getDashboardPending(session: SessionData) {
   return request<DashboardPendingResponse>('/dashboard/pending', {
+    method: 'GET',
+    session
+  });
+}
+
+export function getPendingPrintJobs(session: SessionData, options: { limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (typeof options.limit === 'number') {
+    params.set('limit', String(options.limit));
+  }
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<PendingPrintQueueResponse>(`/print-queue/pending${suffix}`, {
     method: 'GET',
     session
   });

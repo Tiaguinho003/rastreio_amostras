@@ -5661,6 +5661,19 @@ button:disabled {
   line-height: 1.26;
 }
 
+@keyframes new-sample-photo-spin {
+  to { transform: rotate(360deg); }
+}
+
+.new-sample-photo-loading-spinner {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 3px solid rgba(79, 112, 87, 0.18);
+  border-top-color: #4f7057;
+  border-radius: 50%;
+  animation: new-sample-photo-spin 0.7s linear infinite;
+}
+
 .new-sample-details-grid {
   gap: 0.6rem;
   align-items: start;
@@ -7994,94 +8007,6 @@ button:disabled {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
     box-sizing: border-box;
-  }
-}
-
-@media print {
-  body.sample-detail-print-mode .topbar,
-  body.sample-detail-print-mode main > :not(.sample-detail-print-root) {
-    display: none !important;
-  }
-
-  body.sample-detail-print-mode main {
-    width: auto;
-    margin: 0;
-    padding: 0;
-  }
-
-  body.sample-detail-print-mode .sample-detail-print-root {
-    display: block !important;
-    margin: 0;
-    padding: 0;
-  }
-
-  body.sample-detail-print-mode #sample-detail-label-print {
-    display: grid !important;
-    width: 90mm;
-    min-height: 35mm;
-    max-width: none;
-    border: 1px solid #000;
-    border-radius: 0;
-    padding: 3mm;
-    gap: 3mm;
-    page-break-inside: avoid;
-  }
-
-  body.sample-detail-print-mode #sample-detail-label-print .label-meta p {
-    font-size: 9pt;
-  }
-
-  body.print-label-mode .topbar,
-  body.print-label-mode main > :not(.new-sample-label-modal-backdrop) {
-    display: none !important;
-  }
-
-  body.print-label-mode main {
-    width: auto;
-    margin: 0;
-    padding: 0;
-  }
-
-  body.print-label-mode .new-sample-label-modal-backdrop {
-    position: static;
-    inset: auto;
-    display: block;
-    padding: 0;
-    background: transparent;
-    backdrop-filter: none;
-  }
-
-  body.print-label-mode .new-sample-label-modal {
-    width: auto;
-    max-height: none;
-    overflow: visible;
-    border: 0;
-    box-shadow: none;
-    padding: 0;
-    margin: 0;
-    background: transparent;
-  }
-
-  body.print-label-mode .new-sample-label-modal-header,
-  body.print-label-mode .new-sample-label-modal-actions,
-  body.print-label-mode .new-sample-label-modal-feedback {
-    display: none !important;
-  }
-
-  body.print-label-mode #sample-label-print {
-    display: grid !important;
-    width: 90mm;
-    min-height: 35mm;
-    max-width: none;
-    border: 1px solid #000;
-    border-radius: 0;
-    padding: 3mm;
-    gap: 3mm;
-    page-break-inside: avoid;
-  }
-
-  body.print-label-mode #sample-label-print .label-meta p {
-    font-size: 9pt;
   }
 }
 

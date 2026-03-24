@@ -49,7 +49,7 @@ export const createSampleDraftSchema = z.object({
 });
 
 export const qrFailSchema = z.object({
-  error: z.string().min(1, 'Descreva a falha de impressao')
+  error: z.string().trim().optional().default('')
 });
 
 export const invalidateSampleSchema = z.object({

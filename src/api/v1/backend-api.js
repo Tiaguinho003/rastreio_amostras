@@ -778,6 +778,19 @@ export function createBackendApiV1({
         };
       }),
 
+    getPendingPrintJobs: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await queryService.listPendingPrintJobs({
+          limit: query.limit
+        });
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
     listClients: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {

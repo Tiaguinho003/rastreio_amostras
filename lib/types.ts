@@ -536,3 +536,30 @@ export interface CreateSampleAndPreparePrintResponse {
     status: PrintJobStatus;
   } | null;
 }
+
+export interface PendingPrintJob {
+  jobId: string;
+  sampleId: string;
+  printAction: PrintAction;
+  attemptNumber: number;
+  printerId: string | null;
+  createdAt: string;
+  sample: {
+    id: string;
+    internalLotNumber: string | null;
+    status: SampleStatus;
+    version: number;
+    qrValue: string;
+    declared: {
+      owner: string | null;
+      sacks: number | null;
+      harvest: string | null;
+      originLot: string | null;
+    };
+  };
+}
+
+export interface PendingPrintQueueResponse {
+  items: PendingPrintJob[];
+  total: number;
+}
