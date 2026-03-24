@@ -603,6 +603,31 @@ function mapDashboardSample(row) {
   };
 }
 
+function mapPendingPrintJob(row) {
+  const sample = row.sample;
+  return {
+    jobId: row.id,
+    sampleId: row.sampleId,
+    printAction: row.printAction,
+    attemptNumber: row.attemptNumber,
+    printerId: row.printerId ?? null,
+    createdAt: row.createdAt.toISOString(),
+    sample: {
+      id: sample.id,
+      internalLotNumber: sample.internalLotNumber,
+      status: sample.status,
+      version: sample.version,
+      qrValue: sample.internalLotNumber ?? sample.id,
+      declared: {
+        owner: sample.declaredOwner ?? null,
+        sacks: sample.declaredSacks ?? null,
+        harvest: sample.declaredHarvest ?? null,
+        originLot: sample.declaredOriginLot ?? null
+      }
+    }
+  };
+}
+
 function mapSample(row) {
   if (!row) {
     return null;
@@ -748,6 +773,35 @@ export class SampleQueryService {
       attemptNumber: pending.attemptNumber,
       printerId: pending.printerId ?? null,
       status: pending.status
+    };
+  }
+
+  async listPendingPrintJobs(options = {}) {
+    const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
+
+    const rows = await this.prisma.printJob.findMany({
+      where: { status: 'PENDING' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+      include: {
+        sample: {
+          select: {
+            id: true,
+            internalLotNumber: true,
+            status: true,
+            version: true,
+            declaredOwner: true,
+            declaredSacks: true,
+            declaredHarvest: true,
+            declaredOriginLot: true
+          }
+        }
+      }
+    });
+
+    return {
+      items: rows.map(mapPendingPrintJob),
+      total: rows.length
     };
   }
 
