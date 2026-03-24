@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, createClient } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientPersonType, ClientSummary, SessionData } from '../../lib/types';
 
 type ClientQuickCreateModalProps = {
@@ -54,6 +55,7 @@ export function ClientQuickCreateModal({
   onClose,
   onCreated
 }: ClientQuickCreateModalProps) {
+  const focusTrapRef = useFocusTrap(open);
   const [form, setForm] = useState(() =>
     buildInitialForm({
       initialSearch,
@@ -137,6 +139,7 @@ export function ClientQuickCreateModal({
   return (
     <div className="client-modal-backdrop" onClick={() => !saving && onClose()}>
       <section
+        ref={focusTrapRef}
         className="client-modal panel stack client-quick-create-modal"
         role="dialog"
         aria-modal="true"

@@ -5,6 +5,7 @@ import { useId } from 'react';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
 import { StatusBadge } from './StatusBadge';
+import { useFocusTrap } from '../lib/use-focus-trap';
 import type { ResolveSampleByQrResponse } from '../lib/types';
 
 interface SampleLookupResultModalProps {
@@ -27,10 +28,12 @@ export function SampleLookupResultModal({
   detailsLabel = 'Mais informacoes'
 }: SampleLookupResultModalProps) {
   const titleId = useId();
+  const focusTrapRef = useFocusTrap(true);
 
   return (
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
+        ref={focusTrapRef}
         className="app-modal app-modal-lookup-result"
         role="dialog"
         aria-modal="true"

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, resolveSampleByQr } from '../lib/api-client';
+import { useFocusTrap } from '../lib/use-focus-trap';
 import type { ResolveSampleByQrResponse, SessionData } from '../lib/types';
 import { SampleLookupResultModal } from './SampleLookupResultModal';
 
@@ -18,6 +19,7 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
   const titleId = useId();
   const descriptionId = useId();
   const inputId = useId();
+  const focusTrapRef = useFocusTrap(open);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
@@ -156,6 +158,7 @@ export function MobileHeaderSearch({ session, open, onOpenChange }: MobileHeader
       {open ? (
         <div className="app-modal-backdrop" onClick={() => closeSearch()}>
           <section
+            ref={focusTrapRef}
             className="app-modal app-modal-search"
             role="dialog"
             aria-modal="true"

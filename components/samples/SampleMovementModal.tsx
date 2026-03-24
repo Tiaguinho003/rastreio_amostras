@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { ApiError, getClient } from '../../lib/api-client';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ClientRegistrationSummary,
   ClientSummary,
@@ -82,6 +83,7 @@ export function SampleMovementModal({
   onClose,
   onSubmit
 }: SampleMovementModalProps) {
+  const focusTrapRef = useFocusTrap(open);
   const [movementType, setMovementType] = useState<SampleMovementType>(movement?.movementType ?? initialMovementType);
   const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(toClientSummary(movement?.buyerClient ?? null));
   const [buyerRegistrations, setBuyerRegistrations] = useState<ClientRegistrationSummary[]>([]);
@@ -230,6 +232,7 @@ export function SampleMovementModal({
   return (
     <div className="client-modal-backdrop" onClick={() => !saving && onClose()}>
       <section
+        ref={focusTrapRef}
         className="client-modal panel stack sample-movement-modal"
         role="dialog"
         aria-modal="true"

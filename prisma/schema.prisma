@@ -228,6 +228,8 @@ model Sample {
   @@index([createdAt], map: "idx_sample_created_at")
   @@index([ownerClientId], map: "idx_sample_owner_client")
   @@index([ownerRegistrationId], map: "idx_sample_owner_registration")
+  @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
+  @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@map("sample")
 }
 

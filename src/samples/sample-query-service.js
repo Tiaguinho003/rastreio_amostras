@@ -573,6 +573,36 @@ function mapSampleMovement(row) {
   };
 }
 
+const DASHBOARD_SAMPLE_SELECT = {
+  id: true,
+  internalLotNumber: true,
+  status: true,
+  commercialStatus: true,
+  declaredOwner: true,
+  declaredSacks: true,
+  declaredHarvest: true,
+  createdAt: true
+};
+
+function mapDashboardSample(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    internalLotNumber: row.internalLotNumber,
+    status: row.status,
+    commercialStatus: row.commercialStatus,
+    declared: {
+      owner: row.declaredOwner,
+      sacks: row.declaredSacks,
+      harvest: row.declaredHarvest
+    },
+    createdAt: row.createdAt.toISOString()
+  };
+}
+
 function mapSample(row) {
   if (!row) {
     return null;
@@ -1103,14 +1133,20 @@ export class SampleQueryService {
   }
 
   async getDashboardPending() {
+    const ALL_DASHBOARD_STATUSES = [
+      ...new Set([
+        ...PENDING_STATUSES,
+        ...PRINT_PENDING_STATUSES,
+        ...CLASSIFICATION_PENDING_STATUSES,
+        ...CLASSIFICATION_IN_PROGRESS_STATUSES
+      ])
+    ];
+
     const [
-      grouped,
+      allStatusCounts,
       agedPending,
-      printPendingGrouped,
       printPendingRows,
-      classificationPendingGrouped,
       classificationPendingRows,
-      classificationInProgressGrouped,
       classificationInProgressRows,
       latestRegistrationRows,
       latestRegistrationTotal,
@@ -1119,9 +1155,7 @@ export class SampleQueryService {
       this.prisma.sample.groupBy({
         by: ['status'],
         where: {
-          status: {
-            in: PENDING_STATUSES
-          }
+          status: { in: ALL_DASHBOARD_STATUSES }
         },
         _count: { status: true }
       }),
@@ -1131,35 +1165,15 @@ export class SampleQueryService {
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        include: SAMPLE_OWNER_INCLUDE
-      }),
-      this.prisma.sample.groupBy({
-        by: ['status'],
-        where: {
-          status: {
-            in: PRINT_PENDING_STATUSES
-          }
-        },
-        _count: { status: true }
+        select: DASHBOARD_SAMPLE_SELECT
       }),
       this.prisma.sample.findMany({
         where: {
-          status: {
-            in: PRINT_PENDING_STATUSES
-          }
+          status: { in: PRINT_PENDING_STATUSES }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        include: SAMPLE_OWNER_INCLUDE
-      }),
-      this.prisma.sample.groupBy({
-        by: ['status'],
-        where: {
-          status: {
-            in: CLASSIFICATION_PENDING_STATUSES
-          }
-        },
-        _count: { status: true }
+        select: DASHBOARD_SAMPLE_SELECT
       }),
       this.prisma.sample.findMany({
         where: {
@@ -1167,16 +1181,7 @@ export class SampleQueryService {
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        include: SAMPLE_OWNER_INCLUDE
-      }),
-      this.prisma.sample.groupBy({
-        by: ['status'],
-        where: {
-          status: {
-            in: CLASSIFICATION_IN_PROGRESS_STATUSES
-          }
-        },
-        _count: { status: true }
+        select: DASHBOARD_SAMPLE_SELECT
       }),
       this.prisma.sample.findMany({
         where: {
@@ -1184,7 +1189,7 @@ export class SampleQueryService {
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        include: SAMPLE_OWNER_INCLUDE
+        select: DASHBOARD_SAMPLE_SELECT
       }),
       this.prisma.sample.findMany({
         where: {
@@ -1192,97 +1197,84 @@ export class SampleQueryService {
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: DASHBOARD_LIST_LIMIT,
-        include: SAMPLE_OWNER_INCLUDE
+        select: DASHBOARD_SAMPLE_SELECT
       }),
       this.prisma.sample.count({
         where: {
           status: { in: LATEST_REGISTRATION_STATUSES }
         }
       }),
-      this.prisma.$queryRaw`
-        SELECT COUNT(*)::INTEGER AS total
-        FROM "sample" s
-        WHERE (s."created_at" AT TIME ZONE ${DASHBOARD_BUSINESS_TIMEZONE})::DATE
-          = (NOW() AT TIME ZONE ${DASHBOARD_BUSINESS_TIMEZONE})::DATE
-          AND (s."created_at" AT TIME ZONE ${DASHBOARD_BUSINESS_TIMEZONE})::TIME >= TIME '07:00:00'
-          AND (s."created_at" AT TIME ZONE ${DASHBOARD_BUSINESS_TIMEZONE})::TIME <= TIME '18:00:00'
-      `
+      (() => {
+        const nowUtc = new Date();
+        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+        const year = nowSp.getUTCFullYear();
+        const month = nowSp.getUTCMonth();
+        const day = nowSp.getUTCDate();
+        const startUtc = new Date(Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0));
+        const endUtc = new Date(Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0));
+        return this.prisma.$queryRaw`
+          SELECT COUNT(*)::INTEGER AS total
+          FROM "sample" s
+          WHERE s."created_at" >= ${startUtc}
+            AND s."created_at" <= ${endUtc}
+        `;
+      })()
     ]);
 
-    const pendingCounts = {
-      PHYSICAL_RECEIVED: 0,
-      REGISTRATION_IN_PROGRESS: 0,
-      QR_PENDING_PRINT: 0,
-      CLASSIFICATION_IN_PROGRESS: 0
-    };
-
-    for (const row of grouped) {
-      pendingCounts[row.status] = row._count.status;
+    const countByStatus = {};
+    for (const row of allStatusCounts) {
+      countByStatus[row.status] = row._count.status;
     }
 
-    const totalPending = Object.values(pendingCounts).reduce((acc, value) => acc + value, 0);
-
-    const classificationPendingCounts = {
-      QR_PRINTED: 0
-    };
-
-    for (const row of classificationPendingGrouped) {
-      classificationPendingCounts[row.status] = row._count.status;
+    function sumStatuses(statuses) {
+      let total = 0;
+      for (const s of statuses) {
+        total += countByStatus[s] ?? 0;
+      }
+      return total;
     }
 
-    const classificationPendingTotal = Object.values(classificationPendingCounts).reduce(
-      (acc, value) => acc + value,
-      0
-    );
-
-    const classificationInProgressCounts = {
-      CLASSIFICATION_IN_PROGRESS: 0
-    };
-
-    for (const row of classificationInProgressGrouped) {
-      classificationInProgressCounts[row.status] = row._count.status;
+    function pickCounts(statuses) {
+      const counts = {};
+      for (const s of statuses) {
+        counts[s] = countByStatus[s] ?? 0;
+      }
+      return counts;
     }
 
-    const classificationInProgressTotal = Object.values(classificationInProgressCounts).reduce(
-      (acc, value) => acc + value,
-      0
-    );
-
-    const printPendingCounts = {
-      REGISTRATION_CONFIRMED: 0,
-      QR_PENDING_PRINT: 0
-    };
-
-    for (const row of printPendingGrouped) {
-      printPendingCounts[row.status] = row._count.status;
-    }
-
-    const printPendingTotal = Object.values(printPendingCounts).reduce((acc, value) => acc + value, 0);
+    const pendingCounts = pickCounts(PENDING_STATUSES);
+    const totalPending = sumStatuses(PENDING_STATUSES);
+    const printPendingCounts = pickCounts(PRINT_PENDING_STATUSES);
+    const printPendingTotal = sumStatuses(PRINT_PENDING_STATUSES);
+    const classificationPendingCounts = pickCounts(CLASSIFICATION_PENDING_STATUSES);
+    const classificationPendingTotal = sumStatuses(CLASSIFICATION_PENDING_STATUSES);
+    const classificationInProgressCounts = pickCounts(CLASSIFICATION_IN_PROGRESS_STATUSES);
+    const classificationInProgressTotal = sumStatuses(CLASSIFICATION_IN_PROGRESS_STATUSES);
     const todayReceivedTotal = toIntegerOrZero(todayReceivedRows?.[0]?.total);
 
     return {
       pendingCounts,
       totalPending,
       todayReceivedTotal,
-      oldestPending: agedPending.map(mapSample),
+      oldestPending: agedPending.map(mapDashboardSample),
       printPending: {
         counts: printPendingCounts,
         total: printPendingTotal,
-        items: printPendingRows.map(mapSample)
+        items: printPendingRows.map(mapDashboardSample)
       },
       classificationPending: {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
-        items: classificationPendingRows.map(mapSample)
+        items: classificationPendingRows.map(mapDashboardSample)
       },
       classificationInProgress: {
         counts: classificationInProgressCounts,
         total: classificationInProgressTotal,
-        items: classificationInProgressRows.map(mapSample)
+        items: classificationInProgressRows.map(mapDashboardSample)
       },
       latestRegistrations: {
         total: latestRegistrationTotal,
-        items: latestRegistrationRows.map(mapSample)
+        items: latestRegistrationRows.map(mapDashboardSample)
       }
     };
   }

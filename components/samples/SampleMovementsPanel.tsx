@@ -8,6 +8,7 @@ import {
   createSampleMovement,
   updateSampleMovement
 } from '../../lib/api-client';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   SampleMovement,
   SampleMovementType,
@@ -36,6 +37,7 @@ export function SampleMovementsPanel({
   const [createOpen, setCreateOpen] = useState(false);
   const [editMovement, setEditMovement] = useState<SampleMovement | null>(null);
   const [cancelMovement, setCancelMovement] = useState<SampleMovement | null>(null);
+  const cancelTrapRef = useFocusTrap(cancelMovement !== null);
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +179,7 @@ export function SampleMovementsPanel({
       {cancelMovement ? (
         <div className="client-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
           <section
+            ref={cancelTrapRef}
             className="client-modal panel stack"
             role="dialog"
             aria-modal="true"
