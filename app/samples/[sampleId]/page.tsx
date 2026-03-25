@@ -26,6 +26,7 @@ import {
   updateRegistration,
   uploadClassificationPhoto
 } from '../../../lib/api-client';
+import { compressImage } from '../../../lib/compress-image';
 import { invalidateSampleSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
@@ -313,6 +314,32 @@ function buildClassificationDataPayload(
   return payload;
 }
 
+type ClassificationTechnicalPayload = {
+  defectsCount?: number;
+  moisture?: number;
+  colorAspect?: string | null;
+  notes?: string | null;
+};
+
+function buildTechnicalFromClassificationData(data: ClassificationDataPayload): ClassificationTechnicalPayload | undefined {
+  const technical: ClassificationTechnicalPayload = {};
+
+  if (data.defeito !== null) {
+    technical.defectsCount = data.defeito;
+  }
+  if (data.umidade !== null) {
+    technical.moisture = data.umidade;
+  }
+  if (data.aspectoCor !== null) {
+    technical.colorAspect = data.aspectoCor;
+  }
+  if (data.observacoes !== null) {
+    technical.notes = data.observacoes;
+  }
+
+  return Object.keys(technical).length > 0 ? technical : undefined;
+}
+
 function buildClassificationFormState(detail: SampleDetailResponse, user: SessionUser): ClassificationFormState {
   const latestData = isRecord(detail.sample.latestClassification.data) ? detail.sample.latestClassification.data : {};
   const draftData =
@@ -405,8 +432,7 @@ function getExportTypeLabel(exportType: SampleExportType): string {
 }
 
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
-const DEFAULT_REGISTRATION_UPDATE_REASON_CODE: UpdateReasonCode = 'OTHER';
-const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
+const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB — same as backend DEFAULT_MAX_UPLOAD_SIZE_BYTES
 
 function getOperationalStatusDotTone(status: SampleStatus) {
   if (status === 'PHYSICAL_RECEIVED' || status === 'REGISTRATION_IN_PROGRESS') {
@@ -548,6 +574,7 @@ export default function SampleDetailPage() {
   const fromQrSource = searchParams.get('source') === 'qr';
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
+  const detailRef = useRef<SampleDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -593,14 +620,20 @@ export default function SampleDetailPage() {
   const [classificationStep, setClassificationStep] = useState<ClassificationStep>('PHOTO');
   const [detailSection, setDetailSection] = useState<SampleDetailSection>('GENERAL');
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
+  const registrationEditModeRef = useRef(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
+  const [registrationEditReasonCode, setRegistrationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
+  const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
+  const [registrationEditReasonModalOpen, setRegistrationEditReasonModalOpen] = useState(false);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
+  const classificationEditModeRef = useRef(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
   const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
   const [classificationUpdating, setClassificationUpdating] = useState(false);
   const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
   const labelTrapRef = useFocusTrap(labelModalOpen);
+  const registrationEditTrapRef = useFocusTrap(registrationEditReasonModalOpen);
   const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
   const exportTypeTrapRef = useFocusTrap(exportTypeSelectorOpen);
   const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
@@ -609,11 +642,11 @@ export default function SampleDetailPage() {
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
   const invalidateModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const classificationPhotoConfirmEffectTimeoutRef = useRef<number | null>(null);
-  const classificationAdvanceStepTimeoutRef = useRef<number | null>(null);
+  const classificationPhotoPostUploadTimeoutRef = useRef<number | null>(null);
   const classificationPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const classificationSectionRef = useRef<HTMLElement | null>(null);
   const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
 
   const fetchDetail = useCallback(
@@ -621,6 +654,10 @@ export default function SampleDetailPage() {
       if (!session || !sampleId) {
         return undefined;
       }
+
+      fetchAbortRef.current?.abort();
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
 
       const shouldShowLoading = showLoading;
       if (shouldShowLoading) {
@@ -630,18 +667,36 @@ export default function SampleDetailPage() {
 
       try {
         const response = await getSampleDetail(session, sampleId, {
-          eventLimit
+          eventLimit,
+          signal: controller.signal
         });
+
+        if (controller.signal.aborted) {
+          return undefined;
+        }
+
         setDetail(response);
-        setOwner(response.sample.declared.owner ?? '');
-        setSelectedOwnerClient(mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null));
-        setSelectedOwnerRegistrationId(response.sample.ownerRegistrationId ?? null);
-        setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
-        setHarvest(response.sample.declared.harvest ?? '');
-        setOriginLot(response.sample.declared.originLot ?? '');
-        setClassificationForm(buildClassificationFormState(response, session.user));
+        detailRef.current = response;
+
+        if (!registrationEditModeRef.current) {
+          setOwner(response.sample.declared.owner ?? '');
+          setSelectedOwnerClient(mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null));
+          setSelectedOwnerRegistrationId(response.sample.ownerRegistrationId ?? null);
+          setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
+          setHarvest(response.sample.declared.harvest ?? '');
+          setOriginLot(response.sample.declared.originLot ?? '');
+        }
+
+        if (!classificationEditModeRef.current) {
+          setClassificationForm(buildClassificationFormState(response, session.user));
+        }
+
         return response;
       } catch (cause) {
+        if (controller.signal.aborted) {
+          return undefined;
+        }
+
         if (cause instanceof ApiError) {
           setError(cause.message);
         } else {
@@ -649,7 +704,7 @@ export default function SampleDetailPage() {
         }
         return undefined;
       } finally {
-        if (shouldShowLoading) {
+        if (!controller.signal.aborted && shouldShowLoading) {
           setLoadingDetail(false);
         }
       }
@@ -670,7 +725,7 @@ export default function SampleDetailPage() {
       setOwnerRegistrations([]);
       setOwnerRegistrationLoading(false);
       setSelectedOwnerRegistrationId(null);
-      setOwner(selectedOwnerClient?.displayName ?? detail?.sample.declared.owner ?? '');
+      setOwner(selectedOwnerClient?.displayName ?? detailRef.current?.sample.declared.owner ?? '');
       return;
     }
 
@@ -686,9 +741,6 @@ export default function SampleDetailPage() {
 
         const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
         setOwnerRegistrations(activeRegistrations);
-        if (!activeRegistrations.some((registration) => registration.id === selectedOwnerRegistrationId)) {
-          setSelectedOwnerRegistrationId(null);
-        }
       })
       .catch((cause) => {
         if (!active) {
@@ -708,7 +760,7 @@ export default function SampleDetailPage() {
     return () => {
       active = false;
     };
-  }, [detail?.sample.declared.owner, selectedOwnerClient, session]);
+  }, [selectedOwnerClient, session]);
 
   const syncDetailState = useCallback(
     async (_options: { refreshHistory?: boolean } = {}) => {
@@ -722,6 +774,9 @@ export default function SampleDetailPage() {
       return;
     }
     void loadDetail();
+    return () => {
+      fetchAbortRef.current?.abort();
+    };
   }, [loadDetail, sampleId]);
 
   useEffect(() => {
@@ -734,9 +789,14 @@ export default function SampleDetailPage() {
     setLabelModalSubmitting(false);
     setLabelModalError(null);
     setLabelModalMessage(null);
+    registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
+    setRegistrationEditReasonCode('OTHER');
+    setRegistrationEditReasonText('');
+    setRegistrationEditReasonModalOpen(false);
     setClassificationStep('PHOTO');
     setDetailSection('GENERAL');
+    classificationEditModeRef.current = false;
     setClassificationEditMode(false);
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
@@ -779,6 +839,10 @@ export default function SampleDetailPage() {
     () => detail?.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null,
     [detail]
   );
+  const qrValue = useMemo(
+    () => detail?.sample.internalLotNumber ?? detail?.sample.id ?? '',
+    [detail?.sample.internalLotNumber, detail?.sample.id]
+  );
   const canQuickPrint = detail
     ? detail.sample.status === 'REGISTRATION_CONFIRMED' || canRequestReprintStatus(detail.sample.status)
     : false;
@@ -817,11 +881,8 @@ export default function SampleDetailPage() {
 
   useEffect(() => {
     return () => {
-      if (classificationPhotoConfirmEffectTimeoutRef.current !== null) {
-        window.clearTimeout(classificationPhotoConfirmEffectTimeoutRef.current);
-      }
-      if (classificationAdvanceStepTimeoutRef.current !== null) {
-        window.clearTimeout(classificationAdvanceStepTimeoutRef.current);
+      if (classificationPhotoPostUploadTimeoutRef.current !== null) {
+        window.clearTimeout(classificationPhotoPostUploadTimeoutRef.current);
       }
     };
   }, []);
@@ -951,14 +1012,14 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const nextPreviewFile = classificationSelectedPhoto;
     setClassificationPhotoUploading(true);
     setError(null);
     setMessage(null);
 
     try {
-      await uploadClassificationPhoto(session, sampleId, nextPreviewFile, true);
-      setClassificationSavedPhotoFile(nextPreviewFile);
+      const compressed = await compressImage(classificationSelectedPhoto);
+      await uploadClassificationPhoto(session, sampleId, compressed, true);
+      setClassificationSavedPhotoFile(compressed);
       setClassificationSelectedPhoto(null);
       if (classificationPhotoInputRef.current) {
         classificationPhotoInputRef.current.value = '';
@@ -968,22 +1029,18 @@ export default function SampleDetailPage() {
       setClassificationPhotoConfirmEffectKey((current) => current + 1);
       setShowClassificationPhotoConfirmEffect(true);
 
-      if (classificationPhotoConfirmEffectTimeoutRef.current !== null) {
-        window.clearTimeout(classificationPhotoConfirmEffectTimeoutRef.current);
+      if (classificationPhotoPostUploadTimeoutRef.current !== null) {
+        window.clearTimeout(classificationPhotoPostUploadTimeoutRef.current);
       }
-      classificationPhotoConfirmEffectTimeoutRef.current = window.setTimeout(() => {
+      classificationPhotoPostUploadTimeoutRef.current = window.setTimeout(() => {
         setShowClassificationPhotoConfirmEffect(false);
-        classificationPhotoConfirmEffectTimeoutRef.current = null;
-      }, 980);
-
-      if (classificationAdvanceStepTimeoutRef.current !== null) {
-        window.clearTimeout(classificationAdvanceStepTimeoutRef.current);
-      }
-      classificationAdvanceStepTimeoutRef.current = window.setTimeout(() => {
         setClassificationStep('GENERAL');
-        classificationAdvanceStepTimeoutRef.current = null;
-      }, 760);
+        classificationPhotoPostUploadTimeoutRef.current = null;
+      }, 820);
     } catch (cause) {
+      if (classificationPhotoInputRef.current) {
+        classificationPhotoInputRef.current.value = '';
+      }
       if (cause instanceof ApiError) {
         setError(cause.message);
       } else {
@@ -1418,25 +1475,7 @@ export default function SampleDetailPage() {
     const classificationData = buildClassificationDataPayload(classificationForm, {
       includeAutomaticDate: true
     });
-    const technical: {
-      defectsCount?: number;
-      moisture?: number;
-      colorAspect?: string | null;
-      notes?: string | null;
-    } = {};
-
-    if (classificationData.defeito !== null) {
-      technical.defectsCount = classificationData.defeito;
-    }
-    if (classificationData.umidade !== null) {
-      technical.moisture = classificationData.umidade;
-    }
-    if (classificationData.aspectoCor !== null) {
-      technical.colorAspect = classificationData.aspectoCor;
-    }
-    if (classificationData.observacoes !== null) {
-      technical.notes = classificationData.observacoes;
-    }
+    const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationCompleting(true);
     setError(null);
@@ -1446,7 +1485,7 @@ export default function SampleDetailPage() {
       await completeClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         classificationData,
-        technical: Object.keys(technical).length ? technical : undefined,
+        technical,
         classifierName: classificationData.classificador
       });
       setMessage('Classificacao concluida com sucesso.');
@@ -1463,7 +1502,7 @@ export default function SampleDetailPage() {
   }
 
   function startRegistrationEdit() {
-    if (!detail) {
+    if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
       return;
     }
 
@@ -1473,6 +1512,7 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
+    registrationEditModeRef.current = true;
     setRegistrationEditMode(true);
     setError(null);
     setMessage(null);
@@ -1480,6 +1520,7 @@ export default function SampleDetailPage() {
 
   function cancelRegistrationEdit() {
     if (!detail) {
+      registrationEditModeRef.current = false;
       setRegistrationEditMode(false);
       return;
     }
@@ -1490,10 +1531,14 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
+    registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
+    setRegistrationEditReasonCode('OTHER');
+    setRegistrationEditReasonText('');
+    setRegistrationEditReasonModalOpen(false);
   }
 
-  async function handleSaveRegistrationUpdate() {
+  function handleRequestRegistrationUpdate() {
     if (!session || !detail) {
       return;
     }
@@ -1519,6 +1564,48 @@ export default function SampleDetailPage() {
       return;
     }
 
+    setRegistrationEditReasonModalOpen(true);
+    setError(null);
+    setMessage(null);
+  }
+
+  function closeRegistrationEditReasonModal() {
+    if (registrationUpdating) {
+      return;
+    }
+
+    setRegistrationEditReasonModalOpen(false);
+  }
+
+  async function handleConfirmRegistrationUpdate() {
+    if (!session || !detail) {
+      return;
+    }
+
+    if (!selectedOwnerClient) {
+      return;
+    }
+
+    const parsedForm = registrationFormSchema.safeParse({
+      owner: selectedOwnerClient.displayName ?? owner,
+      sacks,
+      harvest,
+      originLot
+    });
+    if (!parsedForm.success) {
+      setError(parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos');
+      return;
+    }
+
+    const parsedReason = updateReasonSchema.safeParse({
+      reasonCode: registrationEditReasonCode,
+      reasonText: registrationEditReasonText
+    });
+    if (!parsedReason.success) {
+      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
+      return;
+    }
+
     setRegistrationUpdating(true);
     setError(null);
     setMessage(null);
@@ -1531,11 +1618,15 @@ export default function SampleDetailPage() {
           ownerClientId: selectedOwnerClient.id,
           ownerRegistrationId: selectedOwnerRegistrationId
         },
-        reasonCode: DEFAULT_REGISTRATION_UPDATE_REASON_CODE,
-        reasonText: DEFAULT_REGISTRATION_UPDATE_REASON_TEXT
+        reasonCode: parsedReason.data.reasonCode,
+        reasonText: parsedReason.data.reasonText
       });
 
+      setRegistrationEditReasonModalOpen(false);
+      registrationEditModeRef.current = false;
       setRegistrationEditMode(false);
+      setRegistrationEditReasonCode('OTHER');
+      setRegistrationEditReasonText('');
       setMessage('Edicao de registro salva com sucesso.');
       await syncDetailState();
     } catch (cause) {
@@ -1550,7 +1641,7 @@ export default function SampleDetailPage() {
   }
 
   function startClassificationEdit() {
-    if (!detail || !session) {
+    if (!detail || !session || detail.sample.status !== 'CLASSIFIED') {
       return;
     }
 
@@ -1558,6 +1649,7 @@ export default function SampleDetailPage() {
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
     setClassificationEditReasonModalOpen(false);
+    classificationEditModeRef.current = true;
     setClassificationEditMode(true);
     setError(null);
     setMessage(null);
@@ -1570,6 +1662,7 @@ export default function SampleDetailPage() {
     setClassificationEditReasonCode('OTHER');
     setClassificationEditReasonText('');
     setClassificationEditReasonModalOpen(false);
+    classificationEditModeRef.current = false;
     setClassificationEditMode(false);
   }
 
@@ -1610,25 +1703,7 @@ export default function SampleDetailPage() {
     }
 
     const classificationData = buildClassificationDataPayload(classificationForm);
-    const technical: {
-      defectsCount?: number;
-      moisture?: number;
-      colorAspect?: string | null;
-      notes?: string | null;
-    } = {};
-
-    if (classificationData.defeito !== null) {
-      technical.defectsCount = classificationData.defeito;
-    }
-    if (classificationData.umidade !== null) {
-      technical.moisture = classificationData.umidade;
-    }
-    if (classificationData.aspectoCor !== null) {
-      technical.colorAspect = classificationData.aspectoCor;
-    }
-    if (classificationData.observacoes !== null) {
-      technical.notes = classificationData.observacoes;
-    }
+    const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationUpdating(true);
     setError(null);
@@ -1639,13 +1714,14 @@ export default function SampleDetailPage() {
         expectedVersion: detail.sample.version,
         after: {
           classificationData,
-          ...(Object.keys(technical).length > 0 ? { technical } : {})
+          ...(technical ? { technical } : {})
         },
         reasonCode: parsedReason.data.reasonCode,
         reasonText: parsedReason.data.reasonText
       });
 
       setClassificationEditReasonModalOpen(false);
+      classificationEditModeRef.current = false;
       setClassificationEditMode(false);
       setClassificationEditReasonCode('OTHER');
       setClassificationEditReasonText('');
@@ -1739,6 +1815,25 @@ export default function SampleDetailPage() {
         />
       </label>
     );
+  }
+
+  function handleClassificationPhotoSelected(file: File | null) {
+    if (!file) {
+      setClassificationSelectedPhoto(null);
+      return;
+    }
+
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
+      const limitMb = Math.round(MAX_PHOTO_SIZE_BYTES / (1024 * 1024));
+      setError(`A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.`);
+      if (classificationPhotoInputRef.current) {
+        classificationPhotoInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setError(null);
+    setClassificationSelectedPhoto(file);
   }
 
   function clearClassificationSelectedPhoto() {
@@ -1870,7 +1965,7 @@ export default function SampleDetailPage() {
                               <button
                                 type="button"
                                 className="sample-detail-icon-action"
-                                onClick={() => void handleSaveRegistrationUpdate()}
+                                onClick={handleRequestRegistrationUpdate}
                                 disabled={registrationUpdating}
                                 aria-label="Confirmar edicao do registro"
                                 title="Confirmar edicao do registro"
@@ -1899,8 +1994,9 @@ export default function SampleDetailPage() {
                                 type="button"
                                 className="secondary sample-detail-icon-action"
                                 onClick={startRegistrationEdit}
+                                disabled={!canEditRegistrationStatus(detail.sample.status)}
                                 aria-label="Editar informacoes principais"
-                                title="Editar informacoes principais"
+                                title={canEditRegistrationStatus(detail.sample.status) ? 'Editar informacoes principais' : 'Edicao indisponivel neste status'}
                               >
                                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                                   <path d="M12 20h9" />
@@ -1915,7 +2011,7 @@ export default function SampleDetailPage() {
                           <div className="sample-detail-general-card-top">
                             <div className="sample-detail-general-qr-block">
                               <div className="sample-detail-qr-quick-code">
-                                <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={156} />
+                                <QRCodeCanvas value={qrValue} size={156} />
                               </div>
 
                               <div className="row sample-detail-qr-quick-actions">
@@ -2172,7 +2268,7 @@ export default function SampleDetailPage() {
                                       capture="environment"
                                       type="file"
                                       disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                                      onChange={(event) => setClassificationSelectedPhoto(event.target.files?.[0] ?? null)}
+                                      onChange={(event) => handleClassificationPhotoSelected(event.target.files?.[0] ?? null)}
                                     />
 
                                     {classificationVisiblePhotoPreviewUrl ? (
@@ -2347,7 +2443,7 @@ export default function SampleDetailPage() {
                               </>
                             ) : (
                               <>
-                                {classificationStep !== 'PHOTO' ? (
+                                {detail.sample.status === 'CLASSIFIED' && classificationStep !== 'PHOTO' ? (
                                   <button
                                     className="secondary sample-classification-edit-icon"
                                     type="button"
@@ -2526,7 +2622,7 @@ export default function SampleDetailPage() {
         <section className="sample-detail-print-root" aria-hidden="true">
           <article id="sample-detail-label-print" className="label-print-card sample-detail-label-print-card">
             <div className="label-qr">
-              <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={120} />
+              <QRCodeCanvas value={qrValue} size={120} />
             </div>
 
             <div className="label-meta">
@@ -2588,7 +2684,7 @@ export default function SampleDetailPage() {
             <div className="new-sample-label-modal-content">
               <article className="label-print-card new-sample-label-print-card">
                 <div className="label-qr">
-                  <QRCodeCanvas value={detail.sample.internalLotNumber ?? detail.sample.id} size={120} />
+                  <QRCodeCanvas value={qrValue} size={120} />
                 </div>
 
                 <div className="label-meta">
@@ -2669,6 +2765,71 @@ export default function SampleDetailPage() {
           setMessage('Cliente proprietario criado e selecionado com sucesso.');
         }}
       />
+
+      {registrationEditReasonModalOpen ? (
+        <div
+          className="export-confirm-backdrop"
+          onClick={() => {
+            closeRegistrationEditReasonModal();
+          }}
+        >
+          <section
+            ref={registrationEditTrapRef}
+            className="export-confirm-modal panel stack sample-classification-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="registration-edit-reason-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="registration-edit-reason-modal-title" style={{ margin: 0 }}>
+              Confirmar motivo da edicao
+            </h3>
+
+            <p style={{ margin: 0, color: 'var(--muted)' }}>
+              Informe o motivo da alteracao para registrar a edicao auditada do registro.
+            </p>
+
+            <label>
+              Motivo da edicao
+              <select
+                value={registrationEditReasonCode}
+                onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)}
+                disabled={registrationUpdating}
+              >
+                {UPDATE_REASON_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Justificativa (maximo 10 palavras)
+              <input
+                value={registrationEditReasonText}
+                onChange={(event) => setRegistrationEditReasonText(event.target.value)}
+                placeholder="Explique a alteracao"
+                disabled={registrationUpdating}
+              />
+            </label>
+
+            <div className="row">
+              <button
+                className="secondary"
+                type="button"
+                onClick={closeRegistrationEditReasonModal}
+                disabled={registrationUpdating}
+              >
+                Cancelar
+              </button>
+              <button type="button" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating}>
+                {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {classificationEditReasonModalOpen ? (
         <div

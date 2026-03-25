@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -26,11 +26,30 @@ type SampleMovementsPanelProps = {
   onRefresh: () => Promise<void>;
 };
 
+function formatMovementDate(value: string): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+  return value;
+}
+
+function getMovementBuyerLabel(movement: SampleMovement): string | null {
+  if (movement.movementType !== 'SALE') {
+    return null;
+  }
+  const client = movement.buyerClient;
+  if (!client) {
+    return null;
+  }
+  return client.displayName ?? client.fullName ?? client.tradeName ?? null;
+}
+
 export function SampleMovementsPanel({
   session,
   sampleId,
   sample,
-  movements: _movements,
+  movements,
   onRefresh
 }: SampleMovementsPanelProps) {
   const [createType, setCreateType] = useState<SampleMovementType>('SALE');
@@ -42,6 +61,19 @@ export function SampleMovementsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const sortedMovements = useMemo(() => {
+    const active = movements.filter((m) => m.status === 'ACTIVE');
+    const cancelled = movements.filter((m) => m.status === 'CANCELLED');
+    return [...active, ...cancelled];
+  }, [movements]);
+
+  const hasMovements = sortedMovements.length > 0;
+
+  function clearFeedback() {
+    setError(null);
+    setMessage(null);
+  }
 
   return (
     <section className="sample-commercial-stack">
@@ -58,20 +90,100 @@ export function SampleMovementsPanel({
         {message ? <p className="success">{message}</p> : null}
 
         <div className="sample-movement-panel-body">
-          <p className="sample-movement-empty">
-            Use as acoes abaixo para registrar uma venda ou uma perda nesta amostra.
-          </p>
+          {hasMovements ? (
+            <div className="sample-movement-list">
+              {sortedMovements.map((movement) => {
+                const isCancelled = movement.status === 'CANCELLED';
+                const isSale = movement.movementType === 'SALE';
+                const buyerLabel = getMovementBuyerLabel(movement);
+
+                return (
+                  <article
+                    key={movement.id}
+                    className={`sample-movement-card${isCancelled ? ' is-cancelled' : ''}`}
+                  >
+                    <div className="sample-movement-card-head">
+                      <div className="sample-movement-card-type-row">
+                        <span className={`sample-movement-card-type-badge${isSale ? ' is-sale' : ' is-loss'}`}>
+                          {isSale ? 'Venda' : 'Perda'}
+                        </span>
+                        {isCancelled ? (
+                          <span className="sample-movement-card-cancelled-badge">Cancelada</span>
+                        ) : null}
+                      </div>
+                      <strong className="sample-movement-card-qty">
+                        {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
+                      </strong>
+                    </div>
+
+                    <div className="sample-movement-card-body">
+                      <span className="sample-movement-card-meta">
+                        {formatMovementDate(movement.movementDate)}
+                      </span>
+                      {buyerLabel ? (
+                        <span className="sample-movement-card-meta">
+                          Comprador: {buyerLabel}
+                        </span>
+                      ) : null}
+                      {!isSale && movement.lossReasonText ? (
+                        <span className="sample-movement-card-meta">
+                          Motivo: {movement.lossReasonText}
+                        </span>
+                      ) : null}
+                      {movement.notes ? (
+                        <span className="sample-movement-card-meta">
+                          {movement.notes}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {!isCancelled ? (
+                      <div className="row sample-movement-card-actions">
+                        <button
+                          type="button"
+                          className="secondary sample-movement-card-action-btn"
+                          onClick={() => {
+                            setEditMovement(movement);
+                            clearFeedback();
+                          }}
+                          disabled={saving}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary sample-movement-card-action-btn is-danger"
+                          onClick={() => {
+                            setCancelMovement(movement);
+                            setCancelReasonText('');
+                            clearFeedback();
+                          }}
+                          disabled={saving}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="sample-movement-empty">
+              Nenhuma movimentacao registrada. Use as acoes abaixo para registrar uma venda ou uma perda nesta amostra.
+            </p>
+          )}
 
           <div className="sample-movement-panel-actions sample-movement-panel-actions-bottom">
             <button
               type="button"
               className="secondary"
               disabled={sample.status !== 'CLASSIFIED'}
+              title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar perda'}
               onClick={() => {
                 setCreateType('LOSS');
                 setCreateOpen(true);
-                setError(null);
-                setMessage(null);
+                clearFeedback();
               }}
             >
               Registrar perda
@@ -79,11 +191,11 @@ export function SampleMovementsPanel({
             <button
               type="button"
               disabled={sample.status !== 'CLASSIFIED'}
+              title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar venda'}
               onClick={() => {
                 setCreateType('SALE');
                 setCreateOpen(true);
-                setError(null);
-                setMessage(null);
+                clearFeedback();
               }}
             >
               Registrar venda
@@ -99,11 +211,15 @@ export function SampleMovementsPanel({
         saving={saving}
         title={createType === 'SALE' ? 'Registrar venda' : 'Registrar perda'}
         initialMovementType={createType}
-        onClose={() => !saving && setCreateOpen(false)}
+        onClose={() => {
+          if (!saving) {
+            setCreateOpen(false);
+            clearFeedback();
+          }
+        }}
         onSubmit={async (data) => {
           setSaving(true);
-          setError(null);
-          setMessage(null);
+          clearFeedback();
 
           try {
             await createSampleMovement(session, sampleId, {
@@ -135,15 +251,19 @@ export function SampleMovementsPanel({
         saving={saving}
         title={editMovement?.movementType === 'SALE' ? 'Editar venda' : 'Editar perda'}
         movement={editMovement}
-        onClose={() => !saving && setEditMovement(null)}
+        onClose={() => {
+          if (!saving) {
+            setEditMovement(null);
+            clearFeedback();
+          }
+        }}
         onSubmit={async (data) => {
           if (!editMovement) {
             return;
           }
 
           setSaving(true);
-          setError(null);
-          setMessage(null);
+          clearFeedback();
 
           try {
             const after: Record<string, string | number | null> = {
@@ -214,8 +334,7 @@ export function SampleMovementsPanel({
                   }
 
                   setSaving(true);
-                  setError(null);
-                  setMessage(null);
+                  clearFeedback();
 
                   try {
                     await cancelSampleMovement(session, sampleId, cancelMovement.id, {

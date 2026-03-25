@@ -124,23 +124,20 @@ export function SampleMovementModal({
       return;
     }
 
-    let active = true;
+    const controller = new AbortController();
     setLoadingRegistrations(true);
 
-    getClient(session, buyerClient.id)
+    getClient(session, buyerClient.id, { signal: controller.signal })
       .then((response) => {
-        if (!active) {
+        if (controller.signal.aborted) {
           return;
         }
 
         const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
         setBuyerRegistrations(activeRegistrations);
-        if (!activeRegistrations.some((registration) => registration.id === buyerRegistrationId)) {
-          setBuyerRegistrationId(null);
-        }
       })
       .catch((cause) => {
-        if (!active) {
+        if (controller.signal.aborted) {
           return;
         }
 
@@ -149,13 +146,13 @@ export function SampleMovementModal({
         setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do comprador');
       })
       .finally(() => {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoadingRegistrations(false);
         }
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [buyerClient, movementType, open, session]);
 

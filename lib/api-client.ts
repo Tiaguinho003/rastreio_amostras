@@ -697,6 +697,7 @@ export function getSampleDetail(
   sampleId: string,
   query: {
     eventLimit?: number;
+    signal?: AbortSignal;
   } = {}
 ) {
   const params = new URLSearchParams();
@@ -705,7 +706,8 @@ export function getSampleDetail(
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<SampleDetailResponse>(`/samples/${sampleId}${suffix}`, {
     method: 'GET',
-    session
+    session,
+    signal: query.signal
   });
 }
 
@@ -813,18 +815,7 @@ export function confirmRegistration(
       expectedVersion: data.expectedVersion,
       ownerClientId: data.ownerClientId ?? null,
       ownerRegistrationId: data.ownerRegistrationId ?? null,
-      declared: data.declared,
-      ocr: {
-        provider: 'LOCAL',
-        overallConfidence: 0,
-        fieldConfidence: {
-          owner: 0,
-          sacks: 0,
-          harvest: 0,
-          originLot: 0
-        },
-        rawTextRef: null
-      }
+      declared: data.declared
     }
   });
 }
