@@ -1478,6 +1478,10 @@ button:disabled {
 .sample-detail-main-facts-general {
   width: 100%;
   gap: 0;
+  border: 1.5px solid rgba(90, 140, 80, 0.35);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(40, 70, 35, 0.1);
 }
 
 .sample-detail-main-facts-general .sample-detail-main-fact {
@@ -2790,7 +2794,7 @@ button:disabled {
   }
 
   .sample-detail-general-stage {
-    gap: 0.32rem;
+    gap: 0.52rem;
   }
 
   .sample-detail-edit-tools-general {
@@ -4391,7 +4395,7 @@ button:disabled {
 .samples-page-item-indicator {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.35rem;
   flex-shrink: 0;
   padding-top: 0.05rem;
@@ -4452,6 +4456,8 @@ button:disabled {
   width: 100%;
   text-align: left;
   color: inherit;
+  cursor: pointer;
+  grid-template-columns: 1fr;
 }
 
 .records-client-card:focus-visible {
@@ -4461,6 +4467,20 @@ button:disabled {
 
 .records-client-status-badge {
   white-space: nowrap;
+}
+
+.records-client-status-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.records-client-status-label.is-active {
+  color: #3d7a2e;
+}
+
+.records-client-status-label.is-inactive {
+  color: #9a3434;
 }
 
 .records-client-detail-modal {

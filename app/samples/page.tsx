@@ -170,6 +170,10 @@ function clientStatusLabel(status: ClientStatus) {
   return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
 }
 
+function getClientStatusThemeClass(status: ClientStatus): string {
+  return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
+}
+
 function registrationStatusBadgeClass(status: ClientRegistrationSummary['status']) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
 }
@@ -1200,26 +1204,13 @@ export default function SamplesPage() {
                   <button
                     key={client.id}
                     type="button"
-                    className="dashboard-latest-registration-card samples-page-item records-client-card"
+                    className={`samples-page-item records-client-card ${getClientStatusThemeClass(client.status)}`}
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
-                    <div className="dashboard-latest-registration-leading" aria-hidden="true" />
-
-                    <div className="dashboard-latest-registration-main">
-                      <div className="dashboard-latest-registration-head">
-                        <p className="dashboard-latest-registration-title">{clientDisplayName(client)}</p>
-                        <span className={`status-badge records-client-status-badge ${clientStatusBadgeClass(client.status)}`}>
-                          {clientStatusLabel(client.status)}
-                        </span>
-                      </div>
+                    <div className="samples-page-item-main">
+                      <p className="dashboard-latest-registration-title">{clientDisplayName(client)}</p>
                       <p className="dashboard-latest-registration-subtitle">{formatClientCardSummary(client)}</p>
                       <p className="dashboard-latest-registration-meta">{formatClientCardMeta(client)}</p>
-                    </div>
-
-                    <div className="dashboard-latest-registration-trailing" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="m9 6 6 6-6 6" />
-                      </svg>
                     </div>
                   </button>
                 ))}
