@@ -1032,16 +1032,17 @@ button:disabled {
 }
 
 .sample-detail-back-row {
-  margin-bottom: 0;
+  margin-bottom: -0.22rem;
   padding-inline: 0.12rem;
 }
 
 .sample-detail-back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2rem;
-  padding: 0.38rem 0.72rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.12rem;
+  min-width: 2.12rem;
+  height: 2.12rem;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid rgba(207, 214, 203, 0.92);
   background: rgba(255, 255, 255, 0.74);
@@ -1056,14 +1057,13 @@ button:disabled {
 }
 
 .sample-detail-back-button svg {
-  width: 0.88rem;
-  height: 0.88rem;
+  width: 1.04rem;
+  height: 1.04rem;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.74;
 }
 
 .sample-detail-page-shell {
@@ -1123,14 +1123,14 @@ button:disabled {
 }
 
 .sample-detail-hero-action.is-danger {
-  border-color: rgba(217, 182, 182, 0.92);
-  background: linear-gradient(180deg, #fff4f4 0%, #f3dfdf 100%);
-  color: #944040;
-  box-shadow: 0 10px 18px rgba(139, 55, 55, 0.08);
+  border-color: rgba(190, 120, 120, 0.72);
+  background: linear-gradient(180deg, #c94444 0%, #a33030 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(139, 40, 40, 0.22);
 }
 
 .sample-detail-hero-action.is-danger:hover {
-  background: linear-gradient(180deg, #ffefef 0%, #efd6d6 100%);
+  background: linear-gradient(180deg, #b83c3c 0%, #952a2a 100%);
 }
 
 .sample-detail-hero-action svg {
@@ -1149,6 +1149,21 @@ button:disabled {
   gap: 0.62rem;
   min-width: 0;
 }
+
+.sample-detail-hero-status-line {
+  width: 0.28rem;
+  min-height: 2.4rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.sample-detail-hero-status-line.is-neutral { background: #8b968b; }
+.sample-detail-hero-status-line.is-warning { background: #c56262; }
+.sample-detail-hero-status-line.is-pending { background: #cf9f2e; }
+.sample-detail-hero-status-line.is-progress { background: #2d82c7; }
+.sample-detail-hero-status-line.is-success { background: #3d9a55; }
+.sample-detail-hero-status-line.is-danger { background: #b44646; }
 
 .sample-detail-hero-icon {
   width: 2.42rem;
@@ -1222,9 +1237,9 @@ button:disabled {
   gap: 0;
   flex: 1 1 auto;
   min-height: 0;
-  padding-top: 0.26rem;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  padding-top: 0.38rem;
+  border-radius: 0;
+  border-top: 0;
   box-shadow: 0 14px 24px rgba(29, 43, 32, 0.06);
 }
 
@@ -1664,38 +1679,62 @@ button:disabled {
 
 .sample-detail-info-switch-floating {
   position: relative;
-  z-index: 2;
-  margin-bottom: -0.22rem;
+  margin-bottom: -0.85rem;
 }
 
 .sample-detail-info-tab {
   position: relative;
-  border: 1px solid rgba(214, 219, 210, 0.92);
-  border-bottom-color: rgba(198, 206, 195, 0.82);
+  z-index: 0;
+  border: 1px solid rgba(196, 203, 191, 0.82);
+  border-bottom: 0;
   border-radius: 18px 18px 0 0;
-  background: linear-gradient(180deg, rgba(245, 242, 236, 0.98) 0%, rgba(233, 228, 219, 0.98) 100%);
-  color: #6f776e;
+  background: linear-gradient(180deg, rgba(228, 224, 215, 0.96) 0%, rgba(218, 213, 204, 0.96) 100%);
+  color: #7d857b;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  padding: 0.38rem 0.72rem 0.58rem;
-  transform: translateY(0.28rem);
-  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
-  box-shadow: 0 8px 12px rgba(28, 41, 31, 0.05);
+  padding: 0.42rem 0.72rem 0.52rem;
+  margin-bottom: 0;
+  transform: translateY(0.18rem);
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease, z-index 0ms;
+  box-shadow: none;
 }
 
 .sample-detail-info-tab:hover {
-  background: linear-gradient(180deg, rgba(248, 246, 241, 0.98) 0%, rgba(236, 232, 224, 0.98) 100%);
-  color: #425748;
+  background: linear-gradient(180deg, rgba(238, 235, 228, 0.98) 0%, rgba(228, 224, 216, 0.98) 100%);
+  color: #4e5e4f;
 }
 
 .sample-detail-info-tab.is-active {
+  z-index: 3;
   border-color: rgba(220, 225, 216, 0.96);
-  border-bottom-color: rgba(255, 255, 255, 0.96);
+  border-bottom: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 247, 241, 0.98) 100%);
   color: #294031;
   transform: translateY(0);
-  box-shadow: 0 12px 18px rgba(42, 57, 41, 0.08);
+  box-shadow: 0 -2px 10px rgba(42, 57, 41, 0.06);
+  padding-bottom: 0.52rem;
+  overflow: visible;
+}
+
+.sample-detail-info-tab.is-active::before,
+.sample-detail-info-tab.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  pointer-events: none;
+}
+
+.sample-detail-info-tab.is-active::before {
+  left: -0.5rem;
+  background: radial-gradient(circle at 0% 0%, transparent 0.5rem, rgba(249, 247, 241, 0.98) 0.5rem);
+}
+
+.sample-detail-info-tab.is-active::after {
+  right: -0.5rem;
+  background: radial-gradient(circle at 100% 0%, transparent 0.5rem, rgba(249, 247, 241, 0.98) 0.5rem);
 }
 
 .sample-detail-info-tab-label {
@@ -1706,10 +1745,10 @@ button:disabled {
 
 .sample-detail-info-tab-dot {
   position: absolute;
-  top: 0.36rem;
-  right: 0.42rem;
-  width: 0.48rem;
-  height: 0.48rem;
+  top: 0.28rem;
+  right: 0.32rem;
+  width: 0.62rem;
+  height: 0.62rem;
   border-radius: 999px;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.92);
 }
@@ -1803,7 +1842,13 @@ button:disabled {
   box-shadow: 0 0 0 2px rgba(125, 161, 111, 0.12);
 }
 
-.sample-detail-classification-pane,
+.sample-detail-classification-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0.42rem;
+}
+
 .sample-detail-commercial-pane {
   display: flex;
   flex-direction: column;
@@ -1983,11 +2028,23 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  position: relative;
 }
 
 .sample-classification-step-header {
   display: grid;
   gap: 0;
+}
+
+.sample-classification-step-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.sample-classification-step-switch-row .sample-classification-step-switch {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .sample-classification-step-switch {
@@ -2001,6 +2058,7 @@ button:disabled {
 }
 
 .sample-classification-step-tab {
+  position: relative;
   border: 0;
   border-radius: 14px;
   background: transparent;
@@ -2026,6 +2084,30 @@ button:disabled {
   background: #ffffff;
   color: #294031;
   box-shadow: 0 6px 12px rgba(42, 57, 41, 0.14);
+}
+
+.sample-classification-step-check {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.22rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.82rem;
+  height: 0.82rem;
+  border-radius: 999px;
+  background: #3d9a55;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+.sample-classification-step-check svg {
+  width: 0.48rem;
+  height: 0.48rem;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .sample-classification-step-hint {
@@ -2073,7 +2155,7 @@ button:disabled {
 .sample-classification-photo-stage {
   height: 100%;
   min-height: 100%;
-  padding: 0.62rem 0.62rem 4rem;
+  padding: 0.62rem;
   box-sizing: border-box;
 }
 
@@ -2112,14 +2194,14 @@ button:disabled {
 
 .sample-classification-photo-inline-actions {
   position: absolute;
-  left: 1rem;
-  right: 1rem;
-  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 2rem;
   z-index: 4;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.58rem;
+  justify-content: center;
+  gap: 0.72rem;
 }
 
 .sample-classification-photo-inline-button {
@@ -2299,6 +2381,7 @@ button:disabled {
 .sample-classification-form-panel textarea {
   padding: 0.5rem 0.62rem;
   font-size: 1rem;
+  box-shadow: inset 0 1px 3px rgba(32, 45, 34, 0.1), 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .sample-classification-control {
@@ -2378,6 +2461,12 @@ button:disabled {
   box-shadow: 0 0 0 2px rgba(110, 136, 82, 0.14);
 }
 
+.sample-classification-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
 .sample-classification-footer {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2428,6 +2517,42 @@ button:disabled {
   opacity: 0.42;
 }
 
+.sample-classification-edit-floating {
+  position: absolute;
+  top: 0.42rem;
+  right: 0.42rem;
+  z-index: 5;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(206, 215, 202, 0.92);
+  background: rgba(255, 255, 255, 0.88);
+  color: #466252;
+  box-shadow: 0 4px 10px rgba(42, 57, 41, 0.1);
+}
+
+.sample-classification-edit-floating:hover {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.sample-classification-edit-floating svg {
+  width: 0.88rem;
+  height: 0.88rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sample-classification-edit-floating:disabled {
+  opacity: 0.4;
+}
+
 .sample-classification-edit-icon {
   width: 2.2rem;
   min-width: 2.2rem;
@@ -2476,14 +2601,14 @@ button:disabled {
   .sample-classification-photo-stage {
     height: 100%;
     min-height: 100%;
-    padding: 0.5rem 0.5rem 3.4rem;
+    padding: 0.5rem;
   }
 
   .sample-classification-photo-inline-actions {
-    left: 0.82rem;
-    right: 0.82rem;
-    bottom: 0.82rem;
-    gap: 0.42rem;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 2.8rem;
+    gap: 0.58rem;
   }
 
   .sample-classification-photo-inline-icon {
@@ -2522,7 +2647,7 @@ button:disabled {
   .sample-detail-page {
     height: calc(
       100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--mobile-shell-top-offset) -
-        var(--mobile-tabbar-clearance)
+        var(--mobile-tabbar-clearance) - 0.32rem
     );
     gap: 0.45rem;
     overflow: hidden;
@@ -2589,11 +2714,20 @@ button:disabled {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);
     gap: 0.22rem;
-    padding: 0.52rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .sample-detail-general-qr-block {
     width: 100%;
+  }
+
+  .sample-detail-general-qr-block .sample-detail-qr-quick-code canvas,
+  .sample-detail-general-qr-block .sample-detail-qr-quick-code svg {
+    width: min(100%, 9rem) !important;
+    height: auto !important;
   }
 
   .sample-detail-edit-tools {
@@ -2613,12 +2747,12 @@ button:disabled {
   }
 
   .sample-detail-info-tab {
-    min-height: 2.7rem;
+    min-height: 2.5rem;
     justify-content: center;
     text-align: center;
     font-size: 0.76rem;
-    padding: 0.34rem 0.24rem 0.56rem;
-    border-radius: 22px 22px 0 0;
+    padding: 0.34rem 0.24rem 0.48rem;
+    border-radius: 18px 18px 0 0;
   }
 
   .sample-detail-info-switch-body {
@@ -2639,8 +2773,11 @@ button:disabled {
   .sample-detail-main-info-grid {
     width: 100%;
     gap: 0.62rem;
-    padding: 0.72rem 0.62rem 0.74rem;
-    border-radius: 24px;
+    padding: 0.52rem 0.42rem 0.58rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .sample-detail-general-stage {
@@ -2713,9 +2850,37 @@ button:disabled {
     text-align: left;
   }
 
-  .sample-classification-form-grid,
+  .sample-classification-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.52rem;
+  }
+
+  .sample-classification-form-grid-general {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.42rem 0.52rem;
+  }
+
+  .sample-classification-measures-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.38rem 0.42rem;
+  }
+
+  .sample-classification-measures-grid .sample-classification-field:nth-child(4),
+  .sample-classification-measures-grid .sample-classification-field:nth-child(5) {
+    grid-column: span 1;
+  }
+
   .sample-classification-sieve-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sample-classification-sieve-grid-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.38rem 0.42rem;
+  }
+
+  .sample-classification-measures-panel {
+    gap: 0.52rem;
   }
 
   .sample-classification-step-hint {
@@ -2723,10 +2888,10 @@ button:disabled {
   }
 
   .sample-detail-info-tab-dot {
-    top: 0.28rem;
-    right: 0.28rem;
-    width: 0.44rem;
-    height: 0.44rem;
+    top: 0.22rem;
+    right: 0.22rem;
+    width: 0.58rem;
+    height: 0.58rem;
   }
 
   .sample-classification-footer button {

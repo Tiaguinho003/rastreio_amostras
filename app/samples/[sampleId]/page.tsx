@@ -9,7 +9,6 @@ import { ClientLookupField } from '../../../components/clients/ClientLookupField
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
-import { StatusBadge } from '../../../components/StatusBadge';
 import {
   ApiError,
   completeClassification,
@@ -368,7 +367,7 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     umidade: toText(mergedData.umidade),
     aspectoCor: toText(mergedData.aspectoCor),
     observacoes: toText(mergedData.observacoes),
-    loteOrigem: toText(mergedData.loteOrigem),
+    loteOrigem: toText(mergedData.loteOrigem) || toText(detail.sample.declared.originLot),
     peneiraP18: toText(mergedSieve.p18),
     peneiraP17: toText(mergedSieve.p17),
     peneiraP16: toText(mergedSieve.p16),
@@ -855,7 +854,11 @@ export default function SampleDetailPage() {
   );
   const classificationPhotoEditingAllowed = detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS';
   const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
-  const classificationVisiblePhotoPreviewUrl = classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl;
+  const classificationServerPhotoUrl = classificationAttachment
+    ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
+    : null;
+  const classificationVisiblePhotoPreviewUrl =
+    classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
   const classificationPhotoStatusLabel = classificationPhotoUploading
     ? 'Salvando foto...'
     : '';
@@ -1024,7 +1027,6 @@ export default function SampleDetailPage() {
       if (classificationPhotoInputRef.current) {
         classificationPhotoInputRef.current.value = '';
       }
-      setMessage('Foto da classificacao salva com sucesso.');
       await syncDetailState();
       setClassificationPhotoConfirmEffectKey((current) => current + 1);
       setShowClassificationPhotoConfirmEffect(true);
@@ -1847,12 +1849,10 @@ export default function SampleDetailPage() {
     <AppShell session={session} onLogout={logout}>
       <section className="sample-detail-page">
         <div className="row sample-detail-back-row">
-          <Link href="/samples" className="sample-detail-back-button">
+          <Link href="/samples" className="sample-detail-back-button" aria-label="Voltar aos registros" title="Voltar aos registros">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M19 12H5" />
-              <path d="m11 6-6 6 6 6" />
+              <path d="M15 6l-6 6 6 6" />
             </svg>
-            <span>Registros</span>
           </Link>
         </div>
 
@@ -1863,14 +1863,10 @@ export default function SampleDetailPage() {
             <section className="panel stack sample-detail-hero-panel">
               <div className="sample-detail-hero-top">
                 <div className="sample-detail-hero-main">
-                  <span className="sample-detail-hero-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9.5Z" />
-                      <path d="M8 21v-5.5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1V21" />
-                      <path d="M9 10h.01" />
-                      <path d="M15 10h.01" />
-                    </svg>
-                  </span>
+                  <span
+                    className={`sample-detail-hero-status-line is-${getOperationalStatusDotTone(detail.sample.status)}`}
+                    aria-hidden="true"
+                  />
 
                   <div className="sample-detail-hero-text">
                     <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
@@ -2164,13 +2160,6 @@ export default function SampleDetailPage() {
                 ) : detailSection === 'CLASSIFICATION' ? (
                   isClassificationStatus(detail.sample.status) ? (
                     <section className="stack sample-detail-info-pane sample-detail-classification-pane" id="classification-section" ref={classificationSectionRef}>
-                      <div className="row" style={{ justifyContent: 'space-between' }}>
-                        <h3 style={{ margin: 0 }}>Classificacao da amostra</h3>
-                        <div className="row" style={{ marginLeft: 'auto', justifyContent: 'flex-end' }}>
-                          <StatusBadge status={detail.sample.status} />
-                        </div>
-                      </div>
-
                       {fromQrSource ? (
                         <p className="success sample-classification-feedback" style={{ margin: 0 }}>
                           Acesso por leitura de QR confirmado para esta amostra.
@@ -2221,6 +2210,7 @@ export default function SampleDetailPage() {
                           }}
                         >
                           <div className="sample-classification-step-header">
+                            <div className="sample-classification-step-switch-row">
                             <div className="sample-classification-step-switch" role="tablist" aria-label="Etapas da classificacao">
                               <button
                                 type="button"
@@ -2228,6 +2218,13 @@ export default function SampleDetailPage() {
                                 onClick={() => setClassificationStep('PHOTO')}
                               >
                                 Foto
+                                {classificationAttachment ? (
+                                  <span className="sample-classification-step-check" aria-label="Foto adicionada">
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="m5 12.5 4.3 4.2L19 7" />
+                                    </svg>
+                                  </span>
+                                ) : null}
                               </button>
                               <button
                                 type="button"
@@ -2247,6 +2244,7 @@ export default function SampleDetailPage() {
                               >
                                 Leituras
                               </button>
+                            </div>
                             </div>
                           </div>
 
@@ -2368,43 +2366,41 @@ export default function SampleDetailPage() {
 
                           {classificationStep === 'GENERAL' ? (
                             <section className="panel stack sample-classification-form-panel">
-                              <div className="grid sample-classification-form-grid">
+                              <div className="grid sample-classification-form-grid sample-classification-form-grid-general">
                                 {renderClassificationInputField('padrao', 'Padrao')}
                                 {renderClassificationInputField('catacao', 'Catacao')}
                                 {renderClassificationInputField('aspecto', 'Aspecto')}
                                 {renderClassificationInputField('bebida', 'Bebida')}
                                 {renderClassificationInputField('classificador', 'Classificador')}
                                 {renderClassificationInputField('loteOrigem', 'Lote de origem')}
-                                {renderClassificationInputField('aspectoCor', 'Aspecto da cor')}
+                                {renderClassificationInputField('aspectoCor', 'Aspecto da cor', {
+                                  className: 'sample-classification-field-span-full'
+                                })}
                               </div>
                             </section>
                           ) : null}
 
                           {classificationStep === 'MEASURES' ? (
-                            <div className="sample-classification-step-pane-stack">
-                              <section className="panel stack sample-classification-form-panel">
-                                <div className="grid sample-classification-form-grid">
-                                  {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
-                                  {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
-                                  {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
-                                  {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
-                                  {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
-                                </div>
+                            <section className="panel stack sample-classification-form-panel sample-classification-measures-panel">
+                              <div className="grid sample-classification-measures-grid">
+                                {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
+                                {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
+                                {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
+                                {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
+                                {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
+                              </div>
 
-                                {renderClassificationTextareaField('observacoes', 'Observacoes', {
-                                  className: 'sample-classification-field-span-full',
-                                  rows: 2
-                                })}
-                              </section>
+                              <div className="grid sample-classification-sieve-grid sample-classification-sieve-grid-compact">
+                                {SIEVE_FIELDS.map((field) => (
+                                  renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' })
+                                ))}
+                              </div>
 
-                              <section className="panel stack sample-classification-form-panel sample-classification-sieve-panel">
-                                <div className="grid sample-classification-sieve-grid">
-                                  {SIEVE_FIELDS.map((field) => (
-                                    renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' })
-                                  ))}
-                                </div>
-                              </section>
-                            </div>
+                              {renderClassificationTextareaField('observacoes', 'Observacoes', {
+                                className: 'sample-classification-field-span-full',
+                                rows: 2
+                              })}
+                            </section>
                           ) : null}
                           </div>
 
@@ -2443,22 +2439,6 @@ export default function SampleDetailPage() {
                               </>
                             ) : (
                               <>
-                                {detail.sample.status === 'CLASSIFIED' && classificationStep !== 'PHOTO' ? (
-                                  <button
-                                    className="secondary sample-classification-edit-icon"
-                                    type="button"
-                                    onClick={startClassificationEdit}
-                                    disabled={classificationStepBusy}
-                                    aria-label="Editar classificacao"
-                                    title="Editar classificacao"
-                                  >
-                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                      <path d="M12 20h9" />
-                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                    </svg>
-                                  </button>
-                                ) : null}
-
                                 {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && classificationStep === 'MEASURES' ? (
                                   <>
                                     <button
@@ -2467,7 +2447,7 @@ export default function SampleDetailPage() {
                                       onClick={handleSaveClassificationPartial}
                                       disabled={classificationSaving || classificationCompleting || classificationUpdating}
                                     >
-                                      {classificationSaving ? 'Salvando rascunho...' : 'Salvar parcial'}
+                                      {classificationSaving ? 'Salvando...' : 'Salvar'}
                                     </button>
                                     <button
                                       type="submit"
@@ -2478,7 +2458,7 @@ export default function SampleDetailPage() {
                                         !classificationCanComplete
                                       }
                                     >
-                                      {classificationCompleting ? 'Salvando...' : 'Salvar e concluir'}
+                                      {classificationCompleting ? 'Concluindo...' : 'Concluir'}
                                     </button>
                                   </>
                                 ) : null}
@@ -2486,18 +2466,35 @@ export default function SampleDetailPage() {
                             )}
                             </div>
 
-                            <button
-                              className="secondary sample-classification-nav-arrow"
-                              type="button"
-                              onClick={handleGoForwardClassificationStep}
-                              disabled={!classificationCanGoNext}
-                              aria-label="Avancar etapa da classificacao"
-                              title="Avancar"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="m9 6 6 6-6 6" />
-                              </svg>
-                            </button>
+                            <div className="sample-classification-footer-right">
+                              <button
+                                className="secondary sample-classification-nav-arrow"
+                                type="button"
+                                onClick={handleGoForwardClassificationStep}
+                                disabled={!classificationCanGoNext}
+                                aria-label="Avancar etapa da classificacao"
+                                title="Avancar"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="m9 6 6 6-6 6" />
+                                </svg>
+                              </button>
+                              {detail.sample.status === 'CLASSIFIED' && classificationStep !== 'PHOTO' && !classificationEditMode ? (
+                                <button
+                                  className="secondary sample-classification-nav-arrow"
+                                  type="button"
+                                  onClick={startClassificationEdit}
+                                  disabled={classificationStepBusy}
+                                  aria-label="Editar classificacao"
+                                  title="Editar classificacao"
+                                >
+                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                  </svg>
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                         </form>
                       ) : null}
