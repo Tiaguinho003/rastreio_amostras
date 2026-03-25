@@ -240,6 +240,7 @@ body {
   background: rgba(0, 0, 0, 0.18);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   backdrop-filter: blur(24px) saturate(1.4);
+  overflow: hidden;
 }
 
 .login-modal {
@@ -504,12 +505,15 @@ body {
   padding: 1rem;
   background: rgba(245, 245, 241, 0.18);
   backdrop-filter: blur(20px) saturate(1.02);
+  overflow: hidden;
 }
 
 .app-modal {
   width: min(430px, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
   max-height: min(84vh, 40rem);
   overflow: auto;
+  overflow-x: hidden;
   border: 1px solid rgba(214, 214, 214, 0.55);
   border-radius: 32px;
   padding: 1rem 1rem 1.05rem;
@@ -2366,6 +2370,9 @@ button:disabled {
   gap: 0.72rem;
   padding: 0.85rem;
   min-height: 100%;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .sample-classification-form-panel label {
@@ -4457,7 +4464,7 @@ button:disabled {
 }
 
 .records-client-detail-modal {
-  width: min(680px, 100%);
+  width: min(680px, calc(100vw - 1.5rem));
   max-height: 90vh;
 }
 
@@ -4900,10 +4907,11 @@ button:disabled {
   padding: 1rem;
   background: rgba(245, 245, 241, 0.18);
   backdrop-filter: blur(20px) saturate(1.02);
+  overflow: hidden;
 }
 
 .app-modal-dashboard {
-  width: min(800px, 100%);
+  width: min(800px, calc(100vw - 1.5rem));
   max-height: 82vh;
 }
 
@@ -6226,6 +6234,7 @@ button:disabled {
   background: rgba(0, 0, 0, 0.15);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   backdrop-filter: blur(24px) saturate(1.4);
+  overflow: hidden;
 }
 
 .new-sample-label-modal {
@@ -6679,12 +6688,14 @@ button:disabled {
   padding: 1rem;
   background: rgba(18, 25, 20, 0.42);
   backdrop-filter: blur(7px);
+  overflow: hidden;
 }
 
 .client-modal {
-  width: min(720px, 100%);
+  width: min(720px, calc(100vw - 1.5rem));
   max-height: 90vh;
   overflow: auto;
+  overflow-x: hidden;
   gap: 0.9rem;
 }
 
@@ -6692,6 +6703,7 @@ button:disabled {
   width: min(400px, calc(100vw - 1.5rem));
   gap: 0.62rem;
   padding: 0.85rem 0.9rem 0.9rem;
+  position: relative;
 }
 
 .sample-movement-modal .app-modal-header {
@@ -6744,6 +6756,59 @@ button:disabled {
 
 .sample-movement-modal .grid-2 {
   gap: 0.45rem;
+}
+
+.sample-movement-stamp-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+  z-index: 10;
+  pointer-events: none;
+  animation: stamp-bg-in 200ms ease-out both;
+}
+
+@keyframes stamp-bg-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sample-movement-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.62rem 1.6rem;
+  border-radius: 8px;
+  border: 3px solid;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-12deg);
+  animation: stamp-hit 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 80ms;
+}
+
+@keyframes stamp-hit {
+  0% { opacity: 0; transform: rotate(-12deg) scale(2.2); }
+  60% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
+  100% { opacity: 1; transform: rotate(-12deg) scale(1); }
+}
+
+.sample-movement-stamp.is-loss {
+  border-color: rgba(120, 120, 120, 0.6);
+  color: rgba(90, 90, 90, 0.72);
+  background: rgba(200, 200, 200, 0.12);
+}
+
+.sample-movement-stamp.is-sale {
+  border-color: rgba(180, 150, 50, 0.6);
+  color: rgba(150, 120, 20, 0.78);
+  background: rgba(240, 220, 120, 0.1);
 }
 
 .sample-movement-qty-row {
@@ -6839,7 +6904,7 @@ button:disabled {
 }
 
 .client-quick-create-modal {
-  width: min(680px, 100%);
+  width: min(680px, calc(100vw - 1.5rem));
   max-height: min(90vh, 44rem);
   overflow: hidden;
   gap: 0.82rem;

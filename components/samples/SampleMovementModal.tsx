@@ -35,6 +35,7 @@ type SampleMovementModalProps = {
   initialMovementType?: SampleMovementType;
   movement?: SampleMovement | null;
   availableSacks?: number;
+  stampType?: SampleMovementType | null;
   onClose: () => void;
   onSubmit: (data: SampleMovementModalSubmitInput) => Promise<void> | void;
 };
@@ -83,6 +84,7 @@ export function SampleMovementModal({
   initialMovementType = 'SALE',
   movement = null,
   availableSacks = 0,
+  stampType = null,
   onClose,
   onSubmit
 }: SampleMovementModalProps) {
@@ -370,6 +372,14 @@ export function SampleMovementModal({
             </button>
           </div>
         </form>
+
+        {stampType ? (
+          <div className="sample-movement-stamp-overlay">
+            <div className={`sample-movement-stamp${stampType === 'SALE' ? ' is-sale' : ' is-loss'}`}>
+              <span>{stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}</span>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>,
     document.body

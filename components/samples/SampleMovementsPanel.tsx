@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -61,7 +61,8 @@ export function SampleMovementsPanel({
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [stampType, setStampType] = useState<SampleMovementType | null>(null);
+  const stampTimeoutRef = useRef<number | null>(null);
 
   const sortedMovements = useMemo(() => {
     const active = movements.filter((m) => m.status === 'ACTIVE');
@@ -71,9 +72,14 @@ export function SampleMovementsPanel({
 
   const hasMovements = sortedMovements.length > 0;
 
+  const finishStamp = useCallback(async () => {
+    setStampType(null);
+    setCreateOpen(false);
+    await onRefresh();
+  }, [onRefresh]);
+
   function clearFeedback() {
     setError(null);
-    setMessage(null);
   }
 
   return (
@@ -88,7 +94,6 @@ export function SampleMovementsPanel({
         </div>
 
         {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
 
         <div className="sample-movement-panel-body">
           {hasMovements ? (
@@ -216,6 +221,7 @@ export function SampleMovementsPanel({
             clearFeedback();
           }
         }}
+        stampType={stampType}
         onSubmit={async (data) => {
           setSaving(true);
           clearFeedback();
@@ -232,9 +238,14 @@ export function SampleMovementsPanel({
               lossReasonText: data.lossReasonText
             });
 
-            setCreateOpen(false);
-            setMessage(data.movementType === 'SALE' ? 'Venda registrada com sucesso.' : 'Perda registrada com sucesso.');
-            await onRefresh();
+            setStampType(data.movementType);
+            if (stampTimeoutRef.current !== null) {
+              window.clearTimeout(stampTimeoutRef.current);
+            }
+            stampTimeoutRef.current = window.setTimeout(() => {
+              stampTimeoutRef.current = null;
+              void finishStamp();
+            }, 1500);
           } catch (cause) {
             setError(cause instanceof ApiError ? cause.message : 'Falha ao registrar movimentacao');
           } finally {
@@ -285,7 +296,6 @@ export function SampleMovementsPanel({
             });
 
             setEditMovement(null);
-            setMessage(editMovement.movementType === 'SALE' ? 'Venda atualizada com sucesso.' : 'Perda atualizada com sucesso.');
             await onRefresh();
           } catch (cause) {
             setError(cause instanceof ApiError ? cause.message : 'Falha ao atualizar movimentacao');
@@ -351,7 +361,6 @@ export function SampleMovementsPanel({
                       });
                       setCancelMovement(null);
                       setCancelReasonText('');
-                      setMessage('Movimentacao cancelada com sucesso.');
                       await onRefresh();
                     } catch (cause) {
                       setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
