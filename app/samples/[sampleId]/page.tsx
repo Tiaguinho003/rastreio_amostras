@@ -2427,14 +2427,14 @@ export default function SampleDetailPage() {
                                   onClick={cancelClassificationEdit}
                                   disabled={classificationUpdating || classificationSaving || classificationCompleting}
                                 >
-                                  Cancelar edicao
+                                  Cancelar
                                 </button>
                                 <button
                                   type="button"
                                   onClick={handleRequestClassificationUpdate}
                                   disabled={classificationUpdating || classificationSaving || classificationCompleting}
                                 >
-                                  Salvar edicao
+                                  Salvar
                                 </button>
                               </>
                             ) : (
@@ -2765,64 +2765,85 @@ export default function SampleDetailPage() {
 
       {registrationEditReasonModalOpen ? (
         <div
-          className="export-confirm-backdrop"
+          className="app-modal-backdrop"
           onClick={() => {
             closeRegistrationEditReasonModal();
           }}
         >
           <section
             ref={registrationEditTrapRef}
-            className="export-confirm-modal panel stack sample-classification-edit-modal"
+            className="app-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="registration-edit-reason-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="registration-edit-reason-modal-title" style={{ margin: 0 }}>
-              Confirmar motivo da edicao
-            </h3>
-
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Informe o motivo da alteracao para registrar a edicao auditada do registro.
-            </p>
-
-            <label>
-              Motivo da edicao
-              <select
-                value={registrationEditReasonCode}
-                onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)}
-                disabled={registrationUpdating}
-              >
-                {UPDATE_REASON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Justificativa (maximo 10 palavras)
-              <input
-                value={registrationEditReasonText}
-                onChange={(event) => setRegistrationEditReasonText(event.target.value)}
-                placeholder="Explique a alteracao"
-                disabled={registrationUpdating}
-              />
-            </label>
-
-            <div className="row">
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="registration-edit-reason-modal-title" className="app-modal-title">
+                  Confirmar motivo da edicao
+                </h3>
+                <p className="app-modal-description">
+                  Informe o motivo da alteracao para registrar a edicao auditada do registro.
+                </p>
+              </div>
               <button
-                className="secondary"
                 type="button"
+                className="app-modal-close"
                 onClick={closeRegistrationEditReasonModal}
                 disabled={registrationUpdating}
+                aria-label="Fechar"
               >
-                Cancelar
+                <span aria-hidden="true">×</span>
               </button>
-              <button type="button" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating}>
-                {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-              </button>
+            </header>
+
+            <div className="app-modal-content">
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da edicao</span>
+                <select
+                  className="app-modal-input"
+                  value={registrationEditReasonCode}
+                  onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)}
+                  disabled={registrationUpdating}
+                >
+                  {UPDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Justificativa (maximo 10 palavras)</span>
+                <input
+                  className="app-modal-input"
+                  value={registrationEditReasonText}
+                  onChange={(event) => setRegistrationEditReasonText(event.target.value)}
+                  placeholder="Explique a alteracao"
+                  disabled={registrationUpdating}
+                />
+              </label>
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-submit"
+                  onClick={() => void handleConfirmRegistrationUpdate()}
+                  disabled={registrationUpdating}
+                >
+                  {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
+                </button>
+                <button
+                  className="app-modal-secondary"
+                  type="button"
+                  onClick={closeRegistrationEditReasonModal}
+                  disabled={registrationUpdating}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -2830,64 +2851,85 @@ export default function SampleDetailPage() {
 
       {classificationEditReasonModalOpen ? (
         <div
-          className="export-confirm-backdrop"
+          className="app-modal-backdrop"
           onClick={() => {
             closeClassificationEditReasonModal();
           }}
         >
           <section
             ref={classificationEditTrapRef}
-            className="export-confirm-modal panel stack sample-classification-edit-modal"
+            className="app-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="classification-edit-reason-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="classification-edit-reason-modal-title" style={{ margin: 0 }}>
-              Confirmar motivo da edicao
-            </h3>
-
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Informe o motivo da alteracao para registrar a edicao auditada da classificacao.
-            </p>
-
-            <label>
-              Motivo da edicao
-              <select
-                value={classificationEditReasonCode}
-                onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
-                disabled={classificationUpdating}
-              >
-                {UPDATE_REASON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Justificativa (maximo 10 palavras)
-              <input
-                value={classificationEditReasonText}
-                onChange={(event) => setClassificationEditReasonText(event.target.value)}
-                placeholder="Explique a alteracao"
-                disabled={classificationUpdating}
-              />
-            </label>
-
-            <div className="row">
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="classification-edit-reason-modal-title" className="app-modal-title">
+                  Confirmar motivo da edicao
+                </h3>
+                <p className="app-modal-description">
+                  Informe o motivo da alteracao para registrar a edicao auditada da classificacao.
+                </p>
+              </div>
               <button
-                className="secondary"
                 type="button"
+                className="app-modal-close"
                 onClick={closeClassificationEditReasonModal}
                 disabled={classificationUpdating}
+                aria-label="Fechar"
               >
-                Cancelar
+                <span aria-hidden="true">×</span>
               </button>
-              <button type="button" onClick={handleConfirmClassificationUpdate} disabled={classificationUpdating}>
-                {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-              </button>
+            </header>
+
+            <div className="app-modal-content">
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo da edicao</span>
+                <select
+                  className="app-modal-input"
+                  value={classificationEditReasonCode}
+                  onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
+                  disabled={classificationUpdating}
+                >
+                  {UPDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="app-modal-field">
+                <span className="app-modal-label">Justificativa (maximo 10 palavras)</span>
+                <input
+                  className="app-modal-input"
+                  value={classificationEditReasonText}
+                  onChange={(event) => setClassificationEditReasonText(event.target.value)}
+                  placeholder="Explique a alteracao"
+                  disabled={classificationUpdating}
+                />
+              </label>
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-submit"
+                  onClick={handleConfirmClassificationUpdate}
+                  disabled={classificationUpdating}
+                >
+                  {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
+                </button>
+                <button
+                  className="app-modal-secondary"
+                  type="button"
+                  onClick={closeClassificationEditReasonModal}
+                  disabled={classificationUpdating}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -2895,38 +2937,46 @@ export default function SampleDetailPage() {
 
       {exportTypeSelectorOpen ? (
         <div
-          className="export-confirm-backdrop"
+          className="app-modal-backdrop"
           onClick={() => {
             handleCloseExportTypeSelector();
           }}
         >
           <section
             ref={exportTypeTrapRef}
-            className="export-confirm-modal panel stack"
+            className="app-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="export-type-select-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="export-type-select-modal-title" style={{ margin: 0 }}>
-              Escolher tipo de laudo
-            </h3>
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="export-type-select-modal-title" className="app-modal-title">
+                  Escolher tipo de laudo
+                </h3>
+                <p className="app-modal-description">
+                  Selecione o tipo de laudo para seguir com o envio e confirmar a exportacao.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={handleCloseExportTypeSelector}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
 
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Selecione o tipo de laudo para seguir com o envio e confirmar a exportacao.
-            </p>
-
-            <div className="row">
-              <button type="button" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
+            <div className="app-modal-actions">
+              <button type="button" className="app-modal-submit" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
                 Completo
               </button>
-              <button type="button" className="secondary" onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
+              <button type="button" className="app-modal-submit" onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
                 Comprador Parcial
               </button>
-            </div>
-
-            <div className="row">
-              <button className="secondary" type="button" onClick={handleCloseExportTypeSelector}>
+              <button className="app-modal-secondary" type="button" onClick={handleCloseExportTypeSelector}>
                 Cancelar
               </button>
             </div>
@@ -2936,54 +2986,61 @@ export default function SampleDetailPage() {
 
       {exportConfirmationOpen && pendingExportType ? (
         <div
-          className="export-confirm-backdrop"
+          className="app-modal-backdrop"
           onClick={() => {
             handleCloseExportConfirmation();
           }}
         >
           <section
             ref={exportConfirmTrapRef}
-            className="export-confirm-modal panel stack"
+            className="app-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="export-confirm-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="export-confirm-modal-title" style={{ margin: 0 }}>
-              Confirmar exportacao de laudo
-            </h3>
-
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Voce esta prestes a exportar o laudo no tipo <strong>{getExportTypeLabel(pendingExportType)}</strong>.
-              Essa acao gera o arquivo e registra o evento de auditoria da exportacao.
-            </p>
-
-            <label>
-              Destinatario (opcional, recomendado)
-              <input
-                value={exportDestination}
-                onChange={(event) => setExportDestination(event.target.value)}
-                placeholder="Ex.: Comprador XPTO / email / setor"
-                disabled={Boolean(exportingPdfType)}
-              />
-            </label>
-
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-              Se informado, o destinatario sera salvo junto da auditoria da exportacao.
-            </p>
-
-            <div className="row">
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="export-confirm-modal-title" className="app-modal-title">
+                  Confirmar exportacao de laudo
+                </h3>
+              </div>
               <button
-                className="secondary"
                 type="button"
+                className="app-modal-close"
                 onClick={handleCloseExportConfirmation}
                 disabled={Boolean(exportingPdfType)}
+                aria-label="Fechar"
               >
-                Nao
+                <span aria-hidden="true">×</span>
               </button>
-              <button type="button" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType)}>
-                {Boolean(exportingPdfType) ? 'Exportando...' : 'Confirmar exportacao'}
-              </button>
+            </header>
+
+            <div className="app-modal-content">
+              <label className="app-modal-field">
+                <span className="app-modal-label">Destinatario (opcional, recomendado)</span>
+                <input
+                  className="app-modal-input"
+                  value={exportDestination}
+                  onChange={(event) => setExportDestination(event.target.value)}
+                  placeholder="Ex.: Comprador XPTO / email / setor"
+                  disabled={Boolean(exportingPdfType)}
+                />
+              </label>
+
+              <div className="app-modal-actions">
+                <button type="button" className="app-modal-submit" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType)}>
+                  {Boolean(exportingPdfType) ? 'Exportando...' : 'Confirmar exportacao'}
+                </button>
+                <button
+                  className="app-modal-secondary"
+                  type="button"
+                  onClick={handleCloseExportConfirmation}
+                  disabled={Boolean(exportingPdfType)}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </section>
         </div>
