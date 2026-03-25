@@ -237,8 +237,6 @@ CREATE TABLE "sample_movement" (
     (
       "movement_type" = 'LOSS'
       AND "buyer_client_id" IS NULL
-      AND "reason_text" IS NOT NULL
-      AND btrim("reason_text") <> ''
     )
   ),
   CONSTRAINT "chk_sample_movement_cancelled_state" CHECK (

@@ -195,7 +195,7 @@ function normalizeMovementNotes(value, fieldName = 'notes', { required = false }
 }
 
 function normalizeLossReasonText(value, fieldName = 'lossReasonText') {
-  return normalizeRequiredText(value, fieldName, 500);
+  return normalizeOptionalText(value, fieldName, 500);
 }
 
 function normalizeMovementQuantity(value, fieldName = 'quantitySacks') {
@@ -682,7 +682,7 @@ function parseMovementUpdatePatch(after) {
     patch.notes = normalizeMovementNotes(after.notes, 'after.notes');
   }
   if (hasOwn(after, 'lossReasonText')) {
-    patch.lossReasonText = normalizeMovementNotes(after.lossReasonText, 'after.lossReasonText', { required: true });
+    patch.lossReasonText = normalizeMovementNotes(after.lossReasonText, 'after.lossReasonText');
   }
 
   if (Object.keys(patch).length === 0) {
@@ -1863,9 +1863,7 @@ export class SampleCommandService {
     const movementType = normalizeMovementType(input.movementType);
     const quantitySacks = normalizeMovementQuantity(input.quantitySacks);
     const movementDate = normalizeMovementDate(input.movementDate);
-    const notes = normalizeMovementNotes(input.notes, 'notes', {
-      required: movementType === MOVEMENT_TYPES.SALE
-    });
+    const notes = normalizeMovementNotes(input.notes, 'notes');
 
     let buyerBinding = null;
     let lossReasonText = null;
@@ -1992,10 +1990,6 @@ export class SampleCommandService {
         nextBuyerRegistrationId = movement.buyerRegistrationId;
       }
       nextLossReasonText = null;
-
-      if (!nextNotes) {
-        throw new HttpError(422, 'notes is required for SALE');
-      }
     } else {
       if (patch.buyerClientId !== undefined && patch.buyerClientId !== null) {
         throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
@@ -2007,9 +2001,6 @@ export class SampleCommandService {
       nextBuyerRegistrationId = null;
       nextLossReasonText =
         patch.lossReasonText !== undefined ? patch.lossReasonText : movement.lossReasonText;
-      if (!nextLossReasonText) {
-        throw new HttpError(422, 'lossReasonText is required for LOSS');
-      }
     }
 
     const beforeSnapshot = formatMovementSnapshot(movement);

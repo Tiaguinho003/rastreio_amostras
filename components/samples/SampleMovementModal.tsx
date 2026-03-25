@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ApiError, getClient } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -33,6 +34,7 @@ type SampleMovementModalProps = {
   title: string;
   initialMovementType?: SampleMovementType;
   movement?: SampleMovement | null;
+  availableSacks?: number;
   onClose: () => void;
   onSubmit: (data: SampleMovementModalSubmitInput) => Promise<void> | void;
 };
@@ -80,6 +82,7 @@ export function SampleMovementModal({
   title,
   initialMovementType = 'SALE',
   movement = null,
+  availableSacks = 0,
   onClose,
   onSubmit
 }: SampleMovementModalProps) {
@@ -165,20 +168,12 @@ export function SampleMovementModal({
       return true;
     }
 
-    if (showBuyerFields && !notes.trim()) {
-      return true;
-    }
-
-    if (!showBuyerFields && !lossReasonText.trim()) {
-      return true;
-    }
-
     if (mode === 'edit' && !reasonText.trim()) {
       return true;
     }
 
     return false;
-  }, [buyerClient, lossReasonText, mode, movementDate, notes, quantitySacks, reasonText, showBuyerFields]);
+  }, [buyerClient, mode, movementDate, quantitySacks, reasonText, showBuyerFields]);
 
   if (!open) {
     return null;
@@ -195,16 +190,6 @@ export function SampleMovementModal({
 
     if (showBuyerFields && !buyerClient) {
       setError('Selecione um comprador para registrar a venda.');
-      return;
-    }
-
-    if (showBuyerFields && !notes.trim()) {
-      setError('Informe uma observacao para registrar a venda.');
-      return;
-    }
-
-    if (!showBuyerFields && !lossReasonText.trim()) {
-      setError('Informe o motivo da perda.');
       return;
     }
 
@@ -226,32 +211,35 @@ export function SampleMovementModal({
     });
   }
 
-  return (
-    <div className="client-modal-backdrop" onClick={() => !saving && onClose()}>
+  return createPortal(
+    <div className="app-modal-backdrop" onClick={() => !saving && onClose()}>
       <section
         ref={focusTrapRef}
-        className="client-modal panel stack sample-movement-modal"
+        className="app-modal sample-movement-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="sample-movement-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="client-modal-header">
-          <h3 id="sample-movement-modal-title" style={{ margin: 0 }}>
-            {title}
-          </h3>
-          <button type="button" className="secondary" onClick={onClose} disabled={saving}>
-            Fechar
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id="sample-movement-modal-title" className="app-modal-title">
+              {title}
+            </h3>
+          </div>
+          <button type="button" className="app-modal-close" onClick={onClose} disabled={saving} aria-label="Fechar">
+            <span aria-hidden="true">×</span>
           </button>
-        </div>
+        </header>
 
         {error ? <p className="error">{error}</p> : null}
 
-        <form className="stack" onSubmit={handleSubmit}>
+        <form className="app-modal-content" onSubmit={handleSubmit}>
           {mode === 'create' ? (
-            <label>
-              Tipo de movimentacao
+            <label className="app-modal-field">
+              <span className="app-modal-label">Tipo de movimentacao</span>
               <select
+                className="app-modal-input"
                 value={movementType}
                 disabled={saving}
                 onChange={(event) => {
@@ -269,7 +257,7 @@ export function SampleMovementModal({
               </select>
             </label>
           ) : (
-            <p className="sample-commercial-summary-copy" style={{ marginTop: 0 }}>
+            <p className="app-modal-description" style={{ margin: 0 }}>
               Tipo: <strong>{movementType === 'SALE' ? 'Venda' : 'Perda'}</strong>
             </p>
           )}
@@ -298,10 +286,11 @@ export function SampleMovementModal({
               />
             </>
           ) : (
-            <label>
-              Motivo da perda
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da perda</span>
               <textarea
-                rows={3}
+                className="app-modal-input"
+                rows={2}
                 value={lossReasonText}
                 disabled={saving}
                 onChange={(event) => setLossReasonText(event.target.value)}
@@ -311,19 +300,34 @@ export function SampleMovementModal({
           )}
 
           <div className="grid grid-2">
-            <label>
-              Quantidade de sacas
-              <input
-                value={quantitySacks}
-                inputMode="numeric"
-                disabled={saving}
-                onChange={(event) => setQuantitySacks(event.target.value)}
-              />
-            </label>
+            <div className="app-modal-field">
+              <span className="app-modal-label">Quantidade de sacas</span>
+              <div className="sample-movement-qty-row">
+                <input
+                  className="app-modal-input"
+                  value={quantitySacks}
+                  inputMode="numeric"
+                  disabled={saving}
+                  onChange={(event) => setQuantitySacks(event.target.value)}
+                />
+                {availableSacks > 0 ? (
+                  <button
+                    type="button"
+                    className="sample-movement-qty-all-btn"
+                    disabled={saving}
+                    onClick={() => setQuantitySacks(String(availableSacks))}
+                    title={`Preencher com todas as ${availableSacks} sacas disponíveis`}
+                  >
+                    Todas
+                  </button>
+                ) : null}
+              </div>
+            </div>
 
-            <label>
-              Data da movimentacao
+            <label className="app-modal-field">
+              <span className="app-modal-label">Data da movimentacao</span>
               <input
+                className="app-modal-input"
                 type="date"
                 value={movementDate}
                 disabled={saving}
@@ -332,21 +336,23 @@ export function SampleMovementModal({
             </label>
           </div>
 
-          <label>
-            Observacoes {showBuyerFields ? '(obrigatorio)' : '(opcional)'}
+          <label className="app-modal-field">
+            <span className="app-modal-label">Observacoes (opcional)</span>
             <textarea
-              rows={3}
+              className="app-modal-input"
+              rows={2}
               value={notes}
               disabled={saving}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder={showBuyerFields ? 'Descreva a venda realizada' : 'Observacoes adicionais'}
+              placeholder="Observacoes adicionais"
             />
           </label>
 
           {mode === 'edit' ? (
-            <label>
-              Motivo da edicao
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da edicao</span>
               <input
+                className="app-modal-input"
                 value={reasonText}
                 disabled={saving}
                 onChange={(event) => setReasonText(event.target.value)}
@@ -355,13 +361,17 @@ export function SampleMovementModal({
             </label>
           ) : null}
 
-          <div className="row">
-            <button type="submit" disabled={saving || submitDisabled}>
-              {saving ? 'Salvando...' : mode === 'create' ? 'Registrar movimentacao' : 'Salvar movimentacao'}
+          <div className="app-modal-actions">
+            <button type="submit" className="app-modal-submit" disabled={saving || submitDisabled}>
+              {saving ? 'Salvando...' : mode === 'create' ? 'Registrar' : 'Salvar'}
+            </button>
+            <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
+              Cancelar
             </button>
           </div>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

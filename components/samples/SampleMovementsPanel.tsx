@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   ApiError,
@@ -110,58 +111,53 @@ export function SampleMovementsPanel({
                         {isCancelled ? (
                           <span className="sample-movement-card-cancelled-badge">Cancelada</span>
                         ) : null}
+                        <span className="sample-movement-card-date">{formatMovementDate(movement.movementDate)}</span>
                       </div>
-                      <strong className="sample-movement-card-qty">
-                        {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
-                      </strong>
+                      <div className="sample-movement-card-right">
+                        <strong className="sample-movement-card-qty">
+                          {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
+                        </strong>
+                        {!isCancelled ? (
+                          <div className="sample-movement-card-actions">
+                            <button
+                              type="button"
+                              className="secondary sample-movement-card-action-btn"
+                              onClick={() => {
+                                setEditMovement(movement);
+                                clearFeedback();
+                              }}
+                              disabled={saving}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary sample-movement-card-action-btn is-danger"
+                              onClick={() => {
+                                setCancelMovement(movement);
+                                setCancelReasonText('');
+                                clearFeedback();
+                              }}
+                              disabled={saving}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
 
-                    <div className="sample-movement-card-body">
-                      <span className="sample-movement-card-meta">
-                        {formatMovementDate(movement.movementDate)}
-                      </span>
-                      {buyerLabel ? (
-                        <span className="sample-movement-card-meta">
-                          Comprador: {buyerLabel}
-                        </span>
-                      ) : null}
-                      {!isSale && movement.lossReasonText ? (
-                        <span className="sample-movement-card-meta">
-                          Motivo: {movement.lossReasonText}
-                        </span>
-                      ) : null}
-                      {movement.notes ? (
-                        <span className="sample-movement-card-meta">
-                          {movement.notes}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {!isCancelled ? (
-                      <div className="row sample-movement-card-actions">
-                        <button
-                          type="button"
-                          className="secondary sample-movement-card-action-btn"
-                          onClick={() => {
-                            setEditMovement(movement);
-                            clearFeedback();
-                          }}
-                          disabled={saving}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary sample-movement-card-action-btn is-danger"
-                          onClick={() => {
-                            setCancelMovement(movement);
-                            setCancelReasonText('');
-                            clearFeedback();
-                          }}
-                          disabled={saving}
-                        >
-                          Cancelar
-                        </button>
+                    {(buyerLabel || (!isSale && movement.lossReasonText) || movement.notes) ? (
+                      <div className="sample-movement-card-body">
+                        {buyerLabel ? (
+                          <span className="sample-movement-card-meta">{buyerLabel}</span>
+                        ) : null}
+                        {!isSale && movement.lossReasonText ? (
+                          <span className="sample-movement-card-meta">{movement.lossReasonText}</span>
+                        ) : null}
+                        {movement.notes ? (
+                          <span className="sample-movement-card-meta">{movement.notes}</span>
+                        ) : null}
                       </div>
                     ) : null}
                   </article>
@@ -174,33 +170,35 @@ export function SampleMovementsPanel({
             </p>
           )}
 
-          <div className="sample-movement-panel-actions sample-movement-panel-actions-bottom">
-            <button
-              type="button"
-              className="secondary"
-              disabled={sample.status !== 'CLASSIFIED'}
-              title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar perda'}
-              onClick={() => {
-                setCreateType('LOSS');
-                setCreateOpen(true);
-                clearFeedback();
-              }}
-            >
-              Registrar perda
-            </button>
-            <button
-              type="button"
-              disabled={sample.status !== 'CLASSIFIED'}
-              title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar venda'}
-              onClick={() => {
-                setCreateType('SALE');
-                setCreateOpen(true);
-                clearFeedback();
-              }}
-            >
-              Registrar venda
-            </button>
-          </div>
+        </div>
+
+        <div className="sample-movement-register-actions">
+          <button
+            type="button"
+            className="sample-movement-register-btn is-loss"
+            disabled={sample.status !== 'CLASSIFIED'}
+            title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar perda'}
+            onClick={() => {
+              setCreateType('LOSS');
+              setCreateOpen(true);
+              clearFeedback();
+            }}
+          >
+            Perda
+          </button>
+          <button
+            type="button"
+            className="sample-movement-register-btn is-sale"
+            disabled={sample.status !== 'CLASSIFIED'}
+            title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar venda'}
+            onClick={() => {
+              setCreateType('SALE');
+              setCreateOpen(true);
+              clearFeedback();
+            }}
+          >
+            Venda
+          </button>
         </div>
       </section>
 
@@ -211,6 +209,7 @@ export function SampleMovementsPanel({
         saving={saving}
         title={createType === 'SALE' ? 'Registrar venda' : 'Registrar perda'}
         initialMovementType={createType}
+        availableSacks={sample.availableSacks ?? 0}
         onClose={() => {
           if (!saving) {
             setCreateOpen(false);
@@ -296,67 +295,81 @@ export function SampleMovementsPanel({
         }}
       />
 
-      {cancelMovement ? (
-        <div className="client-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
+      {cancelMovement ? createPortal(
+        <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
           <section
             ref={cancelTrapRef}
-            className="client-modal panel stack"
+            className="app-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-movement-cancel-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="client-modal-header">
-              <h3 id="sample-movement-cancel-title" style={{ margin: 0 }}>
-                Cancelar movimentacao
-              </h3>
-              <button type="button" className="secondary" onClick={() => setCancelMovement(null)} disabled={saving}>
-                Fechar
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="sample-movement-cancel-title" className="app-modal-title">
+                  Cancelar movimentacao
+                </h3>
+                <p className="app-modal-description">
+                  Informe o motivo do cancelamento para manter a auditoria comercial consistente.
+                </p>
+              </div>
+              <button type="button" className="app-modal-close" onClick={() => setCancelMovement(null)} disabled={saving} aria-label="Fechar">
+                <span aria-hidden="true">×</span>
               </button>
-            </div>
+            </header>
 
-            <p style={{ margin: 0, color: 'var(--muted)' }}>
-              Informe o motivo do cancelamento da movimentacao para manter a auditoria comercial consistente.
-            </p>
+            <div className="app-modal-content">
+              <label className="app-modal-field">
+                <span className="app-modal-label">Motivo do cancelamento</span>
+                <textarea
+                  className="app-modal-input"
+                  rows={3}
+                  value={cancelReasonText}
+                  disabled={saving}
+                  onChange={(event) => setCancelReasonText(event.target.value)}
+                />
+              </label>
 
-            <label>
-              Motivo do cancelamento
-              <textarea rows={3} value={cancelReasonText} disabled={saving} onChange={(event) => setCancelReasonText(event.target.value)} />
-            </label>
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-submit"
+                  disabled={saving || cancelReasonText.trim().length === 0}
+                  onClick={async () => {
+                    if (!cancelMovement) {
+                      return;
+                    }
 
-            <div className="row">
-              <button
-                type="button"
-                disabled={saving || cancelReasonText.trim().length === 0}
-                onClick={async () => {
-                  if (!cancelMovement) {
-                    return;
-                  }
+                    setSaving(true);
+                    clearFeedback();
 
-                  setSaving(true);
-                  clearFeedback();
-
-                  try {
-                    await cancelSampleMovement(session, sampleId, cancelMovement.id, {
-                      expectedVersion: sample.version,
-                      reasonText: cancelReasonText.trim()
-                    });
-                    setCancelMovement(null);
-                    setCancelReasonText('');
-                    setMessage('Movimentacao cancelada com sucesso.');
-                    await onRefresh();
-                  } catch (cause) {
-                    setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-              >
-                {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
-              </button>
+                    try {
+                      await cancelSampleMovement(session, sampleId, cancelMovement.id, {
+                        expectedVersion: sample.version,
+                        reasonText: cancelReasonText.trim()
+                      });
+                      setCancelMovement(null);
+                      setCancelReasonText('');
+                      setMessage('Movimentacao cancelada com sucesso.');
+                      await onRefresh();
+                    } catch (cause) {
+                      setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
+                </button>
+                <button type="button" className="app-modal-secondary" onClick={() => setCancelMovement(null)} disabled={saving}>
+                  Voltar
+                </button>
+              </div>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </section>
   );
