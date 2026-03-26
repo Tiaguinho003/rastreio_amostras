@@ -873,6 +873,59 @@ export class ClientService {
       status: 'ACTIVE'
     };
 
+    // -- search by lot number (via sample relation) --
+    const search = typeof input?.search === 'string' ? input.search.trim() : '';
+    if (search) {
+      where.sample = { ...(where.sample ?? {}), internalLotNumber: { contains: search, mode: 'insensitive' } };
+    }
+
+    // -- owner filter (via sample relation) --
+    const owner = typeof input?.owner === 'string' ? input.owner.trim() : '';
+    if (owner) {
+      where.sample = { ...(where.sample ?? {}), declaredOwner: { contains: owner, mode: 'insensitive' } };
+    }
+
+    // -- sacks range --
+    const sacksMin = input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
+    const sacksMax = input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
+    if (sacksMin != null && !Number.isNaN(sacksMin)) {
+      where.quantitySacks = { ...(where.quantitySacks ?? {}), gte: sacksMin };
+    }
+    if (sacksMax != null && !Number.isNaN(sacksMax)) {
+      where.quantitySacks = { ...(where.quantitySacks ?? {}), lte: sacksMax };
+    }
+
+    // -- period filter (on movementDate) --
+    const periodMode = typeof input?.periodMode === 'string' ? input.periodMode.trim() : '';
+    const periodValue = typeof input?.periodValue === 'string' ? input.periodValue.trim() : '';
+    if (periodValue && periodMode) {
+      if (periodMode === 'exact') {
+        const date = new Date(periodValue);
+        if (!Number.isNaN(date.getTime())) {
+          const next = new Date(date);
+          next.setDate(next.getDate() + 1);
+          where.movementDate = { gte: date, lt: next };
+        }
+      } else if (periodMode === 'month') {
+        // expects YYYY-MM
+        const [yearStr, monthStr] = periodValue.split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        if (!Number.isNaN(year) && !Number.isNaN(month) && month >= 1 && month <= 12) {
+          const start = new Date(year, month - 1, 1);
+          const end = new Date(year, month, 1);
+          where.movementDate = { gte: start, lt: end };
+        }
+      } else if (periodMode === 'year') {
+        const year = Number(periodValue);
+        if (!Number.isNaN(year)) {
+          const start = new Date(year, 0, 1);
+          const end = new Date(year + 1, 0, 1);
+          where.movementDate = { gte: start, lt: end };
+        }
+      }
+    }
+
     const [items, total] = await this.prisma.$transaction([
       this.prisma.sampleMovement.findMany({
         where,

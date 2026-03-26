@@ -988,7 +988,16 @@ export function createBackendApiV1({
           throw new HttpError(422, 'clientId path param is required');
         }
 
-        const result = await clientService.listClientPurchases(clientId, input?.query ?? {}, actor);
+        const result = await clientService.listClientPurchases(clientId, {
+          page: input?.query?.page,
+          limit: input?.query?.limit,
+          search: input?.query?.search,
+          owner: input?.query?.owner,
+          sacksMin: input?.query?.sacksMin,
+          sacksMax: input?.query?.sacksMax,
+          periodMode: input?.query?.periodMode,
+          periodValue: input?.query?.periodValue
+        }, actor);
 
         return {
           status: 200,

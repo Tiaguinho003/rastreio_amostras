@@ -386,12 +386,27 @@ export function listClientSamples(
 export function listClientPurchases(
   session: SessionData,
   clientId: string,
-  query?: { page?: number; limit?: number },
+  query?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    owner?: string;
+    sacksMin?: string;
+    sacksMax?: string;
+    periodMode?: string;
+    periodValue?: string;
+  },
   options?: { signal?: AbortSignal }
 ) {
   const params = new URLSearchParams();
   if (query?.page) params.set('page', String(query.page));
   if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.search) params.set('search', query.search);
+  if (query?.owner) params.set('owner', query.owner);
+  if (query?.sacksMin) params.set('sacksMin', query.sacksMin);
+  if (query?.sacksMax) params.set('sacksMax', query.sacksMax);
+  if (query?.periodMode) params.set('periodMode', query.periodMode);
+  if (query?.periodValue) params.set('periodValue', query.periodValue);
   const qs = params.toString();
   return request<ClientPurchasesListResponse>(`/clients/${clientId}/purchases${qs ? `?${qs}` : ''}`, { session, signal: options?.signal });
 }

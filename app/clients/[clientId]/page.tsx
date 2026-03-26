@@ -134,6 +134,8 @@ export default function ClientDetailPage() {
 
   /* ---- edit client modal ---- */
   const [editClientOpen, setEditClientOpen] = useState(false);
+  const [editClientSuccess, setEditClientSuccess] = useState(false);
+  const [regSuccess, setRegSuccess] = useState(false);
   const [editClientForm, setEditClientForm] = useState(() =>
     clientSummaryToForm({
       personType: 'PJ',
@@ -219,6 +221,27 @@ export default function ClientDetailPage() {
   });
   const saleFiltersTrapRef = useFocusTrap(saleFiltersOpen);
   const saleSearchDebounceRef = useRef<number | null>(null);
+
+  /* ---- purchase search & filters ---- */
+  const [purchaseSearch, setPurchaseSearch] = useState('');
+  const [purchaseAppliedSearch, setPurchaseAppliedSearch] = useState('');
+  const [purchaseFiltersOpen, setPurchaseFiltersOpen] = useState(false);
+  const [purchaseDraftFilters, setPurchaseDraftFilters] = useState({
+    owner: '',
+    sacksMin: '',
+    sacksMax: '',
+    periodMode: 'exact' as 'exact' | 'month' | 'year',
+    periodValue: ''
+  });
+  const [purchaseAppliedFilters, setPurchaseAppliedFilters] = useState({
+    owner: '',
+    sacksMin: '',
+    sacksMax: '',
+    periodMode: 'exact' as 'exact' | 'month' | 'year',
+    periodValue: ''
+  });
+  const purchaseFiltersTrapRef = useFocusTrap(purchaseFiltersOpen);
+  const purchaseSearchDebounceRef = useRef<number | null>(null);
 
   /* ---- refs ---- */
   const fetchAbortRef = useRef<AbortController | null>(null);
@@ -309,7 +332,16 @@ export default function ClientDetailPage() {
     if (!session || !clientId) return;
     setBuyerPurchasesLoading(true);
     try {
-      const response = await listClientPurchases(session, clientId, { page, limit: 10 });
+      const response = await listClientPurchases(session, clientId, {
+        page,
+        limit: 10,
+        search: purchaseAppliedSearch || undefined,
+        owner: purchaseAppliedFilters.owner || undefined,
+        sacksMin: purchaseAppliedFilters.sacksMin || undefined,
+        sacksMax: purchaseAppliedFilters.sacksMax || undefined,
+        periodMode: purchaseAppliedFilters.periodValue ? purchaseAppliedFilters.periodMode : undefined,
+        periodValue: purchaseAppliedFilters.periodValue || undefined
+      });
       setBuyerPurchases(response.items);
       setBuyerPurchasesMeta({ total: response.page.total, totalPages: response.page.totalPages, hasNext: response.page.hasNext, hasPrev: response.page.hasPrev });
       setBuyerPurchasesPage(page);
@@ -369,6 +401,28 @@ export default function ClientDetailPage() {
     void fetchOwnerSamples(1);
   }, [saleAppliedSearch, saleAppliedFilters]);
 
+  /* ---- purchase search debounce ---- */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'PURCHASE') return;
+    if (purchaseSearchDebounceRef.current !== null) window.clearTimeout(purchaseSearchDebounceRef.current);
+    const trimmed = purchaseSearch.trim();
+    if (trimmed === purchaseAppliedSearch) return;
+    purchaseSearchDebounceRef.current = window.setTimeout(() => {
+      purchaseSearchDebounceRef.current = null;
+      setPurchaseAppliedSearch(trimmed);
+      setBuyerPurchasesPage(1);
+    }, 400);
+    return () => { if (purchaseSearchDebounceRef.current !== null) { window.clearTimeout(purchaseSearchDebounceRef.current); purchaseSearchDebounceRef.current = null; } };
+  }, [purchaseSearch, clientSection, commercialSubTab, purchaseAppliedSearch]);
+
+  /* ---- re-fetch when applied purchase search/filters change ---- */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'PURCHASE' || !commercialFetchedRef.current) return;
+    void fetchBuyerPurchases(1);
+  }, [purchaseAppliedSearch, purchaseAppliedFilters]);
+
   function formatDate(value: string | null): string {
     if (!value) return '\u2014';
     const date = new Date(value);
@@ -409,6 +463,30 @@ export default function ClientDetailPage() {
     setSaleAppliedFilters(empty);
     setOwnerSamplesPage(1);
     setSaleFiltersOpen(false);
+  }
+
+  /* ================================================================ */
+  /*  Purchase filter helpers                                          */
+  /* ================================================================ */
+
+  const purchaseActiveFiltersCount = [
+    purchaseAppliedFilters.owner,
+    purchaseAppliedFilters.sacksMin || purchaseAppliedFilters.sacksMax,
+    purchaseAppliedFilters.periodValue
+  ].filter(Boolean).length;
+
+  function handleApplyPurchaseFilters() {
+    setPurchaseAppliedFilters({ ...purchaseDraftFilters });
+    setBuyerPurchasesPage(1);
+    setPurchaseFiltersOpen(false);
+  }
+
+  function handleClearPurchaseFilters() {
+    const empty = { owner: '', sacksMin: '', sacksMax: '', periodMode: 'exact' as const, periodValue: '' };
+    setPurchaseDraftFilters(empty);
+    setPurchaseAppliedFilters(empty);
+    setBuyerPurchasesPage(1);
+    setPurchaseFiltersOpen(false);
   }
 
   /* ================================================================ */
@@ -480,9 +558,12 @@ export default function ClientDetailPage() {
       }
 
       await updateClient(session, clientId, data);
-      setEditClientOpen(false);
-      setDetailNotice({ kind: 'success', text: 'Cliente atualizado com sucesso.' });
+      setEditClientSuccess(true);
       void fetchData();
+      window.setTimeout(() => {
+        setEditClientOpen(false);
+        setEditClientSuccess(false);
+      }, 1000);
     } catch (cause) {
       setEditClientModalNotice({
         kind: 'error',
@@ -538,18 +619,20 @@ export default function ClientDetailPage() {
 
       if (regModalMode === 'create') {
         await createClientRegistration(session, clientId, payload);
-        setRegistrationNotice({ kind: 'success', text: 'Inscricao cadastrada com sucesso.' });
       } else {
         if (!selectedRegId) return;
         await updateClientRegistration(session, clientId, selectedRegId, {
           ...payload,
           reasonText: regForm.reasonText
         });
-        setRegistrationNotice({ kind: 'success', text: 'Inscricao atualizada com sucesso.' });
       }
 
-      setRegModalOpen(false);
+      setRegSuccess(true);
       void fetchData();
+      window.setTimeout(() => {
+        setRegModalOpen(false);
+        setRegSuccess(false);
+      }, 1000);
     } catch (cause) {
       setRegistrationModalNotice({
         kind: 'error',
@@ -771,86 +854,67 @@ export default function ClientDetailPage() {
                     {/* ========== CLIENT INFO SECTION ========== */}
                     <section className="panel stack client-detail-info-section">
                       <div className="client-detail-section-header">
-                        <h3 style={{ margin: 0 }}>Informacoes do cliente</h3>
+                        <h3 style={{ margin: 0 }}>Informacoes</h3>
                         <button
                           type="button"
-                          className="secondary client-detail-inline-action"
+                          className="secondary client-detail-edit-icon-btn"
                           onClick={openEditClient}
+                          aria-label="Editar informacoes"
+                          title="Editar informacoes"
                         >
                           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                             <path d="M12 20h9" />
                             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                           </svg>
-                          Editar
                         </button>
                       </div>
 
-                      <div className="client-detail-info-grid">
-                        <div className="client-detail-info-item">
+                      <div className="client-detail-info-grid" style={{ flex: 1 }}>
+                        {/* Linha 1: Nome (span full) */}
+                        <div className="client-detail-info-item is-full">
+                          <span className="client-detail-info-label">
+                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                          </span>
+                          <span className="client-detail-info-value">
+                            {client.personType === 'PF'
+                              ? (client.fullName || '\u2014')
+                              : (client.legalName || '\u2014')}
+                          </span>
+                        </div>
+
+                        {/* Linha 2: Tipo + Documento */}
+                        <div className="client-detail-info-item is-border-right">
                           <span className="client-detail-info-label">Tipo</span>
                           <span className="client-detail-info-value">
                             {client.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'}
                           </span>
                         </div>
-
-                        {client.personType === 'PF' ? (
-                          <>
-                            <div className="client-detail-info-item">
-                              <span className="client-detail-info-label">Nome completo</span>
-                              <span className="client-detail-info-value">
-                                {client.fullName || '\u2014'}
-                              </span>
-                            </div>
-                            <div className="client-detail-info-item">
-                              <span className="client-detail-info-label">CPF</span>
-                              <span className="client-detail-info-value">
-                                {formatClientDocument(client.cpf, 'PF') || '\u2014'}
-                              </span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="client-detail-info-item">
-                              <span className="client-detail-info-label">Razao social</span>
-                              <span className="client-detail-info-value">
-                                {client.legalName || '\u2014'}
-                              </span>
-                            </div>
-                            <div className="client-detail-info-item">
-                              <span className="client-detail-info-label">Nome fantasia</span>
-                              <span className="client-detail-info-value">
-                                {client.tradeName || '\u2014'}
-                              </span>
-                            </div>
-                            <div className="client-detail-info-item">
-                              <span className="client-detail-info-label">CNPJ</span>
-                              <span className="client-detail-info-value">
-                                {formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
-                              </span>
-                            </div>
-                          </>
-                        )}
-
                         <div className="client-detail-info-item">
+                          <span className="client-detail-info-label">
+                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                          </span>
+                          <span className="client-detail-info-value">
+                            {client.personType === 'PF'
+                              ? (formatClientDocument(client.cpf, 'PF') || '\u2014')
+                              : (formatClientDocument(client.cnpj, 'PJ') || '\u2014')}
+                          </span>
+                        </div>
+
+                        {/* Linha 3: Papeis + Telefone */}
+                        <div className="client-detail-info-item is-border-right" style={{ borderBottom: 0 }}>
+                          <span className="client-detail-info-label">Papeis</span>
+                          <span className="client-detail-info-value">
+                            {[
+                              client.isSeller ? 'Vendedor' : null,
+                              client.isBuyer ? 'Comprador' : null
+                            ].filter(Boolean).join(' / ') || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="client-detail-info-item" style={{ borderBottom: 0 }}>
                           <span className="client-detail-info-label">Telefone</span>
                           <span className="client-detail-info-value">
                             {formatPhone(client.phone) || '\u2014'}
                           </span>
-                        </div>
-
-                        <div className="client-detail-info-item">
-                          <span className="client-detail-info-label">Papeis</span>
-                          <div className="client-detail-roles">
-                            {client.isSeller ? (
-                              <span className="client-detail-role-chip">Proprietario/Vendedor</span>
-                            ) : null}
-                            {client.isBuyer ? (
-                              <span className="client-detail-role-chip">Comprador</span>
-                            ) : null}
-                            {!client.isSeller && !client.isBuyer ? (
-                              <span className="client-detail-role-chip is-empty">Nenhum papel</span>
-                            ) : null}
-                          </div>
                         </div>
                       </div>
 
@@ -1000,19 +1064,19 @@ export default function ClientDetailPage() {
                           {commercialSubTab === 'SALE' ? (
                             <>
                               <div className="client-detail-summary-card is-samples">
-                                <span className="client-detail-summary-label">Amostras registradas</span>
+                                <span className="client-detail-summary-label">Registradas</span>
                                 <strong className="client-detail-summary-value">{commercialSummary.seller.registeredSamples}</strong>
                               </div>
                               <div className="client-detail-summary-card is-sacks">
-                                <span className="client-detail-summary-label">Sacas totais</span>
+                                <span className="client-detail-summary-label">Sacas</span>
                                 <strong className="client-detail-summary-value">{commercialSummary.seller.totalSacks}</strong>
                               </div>
                               <div className="client-detail-summary-card is-sold">
-                                <span className="client-detail-summary-label">Sacas vendidas</span>
+                                <span className="client-detail-summary-label">Vendidas</span>
                                 <strong className="client-detail-summary-value">{commercialSummary.seller.soldSacks}</strong>
                               </div>
                               <div className="client-detail-summary-card is-lost">
-                                <span className="client-detail-summary-label">Sacas perdidas</span>
+                                <span className="client-detail-summary-label">Perdidas</span>
                                 <strong className="client-detail-summary-value">{commercialSummary.seller.lostSacks}</strong>
                               </div>
                             </>
@@ -1134,6 +1198,58 @@ export default function ClientDetailPage() {
                         </>
                       ) : (
                         <>
+                          {/* Topo fixo: busca + filtro */}
+                          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexShrink: 0 }}>
+                            <form
+                              style={{ flex: 1, display: 'flex' }}
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (purchaseSearchDebounceRef.current !== null) { window.clearTimeout(purchaseSearchDebounceRef.current); purchaseSearchDebounceRef.current = null; }
+                                setPurchaseAppliedSearch(purchaseSearch.trim());
+                                setBuyerPurchasesPage(1);
+                              }}
+                            >
+                              <input
+                                className="samples-filter-field-input"
+                                value={purchaseSearch}
+                                onChange={(e) => setPurchaseSearch(e.target.value)}
+                                placeholder="Buscar por lote"
+                                style={{ flex: 1, fontSize: '0.78rem', padding: '0.32rem 0.58rem', borderRadius: '10px' }}
+                              />
+                            </form>
+                            <button
+                              type="button"
+                              style={{
+                                border: '1px solid rgba(183, 203, 179, 0.86)',
+                                borderRadius: '999px',
+                                padding: '0.28rem',
+                                width: '2rem',
+                                height: '2rem',
+                                display: 'inline-grid',
+                                placeItems: 'center',
+                                background: purchaseActiveFiltersCount > 0 ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'rgba(255,255,255,0.74)',
+                                color: purchaseActiveFiltersCount > 0 ? '#fff' : '#456050',
+                                position: 'relative',
+                                flexShrink: 0,
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => { setPurchaseDraftFilters({ ...purchaseAppliedFilters }); setPurchaseFiltersOpen(true); }}
+                              aria-label="Filtros"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.88rem', height: '0.88rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                                <path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" />
+                              </svg>
+                              {purchaseActiveFiltersCount > 0 ? (
+                                <span style={{
+                                  position: 'absolute', top: '-0.2rem', right: '-0.2rem',
+                                  width: '0.88rem', height: '0.88rem', borderRadius: '999px',
+                                  background: '#c94444', color: '#fff', fontSize: '0.52rem', fontWeight: 700,
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                }}>{purchaseActiveFiltersCount}</span>
+                              ) : null}
+                            </button>
+                          </div>
+
                           {/* Meio: lista com scroll */}
                           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             {buyerPurchasesLoading ? (
@@ -1207,8 +1323,9 @@ export default function ClientDetailPage() {
             aria-modal="true"
             aria-labelledby="edit-client-title"
             onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
           >
-            <header className="app-modal-header">
+            <header className="app-modal-header" style={{ flexShrink: 0 }}>
               <div className="app-modal-title-wrap">
                 <h3 id="edit-client-title" className="app-modal-title">
                   Editar cliente
@@ -1218,14 +1335,22 @@ export default function ClientDetailPage() {
                 type="button"
                 className="app-modal-close"
                 onClick={closeEditClient}
-                disabled={savingClient}
+                disabled={savingClient || editClientSuccess}
                 aria-label="Fechar"
               >
                 <span aria-hidden="true">&times;</span>
               </button>
             </header>
 
-            <form className="app-modal-content" onSubmit={handleUpdateClient}>
+            {editClientSuccess ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                <svg viewBox="0 0 24 24" style={{ width: '3rem', height: '3rem', fill: 'none', stroke: '#3d9a55', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
+            ) : (
+            <form className="app-modal-content" onSubmit={handleUpdateClient} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               <label className="app-modal-field">
                 <span className="app-modal-label">Tipo de pessoa</span>
                 <select
@@ -1366,13 +1491,13 @@ export default function ClientDetailPage() {
 
               <NoticeSlot notice={editClientModalNotice} />
 
-              <div className="app-modal-actions">
+              <div className="app-modal-actions" style={{ flexShrink: 0 }}>
                 <button
                   type="submit"
                   className="app-modal-submit"
                   disabled={savingClient || !canSaveClient}
                 >
-                  {savingClient ? 'Salvando...' : 'Salvar alteracoes'}
+                  {savingClient ? 'Salvando...' : 'Salvar'}
                 </button>
                 <button
                   type="button"
@@ -1384,6 +1509,7 @@ export default function ClientDetailPage() {
                 </button>
               </div>
             </form>
+            )}
           </section>
         </div>
       ) : null}
@@ -1403,8 +1529,9 @@ export default function ClientDetailPage() {
             aria-modal="true"
             aria-labelledby="reg-modal-title"
             onClick={(e) => e.stopPropagation()}
+            style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
           >
-            <header className="app-modal-header">
+            <header className="app-modal-header" style={{ flexShrink: 0 }}>
               <div className="app-modal-title-wrap">
                 <h3 id="reg-modal-title" className="app-modal-title">
                   {regModalMode === 'create' ? 'Nova inscricao' : 'Editar inscricao'}
@@ -1414,14 +1541,22 @@ export default function ClientDetailPage() {
                 type="button"
                 className="app-modal-close"
                 onClick={closeRegModal}
-                disabled={savingReg}
+                disabled={savingReg || regSuccess}
                 aria-label="Fechar"
               >
                 <span aria-hidden="true">&times;</span>
               </button>
             </header>
 
-            <form className="app-modal-content" onSubmit={handleRegSubmit}>
+            {regSuccess ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                <svg viewBox="0 0 24 24" style={{ width: '3rem', height: '3rem', fill: 'none', stroke: '#3d9a55', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
+            ) : (
+            <form className="app-modal-content" onSubmit={handleRegSubmit} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               <label className="app-modal-field">
                 <span className="app-modal-label">Numero da inscricao</span>
                 <input
@@ -1535,17 +1670,13 @@ export default function ClientDetailPage() {
 
               <NoticeSlot notice={registrationModalNotice} />
 
-              <div className="app-modal-actions">
+              <div className="app-modal-actions" style={{ flexShrink: 0 }}>
                 <button
                   type="submit"
                   className="app-modal-submit"
                   disabled={savingReg || !canSaveReg}
                 >
-                  {savingReg
-                    ? 'Salvando...'
-                    : regModalMode === 'create'
-                      ? 'Cadastrar inscricao'
-                      : 'Salvar inscricao'}
+                  {savingReg ? 'Salvando...' : regModalMode === 'create' ? 'Cadastrar' : 'Salvar'}
                 </button>
                 <button
                   type="button"
@@ -1557,6 +1688,7 @@ export default function ClientDetailPage() {
                 </button>
               </div>
             </form>
+            )}
           </section>
         </div>
       ) : null}
@@ -1858,6 +1990,92 @@ export default function ClientDetailPage() {
               <div className="app-modal-actions samples-filter-modal-actions">
                 <button type="button" className="app-modal-secondary" onClick={handleClearSaleFilters}
                   disabled={!Object.values(saleDraftFilters).some((v) => v !== '' && v !== 'exact')}
+                >
+                  Limpar
+                </button>
+                <button type="submit" className="app-modal-submit">Aplicar</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {/* ========== MODAL: Purchase Filters ========== */}
+      {purchaseFiltersOpen ? (
+        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={() => setPurchaseFiltersOpen(false)}>
+          <section
+            ref={purchaseFiltersTrapRef}
+            className="app-modal samples-filter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="purchase-filter-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="app-modal-header samples-filter-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="purchase-filter-modal-title" className="app-modal-title">Filtros</h3>
+              </div>
+              <button type="button" className="app-modal-close" onClick={() => setPurchaseFiltersOpen(false)} aria-label="Fechar">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+
+            <form className="samples-filter-modal-form" onSubmit={(e) => { e.preventDefault(); handleApplyPurchaseFilters(); }}>
+              <div className="samples-filter-modal-content">
+                <div className="samples-filter-fields">
+                  <label className="samples-filter-field">
+                    <span className="samples-filter-field-label">Proprietario</span>
+                    <input
+                      className="samples-filter-field-input"
+                      value={purchaseDraftFilters.owner}
+                      onChange={(e) => setPurchaseDraftFilters((c) => ({ ...c, owner: e.target.value }))}
+                      placeholder="Nome do proprietario"
+                    />
+                  </label>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Sacas</span>
+                    <div className="samples-filter-split-grid">
+                      <input className="samples-filter-field-input" type="number" min="1" step="1" inputMode="numeric"
+                        value={purchaseDraftFilters.sacksMin}
+                        onChange={(e) => setPurchaseDraftFilters((c) => ({ ...c, sacksMin: e.target.value.replace(/\D+/g, '') }))}
+                        placeholder="De"
+                      />
+                      <input className="samples-filter-field-input" type="number" min="1" step="1" inputMode="numeric"
+                        value={purchaseDraftFilters.sacksMax}
+                        onChange={(e) => setPurchaseDraftFilters((c) => ({ ...c, sacksMax: e.target.value.replace(/\D+/g, '') }))}
+                        placeholder="Ate"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Periodo</span>
+                    <div className="samples-filter-split-grid">
+                      <select className="samples-filter-field-input"
+                        value={purchaseDraftFilters.periodMode}
+                        onChange={(e) => setPurchaseDraftFilters((c) => ({ ...c, periodMode: e.target.value as 'exact' | 'month' | 'year', periodValue: '' }))}
+                      >
+                        <option value="exact">Data</option>
+                        <option value="month">Mes</option>
+                        <option value="year">Ano</option>
+                      </select>
+                      <input className="samples-filter-field-input"
+                        type={purchaseDraftFilters.periodMode === 'exact' ? 'date' : purchaseDraftFilters.periodMode === 'month' ? 'month' : 'number'}
+                        value={purchaseDraftFilters.periodValue}
+                        onChange={(e) => setPurchaseDraftFilters((c) => ({ ...c, periodValue: e.target.value }))}
+                        placeholder={purchaseDraftFilters.periodMode === 'year' ? 'AAAA' : ''}
+                        min={purchaseDraftFilters.periodMode === 'year' ? '2000' : undefined}
+                        max={purchaseDraftFilters.periodMode === 'year' ? '2100' : undefined}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="app-modal-actions samples-filter-modal-actions">
+                <button type="button" className="app-modal-secondary" onClick={handleClearPurchaseFilters}
+                  disabled={!Object.values(purchaseDraftFilters).some((v) => v !== '' && v !== 'exact')}
                 >
                   Limpar
                 </button>
