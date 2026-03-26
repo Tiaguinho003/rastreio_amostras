@@ -79,20 +79,33 @@ async function request<TResponse>(
     finalBody = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: finalBody,
-    cache: 'no-store',
-    credentials: 'same-origin',
-    signal
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: finalBody,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+
+    throw new ApiError(0, 'Sem conexao com o servidor. Verifique sua internet e tente novamente.', null);
+  }
 
   const payload = await parseJsonSafe(response);
 
   if (!response.ok) {
     const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
     throw new ApiError(response.status, maybeError?.message ?? 'Request failed', maybeError?.details ?? null);
+  }
+
+  if (response.status !== 204 && Object.keys(payload).length === 0) {
+    throw new ApiError(response.status, 'Resposta invalida do servidor', null);
   }
 
   return payload as TResponse;

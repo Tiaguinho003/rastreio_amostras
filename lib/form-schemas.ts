@@ -48,6 +48,27 @@ export const createSampleDraftSchema = z.object({
   printerId: z.string().trim().max(120).optional().nullable()
 });
 
+export const updateProfileSchema = z.object({
+  fullName: z.string().trim().min(1, 'Nome completo e obrigatorio'),
+  username: z.string().trim().min(1, 'Usuario e obrigatorio'),
+  phone: z.string().trim().optional().nullable()
+});
+
+export const emailChangeRequestSchema = z.object({
+  email: z.string().trim().min(1, 'Email e obrigatorio').email('Email invalido')
+});
+
+export const emailChangeConfirmSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Codigo deve ter 6 digitos')
+});
+
+export const changePasswordSchema = z.object({
+  password: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres')
+});
+
 export const qrFailSchema = z.object({
   error: z.string().trim().optional().default('')
 });

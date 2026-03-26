@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import {
@@ -8,21 +8,42 @@ import {
   createUser,
   getUser,
   inactivateUser,
-  listUserAuditEvents,
   listUsers,
   reactivateUser,
   resetUserPassword,
   unlockUser,
   updateUser
 } from '../../lib/api-client';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import { getRoleLabel } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
-import type { UserAuditEventResponse, UserRole, UserStatus, UserSummary } from '../../lib/types';
+import type { UserRole, UserStatus, UserSummary } from '../../lib/types';
 
 const ROLE_OPTIONS: UserRole[] = ['ADMIN', 'CLASSIFIER', 'REGISTRATION', 'COMMERCIAL'];
-const STATUS_OPTIONS: Array<UserStatus | ''> = ['', 'ACTIVE', 'INACTIVE'];
+const PAGE_LIMIT = 10;
 
-function blankUserForm() {
+function userStatusLabel(status: UserStatus) {
+  return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
+}
+
+function userStatusThemeClass(status: UserStatus) {
+  return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
+}
+
+function formatUserCardSummary(user: UserSummary) {
+  return `${user.username} | ${user.email}`;
+}
+
+function formatUserCardMeta(user: UserSummary) {
+  const parts = [getRoleLabel(user.role), userStatusLabel(user.status)];
+  if (user.isLocked) {
+    parts.push('Bloqueado');
+  }
+
+  return parts.join(' | ');
+}
+
+function blankCreateForm() {
   return {
     fullName: '',
     username: '',
@@ -33,584 +54,753 @@ function blankUserForm() {
   };
 }
 
+// --- List state ---
+
+interface UsersListState {
+  items: UserSummary[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  loading: boolean;
+  error: string | null;
+}
+
+type UsersListAction =
+  | { type: 'fetch' }
+  | { type: 'success'; items: UserSummary[]; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean }
+  | { type: 'error'; message: string }
+  | { type: 'setPage'; page: number };
+
+const USERS_INITIAL: UsersListState = {
+  items: [],
+  total: 0,
+  totalPages: 1,
+  currentPage: 1,
+  hasPrev: false,
+  hasNext: false,
+  loading: false,
+  error: null
+};
+
+function usersListReducer(state: UsersListState, action: UsersListAction): UsersListState {
+  switch (action.type) {
+    case 'fetch':
+      return { ...state, loading: true, error: null };
+    case 'success':
+      return {
+        ...state,
+        items: action.items,
+        total: action.total,
+        totalPages: action.totalPages,
+        hasPrev: action.hasPrev,
+        hasNext: action.hasNext,
+        loading: false,
+        error: null
+      };
+    case 'error':
+      return { ...state, loading: false, error: action.message };
+    case 'setPage':
+      return { ...state, currentPage: action.page };
+    default:
+      return state;
+  }
+}
+
+// --- Detail modal state ---
+
+type ModalMode = 'closed' | 'view' | 'edit' | 'create';
+
+interface ModalState {
+  mode: ModalMode;
+  user: UserSummary | null;
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
+  message: string | null;
+}
+
+const MODAL_INITIAL: ModalState = {
+  mode: 'closed',
+  user: null,
+  loading: false,
+  saving: false,
+  error: null,
+  message: null
+};
+
+type ModalAction =
+  | { type: 'openCreate' }
+  | { type: 'openView'; userId: string }
+  | { type: 'switchToEdit' }
+  | { type: 'close' }
+  | { type: 'fetchDetail' }
+  | { type: 'detailSuccess'; user: UserSummary }
+  | { type: 'detailError'; message: string }
+  | { type: 'saving' }
+  | { type: 'saveSuccess'; user: UserSummary; message: string }
+  | { type: 'saveError'; message: string }
+  | { type: 'actionSuccess'; user: UserSummary; message: string }
+  | { type: 'clearMessages' };
+
+function modalReducer(state: ModalState, action: ModalAction): ModalState {
+  switch (action.type) {
+    case 'openCreate':
+      return { ...MODAL_INITIAL, mode: 'create' };
+    case 'openView':
+      return { ...MODAL_INITIAL, mode: 'view', loading: true };
+    case 'switchToEdit':
+      return { ...state, mode: 'edit', error: null, message: null };
+    case 'close':
+      return MODAL_INITIAL;
+    case 'fetchDetail':
+      return { ...state, loading: true, error: null };
+    case 'detailSuccess':
+      return { ...state, loading: false, user: action.user };
+    case 'detailError':
+      return { ...state, loading: false, error: action.message };
+    case 'saving':
+      return { ...state, saving: true, error: null, message: null };
+    case 'saveSuccess':
+      return { ...state, saving: false, user: action.user, message: action.message, mode: 'view' };
+    case 'saveError':
+      return { ...state, saving: false, error: action.message };
+    case 'actionSuccess':
+      return { ...state, saving: false, user: action.user, message: action.message };
+    case 'clearMessages':
+      return { ...state, error: null, message: null };
+    default:
+      return state;
+  }
+}
+
 export default function UsersPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({
-    allowedRoles: ['ADMIN']
-  });
-  const [items, setItems] = useState<UserSummary[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
-  const [search, setSearch] = useState('');
+  const { session, loading, logout, setSession } = useRequireAuth({ allowedRoles: ['ADMIN'] });
+
+  const [listState, dispatchList] = useReducer(usersListReducer, USERS_INITIAL);
+  const [modal, dispatchModal] = useReducer(modalReducer, MODAL_INITIAL);
+
+  const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditTotalPages, setAuditTotalPages] = useState(1);
-  const [auditItems, setAuditItems] = useState<UserAuditEventResponse[]>([]);
-  const [mode, setMode] = useState<'create' | 'edit'>('edit');
-  const [form, setForm] = useState(blankUserForm());
-  const [loadingList, setLoadingList] = useState(true);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const canSave = useMemo(() => form.fullName.trim() && form.username.trim() && form.email.trim(), [form]);
+  const [createForm, setCreateForm] = useState(blankCreateForm());
+  const [editForm, setEditForm] = useState({ fullName: '', username: '', email: '', phone: '', role: 'CLASSIFIER' as UserRole });
 
-  useEffect(() => {
-    if (!session) {
-      return;
-    }
+  const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const modalTrapRef = useFocusTrap(modal.mode !== 'closed');
 
-    let active = true;
-    setLoadingList(true);
-    setError(null);
+  // --- Load list ---
+  const refreshList = useCallback(async () => {
+    if (!session) return;
 
-    listUsers(session, {
-      search: appliedSearch || undefined,
-      role: roleFilter || undefined,
-      status: statusFilter || undefined,
-      page,
-      limit: 10
-    })
-      .then((response) => {
-        if (!active) {
-          return;
-        }
+    dispatchList({ type: 'fetch' });
 
-        setItems(response.items);
-        setTotalPages(response.page.totalPages);
-        if (mode !== 'create' && !selectedUserId && response.items[0]) {
-          setSelectedUserId(response.items[0].id);
-        }
-      })
-      .catch((cause) => {
-        if (active) {
-          setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingList(false);
-        }
+    try {
+      const response = await listUsers(session, {
+        search: appliedSearch || undefined,
+        role: roleFilter || undefined,
+        status: statusFilter || undefined,
+        page: listState.currentPage,
+        limit: PAGE_LIMIT
       });
 
-    return () => {
-      active = false;
-    };
-  }, [appliedSearch, mode, page, roleFilter, selectedUserId, session, statusFilter]);
+      dispatchList({
+        type: 'success',
+        items: response.items,
+        total: response.page.total,
+        totalPages: response.page.totalPages,
+        hasPrev: response.page.hasPrev,
+        hasNext: response.page.hasNext
+      });
+    } catch (cause) {
+      dispatchList({ type: 'error', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuarios' });
+    }
+  }, [appliedSearch, listState.currentPage, roleFilter, session, statusFilter]);
 
   useEffect(() => {
-    if (!session || !selectedUserId || mode === 'create') {
-      return;
-    }
+    refreshList();
+  }, [refreshList]);
+
+  // --- Load detail when modal opens ---
+  useEffect(() => {
+    if (modal.mode === 'closed' || modal.mode === 'create' || !session) return;
+
+    const userId = modal.user?.id;
+    if (!userId && modal.loading) return;
+    if (!userId) return;
 
     let active = true;
-    setLoadingDetail(true);
-    setError(null);
 
-    getUser(session, selectedUserId)
+    getUser(session, userId)
       .then((response) => {
-        if (!active) {
-          return;
-        }
-
-        setSelectedUser(response.user);
-        setForm({
+        if (!active) return;
+        dispatchModal({ type: 'detailSuccess', user: response.user });
+        setEditForm({
           fullName: response.user.fullName,
           username: response.user.username,
           email: response.user.email,
           phone: response.user.phone ?? '',
-          password: '',
           role: response.user.role
         });
       })
       .catch((cause) => {
-        if (active) {
-          setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar usuario');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingDetail(false);
-        }
+        if (!active) return;
+        dispatchModal({ type: 'detailError', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar usuario' });
       });
 
-    return () => {
-      active = false;
-    };
-  }, [mode, selectedUserId, session]);
+    return () => { active = false; };
+  }, [modal.mode, modal.user?.id, session]);
 
+  // --- Modal focus & scroll lock ---
   useEffect(() => {
-    if (!session) {
-      return;
-    }
+    if (modal.mode === 'closed') return;
 
-    let active = true;
-    listUserAuditEvents(session, {
-      page: auditPage,
-      limit: 10
-    })
-      .then((response) => {
-        if (!active) {
-          return;
-        }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
-        setAuditItems(response.items);
-        setAuditTotalPages(response.page.totalPages);
-      })
-      .catch((cause) => {
-        if (active) {
-          setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar auditoria');
-        }
-      });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !modal.saving) {
+        event.preventDefault();
+        closeModal();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    window.setTimeout(() => closeButtonRef.current?.focus(), 0);
 
     return () => {
-      active = false;
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
     };
-  }, [auditPage, session]);
+  }, [modal.mode, modal.saving]);
 
-  if (loading || !session) {
-    return null;
+  if (loading || !session) return null;
+
+  // --- Handlers ---
+
+  function openUserDetail(userId: string, trigger: HTMLButtonElement) {
+    lastTriggerRef.current = trigger;
+    dispatchModal({ type: 'openView', userId });
+    // Temporarily set user id so useEffect can fetch
+    dispatchModal({ type: 'detailSuccess', user: { id: userId } as UserSummary });
+    dispatchModal({ type: 'fetchDetail' });
   }
 
-  const authSession = session;
-
-  function openCreateMode() {
-    setMode('create');
-    setSelectedUserId(null);
-    setSelectedUser(null);
-    setForm(blankUserForm());
-    setMessage(null);
-    setError(null);
+  function openCreateModal(trigger: HTMLButtonElement) {
+    lastTriggerRef.current = trigger;
+    setCreateForm(blankCreateForm());
+    dispatchModal({ type: 'openCreate' });
   }
 
-  function openEditMode(userId: string) {
-    setMode('edit');
-    setSelectedUserId(userId);
-    setMessage(null);
-    setError(null);
+  function closeModal() {
+    if (modal.saving) return;
+    dispatchModal({ type: 'close' });
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSave) {
+    setAppliedSearch(searchInput.trim());
+    dispatchList({ type: 'setPage', page: 1 });
+  }
+
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!createForm.fullName.trim() || !createForm.username.trim() || !createForm.email.trim() || !createForm.password.trim()) {
+      dispatchModal({ type: 'saveError', message: 'Preencha todos os campos obrigatorios' });
       return;
     }
 
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    dispatchModal({ type: 'saving' });
 
     try {
-      if (mode === 'create') {
-        if (!form.password.trim()) {
-          throw new Error('Senha inicial obrigatoria');
-        }
-
-        const response = await createUser(authSession, {
-          fullName: form.fullName,
-          username: form.username,
-          email: form.email,
-          phone: form.phone || null,
-          password: form.password,
-          role: form.role
-        });
-
-        setMessage(`Usuario criado. Senha enviada por email e exibida: ${response.generatedPassword}`);
-        setMode('edit');
-        setSelectedUserId(response.user.id);
-      } else if (selectedUserId) {
-        const response = await updateUser(authSession, selectedUserId, {
-          fullName: form.fullName,
-          username: form.username,
-          email: form.email,
-          phone: form.phone || null,
-          role: form.role
-        });
-        setSelectedUser(response.user);
-        setMessage(response.sessionRevoked ? 'Usuario atualizado e sessoes encerradas.' : 'Usuario atualizado.');
-      }
-
-      const refreshed = await listUsers(authSession, {
-        search: appliedSearch || undefined,
-        role: roleFilter || undefined,
-        status: statusFilter || undefined,
-        page,
-        limit: 10
+      const response = await createUser(session!, {
+        fullName: createForm.fullName,
+        username: createForm.username,
+        email: createForm.email,
+        phone: createForm.phone || null,
+        password: createForm.password,
+        role: createForm.role
       });
-      setItems(refreshed.items);
-      setTotalPages(refreshed.page.totalPages);
+
+      dispatchModal({
+        type: 'saveSuccess',
+        user: response.user,
+        message: `Usuario criado. Senha: ${response.generatedPassword}`
+      });
+      setEditForm({
+        fullName: response.user.fullName,
+        username: response.user.username,
+        email: response.user.email,
+        phone: response.user.phone ?? '',
+        role: response.user.role
+      });
+      refreshList();
     } catch (cause) {
-      setError(cause instanceof ApiError || cause instanceof Error ? cause.message : 'Falha ao salvar usuario');
-    } finally {
-      setSaving(false);
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao criar usuario' });
+    }
+  }
+
+  async function handleEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!modal.user || !editForm.fullName.trim() || !editForm.username.trim() || !editForm.email.trim()) {
+      dispatchModal({ type: 'saveError', message: 'Preencha todos os campos obrigatorios' });
+      return;
+    }
+
+    dispatchModal({ type: 'saving' });
+
+    try {
+      const response = await updateUser(session!, modal.user.id, {
+        fullName: editForm.fullName,
+        username: editForm.username,
+        email: editForm.email,
+        phone: editForm.phone || null,
+        role: editForm.role
+      });
+
+      dispatchModal({
+        type: 'saveSuccess',
+        user: response.user,
+        message: response.sessionRevoked ? 'Atualizado. Sessoes do usuario encerradas.' : 'Usuario atualizado.'
+      });
+      refreshList();
+    } catch (cause) {
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao atualizar' });
     }
   }
 
   async function handleInactivate() {
-    if (!selectedUserId) {
-      return;
-    }
-
+    if (!modal.user) return;
     const reasonText = window.prompt('Informe o motivo da inativacao:');
-    if (!reasonText) {
-      return;
-    }
+    if (!reasonText) return;
 
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    dispatchModal({ type: 'saving' });
 
     try {
-      const response = await inactivateUser(authSession, selectedUserId, reasonText);
-      setSelectedUser(response.user);
-      setMessage('Usuario inativado.');
+      const response = await inactivateUser(session!, modal.user.id, reasonText);
+      dispatchModal({ type: 'actionSuccess', user: response.user, message: 'Usuario inativado.' });
+      refreshList();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao inativar usuario');
-    } finally {
-      setSaving(false);
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao inativar' });
     }
   }
 
   async function handleReactivate() {
-    if (!selectedUserId) {
-      return;
-    }
+    if (!modal.user) return;
 
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    dispatchModal({ type: 'saving' });
 
     try {
-      const response = await reactivateUser(authSession, selectedUserId);
-      setSelectedUser(response.user);
-      setMessage('Usuario reativado.');
+      const response = await reactivateUser(session!, modal.user.id);
+      dispatchModal({ type: 'actionSuccess', user: response.user, message: 'Usuario reativado.' });
+      refreshList();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao reativar usuario');
-    } finally {
-      setSaving(false);
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao reativar' });
     }
   }
 
   async function handleUnlock() {
-    if (!selectedUserId) {
-      return;
-    }
+    if (!modal.user) return;
 
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    dispatchModal({ type: 'saving' });
 
     try {
-      const response = await unlockUser(authSession, selectedUserId);
-      setSelectedUser(response.user);
-      setMessage('Usuario desbloqueado.');
+      const response = await unlockUser(session!, modal.user.id);
+      dispatchModal({ type: 'actionSuccess', user: response.user, message: 'Usuario desbloqueado.' });
+      refreshList();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao desbloquear usuario');
-    } finally {
-      setSaving(false);
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao desbloquear' });
     }
   }
 
   async function handlePasswordReset() {
-    if (!selectedUserId) {
-      return;
-    }
-
+    if (!modal.user) return;
     const password = window.prompt('Informe a nova senha do usuario:');
-    if (!password) {
-      return;
-    }
+    if (!password) return;
 
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    dispatchModal({ type: 'saving' });
 
     try {
-      const response = await resetUserPassword(authSession, selectedUserId, password);
-      setMessage(`Senha redefinida. Senha exibida ao ADM: ${response.generatedPassword}`);
-      setSelectedUser(response.user);
+      const response = await resetUserPassword(session!, modal.user.id, password);
+      dispatchModal({ type: 'actionSuccess', user: response.user, message: `Senha redefinida: ${response.generatedPassword}` });
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao redefinir senha');
-    } finally {
-      setSaving(false);
+      dispatchModal({ type: 'saveError', message: cause instanceof ApiError ? cause.message : 'Falha ao redefinir senha' });
     }
   }
 
+  const totalLabel = listState.loading ? 'Carregando...' : `${listState.total} usuarios`;
+
   return (
-    <AppShell session={authSession} onLogout={logout} onSessionChange={setSession}>
-      <section className="stack" style={{ width: 'min(1180px, calc(100vw - 2rem))', margin: '1.25rem auto 2rem' }}>
-        <section className="panel stack">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '1rem',
-              flexWrap: 'wrap'
-            }}
-          >
-            <div>
-              <h2 style={{ margin: 0 }}>Usuarios</h2>
-              <p style={{ margin: '0.45rem 0 0', color: 'var(--muted)' }}>
-                Gestao administrativa de contas, bloqueios e perfis.
-              </p>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+      <section className="samples-page-panel">
+        <div className="samples-page-toolbar">
+          <form className="samples-page-search-bar" onSubmit={handleSearchSubmit}>
+            <div className="sample-search-field samples-page-search-field">
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Nome, usuario ou email"
+              />
+              <button type="submit" className="samples-page-search-submit-icon" aria-label="Buscar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16.2 16.2 4.1 4.1" />
+                </svg>
+              </button>
             </div>
 
-            <button type="button" onClick={openCreateMode}>
-              Novo usuario
+            <button
+              type="button"
+              className="samples-page-filter-toggle"
+              aria-label="Filtrar por perfil"
+              onClick={() => {
+                if (roleFilter) {
+                  setRoleFilter('');
+                  setStatusFilter('');
+                  dispatchList({ type: 'setPage', page: 1 });
+                } else {
+                  const nextRole = ROLE_OPTIONS[(ROLE_OPTIONS.indexOf(roleFilter as UserRole) + 1) % ROLE_OPTIONS.length];
+                  setRoleFilter(nextRole);
+                  dispatchList({ type: 'setPage', page: 1 });
+                }
+              }}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M3 6h18" />
+                <path d="M7 12h10" />
+                <path d="M10 18h4" />
+              </svg>
             </button>
-          </div>
 
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(300px, 360px) minmax(0, 1fr)' }}>
-            <section className="stack">
-              <form
-                className="stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  setAppliedSearch(search);
-                  setPage(1);
-                }}
-              >
-                <label>
-                  Buscar
-                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, usuario ou email" />
-                </label>
+            <button
+              type="button"
+              className="samples-page-create-client-button"
+              aria-label="Novo usuario"
+              onClick={(event) => openCreateModal(event.currentTarget)}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+              </svg>
+            </button>
+          </form>
 
-                <label>
-                  Perfil
-                  <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as UserRole | '')}>
-                    <option value="">Todos</option>
-                    {ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+          {(roleFilter || statusFilter) ? (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {roleFilter ? (
+                <button
+                  type="button"
+                  className="app-modal-chip"
+                  onClick={() => { setRoleFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {getRoleLabel(roleFilter)} ×
+                </button>
+              ) : null}
+              {statusFilter ? (
+                <button
+                  type="button"
+                  className="app-modal-chip"
+                  onClick={() => { setStatusFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {statusFilter === 'ACTIVE' ? 'Ativo' : 'Inativo'} ×
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
-                <label>
-                  Status
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as UserStatus | '')}>
-                    <option value="">Todos</option>
-                    {STATUS_OPTIONS.filter(Boolean).map((status) => (
-                      <option key={status} value={status}>
-                        {status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button type="submit">Aplicar filtros</button>
-              </form>
-
-              <section className="stack">
-                {loadingList ? <p style={{ margin: 0 }}>Carregando usuarios...</p> : null}
-                {items.map((user) => (
+        {listState.error ? (
+          <section className="samples-page-list-area">
+            <p className="error" style={{ margin: 0, padding: '1rem' }}>{listState.error}</p>
+          </section>
+        ) : listState.loading ? (
+          <section className="samples-page-list-area">
+            <header className="samples-page-list-header">
+              <p className="samples-page-list-total">{totalLabel}</p>
+            </header>
+            <div className="samples-page-list-state">
+              <p className="samples-page-empty">Carregando usuarios...</p>
+            </div>
+          </section>
+        ) : listState.items.length === 0 ? (
+          <section className="samples-page-list-area">
+            <header className="samples-page-list-header">
+              <p className="samples-page-list-total">{totalLabel}</p>
+            </header>
+            <div className="samples-page-list-state">
+              <p className="samples-page-empty">
+                {appliedSearch ? 'Nenhum usuario encontrado para a pesquisa.' : 'Nenhum usuario cadastrado.'}
+              </p>
+            </div>
+          </section>
+        ) : (
+          <section className="samples-page-list-area">
+            <header className="samples-page-list-header">
+              <p className="samples-page-list-total">{totalLabel}</p>
+            </header>
+            <div ref={scrollRef} className="samples-page-list-scroll" aria-label="Lista de usuarios" tabIndex={-1}>
+              <div className="samples-page-list">
+                {listState.items.map((user) => (
                   <button
                     key={user.id}
                     type="button"
-                    onClick={() => openEditMode(user.id)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '1rem',
-                      borderRadius: '16px',
-                      border: user.id === selectedUserId ? '2px solid var(--accent)' : '1px solid var(--border)',
-                      background: 'var(--panel)',
-                      cursor: 'pointer'
-                    }}
+                    className={`samples-page-item records-client-card ${userStatusThemeClass(user.status)}`}
+                    onClick={(event) => openUserDetail(user.id, event.currentTarget)}
                   >
-                    <strong style={{ display: 'block' }}>{user.fullName}</strong>
-                    <span style={{ display: 'block', color: 'var(--muted)' }}>
-                      {user.username} | {user.email}
-                    </span>
-                    <span style={{ display: 'block', color: 'var(--muted)' }}>
-                      {getRoleLabel(user.role)} | {user.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                      {user.isLocked ? ' | Bloqueado' : ''}
-                    </span>
+                    <div className="samples-page-item-main">
+                      <p className="dashboard-latest-registration-title">{user.fullName}</p>
+                      <p className="dashboard-latest-registration-subtitle">{formatUserCardSummary(user)}</p>
+                      <p className="dashboard-latest-registration-meta">{formatUserCardMeta(user)}</p>
+                    </div>
                   </button>
                 ))}
-
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                  <button type="button" className="secondary-button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-                    Anterior
-                  </button>
-                  <span style={{ color: 'var(--muted)' }}>
-                    Pagina {page} de {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((current) => current + 1)}
-                  >
-                    Proxima
-                  </button>
-                </div>
-              </section>
-            </section>
-
-            <section className="panel stack">
-              <div>
-                <h3 style={{ margin: 0 }}>{mode === 'create' ? 'Novo usuario' : 'Editar usuario'}</h3>
-                <p style={{ margin: '0.45rem 0 0', color: 'var(--muted)' }}>
-                  {mode === 'create'
-                    ? 'Crie a conta inicial do usuario e envie a senha por email.'
-                    : selectedUser
-                      ? `Conta criada em ${new Date(selectedUser.createdAt).toLocaleString('pt-BR')}`
-                      : 'Selecione um usuario para editar.'}
-                </p>
               </div>
-
-              <form className="stack" onSubmit={handleSubmit}>
-                <label>
-                  Nome completo
-                  <input
-                    value={form.fullName}
-                    onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Usuario
-                  <input
-                    value={form.username}
-                    onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
-                  />
-                </label>
-
-                <label>
-                  Email
-                  <input value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
-                </label>
-
-                <label>
-                  Telefone
-                  <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
-                </label>
-
-                <label>
-                  Perfil
-                  <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as UserRole }))}>
-                    {ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role}>
-                        {getRoleLabel(role)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {mode === 'create' ? (
-                  <label>
-                    Senha inicial
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-                    />
-                  </label>
-                ) : null}
-
-                {selectedUser ? (
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>
-                    Status: {selectedUser.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                    {selectedUser.isLocked ? ' | Bloqueado temporariamente' : ''}
-                    {selectedUser.pendingEmailChange ? ` | Novo email pendente: ${selectedUser.pendingEmailChange.newEmail}` : ''}
-                  </p>
-                ) : null}
-
-                {error ? <p className="error">{error}</p> : null}
-                {message ? <p style={{ margin: 0, color: 'var(--muted)' }}>{message}</p> : null}
-
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button type="submit" disabled={!canSave || saving || loadingDetail}>
-                    {saving ? 'Salvando...' : mode === 'create' ? 'Criar usuario' : 'Salvar alteracoes'}
-                  </button>
-                  {mode === 'edit' && selectedUser ? (
-                    <>
-                      {selectedUser.status === 'ACTIVE' ? (
-                        <button type="button" className="secondary-button" onClick={handleInactivate} disabled={saving}>
-                          Inativar
-                        </button>
-                      ) : (
-                        <button type="button" className="secondary-button" onClick={handleReactivate} disabled={saving}>
-                          Reativar
-                        </button>
-                      )}
-                      <button type="button" className="secondary-button" onClick={handleUnlock} disabled={saving}>
-                        Desbloquear
-                      </button>
-                      <button type="button" className="secondary-button" onClick={handlePasswordReset} disabled={saving}>
-                        Redefinir senha
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </form>
-            </section>
-          </div>
-        </section>
-
-        <section className="panel stack">
-          <div>
-            <h3 style={{ margin: 0 }}>Auditoria</h3>
-            <p style={{ margin: '0.45rem 0 0', color: 'var(--muted)' }}>
-              Eventos mais recentes de criacao, edicao, acessos e alteracoes administrativas.
-            </p>
-          </div>
-
-          <section className="stack">
-            {auditItems.map((item) => (
-              <article
-                key={item.eventId}
-                style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: '16px',
-                  padding: '1rem',
-                  background: 'var(--panel)'
-                }}
-              >
-                <strong style={{ display: 'block' }}>{item.eventType}</strong>
-                <span style={{ display: 'block', color: 'var(--muted)' }}>
-                  {new Date(item.createdAt).toLocaleString('pt-BR')}
-                </span>
-                <span style={{ display: 'block', color: 'var(--muted)' }}>
-                  Ator: {item.actorUser ? `${item.actorUser.fullName} (${item.actorUser.username})` : 'Sistema'}
-                </span>
-                <span style={{ display: 'block', color: 'var(--muted)' }}>
-                  Alvo: {item.targetUser ? `${item.targetUser.fullName} (${item.targetUser.username})` : 'Nao aplicavel'}
-                </span>
-                {item.reasonText ? <p style={{ margin: '0.5rem 0 0' }}>Motivo: {item.reasonText}</p> : null}
-              </article>
-            ))}
-
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={auditPage <= 1}
-                onClick={() => setAuditPage((current) => current - 1)}
-              >
-                Anterior
-              </button>
-              <span style={{ color: 'var(--muted)' }}>
-                Pagina {auditPage} de {auditTotalPages}
-              </span>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={auditPage >= auditTotalPages}
-                onClick={() => setAuditPage((current) => current + 1)}
-              >
-                Proxima
-              </button>
             </div>
           </section>
-        </section>
+        )}
+
+        <footer className="samples-page-footer">
+          <div className="samples-page-pagination-controls" role="group" aria-label="Paginacao">
+            <button
+              type="button"
+              className="samples-page-pagination-button"
+              aria-label="Pagina anterior"
+              disabled={!listState.hasPrev || listState.loading}
+              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage - 1 })}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="m14.5 6-6 6 6 6" />
+              </svg>
+            </button>
+            <p className="samples-page-pagination-counter">
+              <strong>{listState.currentPage}</strong>
+              <span>/</span>
+              <span>{listState.totalPages}</span>
+            </p>
+            <button
+              type="button"
+              className="samples-page-pagination-button"
+              aria-label="Proxima pagina"
+              disabled={!listState.hasNext || listState.loading}
+              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage + 1 })}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="m9.5 6 6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+        </footer>
       </section>
+
+      {/* --- Detail / Edit Modal --- */}
+      {modal.mode === 'view' || modal.mode === 'edit' ? (
+        <div className="client-modal-backdrop" onClick={closeModal}>
+          <section
+            ref={modalTrapRef}
+            className="client-modal panel stack records-client-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-detail-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="client-modal-header">
+              <div className="records-client-detail-header-copy">
+                <h3 id="user-detail-title" style={{ margin: 0 }}>
+                  {modal.user?.fullName ?? 'Usuario'}
+                </h3>
+                {modal.user && !modal.loading ? (
+                  <div className="records-client-detail-header-meta">
+                    <span className="records-client-detail-code">{modal.user.username}</span>
+                    <span className={`status-badge records-client-status-badge ${modal.user.status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-danger'}`}>
+                      {userStatusLabel(modal.user.status)}
+                    </span>
+                    {modal.user.isLocked ? (
+                      <span className="status-badge records-client-status-badge status-badge-warning">Bloqueado</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="records-client-detail-close"
+                onClick={closeModal}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+
+            {modal.loading ? (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando...</p>
+            ) : modal.error && !modal.user ? (
+              <p className="error" style={{ margin: 0 }}>{modal.error}</p>
+            ) : modal.user ? (
+              <>
+                {modal.mode === 'view' ? (
+                  <article className="panel stack records-client-detail-summary">
+                    <p className="records-client-detail-line"><strong>Email:</strong> {modal.user.email}</p>
+                    <p className="records-client-detail-line"><strong>Telefone:</strong> {modal.user.phone ?? 'Nao informado'}</p>
+                    <p className="records-client-detail-line"><strong>Perfil:</strong> {getRoleLabel(modal.user.role)}</p>
+                    <p className="records-client-detail-line"><strong>Criado em:</strong> {new Date(modal.user.createdAt).toLocaleDateString('pt-BR')}</p>
+                    {modal.user.lastLoginAt ? (
+                      <p className="records-client-detail-line"><strong>Ultimo acesso:</strong> {new Date(modal.user.lastLoginAt).toLocaleString('pt-BR')}</p>
+                    ) : null}
+                    {modal.user.pendingEmailChange ? (
+                      <p className="records-client-detail-line"><strong>Email pendente:</strong> {modal.user.pendingEmailChange.newEmail}</p>
+                    ) : null}
+                  </article>
+                ) : (
+                  <form className="stack" onSubmit={handleEdit}>
+                    <label>
+                      Nome completo
+                      <input value={editForm.fullName} onChange={(e) => setEditForm((c) => ({ ...c, fullName: e.target.value }))} />
+                    </label>
+                    <label>
+                      Usuario
+                      <input value={editForm.username} onChange={(e) => setEditForm((c) => ({ ...c, username: e.target.value }))} />
+                    </label>
+                    <label>
+                      Email
+                      <input value={editForm.email} onChange={(e) => setEditForm((c) => ({ ...c, email: e.target.value }))} />
+                    </label>
+                    <label>
+                      Telefone
+                      <input value={editForm.phone} onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))} />
+                    </label>
+                    <label>
+                      Perfil
+                      <select value={editForm.role} onChange={(e) => setEditForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
+                        {ROLE_OPTIONS.map((role) => (
+                          <option key={role} value={role}>{getRoleLabel(role)}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <button type="submit" disabled={modal.saving}>
+                        {modal.saving ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button type="button" className="secondary-button" onClick={() => dispatchModal({ type: 'close' })} disabled={modal.saving}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {modal.error ? <p className="error" style={{ margin: 0 }}>{modal.error}</p> : null}
+                {modal.message ? <p style={{ margin: 0, color: 'var(--muted)' }}>{modal.message}</p> : null}
+
+                {modal.mode === 'view' ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button type="button" onClick={() => dispatchModal({ type: 'switchToEdit' })} disabled={modal.saving}>
+                      Editar
+                    </button>
+                    {modal.user.status === 'ACTIVE' ? (
+                      <button type="button" className="secondary-button" onClick={handleInactivate} disabled={modal.saving}>
+                        Inativar
+                      </button>
+                    ) : (
+                      <button type="button" className="secondary-button" onClick={handleReactivate} disabled={modal.saving}>
+                        Reativar
+                      </button>
+                    )}
+                    {modal.user.isLocked ? (
+                      <button type="button" className="secondary-button" onClick={handleUnlock} disabled={modal.saving}>
+                        Desbloquear
+                      </button>
+                    ) : null}
+                    <button type="button" className="secondary-button" onClick={handlePasswordReset} disabled={modal.saving}>
+                      Redefinir senha
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
+
+      {/* --- Create Modal --- */}
+      {modal.mode === 'create' ? (
+        <div className="client-modal-backdrop" onClick={closeModal}>
+          <section
+            ref={modalTrapRef}
+            className="client-modal panel stack records-client-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-create-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="client-modal-header">
+              <h3 id="user-create-title" style={{ margin: 0 }}>Novo usuario</h3>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="records-client-detail-close"
+                onClick={closeModal}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+
+            <form className="stack" onSubmit={handleCreate}>
+              <label>
+                Nome completo
+                <input value={createForm.fullName} onChange={(e) => setCreateForm((c) => ({ ...c, fullName: e.target.value }))} />
+              </label>
+              <label>
+                Usuario
+                <input value={createForm.username} onChange={(e) => setCreateForm((c) => ({ ...c, username: e.target.value }))} />
+              </label>
+              <label>
+                Email
+                <input value={createForm.email} onChange={(e) => setCreateForm((c) => ({ ...c, email: e.target.value }))} autoComplete="email" />
+              </label>
+              <label>
+                Telefone
+                <input value={createForm.phone} onChange={(e) => setCreateForm((c) => ({ ...c, phone: e.target.value }))} />
+              </label>
+              <label>
+                Perfil
+                <select value={createForm.role} onChange={(e) => setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>{getRoleLabel(role)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Senha inicial
+                <input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm((c) => ({ ...c, password: e.target.value }))}
+                  autoComplete="new-password"
+                  placeholder="Minimo de 8 caracteres"
+                />
+              </label>
+
+              {modal.error ? <p className="error" style={{ margin: 0 }}>{modal.error}</p> : null}
+              {modal.message ? <p style={{ margin: 0, color: 'var(--muted)' }}>{modal.message}</p> : null}
+
+              <button type="submit" disabled={modal.saving}>
+                {modal.saving ? 'Criando...' : 'Criar usuario'}
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

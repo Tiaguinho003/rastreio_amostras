@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AppShell } from '../../components/AppShell';
@@ -13,12 +13,51 @@ import {
   resendCurrentUserEmailChangeCode,
   updateCurrentUserProfile
 } from '../../lib/api-client';
-import { useRequireAuth } from '../../lib/use-auth';
+import {
+  changePasswordSchema,
+  emailChangeConfirmSchema,
+  emailChangeRequestSchema,
+  updateProfileSchema
+} from '../../lib/form-schemas';
+import { mergeUserIntoSession, useRequireAuth } from '../../lib/use-auth';
+
+function formatExpiresAt(expiresAt: string): string | null {
+  const expires = new Date(expiresAt);
+  const now = Date.now();
+  const diffMs = expires.getTime() - now;
+
+  if (diffMs <= 0) {
+    return null;
+  }
+
+  const minutes = Math.ceil(diffMs / 60_000);
+  if (minutes <= 1) {
+    return 'menos de 1 minuto';
+  }
+
+  return `${minutes} minutos`;
+}
+
+function extractErrorMessage(cause: unknown, fallback: string): string {
+  if (cause instanceof DOMException && cause.name === 'AbortError') {
+    return 'Operacao cancelada.';
+  }
+
+  if (cause instanceof ApiError) {
+    return cause.message;
+  }
+
+  return fallback;
+}
 
 export default function SettingsPage() {
   const router = useRouter();
   const { session, loading, logout, setSession } = useRequireAuth();
   const passwordSectionRef = useRef<HTMLElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const profileLoadedRef = useRef(false);
+
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState({
     fullName: '',
     username: '',
@@ -38,50 +77,64 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!session) {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const loadProfile = useCallback(
+    (targetSession: typeof session) => {
+      if (!targetSession) {
+        return;
+      }
+
+      const controller = new AbortController();
+      abortRef.current?.abort();
+      abortRef.current = controller;
+
+      setInitialLoadError(null);
+
+      getCurrentUser(targetSession)
+        .then((response) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setSession(mergeUserIntoSession(targetSession, response.user));
+          setProfileForm({
+            fullName: typeof response.user?.fullName === 'string' ? response.user.fullName : targetSession.user.fullName,
+            username: typeof response.user?.username === 'string' ? response.user.username : targetSession.user.username,
+            phone: typeof response.user?.phone === 'string' ? response.user.phone : ''
+          });
+          setEmailInput(typeof response.user?.email === 'string' ? response.user.email : targetSession.user.email);
+        })
+        .catch((cause) => {
+          if (cause instanceof DOMException && cause.name === 'AbortError') {
+            return;
+          }
+
+          setInitialLoadError(
+            cause instanceof ApiError ? cause.message : 'Falha ao carregar perfil. Os dados exibidos podem estar desatualizados.'
+          );
+          setProfileForm({
+            fullName: targetSession.user.fullName,
+            username: targetSession.user.username,
+            phone: ''
+          });
+          setEmailInput(targetSession.user.email ?? '');
+        });
+    },
+    [setSession]
+  );
+
+  useEffect(() => {
+    if (!session || profileLoadedRef.current) {
       return;
     }
 
-    let active = true;
-    getCurrentUser(session)
-      .then((response) => {
-        if (!active) {
-          return;
-        }
-
-        setSession({
-          ...session,
-          user: {
-            ...session.user,
-            email: response.user.email,
-            fullName: response.user.fullName,
-            displayName: response.user.fullName,
-            username: response.user.username,
-            status: response.user.status,
-            initialPasswordDecision: response.user.initialPasswordDecision,
-            pendingEmailChange: response.user.pendingEmailChange
-          }
-        } as typeof session);
-        setProfileForm({
-          fullName: response.user.fullName,
-          username: response.user.username,
-          phone: response.user.phone ?? ''
-        });
-        setEmailInput(response.user.email);
-      })
-      .catch(() => {
-        setProfileForm({
-          fullName: session.user.fullName,
-          username: session.user.username,
-          phone: ''
-        });
-        setEmailInput(session.user.email ?? '');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [session]);
+    profileLoadedRef.current = true;
+    loadProfile(session);
+  }, [session, loadProfile]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('section') === 'password') {
@@ -89,25 +142,45 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const pendingEmailChange = useMemo(() => session?.user.pendingEmailChange ?? null, [session]);
+  const pendingEmailChange = useMemo(() => {
+    const pending = session?.user.pendingEmailChange ?? null;
+    if (!pending || !pending.requestId) {
+      return null;
+    }
+
+    return pending;
+  }, [session]);
+
+  const pendingExpiresLabel = useMemo(() => {
+    if (!pendingEmailChange) {
+      return null;
+    }
+
+    return formatExpiresAt(pendingEmailChange.expiresAt);
+  }, [pendingEmailChange]);
 
   if (loading || !session) {
     return null;
   }
 
-  const authSession = session;
-
   async function handleProfileSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setProfileLoading(true);
     setProfileMessage(null);
     setProfileError(null);
 
+    const parsed = updateProfileSchema.safeParse(profileForm);
+    if (!parsed.success) {
+      setProfileError(parsed.error.issues[0]?.message ?? 'Dados invalidos');
+      return;
+    }
+
+    setProfileLoading(true);
+
     try {
-      const response = await updateCurrentUserProfile(authSession, {
-        fullName: profileForm.fullName,
-        username: profileForm.username,
-        phone: profileForm.phone || null
+      const response = await updateCurrentUserProfile(session!, {
+        fullName: parsed.data.fullName,
+        username: parsed.data.username,
+        phone: parsed.data.phone || null
       });
 
       if (response.sessionRevoked) {
@@ -116,22 +189,10 @@ export default function SettingsPage() {
         return;
       }
 
-      setSession({
-        ...authSession,
-        user: {
-          ...authSession.user,
-          fullName: response.user.fullName,
-          displayName: response.user.fullName,
-          username: response.user.username,
-          status: response.user.status,
-          initialPasswordDecision: response.user.initialPasswordDecision,
-          pendingEmailChange: response.user.pendingEmailChange,
-          email: response.user.email
-        }
-      });
+      setSession(mergeUserIntoSession(session!, response.user));
       setProfileMessage('Perfil atualizado.');
     } catch (cause) {
-      setProfileError(cause instanceof ApiError ? cause.message : 'Falha ao atualizar perfil');
+      setProfileError(extractErrorMessage(cause, 'Falha ao atualizar perfil'));
     } finally {
       setProfileLoading(false);
     }
@@ -139,22 +200,28 @@ export default function SettingsPage() {
 
   async function handleEmailRequest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setEmailLoading(true);
     setEmailMessage(null);
     setEmailError(null);
 
+    const parsed = emailChangeRequestSchema.safeParse({ email: emailInput });
+    if (!parsed.success) {
+      setEmailError(parsed.error.issues[0]?.message ?? 'Email invalido');
+      return;
+    }
+
+    if (parsed.data.email === session!.user.email) {
+      setEmailError('O novo email deve ser diferente do email atual.');
+      return;
+    }
+
+    setEmailLoading(true);
+
     try {
-      const response = await requestCurrentUserEmailChange(authSession, emailInput);
-      setSession({
-        ...authSession,
-        user: {
-          ...authSession.user,
-          pendingEmailChange: response.user.pendingEmailChange
-        }
-      });
+      const response = await requestCurrentUserEmailChange(session!, parsed.data.email);
+      setSession(mergeUserIntoSession(session!, response.user));
       setEmailMessage('Codigo enviado para o novo email.');
     } catch (cause) {
-      setEmailError(cause instanceof ApiError ? cause.message : 'Falha ao solicitar troca de email');
+      setEmailError(extractErrorMessage(cause, 'Falha ao solicitar troca de email'));
     } finally {
       setEmailLoading(false);
     }
@@ -162,47 +229,42 @@ export default function SettingsPage() {
 
   async function handleEmailConfirm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setEmailLoading(true);
     setEmailMessage(null);
     setEmailError(null);
 
+    const parsed = emailChangeConfirmSchema.safeParse({ code: emailCode });
+    if (!parsed.success) {
+      setEmailError(parsed.error.issues[0]?.message ?? 'Codigo invalido');
+      return;
+    }
+
+    setEmailLoading(true);
+
     try {
-      const response = await confirmCurrentUserEmailChange(authSession, emailCode);
-      setSession({
-        ...authSession,
-        user: {
-          ...authSession.user,
-          email: response.user.email,
-          pendingEmailChange: response.user.pendingEmailChange
-        }
-      });
+      const response = await confirmCurrentUserEmailChange(session!, parsed.data.code);
+      const merged = mergeUserIntoSession(session!, response.user);
+      setSession(merged);
       setEmailCode('');
-      setEmailInput(response.user.email);
+      setEmailInput(merged.user.email);
       setEmailMessage('Email confirmado com sucesso.');
     } catch (cause) {
-      setEmailError(cause instanceof ApiError ? cause.message : 'Falha ao confirmar novo email');
+      setEmailError(extractErrorMessage(cause, 'Falha ao confirmar novo email'));
     } finally {
       setEmailLoading(false);
     }
   }
 
   async function handleResendEmailCode() {
-    setEmailLoading(true);
     setEmailMessage(null);
     setEmailError(null);
+    setEmailLoading(true);
 
     try {
-      const response = await resendCurrentUserEmailChangeCode(authSession);
-      setSession({
-        ...authSession,
-        user: {
-          ...authSession.user,
-          pendingEmailChange: response.user.pendingEmailChange
-        }
-      });
+      const response = await resendCurrentUserEmailChangeCode(session!);
+      setSession(mergeUserIntoSession(session!, response.user));
       setEmailMessage('Codigo reenviado.');
     } catch (cause) {
-      setEmailError(cause instanceof ApiError ? cause.message : 'Falha ao reenviar codigo');
+      setEmailError(extractErrorMessage(cause, 'Falha ao reenviar codigo'));
     } finally {
       setEmailLoading(false);
     }
@@ -210,31 +272,39 @@ export default function SettingsPage() {
 
   async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPasswordLoading(true);
     setPasswordMessage(null);
     setPasswordError(null);
 
+    const parsed = changePasswordSchema.safeParse({ password });
+    if (!parsed.success) {
+      setPasswordError(parsed.error.issues[0]?.message ?? 'Senha invalida');
+      return;
+    }
+
+    setPasswordLoading(true);
+
     try {
-      await changeCurrentUserPassword(authSession, password);
+      await changeCurrentUserPassword(session!, parsed.data.password);
       setSession(null);
       router.replace('/login?reason=session-ended');
     } catch (cause) {
-      setPasswordError(cause instanceof ApiError ? cause.message : 'Falha ao alterar senha');
+      setPasswordError(extractErrorMessage(cause, 'Falha ao alterar senha'));
     } finally {
       setPasswordLoading(false);
     }
   }
 
   return (
-    <AppShell session={authSession} onLogout={logout} onSessionChange={setSession}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="stack" style={{ width: 'min(1180px, calc(100vw - 2rem))', margin: '1.25rem auto 2rem' }}>
+        {initialLoadError ? (
+          <p className="error" style={{ margin: 0 }}>
+            {initialLoadError}
+          </p>
+        ) : null}
+
         <section className="panel stack">
-          <div>
-            <h2 style={{ margin: 0 }}>Meu perfil</h2>
-            <p style={{ margin: '0.45rem 0 0', color: 'var(--muted)' }}>
-              Atualize seus dados, senha e email de acesso.
-            </p>
-          </div>
+          <h2 style={{ margin: 0 }}>Perfil</h2>
 
           <form className="stack" onSubmit={handleProfileSubmit}>
             <label>
@@ -274,11 +344,16 @@ export default function SettingsPage() {
           <div>
             <h3 style={{ margin: 0 }}>Email</h3>
             <p style={{ margin: '0.45rem 0 0', color: 'var(--muted)' }}>
-              Email atual: <strong>{authSession.user.email}</strong>
+              Email atual: <strong>{session.user.email}</strong>
             </p>
             {pendingEmailChange ? (
               <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)' }}>
                 Novo email pendente: <strong>{pendingEmailChange.newEmail}</strong>
+                {pendingExpiresLabel ? (
+                  <span> (expira em {pendingExpiresLabel})</span>
+                ) : (
+                  <span style={{ color: 'var(--danger)' }}> (codigo expirado — reenvie)</span>
+                )}
               </p>
             ) : null}
           </div>
@@ -286,7 +361,12 @@ export default function SettingsPage() {
           <form className="stack" onSubmit={handleEmailRequest}>
             <label>
               Novo email
-              <input value={emailInput} onChange={(event) => setEmailInput(event.target.value)} autoComplete="email" />
+              <input
+                value={emailInput}
+                onChange={(event) => setEmailInput(event.target.value)}
+                autoComplete="email"
+                inputMode="email"
+              />
             </label>
 
             <button type="submit" disabled={emailLoading}>
@@ -298,11 +378,17 @@ export default function SettingsPage() {
             <form className="stack" onSubmit={handleEmailConfirm}>
               <label>
                 Codigo de confirmacao
-                <input value={emailCode} onChange={(event) => setEmailCode(event.target.value)} inputMode="numeric" />
+                <input
+                  value={emailCode}
+                  onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                />
               </label>
 
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button type="submit" disabled={emailLoading}>
+                <button type="submit" disabled={emailLoading || emailCode.length !== 6}>
                   {emailLoading ? 'Confirmando...' : 'Confirmar novo email'}
                 </button>
                 <button type="button" className="secondary-button" onClick={handleResendEmailCode} disabled={emailLoading}>
@@ -332,13 +418,14 @@ export default function SettingsPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="new-password"
+                placeholder="Minimo de 8 caracteres"
               />
             </label>
 
             {passwordError ? <p className="error">{passwordError}</p> : null}
             {passwordMessage ? <p style={{ margin: 0, color: 'var(--muted)' }}>{passwordMessage}</p> : null}
 
-            <button type="submit" disabled={passwordLoading}>
+            <button type="submit" disabled={passwordLoading || password.length < 8}>
               {passwordLoading ? 'Salvando...' : 'Alterar senha'}
             </button>
           </form>

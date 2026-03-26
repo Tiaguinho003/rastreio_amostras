@@ -67,12 +67,13 @@ body {
 
 .login-page {
   display: grid;
-  align-items: start;
+  align-items: center;
   justify-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   margin: 0;
-  padding: 1.6rem 1rem 2rem;
+  padding: 1.6rem clamp(1rem, 5vw, 2rem) 2rem;
   background: transparent;
   overflow: hidden;
   overscroll-behavior: none;
@@ -82,7 +83,7 @@ body {
   width: min(390px, 100%);
   display: grid;
   gap: 0;
-  align-content: start;
+  align-content: center;
   border-radius: 0;
   padding: 0;
   background: transparent;
@@ -95,11 +96,11 @@ body {
   justify-items: center;
   align-items: center;
   gap: 0;
-  padding: clamp(7.2rem, 18vh, 10.2rem) 0 2.5rem;
+  padding: clamp(1.5rem, 8vh, 4rem) 0 clamp(1.8rem, 5vh, 2.5rem);
 }
 
 .login-card-brand-image {
-  width: min(284px, 72vw);
+  width: clamp(180px, 56vw, 284px);
   height: auto;
 }
 
@@ -112,7 +113,7 @@ body {
 .login-card-fields {
   display: grid;
   gap: 1.2rem;
-  width: min(284px, 100%);
+  width: min(320px, calc(100% - 0.5rem));
   margin-top: 0;
 }
 
@@ -155,7 +156,7 @@ body {
 .login-card-link {
   width: fit-content;
   margin-left: 0;
-  padding: 0;
+  padding: 0.4rem 0;
   border: 0;
   background: transparent;
   color: #1a6b10;
@@ -178,7 +179,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.9rem;
-  width: min(284px, 100%);
+  width: min(320px, calc(100% - 0.5rem));
 }
 
 .login-card-error {
@@ -189,16 +190,16 @@ body {
 
 .login-card-feedback {
   min-height: 1.4rem;
-  width: min(284px, 100%);
+  width: min(320px, calc(100% - 0.5rem));
 }
 
 .login-card-submit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.6rem;
-  min-width: 2.6rem;
-  height: 2.6rem;
+  width: 3rem;
+  min-width: 3rem;
+  height: 3rem;
   padding: 0;
   border-radius: 999px;
   background: rgba(22, 91, 42, 0.08);
@@ -2625,8 +2626,8 @@ button:disabled {
   .sample-classification-step-tab {
     justify-content: center;
     text-align: center;
-    font-size: 0.72rem;
-    padding: 0.3rem 0.24rem;
+    font-size: clamp(0.58rem, 2.1vw, 0.72rem);
+    padding: clamp(0.2rem, 0.9vw, 0.3rem) clamp(0.16rem, 0.7vw, 0.24rem);
   }
 
   .sample-classification-step-body {
@@ -2636,7 +2637,7 @@ button:disabled {
   }
 
   .sample-classification-photo-panel {
-    padding: 0.72rem;
+    padding: clamp(0.48rem, 2vw, 0.72rem);
     height: 100%;
     min-height: 100%;
   }
@@ -2644,42 +2645,42 @@ button:disabled {
   .sample-classification-photo-stage {
     height: 100%;
     min-height: 100%;
-    padding: 0.5rem;
+    padding: clamp(0.35rem, 1.5vw, 0.5rem);
   }
 
   .sample-classification-photo-inline-actions {
     left: 50%;
     transform: translateX(-50%);
-    bottom: 2.8rem;
-    gap: 0.58rem;
+    bottom: clamp(2rem, 7.5vw, 2.8rem);
+    gap: clamp(0.38rem, 1.7vw, 0.58rem);
   }
 
   .sample-classification-photo-inline-icon {
-    width: 2.82rem;
-    min-width: 2.82rem;
-    height: 2.82rem;
-    min-height: 2.82rem;
+    width: clamp(2.2rem, 7.5vw, 2.82rem);
+    min-width: clamp(2.2rem, 7.5vw, 2.82rem);
+    height: clamp(2.2rem, 7.5vw, 2.82rem);
+    min-height: clamp(2.2rem, 7.5vw, 2.82rem);
   }
 
   .sample-classification-form-panel {
-    gap: 0.62rem;
-    padding: 0.72rem;
+    gap: clamp(0.42rem, 1.8vw, 0.62rem);
+    padding: clamp(0.48rem, 2vw, 0.72rem);
   }
 
   .sample-classification-footer {
-    gap: 0.42rem;
-    padding-top: 0.5rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
+    padding-top: clamp(0.35rem, 1.5vw, 0.5rem);
     padding-bottom: 0.02rem;
   }
 
   .sample-classification-footer-actions {
-    gap: 0.36rem;
+    gap: clamp(0.24rem, 1vw, 0.36rem);
   }
 
   .sample-classification-nav-arrow {
-    width: 2.12rem;
-    min-width: 2.12rem;
-    height: 2.12rem;
+    width: clamp(1.7rem, 6vw, 2.12rem);
+    min-width: clamp(1.7rem, 6vw, 2.12rem);
+    height: clamp(1.7rem, 6vw, 2.12rem);
   }
 
   .sample-detail-page {
@@ -2687,7 +2688,7 @@ button:disabled {
       100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--mobile-shell-top-offset) -
         var(--mobile-tabbar-clearance) - 0.32rem
     );
-    gap: 0.28rem;
+    gap: clamp(0.18rem, 0.8vw, 0.28rem);
     overflow: hidden;
   }
 
@@ -2697,60 +2698,60 @@ button:disabled {
   }
 
   .sample-detail-top-bar {
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
     padding-inline: 0.02rem;
   }
 
   .sample-detail-back-button {
-    width: 1.8rem;
-    min-width: 1.8rem;
-    height: 1.8rem;
+    width: clamp(1.5rem, 5vw, 1.8rem);
+    min-width: clamp(1.5rem, 5vw, 1.8rem);
+    height: clamp(1.5rem, 5vw, 1.8rem);
   }
 
   .sample-detail-hero-panel {
-    padding: 0.38rem 0.58rem;
-    gap: 0.38rem;
-    border-radius: 12px;
+    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    gap: clamp(0.28rem, 1.1vw, 0.38rem);
+    border-radius: clamp(10px, 3.5vw, 12px);
   }
 
   .sample-detail-hero-action {
-    width: 1.7rem;
-    min-width: 1.7rem;
-    height: 1.7rem;
+    width: clamp(1.4rem, 4.8vw, 1.7rem);
+    min-width: clamp(1.4rem, 4.8vw, 1.7rem);
+    height: clamp(1.4rem, 4.8vw, 1.7rem);
   }
 
   .sample-detail-hero-main {
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .sample-detail-hero-icon {
-    width: 2rem;
-    height: 2rem;
+    width: clamp(1.6rem, 5.5vw, 2rem);
+    height: clamp(1.6rem, 5.5vw, 2rem);
   }
 
   .sample-detail-hero-icon svg {
-    width: 0.92rem;
-    height: 0.92rem;
+    width: clamp(0.76rem, 2.6vw, 0.92rem);
+    height: clamp(0.76rem, 2.6vw, 0.92rem);
   }
 
   .sample-detail-hero-text h2 {
-    font-size: 0.88rem;
+    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
   }
 
   .sample-detail-hero-text p {
-    font-size: 0.68rem;
+    font-size: clamp(0.56rem, 2vw, 0.68rem);
   }
 
   .sample-detail-main-layout {
-    grid-template-columns: minmax(0, 1.12fr) minmax(7.8rem, 0.88fr);
-    gap: 0.55rem;
+    grid-template-columns: minmax(0, 1.12fr) minmax(clamp(6rem, 22vw, 7.8rem), 0.88fr);
+    gap: clamp(0.35rem, 1.5vw, 0.55rem);
   }
 
   .sample-detail-main-layout-general {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
     align-content: stretch;
-    gap: 0.22rem;
+    gap: clamp(0.14rem, 0.6vw, 0.22rem);
     padding: 0;
     border: 0;
     background: transparent;
@@ -2759,12 +2760,12 @@ button:disabled {
 
   .sample-detail-general-qr-block {
     width: 100%;
-    gap: 0.38rem;
+    gap: clamp(0.28rem, 1.1vw, 0.38rem);
   }
 
   .sample-detail-general-qr-block .sample-detail-qr-quick-code canvas,
   .sample-detail-general-qr-block .sample-detail-qr-quick-code svg {
-    width: min(100%, 7rem) !important;
+    width: min(100%, clamp(5.5rem, 19vw, 7rem)) !important;
     height: auto !important;
   }
 
@@ -2781,16 +2782,16 @@ button:disabled {
   .sample-detail-info-switch-header {
     width: 100%;
     padding: 0 0.02rem;
-    gap: 0.18rem;
+    gap: clamp(0.1rem, 0.5vw, 0.18rem);
   }
 
   .sample-detail-info-tab {
-    min-height: 2.5rem;
+    min-height: clamp(2.1rem, 7vw, 2.5rem);
     justify-content: center;
     text-align: center;
-    font-size: 0.76rem;
-    padding: 0.34rem 0.24rem 0.48rem;
-    border-radius: 18px 18px 0 0;
+    font-size: clamp(0.62rem, 2.2vw, 0.76rem);
+    padding: clamp(0.24rem, 1vw, 0.34rem) clamp(0.16rem, 0.7vw, 0.24rem) clamp(0.34rem, 1.4vw, 0.48rem);
+    border-radius: clamp(14px, 4.5vw, 18px) clamp(14px, 4.5vw, 18px) 0 0;
   }
 
   .sample-detail-info-switch-body {
@@ -2810,8 +2811,8 @@ button:disabled {
 
   .sample-detail-main-info-grid {
     width: 100%;
-    gap: 0.38rem;
-    padding: 0.32rem 0.42rem 0.42rem;
+    gap: clamp(0.28rem, 1.1vw, 0.38rem);
+    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.2vw, 0.42rem) clamp(0.28rem, 1.2vw, 0.42rem);
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -2819,12 +2820,12 @@ button:disabled {
   }
 
   .sample-detail-general-stage {
-    gap: 0.72rem;
+    gap: clamp(0.48rem, 2vw, 0.72rem);
   }
 
   .sample-detail-edit-tools-general {
-    top: 0.38rem;
-    right: 0.38rem;
+    top: clamp(0.28rem, 1.1vw, 0.38rem);
+    right: clamp(0.28rem, 1.1vw, 0.38rem);
   }
 
   .sample-detail-main-facts-columns,
@@ -2834,7 +2835,7 @@ button:disabled {
   }
 
   .sample-detail-general-card-top {
-    padding: 0.72rem 0.5rem 0.62rem;
+    padding: clamp(0.48rem, 2vw, 0.72rem) clamp(0.35rem, 1.5vw, 0.5rem) clamp(0.42rem, 1.8vw, 0.62rem);
   }
 
   .sample-detail-main-facts-columns {
@@ -2847,44 +2848,44 @@ button:disabled {
   }
 
   .sample-detail-main-facts-general .sample-detail-main-fact span {
-    font-size: 0.58rem;
+    font-size: clamp(0.46rem, 1.6vw, 0.58rem);
   }
 
   .sample-detail-main-facts-general .sample-detail-inline-value,
   .sample-detail-main-facts-general .sample-detail-inline-input {
-    font-size: 0.76rem;
-    min-height: 1.3rem;
-    padding: 0.32rem 0.38rem;
+    font-size: clamp(0.64rem, 2.2vw, 0.76rem);
+    min-height: clamp(1.1rem, 3.7vw, 1.3rem);
+    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.1vw, 0.38rem);
   }
 
   .sample-detail-main-facts-general .client-lookup-field input,
   .sample-detail-main-facts-general .client-registration-select select {
-    font-size: 0.76rem;
-    min-height: 1.3rem;
-    padding: 0.32rem 0.38rem;
+    font-size: clamp(0.64rem, 2.2vw, 0.76rem);
+    min-height: clamp(1.1rem, 3.7vw, 1.3rem);
+    padding: clamp(0.22rem, 0.9vw, 0.32rem) clamp(0.28rem, 1.1vw, 0.38rem);
   }
 
   .sample-detail-qr-action {
-    width: 4.2rem;
-    min-width: 4.2rem;
-    height: 2.28rem;
+    width: clamp(3.2rem, 11.5vw, 4.2rem);
+    min-width: clamp(3.2rem, 11.5vw, 4.2rem);
+    height: clamp(1.8rem, 6.5vw, 2.28rem);
   }
 
   .sample-detail-qr-quick-actions {
     justify-content: center;
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .sample-detail-disclosure-summary {
-    gap: 0.58rem;
+    gap: clamp(0.38rem, 1.7vw, 0.58rem);
   }
 
   .sample-detail-disclosure-copy strong {
-    font-size: 0.84rem;
+    font-size: clamp(0.7rem, 2.4vw, 0.84rem);
   }
 
   .sample-detail-disclosure-copy span {
-    font-size: 0.7rem;
+    font-size: clamp(0.58rem, 2vw, 0.7rem);
   }
 
   .sample-classification-start-card {
@@ -2902,17 +2903,17 @@ button:disabled {
 
   .sample-classification-form-grid {
     grid-template-columns: 1fr;
-    gap: 0.52rem;
+    gap: clamp(0.35rem, 1.5vw, 0.52rem);
   }
 
   .sample-classification-form-grid-general {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.42rem 0.52rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem) clamp(0.35rem, 1.5vw, 0.52rem);
   }
 
   .sample-classification-measures-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.38rem 0.42rem;
+    gap: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .sample-classification-measures-grid .sample-classification-field:nth-child(4),
@@ -2926,22 +2927,22 @@ button:disabled {
 
   .sample-classification-sieve-grid-compact {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.38rem 0.42rem;
+    gap: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .sample-classification-measures-panel {
-    gap: 0.52rem;
+    gap: clamp(0.35rem, 1.5vw, 0.52rem);
   }
 
   .sample-classification-step-hint {
-    font-size: 0.68rem;
+    font-size: clamp(0.56rem, 2vw, 0.68rem);
   }
 
   .sample-detail-info-tab-dot {
-    top: 0.22rem;
-    right: 0.22rem;
-    width: 0.58rem;
-    height: 0.58rem;
+    top: clamp(0.14rem, 0.6vw, 0.22rem);
+    right: clamp(0.14rem, 0.6vw, 0.22rem);
+    width: clamp(0.46rem, 1.6vw, 0.58rem);
+    height: clamp(0.46rem, 1.6vw, 0.58rem);
   }
 
   .sample-classification-footer button {
@@ -2949,7 +2950,7 @@ button:disabled {
   }
 
   .sample-detail-invalidate-modal {
-    width: min(100%, 26.8rem);
+    width: min(100%, calc(100vw - 1rem));
   }
 }
 
@@ -3235,7 +3236,7 @@ button:disabled {
 
 .mobile-tabbar-link.is-primary {
   position: relative;
-  flex: 0 0 6.1rem;
+  flex: 0 0 clamp(4.5rem, 15vw, 6.1rem);
   margin-top: -0.12rem;
   padding:
     var(--mobile-tabbar-primary-link-pad-top, 0.04rem)
@@ -3259,13 +3260,13 @@ button:disabled {
 
 .mobile-tabbar-pill {
   width: 100%;
-  min-height: 4.2rem;
+  min-height: clamp(3.4rem, 11vw, 4.2rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.24rem;
-  border-radius: 22px;
+  border-radius: clamp(16px, 5.5vw, 22px);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
@@ -3276,8 +3277,8 @@ button:disabled {
 }
 
 .mobile-tabbar-icon {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: clamp(1.6rem, 5.5vw, 2.2rem);
+  height: clamp(1.6rem, 5.5vw, 2.2rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3299,8 +3300,8 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  width: 5.2rem;
-  min-height: 5.2rem;
+  width: clamp(4rem, 13.5vw, 5.2rem);
+  min-height: clamp(4rem, 13.5vw, 5.2rem);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -3311,18 +3312,18 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  width: 2.8rem;
-  height: 2.8rem;
+  width: clamp(2rem, 7vw, 2.8rem);
+  height: clamp(2rem, 7vw, 2.8rem);
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
-  width: 2.56rem;
-  height: 2.56rem;
+  width: clamp(1.8rem, 6.5vw, 2.56rem);
+  height: clamp(1.8rem, 6.5vw, 2.56rem);
 }
 
 .mobile-tabbar-label {
   max-width: 100%;
-  font-size: 0.72rem;
+  font-size: clamp(0.58rem, 2vw, 0.72rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   text-align: center;
@@ -4898,14 +4899,14 @@ button:disabled {
 
 @media (max-width: 900px) {
   .records-mode-switch {
-    gap: 0.28rem;
-    padding: 0.24rem;
+    gap: clamp(0.18rem, 0.8vw, 0.28rem);
+    padding: clamp(0.16rem, 0.7vw, 0.24rem);
   }
 
   .records-mode-switch-option {
-    min-height: 2.1rem;
-    padding: 0.38rem 0.7rem;
-    font-size: 0.82rem;
+    min-height: clamp(1.8rem, 6vw, 2.1rem);
+    padding: clamp(0.28rem, 1.2vw, 0.38rem) clamp(0.48rem, 2vw, 0.7rem);
+    font-size: clamp(0.68rem, 2.4vw, 0.82rem);
   }
 
   .samples-page-search-bar {
@@ -4930,11 +4931,11 @@ button:disabled {
 
   .records-client-registration-head {
     display: grid;
-    gap: 0.38rem;
+    gap: clamp(0.28rem, 1.2vw, 0.38rem);
   }
 
   .records-client-detail-modal {
-    width: min(100%, 28rem);
+    width: min(100%, calc(100vw - 1rem));
     max-height: 92vh;
   }
 
@@ -7721,7 +7722,7 @@ button:disabled {
   }
 
   .client-detail-page-shell {
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -7750,60 +7751,60 @@ button:disabled {
   }
 
   .client-detail-page-shell > .sample-detail-content-switch {
-    padding: 0.38rem 0.5rem 0.5rem;
+    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.35rem, 1.5vw, 0.5rem) clamp(0.35rem, 1.5vw, 0.5rem);
   }
 
   .client-detail-top-bar {
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
     flex-shrink: 0;
   }
 
   .client-detail-hero-panel {
-    padding: 0.38rem 0.58rem;
-    gap: 0.38rem;
-    border-radius: 12px;
+    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    gap: clamp(0.28rem, 1.1vw, 0.38rem);
+    border-radius: clamp(10px, 3.5vw, 12px);
   }
 
   .client-detail-hero-action {
-    width: 1.7rem;
-    min-width: 1.7rem;
-    height: 1.7rem;
+    width: clamp(1.4rem, 4.8vw, 1.7rem);
+    min-width: clamp(1.4rem, 4.8vw, 1.7rem);
+    height: clamp(1.4rem, 4.8vw, 1.7rem);
   }
 
   .client-detail-hero-text h2 {
-    font-size: 0.88rem;
+    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
   }
 
   .client-detail-hero-text p {
-    font-size: 0.68rem;
+    font-size: clamp(0.56rem, 2vw, 0.68rem);
   }
 
   .client-detail-info-section {
-    padding: 0.52rem 0.58rem;
-    border-radius: 14px;
+    padding: clamp(0.36rem, 1.5vw, 0.52rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    border-radius: clamp(10px, 3.5vw, 14px);
   }
 
   .client-detail-registrations-section {
-    padding: 0.52rem 0.58rem;
-    border-radius: 14px;
+    padding: clamp(0.36rem, 1.5vw, 0.52rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    border-radius: clamp(10px, 3.5vw, 14px);
   }
 
   .client-detail-info-item {
-    padding: 0.35rem 0.42rem;
+    padding: clamp(0.24rem, 1vw, 0.35rem) clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .client-detail-info-label {
-    font-size: 0.56rem;
-    padding: 0.16rem 0.3rem;
-    margin: -0.35rem -0.42rem 0.14rem;
+    font-size: clamp(0.46rem, 1.6vw, 0.56rem);
+    padding: clamp(0.1rem, 0.5vw, 0.16rem) clamp(0.2rem, 0.9vw, 0.3rem);
+    margin: clamp(-0.35rem, -1vw, -0.24rem) clamp(-0.42rem, -1.2vw, -0.28rem) clamp(0.08rem, 0.4vw, 0.14rem);
   }
 
   .client-detail-info-value {
-    font-size: 0.8rem;
+    font-size: clamp(0.66rem, 2.3vw, 0.8rem);
   }
 
   .client-detail-section-header h3 {
-    font-size: 0.9rem;
+    font-size: clamp(0.74rem, 2.6vw, 0.9rem);
   }
 
   .client-detail-modal-row {
@@ -7812,7 +7813,7 @@ button:disabled {
 
   .client-detail-edit-modal,
   .client-detail-reg-modal {
-    width: min(96vw, 28rem);
+    width: min(calc(100vw - 0.75rem), 28rem);
   }
 }
 
@@ -8031,33 +8032,33 @@ button:disabled {
 
 @media (max-width: 900px) {
   .client-detail-commercial-summary {
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
   }
 
   .client-detail-commercial-item {
-    padding: 0.48rem 0.58rem;
-    border-radius: 14px;
-    gap: 0.42rem;
+    padding: clamp(0.34rem, 1.4vw, 0.48rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    border-radius: clamp(10px, 3.5vw, 14px);
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .client-detail-commercial-item-main strong {
-    font-size: 0.84rem;
+    font-size: clamp(0.7rem, 2.4vw, 0.84rem);
   }
 
   .client-detail-commercial-item-main span {
-    font-size: 0.66rem;
+    font-size: clamp(0.54rem, 1.9vw, 0.66rem);
   }
 
   .client-detail-commercial-item-date {
-    font-size: 0.6rem;
+    font-size: clamp(0.48rem, 1.7vw, 0.6rem);
   }
 
   .client-detail-commercial-list {
-    gap: 0.28rem;
+    gap: clamp(0.18rem, 0.8vw, 0.28rem);
   }
 
   .client-detail-commercial-pagination {
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
     padding: 0.12rem 0;
   }
 }
@@ -8311,7 +8312,17 @@ button:disabled {
   gap: 0.55rem;
 }
 
+.admin-page-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+}
+
 @media (max-width: 900px) {
+  .admin-page-layout {
+    grid-template-columns: 1fr;
+  }
+
   .clients-page-header {
     display: flex;
     flex-wrap: wrap;
@@ -8333,7 +8344,7 @@ button:disabled {
   }
 
   .clients-detail-column {
-    gap: 0.72rem;
+    gap: clamp(0.48rem, 2vw, 0.72rem);
   }
 
   .clients-detail-column .grid-2 {
@@ -8341,27 +8352,27 @@ button:disabled {
   }
 
   .clients-list-item {
-    padding: 0.62rem 0.72rem;
-    font-size: 0.82rem;
+    padding: clamp(0.42rem, 1.8vw, 0.62rem) clamp(0.48rem, 2vw, 0.72rem);
+    font-size: clamp(0.68rem, 2.4vw, 0.82rem);
   }
 
   .clients-filters-grid {
     grid-template-columns: 1fr;
-    gap: 0.35rem;
+    gap: clamp(0.22rem, 1vw, 0.35rem);
   }
 
   .sample-commercial-stack {
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 0.55rem;
+    gap: clamp(0.35rem, 1.5vw, 0.55rem);
   }
 
   .sample-movement-panel-card {
-    gap: 0.55rem;
+    gap: clamp(0.35rem, 1.5vw, 0.55rem);
   }
 
   .sample-movement-panel-head {
     display: grid;
-    gap: 0.45rem;
+    gap: clamp(0.3rem, 1.3vw, 0.45rem);
   }
 
   .sample-movement-panel-actions,
@@ -8375,33 +8386,33 @@ button:disabled {
   }
 
   .sample-commercial-summary-card {
-    gap: 0.62rem;
+    gap: clamp(0.42rem, 1.8vw, 0.62rem);
   }
 
   .sample-commercial-summary-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .sample-commercial-summary-item {
-    padding: 0.68rem;
-    border-radius: 16px;
+    padding: clamp(0.46rem, 2vw, 0.68rem);
+    border-radius: clamp(12px, 4vw, 16px);
   }
 
   .sample-commercial-summary-item span {
-    font-size: 0.74rem;
+    font-size: clamp(0.6rem, 2.1vw, 0.74rem);
     font-weight: 600;
   }
 
   .sample-commercial-summary-item strong {
-    font-size: 1.08rem;
+    font-size: clamp(0.88rem, 3vw, 1.08rem);
     color: #2a3d26;
   }
 
   .sample-movement-filter-panel {
-    padding: 0.62rem;
+    padding: clamp(0.42rem, 1.8vw, 0.62rem);
   }
 
 
@@ -8464,7 +8475,7 @@ button:disabled {
     width: 100%;
     min-height: 100dvh;
     margin: 0;
-    padding: calc(env(safe-area-inset-top) + 0.9rem) 1rem calc(env(safe-area-inset-bottom) + 1.3rem);
+    padding: calc(env(safe-area-inset-top) + 0.5rem) clamp(0.75rem, 4vw, 1.5rem) calc(env(safe-area-inset-bottom) + 1rem);
     background: transparent;
     overflow: hidden;
     overscroll-behavior: none;
@@ -8484,7 +8495,7 @@ button:disabled {
   }
 
   .login-card-brand-image {
-    width: min(284px, 72vw);
+    width: clamp(160px, 56vw, 284px);
   }
 
   .login-card-fields {
@@ -8492,7 +8503,7 @@ button:disabled {
   }
 
   .login-modal {
-    width: min(100%, 24.75rem);
+    width: min(100%, calc(100vw - 1.5rem));
     min-height: 20.9rem;
     max-height: min(82vh, 34rem);
     padding: 1.1rem 1rem 1rem;
@@ -8512,12 +8523,12 @@ button:disabled {
   }
 
   .login-modal-otp-grid {
-    gap: 0.38rem;
+    gap: clamp(0.25rem, 1.5vw, 0.48rem);
     width: min(100%, 18.1rem);
   }
 
   .login-modal-otp-input {
-    min-height: 3.18rem;
+    min-height: clamp(2.8rem, 9vw, 3.18rem);
     border-radius: 12px;
     font-size: 1rem;
   }
@@ -8556,8 +8567,9 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr) auto;
     justify-items: stretch;
     align-items: center;
-    gap: 0.8rem;
+    gap: clamp(0.4rem, 2vw, 0.8rem);
     padding: calc(env(safe-area-inset-top) + 0.66rem) 0 0.72rem;
+    width: calc(100% - clamp(0.7rem, 4vw, 1.5rem));
   }
 
   .topbar-mobile-spacer {
@@ -8576,7 +8588,7 @@ button:disabled {
   }
 
   .topbar-logo-image {
-    height: 36px;
+    height: clamp(28px, 8vw, 36px);
     width: auto;
   }
 
@@ -8589,7 +8601,7 @@ button:disabled {
     grid-column: 2;
     justify-self: end;
     justify-content: flex-end;
-    gap: 0.55rem;
+    gap: clamp(0.3rem, 1.5vw, 0.55rem);
     overflow: visible;
   }
 
@@ -8605,9 +8617,9 @@ button:disabled {
   .topbar-mobile-create-link {
     display: inline-grid;
     place-items: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
+    width: clamp(2.3rem, 7vw, 2.75rem);
+    min-width: clamp(2.3rem, 7vw, 2.75rem);
+    height: clamp(2.3rem, 7vw, 2.75rem);
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 999px;
     padding: 0;
@@ -8646,9 +8658,9 @@ button:disabled {
     z-index: 2;
     display: inline-grid;
     place-items: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
+    width: clamp(2.3rem, 7vw, 2.75rem);
+    min-width: clamp(2.3rem, 7vw, 2.75rem);
+    height: clamp(2.3rem, 7vw, 2.75rem);
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 999px;
     padding: 0;
@@ -8759,9 +8771,9 @@ button:disabled {
   }
 
   .topbar-profile-trigger {
-    width: 2.75rem;
-    min-width: 2.75rem;
-    height: 2.75rem;
+    width: clamp(2.3rem, 7vw, 2.75rem);
+    min-width: clamp(2.3rem, 7vw, 2.75rem);
+    height: clamp(2.3rem, 7vw, 2.75rem);
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(255, 255, 255, 0.16);
     box-shadow: 0 10px 22px rgba(8, 17, 13, 0.22);
@@ -8775,8 +8787,8 @@ button:disabled {
 
   .app-shell-mobile-route-header {
     display: grid;
-    gap: 0.8rem;
-    margin-bottom: 0.95rem;
+    gap: clamp(0.55rem, 2.3vw, 0.8rem);
+    margin-bottom: clamp(0.65rem, 2.7vw, 0.95rem);
     padding: 0 0.1rem;
   }
 
@@ -8796,14 +8808,14 @@ button:disabled {
 
   .app-shell-mobile-route-title {
     margin: 0;
-    font-size: 1.58rem;
+    font-size: clamp(1.28rem, 4.5vw, 1.58rem);
     line-height: 1.04;
   }
 
   .app-shell-mobile-route-subtitle {
     margin: 0;
     color: var(--muted);
-    font-size: 0.92rem;
+    font-size: clamp(0.76rem, 2.6vw, 0.92rem);
     line-height: 1.35;
   }
 
@@ -8811,10 +8823,10 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55rem;
-    min-height: 3rem;
-    border-radius: 16px;
-    padding: 0.78rem 1rem;
+    gap: clamp(0.35rem, 1.5vw, 0.55rem);
+    min-height: clamp(2.5rem, 8.5vw, 3rem);
+    border-radius: clamp(12px, 4vw, 16px);
+    padding: clamp(0.55rem, 2.2vw, 0.78rem) clamp(0.7rem, 2.8vw, 1rem);
     background: linear-gradient(145deg, #6fa25c 0%, #266243 100%);
     color: #fff;
     font-weight: 700;
@@ -8844,7 +8856,7 @@ button:disabled {
     background: var(--mobile-page-bg);
     padding:
       calc(env(safe-area-inset-top) + var(--mobile-shell-top-offset))
-      0.5rem
+      clamp(0.35rem, 2vw, 0.75rem)
       calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
     margin: 0;
     box-sizing: border-box;
@@ -8852,8 +8864,8 @@ button:disabled {
   }
 
   .app-shell-password-banner {
-    border-radius: 20px;
-    padding: 0.9rem;
+    border-radius: clamp(14px, 5vw, 20px);
+    padding: clamp(0.6rem, 2.5vw, 0.9rem);
   }
 
   .app-shell-password-banner-inner {
@@ -8886,7 +8898,7 @@ button:disabled {
     border: 0;
     padding:
       var(--mobile-tabbar-inner-pad-top)
-      0.52rem
+      clamp(0.25rem, 1.5vw, 0.52rem)
       calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-inner-pad-bottom));
     background: linear-gradient(180deg, #0b4a04 0%, #073603 100%);
     box-shadow: 0 -12px 26px rgba(7, 22, 8, 0.24);
@@ -9020,14 +9032,14 @@ button:disabled {
   }
 
   .dashboard-section-title {
-    font-size: 1.08rem;
+    font-size: clamp(0.88rem, 3vw, 1.08rem);
     padding: 0;
   }
 
   .dashboard-section-title::before {
     width: 0.22rem;
-    height: 1rem;
-    margin-right: 0.34rem;
+    height: clamp(0.8rem, 2.8vw, 1rem);
+    margin-right: clamp(0.22rem, 1vw, 0.34rem);
   }
 
   .dashboard-section-column-actions {
@@ -9036,50 +9048,51 @@ button:disabled {
 
   .dashboard-operations-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.55rem;
+    gap: clamp(0.3rem, 1.5vw, 0.55rem);
   }
 
   .dashboard-operation-card {
-    min-height: 6rem;
-    padding: 0.82rem 0.72rem;
-    border-radius: 22px;
-    gap: 0.65rem;
+    min-height: clamp(5rem, 16vw, 6rem);
+    padding: clamp(0.5rem, 2.2vw, 0.82rem) clamp(0.42rem, 2vw, 0.72rem);
+    border-radius: clamp(16px, 5vw, 22px);
+    gap: clamp(0.35rem, 1.8vw, 0.65rem);
     color: #ffffff;
     background: linear-gradient(180deg, #1b6a0d 0%, #115d06 100%);
     box-shadow: 0 10px 18px rgba(13, 58, 10, 0.14);
   }
 
   .dashboard-operation-title {
-    font-size: 0.84rem;
+    font-size: clamp(0.62rem, 2.4vw, 0.84rem);
     color: rgba(255, 255, 255, 0.94);
+    line-height: 1.15;
   }
 
   .dashboard-operation-total {
-    font-size: 1.7rem;
+    font-size: clamp(1.2rem, 5vw, 1.7rem);
     color: #ffffff;
   }
 
   .dashboard-operation-description {
-    font-size: 0.74rem;
+    font-size: clamp(0.56rem, 2vw, 0.74rem);
     color: rgba(255, 255, 255, 0.72);
   }
 
   .dashboard-operation-icon {
-    width: 1.9rem;
-    height: 1.9rem;
+    width: clamp(1.4rem, 5vw, 1.9rem);
+    height: clamp(1.4rem, 5vw, 1.9rem);
     background: rgba(255, 255, 255, 0.16);
   }
 
   .dashboard-operation-icon svg {
-    width: 1rem;
-    height: 1rem;
+    width: clamp(0.75rem, 2.8vw, 1rem);
+    height: clamp(0.75rem, 2.8vw, 1rem);
     stroke: #ffffff;
   }
 
   .dashboard-section-link {
-    min-height: 2rem;
-    padding: 0.3rem 0.72rem;
-    font-size: 0.76rem;
+    min-height: clamp(1.7rem, 5.5vw, 2rem);
+    padding: clamp(0.2rem, 0.8vw, 0.3rem) clamp(0.5rem, 2vw, 0.72rem);
+    font-size: clamp(0.64rem, 2.2vw, 0.76rem);
     font-weight: 700;
     background: linear-gradient(180deg, #5f8b57 0%, #3f6f44 100%);
     color: #f7fbf6;
@@ -9109,17 +9122,17 @@ button:disabled {
   }
 
   .dashboard-latest-registration-list {
-    gap: 0.45rem;
+    gap: clamp(0.3rem, 1.2vw, 0.45rem);
   }
 
   .dashboard-latest-registration-card {
     grid-template-columns: 1fr auto;
-    min-height: 4.15rem;
-    border-radius: 18px;
-    padding: 0.72rem 0.82rem;
-    gap: 0.6rem;
+    min-height: clamp(3.6rem, 11vw, 4.15rem);
+    border-radius: clamp(14px, 4.5vw, 18px);
+    padding: clamp(0.5rem, 2vw, 0.72rem) clamp(0.55rem, 2.2vw, 0.82rem);
+    gap: clamp(0.35rem, 1.5vw, 0.6rem);
     border: 1px solid rgba(112, 130, 103, 0.32);
-    border-left: 4.5px solid var(--status-color, #2a9d45);
+    border-left: clamp(3.5px, 1.2vw, 4.5px) solid var(--status-color, #2a9d45);
     background: linear-gradient(180deg, #fffefb 0%, #f4eee2 100%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.72),
@@ -9137,13 +9150,16 @@ button:disabled {
   }
 
   .dashboard-latest-registration-title {
-    font-size: 1rem;
+    font-size: clamp(0.82rem, 2.8vw, 1rem);
     color: #243a28;
   }
 
   .dashboard-latest-registration-subtitle {
-    font-size: 0.76rem;
+    font-size: clamp(0.64rem, 2.1vw, 0.76rem);
     color: #5e675d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dashboard-latest-registration-pill {
@@ -9161,7 +9177,7 @@ button:disabled {
   }
 
   .dashboard-latest-registration-meta {
-    font-size: 0.7rem;
+    font-size: clamp(0.58rem, 1.9vw, 0.7rem);
     color: #71766f;
   }
 
@@ -9290,73 +9306,73 @@ button:disabled {
 
   .new-sample-step-head-spread {
     align-items: flex-start;
-    padding-bottom: 0.5rem;
+    padding-bottom: clamp(0.35rem, 1.5vw, 0.5rem);
   }
 
   .new-sample-step-progress-inline {
-    width: 3.8rem;
+    width: clamp(3rem, 10.5vw, 3.8rem);
   }
 
   .new-sample-skip-photo-button {
-    min-height: 1.85rem;
-    padding: 0.3rem 0.6rem;
-    font-size: 0.72rem;
+    min-height: clamp(1.55rem, 5.3vw, 1.85rem);
+    padding: clamp(0.2rem, 0.9vw, 0.3rem) clamp(0.4rem, 1.7vw, 0.6rem);
+    font-size: clamp(0.6rem, 2.1vw, 0.72rem);
   }
 
   .new-sample-step-card {
-    padding: 0.76rem;
-    gap: 0.6rem;
+    padding: clamp(0.52rem, 2.2vw, 0.76rem);
+    gap: clamp(0.4rem, 1.7vw, 0.6rem);
   }
 
   .new-sample-details-grid {
-    gap: 0.45rem;
+    gap: clamp(0.32rem, 1.3vw, 0.45rem);
   }
 
   .new-sample-step-card :is(input, select, textarea) {
-    padding: 0.48rem 0.55rem;
-    font-size: 0.9rem;
+    padding: clamp(0.36rem, 1.4vw, 0.48rem) clamp(0.4rem, 1.6vw, 0.55rem);
+    font-size: clamp(0.78rem, 2.6vw, 0.9rem);
   }
 
   .new-sample-compact-fields {
-    gap: 0.45rem;
+    gap: clamp(0.32rem, 1.3vw, 0.45rem);
   }
 
   .new-sample-inline-reset {
-    min-height: 1.95rem;
-    padding: 0.34rem 0.64rem;
-    font-size: 0.74rem;
+    min-height: clamp(1.65rem, 5.6vw, 1.95rem);
+    padding: clamp(0.24rem, 1vw, 0.34rem) clamp(0.44rem, 1.8vw, 0.64rem);
+    font-size: clamp(0.62rem, 2.1vw, 0.74rem);
   }
 
   .new-sample-step-actions {
-    gap: 0.45rem;
-    padding-top: 0.28rem;
+    gap: clamp(0.32rem, 1.3vw, 0.45rem);
+    padding-top: clamp(0.18rem, 0.8vw, 0.28rem);
   }
 
   .new-sample-card-details .client-lookup-selection,
   .new-sample-card-details .client-lookup-feedback,
   .new-sample-card-details .new-sample-field-hint {
-    font-size: 0.7rem;
+    font-size: clamp(0.58rem, 2vw, 0.7rem);
   }
 
   .new-sample-notes-textarea {
-    min-height: 2.4rem;
-    height: 2.4rem;
-    max-height: 2.4rem;
+    min-height: clamp(2rem, 6.8vw, 2.4rem);
+    height: clamp(2rem, 6.8vw, 2.4rem);
+    max-height: clamp(2rem, 6.8vw, 2.4rem);
   }
 
   .new-sample-step-actions > * {
-    min-width: 7.6rem;
+    min-width: clamp(5.8rem, 21vw, 7.6rem);
   }
 
   .new-sample-label-modal {
     max-height: 90vh;
-    padding: 0.95rem;
-    gap: 0.7rem;
-    border-radius: 24px;
+    padding: clamp(0.65rem, 2.7vw, 0.95rem);
+    gap: clamp(0.48rem, 2vw, 0.7rem);
+    border-radius: clamp(18px, 6vw, 24px);
   }
 
   .new-sample-label-modal-title {
-    font-size: 1.06rem;
+    font-size: clamp(0.88rem, 3vw, 1.06rem);
   }
 
   .label-print-card {
@@ -9367,7 +9383,7 @@ button:disabled {
     border-right: 0;
     border-bottom: 1px dashed #a8b0a8;
     padding-right: 0;
-    padding-bottom: 0.6rem;
+    padding-bottom: clamp(0.4rem, 1.7vw, 0.6rem);
   }
 
   .latest-registration-card {
@@ -9378,7 +9394,7 @@ button:disabled {
     border-right: 0;
     border-bottom: 1px dashed #a8b0a8;
     padding-right: 0;
-    padding-bottom: 0.5rem;
+    padding-bottom: clamp(0.35rem, 1.5vw, 0.5rem);
   }
 
   .latest-registration-status {
@@ -9389,7 +9405,7 @@ button:disabled {
   .samples-page-header-row {
     align-items: center;
     justify-content: flex-start;
-    padding: 0.14rem 0.08rem 0 0.72rem;
+    padding: 0.14rem 0.08rem 0 clamp(0.4rem, 2vw, 0.72rem);
   }
 
   .samples-page-header-main {
@@ -9397,14 +9413,14 @@ button:disabled {
   }
 
   .samples-page-title {
-    font-size: 1.14rem;
+    font-size: clamp(0.94rem, 3.2vw, 1.14rem);
   }
 
   .samples-page-filter-control {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
     width: auto;
   }
 
@@ -9418,23 +9434,23 @@ button:disabled {
   }
 
   .samples-page-list-area {
-    border-radius: 24px;
+    border-radius: clamp(18px, 6vw, 24px);
     padding: 0.12rem 0.12rem 0.1rem;
   }
 
   .samples-page-list-header {
-    padding: 0.06rem 0.26rem 0.1rem;
-    min-height: 1.34rem;
+    padding: 0.06rem clamp(0.16rem, 0.8vw, 0.26rem) 0.1rem;
+    min-height: clamp(1.1rem, 3.8vw, 1.34rem);
   }
 
   .samples-page-list-total {
-    font-size: 0.7rem;
+    font-size: clamp(0.56rem, 2vw, 0.7rem);
   }
 
   .samples-page-item {
-    min-height: 3.32rem;
-    border-radius: 18px;
-    padding: 0.66rem 0.72rem;
+    min-height: clamp(2.8rem, 9.5vw, 3.32rem);
+    border-radius: clamp(14px, 4.5vw, 18px);
+    padding: clamp(0.46rem, 1.9vw, 0.66rem) clamp(0.5rem, 2vw, 0.72rem);
   }
 
   .samples-page-item .row {
@@ -9446,64 +9462,67 @@ button:disabled {
       100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--mobile-shell-top-offset) -
         var(--mobile-tabbar-clearance)
     );
-    gap: 0.5rem;
+    gap: clamp(0.35rem, 1.5vw, 0.5rem);
   }
 
   .samples-page-search-field input {
-    min-height: 2.46rem;
-    padding: 0.64rem 2.66rem 0.64rem 0.84rem;
+    min-height: clamp(2.1rem, 7vw, 2.46rem);
+    padding: clamp(0.46rem, 1.8vw, 0.64rem) clamp(2.1rem, 7.5vw, 2.66rem) clamp(0.46rem, 1.8vw, 0.64rem) clamp(0.6rem, 2.4vw, 0.84rem);
   }
 
   .samples-page-search-submit-icon {
-    width: 1.82rem;
-    min-width: 1.82rem;
-    height: 1.82rem;
-    right: 0.28rem;
+    width: clamp(1.5rem, 5.2vw, 1.82rem);
+    min-width: clamp(1.5rem, 5.2vw, 1.82rem);
+    height: clamp(1.5rem, 5.2vw, 1.82rem);
+    right: clamp(0.18rem, 0.8vw, 0.28rem);
   }
 
   .samples-page-create-client-button,
   .samples-page-filter-toggle {
-    width: 2.18rem;
-    min-width: 2.18rem;
-    height: 2.18rem;
+    width: clamp(1.8rem, 6.2vw, 2.18rem);
+    min-width: clamp(1.8rem, 6.2vw, 2.18rem);
+    height: clamp(1.8rem, 6.2vw, 2.18rem);
   }
 
   .samples-page-list {
-    gap: 0.3rem;
+    gap: clamp(0.2rem, 0.9vw, 0.3rem);
   }
 
   .samples-page-item .dashboard-latest-registration-title {
-    font-size: 0.88rem;
+    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
   }
 
   .samples-page-item .dashboard-latest-registration-subtitle {
-    font-size: 0.68rem;
+    font-size: clamp(0.56rem, 2vw, 0.68rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .samples-page-item .dashboard-latest-registration-meta {
-    font-size: 0.62rem;
+    font-size: clamp(0.5rem, 1.8vw, 0.62rem);
   }
 
   .samples-page-item .status-badge {
-    min-height: 1.14rem;
-    padding: 0.08rem 0.38rem;
-    font-size: 0.54rem;
+    min-height: clamp(0.96rem, 3.3vw, 1.14rem);
+    padding: 0.08rem clamp(0.24rem, 1.1vw, 0.38rem);
+    font-size: clamp(0.44rem, 1.5vw, 0.54rem);
   }
 
   .samples-page-item .commercial-status-badge {
-    min-height: 1.1rem;
-    padding: 0.08rem 0.38rem;
-    font-size: 0.52rem;
+    min-height: clamp(0.92rem, 3.2vw, 1.1rem);
+    padding: 0.08rem clamp(0.24rem, 1.1vw, 0.38rem);
+    font-size: clamp(0.42rem, 1.5vw, 0.52rem);
   }
 
   .samples-page-footer {
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
     padding-top: 0;
   }
 
   .samples-page-footer-meta {
     width: 100%;
-    font-size: 0.74rem;
+    font-size: clamp(0.6rem, 2.1vw, 0.74rem);
   }
 
   .samples-page-pagination-controls {
@@ -9516,66 +9535,66 @@ button:disabled {
   }
 
   .samples-filter-modal {
-    width: min(100%, 27.8rem);
+    width: min(100%, calc(100vw - 1rem));
     max-height: min(31.5rem, calc(100dvh - 0.75rem));
-    padding: 0.84rem;
-    gap: 0.68rem;
+    padding: clamp(0.58rem, 2.4vw, 0.84rem);
+    gap: clamp(0.48rem, 2vw, 0.68rem);
   }
 
   .samples-filter-modal-header .app-modal-description {
-    font-size: 0.78rem;
+    font-size: clamp(0.64rem, 2.2vw, 0.78rem);
   }
 
   .samples-filter-modal-form {
-    gap: 0.68rem;
+    gap: clamp(0.48rem, 2vw, 0.68rem);
   }
 
   .samples-filter-section-list {
-    gap: 0.34rem;
+    gap: clamp(0.22rem, 1vw, 0.34rem);
   }
 
   .samples-filter-section-trigger {
-    min-height: 2.46rem;
-    padding: 0.48rem 0.62rem;
-    gap: 0.56rem;
+    min-height: clamp(2.1rem, 7vw, 2.46rem);
+    padding: clamp(0.34rem, 1.4vw, 0.48rem) clamp(0.42rem, 1.8vw, 0.62rem);
+    gap: clamp(0.38rem, 1.6vw, 0.56rem);
   }
 
   .samples-filter-section-label {
-    font-size: 0.74rem;
+    font-size: clamp(0.6rem, 2.1vw, 0.74rem);
   }
 
   .samples-filter-section-body {
-    gap: 0.5rem;
-    padding: 0.66rem;
-    border-radius: 18px;
+    gap: clamp(0.35rem, 1.5vw, 0.5rem);
+    padding: clamp(0.46rem, 1.9vw, 0.66rem);
+    border-radius: clamp(14px, 4.5vw, 18px);
     max-height: min(13rem, 38vh);
   }
 
   .samples-filter-chip {
-    min-height: 1.86rem;
-    padding: 0.34rem 0.58rem;
-    font-size: 0.72rem;
+    min-height: clamp(1.5rem, 5.3vw, 1.86rem);
+    padding: clamp(0.22rem, 1vw, 0.34rem) clamp(0.38rem, 1.7vw, 0.58rem);
+    font-size: clamp(0.58rem, 2.1vw, 0.72rem);
   }
 
   .samples-filter-split-grid {
-    gap: 0.4rem;
+    gap: clamp(0.28rem, 1.2vw, 0.4rem);
   }
 
   .samples-filter-input {
-    min-height: 2.46rem;
-    padding: 0.64rem 0.88rem;
-    border-radius: 16px;
+    min-height: clamp(2.1rem, 7vw, 2.46rem);
+    padding: clamp(0.46rem, 1.8vw, 0.64rem) clamp(0.6rem, 2.5vw, 0.88rem);
+    border-radius: clamp(12px, 4vw, 16px);
   }
 
   .samples-filter-modal-actions {
-    gap: 0.42rem;
+    gap: clamp(0.28rem, 1.2vw, 0.42rem);
   }
 
   .samples-filter-modal-actions .app-modal-secondary,
   .samples-filter-modal-actions .app-modal-submit {
-    min-height: 2.24rem;
-    padding: 0.38rem 0.62rem;
-    font-size: 0.8rem;
+    min-height: clamp(1.9rem, 6.5vw, 2.24rem);
+    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.42rem, 1.8vw, 0.62rem);
+    font-size: clamp(0.66rem, 2.3vw, 0.8rem);
   }
 
   .sample-detail-top-bar {
@@ -9979,57 +9998,57 @@ button:disabled {
   .camera-hub-stage {
     min-height: 0;
     height: 100%;
-    border-radius: 22px;
+    border-radius: clamp(16px, 5.5vw, 22px);
   }
 
   .camera-hub-overlay::before {
     inset: 14% 9% 27%;
-    border-radius: 22px;
+    border-radius: clamp(16px, 5.5vw, 22px);
   }
 
   .camera-hub-headline {
-    top: 0.82rem;
-    left: 0.82rem;
-    right: 5.9rem;
+    top: clamp(0.55rem, 2.4vw, 0.82rem);
+    left: clamp(0.55rem, 2.4vw, 0.82rem);
+    right: clamp(4.2rem, 16vw, 5.9rem);
   }
 
   .camera-hub-status-text {
     max-width: 100%;
-    font-size: 0.88rem;
+    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
   }
 
   .camera-hub-top-actions {
-    top: 0.82rem;
-    right: 0.82rem;
+    top: clamp(0.55rem, 2.4vw, 0.82rem);
+    right: clamp(0.55rem, 2.4vw, 0.82rem);
   }
 
   .camera-hub-manual-action {
-    min-height: 2.65rem;
-    padding: 0.68rem 0.92rem;
+    min-height: clamp(2.2rem, 7.5vw, 2.65rem);
+    padding: clamp(0.48rem, 2vw, 0.68rem) clamp(0.62rem, 2.6vw, 0.92rem);
   }
 
   .camera-hub-capture-strip {
-    width: calc(100% - 1.64rem);
-    bottom: 0.82rem;
-    grid-template-columns: minmax(0, 4.15rem) auto minmax(0, 4.15rem);
-    gap: 0.72rem;
+    width: calc(100% - clamp(1.2rem, 4.5vw, 1.64rem));
+    bottom: clamp(0.55rem, 2.4vw, 0.82rem);
+    grid-template-columns: minmax(0, clamp(3rem, 11.5vw, 4.15rem)) auto minmax(0, clamp(3rem, 11.5vw, 4.15rem));
+    gap: clamp(0.48rem, 2vw, 0.72rem);
   }
 
   .camera-hub-capture-button {
-    width: 5rem;
-    height: 5rem;
-    min-width: 5rem;
+    width: clamp(4rem, 13.5vw, 5rem);
+    height: clamp(4rem, 13.5vw, 5rem);
+    min-width: clamp(4rem, 13.5vw, 5rem);
   }
 
   .camera-hub-capture-button-core {
-    width: 3.35rem;
-    height: 3.35rem;
+    width: clamp(2.8rem, 9.5vw, 3.35rem);
+    height: clamp(2.8rem, 9.5vw, 3.35rem);
   }
 
   .camera-hub-side-action {
-    width: 3.7rem;
-    min-width: 3.7rem;
-    height: 3.7rem;
+    width: clamp(3rem, 10vw, 3.7rem);
+    min-width: clamp(3rem, 10vw, 3.7rem);
+    height: clamp(3rem, 10vw, 3.7rem);
   }
 }
 

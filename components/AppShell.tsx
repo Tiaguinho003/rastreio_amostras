@@ -10,6 +10,7 @@ import { SampleSearchField } from './SampleSearchField';
 import { recordInitialPasswordDecision } from '../lib/api-client';
 import { getRoleLabel, isAdmin } from '../lib/roles';
 import type { SessionData } from '../lib/types';
+import { mergeUserIntoSession } from '../lib/use-auth';
 
 interface AppShellProps {
   session: SessionData;
@@ -157,17 +158,11 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   }
 
   if (pathname === '/settings') {
-    return {
-      title: 'Meu perfil',
-      subtitle: 'Atualize seus dados de acesso sem sair do fluxo principal.'
-    };
+    return null;
   }
 
   if (pathname === '/users') {
-    return {
-      title: 'Usuarios',
-      subtitle: 'Gerencie acessos e acompanhe a operacao administrativa.'
-    };
+    return null;
   }
 
   if (pathname.startsWith('/clients/')) {
@@ -237,13 +232,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     try {
       const response = await recordInitialPasswordDecision(session, decision);
       if (onSessionChange) {
-        onSessionChange({
-          ...session,
-          user: {
-            ...session.user,
-            ...response.user
-          }
-        });
+        onSessionChange(mergeUserIntoSession(session, response.user));
       }
 
       if (decision === 'CHANGED') {
