@@ -225,6 +225,7 @@ export function ClientLookupField({
                     <span className="client-lookup-option-meta">
                       Codigo {item.code} · {item.personType}
                       {getClientDocument(item) ? ` · ${getClientDocument(item)}` : ''}
+                      {item.primaryCity ? ` · ${item.primaryCity}${item.primaryState ? `/${item.primaryState}` : ''}` : ''}
                     </span>
                   </button>
                 </li>

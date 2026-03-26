@@ -62,6 +62,8 @@ function toClientSummary(client: SampleMovement['buyerClient']): ClientSummary |
     status: client.status,
     registrationCount: 0,
     activeRegistrationCount: 0,
+    primaryCity: null,
+    primaryState: null,
     createdAt: null,
     updatedAt: null
   };

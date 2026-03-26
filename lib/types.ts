@@ -178,6 +178,8 @@ export interface ClientSummary {
   status: ClientStatus;
   registrationCount: number;
   activeRegistrationCount: number;
+  primaryCity: string | null;
+  primaryState: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }

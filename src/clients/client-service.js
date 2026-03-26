@@ -47,8 +47,11 @@ const CLIENT_SUMMARY_SELECT = {
     },
     select: {
       id: true,
-      status: true
-    }
+      status: true,
+      city: true,
+      state: true
+    },
+    orderBy: { createdAt: 'asc' }
   },
   _count: {
     select: {
@@ -136,19 +139,23 @@ function parseExactCodeSearch(search) {
 }
 
 function mapClientRow(row) {
-  const activeRegistrationCount = Array.isArray(row.registrations)
-    ? row.registrations.filter((registration) => registration.status === CLIENT_REGISTRATION_STATUSES.ACTIVE).length
-    : 0;
+  const activeRegistrations = Array.isArray(row.registrations)
+    ? row.registrations.filter((registration) => registration.status === CLIENT_REGISTRATION_STATUSES.ACTIVE)
+    : [];
+  const activeRegistrationCount = activeRegistrations.length;
   const registrationCount =
     typeof row?._count?.registrations === 'number'
       ? row._count.registrations
       : Array.isArray(row.registrations)
         ? row.registrations.length
         : 0;
+  const primaryRegistration = activeRegistrations[0] ?? null;
 
   return toClientSummary(row, {
     activeRegistrationCount,
-    registrationCount
+    registrationCount,
+    primaryCity: primaryRegistration?.city ?? null,
+    primaryState: primaryRegistration?.state ?? null
   });
 }
 
@@ -678,6 +685,47 @@ export class ClientService {
     });
   }
 
+  async countClientUsage(tx, clientId) {
+    const [ownedSamples, activeMovements, activeRegistrations] = await Promise.all([
+      tx.sample.count({
+        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } }
+      }),
+      tx.sampleMovement.count({
+        where: { buyerClientId: clientId, status: 'ACTIVE' }
+      }),
+      tx.clientRegistration.count({
+        where: { clientId, status: 'ACTIVE' }
+      })
+    ]);
+
+    return { ownedSamples, activeMovements, activeRegistrations };
+  }
+
+  async countRegistrationUsage(tx, registrationId) {
+    const [linkedSamples, linkedMovements] = await Promise.all([
+      tx.sample.count({
+        where: { ownerRegistrationId: registrationId, status: { not: 'INVALIDATED' } }
+      }),
+      tx.sampleMovement.count({
+        where: { buyerRegistrationId: registrationId, status: 'ACTIVE' }
+      })
+    ]);
+
+    return { linkedSamples, linkedMovements };
+  }
+
+  async getClientImpact(clientId, actorContext) {
+    assertAuthenticatedActor(actorContext, 'check client impact');
+
+    const client = await this.requireClientById(this.prisma, clientId);
+    const usage = await this.countClientUsage(this.prisma, clientId);
+
+    return {
+      client: { id: client.id, displayName: buildClientDisplayName(client), status: client.status },
+      usage
+    };
+  }
+
   async inactivateClient(clientId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'inactivate client');
     const { reasonText } = normalizeStatusReasonInput(input);
@@ -687,6 +735,8 @@ export class ClientService {
       if (current.status === CLIENT_STATUSES.INACTIVE) {
         throw new HttpError(409, 'Client is already inactive');
       }
+
+      const usage = await this.countClientUsage(tx, current.id);
 
       const updated = await tx.client.update({
         where: { id: current.id },
@@ -707,12 +757,14 @@ export class ClientService {
           },
           after: {
             status: updated.status
-          }
+          },
+          impact: usage
         }
       });
 
       return {
-        client: mapClientRow(updated)
+        client: mapClientRow(updated),
+        impact: usage
       };
     });
   }
@@ -911,6 +963,8 @@ export class ClientService {
         throw new HttpError(409, 'Client registration is already inactive');
       }
 
+      const usage = await this.countRegistrationUsage(tx, current.id);
+
       const updated = await tx.clientRegistration.update({
         where: { id: current.id },
         data: {
@@ -931,7 +985,8 @@ export class ClientService {
           },
           after: {
             status: updated.status
-          }
+          },
+          impact: usage
         }
       });
 
@@ -941,7 +996,8 @@ export class ClientService {
           code: client.code,
           displayName: buildClientDisplayName(client)
         },
-        registration: toClientRegistrationSummary(updated)
+        registration: toClientRegistrationSummary(updated),
+        impact: usage
       };
     });
   }

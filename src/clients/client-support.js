@@ -188,6 +188,23 @@ function normalizeReasonText(value, fieldName = 'reasonText') {
   return normalizeRequiredText(value, fieldName, 300);
 }
 
+function normalizeOptionalReasonText(value, fieldName = 'reasonText') {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const trimmed = String(value).trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (trimmed.length > 300) {
+    throw new HttpError(422, `${fieldName} must be at most 300 characters`);
+  }
+
+  return trimmed;
+}
+
 function normalizeLookupKind(value, fieldName = 'kind') {
   if (value === undefined || value === null || value === '') {
     return CLIENT_LOOKUP_KINDS.ANY;
@@ -319,7 +336,7 @@ export function normalizeUpdateClientInput(input, currentClient) {
   const nextIsSeller = hasOwn(input, 'isSeller') ? input.isSeller : currentClient.isSeller;
 
   return {
-    reasonText: normalizeReasonText(input.reasonText),
+    reasonText: normalizeOptionalReasonText(input.reasonText),
     data: buildClientWriteData({
       personType: nextPersonType,
       fullName: nextFullName,
@@ -418,7 +435,7 @@ export function normalizeUpdateRegistrationInput(input, currentRegistration) {
   }
 
   return {
-    reasonText: normalizeReasonText(input.reasonText),
+    reasonText: normalizeOptionalReasonText(input.reasonText),
     data
   };
 }
@@ -507,6 +524,8 @@ export function toClientSummary(client, options = {}) {
     status: client.status,
     registrationCount,
     activeRegistrationCount,
+    primaryCity: options.primaryCity ?? null,
+    primaryState: options.primaryState ?? null,
     createdAt: toIsoString(client.createdAt),
     updatedAt: toIsoString(client.updatedAt)
   };

@@ -925,6 +925,26 @@ export function createBackendApiV1({
         };
       }),
 
+    getClientImpact: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const result = await clientService.getClientImpact(clientId, actor);
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
     inactivateClient: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {

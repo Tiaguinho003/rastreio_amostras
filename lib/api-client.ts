@@ -341,6 +341,13 @@ export function updateClient(
   });
 }
 
+export function getClientImpact(session: SessionData, clientId: string) {
+  return request<{
+    client: { id: string; displayName: string; status: string };
+    usage: { ownedSamples: number; activeMovements: number; activeRegistrations: number };
+  }>(`/clients/${clientId}/impact`, { session });
+}
+
 export function inactivateClient(session: SessionData, clientId: string, reasonText: string) {
   return request<ClientResponse>(`/clients/${clientId}/inactivate`, {
     method: 'POST',

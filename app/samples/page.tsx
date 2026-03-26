@@ -1446,7 +1446,7 @@ export default function SamplesPage() {
                 </article>
 
                 <Link
-                  href={`/clients?clientId=${clientsState.detail.id}`}
+                  href={`/clients/${clientsState.detail.id}`}
                   className="records-client-detail-manage-link"
                 >
                   Gerenciar cliente
