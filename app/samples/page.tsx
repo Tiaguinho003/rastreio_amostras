@@ -1444,6 +1444,17 @@ export default function SamplesPage() {
                     </div>
                   )}
                 </article>
+
+                <Link
+                  href={`/clients?clientId=${clientsState.detail.id}`}
+                  className="records-client-detail-manage-link"
+                >
+                  Gerenciar cliente
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </Link>
               </>
             ) : (
               <p style={{ margin: 0, color: 'var(--muted)' }}>Selecione um cliente para visualizar os detalhes.</p>

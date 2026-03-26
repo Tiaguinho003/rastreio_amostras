@@ -1852,26 +1852,23 @@ export default function SampleDetailPage() {
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="sample-detail-page">
-        <div className="row sample-detail-back-row">
-          <Link href="/samples" className="sample-detail-back-button" aria-label="Voltar aos registros" title="Voltar aos registros">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </Link>
-        </div>
-
         {loadingDetail ? <p>Carregando amostra...</p> : null}
 
         {!loadingDetail && detail ? (
           <div className="stack sample-detail-page-shell">
-            <section className="panel stack sample-detail-hero-panel">
-              <div className="sample-detail-hero-top">
+            <div className="sample-detail-top-bar">
+              <Link href="/samples" className="sample-detail-back-button" aria-label="Voltar aos registros" title="Voltar aos registros">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </Link>
+
+              <section className="sample-detail-hero-panel">
                 <div className="sample-detail-hero-main">
                   <span
                     className={`sample-detail-hero-status-line is-${getOperationalStatusDotTone(detail.sample.status)}`}
                     aria-hidden="true"
                   />
-
                   <div className="sample-detail-hero-text">
                     <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
                     <p style={{ margin: 0 }}>{buildReadableValue(detail.sample.declared.owner)}</p>
@@ -1879,32 +1876,30 @@ export default function SampleDetailPage() {
                 </div>
 
                 {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
-                  <div className="sample-detail-hero-actions">
-                    <button
-                      type="button"
-                      className="sample-detail-hero-action is-danger"
-                      onClick={(event) => {
-                        lastInvalidateTriggerRef.current = event.currentTarget;
-                        setInvalidateModalOpen(true);
-                        setInvalidateReasonCode('OTHER');
-                        setInvalidateReasonText('');
-                        setInvalidateModalNotice(null);
-                        setGeneralNotice(null);
-                      }}
-                      aria-label="Invalidar amostra"
-                      title="Invalidar amostra"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <circle cx="12" cy="12" r="8" />
-                        <path d="m8.6 15.4 6.8-6.8" />
-                      </svg>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="sample-detail-hero-action is-danger"
+                    onClick={(event) => {
+                      lastInvalidateTriggerRef.current = event.currentTarget;
+                      setInvalidateModalOpen(true);
+                      setInvalidateReasonCode('OTHER');
+                      setInvalidateReasonText('');
+                      setInvalidateModalNotice(null);
+                      setGeneralNotice(null);
+                    }}
+                    aria-label="Invalidar amostra"
+                    title="Invalidar amostra"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <circle cx="12" cy="12" r="8" />
+                      <path d="m8.6 15.4 6.8-6.8" />
+                    </svg>
+                  </button>
                 ) : null}
-              </div>
+              </section>
+            </div>
 
-              <NoticeSlot notice={pageNotice} />
-            </section>
+            <NoticeSlot notice={pageNotice} />
 
             <div className="sample-detail-info-switch-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes da amostra">
                 <button

@@ -1,6 +1,7 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import {
@@ -96,13 +97,29 @@ function formatDateTime(value: string | null) {
     return 'Nao informado';
   }
 
-  return new Date(value).toLocaleString('pt-BR');
+  return new Date(value).toLocaleDateString('pt-BR');
+}
+
+function formatAuditEventType(eventType: string): string {
+  const labels: Record<string, string> = {
+    'CLIENT_CREATED': 'Cliente criado',
+    'CLIENT_UPDATED': 'Cliente atualizado',
+    'CLIENT_INACTIVATED': 'Cliente inativado',
+    'CLIENT_REACTIVATED': 'Cliente reativado',
+    'REGISTRATION_CREATED': 'Inscricao criada',
+    'REGISTRATION_UPDATED': 'Inscricao atualizada',
+    'REGISTRATION_INACTIVATED': 'Inscricao inativada',
+    'REGISTRATION_REACTIVATED': 'Inscricao reativada'
+  };
+  return labels[eventType] ?? eventType;
 }
 
 export default function ClientsPage() {
   const { session, loading, logout } = useRequireAuth();
+  const searchParams = useSearchParams();
+  const initialClientIdRef = useRef(searchParams.get('clientId'));
   const [items, setItems] = useState<ClientSummary[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(initialClientIdRef.current);
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
   const [registrations, setRegistrations] = useState<ClientRegistrationSummary[]>([]);
   const [auditItems, setAuditItems] = useState<ClientAuditEventResponse[]>([]);
@@ -553,25 +570,20 @@ export default function ClientsPage() {
     <AppShell session={session} onLogout={logout}>
       <section className="clients-page-shell">
         <header className="clients-page-header">
-          <div>
-            <p className="new-sample-kicker" style={{ marginBottom: '0.5rem' }}>
-              Cadastro operacional
-            </p>
-            <h2 className="new-sample-title" style={{ marginBottom: '0.5rem' }}>
-              Clientes
-            </h2>
-            <p className="clients-page-subtitle">
-              Gerencie compradores, proprietarios e inscricoes sem sair do fluxo operacional.
-            </p>
-          </div>
-
-          <button type="button" onClick={openCreateMode}>
+          <h2 className="clients-page-title">Clientes</h2>
+          <button type="button" className="clients-page-create-btn" onClick={openCreateMode}>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
             Novo cliente
           </button>
         </header>
 
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
+        <div className="notice-slot">
+          {error ? <p className="notice-slot-text is-error">{error}</p> : null}
+          {message ? <p className="notice-slot-text is-success">{message}</p> : null}
+        </div>
 
         <section className="clients-page-layout">
           <aside className="panel stack clients-list-panel">
@@ -588,7 +600,7 @@ export default function ClientsPage() {
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, documento ou codigo" />
               </label>
 
-              <div className="grid grid-2">
+              <div className="clients-filters-grid">
                 <label>
                   Status
                   <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ClientStatus | '')}>
@@ -711,7 +723,7 @@ export default function ClientsPage() {
                   <h3 style={{ margin: 0 }}>{mode === 'create' ? 'Novo cliente' : clientDisplayName(selectedClient)}</h3>
                   {mode === 'edit' && selectedClient ? (
                     <p className="clients-page-subtitle" style={{ marginBottom: 0 }}>
-                      Codigo {selectedClient.code} · {selectedClient.status}
+                      Codigo {selectedClient.code} · {selectedClient.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                     </p>
                   ) : null}
                 </div>
@@ -1064,7 +1076,7 @@ export default function ClientsPage() {
                     {auditItems.map((item) => (
                       <article className="clients-audit-item" key={item.eventId}>
                         <div className="clients-audit-item-head">
-                          <strong>{item.eventType}</strong>
+                          <strong>{formatAuditEventType(item.eventType)}</strong>
                           <span>{formatDateTime(item.createdAt)}</span>
                         </div>
                         <p style={{ margin: 0, color: 'var(--muted)' }}>
