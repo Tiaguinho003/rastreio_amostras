@@ -171,10 +171,7 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   }
 
   if (pathname.startsWith('/clients/')) {
-    return {
-      title: 'Cliente',
-      subtitle: 'Gerencie dados, inscricoes e operacoes comerciais do cliente.'
-    };
+    return null;
   }
 
   return null;
