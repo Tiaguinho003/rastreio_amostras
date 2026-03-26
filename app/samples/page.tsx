@@ -1197,8 +1197,7 @@ function SamplesPage() {
                     <Link key={sample.id} href={`/samples/${sample.id}`} className={`dashboard-latest-registration-card samples-page-item ${getStatusThemeClass(sample.status)}`}>
                       <div className="samples-page-item-main">
                         <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-                        <p className="dashboard-latest-registration-subtitle">{formatSampleCardSummary(sample)}</p>
-                        <p className="dashboard-latest-registration-meta">{formatSampleCardMeta(sample)}</p>
+                        <p className="dashboard-latest-registration-subtitle">{sample.declared.owner || 'Proprietario nao informado'}</p>
                       </div>
 
                       <div className="samples-page-item-indicator">

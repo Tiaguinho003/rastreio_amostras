@@ -66,6 +66,7 @@ export function ClientQuickCreateModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const lastOpenRef = useRef(false);
 
   useEffect(() => {
@@ -169,16 +170,20 @@ export function ClientQuickCreateModal({
         isSeller: form.isSeller
       });
 
-      onCreated(response.client);
+      setSaving(false);
+      setShowSuccess(true);
+      window.setTimeout(() => {
+        setShowSuccess(false);
+        onCreated(response.client);
+      }, 900);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Falha ao criar cliente');
-    } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="client-modal-backdrop" onClick={() => { if (!saving) { onClose(); } }}>
+    <div className="client-modal-backdrop" onClick={() => { if (!saving && !showSuccess) { onClose(); } }}>
       <section
         ref={focusTrapRef}
         className="client-modal panel stack client-quick-create-modal"
@@ -186,7 +191,16 @@ export function ClientQuickCreateModal({
         aria-modal="true"
         aria-labelledby="client-quick-create-title"
         onClick={(event) => event.stopPropagation()}
+        style={{ position: 'relative', overflow: 'hidden' }}
       >
+        {showSuccess ? (
+          <div className="client-create-success-overlay" aria-live="polite">
+            <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+              <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+              <path fill="none" stroke="#2f8a3e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" d="M15 27l7 7 15-15" />
+            </svg>
+          </div>
+        ) : null}
         <div className="client-modal-header client-quick-create-header">
           <div className="client-quick-create-copy">
             <h3 id="client-quick-create-title" style={{ margin: 0 }}>

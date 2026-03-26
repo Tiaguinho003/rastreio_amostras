@@ -124,19 +124,20 @@ body {
 
 .login-field-input {
   width: 100%;
-  border: 1px solid rgba(210, 210, 210, 0.45);
+  border: 1px solid rgba(180, 180, 180, 0.6);
   border-radius: 999px;
   padding: 0.82rem 1.45rem;
   font-size: 1rem;
   font-family: inherit;
   line-height: 1.2;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.55);
   color: rgba(34, 34, 34, 0.82);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   backdrop-filter: blur(12px) saturate(1.2);
   box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.06),
-    0 1px 2px rgba(255, 255, 255, 0.6);
+    inset 0 2px 4px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(255, 255, 255, 0.5);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -3236,8 +3237,8 @@ button:disabled {
 
 .mobile-tabbar-link.is-primary {
   position: relative;
-  flex: 0 0 clamp(4.5rem, 15vw, 6.1rem);
-  margin-top: -0.12rem;
+  flex: 1;
+  margin-top: 0;
   padding:
     var(--mobile-tabbar-primary-link-pad-top, 0.04rem)
     0.08rem
@@ -3300,9 +3301,9 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  width: clamp(4rem, 13.5vw, 5.2rem);
-  min-height: clamp(4rem, 13.5vw, 5.2rem);
-  border-radius: 999px;
+  width: 100%;
+  min-height: clamp(3.4rem, 11vw, 4.2rem);
+  border-radius: clamp(16px, 5.5vw, 22px);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
@@ -3312,13 +3313,13 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  width: clamp(2rem, 7vw, 2.8rem);
-  height: clamp(2rem, 7vw, 2.8rem);
+  width: clamp(2.2rem, 7.5vw, 3rem);
+  height: clamp(2.2rem, 7.5vw, 3rem);
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
-  width: clamp(1.8rem, 6.5vw, 2.56rem);
-  height: clamp(1.8rem, 6.5vw, 2.56rem);
+  width: clamp(2rem, 7vw, 2.8rem);
+  height: clamp(2rem, 7vw, 2.8rem);
 }
 
 .mobile-tabbar-label {
@@ -3335,7 +3336,7 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-label {
-  font-size: 0.78rem;
+  display: none;
 }
 
 .title {
@@ -5001,11 +5002,25 @@ button:disabled {
 
 .app-modal-dashboard {
   width: min(800px, calc(100vw - 1.5rem));
-  max-height: 82vh;
+  max-height: min(88vh, 36rem);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .app-modal-dashboard .app-modal-list {
-  max-height: min(48vh, 24rem);
+  max-height: calc((4.8rem * 3) + (0.55rem * 2));
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.app-modal-dashboard .app-modal-list::-webkit-scrollbar {
+  display: none;
+}
+
+.app-modal-dashboard .app-modal-card-body {
+  text-align: center;
+  justify-items: center;
 }
 
 .export-confirm-backdrop {
@@ -6965,6 +6980,47 @@ button:disabled {
 .sample-movement-register-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.client-create-success-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  animation: client-success-fade-in 0.3s ease;
+}
+
+.client-create-success-check {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.client-create-success-check circle {
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  animation: client-success-circle 0.5s ease forwards;
+}
+
+.client-create-success-check path {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: client-success-tick 0.35s 0.35s ease forwards;
+}
+
+@keyframes client-success-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes client-success-circle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes client-success-tick {
+  to { stroke-dashoffset: 0; }
 }
 
 .client-modal-header {
@@ -9127,9 +9183,9 @@ button:disabled {
 
   .dashboard-latest-registration-card {
     grid-template-columns: 1fr auto;
-    min-height: clamp(3.6rem, 11vw, 4.15rem);
+    min-height: clamp(4.2rem, 13vw, 5rem);
     border-radius: clamp(14px, 4.5vw, 18px);
-    padding: clamp(0.5rem, 2vw, 0.72rem) clamp(0.55rem, 2.2vw, 0.82rem);
+    padding: clamp(0.62rem, 2.4vw, 0.85rem) clamp(0.65rem, 2.5vw, 0.9rem);
     gap: clamp(0.35rem, 1.5vw, 0.6rem);
     border: 1px solid rgba(112, 130, 103, 0.32);
     border-left: clamp(3.5px, 1.2vw, 4.5px) solid var(--status-color, #2a9d45);
@@ -9489,11 +9545,12 @@ button:disabled {
   }
 
   .samples-page-item .dashboard-latest-registration-title {
-    font-size: clamp(0.74rem, 2.6vw, 0.88rem);
+    font-size: clamp(0.88rem, 3vw, 1.08rem);
+    font-weight: 700;
   }
 
   .samples-page-item .dashboard-latest-registration-subtitle {
-    font-size: clamp(0.56rem, 2vw, 0.68rem);
+    font-size: clamp(0.62rem, 2.2vw, 0.76rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
