@@ -652,5 +652,7 @@ export {
   normalizeClientRegistrationStatus,
   normalizeClientStatus,
   normalizeReasonText,
-  normalizeBooleanLike
+  normalizeBooleanLike,
+  readPageQuery,
+  readLimitQuery
 };

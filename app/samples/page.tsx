@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
@@ -518,9 +519,20 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
   }
 }
 
-export default function SamplesPage() {
+export default function SamplesPageWrapper() {
+  return (
+    <Suspense>
+      <SamplesPage />
+    </Suspense>
+  );
+}
+
+function SamplesPage() {
   const { session, loading, logout } = useRequireAuth();
-  const [recordsMode, setRecordsMode] = useState<RecordsMode>('samples');
+  const searchParams = useSearchParams();
+  const [recordsMode, setRecordsMode] = useState<RecordsMode>(() =>
+    searchParams.get('mode') === 'clients' ? 'clients' : 'samples'
+  );
 
   const [samplesState, dispatchSamples] = useReducer(samplesListReducer, SAMPLES_INITIAL);
   const [searchInput, setSearchInput] = useState('');

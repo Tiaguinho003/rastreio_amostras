@@ -1,10 +1,13 @@
 import type {
   ClientAuditListResponse,
+  ClientCommercialSummaryResponse,
   ClientDetailResponse,
   ClientLookupKind,
   ClientLookupResponse,
+  ClientPurchasesListResponse,
   ClientRegistrationMutationResponse,
   ClientResponse,
+  ClientSamplesListResponse,
   ClientsListResponse,
   CommandResponse,
   CreateSampleAndPreparePrintResponse,
@@ -346,6 +349,59 @@ export function getClientImpact(session: SessionData, clientId: string) {
     client: { id: string; displayName: string; status: string };
     usage: { ownedSamples: number; activeMovements: number; activeRegistrations: number };
   }>(`/clients/${clientId}/impact`, { session });
+}
+
+export function listClientSamples(
+  session: SessionData,
+  clientId: string,
+  query?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    buyer?: string;
+    commercialStatus?: string;
+    harvest?: string;
+    sacksMin?: string;
+    sacksMax?: string;
+    periodMode?: string;
+    periodValue?: string;
+  },
+  options?: { signal?: AbortSignal }
+) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  if (query?.search) params.set('search', query.search);
+  if (query?.buyer) params.set('buyer', query.buyer);
+  if (query?.commercialStatus) params.set('commercialStatus', query.commercialStatus);
+  if (query?.harvest) params.set('harvest', query.harvest);
+  if (query?.sacksMin) params.set('sacksMin', query.sacksMin);
+  if (query?.sacksMax) params.set('sacksMax', query.sacksMax);
+  if (query?.periodMode) params.set('periodMode', query.periodMode);
+  if (query?.periodValue) params.set('periodValue', query.periodValue);
+  const qs = params.toString();
+  return request<ClientSamplesListResponse>(`/clients/${clientId}/samples${qs ? `?${qs}` : ''}`, { session, signal: options?.signal });
+}
+
+export function listClientPurchases(
+  session: SessionData,
+  clientId: string,
+  query?: { page?: number; limit?: number },
+  options?: { signal?: AbortSignal }
+) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set('page', String(query.page));
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request<ClientPurchasesListResponse>(`/clients/${clientId}/purchases${qs ? `?${qs}` : ''}`, { session, signal: options?.signal });
+}
+
+export function getClientCommercialSummary(
+  session: SessionData,
+  clientId: string,
+  options?: { signal?: AbortSignal }
+) {
+  return request<ClientCommercialSummaryResponse>(`/clients/${clientId}/commercial-summary`, { session, signal: options?.signal });
 }
 
 export function inactivateClient(session: SessionData, clientId: string, reasonText: string) {

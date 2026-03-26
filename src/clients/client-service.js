@@ -21,6 +21,8 @@ import {
   normalizeStatusReasonInput,
   normalizeUpdateClientInput,
   normalizeUpdateRegistrationInput,
+  readLimitQuery,
+  readPageQuery,
   toClientAuditEventResponse,
   toClientRegistrationSummary,
   toClientSummary
@@ -723,6 +725,228 @@ export class ClientService {
     return {
       client: { id: client.id, displayName: buildClientDisplayName(client), status: client.status },
       usage
+    };
+  }
+
+  async listClientSamples(clientId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list client samples');
+    await this.requireClientById(this.prisma, clientId);
+
+    const page = readPageQuery(input?.page, 1);
+    const limit = readLimitQuery(input?.limit, { fallback: 10, max: 30 });
+    const offset = (page - 1) * limit;
+
+    const where = {
+      ownerClientId: clientId,
+      status: { not: 'INVALIDATED' }
+    };
+
+    // -- search by lot number --
+    const search = typeof input?.search === 'string' ? input.search.trim() : '';
+    if (search) {
+      where.internalLotNumber = { contains: search, mode: 'insensitive' };
+    }
+
+    // -- buyer filter (samples with at least one ACTIVE SALE to matching buyer) --
+    const buyer = typeof input?.buyer === 'string' ? input.buyer.trim() : '';
+    if (buyer) {
+      where.movements = {
+        some: {
+          movementType: 'SALE',
+          status: 'ACTIVE',
+          buyerClient: {
+            OR: [
+              { fullName: { contains: buyer, mode: 'insensitive' } },
+              { legalName: { contains: buyer, mode: 'insensitive' } },
+              { tradeName: { contains: buyer, mode: 'insensitive' } }
+            ]
+          }
+        }
+      };
+    }
+
+    // -- commercial status --
+    const commercialStatus = typeof input?.commercialStatus === 'string' ? input.commercialStatus.trim() : '';
+    if (commercialStatus) {
+      where.commercialStatus = commercialStatus;
+    }
+
+    // -- harvest --
+    const harvest = typeof input?.harvest === 'string' ? input.harvest.trim() : '';
+    if (harvest) {
+      where.declaredHarvest = harvest;
+    }
+
+    // -- sacks range --
+    const sacksMin = input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
+    const sacksMax = input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
+    if (sacksMin != null && !Number.isNaN(sacksMin)) {
+      where.declaredSacks = { ...(where.declaredSacks ?? {}), gte: sacksMin };
+    }
+    if (sacksMax != null && !Number.isNaN(sacksMax)) {
+      where.declaredSacks = { ...(where.declaredSacks ?? {}), lte: sacksMax };
+    }
+
+    // -- period filter --
+    const periodMode = typeof input?.periodMode === 'string' ? input.periodMode.trim() : '';
+    const periodValue = typeof input?.periodValue === 'string' ? input.periodValue.trim() : '';
+    if (periodValue && periodMode) {
+      if (periodMode === 'exact') {
+        const date = new Date(periodValue);
+        if (!Number.isNaN(date.getTime())) {
+          const next = new Date(date);
+          next.setDate(next.getDate() + 1);
+          where.createdAt = { gte: date, lt: next };
+        }
+      } else if (periodMode === 'month') {
+        // expects YYYY-MM
+        const [yearStr, monthStr] = periodValue.split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        if (!Number.isNaN(year) && !Number.isNaN(month) && month >= 1 && month <= 12) {
+          const start = new Date(year, month - 1, 1);
+          const end = new Date(year, month, 1);
+          where.createdAt = { gte: start, lt: end };
+        }
+      } else if (periodMode === 'year') {
+        const year = Number(periodValue);
+        if (!Number.isNaN(year)) {
+          const start = new Date(year, 0, 1);
+          const end = new Date(year + 1, 0, 1);
+          where.createdAt = { gte: start, lt: end };
+        }
+      }
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.sample.findMany({
+        where,
+        select: {
+          id: true,
+          internalLotNumber: true,
+          status: true,
+          commercialStatus: true,
+          declaredOwner: true,
+          declaredSacks: true,
+          declaredHarvest: true,
+          soldSacks: true,
+          lostSacks: true,
+          createdAt: true,
+          updatedAt: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      }),
+      this.prisma.sample.count({ where })
+    ]);
+
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        internalLotNumber: item.internalLotNumber,
+        status: item.status,
+        commercialStatus: item.commercialStatus,
+        declaredOwner: item.declaredOwner,
+        declaredSacks: item.declaredSacks,
+        declaredHarvest: item.declaredHarvest,
+        soldSacks: item.soldSacks ?? 0,
+        lostSacks: item.lostSacks ?? 0,
+        createdAt: item.createdAt?.toISOString() ?? null,
+        updatedAt: item.updatedAt?.toISOString() ?? null
+      })),
+      page: buildClientListPage(total, page, limit)
+    };
+  }
+
+  async listClientPurchases(clientId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list client purchases');
+    await this.requireClientById(this.prisma, clientId);
+
+    const page = readPageQuery(input?.page, 1);
+    const limit = readLimitQuery(input?.limit, { fallback: 10, max: 30 });
+    const offset = (page - 1) * limit;
+
+    const where = {
+      buyerClientId: clientId,
+      movementType: 'SALE',
+      status: 'ACTIVE'
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.sampleMovement.findMany({
+        where,
+        select: {
+          id: true,
+          sampleId: true,
+          quantitySacks: true,
+          movementDate: true,
+          createdAt: true,
+          sample: {
+            select: {
+              internalLotNumber: true,
+              declaredOwner: true
+            }
+          }
+        },
+        orderBy: [{ movementDate: 'desc' }, { id: 'desc' }],
+        skip: offset,
+        take: limit
+      }),
+      this.prisma.sampleMovement.count({ where })
+    ]);
+
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        sampleId: item.sampleId,
+        sampleLotNumber: item.sample?.internalLotNumber ?? null,
+        ownerName: item.sample?.declaredOwner ?? null,
+        quantitySacks: item.quantitySacks,
+        movementDate: item.movementDate?.toISOString()?.split('T')[0] ?? null,
+        createdAt: item.createdAt?.toISOString() ?? null
+      })),
+      page: buildClientListPage(total, page, limit)
+    };
+  }
+
+  async getClientCommercialSummary(clientId, actorContext) {
+    assertAuthenticatedActor(actorContext, 'get client commercial summary');
+    await this.requireClientById(this.prisma, clientId);
+
+    const [
+      registeredSamples,
+      sampleAggregation,
+      totalPurchases,
+      purchaseAggregation
+    ] = await this.prisma.$transaction([
+      this.prisma.sample.count({
+        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } }
+      }),
+      this.prisma.sample.aggregate({
+        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
+        _sum: { declaredSacks: true, soldSacks: true, lostSacks: true }
+      }),
+      this.prisma.sampleMovement.count({
+        where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' }
+      }),
+      this.prisma.sampleMovement.aggregate({
+        where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' },
+        _sum: { quantitySacks: true }
+      })
+    ]);
+
+    return {
+      seller: {
+        registeredSamples,
+        totalSacks: sampleAggregation._sum.declaredSacks ?? 0,
+        soldSacks: sampleAggregation._sum.soldSacks ?? 0,
+        lostSacks: sampleAggregation._sum.lostSacks ?? 0
+      },
+      buyer: {
+        totalPurchases,
+        purchasedSacks: purchaseAggregation._sum.quantitySacks ?? 0
+      }
     };
   }
 

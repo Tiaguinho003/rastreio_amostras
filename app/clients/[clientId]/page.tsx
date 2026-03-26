@@ -15,7 +15,10 @@ import {
   createClientRegistration,
   updateClientRegistration,
   inactivateClientRegistration,
-  reactivateClientRegistration
+  reactivateClientRegistration,
+  listClientSamples,
+  listClientPurchases,
+  getClientCommercialSummary
 } from '../../../lib/api-client';
 import {
   formatClientDocument,
@@ -26,13 +29,15 @@ import {
 } from '../../../lib/client-field-formatters';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
-import type { ClientPersonType, ClientRegistrationSummary, ClientSummary } from '../../../lib/types';
+import type { ClientPersonType, ClientRegistrationSummary, ClientSummary, ClientSampleItem, ClientPurchaseItem, ClientCommercialSummary } from '../../../lib/types';
 
 /* ------------------------------------------------------------------ */
 /*  Local types & helpers                                             */
 /* ------------------------------------------------------------------ */
 
 type Notice = { kind: 'error' | 'success'; text: string } | null;
+type ClientDetailSection = 'GENERAL' | 'COMMERCIAL';
+type CommercialSubTab = 'SALE' | 'PURCHASE';
 
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
@@ -91,6 +96,16 @@ function getStatusTone(status: string): string {
 
 function getStatusLabel(status: string): string {
   return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
+}
+
+function getCommercialStatusClass(status: string): string {
+  switch (status) {
+    case 'OPEN': return 'is-commercial-status-open';
+    case 'PARTIALLY_SOLD': return 'is-commercial-status-partial';
+    case 'SOLD': return 'is-commercial-status-sold';
+    case 'LOST': return 'is-commercial-status-lost';
+    default: return '';
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -165,6 +180,46 @@ export default function ClientDetailPage() {
   const [savingRegStatus, setSavingRegStatus] = useState(false);
   const regStatusTrapRef = useFocusTrap(regStatusModalOpen);
 
+  /* ---- commercial tab ---- */
+  const [clientSection, setClientSection] = useState<ClientDetailSection>('GENERAL');
+  const [commercialSubTab, setCommercialSubTab] = useState<CommercialSubTab>('SALE');
+  const [commercialSummary, setCommercialSummary] = useState<ClientCommercialSummary | null>(null);
+  const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
+  const [ownerSamples, setOwnerSamples] = useState<ClientSampleItem[]>([]);
+  const [ownerSamplesPage, setOwnerSamplesPage] = useState(1);
+  const [ownerSamplesMeta, setOwnerSamplesMeta] = useState<{ total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null);
+  const [ownerSamplesLoading, setOwnerSamplesLoading] = useState(false);
+  const [buyerPurchases, setBuyerPurchases] = useState<ClientPurchaseItem[]>([]);
+  const [buyerPurchasesPage, setBuyerPurchasesPage] = useState(1);
+  const [buyerPurchasesMeta, setBuyerPurchasesMeta] = useState<{ total: number; totalPages: number; hasNext: boolean; hasPrev: boolean } | null>(null);
+  const [buyerPurchasesLoading, setBuyerPurchasesLoading] = useState(false);
+  const commercialFetchedRef = useRef(false);
+
+  /* ---- sale search & filters ---- */
+  const [saleSearch, setSaleSearch] = useState('');
+  const [saleAppliedSearch, setSaleAppliedSearch] = useState('');
+  const [saleFiltersOpen, setSaleFiltersOpen] = useState(false);
+  const [saleDraftFilters, setSaleDraftFilters] = useState({
+    buyer: '',
+    commercialStatus: '',
+    harvest: '',
+    sacksMin: '',
+    sacksMax: '',
+    periodMode: 'exact' as 'exact' | 'month' | 'year',
+    periodValue: ''
+  });
+  const [saleAppliedFilters, setSaleAppliedFilters] = useState({
+    buyer: '',
+    commercialStatus: '',
+    harvest: '',
+    sacksMin: '',
+    sacksMax: '',
+    periodMode: 'exact' as 'exact' | 'month' | 'year',
+    periodValue: ''
+  });
+  const saleFiltersTrapRef = useFocusTrap(saleFiltersOpen);
+  const saleSearchDebounceRef = useRef<number | null>(null);
+
   /* ---- refs ---- */
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -205,6 +260,156 @@ export default function ClientDetailPage() {
       fetchAbortRef.current?.abort();
     };
   }, [fetchData]);
+
+  /* ================================================================ */
+  /*  Commercial data fetching                                        */
+  /* ================================================================ */
+
+  async function fetchCommercialSummary() {
+    if (!session || !clientId) return;
+    setCommercialSummaryLoading(true);
+    try {
+      const response = await getClientCommercialSummary(session, clientId);
+      setCommercialSummary({ seller: response.seller, buyer: response.buyer });
+    } catch {
+      // silent — summary is supplementary
+    } finally {
+      setCommercialSummaryLoading(false);
+    }
+  }
+
+  async function fetchOwnerSamples(page: number) {
+    if (!session || !clientId) return;
+    setOwnerSamplesLoading(true);
+    try {
+      const response = await listClientSamples(session, clientId, {
+        page,
+        limit: 10,
+        search: saleAppliedSearch || undefined,
+        buyer: saleAppliedFilters.buyer || undefined,
+        commercialStatus: saleAppliedFilters.commercialStatus || undefined,
+        harvest: saleAppliedFilters.harvest || undefined,
+        sacksMin: saleAppliedFilters.sacksMin || undefined,
+        sacksMax: saleAppliedFilters.sacksMax || undefined,
+        periodMode: saleAppliedFilters.periodValue ? saleAppliedFilters.periodMode : undefined,
+        periodValue: saleAppliedFilters.periodValue || undefined
+      });
+      setOwnerSamples(response.items);
+      setOwnerSamplesMeta({ total: response.page.total, totalPages: response.page.totalPages, hasNext: response.page.hasNext, hasPrev: response.page.hasPrev });
+      setOwnerSamplesPage(page);
+    } catch {
+      setOwnerSamples([]);
+      setOwnerSamplesMeta(null);
+    } finally {
+      setOwnerSamplesLoading(false);
+    }
+  }
+
+  async function fetchBuyerPurchases(page: number) {
+    if (!session || !clientId) return;
+    setBuyerPurchasesLoading(true);
+    try {
+      const response = await listClientPurchases(session, clientId, { page, limit: 10 });
+      setBuyerPurchases(response.items);
+      setBuyerPurchasesMeta({ total: response.page.total, totalPages: response.page.totalPages, hasNext: response.page.hasNext, hasPrev: response.page.hasPrev });
+      setBuyerPurchasesPage(page);
+    } catch {
+      setBuyerPurchases([]);
+      setBuyerPurchasesMeta(null);
+    } finally {
+      setBuyerPurchasesLoading(false);
+    }
+  }
+
+  /* ---- lazy‑load commercial data ---- */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || commercialFetchedRef.current || !client) return;
+    commercialFetchedRef.current = true;
+    void fetchCommercialSummary();
+    if (client.isSeller) {
+      void fetchOwnerSamples(1);
+    }
+    if (!client.isSeller && client.isBuyer) {
+      setCommercialSubTab('PURCHASE');
+      void fetchBuyerPurchases(1);
+    }
+  }, [clientSection, client]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || !commercialFetchedRef.current || !client) return;
+    if (commercialSubTab === 'SALE' && ownerSamples.length === 0 && !ownerSamplesLoading && client.isSeller) {
+      void fetchOwnerSamples(1);
+    }
+    if (commercialSubTab === 'PURCHASE' && buyerPurchases.length === 0 && !buyerPurchasesLoading && client.isBuyer) {
+      void fetchBuyerPurchases(1);
+    }
+  }, [commercialSubTab]);
+
+  /* ---- sale search debounce ---- */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'SALE') return;
+    if (saleSearchDebounceRef.current !== null) window.clearTimeout(saleSearchDebounceRef.current);
+    const trimmed = saleSearch.trim();
+    if (trimmed === saleAppliedSearch) return;
+    saleSearchDebounceRef.current = window.setTimeout(() => {
+      saleSearchDebounceRef.current = null;
+      setSaleAppliedSearch(trimmed);
+      setOwnerSamplesPage(1);
+    }, 400);
+    return () => { if (saleSearchDebounceRef.current !== null) { window.clearTimeout(saleSearchDebounceRef.current); saleSearchDebounceRef.current = null; } };
+  }, [saleSearch, clientSection, commercialSubTab, saleAppliedSearch]);
+
+  /* ---- re-fetch when applied search/filters change ---- */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'SALE' || !commercialFetchedRef.current) return;
+    void fetchOwnerSamples(1);
+  }, [saleAppliedSearch, saleAppliedFilters]);
+
+  function formatDate(value: string | null): string {
+    if (!value) return '\u2014';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('pt-BR');
+  }
+
+  /* ================================================================ */
+  /*  Sale filter helpers                                              */
+  /* ================================================================ */
+
+  const COMMERCIAL_OPTIONS = [
+    { value: 'OPEN', label: 'Aberto' },
+    { value: 'PARTIALLY_SOLD', label: 'Parcial' },
+    { value: 'SOLD', label: 'Vendido' },
+    { value: 'LOST', label: 'Perdido' }
+  ];
+
+  const HARVEST_OPTIONS = ['24/25', '25/26', '26/27'];
+
+  const saleActiveFiltersCount = [
+    saleAppliedFilters.buyer,
+    saleAppliedFilters.commercialStatus,
+    saleAppliedFilters.harvest,
+    saleAppliedFilters.sacksMin || saleAppliedFilters.sacksMax,
+    saleAppliedFilters.periodValue
+  ].filter(Boolean).length;
+
+  function handleApplySaleFilters() {
+    setSaleAppliedFilters({ ...saleDraftFilters });
+    setOwnerSamplesPage(1);
+    setSaleFiltersOpen(false);
+  }
+
+  function handleClearSaleFilters() {
+    const empty = { buyer: '', commercialStatus: '', harvest: '', sacksMin: '', sacksMax: '', periodMode: 'exact' as const, periodValue: '' };
+    setSaleDraftFilters(empty);
+    setSaleAppliedFilters(empty);
+    setOwnerSamplesPage(1);
+    setSaleFiltersOpen(false);
+  }
 
   /* ================================================================ */
   /*  Validation                                                      */
@@ -482,7 +687,7 @@ export default function ClientDetailPage() {
             {/* ========== TOP BAR ========== */}
             <div className="client-detail-top-bar">
               <Link
-                href="/samples"
+                href="/samples?mode=clients"
                 className="sample-detail-back-button"
                 aria-label="Voltar"
                 title="Voltar"
@@ -536,167 +741,450 @@ export default function ClientDetailPage() {
 
             <NoticeSlot notice={pageNotice} />
 
-            {/* ========== CLIENT INFO SECTION ========== */}
-            <section className="panel stack client-detail-info-section">
-              <div className="client-detail-section-header">
-                <h3 style={{ margin: 0 }}>Informacoes do cliente</h3>
-                <button
-                  type="button"
-                  className="secondary client-detail-inline-action"
-                  onClick={openEditClient}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                  </svg>
-                  Editar
-                </button>
-              </div>
+            {/* ========== TAB HEADER ========== */}
+            <div className="sample-detail-info-switch-header client-detail-tab-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes do cliente">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={clientSection === 'GENERAL'}
+                className={clientSection === 'GENERAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                onClick={() => setClientSection('GENERAL')}
+              >
+                <span className="sample-detail-info-tab-label">Geral</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={clientSection === 'COMMERCIAL'}
+                className={clientSection === 'COMMERCIAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
+                onClick={() => setClientSection('COMMERCIAL')}
+              >
+                <span className="sample-detail-info-tab-label">Comercial</span>
+              </button>
+            </div>
 
-              <div className="client-detail-info-grid">
-                <div className="client-detail-info-item">
-                  <span className="client-detail-info-label">Tipo</span>
-                  <span className="client-detail-info-value">
-                    {client.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'}
-                  </span>
-                </div>
+            <section className="panel stack sample-detail-content-switch sample-detail-content-panel">
+              <div className="sample-detail-info-switch-body">
 
-                {client.personType === 'PF' ? (
-                  <>
-                    <div className="client-detail-info-item">
-                      <span className="client-detail-info-label">Nome completo</span>
-                      <span className="client-detail-info-value">
-                        {client.fullName || '\u2014'}
-                      </span>
-                    </div>
-                    <div className="client-detail-info-item">
-                      <span className="client-detail-info-label">CPF</span>
-                      <span className="client-detail-info-value">
-                        {formatClientDocument(client.cpf, 'PF') || '\u2014'}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="client-detail-info-item">
-                      <span className="client-detail-info-label">Razao social</span>
-                      <span className="client-detail-info-value">
-                        {client.legalName || '\u2014'}
-                      </span>
-                    </div>
-                    <div className="client-detail-info-item">
-                      <span className="client-detail-info-label">Nome fantasia</span>
-                      <span className="client-detail-info-value">
-                        {client.tradeName || '\u2014'}
-                      </span>
-                    </div>
-                    <div className="client-detail-info-item">
-                      <span className="client-detail-info-label">CNPJ</span>
-                      <span className="client-detail-info-value">
-                        {formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                <div className="client-detail-info-item">
-                  <span className="client-detail-info-label">Telefone</span>
-                  <span className="client-detail-info-value">
-                    {formatPhone(client.phone) || '\u2014'}
-                  </span>
-                </div>
-
-                <div className="client-detail-info-item">
-                  <span className="client-detail-info-label">Papeis</span>
-                  <div className="client-detail-roles">
-                    {client.isSeller ? (
-                      <span className="client-detail-role-chip">Proprietario/Vendedor</span>
-                    ) : null}
-                    {client.isBuyer ? (
-                      <span className="client-detail-role-chip">Comprador</span>
-                    ) : null}
-                    {!client.isSeller && !client.isBuyer ? (
-                      <span className="client-detail-role-chip is-empty">Nenhum papel</span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <NoticeSlot notice={detailNotice} />
-            </section>
-
-            {/* ========== REGISTRATIONS SECTION ========== */}
-            <section className="panel stack client-detail-registrations-section">
-              <div className="client-detail-section-header">
-                <h3 style={{ margin: 0 }}>Inscricoes ({registrations.length})</h3>
-                <button
-                  type="button"
-                  className="secondary client-detail-inline-action"
-                  onClick={openRegCreate}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
-                  Nova
-                </button>
-              </div>
-
-              {registrations.length === 0 ? (
-                <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center' }}>
-                  Nenhuma inscricao cadastrada.
-                </p>
-              ) : (
-                <div className="client-detail-registration-list">
-                  {registrations.map((reg) => (
-                    <article
-                      key={reg.id}
-                      className={`client-detail-registration-card${reg.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                    >
-                      <div className="client-detail-registration-card-head">
-                        <div className="client-detail-registration-card-info">
-                          <strong>{reg.registrationNumber}</strong>
-                          <p
-                            style={{ margin: 0, color: 'var(--muted)', fontSize: '0.78rem' }}
-                          >
-                            {reg.registrationType} · {reg.city}/{reg.state}
-                          </p>
-                        </div>
-                        <span
-                          className={`client-detail-reg-status-badge is-${reg.status === 'ACTIVE' ? 'active' : 'inactive'}`}
-                        >
-                          {reg.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
-                        </span>
-                      </div>
-                      <div className="client-detail-registration-card-actions">
+                {clientSection === 'GENERAL' ? (
+                  <section className="stack client-detail-general-pane">
+                    {/* ========== CLIENT INFO SECTION ========== */}
+                    <section className="panel stack client-detail-info-section">
+                      <div className="client-detail-section-header">
+                        <h3 style={{ margin: 0 }}>Informacoes do cliente</h3>
                         <button
                           type="button"
-                          className="secondary client-detail-card-btn"
-                          onClick={() => openRegEdit(reg)}
-                          disabled={savingReg}
+                          className="secondary client-detail-inline-action"
+                          onClick={openEditClient}
                         >
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                          </svg>
                           Editar
                         </button>
+                      </div>
+
+                      <div className="client-detail-info-grid">
+                        <div className="client-detail-info-item">
+                          <span className="client-detail-info-label">Tipo</span>
+                          <span className="client-detail-info-value">
+                            {client.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'}
+                          </span>
+                        </div>
+
+                        {client.personType === 'PF' ? (
+                          <>
+                            <div className="client-detail-info-item">
+                              <span className="client-detail-info-label">Nome completo</span>
+                              <span className="client-detail-info-value">
+                                {client.fullName || '\u2014'}
+                              </span>
+                            </div>
+                            <div className="client-detail-info-item">
+                              <span className="client-detail-info-label">CPF</span>
+                              <span className="client-detail-info-value">
+                                {formatClientDocument(client.cpf, 'PF') || '\u2014'}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="client-detail-info-item">
+                              <span className="client-detail-info-label">Razao social</span>
+                              <span className="client-detail-info-value">
+                                {client.legalName || '\u2014'}
+                              </span>
+                            </div>
+                            <div className="client-detail-info-item">
+                              <span className="client-detail-info-label">Nome fantasia</span>
+                              <span className="client-detail-info-value">
+                                {client.tradeName || '\u2014'}
+                              </span>
+                            </div>
+                            <div className="client-detail-info-item">
+                              <span className="client-detail-info-label">CNPJ</span>
+                              <span className="client-detail-info-value">
+                                {formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        <div className="client-detail-info-item">
+                          <span className="client-detail-info-label">Telefone</span>
+                          <span className="client-detail-info-value">
+                            {formatPhone(client.phone) || '\u2014'}
+                          </span>
+                        </div>
+
+                        <div className="client-detail-info-item">
+                          <span className="client-detail-info-label">Papeis</span>
+                          <div className="client-detail-roles">
+                            {client.isSeller ? (
+                              <span className="client-detail-role-chip">Proprietario/Vendedor</span>
+                            ) : null}
+                            {client.isBuyer ? (
+                              <span className="client-detail-role-chip">Comprador</span>
+                            ) : null}
+                            {!client.isSeller && !client.isBuyer ? (
+                              <span className="client-detail-role-chip is-empty">Nenhum papel</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <NoticeSlot notice={detailNotice} />
+                    </section>
+
+                    {/* ========== REGISTRATIONS SECTION ========== */}
+                    <section className="panel stack client-detail-registrations-section">
+                      <div className="client-detail-section-header">
+                        <h3 style={{ margin: 0 }}>Inscricoes ({registrations.length})</h3>
                         <button
                           type="button"
-                          className={`secondary client-detail-card-btn${reg.status === 'ACTIVE' ? ' is-danger' : ''}`}
-                          onClick={() =>
-                            openRegStatusModal(
-                              reg,
-                              reg.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
-                            )
-                          }
-                          disabled={savingRegStatus}
+                          className="secondary client-detail-inline-action"
+                          onClick={openRegCreate}
                         >
-                          {reg.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                          Nova
                         </button>
                       </div>
-                    </article>
-                  ))}
-                </div>
-              )}
 
-              <NoticeSlot notice={registrationNotice} />
+                      {registrations.length === 0 ? (
+                        <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center' }}>
+                          Nenhuma inscricao cadastrada.
+                        </p>
+                      ) : (
+                        <div className="client-detail-registration-list">
+                          {registrations.map((reg) => (
+                            <article
+                              key={reg.id}
+                              className={`client-detail-registration-card${reg.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                            >
+                              <div className="client-detail-registration-card-head">
+                                <div className="client-detail-registration-card-info">
+                                  <strong>{reg.registrationNumber}</strong>
+                                  <p
+                                    style={{ margin: 0, color: 'var(--muted)', fontSize: '0.78rem' }}
+                                  >
+                                    {reg.registrationType} · {reg.city}/{reg.state}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`client-detail-reg-status-badge is-${reg.status === 'ACTIVE' ? 'active' : 'inactive'}`}
+                                >
+                                  {reg.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
+                                </span>
+                              </div>
+                              <div className="client-detail-registration-card-actions">
+                                <button
+                                  type="button"
+                                  className="secondary client-detail-card-btn"
+                                  onClick={() => openRegEdit(reg)}
+                                  disabled={savingReg}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`secondary client-detail-card-btn${reg.status === 'ACTIVE' ? ' is-danger' : ''}`}
+                                  onClick={() =>
+                                    openRegStatusModal(
+                                      reg,
+                                      reg.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
+                                    )
+                                  }
+                                  disabled={savingRegStatus}
+                                >
+                                  {reg.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      <NoticeSlot notice={registrationNotice} />
+                    </section>
+                  </section>
+                ) : null}
+
+                {clientSection === 'COMMERCIAL' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 'clamp(0.72rem, 2.5vw, 1.64rem)', paddingTop: 'clamp(0.38rem, 1.5vw, 0.72rem)' }}>
+
+                    {/* BLOCO 1: Sub-abas (fixo) */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: '0.15rem',
+                        padding: '0.14rem',
+                        border: '1px solid #d6d2c5',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(180deg, #f7f4ee 0%, #f0ece3 100%)',
+                        flexShrink: 0
+                      }}
+                    >
+                      <button
+                        type="button"
+                        disabled={!client.isSeller}
+                        onClick={() => setCommercialSubTab('SALE')}
+                        style={{
+                          border: 0,
+                          borderRadius: '7px',
+                          background: commercialSubTab === 'SALE' ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'transparent',
+                          color: commercialSubTab === 'SALE' ? '#ffffff' : '#5f6c61',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          padding: '0.22rem 0.5rem',
+                          lineHeight: 1.2,
+                          boxShadow: commercialSubTab === 'SALE' ? '0 3px 8px rgba(45, 89, 42, 0.18)' : 'none',
+                          opacity: !client.isSeller ? 0.46 : 1,
+                          cursor: !client.isSeller ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Venda
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!client.isBuyer}
+                        onClick={() => setCommercialSubTab('PURCHASE')}
+                        style={{
+                          border: 0,
+                          borderRadius: '7px',
+                          background: commercialSubTab === 'PURCHASE' ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'transparent',
+                          color: commercialSubTab === 'PURCHASE' ? '#ffffff' : '#5f6c61',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          padding: '0.22rem 0.5rem',
+                          lineHeight: 1.2,
+                          boxShadow: commercialSubTab === 'PURCHASE' ? '0 3px 8px rgba(45, 89, 42, 0.18)' : 'none',
+                          opacity: !client.isBuyer ? 0.46 : 1,
+                          cursor: !client.isBuyer ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Compra
+                      </button>
+                    </div>
+
+                    {/* BLOCO 2: Cards de resumo (fixo) */}
+                    <div style={{ flexShrink: 0 }}>
+                      {commercialSummaryLoading ? (
+                        <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', fontSize: '0.78rem' }}>Carregando resumo...</p>
+                      ) : commercialSummary ? (
+                        <div className="client-detail-commercial-summary">
+                          {commercialSubTab === 'SALE' ? (
+                            <>
+                              <div className="client-detail-summary-card is-samples">
+                                <span className="client-detail-summary-label">Amostras registradas</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.seller.registeredSamples}</strong>
+                              </div>
+                              <div className="client-detail-summary-card is-sacks">
+                                <span className="client-detail-summary-label">Sacas totais</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.seller.totalSacks}</strong>
+                              </div>
+                              <div className="client-detail-summary-card is-sold">
+                                <span className="client-detail-summary-label">Sacas vendidas</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.seller.soldSacks}</strong>
+                              </div>
+                              <div className="client-detail-summary-card is-lost">
+                                <span className="client-detail-summary-label">Sacas perdidas</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.seller.lostSacks}</strong>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="client-detail-summary-card is-purchases">
+                                <span className="client-detail-summary-label">Total de compras</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.buyer.totalPurchases}</strong>
+                              </div>
+                              <div className="client-detail-summary-card is-purchased-sacks">
+                                <span className="client-detail-summary-label">Sacas compradas</span>
+                                <strong className="client-detail-summary-value">{commercialSummary.buyer.purchasedSacks}</strong>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* BLOCO 3: Lista de amostras/compras */}
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      {commercialSubTab === 'SALE' ? (
+                        <>
+                          {/* Topo fixo: busca + filtro */}
+                          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexShrink: 0 }}>
+                            <form
+                              style={{ flex: 1, display: 'flex' }}
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (saleSearchDebounceRef.current !== null) { window.clearTimeout(saleSearchDebounceRef.current); saleSearchDebounceRef.current = null; }
+                                setSaleAppliedSearch(saleSearch.trim());
+                                setOwnerSamplesPage(1);
+                              }}
+                            >
+                              <input
+                                className="samples-filter-field-input"
+                                value={saleSearch}
+                                onChange={(e) => setSaleSearch(e.target.value)}
+                                placeholder="Buscar por lote"
+                                style={{ flex: 1, fontSize: '0.78rem', padding: '0.32rem 0.58rem', borderRadius: '10px' }}
+                              />
+                            </form>
+                            <button
+                              type="button"
+                              style={{
+                                border: '1px solid rgba(183, 203, 179, 0.86)',
+                                borderRadius: '999px',
+                                padding: '0.28rem',
+                                width: '2rem',
+                                height: '2rem',
+                                display: 'inline-grid',
+                                placeItems: 'center',
+                                background: saleActiveFiltersCount > 0 ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'rgba(255,255,255,0.74)',
+                                color: saleActiveFiltersCount > 0 ? '#fff' : '#456050',
+                                position: 'relative',
+                                flexShrink: 0,
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => { setSaleDraftFilters({ ...saleAppliedFilters }); setSaleFiltersOpen(true); }}
+                              aria-label="Filtros"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.88rem', height: '0.88rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                                <path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" />
+                              </svg>
+                              {saleActiveFiltersCount > 0 ? (
+                                <span style={{
+                                  position: 'absolute', top: '-0.2rem', right: '-0.2rem',
+                                  width: '0.88rem', height: '0.88rem', borderRadius: '999px',
+                                  background: '#c94444', color: '#fff', fontSize: '0.52rem', fontWeight: 700,
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                }}>{saleActiveFiltersCount}</span>
+                              ) : null}
+                            </button>
+                          </div>
+
+                          {/* Meio: lista com scroll */}
+                          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                            {ownerSamplesLoading ? (
+                              <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', fontSize: '0.78rem' }}>Carregando amostras...</p>
+                            ) : ownerSamples.length === 0 ? (
+                              <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', fontSize: '0.78rem' }}>Nenhuma amostra encontrada.</p>
+                            ) : (
+                              <div className="client-detail-commercial-list">
+                                {ownerSamples.map((sample) => (
+                                  <Link key={sample.id} href={`/samples/${sample.id}`} className={`client-detail-commercial-item ${getCommercialStatusClass(sample.commercialStatus)}`}>
+                                    <div className="client-detail-commercial-item-main">
+                                      <strong>{sample.internalLotNumber ?? sample.id}</strong>
+                                      <span>{sample.declaredOwner ?? '\u2014'} · Safra {sample.declaredHarvest ?? '\u2014'} · {sample.declaredSacks ?? 0} sacas</span>
+                                    </div>
+                                    <span className="client-detail-commercial-item-date">{formatDate(sample.createdAt)}</span>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Fundo fixo: paginação */}
+                          <div className="client-detail-commercial-pagination" style={{ flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              disabled={!ownerSamplesMeta?.hasPrev}
+                              onClick={() => void fetchOwnerSamples(ownerSamplesPage - 1)}
+                              style={{ width: '2rem', height: '2rem', minWidth: '2rem', borderRadius: '999px', padding: 0, display: 'inline-grid', placeItems: 'center', border: '1px solid rgba(112, 133, 98, 0.5)', background: 'rgba(255,255,255,0.74)', color: '#456050' }}
+                              aria-label="Pagina anterior"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.92rem', height: '0.92rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M15 6 9 12l6 6" /></svg>
+                            </button>
+                            <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>{ownerSamplesPage} de {ownerSamplesMeta?.totalPages ?? 1}</span>
+                            <button
+                              type="button"
+                              disabled={!ownerSamplesMeta?.hasNext}
+                              onClick={() => void fetchOwnerSamples(ownerSamplesPage + 1)}
+                              style={{ width: '2rem', height: '2rem', minWidth: '2rem', borderRadius: '999px', padding: 0, display: 'inline-grid', placeItems: 'center', border: '1px solid rgba(112, 133, 98, 0.5)', background: 'rgba(255,255,255,0.74)', color: '#456050' }}
+                              aria-label="Proxima pagina"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.92rem', height: '0.92rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m9 6 6 6-6 6" /></svg>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Meio: lista com scroll */}
+                          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                            {buyerPurchasesLoading ? (
+                              <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', fontSize: '0.78rem' }}>Carregando compras...</p>
+                            ) : buyerPurchases.length === 0 ? (
+                              <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', fontSize: '0.78rem' }}>Nenhuma compra encontrada.</p>
+                            ) : (
+                              <div className="client-detail-commercial-list">
+                                {buyerPurchases.map((purchase) => (
+                                  <Link key={purchase.id} href={`/samples/${purchase.sampleId}`} className="client-detail-commercial-item">
+                                    <div className="client-detail-commercial-item-main">
+                                      <strong>{purchase.sampleLotNumber ?? purchase.sampleId}</strong>
+                                      <span>{purchase.ownerName ?? '\u2014'} · {purchase.quantitySacks} sacas</span>
+                                    </div>
+                                    <span className="client-detail-commercial-item-date">{formatDate(purchase.movementDate)}</span>
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Fundo fixo: paginação */}
+                          <div className="client-detail-commercial-pagination" style={{ flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              disabled={!buyerPurchasesMeta?.hasPrev}
+                              onClick={() => void fetchBuyerPurchases(buyerPurchasesPage - 1)}
+                              style={{ width: '2rem', height: '2rem', minWidth: '2rem', borderRadius: '999px', padding: 0, display: 'inline-grid', placeItems: 'center', border: '1px solid rgba(112, 133, 98, 0.5)', background: 'rgba(255,255,255,0.74)', color: '#456050' }}
+                              aria-label="Pagina anterior"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.92rem', height: '0.92rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M15 6 9 12l6 6" /></svg>
+                            </button>
+                            <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>{buyerPurchasesPage} de {buyerPurchasesMeta?.totalPages ?? 1}</span>
+                            <button
+                              type="button"
+                              disabled={!buyerPurchasesMeta?.hasNext}
+                              onClick={() => void fetchBuyerPurchases(buyerPurchasesPage + 1)}
+                              style={{ width: '2rem', height: '2rem', minWidth: '2rem', borderRadius: '999px', padding: 0, display: 'inline-grid', placeItems: 'center', border: '1px solid rgba(112, 133, 98, 0.5)', background: 'rgba(255,255,255,0.74)', color: '#456050' }}
+                              aria-label="Proxima pagina"
+                            >
+                              <svg viewBox="0 0 24 24" style={{ width: '0.92rem', height: '0.92rem', fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m9 6 6 6-6 6" /></svg>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                  </div>
+                ) : null}
+
+              </div>
             </section>
           </div>
         ) : null}
@@ -1256,6 +1744,124 @@ export default function ClientDetailPage() {
                 >
                   Cancelar
                 </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {/* ========== MODAL: Sale Filters ========== */}
+      {saleFiltersOpen ? (
+        <div className="app-modal-backdrop samples-filter-modal-backdrop" onClick={() => setSaleFiltersOpen(false)}>
+          <section
+            ref={saleFiltersTrapRef}
+            className="app-modal samples-filter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sale-filter-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="app-modal-header samples-filter-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="sale-filter-modal-title" className="app-modal-title">Filtros</h3>
+              </div>
+              <button type="button" className="app-modal-close" onClick={() => setSaleFiltersOpen(false)} aria-label="Fechar">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+
+            <form className="samples-filter-modal-form" onSubmit={(e) => { e.preventDefault(); handleApplySaleFilters(); }}>
+              <div className="samples-filter-modal-content">
+                <div className="samples-filter-fields">
+                  <label className="samples-filter-field">
+                    <span className="samples-filter-field-label">Comprador</span>
+                    <input
+                      className="samples-filter-field-input"
+                      value={saleDraftFilters.buyer}
+                      onChange={(e) => setSaleDraftFilters((c) => ({ ...c, buyer: e.target.value }))}
+                      placeholder="Nome do comprador"
+                    />
+                  </label>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Status comercial</span>
+                    <div className="samples-filter-chip-row">
+                      {COMMERCIAL_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`samples-filter-chip${saleDraftFilters.commercialStatus === opt.value ? ' is-selected' : ''}`}
+                          onClick={() => setSaleDraftFilters((c) => ({ ...c, commercialStatus: c.commercialStatus === opt.value ? '' : opt.value }))}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Safra</span>
+                    <div className="samples-filter-chip-row">
+                      {HARVEST_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`samples-filter-chip${saleDraftFilters.harvest === opt ? ' is-selected' : ''}`}
+                          onClick={() => setSaleDraftFilters((c) => ({ ...c, harvest: c.harvest === opt ? '' : opt }))}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Sacas</span>
+                    <div className="samples-filter-split-grid">
+                      <input className="samples-filter-field-input" type="number" min="1" step="1" inputMode="numeric"
+                        value={saleDraftFilters.sacksMin}
+                        onChange={(e) => setSaleDraftFilters((c) => ({ ...c, sacksMin: e.target.value.replace(/\D+/g, '') }))}
+                        placeholder="De"
+                      />
+                      <input className="samples-filter-field-input" type="number" min="1" step="1" inputMode="numeric"
+                        value={saleDraftFilters.sacksMax}
+                        onChange={(e) => setSaleDraftFilters((c) => ({ ...c, sacksMax: e.target.value.replace(/\D+/g, '') }))}
+                        placeholder="Ate"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="samples-filter-field">
+                    <span className="samples-filter-field-label">Periodo</span>
+                    <div className="samples-filter-split-grid">
+                      <select className="samples-filter-field-input"
+                        value={saleDraftFilters.periodMode}
+                        onChange={(e) => setSaleDraftFilters((c) => ({ ...c, periodMode: e.target.value as 'exact' | 'month' | 'year', periodValue: '' }))}
+                      >
+                        <option value="exact">Data</option>
+                        <option value="month">Mes</option>
+                        <option value="year">Ano</option>
+                      </select>
+                      <input className="samples-filter-field-input"
+                        type={saleDraftFilters.periodMode === 'exact' ? 'date' : saleDraftFilters.periodMode === 'month' ? 'month' : 'number'}
+                        value={saleDraftFilters.periodValue}
+                        onChange={(e) => setSaleDraftFilters((c) => ({ ...c, periodValue: e.target.value }))}
+                        placeholder={saleDraftFilters.periodMode === 'year' ? 'AAAA' : ''}
+                        min={saleDraftFilters.periodMode === 'year' ? '2000' : undefined}
+                        max={saleDraftFilters.periodMode === 'year' ? '2100' : undefined}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="app-modal-actions samples-filter-modal-actions">
+                <button type="button" className="app-modal-secondary" onClick={handleClearSaleFilters}
+                  disabled={!Object.values(saleDraftFilters).some((v) => v !== '' && v !== 'exact')}
+                >
+                  Limpar
+                </button>
+                <button type="submit" className="app-modal-submit">Aplicar</button>
               </div>
             </form>
           </section>

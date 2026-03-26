@@ -234,6 +234,74 @@ export interface ClientRegistrationMutationResponse {
   registration: ClientRegistrationSummary;
 }
 
+export interface ClientSampleItem {
+  id: string;
+  internalLotNumber: string | null;
+  status: string;
+  commercialStatus: string;
+  declaredOwner: string | null;
+  declaredSacks: number | null;
+  declaredHarvest: string | null;
+  soldSacks: number;
+  lostSacks: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ClientPurchaseItem {
+  id: string;
+  sampleId: string;
+  sampleLotNumber: string | null;
+  ownerName: string | null;
+  quantitySacks: number;
+  movementDate: string | null;
+  createdAt: string | null;
+}
+
+export interface ClientCommercialSummary {
+  seller: {
+    registeredSamples: number;
+    totalSacks: number;
+    soldSacks: number;
+    lostSacks: number;
+  };
+  buyer: {
+    totalPurchases: number;
+    purchasedSacks: number;
+  };
+}
+
+export interface ClientSamplesListResponse {
+  items: ClientSampleItem[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface ClientPurchasesListResponse {
+  items: ClientPurchaseItem[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface ClientCommercialSummaryResponse {
+  seller: ClientCommercialSummary['seller'];
+  buyer: ClientCommercialSummary['buyer'];
+}
+
 export interface ClientAuditEventResponse {
   eventId: string;
   eventType: ClientAuditEventType | string;
