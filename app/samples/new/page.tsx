@@ -1120,7 +1120,6 @@ function NewSamplePageContent() {
         session={session}
         open={quickCreateOpen}
         title="Cadastro rapido de proprietario"
-        description="Crie o cliente do proprietario sem sair do fluxo da nova amostra."
         initialSearch={quickCreateSeed}
         initialPersonType="PJ"
         initialIsSeller

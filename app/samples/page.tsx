@@ -536,6 +536,35 @@ export default function SamplesPage() {
   const [clientSearchInput, setClientSearchInput] = useState('');
   const [appliedClientSearch, setAppliedClientSearch] = useState('');
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
+  const clientSearchDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (recordsMode !== 'clients') {
+      return;
+    }
+
+    if (clientSearchDebounceRef.current !== null) {
+      window.clearTimeout(clientSearchDebounceRef.current);
+    }
+
+    const trimmed = clientSearchInput.trim();
+    if (trimmed === appliedClientSearch) {
+      return;
+    }
+
+    clientSearchDebounceRef.current = window.setTimeout(() => {
+      clientSearchDebounceRef.current = null;
+      setAppliedClientSearch(trimmed);
+      dispatchClients({ type: 'setPage', page: 1 });
+    }, 400);
+
+    return () => {
+      if (clientSearchDebounceRef.current !== null) {
+        window.clearTimeout(clientSearchDebounceRef.current);
+        clientSearchDebounceRef.current = null;
+      }
+    };
+  }, [clientSearchInput, recordsMode, appliedClientSearch]);
 
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -779,7 +808,11 @@ export default function SamplesPage() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
       window.setTimeout(() => {
-        lastClientTriggerRef.current?.focus();
+        if (lastClientTriggerRef.current && document.body.contains(lastClientTriggerRef.current)) {
+          lastClientTriggerRef.current.focus();
+        } else {
+          clientsScrollRef.current?.focus();
+        }
       }, 0);
     };
   }, [clientsState.detailOpen]);
@@ -792,6 +825,10 @@ export default function SamplesPage() {
 
   function handleClientSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (clientSearchDebounceRef.current !== null) {
+      window.clearTimeout(clientSearchDebounceRef.current);
+      clientSearchDebounceRef.current = null;
+    }
     setAppliedClientSearch(clientSearchInput.trim());
     dispatchClients({ type: 'setPage', page: 1 });
   }
@@ -1182,15 +1219,6 @@ export default function SamplesPage() {
               <p className="samples-page-empty">
                 {appliedClientSearch ? 'Nenhum cliente encontrado para a pesquisa aplicada.' : 'Nenhum cliente cadastrado.'}
               </p>
-              {!appliedClientSearch ? (
-                <button
-                  type="button"
-                  className="samples-page-empty-action"
-                  onClick={() => setClientQuickCreateOpen(true)}
-                >
-                  Cadastrar primeiro cliente
-                </button>
-              ) : null}
             </div>
           </section>
         ) : (
@@ -1198,7 +1226,7 @@ export default function SamplesPage() {
             <header className="samples-page-list-header">
               <p className="samples-page-list-total">{currentTotalLabel}</p>
             </header>
-            <div ref={clientsScrollRef} className="samples-page-list-scroll" aria-label="Lista de clientes cadastrados">
+            <div ref={clientsScrollRef} className="samples-page-list-scroll" aria-label="Lista de clientes cadastrados" tabIndex={-1}>
               <div className="samples-page-list">
                 {clientsState.items.map((client) => (
                   <button
@@ -1428,22 +1456,20 @@ export default function SamplesPage() {
         session={session}
         open={clientQuickCreateOpen}
         title="Novo cliente"
-        description="Cadastre rapidamente um cliente sem sair da pagina de registros."
         initialSearch={clientSearchInput.trim()}
         initialPersonType="PJ"
         initialIsSeller
         initialIsBuyer={false}
         onClose={() => setClientQuickCreateOpen(false)}
-        onCreated={(client) => {
+        onCreated={async (client) => {
           setClientQuickCreateOpen(false);
           setRecordsMode('clients');
           setClientSearchInput('');
           setAppliedClientSearch('');
           dispatchClients({ type: 'setPage', page: 1 });
+          await refreshClientsList('', 1);
           dispatchClients({ type: 'selectClient', id: client.id });
           dispatchClients({ type: 'openDetail' });
-          dispatchClients({ type: 'detailSuccess', client, registrations: [] });
-          void refreshClientsList('', 1);
         }}
       />
     </AppShell>

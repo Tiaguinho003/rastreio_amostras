@@ -7066,6 +7066,22 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+.client-quick-create-field.is-field-error {
+  color: #b23b3b;
+}
+
+.client-quick-create-field.is-field-error input,
+.client-quick-create-field.is-field-error select {
+  border-color: rgba(178, 59, 59, 0.5);
+  box-shadow: inset 0 2px 4px rgba(178, 59, 59, 0.08);
+}
+
+.client-quick-create-flags.is-field-error {
+  border: 1px solid rgba(178, 59, 59, 0.4);
+  border-radius: 10px;
+  padding: 0.42rem;
+}
+
 .client-quick-create-field-disabled {
   color: #8a9288;
 }

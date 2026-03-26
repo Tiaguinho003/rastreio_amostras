@@ -2758,7 +2758,6 @@ export default function SampleDetailPage() {
         session={session}
         open={ownerQuickCreateOpen}
         title="Cadastro rapido de proprietario"
-        description="Crie o cliente do proprietario sem sair do fluxo da amostra."
         initialSearch={ownerQuickCreateSeed}
         initialPersonType="PJ"
         initialIsSeller

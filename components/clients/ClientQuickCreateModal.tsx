@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, createClient } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
@@ -11,7 +11,6 @@ type ClientQuickCreateModalProps = {
   session: SessionData;
   open: boolean;
   title: string;
-  description?: string;
   initialSearch?: string;
   initialPersonType?: ClientPersonType;
   initialIsBuyer?: boolean;
@@ -66,9 +65,70 @@ export function ClientQuickCreateModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const lastOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) {
+    if (open && !lastOpenRef.current) {
+      setForm(
+        buildInitialForm({
+          initialSearch,
+          initialPersonType,
+          initialIsBuyer,
+          initialIsSeller
+        })
+      );
+      setSaving(false);
+      setError(null);
+      setSubmitted(false);
+    }
+
+    lastOpenRef.current = open;
+  }, [initialIsBuyer, initialIsSeller, initialPersonType, initialSearch, open]);
+
+  const documentDigitCount = useMemo(() => {
+    const raw = form.personType === 'PF' ? form.cpf : form.cnpj;
+    return raw.replace(/\D/g, '').length;
+  }, [form.cpf, form.cnpj, form.personType]);
+
+  const expectedDocumentDigits = form.personType === 'PF' ? 11 : 14;
+  const isDocumentLengthValid = documentDigitCount === 0 || documentDigitCount === expectedDocumentDigits;
+  const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
+
+  const canSubmit = useMemo(() => {
+    if (!form.isBuyer && !form.isSeller) {
+      return false;
+    }
+
+    if (form.personType === 'PF') {
+      return form.fullName.trim().length > 0 && isDocumentComplete;
+    }
+
+    return form.legalName.trim().length > 0 && isDocumentComplete;
+  }, [form, isDocumentComplete]);
+
+  if (!open) {
+    return null;
+  }
+
+  const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
+  const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
+  const displayNameValue = form.personType === 'PF' ? form.fullName : form.tradeName;
+  const legalNameDisabled = form.personType === 'PF';
+
+  const showFieldErrors = submitted && !canSubmit;
+  const isDocumentEmpty = documentValue.trim().length === 0;
+  const isDocumentInvalid = !isDocumentEmpty && !isDocumentLengthValid;
+  const hasDocumentError = showFieldErrors && (isDocumentEmpty || isDocumentInvalid);
+  const documentHint = isDocumentInvalid
+    ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
+    : null;
+  const isNameEmpty = displayNameValue.trim().length === 0;
+  const isLegalNameEmpty = form.personType === 'PJ' && form.legalName.trim().length === 0;
+  const isRoleMissing = !form.isBuyer && !form.isSeller;
+
+  function handleCloseAndReset() {
+    if (saving) {
       return;
     }
 
@@ -80,35 +140,16 @@ export function ClientQuickCreateModal({
         initialIsSeller
       })
     );
-    setSaving(false);
     setError(null);
-  }, [initialIsBuyer, initialIsSeller, initialPersonType, initialSearch, open]);
-
-  const canSubmit = useMemo(() => {
-    if (!form.isBuyer && !form.isSeller) {
-      return false;
-    }
-
-    if (form.personType === 'PF') {
-      return form.fullName.trim().length > 0 && form.cpf.trim().length > 0;
-    }
-
-    return form.legalName.trim().length > 0 && form.cnpj.trim().length > 0;
-  }, [form]);
-
-  if (!open) {
-    return null;
+    setSubmitted(false);
+    onClose();
   }
-
-  const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
-  const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
-  const displayNameValue = form.personType === 'PF' ? form.fullName : form.tradeName;
-  const legalNameDisabled = form.personType === 'PF';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSubmitted(true);
     if (!canSubmit) {
-      setError('Preencha os campos minimos do cliente antes de salvar.');
+      setError('Preencha os campos obrigatorios destacados.');
       return;
     }
 
@@ -137,7 +178,7 @@ export function ClientQuickCreateModal({
   }
 
   return (
-    <div className="client-modal-backdrop" onClick={() => !saving && onClose()}>
+    <div className="client-modal-backdrop" onClick={() => { if (!saving) { onClose(); } }}>
       <section
         ref={focusTrapRef}
         className="client-modal panel stack client-quick-create-modal"
@@ -155,7 +196,7 @@ export function ClientQuickCreateModal({
           <button
             type="button"
             className="app-modal-close client-quick-create-close"
-            onClick={onClose}
+            onClick={handleCloseAndReset}
             disabled={saving}
             aria-label="Fechar novo cliente"
           >
@@ -180,19 +221,9 @@ export function ClientQuickCreateModal({
                     disabled={saving}
                     onChange={(event) => {
                       const nextType = event.target.value as ClientPersonType;
-                      setForm((current) => ({
-                        ...current,
-                        personType: nextType,
-                        fullName:
-                          nextType === 'PF'
-                            ? current.fullName || current.tradeName || initialSearch || ''
-                            : current.fullName,
-                        legalName: nextType === 'PJ' ? current.legalName || initialSearch || '' : current.legalName,
-                        tradeName:
-                          nextType === 'PJ'
-                            ? current.tradeName || current.fullName || initialSearch || ''
-                            : current.tradeName
-                      }));
+                      setForm((current) => ({ ...current, personType: nextType }));
+                      setSubmitted(false);
+                      setError(null);
                     }}
                   >
                     <option value="PJ">Pessoa juridica</option>
@@ -200,8 +231,8 @@ export function ClientQuickCreateModal({
                   </select>
                 </label>
 
-                <label className="client-quick-create-field">
-                  {documentLabel}
+                <label className={`client-quick-create-field${hasDocumentError || isDocumentInvalid ? ' is-field-error' : ''}`}>
+                  {documentHint ? `${documentLabel} — ${documentHint}` : documentLabel}
                   <input
                     value={documentValue}
                     disabled={saving}
@@ -218,8 +249,8 @@ export function ClientQuickCreateModal({
               </div>
 
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className="client-quick-create-field">
-                  Nome completo
+                <label className={`client-quick-create-field${showFieldErrors && isNameEmpty ? ' is-field-error' : ''}`}>
+                  {form.personType === 'PF' ? 'Nome completo' : 'Nome fantasia'}
                   <input
                     value={displayNameValue}
                     disabled={saving}
@@ -235,7 +266,7 @@ export function ClientQuickCreateModal({
               </div>
 
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className="client-quick-create-field client-quick-create-field-disabled">
+                <label className={`client-quick-create-field${legalNameDisabled ? ' client-quick-create-field-disabled' : ''}${showFieldErrors && isLegalNameEmpty ? ' is-field-error' : ''}`}>
                   Razao social
                   <input
                     value={form.legalName}
@@ -268,7 +299,7 @@ export function ClientQuickCreateModal({
               <p id="client-quick-create-group-papeis" className="client-quick-create-group-title">
                 Papel operacional
               </p>
-              <div className="client-modal-flags client-quick-create-flags">
+              <div className={`client-modal-flags client-quick-create-flags${showFieldErrors && isRoleMissing ? ' is-field-error' : ''}`}>
                 <label className="client-modal-flag client-quick-create-flag">
                   <input
                     type="checkbox"
@@ -292,7 +323,7 @@ export function ClientQuickCreateModal({
           </div>
 
           <div className="client-quick-create-actions">
-            <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
+            <button type="button" className="app-modal-secondary" onClick={handleCloseAndReset} disabled={saving}>
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={saving || !canSubmit}>
