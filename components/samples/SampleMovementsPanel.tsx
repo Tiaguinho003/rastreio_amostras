@@ -106,22 +106,19 @@ export function SampleMovementsPanel({
                 return (
                   <article
                     key={movement.id}
-                    className={`sample-movement-card${isCancelled ? ' is-cancelled' : ''}`}
+                    className={`sample-movement-card${isCancelled ? ' is-cancelled' : ''}${isSale ? ' is-sale' : ' is-loss'}`}
                   >
-                    <div className="sample-movement-card-head">
-                      <div className="sample-movement-card-type-row">
-                        <span className={`sample-movement-card-type-badge${isSale ? ' is-sale' : ' is-loss'}`}>
-                          {isSale ? 'Venda' : 'Perda'}
-                        </span>
-                        {isCancelled ? (
-                          <span className="sample-movement-card-cancelled-badge">Cancelada</span>
-                        ) : null}
-                        <span className="sample-movement-card-date">{formatMovementDate(movement.movementDate)}</span>
-                      </div>
-                      <div className="sample-movement-card-right">
-                        <strong className="sample-movement-card-qty">
-                          {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
-                        </strong>
+                    <div className="sample-movement-card-content">
+                      <div className="sample-movement-card-head">
+                        <div className="sample-movement-card-type-row">
+                          {isCancelled ? (
+                            <span className="sample-movement-card-cancelled-badge">Cancelada</span>
+                          ) : null}
+                          <span className="sample-movement-card-date">{formatMovementDate(movement.movementDate)}</span>
+                          <strong className="sample-movement-card-qty">
+                            {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
+                          </strong>
+                        </div>
                         {!isCancelled ? (
                           <div className="sample-movement-card-actions">
                             <button
@@ -150,21 +147,25 @@ export function SampleMovementsPanel({
                           </div>
                         ) : null}
                       </div>
+
+                      {(buyerLabel || (!isSale && movement.lossReasonText) || movement.notes) ? (
+                        <div className="sample-movement-card-body">
+                          {buyerLabel ? (
+                            <span className="sample-movement-card-meta">{buyerLabel}</span>
+                          ) : null}
+                          {!isSale && movement.lossReasonText ? (
+                            <span className="sample-movement-card-meta">{movement.lossReasonText}</span>
+                          ) : null}
+                          {movement.notes ? (
+                            <span className="sample-movement-card-meta">{movement.notes}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
-                    {(buyerLabel || (!isSale && movement.lossReasonText) || movement.notes) ? (
-                      <div className="sample-movement-card-body">
-                        {buyerLabel ? (
-                          <span className="sample-movement-card-meta">{buyerLabel}</span>
-                        ) : null}
-                        {!isSale && movement.lossReasonText ? (
-                          <span className="sample-movement-card-meta">{movement.lossReasonText}</span>
-                        ) : null}
-                        {movement.notes ? (
-                          <span className="sample-movement-card-meta">{movement.notes}</span>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    <span className={`sample-movement-card-type-badge${isSale ? ' is-sale' : ' is-loss'}`}>
+                      {isSale ? 'Venda' : 'Perda'}
+                    </span>
                   </article>
                 );
               })}

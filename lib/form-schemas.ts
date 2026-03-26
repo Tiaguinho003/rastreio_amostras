@@ -57,14 +57,18 @@ export const invalidateSampleSchema = z.object({
   reasonText: z.string().trim().min(3, 'Informe o motivo com pelo menos 3 caracteres').max(300)
 });
 
-export const updateReasonSchema = z.object({
-  reasonCode: z.enum(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']),
-  reasonText: z
-    .string()
-    .trim()
-    .min(1, 'Justificativa obrigatoria')
-    .refine(
-      (value) => value.split(/\s+/).filter((part) => part.length > 0).length <= 10,
-      'Justificativa deve ter no maximo 10 palavras'
-    )
-});
+export const updateReasonSchema = z
+  .object({
+    reasonCode: z.enum(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']),
+    reasonText: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value.split(/\s+/).filter((part) => part.length > 0).length <= 10,
+        'Justificativa deve ter no maximo 10 palavras'
+      )
+  })
+  .refine(
+    (data) => data.reasonCode !== 'OTHER' || data.reasonText.length >= 1,
+    { message: 'Justificativa obrigatoria para "Outro motivo"', path: ['reasonText'] }
+  );

@@ -178,6 +178,8 @@ const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> =
   { value: 'OTHER', label: 'Outro motivo' }
 ];
 
+type Notice = { kind: 'error' | 'success'; text: string } | null;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -380,20 +382,30 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
   };
 }
 
+function NoticeSlot({ notice }: { notice: Notice }) {
+  return (
+    <div className="notice-slot" aria-live="polite">
+      {notice ? (
+        <p className={`notice-slot-text is-${notice.kind}`}>{notice.text}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function buildReadableValue(value: unknown): string {
   if (value === null || value === undefined) {
-    return 'Nao informado';
+    return '';
   }
 
   if (typeof value === 'string') {
-    return value.trim() ? value : 'Nao informado';
+    return value.trim() ? value : '';
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     return String(value);
   }
 
-  return 'Nao informado';
+  return '';
 }
 
 function formatTimestamp(value: string): string {
@@ -402,7 +414,7 @@ function formatTimestamp(value: string): string {
     return value;
   }
 
-  return date.toLocaleString('pt-BR');
+  return date.toLocaleDateString('pt-BR');
 }
 
 function canEditRegistrationStatus(status: SampleStatus): boolean {
@@ -575,9 +587,14 @@ export default function SampleDetailPage() {
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [pageNotice, setPageNotice] = useState<Notice>(null);
+  const [generalNotice, setGeneralNotice] = useState<Notice>(null);
+  const [classificationNotice, setClassificationNotice] = useState<Notice>(null);
+  const [registrationModalNotice, setRegistrationModalNotice] = useState<Notice>(null);
+  const [classificationModalNotice, setClassificationModalNotice] = useState<Notice>(null);
+  const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
+  const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(null);
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
@@ -662,7 +679,6 @@ export default function SampleDetailPage() {
       if (shouldShowLoading) {
         setLoadingDetail(true);
       }
-      setError(null);
 
       try {
         const response = await getSampleDetail(session, sampleId, {
@@ -697,9 +713,9 @@ export default function SampleDetailPage() {
         }
 
         if (cause instanceof ApiError) {
-          setError(cause.message);
+          setPageNotice({ kind: 'error', text: cause.message });
         } else {
-          setError('Falha ao carregar amostra');
+          setPageNotice({ kind: 'error', text: 'Falha ao carregar amostra' });
         }
         return undefined;
       } finally {
@@ -748,7 +764,7 @@ export default function SampleDetailPage() {
 
         setOwnerRegistrations([]);
         setSelectedOwnerRegistrationId(null);
-        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario');
+        setGeneralNotice({ kind: 'error', text: cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario' });
       })
       .finally(() => {
         if (active) {
@@ -852,13 +868,16 @@ export default function SampleDetailPage() {
     detail &&
       (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
   );
-  const classificationPhotoEditingAllowed = detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS';
+  const classificationPhotoEditingAllowed =
+    detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
+    (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
   const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
   const classificationVisiblePhotoPreviewUrl =
     classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
+  const classificationSavedPhotoUrl = classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
   const classificationPhotoStatusLabel = classificationPhotoUploading
     ? 'Salvando foto...'
     : '';
@@ -1011,13 +1030,12 @@ export default function SampleDetailPage() {
 
   async function handleUploadClassificationPhoto() {
     if (!session || !classificationSelectedPhoto || !detail) {
-      setError('Selecione uma foto de classificacao antes de usar.');
+      setClassificationNotice({ kind: 'error', text: 'Selecione uma foto de classificacao antes de usar.' });
       return;
     }
 
     setClassificationPhotoUploading(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
 
     try {
       const compressed = await compressImage(classificationSelectedPhoto);
@@ -1044,9 +1062,9 @@ export default function SampleDetailPage() {
         classificationPhotoInputRef.current.value = '';
       }
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setClassificationNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao enviar foto da classificacao');
+        setClassificationNotice({ kind: 'error', text: 'Falha ao enviar foto da classificacao' });
       }
     } finally {
       setClassificationPhotoUploading(false);
@@ -1059,12 +1077,11 @@ export default function SampleDetailPage() {
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setError('A exportacao de laudo so e permitida para amostras classificadas.');
+      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
       return;
     }
 
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
     setPendingExportType(exportType);
     setExportDestination('');
     setExportConfirmationOpen(true);
@@ -1076,12 +1093,11 @@ export default function SampleDetailPage() {
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setError('A exportacao de laudo so e permitida para amostras classificadas.');
+      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
       return;
     }
 
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
     setExportTypeSelectorOpen(true);
   }
 
@@ -1110,12 +1126,11 @@ export default function SampleDetailPage() {
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setError('A exportacao de laudo so e permitida para amostras classificadas.');
+      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
       return;
     }
 
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
     setExportingPdfType(exportType);
 
     try {
@@ -1135,15 +1150,15 @@ export default function SampleDetailPage() {
       anchor.remove();
       URL.revokeObjectURL(blobUrl);
 
-      setMessage(`Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.`);
+      setGeneralNotice({ kind: 'success', text: `Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.` });
       setExportConfirmationOpen(false);
       setPendingExportType(null);
       setExportDestination('');
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setGeneralNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao exportar laudo PDF');
+        setGeneralNotice({ kind: 'error', text: 'Falha ao exportar laudo PDF' });
       }
     } finally {
       setExportingPdfType(null);
@@ -1163,11 +1178,10 @@ export default function SampleDetailPage() {
       return;
     }
 
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
 
     if (!selectedOwnerClient) {
-      setError('Selecione um cliente proprietario antes de confirmar o registro.');
+      setGeneralNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de confirmar o registro.' });
       return;
     }
 
@@ -1179,7 +1193,7 @@ export default function SampleDetailPage() {
     });
 
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Dados de registro invalidos');
+      setGeneralNotice({ kind: 'error', text: parsed.error.issues[0]?.message ?? 'Dados de registro invalidos' });
       return;
     }
 
@@ -1191,13 +1205,13 @@ export default function SampleDetailPage() {
         ownerRegistrationId: selectedOwnerRegistrationId,
         declared: parsed.data
       });
-      setMessage('Registro confirmado com sucesso.');
+      setGeneralNotice({ kind: 'success', text: 'Registro confirmado com sucesso.' });
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setGeneralNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao confirmar registro');
+        setGeneralNotice({ kind: 'error', text: 'Falha ao confirmar registro' });
       }
     } finally {
       setConfirming(false);
@@ -1227,7 +1241,7 @@ export default function SampleDetailPage() {
 
     const printAction = getLabelPrintActionForStatus(detail.sample.status);
     if (!printAction) {
-      setError('A impressao ainda nao esta disponivel para este status.');
+      setGeneralNotice({ kind: 'error', text: 'A impressao ainda nao esta disponivel para este status.' });
       return;
     }
 
@@ -1235,8 +1249,7 @@ export default function SampleDetailPage() {
       lastQuickPrintButtonRef.current = trigger;
     }
 
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
     setLabelModalError(null);
     setLabelModalMessage(null);
     setLabelModalStep('review');
@@ -1257,8 +1270,7 @@ export default function SampleDetailPage() {
     setLabelModalSubmitting(true);
     setLabelModalError(null);
     setLabelModalMessage(null);
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
 
     try {
       const normalizedPrinterId = printerId.trim() || null;
@@ -1299,7 +1311,7 @@ export default function SampleDetailPage() {
     }
 
     if (!canInvalidateSample) {
-      setError('Sua sessao atual nao permite invalidar esta amostra.');
+      setInvalidateModalNotice({ kind: 'error', text: 'Sua sessao atual nao permite invalidar esta amostra.' });
       return;
     }
 
@@ -1309,13 +1321,12 @@ export default function SampleDetailPage() {
     });
 
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos');
+      setInvalidateModalNotice({ kind: 'error', text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos' });
       return;
     }
 
     setInvalidating(true);
-    setError(null);
-    setMessage(null);
+    setInvalidateModalNotice(null);
 
     try {
       await invalidateSample(session, sampleId, {
@@ -1324,15 +1335,15 @@ export default function SampleDetailPage() {
         reasonText: parsed.data.reasonText
       });
       setInvalidateModalOpen(false);
-      setMessage('Amostra invalidada com sucesso.');
+      setGeneralNotice({ kind: 'success', text: 'Amostra invalidada com sucesso.' });
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setInvalidateModalNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao invalidar amostra');
+        setInvalidateModalNotice({ kind: 'error', text: 'Falha ao invalidar amostra' });
       }
     } finally {
       setInvalidating(false);
@@ -1345,8 +1356,7 @@ export default function SampleDetailPage() {
     }
 
     setClassificationStarting(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
 
     try {
       await startClassification(session, sampleId, {
@@ -1355,13 +1365,13 @@ export default function SampleDetailPage() {
         notes: null
       });
       setClassificationStep('PHOTO');
-      setMessage('Classificacao iniciada com sucesso.');
+      setClassificationNotice({ kind: 'success', text: 'Classificacao iniciada com sucesso.' });
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setClassificationNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao iniciar classificacao');
+        setClassificationNotice({ kind: 'error', text: 'Falha ao iniciar classificacao' });
       }
     } finally {
       setClassificationStarting(false);
@@ -1376,15 +1386,14 @@ export default function SampleDetailPage() {
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setClassificationStep('MEASURES');
-      setError(validationError);
+      setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
     const classificationData = buildClassificationDataPayload(classificationForm);
 
     setClassificationSaving(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
 
     try {
       const partialPayload: {
@@ -1396,13 +1405,13 @@ export default function SampleDetailPage() {
       };
 
       await saveClassificationPartial(session, sampleId, partialPayload);
-      setMessage('Rascunho de classificacao salvo.');
+      setClassificationNotice({ kind: 'success', text: 'Rascunho de classificacao salvo.' });
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setClassificationNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao salvar classificacao parcial');
+        setClassificationNotice({ kind: 'error', text: 'Falha ao salvar classificacao parcial' });
       }
     } finally {
       setClassificationSaving(false);
@@ -1420,11 +1429,11 @@ export default function SampleDetailPage() {
       return;
     }
 
-    setError('Selecione e salve uma foto da classificacao antes de continuar.');
+    setClassificationNotice({ kind: 'error', text: 'Selecione e salve uma foto da classificacao antes de continuar.' });
   }
 
   function handleAdvanceFromClassificationGeneral() {
-    setError(null);
+    setClassificationNotice(null);
     setClassificationStep('MEASURES');
   }
 
@@ -1457,20 +1466,20 @@ export default function SampleDetailPage() {
 
     if (!classificationAttachment) {
       setClassificationStep('PHOTO');
-      setError('A foto da classificacao e obrigatoria para concluir.');
+      setClassificationNotice({ kind: 'error', text: 'A foto da classificacao e obrigatoria para concluir.' });
       return;
     }
 
     if (classificationSelectedPhoto) {
       setClassificationStep('PHOTO');
-      setError('Use a nova foto selecionada ou clique em "Tentar novamente" antes de concluir.');
+      setClassificationNotice({ kind: 'error', text: 'Use a nova foto selecionada ou clique em "Tentar novamente" antes de concluir.' });
       return;
     }
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setClassificationStep('MEASURES');
-      setError(validationError);
+      setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
@@ -1480,8 +1489,7 @@ export default function SampleDetailPage() {
     const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationCompleting(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
 
     try {
       await completeClassification(session, sampleId, {
@@ -1490,13 +1498,13 @@ export default function SampleDetailPage() {
         technical,
         classifierName: classificationData.classificador
       });
-      setMessage('Classificacao concluida com sucesso.');
+      setClassificationNotice({ kind: 'success', text: 'Classificacao concluida com sucesso.' });
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setClassificationNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao concluir classificacao');
+        setClassificationNotice({ kind: 'error', text: 'Falha ao concluir classificacao' });
       }
     } finally {
       setClassificationCompleting(false);
@@ -1516,8 +1524,7 @@ export default function SampleDetailPage() {
     setOriginLot(detail.sample.declared.originLot ?? '');
     registrationEditModeRef.current = true;
     setRegistrationEditMode(true);
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
   }
 
   function cancelRegistrationEdit() {
@@ -1546,12 +1553,12 @@ export default function SampleDetailPage() {
     }
 
     if (!canEditRegistrationStatus(detail.sample.status)) {
-      setError('Status atual nao permite edicao de registro.');
+      setGeneralNotice({ kind: 'error', text: 'Status atual nao permite edicao de registro.' });
       return;
     }
 
     if (!selectedOwnerClient) {
-      setError('Selecione um cliente proprietario antes de salvar a edicao.');
+      setGeneralNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de salvar a edicao.' });
       return;
     }
 
@@ -1562,13 +1569,12 @@ export default function SampleDetailPage() {
       originLot
     });
     if (!parsedForm.success) {
-      setError(parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos');
+      setGeneralNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos' });
       return;
     }
 
     setRegistrationEditReasonModalOpen(true);
-    setError(null);
-    setMessage(null);
+    setGeneralNotice(null);
   }
 
   function closeRegistrationEditReasonModal() {
@@ -1577,6 +1583,7 @@ export default function SampleDetailPage() {
     }
 
     setRegistrationEditReasonModalOpen(false);
+    setRegistrationModalNotice(null);
   }
 
   async function handleConfirmRegistrationUpdate() {
@@ -1595,7 +1602,7 @@ export default function SampleDetailPage() {
       originLot
     });
     if (!parsedForm.success) {
-      setError(parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos');
+      setRegistrationModalNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos' });
       return;
     }
 
@@ -1604,13 +1611,12 @@ export default function SampleDetailPage() {
       reasonText: registrationEditReasonText
     });
     if (!parsedReason.success) {
-      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
+      setRegistrationModalNotice({ kind: 'error', text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida' });
       return;
     }
 
     setRegistrationUpdating(true);
-    setError(null);
-    setMessage(null);
+    setRegistrationModalNotice(null);
 
     try {
       await updateRegistration(session, sampleId, {
@@ -1629,13 +1635,13 @@ export default function SampleDetailPage() {
       setRegistrationEditMode(false);
       setRegistrationEditReasonCode('OTHER');
       setRegistrationEditReasonText('');
-      setMessage('Edicao de registro salva com sucesso.');
+      setGeneralNotice({ kind: 'success', text: 'Edicao de registro salva com sucesso.' });
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setRegistrationModalNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao salvar edicao de registro');
+        setRegistrationModalNotice({ kind: 'error', text: 'Falha ao salvar edicao de registro' });
       }
     } finally {
       setRegistrationUpdating(false);
@@ -1653,8 +1659,7 @@ export default function SampleDetailPage() {
     setClassificationEditReasonModalOpen(false);
     classificationEditModeRef.current = true;
     setClassificationEditMode(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
   }
 
   function cancelClassificationEdit() {
@@ -1675,13 +1680,12 @@ export default function SampleDetailPage() {
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
-      setError(validationError);
+      setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
     setClassificationEditReasonModalOpen(true);
-    setError(null);
-    setMessage(null);
+    setClassificationNotice(null);
   }
 
   async function handleConfirmClassificationUpdate() {
@@ -1691,7 +1695,7 @@ export default function SampleDetailPage() {
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
-      setError(validationError);
+      setClassificationModalNotice({ kind: 'error', text: validationError });
       return;
     }
 
@@ -1700,7 +1704,7 @@ export default function SampleDetailPage() {
       reasonText: classificationEditReasonText
     });
     if (!parsedReason.success) {
-      setError(parsedReason.error.issues[0]?.message ?? 'Justificativa invalida');
+      setClassificationModalNotice({ kind: 'error', text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida' });
       return;
     }
 
@@ -1708,8 +1712,7 @@ export default function SampleDetailPage() {
     const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationUpdating(true);
-    setError(null);
-    setMessage(null);
+    setClassificationModalNotice(null);
 
     try {
       await updateClassification(session, sampleId, {
@@ -1727,13 +1730,13 @@ export default function SampleDetailPage() {
       setClassificationEditMode(false);
       setClassificationEditReasonCode('OTHER');
       setClassificationEditReasonText('');
-      setMessage('Edicao de classificacao salva com sucesso.');
+      setClassificationNotice({ kind: 'success', text: 'Edicao de classificacao salva com sucesso.' });
       await syncDetailState({ refreshHistory: true });
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setClassificationModalNotice({ kind: 'error', text: cause.message });
       } else {
-        setError('Falha ao salvar edicao de classificacao');
+        setClassificationModalNotice({ kind: 'error', text: 'Falha ao salvar edicao de classificacao' });
       }
     } finally {
       setClassificationUpdating(false);
@@ -1746,6 +1749,7 @@ export default function SampleDetailPage() {
     }
 
     setClassificationEditReasonModalOpen(false);
+    setClassificationModalNotice(null);
   }
 
   function updateClassificationField(key: keyof ClassificationFormState, value: string) {
@@ -1827,14 +1831,14 @@ export default function SampleDetailPage() {
 
     if (file.size > MAX_PHOTO_SIZE_BYTES) {
       const limitMb = Math.round(MAX_PHOTO_SIZE_BYTES / (1024 * 1024));
-      setError(`A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.`);
+      setClassificationNotice({ kind: 'error', text: `A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.` });
       if (classificationPhotoInputRef.current) {
         classificationPhotoInputRef.current.value = '';
       }
       return;
     }
 
-    setError(null);
+    setClassificationNotice(null);
     setClassificationSelectedPhoto(file);
   }
 
@@ -1884,8 +1888,8 @@ export default function SampleDetailPage() {
                         setInvalidateModalOpen(true);
                         setInvalidateReasonCode('OTHER');
                         setInvalidateReasonText('');
-                        setError(null);
-                        setMessage(null);
+                        setInvalidateModalNotice(null);
+                        setGeneralNotice(null);
                       }}
                       aria-label="Invalidar amostra"
                       title="Invalidar amostra"
@@ -1899,8 +1903,7 @@ export default function SampleDetailPage() {
                 ) : null}
               </div>
 
-              {error ? <p className="error">{error}</p> : null}
-              {message ? <p className="success">{message}</p> : null}
+              <NoticeSlot notice={pageNotice} />
             </section>
 
             <div className="sample-detail-info-switch-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes da amostra">
@@ -1955,56 +1958,55 @@ export default function SampleDetailPage() {
                   <section className="stack sample-detail-info-pane sample-detail-general-pane">
                     <section className="panel sample-detail-main-layout sample-detail-main-layout-general">
                       <article className={`stack sample-detail-main-info sample-detail-main-info-grid${registrationEditMode ? ' is-editing' : ''}`}>
-                        <div className="sample-detail-edit-tools sample-detail-edit-tools-general">
-                          {registrationEditMode ? (
-                            <div className="sample-detail-edit-trigger-slot">
-                              <button
-                                type="button"
-                                className="sample-detail-icon-action"
-                                onClick={handleRequestRegistrationUpdate}
-                                disabled={registrationUpdating}
-                                aria-label="Confirmar edicao do registro"
-                                title="Confirmar edicao do registro"
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="m5 12 4.5 4.5L19 7" />
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary sample-detail-icon-action"
-                                onClick={cancelRegistrationEdit}
-                                disabled={registrationUpdating}
-                                aria-label="Cancelar edicao do registro"
-                                title="Cancelar edicao do registro"
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="m6 6 12 12" />
-                                  <path d="M18 6 6 18" />
-                                </svg>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="sample-detail-edit-trigger-slot">
-                              <button
-                                type="button"
-                                className="secondary sample-detail-icon-action"
-                                onClick={startRegistrationEdit}
-                                disabled={!canEditRegistrationStatus(detail.sample.status)}
-                                aria-label="Editar informacoes principais"
-                                title={canEditRegistrationStatus(detail.sample.status) ? 'Editar informacoes principais' : 'Edicao indisponivel neste status'}
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="M12 20h9" />
-                                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                </svg>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
                         <div className="sample-detail-general-stage">
                           <div className="sample-detail-general-card-top">
+                            <div className="sample-detail-edit-tools sample-detail-edit-tools-general">
+                              {registrationEditMode ? (
+                                <div className="sample-detail-edit-trigger-slot">
+                                  <button
+                                    type="button"
+                                    className="sample-detail-icon-action"
+                                    onClick={handleRequestRegistrationUpdate}
+                                    disabled={registrationUpdating}
+                                    aria-label="Confirmar edicao do registro"
+                                    title="Confirmar edicao do registro"
+                                  >
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="m5 12 4.5 4.5L19 7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary sample-detail-icon-action"
+                                    onClick={cancelRegistrationEdit}
+                                    disabled={registrationUpdating}
+                                    aria-label="Cancelar edicao do registro"
+                                    title="Cancelar edicao do registro"
+                                  >
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="m6 6 12 12" />
+                                      <path d="M18 6 6 18" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="sample-detail-edit-trigger-slot">
+                                  <button
+                                    type="button"
+                                    className="secondary sample-detail-icon-action"
+                                    onClick={startRegistrationEdit}
+                                    disabled={!canEditRegistrationStatus(detail.sample.status)}
+                                    aria-label="Editar informacoes principais"
+                                    title={canEditRegistrationStatus(detail.sample.status) ? 'Editar informacoes principais' : 'Edicao indisponivel neste status'}
+                                  >
+                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                      <path d="M12 20h9" />
+                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <div className="sample-detail-general-qr-block">
                               <div className="sample-detail-qr-quick-code">
                                 <QRCodeCanvas value={qrValue} size={156} />
@@ -2049,27 +2051,25 @@ export default function SampleDetailPage() {
                             <div className="sample-detail-main-fact">
                               <span>Proprietario</span>
                               {registrationEditMode ? (
-                                <div className="sample-detail-lookup-slot">
-                                  <ClientLookupField
-                                    session={session}
-                                    label="Cliente proprietario"
-                                    kind="owner"
-                                    selectedClient={selectedOwnerClient}
-                                    disabled={registrationUpdating}
-                                    compact
-                                    onSelectClient={(client) => {
-                                      setSelectedOwnerClient(client);
-                                      setOwner(client?.displayName ?? '');
-                                      setSelectedOwnerRegistrationId(null);
-                                      setError(null);
-                                    }}
-                                    onRequestCreate={(searchTerm) => {
-                                      setOwnerQuickCreateSeed(searchTerm);
-                                      setOwnerQuickCreateOpen(true);
-                                    }}
-                                    createLabel="Cadastrar proprietario"
-                                  />
-                                </div>
+                                <ClientLookupField
+                                  session={session}
+                                  label="Cliente proprietario"
+                                  kind="owner"
+                                  selectedClient={selectedOwnerClient}
+                                  disabled={registrationUpdating}
+                                  compact
+                                  onSelectClient={(client) => {
+                                    setSelectedOwnerClient(client);
+                                    setOwner(client?.displayName ?? '');
+                                    setSelectedOwnerRegistrationId(null);
+                                    setGeneralNotice(null);
+                                  }}
+                                  onRequestCreate={(searchTerm) => {
+                                    setOwnerQuickCreateSeed(searchTerm);
+                                    setOwnerQuickCreateOpen(true);
+                                  }}
+                                  createLabel="Cadastrar proprietario"
+                                />
                               ) : (
                                 <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
                               )}
@@ -2078,17 +2078,15 @@ export default function SampleDetailPage() {
                             <div className="sample-detail-main-fact is-wide-value">
                               <span>Inscricao do proprietario</span>
                               {registrationEditMode ? (
-                                <div className="sample-detail-lookup-slot">
-                                  <ClientRegistrationSelect
-                                    label="Inscricao"
-                                    registrations={ownerRegistrations}
-                                    value={selectedOwnerRegistrationId}
-                                    disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
-                                    onChange={setSelectedOwnerRegistrationId}
-                                    placeholder="Selecionar"
-                                    compact
-                                  />
-                                </div>
+                                <ClientRegistrationSelect
+                                  label="Inscricao"
+                                  registrations={ownerRegistrations}
+                                  value={selectedOwnerRegistrationId}
+                                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
+                                  onChange={setSelectedOwnerRegistrationId}
+                                  placeholder="Selecionar"
+                                  compact
+                                />
                               ) : (
                                 <strong className="sample-detail-inline-value">
                                   {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
@@ -2145,6 +2143,7 @@ export default function SampleDetailPage() {
                             </div>
                           </div>
                         </div>
+                        <NoticeSlot notice={generalNotice} />
                       </article>
                     </section>
 
@@ -2274,6 +2273,14 @@ export default function SampleDetailPage() {
                                         src={classificationVisiblePhotoPreviewUrl}
                                         alt="Pre-visualizacao da foto da classificacao"
                                         className="new-sample-photo-preview"
+                                        onClick={(event) => {
+                                          if (classificationSavedPhotoUrl && !classificationSelectedPhoto) {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            setClassificationPhotoPreviewOpen(true);
+                                          }
+                                        }}
+                                        style={classificationSavedPhotoUrl && !classificationSelectedPhoto ? { cursor: 'pointer' } : undefined}
                                       />
                                     ) : (
                                       <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
@@ -2467,19 +2474,7 @@ export default function SampleDetailPage() {
                             </div>
 
                             <div className="sample-classification-footer-right">
-                              <button
-                                className="secondary sample-classification-nav-arrow"
-                                type="button"
-                                onClick={handleGoForwardClassificationStep}
-                                disabled={!classificationCanGoNext}
-                                aria-label="Avancar etapa da classificacao"
-                                title="Avancar"
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="m9 6 6 6-6 6" />
-                                </svg>
-                              </button>
-                              {detail.sample.status === 'CLASSIFIED' && classificationStep !== 'PHOTO' && !classificationEditMode ? (
+                              {detail.sample.status === 'CLASSIFIED' && !classificationEditMode ? (
                                 <button
                                   className="secondary sample-classification-nav-arrow"
                                   type="button"
@@ -2494,10 +2489,23 @@ export default function SampleDetailPage() {
                                   </svg>
                                 </button>
                               ) : null}
+                              <button
+                                className="secondary sample-classification-nav-arrow"
+                                type="button"
+                                onClick={handleGoForwardClassificationStep}
+                                disabled={!classificationCanGoNext}
+                                aria-label="Avancar etapa da classificacao"
+                                title="Avancar"
+                              >
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                  <path d="m9 6 6 6-6 6" />
+                                </svg>
+                              </button>
                             </div>
                           </div>
                         </form>
                       ) : null}
+                      <NoticeSlot notice={classificationNotice} />
                     </section>
                   ) : (
                     <section className="stack sample-detail-info-pane sample-detail-empty-pane" id="classification-section" ref={classificationSectionRef}>
@@ -2592,6 +2600,8 @@ export default function SampleDetailPage() {
                   disabled={invalidating}
                 />
               </label>
+
+              <NoticeSlot notice={invalidateModalNotice} />
 
               <div className="app-modal-actions sample-detail-invalidate-actions">
                 <button
@@ -2759,7 +2769,7 @@ export default function SampleDetailPage() {
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
           setSelectedOwnerRegistrationId(null);
-          setMessage('Cliente proprietario criado e selecionado com sucesso.');
+          setGeneralNotice({ kind: 'success', text: 'Cliente proprietario criado e selecionado com sucesso.' });
         }}
       />
 
@@ -2816,22 +2826,26 @@ export default function SampleDetailPage() {
               </label>
 
               <label className="app-modal-field">
-                <span className="app-modal-label">Justificativa (maximo 10 palavras)</span>
+                <span className="app-modal-label">
+                  Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria, maximo 10 palavras)' : ' (opcional, maximo 10 palavras)'}
+                </span>
                 <input
                   className="app-modal-input"
                   value={registrationEditReasonText}
                   onChange={(event) => setRegistrationEditReasonText(event.target.value)}
-                  placeholder="Explique a alteracao"
+                  placeholder={registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'}
                   disabled={registrationUpdating}
                 />
               </label>
+
+              <NoticeSlot notice={registrationModalNotice} />
 
               <div className="app-modal-actions">
                 <button
                   type="button"
                   className="app-modal-submit"
                   onClick={() => void handleConfirmRegistrationUpdate()}
-                  disabled={registrationUpdating}
+                  disabled={registrationUpdating || (registrationEditReasonCode === 'OTHER' && registrationEditReasonText.trim().length === 0)}
                 >
                   {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
                 </button>
@@ -2902,22 +2916,26 @@ export default function SampleDetailPage() {
               </label>
 
               <label className="app-modal-field">
-                <span className="app-modal-label">Justificativa (maximo 10 palavras)</span>
+                <span className="app-modal-label">
+                  Justificativa{classificationEditReasonCode === 'OTHER' ? ' (obrigatoria, maximo 10 palavras)' : ' (opcional, maximo 10 palavras)'}
+                </span>
                 <input
                   className="app-modal-input"
                   value={classificationEditReasonText}
                   onChange={(event) => setClassificationEditReasonText(event.target.value)}
-                  placeholder="Explique a alteracao"
+                  placeholder={classificationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'}
                   disabled={classificationUpdating}
                 />
               </label>
+
+              <NoticeSlot notice={classificationModalNotice} />
 
               <div className="app-modal-actions">
                 <button
                   type="button"
                   className="app-modal-submit"
                   onClick={handleConfirmClassificationUpdate}
-                  disabled={classificationUpdating}
+                  disabled={classificationUpdating || (classificationEditReasonCode === 'OTHER' && classificationEditReasonText.trim().length === 0)}
                 >
                   {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
                 </button>
@@ -2930,6 +2948,42 @@ export default function SampleDetailPage() {
                   Cancelar
                 </button>
               </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {classificationPhotoPreviewOpen && classificationSavedPhotoUrl ? (
+        <div
+          className="app-modal-backdrop"
+          onClick={() => setClassificationPhotoPreviewOpen(false)}
+        >
+          <section
+            className="app-modal sample-classification-photo-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Foto da classificacao"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 className="app-modal-title">Foto da classificacao</h3>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={() => setClassificationPhotoPreviewOpen(false)}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+            <div className="sample-classification-photo-preview-body">
+              <img
+                src={classificationSavedPhotoUrl}
+                alt="Foto da classificacao em tamanho ampliado"
+                className="sample-classification-photo-preview-img"
+              />
             </div>
           </section>
         </div>

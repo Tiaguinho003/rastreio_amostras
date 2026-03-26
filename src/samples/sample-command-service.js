@@ -1744,10 +1744,13 @@ export class SampleCommandService {
       typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
         ? normalizeUpdateReasonCode(input.reasonCode)
         : DEFAULT_REGISTRATION_UPDATE_REASON_CODE;
-    const reasonText =
-      typeof input.reasonText === 'string' && input.reasonText.trim().length > 0
-        ? normalizeUpdateReasonText(input.reasonText)
-        : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
+    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    if (reasonCode === 'OTHER' && !hasReasonText) {
+      throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
+    }
+    const reasonText = hasReasonText
+      ? normalizeUpdateReasonText(input.reasonText)
+      : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
     const parsedPatch = parseRegistrationUpdatePatch(input.after ?? input.changes ?? {});
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,
@@ -1818,7 +1821,13 @@ export class SampleCommandService {
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, CLASSIFICATION_UPDATE_ALLOWED_STATUSES, 'update classification');
     const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
-    const reasonText = normalizeUpdateReasonText(input.reasonText);
+    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    if (reasonCode === 'OTHER' && !hasReasonText) {
+      throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
+    }
+    const reasonText = hasReasonText
+      ? normalizeUpdateReasonText(input.reasonText)
+      : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
     const parsedPatch = parseClassificationUpdatePatch(input.after ?? input.changes ?? {});
     const updatePayload = buildClassificationUpdatePayload(sample, parsedPatch);
     if (!updatePayload) {
@@ -2123,7 +2132,13 @@ export class SampleCommandService {
     const sample = await this.queryService.requireSample(input.sampleId);
     const targetEventId = normalizeRequiredText(input.targetEventId, 'targetEventId');
     const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
-    const reasonText = normalizeUpdateReasonText(input.reasonText);
+    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    if (reasonCode === 'OTHER' && !hasReasonText) {
+      throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
+    }
+    const reasonText = hasReasonText
+      ? normalizeUpdateReasonText(input.reasonText)
+      : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
 
     const targetEvent = await this.queryService.requireSampleEvent(sample.id, targetEventId);
     if (targetEvent.eventType !== 'REGISTRATION_UPDATED' && targetEvent.eventType !== 'CLASSIFICATION_UPDATED') {
