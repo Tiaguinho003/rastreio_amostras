@@ -180,8 +180,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [showPageTransition, setShowPageTransition] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const isFirstRender = useRef(true);
+  const prevPathnameRef = useRef(pathname);
 
   const profileName =
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
@@ -190,6 +193,20 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const desktopNavItems = isAdmin(session.user.role) ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM] : DESKTOP_NAV_ITEMS;
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (pathname !== prevPathnameRef.current) {
+      prevPathnameRef.current = pathname;
+      setShowPageTransition(true);
+      const timer = setTimeout(() => setShowPageTransition(false), 540);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!profileMenuOpen) {
@@ -247,6 +264,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
   return (
     <div className="app-shell-root mobile-edge-shell mobile-edge-shell-auth">
+      {showPageTransition ? <div className="page-transition-overlay" aria-hidden="true" /> : null}
       <header className={`topbar${mobileHeaderModalActive ? ' is-modal-elevated' : ''}`}>
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
@@ -421,7 +439,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           </section>
         ) : null}
 
-        {children}
+        <div key={pathname} className="app-shell-page-content">
+          {children}
+        </div>
       </main>
 
       <nav className="mobile-tabbar" aria-label="Paginas principais">
