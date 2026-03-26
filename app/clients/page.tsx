@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import {
@@ -114,7 +114,15 @@ function formatAuditEventType(eventType: string): string {
   return labels[eventType] ?? eventType;
 }
 
-export default function ClientsPage() {
+export default function ClientsPageWrapper() {
+  return (
+    <Suspense>
+      <ClientsPage />
+    </Suspense>
+  );
+}
+
+function ClientsPage() {
   const { session, loading, logout } = useRequireAuth();
   const searchParams = useSearchParams();
   const initialClientIdRef = useRef(searchParams.get('clientId'));
