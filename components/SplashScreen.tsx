@@ -1,42 +1,89 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { getCurrentSession } from '../lib/api-client';
 
 const SPLASH_DURATION_MS = 2800;
 const EXIT_ANIMATION_MS = 700;
+const SPLASH_COOLDOWN_MS = 10 * 60 * 1000;
+const STORAGE_KEY = 'splash-last-shown';
+
+function isCooldownExpired(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return true;
+    return Date.now() - Number(raw) >= SPLASH_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function recordSplashTimestamp(): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(Date.now()));
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 export function SplashScreen() {
+  const router = useRouter();
   const [visible, setVisible] = useState(true);
   const [exiting, setExiting] = useState(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const activeRef = useRef(false);
 
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem('splash-shown') === '1') {
-        setVisible(false);
-        return;
-      }
-    } catch {
-      /* sessionStorage unavailable */
-    }
+  const runSplash = useCallback(() => {
+    if (activeRef.current) return;
+    activeRef.current = true;
 
-    const exitTimer = setTimeout(() => setExiting(true), SPLASH_DURATION_MS);
-    const hideTimer = setTimeout(() => {
+    setVisible(true);
+    setExiting(false);
+
+    timersRef.current.forEach(clearTimeout);
+
+    const t1 = setTimeout(() => setExiting(true), SPLASH_DURATION_MS);
+    const t2 = setTimeout(() => {
       setVisible(false);
-      try {
-        sessionStorage.setItem('splash-shown', '1');
-      } catch {
-        /* ignore */
-      }
+      activeRef.current = false;
+      recordSplashTimestamp();
+
+      getCurrentSession()
+        .then(() => router.replace('/dashboard'))
+        .catch(() => router.replace('/login'));
     }, SPLASH_DURATION_MS + EXIT_ANIMATION_MS);
 
-    timersRef.current = [exitTimer, hideTimer];
+    timersRef.current = [t1, t2];
+  }, [router]);
 
-    return () => {
-      timersRef.current.forEach(clearTimeout);
+  useEffect(() => {
+    if (!isCooldownExpired()) {
+      setVisible(false);
+      return;
+    }
+
+    runSplash();
+
+    return () => timersRef.current.forEach(clearTimeout);
+  }, [runSplash]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        !activeRef.current &&
+        isCooldownExpired()
+      ) {
+        runSplash();
+      }
     };
-  }, []);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [runSplash]);
 
   if (!visible) return null;
 
