@@ -31,7 +31,7 @@ const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
   { href: '/samples/new', label: 'Novo Registro', icon: 'new-sample' as NavIcon },
   { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon },
-  { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon }
+  { href: '/samples?mode=clients', label: 'Clientes', icon: 'clients' as NavIcon }
 ] as const;
 
 const ADMIN_NAV_ITEM = {
@@ -63,8 +63,8 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/samples' || /^\/samples\/[^/]+$/.test(pathname);
   }
 
-  if (href === '/clients') {
-    return pathname === '/clients';
+  if (href === '/samples?mode=clients') {
+    return pathname.startsWith('/clients/');
   }
 
   if (href === '/settings') {
@@ -170,10 +170,10 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
     };
   }
 
-  if (pathname === '/clients') {
+  if (pathname.startsWith('/clients/')) {
     return {
-      title: 'Clientes',
-      subtitle: 'Cadastre, consulte e mantenha inscricoes e auditoria dos clientes operacionais.'
+      title: 'Cliente',
+      subtitle: 'Gerencie dados, inscricoes e operacoes comerciais do cliente.'
     };
   }
 
@@ -361,7 +361,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                       Usuarios
                     </Link>
                   ) : null}
-                  <Link href="/clients" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                  <Link href="/samples?mode=clients" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
                     Clientes
                   </Link>
                   <Link href="/settings" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
