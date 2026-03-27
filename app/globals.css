@@ -60,9 +60,33 @@ body {
   --mobile-page-bg: var(--mobile-page-bg-base);
 }
 
+.mobile-edge-shell-auth::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: #1f5d43;
+  z-index: 9999;
+  pointer-events: none;
+}
+
 .mobile-edge-shell-login {
   --mobile-edge-fill: linear-gradient(180deg, #ffffff 0%, #f7f7f5 100%);
   --mobile-page-bg: linear-gradient(180deg, #ffffff 0%, #f9f9f7 100%);
+}
+
+.mobile-edge-shell-login::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: #ffffff;
+  z-index: 9999;
+  pointer-events: none;
 }
 
 .login-page {
@@ -8494,7 +8518,7 @@ button:disabled {
   body {
     min-height: 100dvh;
     overflow-x: hidden;
-    background-color: #1f5d43;
+    background: #1f5d43;
     overscroll-behavior-y: none;
   }
 
@@ -9299,7 +9323,7 @@ button:disabled {
   /* ── Dashboard: layered layout ── */
 
   .app-shell-main.is-dashboard-route {
-    background: linear-gradient(180deg, #1a4d35 0%, #14372a 100%);
+    background: linear-gradient(180deg, #1f5d43 0%, #14372a 100%);
     padding: 0;
     overflow: hidden;
     display: flex;
@@ -9320,8 +9344,8 @@ button:disabled {
     border: 0;
     border-radius: 0;
     pointer-events: none;
-    padding-top: calc(env(safe-area-inset-top) + 1rem);
-    padding-right: 0.5rem;
+    padding-top: calc(env(safe-area-inset-top) + 1.1rem);
+    padding-right: 0.8rem;
   }
 
   .topbar.topbar--dashboard-only .topbar-tools {
@@ -9329,17 +9353,17 @@ button:disabled {
   }
 
   .topbar.topbar--dashboard-only .topbar-profile-trigger {
-    width: 3.75rem;
-    min-width: 3.75rem;
-    height: 3.75rem;
+    width: 2.8rem;
+    min-width: 2.8rem;
+    height: 2.8rem;
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(255, 255, 255, 0.16);
     box-shadow: 0 10px 22px rgba(8, 17, 13, 0.22);
   }
 
   .topbar.topbar--dashboard-only .topbar-profile-icon {
-    width: 2rem;
-    height: 2rem;
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   .topbar.topbar--dashboard-only .topbar-profile-icon svg {
@@ -9370,9 +9394,9 @@ button:disabled {
   }
 
   .dashboard-hero {
-    padding: calc(env(safe-area-inset-top) + 16dvh) clamp(1.2rem, 5vw, 1.5rem) 2.8dvh;
+    padding: calc(env(safe-area-inset-top) + 1rem) clamp(1.2rem, 5vw, 1.5rem) 2dvh;
     display: grid;
-    gap: 2.8dvh;
+    gap: 2dvh;
     flex-shrink: 0;
   }
 
@@ -9417,12 +9441,34 @@ button:disabled {
     color: #4a7055;
   }
 
+  .dashboard-hero-search .sample-search-error {
+    min-height: 1.1rem;
+    margin: 0;
+    font-size: 0.75rem;
+    color: #f0c6c6;
+  }
+
+  .dashboard-hero-search .sample-search {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .dashboard-hero-search .sample-search::after {
+    content: '';
+    display: block;
+    min-height: 1.1rem;
+  }
+
+  .dashboard-hero-search .sample-search:has(.sample-search-error)::after {
+    display: none;
+  }
+
   .dashboard-sheet {
     flex: 1;
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(1.2rem, 4.5vw, 1.8rem) clamp(1rem, 4vw, 1.4rem);
-    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + 0.8rem);
     display: flex;
     flex-direction: column;
     gap: clamp(1rem, 3.5vw, 1.5rem);
@@ -9510,6 +9556,7 @@ button:disabled {
     flex-direction: column;
     height: 100%;
     gap: 0;
+    padding-bottom: 0;
     overflow: hidden;
   }
 
@@ -9523,11 +9570,12 @@ button:disabled {
 
   .new-sample-page.is-photo-step .new-sample-hero {
     padding: calc(env(safe-area-inset-top) + 2rem) 1.2rem 1rem;
-    flex: 1;
+    flex: 0 0 auto;
+    min-height: 28dvh;
   }
 
   .new-sample-page.is-details-step .new-sample-hero {
-    padding: calc(env(safe-area-inset-top) + 1rem) 1.2rem 0.8rem;
+    padding: calc(env(safe-area-inset-top) + 0.6rem) 1.2rem 0.5rem;
     flex: 0 0 auto;
     align-items: center;
   }
@@ -9562,45 +9610,26 @@ button:disabled {
   .new-sample-sheet {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
-    padding: 1.2rem 1rem;
+    padding: clamp(0.6rem, 1.5dvh, 1rem) 1rem;
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + 0.3rem);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: clamp(0.4rem, 1dvh, 0.8rem);
     overflow: hidden;
+    flex: 1;
     min-height: 0;
-    transition: flex 500ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .new-sample-page.is-details-step .new-sample-sheet {
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .new-sample-page.is-details-step .new-sample-sheet::-webkit-scrollbar {
-    display: none;
-  }
-
-  .new-sample-page.is-photo-step .new-sample-sheet {
-    flex: 1;
-    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
-  }
-
-  .new-sample-page.is-details-step .new-sample-sheet {
-    flex: 1;
-    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
   }
 
   .new-sample-photo-block {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
-    transition: all 500ms cubic-bezier(0.4, 0, 0.2, 1);
+    gap: 0.6rem;
   }
 
   .new-sample-page.is-photo-step .new-sample-photo-block {
-    flex: 0 0 auto;
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
   }
 
   .new-sample-page.is-details-step .new-sample-photo-block {
@@ -9609,7 +9638,7 @@ button:disabled {
 
   .new-sample-photo-stage {
     position: relative;
-    background: #d9d9d9;
+    background: #e4e8df;
     border-radius: 12px;
     overflow: hidden;
     display: flex;
@@ -9618,11 +9647,13 @@ button:disabled {
   }
 
   .new-sample-page.is-photo-step .new-sample-photo-stage {
-    min-height: 28dvh;
+    flex: 1;
+    min-height: 0;
   }
 
   .new-sample-page.is-details-step .new-sample-photo-stage {
-    min-height: 12dvh;
+    height: clamp(3.5rem, 10dvh, 6rem);
+    flex-shrink: 0;
   }
 
   .new-sample-photo-preview {
@@ -9670,7 +9701,7 @@ button:disabled {
   }
 
   .new-sample-photo-stage-action {
-    background: #d9d9d9;
+    background: #e4e8df;
     border: none;
     cursor: pointer;
     width: 100%;
@@ -9682,7 +9713,7 @@ button:disabled {
   }
 
   .new-sample-photo-stage-action:active {
-    background: #cdd5ce;
+    background: #d8ddd4;
   }
 
   .new-sample-photo-overlay-actions {
@@ -9796,6 +9827,8 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    flex: 1;
+    min-height: 0;
     animation: new-sample-form-slide-up 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
   }
 
@@ -9813,17 +9846,20 @@ button:disabled {
   .new-sample-details-grid {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    background: #d9d9d9;
+    gap: clamp(0.2rem, 1dvh, 0.5rem);
+    background: #e4e8df;
     border-radius: 12px;
-    padding: 0.85rem;
+    padding: clamp(0.5rem, 1.5dvh, 0.75rem);
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
   }
 
   .new-sample-field-group {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.78rem;
+    gap: 0.1rem;
+    font-size: clamp(0.68rem, 1.5dvh, 0.78rem);
     font-weight: 600;
     color: #2a3f30;
     letter-spacing: 0.02em;
@@ -9832,8 +9868,8 @@ button:disabled {
   .new-sample-field-group input,
   .new-sample-field-group select,
   .new-sample-field-group textarea {
-    padding: 0.5rem 0.65rem;
-    font-size: 0.85rem;
+    padding: clamp(0.28rem, 0.8dvh, 0.5rem) 0.65rem;
+    font-size: clamp(0.75rem, 1.6dvh, 0.85rem);
     font-weight: 400;
     border: 1.5px solid #bfcabe;
     border-radius: 10px;
@@ -9857,7 +9893,7 @@ button:disabled {
   .new-sample-compact-fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.55rem;
+    gap: clamp(0.2rem, 1dvh, 0.5rem);
   }
 
   .new-sample-harvest-field {
@@ -9901,22 +9937,22 @@ button:disabled {
   }
 
   .new-sample-notes-textarea {
-    min-height: 2.2rem;
-    height: 2.2rem;
-    max-height: 2.2rem;
+    min-height: clamp(1.4rem, 3dvh, 2.2rem);
+    height: clamp(1.4rem, 3dvh, 2.2rem);
+    max-height: clamp(1.4rem, 3dvh, 2.2rem);
     resize: none;
     overflow: hidden;
   }
 
   .new-sample-form-actions {
     padding-top: 0.2rem;
-    padding-bottom: 1rem;
     flex-shrink: 0;
+    margin-top: auto;
   }
 
   .new-sample-create-btn {
     width: 100%;
-    padding: 0.65rem;
+    padding: clamp(0.4rem, 1.2dvh, 0.65rem);
     border: none;
     border-radius: 12px;
     background: #1d762c;
