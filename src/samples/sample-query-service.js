@@ -30,7 +30,7 @@ const SAMPLES_LIST_MAX_LIMIT = 30;
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 const MAX_QR_PARTS = 64;
 const UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
-const INTERNAL_LOT_PATTERN = 'AM-\\d{4}-\\d{6}';
+const INTERNAL_LOT_PATTERN = 'A-\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 const SAMPLE_OWNER_INCLUDE = {
   ownerClient: {
@@ -1333,26 +1333,20 @@ export class SampleQueryService {
     };
   }
 
-  async getNextInternalLotNumber(year = new Date().getUTCFullYear()) {
-    const yearString = String(year);
-    const prefix = `AM-${yearString}-`;
+  async getNextInternalLotNumber() {
+    const initialSequence = 5443;
 
-    const lastSample = await this.prisma.sample.findFirst({
-      where: {
-        internalLotNumber: {
-          startsWith: prefix
-        }
-      },
-      orderBy: { internalLotNumber: 'desc' },
-      select: { internalLotNumber: true }
-    });
+    const result = await this.prisma.$queryRaw`
+      SELECT internal_lot_number FROM sample
+      WHERE internal_lot_number LIKE 'A-%'
+      ORDER BY CAST(SUBSTRING(internal_lot_number FROM 3) AS INTEGER) DESC
+      LIMIT 1`;
 
-    const lastLot = lastSample?.internalLotNumber ?? null;
-    const lastSequence = lastLot ? Number(lastLot.slice(-6)) : 0;
-    const nextSequence = Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : 1;
-    const padded = String(nextSequence).padStart(6, '0');
+    const lastLot = result[0]?.internal_lot_number ?? null;
+    const lastSequence = lastLot ? Number(lastLot.replace('A-', '')) : initialSequence;
+    const nextSequence = Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : initialSequence + 1;
 
-    return `AM-${yearString}-${padded}`;
+    return `A-${nextSequence}`;
   }
 }
 

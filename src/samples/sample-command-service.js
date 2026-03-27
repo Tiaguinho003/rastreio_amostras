@@ -1464,7 +1464,7 @@ export class SampleCommandService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       const sampleLotNumber =
-        input.sampleLotNumber ?? (await this.queryService.getNextInternalLotNumber(new Date().getUTCFullYear()));
+        input.sampleLotNumber ?? (await this.queryService.getNextInternalLotNumber());
 
       const event = buildEventEnvelope({
         eventType: 'REGISTRATION_CONFIRMED',

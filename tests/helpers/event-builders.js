@@ -85,7 +85,7 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
     idempotencyScope: 'REGISTRATION_CONFIRM',
     idempotencyKey: randomUUID(),
     payload: {
-      sampleLotNumber: 'AM-2026-000381',
+      sampleLotNumber: 'A-5444',
       declared: {
         owner: 'Produtor XPTO',
         sacks: 10,
@@ -230,7 +230,7 @@ export function reportExportedEvent(sampleId, overrides = {}) {
     payload: {
       format: 'PDF',
       exportType: 'COMPLETO',
-      fileName: 'amostra(AM-2026-000001).pdf',
+      fileName: 'amostra(A-5444).pdf',
       destination: null,
       selectedFields: ['owner', 'sacks', 'harvest'],
       classificationPhotoId: randomUUID(),

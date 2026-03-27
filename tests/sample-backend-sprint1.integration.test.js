@@ -393,7 +393,7 @@ if (!databaseUrl || !databaseReachable) {
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
     assert.equal(detail.sample.version, 8);
-    assert.match(detail.sample.internalLotNumber ?? '', /^AM-\d{4}-\d{6}$/);
+    assert.match(detail.sample.internalLotNumber ?? '', /^A-\d+$/);
     assert.equal(detail.attachments.length, 2);
     assert.equal(detail.events.length, 10);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
@@ -715,7 +715,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     await assert.rejects(
-      () => queryService.resolveSampleByQrToken('AM-2099-999999'),
+      () => queryService.resolveSampleByQrToken('A-999999'),
       (error) => error instanceof HttpError && error.status === 404
     );
   });

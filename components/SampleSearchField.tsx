@@ -120,12 +120,6 @@ export function SampleSearchField({
     <>
       <form className={classes} onSubmit={handleSubmit} role="search" aria-label="Buscar amostra por numero">
         <label className="sample-search-field">
-          <span className="sample-search-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m16.2 16.2 4.1 4.1" />
-            </svg>
-          </span>
           <input
             ref={inputRef}
             value={query}
@@ -136,17 +130,19 @@ export function SampleSearchField({
             aria-label="Numero da amostra"
             disabled={submitting}
           />
+          <button type="submit" className="sample-search-icon-button" disabled={submitting} aria-label="Buscar">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+          </button>
         </label>
-
-        <button type="submit" className="sample-search-submit" disabled={submitting}>
-          {submitting ? 'Buscando...' : submitLabel}
-        </button>
 
         {error ? (
           <p className="sample-search-error" role="alert">
             {error}
           </p>
-      ) : null}
+        ) : null}
       </form>
 
       {result && resultModalOpen ? (

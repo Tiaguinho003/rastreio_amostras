@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { SampleSearchField } from '../../components/SampleSearchField';
 import { ApiError, getDashboardPending } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -235,19 +236,28 @@ export default function DashboardPage() {
 
   const operationModalData = data ? buildOperationModalData(data, activeOperationPanel) : null;
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
-  const totalReceivedToday = data?.todayReceivedTotal ?? 0;
   const totalPending = data?.totalPending ?? 0;
+  const firstName = (session.user.fullName ?? session.user.username).split(' ')[0];
+
   return (
     <AppShell session={session} onLogout={logout}>
       <section className="dashboard-page">
-        <section className="dashboard-section-column">
-          <div className="dashboard-section-heading">
-            <h2 className="dashboard-section-title">Operacoes</h2>
+        <section className="dashboard-hero">
+          <div className="dashboard-greeting">
+            <span className="dashboard-greeting-label">Ola,</span>
+            <span className="dashboard-greeting-name">{firstName}</span>
           </div>
+          <div className="dashboard-hero-search">
+            <SampleSearchField session={session} placeholder="Buscar por lote" submitLabel="Buscar" />
+          </div>
+        </section>
 
-          <section className="panel dashboard-operations-panel">
+        <section className="dashboard-sheet">
+          <section className="dashboard-sheet-section">
+            <div className="dashboard-section-heading">
+              <h2 className="dashboard-section-title">Operacoes</h2>
+            </div>
             {error ? <p className="error">{error}</p> : null}
-
             {data ? (
               <div className="dashboard-operations-grid">
                 <button
@@ -280,10 +290,7 @@ export default function DashboardPage() {
                   aria-controls="dashboard-operation-modal-classification-pending"
                   aria-haspopup="dialog"
                 >
-                  <span
-                    className="dashboard-operation-icon dashboard-operation-icon-classification-pending"
-                    aria-hidden="true"
-                  >
+                  <span className="dashboard-operation-icon dashboard-operation-icon-classification-pending" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                       <path d="M4 9.5V5.8A1.8 1.8 0 0 1 5.8 4h3.7" />
                       <path d="m20 8.2-8.6 8.6a2.2 2.2 0 0 1-3.1 0L5.2 13.7a2.2 2.2 0 0 1 0-3.1L13.8 2 20 8.2Z" />
@@ -305,10 +312,7 @@ export default function DashboardPage() {
                   aria-controls="dashboard-operation-modal-classification-in-progress"
                   aria-haspopup="dialog"
                 >
-                  <span
-                    className="dashboard-operation-icon dashboard-operation-icon-classification-in-progress"
-                    aria-hidden="true"
-                  >
+                  <span className="dashboard-operation-icon dashboard-operation-icon-classification-in-progress" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                       <path d="M20 7v4h-4" />
                       <path d="M4 17v-4h4" />
@@ -352,79 +356,8 @@ export default function DashboardPage() {
               </div>
             )}
           </section>
-        </section>
 
-        <section className="dashboard-secondary-grid">
-          <section className="dashboard-section-column dashboard-section-column-wide">
-            <div className="dashboard-section-heading">
-              <h2 className="dashboard-section-title">Ultimos Registros</h2>
-              <Link href="/samples" className="dashboard-section-link">
-                Ver todas
-                <span aria-hidden="true">›</span>
-              </Link>
-            </div>
-
-            <section className="panel dashboard-secondary-panel dashboard-secondary-panel-wide">
-              {data ? (
-                latestRegistrationItems.length === 0 ? (
-                  <p className="dashboard-empty-state">Nenhuma amostra registrada recentemente.</p>
-                ) : (
-                  <div className="dashboard-latest-registration-scroll" aria-label="Lista de ultimos registros">
-                    <div className="dashboard-latest-registration-list">
-                      {latestRegistrationItems.map((sample) => (
-                        <LatestRegistrationCard key={sample.id} sample={sample} />
-                      ))}
-                    </div>
-                  </div>
-                )
-              ) : (
-                <div className="dashboard-latest-registration-list" aria-hidden="true">
-                  {Array.from({ length: 4 }, (_, i) => (
-                    <div key={i} className="dashboard-skeleton-registration-card">
-                      <span className="dashboard-skeleton-leading" />
-                      <span className="dashboard-skeleton-registration-content">
-                        <span className="dashboard-skeleton-line dashboard-skeleton-line-md" />
-                        <span className="dashboard-skeleton-line dashboard-skeleton-line-full" />
-                        <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </section>
-
-          <section className="dashboard-section-column dashboard-section-column-actions">
-            <Link href="/samples/new" className="dashboard-action-link dashboard-action-link-new">
-              <span className="dashboard-action-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </svg>
-              </span>
-              <span className="dashboard-action-label">Nova amostra</span>
-            </Link>
-
-            <Link href="/samples" className="dashboard-action-link dashboard-action-link-search">
-              <span className="dashboard-action-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </span>
-              <span className="dashboard-action-label">Buscar amostra</span>
-            </Link>
-
-            <section className="panel dashboard-total-today-panel">
-              <p className="dashboard-total-today-text">
-                Total Hoje: <strong>{totalReceivedToday}</strong>
-              </p>
-              <Link href="/samples" className="dashboard-view-all-link">
-                Ver Todas
-                <span aria-hidden="true">›</span>
-              </Link>
-            </section>
-          </section>
+          <section className="dashboard-sheet-section dashboard-sheet-content" />
         </section>
       </section>
 

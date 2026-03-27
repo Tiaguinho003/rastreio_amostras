@@ -6,7 +6,7 @@
   "properties": {
     "sampleLotNumber": {
       "type": "string",
-      "pattern": "^AM-[0-9]{4}-[0-9]{6}$"
+      "pattern": "^A-[0-9]+$"
     },
     "declared": {
       "type": "object",

@@ -206,7 +206,7 @@ export function MobileHeaderSearch({ session, open, onOpenChange, onModalActiveC
                       setError(null);
                     }
                   }}
-                  placeholder="Ex: AM-2026-000123"
+                  placeholder="Ex: A-5444"
                   autoComplete="off"
                   spellCheck={false}
                   disabled={submitting}

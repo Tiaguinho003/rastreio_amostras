@@ -38,7 +38,7 @@ test('schema validation rejects invalid payload with 422', () => {
 
   const invalidRegistrationConfirmed = registrationConfirmedEvent(sampleId, {
     payload: {
-      sampleLotNumber: 'AM-2026-000381',
+      sampleLotNumber: 'A-5444',
       declared: {
         owner: '',
         sacks: 10,
@@ -76,7 +76,7 @@ test('registration confirmed accepts payload without label photos', () => {
   const confirmed = service.appendEvent(
     registrationConfirmedEvent(sampleId, {
       payload: {
-        sampleLotNumber: 'AM-2026-000381',
+        sampleLotNumber: 'A-5444',
         declared: {
           owner: 'Produtor XPTO',
           sacks: 10,
