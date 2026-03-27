@@ -672,305 +672,271 @@ function NewSamplePageContent() {
 
   return (
     <AppShell session={session} onLogout={logout}>
-      <section className="new-sample-page">
-        <header className="new-sample-header">
-          <h2 className="new-sample-title">Nova amostra</h2>
-        </header>
+      <section className={`new-sample-page is-${currentStep}-step`}>
+        <section className="new-sample-hero">
+          <Link href="/dashboard" className="new-sample-back-btn" aria-label="Voltar ao dashboard">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M14 8l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <h2 className="new-sample-hero-title">Nova Amostra</h2>
+        </section>
 
-        {(error || message) ? (
-          <div className="new-sample-feedback-stack">
-            {error ? <p className="error">{error}</p> : null}
-            {message ? <p className="success">{message}</p> : null}
-          </div>
-        ) : null}
+        <section ref={stageBodyRef} className="new-sample-sheet">
+          {(error || message) ? (
+            <div className="new-sample-feedback-stack">
+              {error ? <p className="error">{error}</p> : null}
+              {message ? <p className="success">{message}</p> : null}
+            </div>
+          ) : null}
 
-        <section className="new-sample-stage-shell">
-          <div
-            ref={stageBodyRef}
-            className={`new-sample-stage-body is-${currentStep}-step${currentStep === 'details' ? ' is-static-step' : ''}`}
-          >
-            {currentStep === 'photo' ? (
-              <article className="new-sample-step-card new-sample-stage-card new-sample-card-photo">
-                <div className="new-sample-step-head new-sample-step-head-spread">
-                  <div className="new-sample-step-copy">
-                    <div className="new-sample-step-progress-inline" aria-label="Etapa 1 de 2">
-                      <div className="new-sample-step-track" aria-hidden="true">
-                        <span className="new-sample-step-track-segment is-complete" />
-                        <span className="new-sample-step-track-segment" />
-                      </div>
-                    </div>
+          {/* Photo block */}
+          <div className="new-sample-photo-block">
+            {arrivalPhotoPreviewUrl ? (
+              <div className="new-sample-photo-stage">
+                <img
+                  src={arrivalPhotoPreviewUrl}
+                  alt="Pre-visualizacao da foto de chegada"
+                  className="new-sample-photo-preview"
+                />
+                {photoCheckAnimating ? (
+                  <div className="new-sample-photo-check-fx">
+                    <div className="new-sample-photo-check-glow" />
+                    <div className="new-sample-photo-check-ring" />
+                    <svg className="new-sample-photo-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m5 12.5 4.3 4.2L19 7" />
+                    </svg>
                   </div>
-                  {!arrivalPhoto && !arrivalPhotoLoading && !photoCheckAnimating ? (
+                ) : null}
+                {!photoCheckAnimating && currentStep === 'photo' ? (
+                  <div className="new-sample-photo-overlay-actions">
                     <button
                       type="button"
-                      className="new-sample-skip-photo-button"
+                      className="new-sample-photo-overlay-btn is-change"
+                      onClick={() => router.push('/camera?intent=arrival-photo')}
                       disabled={submitting}
-                      onClick={handleSkipPhoto}
+                      aria-label="Alterar foto"
                     >
-                      Continuar sem foto
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" />
+                        <path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" />
+                      </svg>
                     </button>
+                    <button
+                      type="button"
+                      className="new-sample-photo-overlay-btn is-remove"
+                      onClick={clearArrivalPhoto}
+                      disabled={submitting}
+                      aria-label="Remover foto"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : arrivalPhotoLoading ? (
+              <div className="new-sample-photo-stage">
+                <span className="new-sample-photo-placeholder">
+                  <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
+                  <span className="new-sample-photo-placeholder-title">Preparando foto...</span>
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="new-sample-photo-stage new-sample-photo-stage-action"
+                onClick={() => router.push('/camera?intent=arrival-photo')}
+                disabled={submitting}
+              >
+                <span className="new-sample-photo-placeholder">
+                  <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                      <circle cx="12" cy="13.3" r="3.1" />
+                    </svg>
+                  </span>
+                  <span className="new-sample-photo-placeholder-title">Toque para abrir a camera</span>
+                  <span className="new-sample-photo-placeholder-text">Capture ou importe uma imagem da amostra</span>
+                </span>
+              </button>
+            )}
+
+            {currentStep === 'photo' && arrivalPhoto && !photoCheckAnimating ? (
+              <button
+                type="button"
+                className="new-sample-confirm-photo-btn"
+                onClick={handleContinueFromPhoto}
+                disabled={submitting}
+              >
+                Confirmar foto
+              </button>
+            ) : null}
+          </div>
+
+          {/* Skip photo - only in photo step without a photo */}
+          {currentStep === 'photo' && !arrivalPhoto && !arrivalPhotoLoading && !photoCheckAnimating ? (
+            <div className="new-sample-skip-photo">
+              <button
+                type="button"
+                className="new-sample-skip-photo-btn"
+                disabled={submitting}
+                onClick={handleSkipPhoto}
+                aria-label="Continuar sem foto"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 8v8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M8 14l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <span className="new-sample-skip-photo-label">Continuar sem foto</span>
+            </div>
+          ) : null}
+
+          {/* Form block - visible only on details step */}
+          {currentStep === 'details' ? (
+            <div className="new-sample-form-block">
+              <div className="new-sample-details-grid">
+                <div className="new-sample-field-group">
+                  <ClientLookupField
+                    session={session}
+                    label="Proprietario"
+                    kind="owner"
+                    inputRef={ownerInputRef}
+                    invalid={Boolean(requiredFieldErrors.owner)}
+                    invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
+                    selectedClient={selectedOwnerClient}
+                    onSelectClient={(client) => {
+                      setSelectedOwnerClient(client);
+                      setOwner(client?.displayName ?? '');
+                      setSelectedOwnerRegistrationId(null);
+                      clearRequiredFieldError('owner');
+                      setError(null);
+                    }}
+                    onRequestCreate={(searchTerm) => {
+                      setQuickCreateSeed(searchTerm);
+                      setQuickCreateOpen(true);
+                    }}
+                    createLabel="Cadastrar proprietario"
+                  />
+                </div>
+
+                <div className="new-sample-field-group new-sample-field-group-select">
+                  <ClientRegistrationSelect
+                    label="Inscricao"
+                    registrations={ownerRegistrations}
+                    value={selectedOwnerRegistrationId}
+                    disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                    onChange={setSelectedOwnerRegistrationId}
+                  />
+                  {ownerRegistrationLoading ? (
+                    <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
                   ) : null}
                 </div>
 
-                <div className="new-sample-step-body-content new-sample-step-body-content-photo">
-                  {arrivalPhotoPreviewUrl ? (
-                    <div className="new-sample-photo-stage">
-                      <img
-                        src={arrivalPhotoPreviewUrl}
-                        alt="Pre-visualizacao da foto de chegada"
-                        className="new-sample-photo-preview"
-                      />
-                      {photoCheckAnimating ? (
-                        <div className="new-sample-photo-check-fx">
-                          <div className="new-sample-photo-check-glow" />
-                          <div className="new-sample-photo-check-ring" />
-                          <svg className="new-sample-photo-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="m5 12.5 4.3 4.2L19 7" />
-                          </svg>
-                        </div>
-                      ) : null}
-                      {!photoCheckAnimating ? (
-                        <>
-                          <button
-                            type="button"
-                            className="new-sample-photo-overlay-btn is-change"
-                            onClick={() => router.push('/camera?intent=arrival-photo')}
-                            disabled={submitting}
-                            aria-label="Alterar foto"
-                          >
-                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                              <path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" />
-                              <path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className="new-sample-photo-overlay-btn is-remove"
-                            onClick={clearArrivalPhoto}
-                            disabled={submitting}
-                            aria-label="Remover foto"
-                          >
-                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                              <path d="M18 6 6 18" />
-                              <path d="m6 6 12 12" />
-                            </svg>
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : arrivalPhotoLoading ? (
-                    <div className="new-sample-photo-stage">
-                      <span className="new-sample-photo-placeholder">
-                        <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
-                        <span className="new-sample-photo-placeholder-title">Preparando foto...</span>
-                      </span>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="new-sample-photo-stage new-sample-photo-stage-action"
-                      onClick={() => router.push('/camera?intent=arrival-photo')}
-                      disabled={submitting}
-                    >
-                      <span className="new-sample-photo-placeholder">
-                        <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                            <circle cx="12" cy="13.3" r="3.1" />
-                          </svg>
-                        </span>
-                        <span className="new-sample-photo-placeholder-title">Toque para abrir a camera</span>
-                        <span className="new-sample-photo-placeholder-text">Capture ou importe uma imagem da amostra</span>
-                      </span>
-                    </button>
-                  )}
-                </div>
+                <div className="new-sample-compact-fields">
+                  <label className="new-sample-field-group">
+                    Sacas
+                    <input
+                      ref={sacksInputRef}
+                      value={sacks}
+                      className={requiredFieldErrors.sacks ? 'new-sample-input-error' : undefined}
+                      aria-invalid={Boolean(requiredFieldErrors.sacks)}
+                      onChange={(event) => {
+                        setSacks(event.target.value);
+                        clearRequiredFieldError('sacks');
+                      }}
+                      inputMode="numeric"
+                      placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
+                    />
+                  </label>
 
-                <div className="new-sample-step-actions new-sample-step-actions-end">
-                  <button
-                    type="button"
-                    className="new-sample-continue-arrow"
-                    disabled={!arrivalPhoto || photoCheckAnimating || submitting}
-                    onClick={handleContinueFromPhoto}
-                    aria-label="Continuar"
+                  <div
+                    ref={harvestFieldRef}
+                    className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}
                   >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M5 12h14" />
-                      <path d="m13 6 6 6-6 6" />
-                    </svg>
-                  </button>
-                </div>
-              </article>
-            ) : (
-              <article className="new-sample-step-card new-sample-stage-card new-sample-card-details">
-                <div className="new-sample-step-head new-sample-step-head-spread">
-                  <div className="new-sample-step-copy">
-                    <div className="new-sample-step-progress-inline" aria-label="Etapa 2 de 2">
-                      <div className="new-sample-step-track" aria-hidden="true">
-                        <span className="new-sample-step-track-segment is-complete" />
-                        <span className="new-sample-step-track-segment is-complete" />
+                    <label htmlFor="new-sample-harvest-input">Safra</label>
+                    <input
+                      id="new-sample-harvest-input"
+                      ref={harvestInputRef}
+                      className={requiredFieldErrors.harvest ? 'new-sample-input-error' : undefined}
+                      aria-invalid={Boolean(requiredFieldErrors.harvest)}
+                      value={harvest}
+                      onFocus={() => setHarvestOptionsOpen(true)}
+                      onChange={(event) => {
+                        setHarvest(event.target.value);
+                        clearRequiredFieldError('harvest');
+                      }}
+                      placeholder={requiredFieldErrors.harvest ? requiredFieldErrors.harvest : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`}
+                    />
+                    {harvestOptionsOpen ? (
+                      <div className="new-sample-harvest-options">
+                        {HARVEST_PRESET_OPTIONS.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
+                            onClick={() => {
+                              setHarvest(option);
+                              clearRequiredFieldError('harvest');
+                              setHarvestOptionsOpen(false);
+                            }}
+                            disabled={submitting}
+                          >
+                            {option}
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                  <button type="button" className="new-sample-inline-reset" disabled={submitting} onClick={resetDraft}>
-                    Limpar
-                  </button>
-                </div>
-
-                <div className="new-sample-step-body-content new-sample-step-body-content-details">
-                  <div className="new-sample-details-grid">
-                    <div className="new-sample-field-group">
-                      <ClientLookupField
-                        session={session}
-                        label="Proprietario"
-                        kind="owner"
-                        inputRef={ownerInputRef}
-                        invalid={Boolean(requiredFieldErrors.owner)}
-                        invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
-                        selectedClient={selectedOwnerClient}
-                        onSelectClient={(client) => {
-                          setSelectedOwnerClient(client);
-                          setOwner(client?.displayName ?? '');
-                          setSelectedOwnerRegistrationId(null);
-                          clearRequiredFieldError('owner');
-                          setError(null);
-                        }}
-                        onRequestCreate={(searchTerm) => {
-                          setQuickCreateSeed(searchTerm);
-                          setQuickCreateOpen(true);
-                        }}
-                        createLabel="Cadastrar proprietario"
-                      />
-                    </div>
-
-                    <div className="new-sample-field-group new-sample-field-group-select">
-                      <ClientRegistrationSelect
-                        label="Inscricao"
-                        registrations={ownerRegistrations}
-                        value={selectedOwnerRegistrationId}
-                        disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                        onChange={setSelectedOwnerRegistrationId}
-                      />
-                      {ownerRegistrationLoading ? (
-                        <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
-                      ) : null}
-                    </div>
-
-                    <div className="new-sample-compact-fields">
-                      <label className="new-sample-field-group">
-                        Sacas
-                        <input
-                          ref={sacksInputRef}
-                          value={sacks}
-                          className={requiredFieldErrors.sacks ? 'new-sample-input-error' : undefined}
-                          aria-invalid={Boolean(requiredFieldErrors.sacks)}
-                          onChange={(event) => {
-                            setSacks(event.target.value);
-                            clearRequiredFieldError('sacks');
-                          }}
-                          inputMode="numeric"
-                          placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
-                        />
-                      </label>
-
-                      <div
-                        ref={harvestFieldRef}
-                        className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}
-                      >
-                        <label htmlFor="new-sample-harvest-input">Safra</label>
-                        <input
-                          id="new-sample-harvest-input"
-                          ref={harvestInputRef}
-                          className={requiredFieldErrors.harvest ? 'new-sample-input-error' : undefined}
-                          aria-invalid={Boolean(requiredFieldErrors.harvest)}
-                          value={harvest}
-                          onFocus={() => setHarvestOptionsOpen(true)}
-                          onChange={(event) => {
-                            setHarvest(event.target.value);
-                            clearRequiredFieldError('harvest');
-                          }}
-                          placeholder={requiredFieldErrors.harvest ? requiredFieldErrors.harvest : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`}
-                        />
-                        {harvestOptionsOpen ? (
-                          <div className="new-sample-harvest-options">
-                            {HARVEST_PRESET_OPTIONS.map((option) => (
-                              <button
-                                key={option}
-                                type="button"
-                                className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
-                                onClick={() => {
-                                  setHarvest(option);
-                                  clearRequiredFieldError('harvest');
-                                  setHarvestOptionsOpen(false);
-                                }}
-                                disabled={submitting}
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <label className="new-sample-field-group">
-                      Lote de origem
-                      <input
-                        ref={originLotInputRef}
-                        value={originLot}
-                        className={requiredFieldErrors.originLot ? 'new-sample-input-error' : undefined}
-                        aria-invalid={Boolean(requiredFieldErrors.originLot)}
-                        onChange={(event) => {
-                          setOriginLot(event.target.value);
-                          clearRequiredFieldError('originLot');
-                        }}
-                        placeholder={requiredFieldErrors.originLot ? requiredFieldErrors.originLot : 'Codigo do lote'}
-                      />
-                    </label>
-
-                    <label className="new-sample-field-group new-sample-notes-field">
-                      Observacoes
-                      <textarea
-                        className="new-sample-notes-textarea"
-                        rows={1}
-                        value={notes}
-                        onChange={(event) => setNotes(event.target.value)}
-                        placeholder=""
-                      />
-                    </label>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="row new-sample-step-actions">
-                  <button
-                    type="button"
-                    className="new-sample-back-arrow"
-                    disabled={submitting}
-                    onClick={() => {
-                      setError(null);
-                      setMessage(null);
-                      setCurrentStep('photo');
+                <label className="new-sample-field-group">
+                  Lote de origem
+                  <input
+                    ref={originLotInputRef}
+                    value={originLot}
+                    className={requiredFieldErrors.originLot ? 'new-sample-input-error' : undefined}
+                    aria-invalid={Boolean(requiredFieldErrors.originLot)}
+                    onChange={(event) => {
+                      setOriginLot(event.target.value);
+                      clearRequiredFieldError('originLot');
                     }}
-                    aria-label="Voltar"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M19 12H5" />
-                      <path d="m11 18-6-6 6-6" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={(event) => openReviewModal(event.currentTarget)}
-                  >
-                    Criar amostra
-                  </button>
-                </div>
+                    placeholder={requiredFieldErrors.originLot ? requiredFieldErrors.originLot : 'Codigo do lote'}
+                  />
+                </label>
 
-              </article>
-            )}
-          </div>
+                <label className="new-sample-field-group new-sample-notes-field">
+                  Observacoes
+                  <textarea
+                    className="new-sample-notes-textarea"
+                    rows={1}
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder=""
+                  />
+                </label>
+              </div>
+
+              <div className="new-sample-form-actions">
+                <button
+                  ref={lastCreateButtonRef}
+                  type="button"
+                  className="new-sample-create-btn"
+                  disabled={submitting}
+                  onClick={(event) => openReviewModal(event.currentTarget)}
+                >
+                  {submitting ? 'Criando...' : 'Criar amostra'}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
+
       </section>
 
       {labelModalOpen ? (

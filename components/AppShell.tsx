@@ -177,7 +177,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
-  const headerMobileClass = isDashboard ? 'topbar--dashboard-only' : 'topbar--hidden';
+  const isNewSample = pathname === '/samples/new';
+  const isLayeredRoute = isDashboard || isNewSample;
+  const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [showPageTransition, setShowPageTransition] = useState(false);
@@ -353,7 +355,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </div>
       </header>
 
-      <main className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isDashboard ? ' is-dashboard-route' : ''}`}>
+      <main className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}${isNewSample ? ' is-new-sample-route' : ''}`}>
         {mobileRouteMeta && !isCameraRoute ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">
