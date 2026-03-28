@@ -778,6 +778,16 @@ export function createBackendApiV1({
         };
       }),
 
+    getDashboardSalesAvailability: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const result = await queryService.getDashboardSalesAvailability();
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
     getPendingPrintJobs: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

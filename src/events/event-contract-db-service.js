@@ -302,6 +302,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     );
     updateData.classificationDraftData = null;
     updateData.classificationDraftCompletionPercent = null;
+    updateData.classifiedAt = event.occurredAt;
   }
 
   if (event.eventType === 'CLASSIFICATION_UPDATED') {

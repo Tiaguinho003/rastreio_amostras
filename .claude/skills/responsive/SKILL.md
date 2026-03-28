@@ -72,11 +72,20 @@ Toda pagina deve respeitar as safe areas do dispositivo:
 - Truncamento: `overflow: hidden; text-overflow: ellipsis; white-space: nowrap` para textos em cards
 - Nunca permitir que texto empurre containers para fora da tela
 
-### 8. Espacos reservados para feedback
+### 8. Mensagens de erro dentro do campo
 
-- Mensagens de erro/sucesso devem ter espaco pre-reservado no layout
-- Use `min-height` no container ou `::after` placeholder para que o aparecimento da mensagem nao movimente outros elementos
-- Exemplo: container com `min-height: 1.1rem` reservado, ou `::after { content: ''; min-height: 1.1rem; }` que desaparece quando a mensagem aparece
+- Por padrao, mensagens de erro devem aparecer **dentro** do proprio campo de input, nao abaixo dele
+- O erro fica posicionado com `position: absolute` dentro do container do campo
+- O erro NUNCA sobrepoe texto digitado — ao exibir o erro, o valor do input e limpo primeiro
+- O placeholder fica transparente enquanto o erro esta visivel (`.has-error input::placeholder`)
+- Cor do erro: vermelho suave (ex: `#c45c5c`), nunca vermelho forte/saturado
+- O erro nao deve causar deslocamento de layout — ele ocupa o mesmo espaco do input
+- **Regras de dismissal do erro:**
+  - Auto-dismiss apos **8 segundos** se nenhuma acao acontecer
+  - Some ao clicar em qualquer elemento interativo (botao, link, input, select)
+  - Some ao focar/clicar no proprio campo
+  - NAO some ao clicar em area vazia da tela
+- Em casos especiais (indicados explicitamente), o erro pode aparecer fora do campo
 
 ### 9. Testes mentais obrigatorios
 

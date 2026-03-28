@@ -1333,6 +1333,48 @@ export class SampleQueryService {
     };
   }
 
+  async getDashboardSalesAvailability() {
+    const nowUtc = new Date();
+    const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+
+    const spYear = nowSp.getUTCFullYear();
+    const spMonth = nowSp.getUTCMonth();
+    const spDay = nowSp.getUTCDate();
+
+    const todayStartUtc = new Date(Date.UTC(spYear, spMonth, spDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+    const todayEndUtc = new Date(Date.UTC(spYear, spMonth, spDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+    const boundary15 = new Date(Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+    const boundary7 = new Date(Date.UTC(spYear, spMonth, spDay - 7, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+    const rows = await this.prisma.$queryRaw`
+      SELECT
+        COUNT(*)::INTEGER                                                                    AS "total",
+        COUNT(*) FILTER (WHERE s."classified_at" >= ${todayStartUtc}
+                           AND s."classified_at" <  ${todayEndUtc})::INTEGER                 AS "classifiedToday",
+        COUNT(*) FILTER (WHERE s."classified_at" <  ${boundary15})::INTEGER                  AS "over15",
+        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary15}
+                           AND s."classified_at" <  ${boundary7})::INTEGER                   AS "from8to15",
+        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary7})::INTEGER                   AS "under7"
+      FROM "sample" s
+      WHERE s."status" = 'CLASSIFIED'
+        AND s."commercial_status" IN ('OPEN', 'PARTIALLY_SOLD')
+        AND s."classified_at" IS NOT NULL
+    `;
+
+    const row = rows[0] ?? {};
+
+    return {
+      total: toIntegerOrZero(row.total),
+      classifiedToday: toIntegerOrZero(row.classifiedToday),
+      bands: {
+        over15: toIntegerOrZero(row.over15),
+        from8to15: toIntegerOrZero(row.from8to15),
+        under7: toIntegerOrZero(row.under7)
+      }
+    };
+  }
+
   async getNextInternalLotNumber() {
     const initialSequence = 5443;
 

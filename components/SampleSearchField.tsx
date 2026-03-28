@@ -7,6 +7,23 @@ import { SampleLookupResultModal } from './SampleLookupResultModal';
 import { ApiError, resolveSampleByQr } from '../lib/api-client';
 import type { ResolveSampleByQrResponse, SessionData } from '../lib/types';
 
+function translateApiError(error: ApiError): string {
+  const msg = error.message.toLowerCase();
+  if (error.status === 404 || msg.includes('not found') || msg.includes('no sample')) {
+    return 'Amostra nao encontrada.';
+  }
+  if (error.status === 400 || msg.includes('invalid') || msg.includes('bad request')) {
+    return 'Codigo invalido.';
+  }
+  if (error.status === 401 || error.status === 403) {
+    return 'Sem permissao para esta acao.';
+  }
+  if (/^[a-zA-Z\s.,!?]+$/.test(error.message)) {
+    return 'Falha ao localizar a amostra.';
+  }
+  return error.message;
+}
+
 interface SampleSearchFieldProps {
   session: SessionData;
   className?: string;
@@ -29,6 +46,39 @@ export function SampleSearchField({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = null;
+    }
+
+    if (!error) {
+      return;
+    }
+
+    errorTimerRef.current = setTimeout(() => {
+      setError(null);
+    }, 8000);
+
+    function handleClick(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (target.closest('a, button, [role="button"], input, select, textarea')) {
+        setError(null);
+      }
+    }
+
+    document.addEventListener('click', handleClick, true);
+
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+    };
+  }, [error]);
 
   useEffect(() => {
     if (!resultModalOpen) {
@@ -85,6 +135,7 @@ export function SampleSearchField({
 
     const normalizedQuery = query.trim();
     if (!normalizedQuery) {
+      setQuery('');
       setError('Informe o numero da amostra.');
       return;
     }
@@ -98,8 +149,9 @@ export function SampleSearchField({
       setResultModalOpen(true);
       setQuery('');
     } catch (cause) {
+      setQuery('');
       if (cause instanceof ApiError) {
-        setError(cause.message);
+        setError(translateApiError(cause));
       } else {
         setError('Falha ao localizar a amostra.');
       }
@@ -119,12 +171,12 @@ export function SampleSearchField({
   return (
     <>
       <form className={classes} onSubmit={handleSubmit} role="search" aria-label="Buscar amostra por numero">
-        <label className="sample-search-field">
+        <label className={`sample-search-field ${error ? 'has-error' : ''}`}>
           <input
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={placeholder}
+            placeholder={error ?? placeholder}
             autoComplete="off"
             spellCheck={false}
             aria-label="Numero da amostra"
@@ -137,12 +189,6 @@ export function SampleSearchField({
             </svg>
           </button>
         </label>
-
-        {error ? (
-          <p className="sample-search-error" role="alert">
-            {error}
-          </p>
-        ) : null}
       </form>
 
       {result && resultModalOpen ? (

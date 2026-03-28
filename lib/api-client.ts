@@ -12,6 +12,7 @@ import type {
   CommandResponse,
   CreateSampleAndPreparePrintResponse,
   DashboardPendingResponse,
+  DashboardSalesAvailabilityResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -101,7 +102,7 @@ async function request<TResponse>(
 
   if (!response.ok) {
     const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
-    throw new ApiError(response.status, maybeError?.message ?? 'Request failed', maybeError?.details ?? null);
+    throw new ApiError(response.status, maybeError?.message ?? 'Erro ao processar a solicitacao.', maybeError?.details ?? null);
   }
 
   if (response.status !== 204 && Object.keys(payload).length === 0) {
@@ -636,6 +637,13 @@ export function getDashboardPending(session: SessionData) {
   });
 }
 
+export function getDashboardSalesAvailability(session: SessionData) {
+  return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
+    method: 'GET',
+    session
+  });
+}
+
 export function getPendingPrintJobs(session: SessionData, options: { limit?: number } = {}) {
   const params = new URLSearchParams();
   if (typeof options.limit === 'number') {
@@ -826,7 +834,7 @@ export async function exportSamplePdf(
   if (!response.ok) {
     const payload = await parseJsonSafe(response);
     const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
-    throw new ApiError(response.status, maybeError?.message ?? 'Request failed', maybeError?.details ?? null);
+    throw new ApiError(response.status, maybeError?.message ?? 'Erro ao processar a solicitacao.', maybeError?.details ?? null);
   }
 
   const blob = await response.blob();

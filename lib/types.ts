@@ -547,6 +547,16 @@ export interface DashboardPendingResponse {
   };
 }
 
+export interface DashboardSalesAvailabilityResponse {
+  total: number;
+  classifiedToday: number;
+  bands: {
+    over15: number;
+    from8to15: number;
+    under7: number;
+  };
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {

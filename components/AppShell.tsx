@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { ProfileBottomSheet } from './ProfileBottomSheet';
 import { SampleSearchField } from './SampleSearchField';
 import { recordInitialPasswordDecision } from '../lib/api-client';
 import { getRoleLabel, isAdmin } from '../lib/roles';
@@ -176,6 +177,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const pathname = usePathname();
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isNewSample = pathname === '/samples/new';
   const isLayeredRoute = isDashboard || isNewSample;
@@ -244,6 +246,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     };
   }, [profileMenuOpen]);
 
+  useEffect(() => {
+    function handleOpenProfileSheet() {
+      setProfileSheetOpen(true);
+    }
+
+    window.addEventListener('open-profile-sheet', handleOpenProfileSheet);
+    return () => {
+      window.removeEventListener('open-profile-sheet', handleOpenProfileSheet);
+    };
+  }, []);
+
   async function handleInitialPasswordDecision(decision: 'KEPT' | 'CHANGED') {
     setDecisionLoading(true);
     setDecisionError(null);
@@ -308,7 +321,14 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 aria-expanded={profileMenuOpen}
                 aria-controls="topbar-profile-menu"
                 aria-label="Abrir menu de perfil"
-                onClick={() => setProfileMenuOpen((current) => !current)}
+                onClick={() => {
+                  const isMobile = window.innerWidth < 769;
+                  if (isMobile) {
+                    setProfileSheetOpen(true);
+                  } else {
+                    setProfileMenuOpen((current) => !current);
+                  }
+                }}
               >
                 <span className="topbar-profile-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -410,6 +430,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           {children}
         </div>
       </main>
+
+      <ProfileBottomSheet
+        session={session}
+        open={profileSheetOpen}
+        onClose={() => setProfileSheetOpen(false)}
+        onLogout={onLogout}
+      />
 
       <nav className="mobile-tabbar" aria-label="Paginas principais">
         <div className="mobile-tabbar-inner">

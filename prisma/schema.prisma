@@ -209,6 +209,7 @@ model Sample {
   latestDensity               Decimal?  @db.Decimal(6, 2) @map("latest_density")
   latestColorAspect           String?   @map("latest_color_aspect")
   latestNotes                 String?   @map("latest_notes")
+  classifiedAt                DateTime? @db.Timestamptz(6) @map("classified_at")
   updatedAt                   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
   createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
 
@@ -230,6 +231,7 @@ model Sample {
   @@index([ownerRegistrationId], map: "idx_sample_owner_registration")
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
+  @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")
   @@map("sample")
 }
 
