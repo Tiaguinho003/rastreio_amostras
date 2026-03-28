@@ -1932,205 +1932,90 @@ export default function SampleDetailPage() {
             <section className="sdv-content">
               <div className={`sdv-content-inner${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
                 {detailSection === 'GENERAL' ? (
-                  <section className="stack sample-detail-info-pane sample-detail-general-pane">
-                    <section className="panel sample-detail-main-layout sample-detail-main-layout-general">
-                      <article className={`stack sample-detail-main-info sample-detail-main-info-grid${registrationEditMode ? ' is-editing' : ''}`}>
-                        <div className="sample-detail-general-stage">
-                          <div className="sample-detail-general-card-top">
-                            <div className="sample-detail-edit-tools sample-detail-edit-tools-general">
-                              {registrationEditMode ? (
-                                <div className="sample-detail-edit-trigger-slot">
-                                  <button
-                                    type="button"
-                                    className="sample-detail-icon-action"
-                                    onClick={handleRequestRegistrationUpdate}
-                                    disabled={registrationUpdating}
-                                    aria-label="Confirmar edicao do registro"
-                                    title="Confirmar edicao do registro"
-                                  >
-                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                      <path d="m5 12 4.5 4.5L19 7" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="secondary sample-detail-icon-action"
-                                    onClick={cancelRegistrationEdit}
-                                    disabled={registrationUpdating}
-                                    aria-label="Cancelar edicao do registro"
-                                    title="Cancelar edicao do registro"
-                                  >
-                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                      <path d="m6 6 12 12" />
-                                      <path d="M18 6 6 18" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="sample-detail-edit-trigger-slot">
-                                  <button
-                                    type="button"
-                                    className="secondary sample-detail-icon-action"
-                                    onClick={startRegistrationEdit}
-                                    disabled={!canEditRegistrationStatus(detail.sample.status)}
-                                    aria-label="Editar informacoes principais"
-                                    title={canEditRegistrationStatus(detail.sample.status) ? 'Editar informacoes principais' : 'Edicao indisponivel neste status'}
-                                  >
-                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                      <path d="M12 20h9" />
-                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            <div className="sample-detail-general-qr-block">
-                              <div className="sample-detail-qr-quick-code">
-                                <QRCodeCanvas value={qrValue} size={156} />
-                              </div>
-
-                              <div className="row sample-detail-qr-quick-actions">
-                                <button
-                                  type="button"
-                                  className="sample-detail-qr-action"
-                                  onClick={(event) => openLabelReviewModal(event.currentTarget)}
-                                  disabled={!canQuickPrint || labelModalSubmitting}
-                                  aria-label="Imprimir etiqueta da amostra"
-                                  title="Imprimir etiqueta da amostra"
-                                >
-                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="M7 8V4.8h10V8" />
-                                    <rect x="5" y="9" width="14" height="7" rx="1.8" />
-                                    <path d="M8 14h8" />
-                                    <path d="M8 16.8h8V20H8z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="sample-detail-qr-action secondary"
-                                  onClick={handleOpenExportTypeSelector}
-                                  disabled={!canQuickReport || Boolean(exportingPdfType)}
-                                  aria-label="Gerar laudo da amostra"
-                                  title="Gerar laudo da amostra"
-                                >
-                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="M7 4.8h7l3 3V19.2H7z" />
-                                    <path d="M14 4.8v3h3" />
-                                    <path d="M9 12h6" />
-                                    <path d="M9 15h6" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="sample-detail-main-facts sample-detail-main-facts-columns sample-detail-main-facts-general">
-                            <div className="sample-detail-main-fact">
-                              <span>Proprietario</span>
-                              {registrationEditMode ? (
-                                <ClientLookupField
-                                  session={session}
-                                  label="Cliente proprietario"
-                                  kind="owner"
-                                  selectedClient={selectedOwnerClient}
-                                  disabled={registrationUpdating}
-                                  compact
-                                  onSelectClient={(client) => {
-                                    setSelectedOwnerClient(client);
-                                    setOwner(client?.displayName ?? '');
-                                    setSelectedOwnerRegistrationId(null);
-                                    setGeneralNotice(null);
-                                  }}
-                                  onRequestCreate={(searchTerm) => {
-                                    setOwnerQuickCreateSeed(searchTerm);
-                                    setOwnerQuickCreateOpen(true);
-                                  }}
-                                  createLabel="Cadastrar proprietario"
-                                />
-                              ) : (
-                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.owner)}</strong>
-                              )}
-                            </div>
-
-                            <div className="sample-detail-main-fact is-wide-value">
-                              <span>Inscricao do proprietario</span>
-                              {registrationEditMode ? (
-                                <ClientRegistrationSelect
-                                  label="Inscricao"
-                                  registrations={ownerRegistrations}
-                                  value={selectedOwnerRegistrationId}
-                                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
-                                  onChange={setSelectedOwnerRegistrationId}
-                                  placeholder="Selecionar"
-                                  compact
-                                />
-                              ) : (
-                                <strong className="sample-detail-inline-value">
-                                  {buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}
-                                </strong>
-                              )}
-                            </div>
-
-                            <div className="sample-detail-main-fact">
-                              <span>Sacas</span>
-                              {registrationEditMode ? (
-                                <input
-                                  className="sample-detail-inline-input"
-                                  value={sacks}
-                                  onChange={(event) => setSacks(event.target.value)}
-                                  inputMode="numeric"
-                                  disabled={registrationUpdating}
-                                />
-                              ) : (
-                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.sacks)}</strong>
-                              )}
-                            </div>
-
-                            <div className="sample-detail-main-fact">
-                              <span>Safra</span>
-                              {registrationEditMode ? (
-                                <input
-                                  className="sample-detail-inline-input"
-                                  value={harvest}
-                                  onChange={(event) => setHarvest(event.target.value)}
-                                  disabled={registrationUpdating}
-                                />
-                              ) : (
-                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.harvest)}</strong>
-                              )}
-                            </div>
-
-                            <div className="sample-detail-main-fact">
-                              <span>Lote de origem</span>
-                              {registrationEditMode ? (
-                                <input
-                                  className="sample-detail-inline-input"
-                                  value={originLot}
-                                  onChange={(event) => setOriginLot(event.target.value)}
-                                  disabled={registrationUpdating}
-                                />
-                              ) : (
-                                <strong className="sample-detail-inline-value">{buildReadableValue(detail.sample.declared.originLot)}</strong>
-                              )}
-                            </div>
-
-                            <div className="sample-detail-main-fact is-wide-value">
-                              <span>Recebido</span>
-                              <strong className="sample-detail-inline-value">{formatTimestamp(detail.sample.createdAt)}</strong>
-                            </div>
-                          </div>
+                  <section className="sdv-general">
+                    {/* Card 1: QR Code + Actions */}
+                    <div className="sdv-card">
+                      <div className="sdv-qr-row">
+                        <div className="sdv-qr-box">
+                          <QRCodeCanvas value={qrValue} size={76} />
                         </div>
-                        <NoticeSlot notice={generalNotice} />
-                      </article>
-                    </section>
+                        <div className="sdv-qr-actions">
+                          <span className="sdv-qr-label">QR Code da amostra</span>
+                          <button type="button" className="sdv-qr-btn is-primary" onClick={(event) => openLabelReviewModal(event.currentTarget)} disabled={!canQuickPrint || labelModalSubmitting}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4.8h10V8" /><rect x="5" y="9" width="14" height="7" rx="1.8" /><path d="M8 14h8" /><path d="M8 16.8h8V20H8z" /></svg>
+                            <span>Imprimir etiqueta</span>
+                          </button>
+                          <button type="button" className="sdv-qr-btn is-secondary" onClick={handleOpenExportTypeSelector} disabled={!canQuickReport || Boolean(exportingPdfType)}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                            <span>Ver ficha completa</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 2: Informações */}
+                    <div className="sdv-card sdv-info-card">
+                      <span className="sdv-card-title">Informacoes da amostra</span>
+                      <div className="sdv-info-grid">
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Proprietario</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.owner)}</span>
+                        </div>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Inscricao do proprietario</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}</span>
+                        </div>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Sacas</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.sacks)}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Safra</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.harvest)}</span>
+                        </div>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Lote de origem</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.originLot)}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Recebido em</span>
+                          <span className="sdv-info-value">{formatTimestamp(detail.sample.createdAt)}</span>
+                        </div>
+                      </div>
+                      <NoticeSlot notice={generalNotice} />
+                    </div>
+
+                    {/* Card 3: Foto */}
+                    <div className="sdv-card">
+                      <span className="sdv-card-title">Foto da amostra</span>
+                      {(() => {
+                        const arrivalAttachment = detail.attachments.find((a) => a.kind === 'ARRIVAL_PHOTO');
+                        if (arrivalAttachment) {
+                          return (
+                            <button type="button" className="sdv-photo-wrap" onClick={() => setClassificationPhotoPreviewOpen(true)}>
+                              <img src={`/api/v1/samples/${detail.sample.id}/attachments/${arrivalAttachment.id}/file`} alt="Foto da amostra" className="sdv-photo-img" />
+                              <span className="sdv-photo-hint">Toque para ampliar</span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <div className="sdv-photo-empty">
+                            <span>Sem foto</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
 
                     {detail.sample.status === 'INVALIDATED' ? (
-                      <section className="panel stack sample-detail-status-note">
-                        <h3 className="sample-detail-card-title">Amostra invalidada</h3>
-                        <p style={{ margin: 0, color: 'var(--muted)' }}>
+                      <div className="sdv-card" style={{ borderLeft: '3px solid #C0392B' }}>
+                        <span className="sdv-card-title" style={{ color: '#C0392B' }}>Amostra invalidada</span>
+                        <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>
                           Esta amostra foi retirada do fluxo operacional e permanece apenas para consulta.
                         </p>
-                      </section>
+                      </div>
                     ) : null}
                   </section>
                 ) : detailSection === 'CLASSIFICATION' ? (
