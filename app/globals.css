@@ -11705,9 +11705,9 @@ button:disabled {
 
 .nsv2-header {
   display: flex;
-  align-items: center;
-  padding: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px)) clamp(12px, 4vw, 16px) clamp(10px, 3vw, 14px);
-  background: linear-gradient(160deg, #1f5d43 0%, #1B5E20 40%, #2E7D32 100%);
+  align-items: flex-end;
+  padding: calc(env(safe-area-inset-top) + clamp(44px, 12vw, 60px)) clamp(12px, 4vw, 16px) clamp(14px, 3.5vw, 18px);
+  background: transparent;
   flex-shrink: 0;
   gap: clamp(8px, 2.5vw, 12px);
 }
@@ -11746,12 +11746,12 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(4px, 1.2vw, 6px);
+  gap: clamp(6px, 1.8vw, 8px);
 }
 
 .nsv2-title {
   margin: 0;
-  font-size: clamp(15px, 4.2vw, 17px);
+  font-size: clamp(18px, 5vw, 21px);
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
@@ -11816,9 +11816,10 @@ button:disabled {
   align-items: center;
   justify-content: center;
   min-height: 0;
-  padding: clamp(12px, 3.5vw, 16px) clamp(16px, 5vw, 24px);
+  padding: clamp(16px, 4.5vw, 24px) clamp(16px, 5vw, 24px);
   padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(8px, 2vw, 12px));
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
+  border-radius: 20px 20px 0 0;
   overflow: hidden;
 }
 
@@ -12298,7 +12299,7 @@ button:disabled {
 
 .nsv2-photo-strip {
   position: relative;
-  height: clamp(100px, 28vw, 120px);
+  height: clamp(180px, 48vw, 220px);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -12431,7 +12432,7 @@ button:disabled {
   flex-direction: column;
   background: #ffffff;
   border-radius: clamp(18px, 5.5vw, 22px) clamp(18px, 5.5vw, 22px) 0 0;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.18), 0 -3px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   min-height: 0;
 }
@@ -12459,7 +12460,7 @@ button:disabled {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: clamp(6px, 2vw, 10px) clamp(16px, 4.5vw, 20px) 0;
+  padding: clamp(4px, 1.2vw, 6px) clamp(16px, 4.5vw, 20px) 0;
 }
 
 .nsv2-form-card-title {
@@ -12477,12 +12478,12 @@ button:disabled {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: clamp(8px, 2.5vw, 12px) clamp(16px, 4.5vw, 20px) clamp(6px, 2vw, 10px);
+  padding: clamp(4px, 1.5vw, 6px) clamp(16px, 4.5vw, 20px) clamp(4px, 1.2vw, 6px);
 }
 
 .nsv2-submit-wrap {
   flex-shrink: 0;
-  padding: clamp(8px, 2.5vw, 10px) clamp(16px, 4.5vw, 20px) calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(6px, 1.5vw, 8px));
+  padding: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(6px, 1.5vw, 8px)) clamp(16px, 4.5vw, 20px);
   background: #ffffff;
 }
 
@@ -12491,7 +12492,7 @@ button:disabled {
 .nsv2-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 2.5vw, 10px) clamp(8px, 2.5vw, 10px);
+  gap: clamp(6px, 1.8vw, 8px) clamp(8px, 2.5vw, 10px);
 }
 
 .nsv2-grid-full {
@@ -12519,12 +12520,13 @@ button:disabled {
 .nsv2-field-input {
   width: 100%;
   padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
-  border: 1.5px solid rgba(0, 0, 0, 0.05);
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
   border-radius: clamp(8px, 2.5vw, 10px);
   background: #f7f5f1;
   font-size: clamp(12px, 3.5vw, 13px);
   font-family: inherit;
   color: #1a1a1a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   outline: none;
 }
@@ -12536,7 +12538,7 @@ button:disabled {
 }
 
 .nsv2-field-input::placeholder {
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(0, 0, 0, 0.18);
 }
 
 .nsv2-field-input.has-error {
@@ -12545,6 +12547,15 @@ button:disabled {
 
 .nsv2-field-input.has-error::placeholder {
   color: #c45c5c;
+}
+
+.nsv2-form-card .client-lookup-shell input::placeholder,
+.nsv2-form-card .client-registration-select select option[value=""] {
+  color: rgba(0, 0, 0, 0.18);
+}
+
+.nsv2-form-card .client-registration-select select:has(option[value=""]:checked) {
+  color: rgba(0, 0, 0, 0.18);
 }
 
 /* ── Submit Button ── */

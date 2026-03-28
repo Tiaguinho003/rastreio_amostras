@@ -843,16 +843,6 @@ function NewSamplePageContent() {
         {currentStep === 'photo' && !arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
           <section className="nsv2-body">
             <div className="nsv2-s1-content">
-              {/* Floating beans */}
-              <div className="nsv2-s1-beans" aria-hidden="true">
-                {[1,2,3,4].map((n) => (
-                  <svg key={n} className={`nsv2-s1-bean nsv2-s1-bean-${n}`} viewBox="0 0 20 28">
-                    <ellipse cx="10" cy="14" rx="8.5" ry="12.5" fill="currentColor" />
-                    <path d="M10 2.5c-1.8 4-2.2 8-0.5 11.5s1.8 7.5 0.5 11.5" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="1.2" strokeLinecap="round" />
-                  </svg>
-                ))}
-              </div>
-
               {/* Illustration — coffee bean with scan */}
               <div className="nsv2-s1-illustration nsv2-fadeUp" style={{ animationDelay: '0s' }}>
                 <div className="nsv2-s1-ring nsv2-s1-ring-1" />
@@ -865,9 +855,6 @@ function NewSamplePageContent() {
                     <defs><linearGradient id="beanGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#c4a882" stopOpacity="0.6" /><stop offset="100%" stopColor="#6b5438" stopOpacity="0.3" /></linearGradient></defs>
                   </svg>
                   <div className="nsv2-s1-scanline" />
-                  <span className="nsv2-s1-cam-badge">
-                    <svg viewBox="0 0 24 24" focusable="false"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
-                  </span>
                 </div>
               </div>
 

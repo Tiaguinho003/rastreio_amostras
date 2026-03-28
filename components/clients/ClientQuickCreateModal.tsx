@@ -325,7 +325,7 @@ export function ClientQuickCreateModal({
                     disabled={saving}
                     onChange={(event) => setForm((current) => ({ ...current, isSeller: event.target.checked }))}
                   />
-                  <span className="client-quick-create-flag-label">Proprietario/vendedor</span>
+                  <span className="client-quick-create-flag-label">Vendedor</span>
                 </label>
                 <label className="client-modal-flag client-quick-create-flag">
                   <input
@@ -345,7 +345,7 @@ export function ClientQuickCreateModal({
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={saving || !canSubmit}>
-              {saving ? 'Salvando...' : 'Cadastrar cliente'}
+              {saving ? 'Salvando...' : 'Cadastrar'}
             </button>
           </div>
         </form>
