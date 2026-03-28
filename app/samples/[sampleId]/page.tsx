@@ -107,7 +107,7 @@ type NumericField = {
   label: string;
 };
 
-const CLASSIFICATION_STATUSES: SampleStatus[] = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
+const CLASSIFICATION_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
@@ -1353,7 +1353,7 @@ export default function SampleDetailPage() {
   }
 
   async function handleStartClassification() {
-    if (!session || !detail || detail.sample.status !== 'QR_PRINTED') {
+    if (!session || !detail || !isClassificationStatus(detail.sample.status) || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED') {
       return;
     }
 
@@ -2162,7 +2162,7 @@ export default function SampleDetailPage() {
                         </p>
                       ) : null}
 
-                      {detail.sample.status === 'QR_PRINTED' ? (
+                      {detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'QR_PENDING_PRINT' || detail.sample.status === 'QR_PRINTED' ? (
                         <section className="panel sample-classification-start-card">
                           <div className="sample-classification-start-copy">
                             <h4 style={{ margin: 0 }}>Classificacao pronta para iniciar</h4>

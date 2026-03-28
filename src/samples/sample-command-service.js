@@ -1632,7 +1632,7 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['QR_PRINTED'], 'start classification');
+    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED'], 'start classification');
 
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_STARTED',
@@ -1641,7 +1641,7 @@ export class SampleCommandService {
         classificationId: input.classificationId ?? null,
         notes: input.notes ?? null
       },
-      fromStatus: 'QR_PRINTED',
+      fromStatus: sample.status,
       toStatus: 'CLASSIFICATION_IN_PROGRESS',
       module: 'classification',
       actorContext: actor
