@@ -10,7 +10,7 @@
         "eventType": { "const": "CLASSIFICATION_STARTED" },
         "schemaVersion": { "const": 1 },
         "payload": { "$ref": "../payloads/classification-started.payload.schema.json" },
-        "fromStatus": { "const": "QR_PRINTED" },
+        "fromStatus": { "enum": ["REGISTRATION_CONFIRMED", "QR_PENDING_PRINT", "QR_PRINTED"] },
         "toStatus": { "const": "CLASSIFICATION_IN_PROGRESS" }
       },
       "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
