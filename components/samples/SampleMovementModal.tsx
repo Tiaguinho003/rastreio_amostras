@@ -219,166 +219,98 @@ export function SampleMovementModal({
     <div className="app-modal-backdrop" onClick={() => !saving && onClose()}>
       <section
         ref={focusTrapRef}
-        className="app-modal sample-movement-modal"
+        className="cdm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="sample-movement-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="app-modal-header">
-          <div className="app-modal-title-wrap">
-            <h3 id="sample-movement-modal-title" className="app-modal-title">
-              {title}
-            </h3>
-          </div>
-          <button type="button" className="app-modal-close" onClick={onClose} disabled={saving} aria-label="Fechar">
-            <span aria-hidden="true">×</span>
+        <div className="cdm-header" style={{ gap: '10px' }}>
+          <h3 id="sample-movement-modal-title" className="cdm-header-name" style={{ flex: 1 }}>{title}</h3>
+          <button type="button" className="cdm-close" onClick={onClose} disabled={saving} aria-label="Fechar">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
-        </header>
+        </div>
 
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p> : null}
 
-        <form className="app-modal-content" onSubmit={handleSubmit}>
-          {mode === 'create' ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Tipo de movimentacao</span>
-              <select
-                className="app-modal-input"
-                value={movementType}
-                disabled={saving}
-                onChange={(event) => {
-                  const nextType = event.target.value as SampleMovementType;
-                  setMovementType(nextType);
-                  setError(null);
-                  if (nextType === 'LOSS') {
-                    setBuyerClient(null);
-                    setBuyerRegistrationId(null);
-                  }
-                }}
-              >
-                <option value="SALE">Venda</option>
-                <option value="LOSS">Perda</option>
-              </select>
-            </label>
-          ) : (
-            <p className="app-modal-description" style={{ margin: 0 }}>
-              Tipo: <strong>{movementType === 'SALE' ? 'Venda' : 'Perda'}</strong>
-            </p>
-          )}
-
+        <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
             <>
-              <ClientLookupField
-                session={session}
-                label="Comprador"
-                kind="buyer"
-                selectedClient={buyerClient}
-                onSelectClient={(client) => {
-                  setBuyerClient(client);
-                  setBuyerRegistrationId(null);
-                  setError(null);
-                }}
-                emptyMessage="Nenhum comprador ativo encontrado."
-              />
-
-              <ClientRegistrationSelect
-                label="Inscricao do comprador (opcional)"
-                registrations={buyerRegistrations}
-                value={buyerRegistrationId}
-                disabled={!buyerClient || loadingRegistrations || saving}
-                onChange={setBuyerRegistrationId}
-              />
+              <div className="sdv-edit-field">
+                <ClientLookupField
+                  session={session}
+                  label="Comprador"
+                  kind="buyer"
+                  selectedClient={buyerClient}
+                  disabled={saving}
+                  compact
+                  onSelectClient={(client) => { setBuyerClient(client); setBuyerRegistrationId(null); setError(null); }}
+                  emptyMessage="Nenhum comprador encontrado."
+                />
+              </div>
+              <div className="sdv-edit-field">
+                <ClientRegistrationSelect
+                  label="Inscricao (opcional)"
+                  registrations={buyerRegistrations}
+                  value={buyerRegistrationId}
+                  disabled={!buyerClient || loadingRegistrations || saving}
+                  onChange={setBuyerRegistrationId}
+                  compact
+                />
+              </div>
             </>
           ) : (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da perda</span>
-              <textarea
-                className="app-modal-input"
-                rows={2}
-                value={lossReasonText}
-                disabled={saving}
-                onChange={(event) => setLossReasonText(event.target.value)}
-                placeholder="Descreva a origem da perda"
-              />
+            <label className="sdv-edit-field">
+              <span className="sdv-edit-label">Motivo da perda</span>
+              <input className="sdv-edit-input" value={lossReasonText} disabled={saving} onChange={(event) => setLossReasonText(event.target.value)} placeholder="Descreva a origem da perda" />
             </label>
           )}
 
-          <div className="grid grid-2">
-            <div className="app-modal-field">
-              <span className="app-modal-label">Quantidade de sacas</span>
-              <div className="sample-movement-qty-row">
-                <input
-                  className="app-modal-input"
-                  value={quantitySacks}
-                  inputMode="numeric"
-                  disabled={saving}
-                  onChange={(event) => setQuantitySacks(event.target.value)}
-                />
+          <div className="sdv-edit-row">
+            <div className="sdv-edit-field">
+              <span className="sdv-edit-label">Sacas</span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input className="sdv-edit-input" value={quantitySacks} inputMode="numeric" disabled={saving} onChange={(event) => setQuantitySacks(event.target.value)} style={{ flex: 1 }} />
                 {availableSacks > 0 ? (
-                  <button
-                    type="button"
-                    className="sample-movement-qty-all-btn"
-                    disabled={saving}
-                    onClick={() => setQuantitySacks(String(availableSacks))}
-                    title={`Preencher com todas as ${availableSacks} sacas disponíveis`}
-                  >
-                    Todas
-                  </button>
+                  <button type="button" className="sdv-mov-all-btn" disabled={saving} onClick={() => setQuantitySacks(String(availableSacks))}>Todas</button>
                 ) : null}
               </div>
             </div>
-
-            <label className="app-modal-field">
-              <span className="app-modal-label">Data da movimentacao</span>
-              <input
-                className="app-modal-input"
-                type="date"
-                value={movementDate}
-                disabled={saving}
-                onChange={(event) => setMovementDate(event.target.value)}
-              />
+            <label className="sdv-edit-field">
+              <span className="sdv-edit-label">Data</span>
+              <input className="sdv-edit-input" type="date" value={movementDate} disabled={saving} onChange={(event) => setMovementDate(event.target.value)} />
             </label>
           </div>
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">Observacoes (opcional)</span>
-            <textarea
-              className="app-modal-input"
-              rows={2}
-              value={notes}
-              disabled={saving}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="Observacoes adicionais"
-            />
+          <label className="sdv-edit-field">
+            <span className="sdv-edit-label">Observacoes (opcional)</span>
+            <input className="sdv-edit-input" value={notes} disabled={saving} onChange={(event) => setNotes(event.target.value)} placeholder="Observacoes adicionais" />
           </label>
 
           {mode === 'edit' ? (
-            <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da edicao</span>
-              <input
-                className="app-modal-input"
-                value={reasonText}
-                disabled={saving}
-                onChange={(event) => setReasonText(event.target.value)}
-                placeholder="Obrigatorio para salvar a alteracao"
-              />
+            <label className="sdv-edit-field">
+              <span className="sdv-edit-label">Motivo da edicao</span>
+              <input className="sdv-edit-input" value={reasonText} disabled={saving} onChange={(event) => setReasonText(event.target.value)} placeholder="Obrigatorio" />
             </label>
           ) : null}
 
-          <div className="app-modal-actions">
-            <button type="submit" className="app-modal-submit" disabled={saving || submitDisabled}>
+          <div className="sdv-edit-actions" style={{ marginTop: 'clamp(4px, 1vw, 6px)' }}>
+            <button type="submit" className="cdm-manage-link" disabled={saving || submitDisabled} style={{ opacity: (saving || submitDisabled) ? 0.5 : 1 }}>
               {saving ? 'Salvando...' : mode === 'create' ? 'Registrar' : 'Salvar'}
-            </button>
-            <button type="button" className="app-modal-secondary" onClick={onClose} disabled={saving}>
-              Cancelar
             </button>
           </div>
         </form>
 
         {stampType ? (
-          <div className="sample-movement-stamp-overlay">
-            <div className={`sample-movement-stamp${stampType === 'SALE' ? ' is-sale' : ' is-loss'}`}>
-              <span>{stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}</span>
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(253,249,236,0.92)', borderRadius: '20px', zIndex: 10 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: stampType === 'SALE' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${stampType === 'SALE' ? '#BBF7D0' : '#FECACA'}`, display: 'inline-grid', placeItems: 'center', marginBottom: 8 }}>
+                <svg viewBox="0 0 24 24" style={{ width: 22, height: 22, fill: 'none', stroke: stampType === 'SALE' ? '#27AE60' : '#C0392B', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                  <path d="m5 12.5 4.3 4.2L19 7" />
+                </svg>
+              </div>
+              <p style={{ margin: 0, fontSize: 'clamp(14px, 3.8vw, 15px)', fontWeight: 700, color: '#1a1a1a' }}>{stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}</p>
             </div>
           </div>
         ) : null}

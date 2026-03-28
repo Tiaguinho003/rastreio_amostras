@@ -6087,6 +6087,24 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Movement modal extras */
+.sdv-mov-all-btn {
+  padding: clamp(6px, 1.8vw, 8px) clamp(10px, 2.8vw, 12px);
+  border-radius: clamp(8px, 2.2vw, 10px);
+  border: 1.5px solid rgba(46, 125, 50, 0.2);
+  background: rgba(46, 125, 50, 0.06);
+  color: #2E7D32;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.sdv-mov-all-btn:disabled { opacity: 0.4; }
+
 /* ── Client detail modal (cdm) ── */
 
 .cdm-modal {

@@ -310,72 +310,54 @@ export function SampleMovementsPanel({
         <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
           <section
             ref={cancelTrapRef}
-            className="app-modal"
+            className="cdm-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="sample-movement-cancel-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="sample-movement-cancel-title" className="app-modal-title">
-                  Cancelar movimentacao
-                </h3>
-                <p className="app-modal-description">
-                  Informe o motivo do cancelamento para manter a auditoria comercial consistente.
-                </p>
-              </div>
-              <button type="button" className="app-modal-close" onClick={() => setCancelMovement(null)} disabled={saving} aria-label="Fechar">
-                <span aria-hidden="true">×</span>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Cancelar movimentacao</h3>
+              <button type="button" className="cdm-close" onClick={() => setCancelMovement(null)} disabled={saving} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
-            </header>
+            </div>
 
-            <div className="app-modal-content">
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo do cancelamento</span>
-                <textarea
-                  className="app-modal-input"
-                  rows={3}
-                  value={cancelReasonText}
-                  disabled={saving}
-                  onChange={(event) => setCancelReasonText(event.target.value)}
-                />
+            <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#999' }}>Informe o motivo para manter a auditoria consistente.</p>
+
+            <div className="sdv-edit-fields">
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Motivo do cancelamento</span>
+                <input className="sdv-edit-input" value={cancelReasonText} disabled={saving} onChange={(event) => setCancelReasonText(event.target.value)} placeholder="Descreva o motivo" />
               </label>
+            </div>
 
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-submit"
-                  disabled={saving || cancelReasonText.trim().length === 0}
-                  onClick={async () => {
-                    if (!cancelMovement) {
-                      return;
-                    }
-
-                    setSaving(true);
-                    clearFeedback();
-
-                    try {
-                      await cancelSampleMovement(session, sampleId, cancelMovement.id, {
-                        expectedVersion: sample.version,
-                        reasonText: cancelReasonText.trim()
-                      });
-                      setCancelMovement(null);
-                      setCancelReasonText('');
-                      await onRefresh();
-                    } catch (cause) {
-                      setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                >
-                  {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
-                </button>
-                <button type="button" className="app-modal-secondary" onClick={() => setCancelMovement(null)} disabled={saving}>
-                  Voltar
-                </button>
-              </div>
+            <div className="sdv-edit-actions">
+              <button
+                type="button"
+                className="cdm-manage-link"
+                style={{ background: 'linear-gradient(135deg, #C0392B, #E74C3C)', opacity: (saving || cancelReasonText.trim().length === 0) ? 0.5 : 1 }}
+                disabled={saving || cancelReasonText.trim().length === 0}
+                onClick={async () => {
+                  if (!cancelMovement) return;
+                  setSaving(true);
+                  clearFeedback();
+                  try {
+                    await cancelSampleMovement(session, sampleId, cancelMovement.id, {
+                      expectedVersion: sample.version,
+                      reasonText: cancelReasonText.trim()
+                    });
+                    setCancelMovement(null);
+                    setCancelReasonText('');
+                    await onRefresh();
+                  } catch (cause) {
+                    setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
+              </button>
             </div>
           </section>
         </div>,
