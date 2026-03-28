@@ -176,7 +176,7 @@ function modalReducer(state: ModalState, action: ModalAction): ModalState {
     case 'openCreate':
       return { ...MODAL_INITIAL, mode: 'create' };
     case 'openView':
-      return { ...MODAL_INITIAL, mode: 'view', loading: true };
+      return { ...MODAL_INITIAL, mode: 'view', loading: true, user: action.userId ? { id: action.userId } as UserSummary : null };
     case 'switchToEdit':
       return { ...state, mode: 'edit', error: null, message: null };
     case 'close':
@@ -313,10 +313,12 @@ export default function UsersPage() {
 
   function openUserDetail(userId: string, trigger: HTMLButtonElement) {
     lastTriggerRef.current = trigger;
+    const cached = listState.items.find((u) => u.id === userId) ?? null;
     dispatchModal({ type: 'openView', userId });
-    // Temporarily set user id so useEffect can fetch
-    dispatchModal({ type: 'detailSuccess', user: { id: userId } as UserSummary });
-    dispatchModal({ type: 'fetchDetail' });
+    if (cached) {
+      dispatchModal({ type: 'detailSuccess', user: cached });
+      setEditForm({ fullName: cached.fullName, username: cached.username, email: cached.email, phone: cached.phone ?? '', role: cached.role });
+    }
   }
 
   function openCreateModal(trigger: HTMLButtonElement) {
@@ -491,24 +493,6 @@ export default function UsersPage() {
         </div>
 
         <section className="clients-v2-sheet">
-          {/* Chips: role filter */}
-          <div className="spv2-chips" style={{ justifyContent: 'center', overflowX: 'visible' }}>
-            <button type="button" className={`spv2-chip${!roleFilter ? ' is-active' : ''}`} onClick={() => { setRoleFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}>
-              <span className="spv2-chip-label" style={!roleFilter ? { color: '#1B5E20' } : undefined}>Todos</span>
-              <span className="spv2-chip-count" style={!roleFilter ? { color: '#1B5E20', background: 'rgba(27,94,32,0.1)' } : undefined}>{listState.total}</span>
-            </button>
-            {ROLE_OPTIONS.map((role) => {
-              const isActive = roleFilter === role;
-              const style = getRoleBadgeStyle(role);
-              return (
-                <button key={role} type="button" className={`spv2-chip${isActive ? ' is-active' : ''}`} style={isActive ? { background: `${style.color}14`, borderColor: style.color } : undefined} onClick={() => { setRoleFilter(isActive ? '' : role); dispatchList({ type: 'setPage', page: 1 }); }}>
-                  <span className="spv2-chip-dot" style={{ background: style.color }} />
-                  <span className="spv2-chip-label" style={isActive ? { color: style.color } : undefined}>{getRoleLabel(role)}</span>
-                </button>
-              );
-            })}
-          </div>
-
           {/* Count */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{listState.total} usuarios</span>
@@ -576,7 +560,7 @@ export default function UsersPage() {
       {modal.mode === 'view' || modal.mode === 'edit' ? (
         <div className="app-modal-backdrop" onClick={closeModal}>
           <section ref={modalTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            {modal.user ? (() => {
+            {modal.user && modal.user.fullName ? (() => {
               const detailColor = getUserAvatarColor(modal.user.fullName);
               const detailInit = getUserInitials(modal.user.fullName);
               return (
