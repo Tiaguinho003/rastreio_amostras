@@ -73,7 +73,7 @@ body {
 }
 
 .mobile-edge-shell-login {
-  --mobile-edge-fill: #14532d;
+  --mobile-edge-fill: #1f5d43;
   --mobile-page-bg: #ffffff;
 }
 
@@ -84,7 +84,7 @@ body {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top, 0px);
-  background: #14532d;
+  background: #1f5d43;
   z-index: 9999;
   pointer-events: none;
 }
@@ -111,9 +111,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  padding: calc(env(safe-area-inset-top) + clamp(56px, 18vw, 72px)) clamp(24px, 8vw, 32px) clamp(52px, 17vw, 68px);
-  background: linear-gradient(160deg, #14532d 0%, #1B5E20 40%, #2E7D32 80%, #388E3C 100%);
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + clamp(72px, 22vw, 92px)) clamp(24px, 8vw, 32px) clamp(68px, 22vw, 88px);
+  background: linear-gradient(160deg, #1f5d43 0%, #1B5E20 40%, #2E7D32 80%, #388E3C 100%);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -140,43 +140,67 @@ body {
 }
 
 .login-bean-1 {
-  top: 12%;
-  right: 8%;
-  width: clamp(18px, 5.5vw, 22px);
-  opacity: 0.07;
+  top: 10%;
+  right: 7%;
+  width: clamp(20px, 6vw, 24px);
+  opacity: 0.08;
   transform: rotate(-25deg);
 }
 
 .login-bean-2 {
-  top: 22%;
-  right: 18%;
-  width: clamp(11px, 3.5vw, 14px);
+  top: 25%;
+  right: 20%;
+  width: clamp(12px, 3.8vw, 15px);
   opacity: 0.05;
   transform: rotate(15deg);
 }
 
 .login-bean-3 {
-  bottom: 18%;
-  left: 6%;
-  width: clamp(16px, 5vw, 20px);
-  opacity: 0.06;
+  bottom: 15%;
+  left: 5%;
+  width: clamp(18px, 5.5vw, 22px);
+  opacity: 0.07;
   transform: rotate(40deg);
 }
 
 .login-bean-4 {
-  bottom: 30%;
-  left: 18%;
-  width: clamp(10px, 3vw, 12px);
+  bottom: 32%;
+  left: 16%;
+  width: clamp(11px, 3.2vw, 13px);
   opacity: 0.04;
   transform: rotate(-10deg);
 }
 
 .login-bean-5 {
-  top: 50%;
-  right: 5%;
-  width: clamp(13px, 4vw, 16px);
-  opacity: 0.04;
+  top: 48%;
+  right: 4%;
+  width: clamp(14px, 4.2vw, 17px);
+  opacity: 0.05;
   transform: rotate(60deg);
+}
+
+.login-bean-6 {
+  top: 16%;
+  left: 10%;
+  width: clamp(13px, 4vw, 16px);
+  opacity: 0.05;
+  transform: rotate(-45deg);
+}
+
+.login-bean-7 {
+  bottom: 8%;
+  right: 14%;
+  width: clamp(16px, 5vw, 20px);
+  opacity: 0.06;
+  transform: rotate(25deg);
+}
+
+.login-bean-8 {
+  top: 38%;
+  left: 3%;
+  width: clamp(10px, 3vw, 12px);
+  opacity: 0.04;
+  transform: rotate(75deg);
 }
 
 /* ── White Form Section ── */
@@ -380,17 +404,28 @@ body {
   cursor: pointer;
   box-shadow: 0 4px 24px rgba(27, 94, 32, 0.3);
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+
+.login-submit-btn:hover,
+.login-submit-btn:focus,
+.login-submit-btn:focus-visible {
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  color: #ffffff;
+  outline: none;
 }
 
 .login-submit-btn:active:not(:disabled) {
-  transform: scale(0.97);
-  box-shadow: 0 2px 12px rgba(27, 94, 32, 0.2);
+  transform: scale(0.96);
+  box-shadow: 0 1px 8px rgba(27, 94, 32, 0.15);
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
 }
 
 .login-submit-btn:disabled {
   opacity: 0.65;
   cursor: wait;
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
 }
 
 .login-submit-arrow {
@@ -11202,7 +11237,7 @@ button:disabled {
   width: 0%;
   border-radius: 2px;
   background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.6));
-  animation: splash-progress 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation: splash-progress 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 @keyframes splash-progress {

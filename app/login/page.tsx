@@ -150,11 +150,12 @@ export default function LoginPage() {
     <main className="login-page mobile-edge-shell mobile-edge-shell-login">
       <section className="login-header">
         <div className="login-header-beans" aria-hidden="true">
-          <svg className="login-bean login-bean-1" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
-          <svg className="login-bean login-bean-2" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
-          <svg className="login-bean login-bean-3" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
-          <svg className="login-bean login-bean-4" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
-          <svg className="login-bean login-bean-5" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
+          {[1,2,3,4,5,6,7,8].map((n) => (
+            <svg key={n} className={`login-bean login-bean-${n}`} viewBox="0 0 20 28">
+              <ellipse cx="10" cy="14" rx="8.5" ry="12.5" fill="currentColor" />
+              <path d="M10 2.5c-1.8 4-2.2 8-0.5 11.5s1.8 7.5 0.5 11.5" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          ))}
         </div>
 
         <Image
