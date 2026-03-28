@@ -4439,7 +4439,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(10px, 3vw, 14px) clamp(10px, 3vw, 14px) 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 4.2rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
@@ -4818,7 +4818,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(4px, 1vw, 6px) 0 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 4.2rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
   overflow: hidden;
   min-height: 0;
 }
@@ -4975,6 +4975,225 @@ button:disabled {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ── Sample detail v2 (sdv) ── */
+
+.sdv-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+  overflow: hidden;
+}
+
+.sdv-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: clamp(13px, 3.5vw, 14px);
+}
+
+.sdv-header {
+  flex-shrink: 0;
+  background: transparent;
+  padding: calc(env(safe-area-inset-top) + clamp(16px, 4vw, 20px)) clamp(14px, 4vw, 20px) clamp(12px, 3vw, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 3vw, 14px);
+}
+
+.sdv-header-top {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.5vw, 12px);
+}
+
+.sdv-header-title {
+  flex: 1;
+  text-align: center;
+  font-size: clamp(15px, 4.2vw, 17px);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.sdv-identity-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(10px, 3vw, 14px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: clamp(12px, 3.5vw, 14px);
+  padding: clamp(12px, 3.5vw, 14px) clamp(14px, 4vw, 16px);
+}
+
+.sdv-identity-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1vw, 4px);
+}
+
+.sdv-identity-code-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 2vw, 8px);
+}
+
+.sdv-identity-code {
+  font-size: clamp(18px, 5.5vw, 22px);
+  font-weight: 700;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdv-identity-badge {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 600;
+  padding: 2px clamp(8px, 2.5vw, 10px);
+  border-radius: 6px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sdv-identity-owner {
+  font-size: clamp(12px, 3.2vw, 13px);
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdv-identity-actions {
+  display: flex;
+  gap: clamp(6px, 1.8vw, 8px);
+  flex-shrink: 0;
+}
+
+.sdv-identity-btn {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(30px, 8.5vw, 34px);
+  height: clamp(30px, 8.5vw, 34px);
+  border-radius: clamp(8px, 2.5vw, 10px);
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.sdv-identity-btn:active {
+  transform: scale(0.9);
+}
+
+.sdv-identity-btn:disabled {
+  opacity: 0.35;
+}
+
+.sdv-identity-btn svg {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-identity-btn.is-danger {
+  background: rgba(192, 57, 43, 0.15);
+}
+
+.sdv-identity-btn.is-danger svg {
+  stroke: #ff8a80;
+}
+
+/* Tabs */
+.sdv-tabs {
+  display: flex;
+  flex-shrink: 0;
+  background: #f5f0e8;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 0 clamp(14px, 4vw, 20px);
+}
+
+.sdv-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(4px, 1.5vw, 6px);
+  padding: clamp(12px, 3vw, 14px) 0 clamp(10px, 2.5vw, 12px);
+  border: 0;
+  border-bottom: 2.5px solid transparent;
+  background: transparent;
+  color: #999;
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.sdv-tab.is-active {
+  color: #1B5E20;
+  border-bottom-color: #2E7D32;
+}
+
+.sdv-tab svg {
+  width: clamp(14px, 3.8vw, 16px);
+  height: clamp(14px, 3.8vw, 16px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #C0392B;
+  position: absolute;
+  top: clamp(8px, 2vw, 10px);
+  right: clamp(14px, 4vw, 18px);
+}
+
+/* Content */
+@keyframes sdv-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sdv-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
+  padding: clamp(12px, 3.5vw, 16px) clamp(14px, 4vw, 20px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.sdv-content::-webkit-scrollbar {
+  display: none;
+}
+
+.sdv-content-inner {
+  animation: sdv-fadeIn 0.3s ease both;
 }
 
 /* ── Client detail modal (cdm) ── */

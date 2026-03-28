@@ -182,7 +182,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isNewSample = pathname === '/samples/new';
   const isSamplesList = pathname === '/samples';
   const isClientsList = pathname === '/clients';
-  const isLayeredRoute = isDashboard || isNewSample || isSamplesList || isClientsList;
+  const isSampleDetail = pathname.startsWith('/samples/') && pathname !== '/samples/new';
+  const isLayeredRoute = isDashboard || isNewSample || isSamplesList || isClientsList || isSampleDetail;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);

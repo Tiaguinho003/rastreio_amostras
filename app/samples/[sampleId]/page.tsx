@@ -1851,106 +1851,86 @@ export default function SampleDetailPage() {
     }
   }
 
+  const userFullName = session.user.fullName ?? session.user.username;
+  const userAvatarInitials = userFullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+  function getSdvStatusColor(status: string) {
+    switch (status) {
+      case 'REGISTRATION_CONFIRMED': case 'QR_PENDING_PRINT': return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Em aberto' };
+      case 'QR_PRINTED': return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A', label: 'Impressa' };
+      case 'CLASSIFICATION_IN_PROGRESS': return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE', label: 'Classificando' };
+      case 'CLASSIFIED': return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Finalizada' };
+      case 'INVALIDATED': return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Invalidada' };
+      default: return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0', label: '' };
+    }
+  }
+
+  const sdvStatus = detail ? getSdvStatusColor(detail.sample.status) : null;
+
   return (
     <AppShell session={session} onLogout={logout}>
-      <section className="sample-detail-page">
-        {loadingDetail ? <p>Carregando amostra...</p> : null}
+      <section className="sdv-page">
+        {loadingDetail ? <div className="sdv-loading">Carregando amostra...</div> : null}
 
         {!loadingDetail && detail ? (
-          <div className="stack sample-detail-page-shell">
-            <div className="sample-detail-top-bar">
-              <Link href="/samples" className="sample-detail-back-button" aria-label="Voltar aos registros" title="Voltar aos registros">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M15 6l-6 6 6 6" />
-                </svg>
-              </Link>
+          <>
+            {/* Header verde */}
+            <header className="sdv-header">
+              <div className="sdv-header-top">
+                <Link href="/samples" className="nsv2-back" aria-label="Voltar aos registros">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                </Link>
+                <span className="sdv-header-title">Detalhes</span>
+                <button type="button" className="nsv2-avatar" aria-label="Abrir menu de perfil" onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}>
+                  <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
+                </button>
+              </div>
 
-              <section className="sample-detail-hero-panel">
-                <div className="sample-detail-hero-main">
-                  <span
-                    className={`sample-detail-hero-status-line is-${getOperationalStatusDotTone(detail.sample.status)}`}
-                    aria-hidden="true"
-                  />
-                  <div className="sample-detail-hero-text">
-                    <h2 style={{ margin: 0 }}>{detail.sample.internalLotNumber ?? detail.sample.id}</h2>
-                    <p style={{ margin: 0 }}>{buildReadableValue(detail.sample.declared.owner)}</p>
+              <div className="sdv-identity-card">
+                <div className="sdv-identity-left">
+                  <div className="sdv-identity-code-row">
+                    <span className="sdv-identity-code">{detail.sample.internalLotNumber ?? detail.sample.id}</span>
+                    {sdvStatus ? (
+                      <span className="sdv-identity-badge" style={{ color: sdvStatus.color, background: sdvStatus.bg, borderColor: sdvStatus.border }}>{sdvStatus.label}</span>
+                    ) : null}
                   </div>
+                  <span className="sdv-identity-owner">{buildReadableValue(detail.sample.declared.owner)}</span>
                 </div>
-
-                {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
-                  <button
-                    type="button"
-                    className="sample-detail-hero-action is-danger"
-                    onClick={(event) => {
-                      lastInvalidateTriggerRef.current = event.currentTarget;
-                      setInvalidateModalOpen(true);
-                      setInvalidateReasonCode('OTHER');
-                      setInvalidateReasonText('');
-                      setInvalidateModalNotice(null);
-                      setGeneralNotice(null);
-                    }}
-                    aria-label="Invalidar amostra"
-                    title="Invalidar amostra"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <circle cx="12" cy="12" r="8" />
-                      <path d="m8.6 15.4 6.8-6.8" />
-                    </svg>
+                <div className="sdv-identity-actions">
+                  <button type="button" className="sdv-identity-btn" onClick={startRegistrationEdit} disabled={!canEditRegistrationStatus(detail.sample.status)} aria-label="Editar">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
                   </button>
-                ) : null}
-              </section>
-            </div>
+                  {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
+                    <button type="button" className="sdv-identity-btn is-danger" onClick={(event) => { lastInvalidateTriggerRef.current = event.currentTarget; setInvalidateModalOpen(true); setInvalidateReasonCode('OTHER'); setInvalidateReasonText(''); setInvalidateModalNotice(null); setGeneralNotice(null); }} aria-label="Invalidar">
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </header>
 
             <NoticeSlot notice={pageNotice} />
 
-            <div className="sample-detail-info-switch-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes da amostra">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailSection === 'GENERAL'}
-                  className={detailSection === 'GENERAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                  onClick={() => setDetailSection('GENERAL')}
-                >
-                  <span className="sample-detail-info-tab-label">Geral</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailSection === 'CLASSIFICATION'}
-                  className={detailSection === 'CLASSIFICATION' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                  onClick={() => setDetailSection('CLASSIFICATION')}
-                  aria-label={classificationTabDotLabel ? `Classificacao - ${classificationTabDotLabel}` : 'Classificacao'}
-                >
-                  <span className="sample-detail-info-tab-label">Classificacao</span>
-                  {classificationTabDotTone ? (
-                    <span
-                      className={`sample-detail-info-tab-dot is-${classificationTabDotTone}`}
-                      aria-hidden="true"
-                      title={classificationTabDotLabel ?? undefined}
-                    />
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={detailSection === 'COMMERCIAL'}
-                  className={detailSection === 'COMMERCIAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                  onClick={() => setDetailSection('COMMERCIAL')}
-                  aria-label={commercialTabDotLabel ? `Comercial - ${commercialTabDotLabel}` : 'Comercial'}
-                >
-                  <span className="sample-detail-info-tab-label">Comercial</span>
-                  {commercialTabDotTone ? (
-                    <span
-                      className={`sample-detail-info-tab-dot is-commercial-${commercialTabDotTone}`}
-                      aria-hidden="true"
-                      title={commercialTabDotLabel ?? undefined}
-                    />
-                  ) : null}
-                </button>
+            {/* Abas */}
+            <div className="sdv-tabs" role="tablist" aria-label="Secoes da amostra">
+              <button type="button" role="tab" aria-selected={detailSection === 'GENERAL'} className={`sdv-tab${detailSection === 'GENERAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('GENERAL')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14" rx="7" ry="9" /><path d="M12 6c-1.5 3-1.8 6-.5 9s1.5 6 .5 9" /></svg>
+                <span>Geral</span>
+              </button>
+              <button type="button" role="tab" aria-selected={detailSection === 'CLASSIFICATION'} className={`sdv-tab${detailSection === 'CLASSIFICATION' ? ' is-active' : ''}`} onClick={() => setDetailSection('CLASSIFICATION')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                <span>Classificacao</span>
+                {classificationTabDotTone && detail.sample.status !== 'CLASSIFIED' ? <span className="sdv-tab-dot" /> : null}
+              </button>
+              <button type="button" role="tab" aria-selected={detailSection === 'COMMERCIAL'} className={`sdv-tab${detailSection === 'COMMERCIAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('COMMERCIAL')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                <span>Comercial</span>
+              </button>
             </div>
 
-            <section className="panel stack sample-detail-content-switch sample-detail-content-panel">
-              <div className={`sample-detail-info-switch-body${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
+            {/* Conteúdo com scroll */}
+            <section className="sdv-content">
+              <div className={`sdv-content-inner${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
                 {detailSection === 'GENERAL' ? (
                   <section className="stack sample-detail-info-pane sample-detail-general-pane">
                     <section className="panel sample-detail-main-layout sample-detail-main-layout-general">
@@ -2524,7 +2504,7 @@ export default function SampleDetailPage() {
                 )}
               </div>
             </section>
-          </div>
+          </>
         ) : null}
       </section>
 
