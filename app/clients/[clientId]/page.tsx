@@ -758,242 +758,137 @@ export default function ClientDetailPage() {
   /*  Render                                                          */
   /* ================================================================ */
 
+  const sessionFullName = session.user.fullName ?? session.user.username;
+  const sessionInitials = sessionFullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
   return (
     <AppShell session={session} onLogout={logout}>
-      <section className="client-detail-page">
-        {loadingPage ? (
-          <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando cliente...</p>
-        ) : null}
+      <section className="sdv-page">
+        {loadingPage ? <div className="sdv-loading">Carregando cliente...</div> : null}
 
         {!loadingPage && client ? (
-          <div className="stack client-detail-page-shell">
-            {/* ========== TOP BAR ========== */}
-            <div className="client-detail-top-bar">
-              <Link
-                href="/samples?mode=clients"
-                className="sample-detail-back-button"
-                aria-label="Voltar"
-                title="Voltar"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M15 6l-6 6 6 6" />
-                </svg>
-              </Link>
-
-              <section className="client-detail-hero-panel">
-                <div className="client-detail-hero-main">
-                  <span
-                    className={`client-detail-hero-status-line is-${getStatusTone(client.status)}`}
-                    aria-hidden="true"
-                  />
-                  <div className="client-detail-hero-text">
-                    <h2 style={{ margin: 0 }}>{client.displayName ?? 'Cliente'}</h2>
-                    <p style={{ margin: 0 }}>
-                      Codigo {client.code} · {getStatusLabel(client.status)}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className={`client-detail-hero-action ${client.status === 'ACTIVE' ? 'is-danger' : 'is-reactivate'}`}
-                  onClick={() =>
-                    openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate')
-                  }
-                  aria-label={
-                    client.status === 'ACTIVE' ? 'Inativar cliente' : 'Reativar cliente'
-                  }
-                  title={client.status === 'ACTIVE' ? 'Inativar cliente' : 'Reativar cliente'}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    {client.status === 'ACTIVE' ? (
-                      <>
-                        <circle cx="12" cy="12" r="8" />
-                        <path d="m8.6 15.4 6.8-6.8" />
-                      </>
-                    ) : (
-                      <>
-                        <circle cx="12" cy="12" r="8" />
-                        <path d="m9 12 2 2 4-4" />
-                      </>
-                    )}
-                  </svg>
+          <>
+            {/* Header verde */}
+            <header className="sdv-header">
+              <div className="sdv-header-top">
+                <Link href="/clients" className="nsv2-back" aria-label="Voltar">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                </Link>
+                <span className="sdv-header-title">Detalhes</span>
+                <button type="button" className="nsv2-avatar" aria-label="Perfil" onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}>
+                  <span className="nsv2-avatar-initials">{sessionInitials}</span>
                 </button>
-              </section>
-            </div>
+              </div>
+
+              <div className="sdv-identity-card">
+                <div className="sdv-identity-left">
+                  <div className="sdv-identity-code-row">
+                    <span className="sdv-identity-code">{client.displayName ?? 'Cliente'}</span>
+                    <span className="sdv-identity-badge" style={client.status === 'ACTIVE' ? { color: '#27AE60', background: '#F0FDF4', borderColor: '#BBF7D0' } : { color: '#C0392B', background: '#FEF2F2', borderColor: '#FECACA' }}>{getStatusLabel(client.status)}</span>
+                  </div>
+                  <span className="sdv-identity-owner">Cod. {client.code} · {client.personType}</span>
+                </div>
+                <div className="sdv-identity-actions">
+                  <button type="button" className={`sdv-identity-btn ${client.status === 'ACTIVE' ? 'is-danger' : ''}`} onClick={() => openStatusModal(client.status === 'ACTIVE' ? 'inactivate' : 'reactivate')} aria-label={client.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}>
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      {client.status === 'ACTIVE' ? (<><circle cx="12" cy="12" r="8" /><path d="m8.6 15.4 6.8-6.8" /></>) : (<><circle cx="12" cy="12" r="8" /><path d="m9 12 2 2 4-4" /></>)}
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </header>
 
             <NoticeSlot notice={pageNotice} />
 
-            {/* ========== TAB HEADER ========== */}
-            <div className="sample-detail-info-switch-header client-detail-tab-header sample-detail-info-switch-floating" role="tablist" aria-label="Secoes do cliente">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={clientSection === 'GENERAL'}
-                className={clientSection === 'GENERAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                onClick={() => setClientSection('GENERAL')}
-              >
-                <span className="sample-detail-info-tab-label">Geral</span>
+            {/* Abas */}
+            <div className="sdv-tabs" role="tablist" aria-label="Secoes do cliente">
+              <button type="button" role="tab" aria-selected={clientSection === 'GENERAL'} className={`sdv-tab${clientSection === 'GENERAL' ? ' is-active' : ''}`} onClick={() => setClientSection('GENERAL')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                <span>Geral</span>
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={clientSection === 'COMMERCIAL'}
-                className={clientSection === 'COMMERCIAL' ? 'sample-detail-info-tab is-active' : 'sample-detail-info-tab'}
-                onClick={() => setClientSection('COMMERCIAL')}
-              >
-                <span className="sample-detail-info-tab-label">Comercial</span>
+              <button type="button" role="tab" aria-selected={clientSection === 'COMMERCIAL'} className={`sdv-tab${clientSection === 'COMMERCIAL' ? ' is-active' : ''}`} onClick={() => setClientSection('COMMERCIAL')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                <span>Comercial</span>
               </button>
             </div>
 
-            <section className="panel stack sample-detail-content-switch sample-detail-content-panel">
-              <div className="sample-detail-info-switch-body">
+            {/* Conteúdo */}
+            <section className="sdv-content">
+              <div className="sdv-content-inner">
 
                 {clientSection === 'GENERAL' ? (
-                  <section className="stack client-detail-general-pane">
-                    {/* ========== CLIENT INFO SECTION ========== */}
-                    <section className="panel stack client-detail-info-section">
-                      <div className="client-detail-section-header">
-                        <h3 style={{ margin: 0 }}>Informacoes</h3>
-                        <button
-                          type="button"
-                          className="secondary client-detail-edit-icon-btn"
-                          onClick={openEditClient}
-                          aria-label="Editar informacoes"
-                          title="Editar informacoes"
-                        >
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="client-detail-info-grid" style={{ flex: 1 }}>
-                        {/* Linha 1: Nome (span full) */}
-                        <div className="client-detail-info-item is-full">
-                          <span className="client-detail-info-label">
-                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                          </span>
-                          <span className="client-detail-info-value">
-                            {client.personType === 'PF'
-                              ? (client.fullName || '\u2014')
-                              : (client.legalName || '\u2014')}
-                          </span>
+                  <section className="sdv-general">
+                    {/* Card: Informações */}
+                    <div className="sdv-card sdv-info-compact">
+                      <div className="sdv-info-grid">
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">{client.personType === 'PF' ? 'Nome completo' : 'Razao social'}</span>
+                          <span className="sdv-info-value">{client.personType === 'PF' ? (client.fullName || '\u2014') : (client.legalName || '\u2014')}</span>
                         </div>
-
-                        {/* Linha 2: Tipo + Documento */}
-                        <div className="client-detail-info-item is-border-right">
-                          <span className="client-detail-info-label">Tipo</span>
-                          <span className="client-detail-info-value">
-                            {client.personType === 'PF' ? 'Pessoa fisica' : 'Pessoa juridica'}
-                          </span>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">{client.personType === 'PF' ? 'CPF' : 'CNPJ'}</span>
+                          <span className="sdv-info-value">{client.personType === 'PF' ? (formatClientDocument(client.cpf, 'PF') || '\u2014') : (formatClientDocument(client.cnpj, 'PJ') || '\u2014')}</span>
                         </div>
-                        <div className="client-detail-info-item">
-                          <span className="client-detail-info-label">
-                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                          </span>
-                          <span className="client-detail-info-value">
-                            {client.personType === 'PF'
-                              ? (formatClientDocument(client.cpf, 'PF') || '\u2014')
-                              : (formatClientDocument(client.cnpj, 'PJ') || '\u2014')}
-                          </span>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Papeis</span>
+                          <div className="cdm-roles">{client.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}{client.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}{!client.isBuyer && !client.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}</div>
                         </div>
-
-                        {/* Linha 3: Papeis + Telefone */}
-                        <div className="client-detail-info-item is-border-right" style={{ borderBottom: 0 }}>
-                          <span className="client-detail-info-label">Papeis</span>
-                          <span className="client-detail-info-value">
-                            {[
-                              client.isSeller ? 'Vendedor' : null,
-                              client.isBuyer ? 'Comprador' : null
-                            ].filter(Boolean).join(' / ') || '\u2014'}
-                          </span>
-                        </div>
-                        <div className="client-detail-info-item" style={{ borderBottom: 0 }}>
-                          <span className="client-detail-info-label">Telefone</span>
-                          <span className="client-detail-info-value">
-                            {formatPhone(client.phone) || '\u2014'}
-                          </span>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Telefone</span>
+                          <span className="sdv-info-value">{formatPhone(client.phone) || '\u2014'}</span>
                         </div>
                       </div>
-
+                      <button type="button" className="sdv-edit-btn sdv-edit-btn-inline" onClick={openEditClient}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                        <span>Editar informacoes</span>
+                      </button>
                       <NoticeSlot notice={detailNotice} />
-                    </section>
+                    </div>
 
-                    {/* ========== REGISTRATIONS SECTION ========== */}
-                    <section className="panel stack client-detail-registrations-section">
-                      <div className="client-detail-section-header">
-                        <h3 style={{ margin: 0 }}>Inscricoes ({registrations.length})</h3>
-                        <button
-                          type="button"
-                          className="secondary client-detail-inline-action"
-                          onClick={openRegCreate}
-                        >
-                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                            <path d="M12 5v14" />
-                            <path d="M5 12h14" />
-                          </svg>
-                          Nova
+                    {/* Card: Inscrições */}
+                    <div className="sdv-card">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Inscricoes ({registrations.length})</span>
+                        <button type="button" className="sdv-edit-btn" onClick={openRegCreate}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+                          <span>Nova</span>
                         </button>
                       </div>
 
                       {registrations.length === 0 ? (
-                        <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center' }}>
-                          Nenhuma inscricao cadastrada.
-                        </p>
+                        <div className="spv2-empty" style={{ padding: 'clamp(20px,5vw,28px) 0' }}>
+                          <p className="spv2-empty-text">Nenhuma inscricao cadastrada</p>
+                        </div>
                       ) : (
-                        <div className="client-detail-registration-list">
+                        <div className="sdv-com-movements">
                           {registrations.map((reg) => (
-                            <article
-                              key={reg.id}
-                              className={`client-detail-registration-card${reg.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                            >
-                              <div className="client-detail-registration-card-head">
-                                <div className="client-detail-registration-card-info">
-                                  <strong>{reg.registrationNumber}</strong>
-                                  <p
-                                    style={{ margin: 0, color: 'var(--muted)', fontSize: '0.78rem' }}
-                                  >
-                                    {reg.registrationType} · {reg.city}/{reg.state}
-                                  </p>
+                            <div key={reg.id} className={`sdv-com-mov${reg.status === 'INACTIVE' ? ' is-cancelled' : ''}`}>
+                              <div className="sdv-com-mov-content">
+                                <div className="sdv-com-mov-top">
+                                  <span className="sdv-com-mov-qty" style={{ fontSize: 'clamp(13px,3.5vw,14px)' }}>{reg.registrationNumber}</span>
+                                  <span className={`sdv-com-mov-badge ${reg.status === 'ACTIVE' ? 'is-sale' : 'is-cancelled'}`}>{reg.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}</span>
                                 </div>
-                                <span
-                                  className={`client-detail-reg-status-badge is-${reg.status === 'ACTIVE' ? 'active' : 'inactive'}`}
-                                >
-                                  {reg.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
-                                </span>
+                                <div className="sdv-com-mov-bottom">
+                                  <span>{reg.registrationType} · {reg.city}/{reg.state}</span>
+                                </div>
                               </div>
-                              <div className="client-detail-registration-card-actions">
-                                <button
-                                  type="button"
-                                  className="secondary client-detail-card-btn"
-                                  onClick={() => openRegEdit(reg)}
-                                  disabled={savingReg}
-                                >
-                                  Editar
+                              <div className="sdv-com-mov-actions">
+                                <button type="button" className="sdv-com-mov-act" onClick={() => openRegEdit(reg)} disabled={savingReg}>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
                                 </button>
-                                <button
-                                  type="button"
-                                  className={`secondary client-detail-card-btn${reg.status === 'ACTIVE' ? ' is-danger' : ''}`}
-                                  onClick={() =>
-                                    openRegStatusModal(
-                                      reg,
-                                      reg.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
-                                    )
-                                  }
-                                  disabled={savingRegStatus}
-                                >
-                                  {reg.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                                <button type="button" className={`sdv-com-mov-act${reg.status === 'ACTIVE' ? ' is-danger' : ''}`} onClick={() => openRegStatusModal(reg, reg.status === 'ACTIVE' ? 'inactivate' : 'reactivate')} disabled={savingRegStatus}>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    {reg.status === 'ACTIVE' ? (<><circle cx="12" cy="12" r="8" /><path d="m8.6 15.4 6.8-6.8" /></>) : (<><circle cx="12" cy="12" r="8" /><path d="m9 12 2 2 4-4" /></>)}
+                                  </svg>
                                 </button>
                               </div>
-                            </article>
+                            </div>
                           ))}
                         </div>
                       )}
-
                       <NoticeSlot notice={registrationNotice} />
-                    </section>
+                    </div>
                   </section>
                 ) : null}
 
@@ -1302,7 +1197,7 @@ export default function ClientDetailPage() {
 
               </div>
             </section>
-          </div>
+          </>
         ) : null}
 
         {!loadingPage && !client ? <NoticeSlot notice={pageNotice} /> : null}
