@@ -1555,12 +1555,12 @@ export default function SampleDetailPage() {
     }
 
     if (!canEditRegistrationStatus(detail.sample.status)) {
-      setGeneralNotice({ kind: 'error', text: 'Status atual nao permite edicao de registro.' });
+      setRegistrationModalNotice({ kind: 'error', text: 'Status atual nao permite edicao de registro.' });
       return;
     }
 
     if (!selectedOwnerClient) {
-      setGeneralNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de salvar a edicao.' });
+      setRegistrationModalNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de salvar.' });
       return;
     }
 
@@ -1571,12 +1571,12 @@ export default function SampleDetailPage() {
       originLot
     });
     if (!parsedForm.success) {
-      setGeneralNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos' });
+      setRegistrationModalNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados invalidos' });
       return;
     }
 
-    setRegistrationEditReasonModalOpen(true);
-    setGeneralNotice(null);
+    // Validate directly and save (motivo fields are in the same modal now)
+    void handleConfirmRegistrationUpdate();
   }
 
   function closeRegistrationEditReasonModal() {
@@ -1897,9 +1897,6 @@ export default function SampleDetailPage() {
                   <span className="sdv-identity-owner">{buildReadableValue(detail.sample.declared.owner)}</span>
                 </div>
                 <div className="sdv-identity-actions">
-                  <button type="button" className="sdv-identity-btn" onClick={startRegistrationEdit} disabled={!canEditRegistrationStatus(detail.sample.status)} aria-label="Editar">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
-                  </button>
                   {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
                     <button type="button" className="sdv-identity-btn is-danger" onClick={(event) => { lastInvalidateTriggerRef.current = event.currentTarget; setInvalidateModalOpen(true); setInvalidateReasonCode('OTHER'); setInvalidateReasonText(''); setInvalidateModalNotice(null); setGeneralNotice(null); }} aria-label="Invalidar">
                       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
@@ -1947,7 +1944,7 @@ export default function SampleDetailPage() {
                           </button>
                           <button type="button" className="sdv-qr-btn is-secondary" onClick={handleOpenExportTypeSelector} disabled={!canQuickReport || Boolean(exportingPdfType)}>
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
-                            <span>Ver ficha completa</span>
+                            <span>Gerar laudo</span>
                           </button>
                         </div>
                       </div>
@@ -1955,7 +1952,15 @@ export default function SampleDetailPage() {
 
                     {/* Card 2: Informações */}
                     <div className="sdv-card sdv-info-card">
-                      <span className="sdv-card-title">Informacoes da amostra</span>
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Informacoes da amostra</span>
+                        {canEditRegistrationStatus(detail.sample.status) ? (
+                          <button type="button" className="sdv-edit-btn" onClick={startRegistrationEdit} aria-label="Editar informacoes">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                            <span>Editar</span>
+                          </button>
+                        ) : null}
+                      </div>
                       <div className="sdv-info-grid">
                         <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Proprietario</span>
@@ -1996,7 +2001,7 @@ export default function SampleDetailPage() {
                         if (arrivalAttachment) {
                           return (
                             <button type="button" className="sdv-photo-wrap" onClick={() => setClassificationPhotoPreviewOpen(true)}>
-                              <img src={`/api/v1/samples/${detail.sample.id}/attachments/${arrivalAttachment.id}/file`} alt="Foto da amostra" className="sdv-photo-img" />
+                              <img src={`/api/v1/samples/${detail.sample.id}/photos/${arrivalAttachment.id}`} alt="Foto da amostra" className="sdv-photo-img" />
                               <span className="sdv-photo-hint">Toque para ampliar</span>
                             </button>
                           );
@@ -2634,91 +2639,114 @@ export default function SampleDetailPage() {
         }}
       />
 
-      {registrationEditReasonModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            closeRegistrationEditReasonModal();
-          }}
-        >
+      {registrationEditMode ? (
+        <div className="app-modal-backdrop" onClick={() => cancelRegistrationEdit()}>
           <section
             ref={registrationEditTrapRef}
-            className="app-modal"
+            className="cdm-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="registration-edit-reason-modal-title"
+            aria-labelledby="registration-edit-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="registration-edit-reason-modal-title" className="app-modal-title">
-                  Confirmar motivo da edicao
-                </h3>
-                <p className="app-modal-description">
-                  Informe o motivo da alteracao para registrar a edicao auditada do registro.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={closeRegistrationEditReasonModal}
-                disabled={registrationUpdating}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 id="registration-edit-modal-title" className="cdm-header-name" style={{ flex: 1 }}>Editar informacoes</h3>
+              <button type="button" className="cdm-close" onClick={cancelRegistrationEdit} disabled={registrationUpdating} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
-            </header>
+            </div>
 
-            <div className="app-modal-content">
-              <label className="app-modal-field">
-                <span className="app-modal-label">Motivo da edicao</span>
-                <select
-                  className="app-modal-input"
-                  value={registrationEditReasonCode}
-                  onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)}
+            <div className="sdv-edit-fields">
+              <div className="sdv-edit-field">
+                <ClientLookupField
+                  session={session}
+                  label="Proprietario"
+                  kind="owner"
+                  selectedClient={selectedOwnerClient}
                   disabled={registrationUpdating}
-                >
+                  compact
+                  onSelectClient={(client) => {
+                    setSelectedOwnerClient(client);
+                    setOwner(client?.displayName ?? '');
+                    setSelectedOwnerRegistrationId(null);
+                    setGeneralNotice(null);
+                  }}
+                  onRequestCreate={(searchTerm) => {
+                    setOwnerQuickCreateSeed(searchTerm);
+                    setOwnerQuickCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar proprietario"
+                />
+              </div>
+              <div className="sdv-edit-field">
+                <ClientRegistrationSelect
+                  label="Inscricao"
+                  registrations={ownerRegistrations}
+                  value={selectedOwnerRegistrationId}
+                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
+                  onChange={setSelectedOwnerRegistrationId}
+                  placeholder="Selecionar"
+                  compact
+                />
+              </div>
+              <div className="sdv-edit-row">
+                <label className="sdv-edit-field">
+                  <span className="sdv-edit-label">Sacas</span>
+                  <input className="sdv-edit-input" value={sacks} onChange={(event) => setSacks(event.target.value)} inputMode="numeric" disabled={registrationUpdating} />
+                </label>
+                <label className="sdv-edit-field">
+                  <span className="sdv-edit-label">Safra</span>
+                  <input className="sdv-edit-input" value={harvest} onChange={(event) => setHarvest(event.target.value)} disabled={registrationUpdating} />
+                </label>
+              </div>
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Lote de origem</span>
+                <input className="sdv-edit-input" value={originLot} onChange={(event) => setOriginLot(event.target.value)} disabled={registrationUpdating} />
+              </label>
+
+              <div className="sdv-edit-sep" />
+
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Motivo da edicao</span>
+                <select className="sdv-edit-input" value={registrationEditReasonCode} onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)} disabled={registrationUpdating}>
                   {UPDATE_REASON_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
-
-              <label className="app-modal-field">
-                <span className="app-modal-label">
-                  Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria, maximo 10 palavras)' : ' (opcional, maximo 10 palavras)'}
-                </span>
-                <input
-                  className="app-modal-input"
-                  value={registrationEditReasonText}
-                  onChange={(event) => setRegistrationEditReasonText(event.target.value)}
-                  placeholder={registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'}
-                  disabled={registrationUpdating}
-                />
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}</span>
+                <input className="sdv-edit-input" value={registrationEditReasonText} onChange={(event) => setRegistrationEditReasonText(event.target.value)} placeholder={registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'} disabled={registrationUpdating} />
               </label>
+            </div>
 
-              <NoticeSlot notice={registrationModalNotice} />
+            <NoticeSlot notice={registrationModalNotice} />
+            <NoticeSlot notice={generalNotice} />
 
-              <div className="app-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-submit"
-                  onClick={() => void handleConfirmRegistrationUpdate()}
-                  disabled={registrationUpdating || (registrationEditReasonCode === 'OTHER' && registrationEditReasonText.trim().length === 0)}
-                >
-                  {registrationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
-                </button>
-                <button
-                  className="app-modal-secondary"
-                  type="button"
-                  onClick={closeRegistrationEditReasonModal}
-                  disabled={registrationUpdating}
-                >
-                  Cancelar
-                </button>
-              </div>
+            <div className="sdv-edit-actions">
+              <button type="button" className="cdm-manage-link" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating || (registrationEditReasonCode === 'OTHER' && registrationEditReasonText.trim().length === 0)} style={{ opacity: registrationUpdating ? 0.65 : 1 }}>
+                {registrationUpdating ? 'Salvando...' : 'Salvar edicao'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {registrationEditReasonModalOpen ? (
+        <div className="app-modal-backdrop" onClick={() => closeRegistrationEditReasonModal()}>
+          <section ref={registrationEditTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Confirmar edicao</h3>
+              <button type="button" className="cdm-close" onClick={closeRegistrationEditReasonModal} disabled={registrationUpdating} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Confirme o motivo para registrar a edicao.</p>
+            <NoticeSlot notice={registrationModalNotice} />
+            <div className="sdv-edit-actions">
+              <button type="button" className="cdm-manage-link" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating} style={{ opacity: registrationUpdating ? 0.65 : 1 }}>
+                {registrationUpdating ? 'Salvando...' : 'Confirmar'}
+              </button>
             </div>
           </section>
         </div>
@@ -2851,48 +2879,23 @@ export default function SampleDetailPage() {
       ) : null}
 
       {exportTypeSelectorOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            handleCloseExportTypeSelector();
-          }}
-        >
-          <section
-            ref={exportTypeTrapRef}
-            className="app-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="export-type-select-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="export-type-select-modal-title" className="app-modal-title">
-                  Escolher tipo de laudo
-                </h3>
-                <p className="app-modal-description">
-                  Selecione o tipo de laudo para seguir com o envio e confirmar a exportacao.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={handleCloseExportTypeSelector}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
+        <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>
+          <section ref={exportTypeTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Gerar laudo</h3>
+              <button type="button" className="cdm-close" onClick={handleCloseExportTypeSelector} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
-            </header>
-
-            <div className="app-modal-actions">
-              <button type="button" className="app-modal-submit" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
-                Completo
+            </div>
+            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Selecione o tipo de laudo</p>
+            <div className="sdv-edit-actions">
+              <button type="button" className="cdm-manage-link" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                Laudo completo
               </button>
-              <button type="button" className="app-modal-submit" onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
-                Comprador Parcial
-              </button>
-              <button className="app-modal-secondary" type="button" onClick={handleCloseExportTypeSelector}>
-                Cancelar
+              <button type="button" className="cdm-manage-link" style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0)' }} onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /></svg>
+                Laudo comprador parcial
               </button>
             </div>
           </section>
@@ -2900,62 +2903,24 @@ export default function SampleDetailPage() {
       ) : null}
 
       {exportConfirmationOpen && pendingExportType ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            handleCloseExportConfirmation();
-          }}
-        >
-          <section
-            ref={exportConfirmTrapRef}
-            className="app-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="export-confirm-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="export-confirm-modal-title" className="app-modal-title">
-                  Confirmar exportacao de laudo
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={handleCloseExportConfirmation}
-                disabled={Boolean(exportingPdfType)}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
+        <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
+          <section ref={exportConfirmTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Confirmar exportacao</h3>
+              <button type="button" className="cdm-close" onClick={handleCloseExportConfirmation} disabled={Boolean(exportingPdfType)} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
-            </header>
-
-            <div className="app-modal-content">
-              <label className="app-modal-field">
-                <span className="app-modal-label">Destinatario (opcional, recomendado)</span>
-                <input
-                  className="app-modal-input"
-                  value={exportDestination}
-                  onChange={(event) => setExportDestination(event.target.value)}
-                  placeholder="Ex.: Comprador XPTO / email / setor"
-                  disabled={Boolean(exportingPdfType)}
-                />
+            </div>
+            <div className="sdv-edit-fields">
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Destinatario (opcional)</span>
+                <input className="sdv-edit-input" value={exportDestination} onChange={(event) => setExportDestination(event.target.value)} placeholder="Ex.: Comprador XPTO / email / setor" disabled={Boolean(exportingPdfType)} />
               </label>
-
-              <div className="app-modal-actions">
-                <button type="button" className="app-modal-submit" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType)}>
-                  {Boolean(exportingPdfType) ? 'Exportando...' : 'Confirmar exportacao'}
-                </button>
-                <button
-                  className="app-modal-secondary"
-                  type="button"
-                  onClick={handleCloseExportConfirmation}
-                  disabled={Boolean(exportingPdfType)}
-                >
-                  Cancelar
-                </button>
-              </div>
+            </div>
+            <div className="sdv-edit-actions">
+              <button type="button" className="cdm-manage-link" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType)} style={{ opacity: exportingPdfType ? 0.65 : 1 }}>
+                {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
+              </button>
             </div>
           </section>
         </div>
