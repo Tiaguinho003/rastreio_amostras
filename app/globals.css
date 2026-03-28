@@ -11581,7 +11581,6 @@ button:disabled {
   .app-shell-main.is-dashboard-route .app-shell-page-content {
     flex: 1;
     min-height: 0;
-    animation: none;
   }
 
   .topbar.topbar--dashboard-only {
@@ -13325,39 +13324,63 @@ button:disabled {
 }
 
 /* ================================================================
-   Page Transition — route change curtain + content entrance
+   Page Transition — Fade + Scale cross-fade between routes
    ================================================================ */
 
-.page-transition-overlay {
+.page-transition-exit {
   position: fixed;
   inset: 0;
   z-index: 9000;
   pointer-events: none;
-  background: linear-gradient(170deg, #1a5c40 0%, #0e3326 100%);
-  animation: page-curtain 520ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  overflow: hidden;
 }
 
-@keyframes page-curtain {
-  0%   { transform: translateY(100dvh); opacity: 1; }
-  35%  { transform: translateY(0);      opacity: 1; }
-  65%  { transform: translateY(0);      opacity: 1; }
-  100% { transform: translateY(-100dvh); opacity: 1; }
+.page-transition-exit-inner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
 }
 
-.app-shell-page-content {
-  animation: page-content-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 180ms;
+.page-transition-exit--forward {
+  animation: pt-exit-forward 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-@keyframes page-content-enter {
-  from {
-    opacity: 0;
-    transform: translateY(clamp(10px, 3vw, 18px));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.page-transition-exit--back {
+  animation: pt-exit-back 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.page-transition-enter.page-transition-enter--forward {
+  will-change: transform, opacity;
+  pointer-events: none;
+  animation: pt-enter-forward 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.page-transition-enter.page-transition-enter--back {
+  will-change: transform, opacity;
+  pointer-events: none;
+  animation: pt-enter-back 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes pt-exit-forward {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes pt-enter-forward {
+  from { opacity: 0; transform: scale(1.03); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pt-exit-back {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.03); }
+}
+
+@keyframes pt-enter-back {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 /* ── Profile Bottom Sheet ── */

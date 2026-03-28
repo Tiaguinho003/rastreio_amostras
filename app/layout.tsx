@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 
+import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { SplashScreen } from '../components/SplashScreen';
 import './globals.css';
@@ -43,7 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PwaRegistration />
         <SplashScreen />
-        {children}
+        <PageTransition>
+          {children}
+        </PageTransition>
       </body>
     </html>
   );
