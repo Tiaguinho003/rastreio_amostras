@@ -246,10 +246,11 @@ export function ClientQuickCreateModal({
                 </label>
 
                 <label className={`client-quick-create-field${hasDocumentError || isDocumentInvalid ? ' is-field-error' : ''}`}>
-                  {documentHint ? `${documentLabel} — ${documentHint}` : documentLabel}
+                  {documentLabel}
                   <input
                     value={documentValue}
                     disabled={saving}
+                    className={hasDocumentError ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -257,7 +258,7 @@ export function ClientQuickCreateModal({
                         cnpj: current.personType === 'PJ' ? maskDocumentInput(event.target.value, 'PJ') : current.cnpj
                       }))
                     }
-                    placeholder="Somente numeros ou formatado"
+                    placeholder={hasDocumentError ? (documentHint ?? 'Obrigatorio') : ''}
                   />
                 </label>
               </div>
@@ -268,6 +269,7 @@ export function ClientQuickCreateModal({
                   <input
                     value={displayNameValue}
                     disabled={saving}
+                    className={showFieldErrors && isNameEmpty ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -275,6 +277,7 @@ export function ClientQuickCreateModal({
                         tradeName: current.personType === 'PJ' ? event.target.value : current.tradeName
                       }))
                     }
+                    placeholder={showFieldErrors && isNameEmpty ? 'Obrigatorio' : ''}
                   />
                 </label>
               </div>
@@ -285,8 +288,9 @@ export function ClientQuickCreateModal({
                   <input
                     value={form.legalName}
                     disabled={saving || legalNameDisabled}
+                    className={showFieldErrors && isLegalNameEmpty ? 'cqc-input-error' : undefined}
                     onChange={(event) => setForm((current) => ({ ...current, legalName: event.target.value }))}
-                    placeholder={legalNameDisabled ? 'Nao se aplica para pessoa fisica' : ''}
+                    placeholder={legalNameDisabled ? 'Nao se aplica para pessoa fisica' : (showFieldErrors && isLegalNameEmpty ? 'Obrigatorio' : '')}
                   />
                 </label>
               </div>
@@ -303,7 +307,7 @@ export function ClientQuickCreateModal({
                     value={form.phone}
                     disabled={saving}
                     onChange={(event) => setForm((current) => ({ ...current, phone: maskPhoneInput(event.target.value) }))}
-                    placeholder="(xx)xxxx-xxxx ou (xx)xxxxx-xxxx"
+                    placeholder=""
                   />
                 </label>
               </div>

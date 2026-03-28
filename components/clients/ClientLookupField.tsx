@@ -91,7 +91,7 @@ export function ClientLookupField({
       return;
     }
 
-    if (normalizedSearch.length < 2) {
+    if (normalizedSearch.length < 1) {
       setItems([]);
       setLoading(false);
       setError(null);

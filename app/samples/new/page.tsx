@@ -12,7 +12,8 @@ import { ClientRegistrationSelect } from '../../../components/clients/ClientRegi
 import {
   ApiError,
   createSampleAndPreparePrint,
-  getClient
+  getClient,
+  getPendingPrintJobs
 } from '../../../lib/api-client';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
@@ -158,7 +159,18 @@ function NewSamplePageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [photoFullscreen, setPhotoFullscreen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [discardSheetOpen, setDiscardSheetOpen] = useState(false);
+  const [discardSheetVisible, setDiscardSheetVisible] = useState(false);
+  const [discardSheetAnimIn, setDiscardSheetAnimIn] = useState(false);
+  const [printStatus, setPrintStatus] = useState<'pending' | 'success' | 'failed' | 'timeout' | null>(null);
+  const [printExitWarningOpen, setPrintExitWarningOpen] = useState(false);
+  const printPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(EMPTY_REQUIRED_FIELD_ERRORS);
+
+  const swipeRef = useRef<{ startX: number; startY: number }>({ startX: 0, startY: 0 });
 
   const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
   const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
@@ -415,6 +427,72 @@ function NewSamplePageContent() {
     return () => window.clearTimeout(advanceTimer);
   }, [photoCheckAnimating]);
 
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (labelModalStep !== 'completed' || !created || !session) {
+      return;
+    }
+
+    if (!created.print) {
+      setPrintStatus(null);
+      return;
+    }
+
+    setPrintStatus('pending');
+    const sampleId = created.sample.id;
+
+    printPollingRef.current = setInterval(() => {
+      getPendingPrintJobs(session, { limit: 50 })
+        .then((res) => {
+          const job = res.items.find((j) => j.sampleId === sampleId);
+          if (!job) {
+            setPrintStatus('success');
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+
+    printTimeoutRef.current = setTimeout(() => {
+      setPrintStatus((current) => (current === 'pending' ? 'timeout' : current));
+    }, 10000);
+
+    return () => {
+      if (printPollingRef.current) clearInterval(printPollingRef.current);
+      if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
+    };
+  }, [labelModalStep, created, session]);
+
+  useEffect(() => {
+    if (printStatus === 'success' || printStatus === 'failed' || printStatus === 'timeout') {
+      if (printPollingRef.current) {
+        clearInterval(printPollingRef.current);
+        printPollingRef.current = null;
+      }
+      if (printTimeoutRef.current) {
+        clearTimeout(printTimeoutRef.current);
+        printTimeoutRef.current = null;
+      }
+    }
+
+    if (printStatus === 'success' && created) {
+      const redirectTimer = setTimeout(() => {
+        router.push(`/samples/${created.sample.id}`);
+      }, 2000);
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [printStatus, created, router]);
+
   if (loading || !session) {
     return null;
   }
@@ -432,6 +510,7 @@ function NewSamplePageContent() {
     setPhotoCheckAnimating(false);
     cameraHydrationRequestRef.current += 1;
     setError(null);
+    setPhotoFullscreen(false);
   }
 
   function focusRequiredField(field: RequiredFieldName) {
@@ -512,6 +591,11 @@ function NewSamplePageContent() {
     setModalMessage(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
     setSubmitting(false);
+    setPhotoFullscreen(false);
+    setPrintStatus(null);
+    setPrintExitWarningOpen(false);
+    if (printPollingRef.current) { clearInterval(printPollingRef.current); printPollingRef.current = null; }
+    if (printTimeoutRef.current) { clearTimeout(printTimeoutRef.current); printTimeoutRef.current = null; }
   }
 
   function clearRequiredFieldError(field: RequiredFieldName) {
@@ -532,7 +616,23 @@ function NewSamplePageContent() {
       return;
     }
 
+    if (labelModalStep === 'completed' && printStatus === 'pending') {
+      setPrintExitWarningOpen(true);
+      return;
+    }
+
     setLabelModalOpen(false);
+    if (labelModalStep === 'completed') {
+      router.push('/dashboard');
+    }
+  }
+
+  function forceCloseLabelModal() {
+    if (printPollingRef.current) { clearInterval(printPollingRef.current); printPollingRef.current = null; }
+    if (printTimeoutRef.current) { clearTimeout(printTimeoutRef.current); printTimeoutRef.current = null; }
+    setPrintExitWarningOpen(false);
+    setLabelModalOpen(false);
+    router.push('/dashboard');
   }
 
   function openReviewModal(trigger?: HTMLButtonElement) {
@@ -670,209 +770,371 @@ function NewSamplePageContent() {
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
   const detailsPhotoStatusLabel = arrivalPhoto ? 'Foto anexada' : 'Sem foto';
 
+  function hasUnsavedData() {
+    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || notes.trim() || arrivalPhoto);
+  }
+
+  function openDiscardSheet() {
+    setDiscardSheetOpen(true);
+    setDiscardSheetVisible(true);
+    setDiscardSheetAnimIn(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDiscardSheetAnimIn(true);
+      });
+    });
+  }
+
+  function closeDiscardSheet() {
+    setDiscardSheetAnimIn(false);
+    setTimeout(() => {
+      setDiscardSheetVisible(false);
+      setDiscardSheetOpen(false);
+    }, 300);
+  }
+
+  function handleBackFromDetails() {
+    if (hasUnsavedData()) {
+      openDiscardSheet();
+    } else {
+      setCurrentStep('photo');
+    }
+  }
+
+  function handleDiscardConfirm() {
+    closeDiscardSheet();
+    setTimeout(() => setCurrentStep('photo'), 300);
+  }
+  const canSwipeForward = currentStep === 'photo' && !photoCheckAnimating && !submitting;
+  const canSwipeBack = currentStep === 'details' && !submitting;
+
+  function handleSwipeTouchStart(e: React.TouchEvent) {
+    swipeRef.current.startX = e.touches[0].clientX;
+    swipeRef.current.startY = e.touches[0].clientY;
+  }
+
+  function handleSwipeTouchEnd(e: React.TouchEvent) {
+    const dx = e.changedTouches[0].clientX - swipeRef.current.startX;
+    const dy = e.changedTouches[0].clientY - swipeRef.current.startY;
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    if (Math.abs(dx) < 50) return;
+
+    if (dx < 0 && canSwipeForward) {
+      handleContinueFromPhoto();
+    } else if (dx > 0 && canSwipeBack) {
+      setCurrentStep('photo');
+    }
+  }
+
+  function handleDotClick(step: NewSampleStep) {
+    if (submitting || photoCheckAnimating) return;
+    if (step === currentStep) return;
+    if (step === 'details') {
+      handleContinueFromPhoto();
+    } else {
+      setCurrentStep('photo');
+    }
+  }
+
+  const fullName = session.user.fullName ?? session.user.username;
+  const avatarInitials = (() => {
+    const parts = fullName.trim().split(/\s+/);
+    return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase();
+  })();
   return (
     <AppShell session={session} onLogout={logout}>
-      <section className={`new-sample-page is-${currentStep}-step`}>
-        <section className="new-sample-hero">
-          <Link href="/dashboard" className="new-sample-back-btn" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M14 8l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-          <h2 className="new-sample-hero-title">Nova Amostra</h2>
-        </section>
+      <section
+        className={`nsv2-page is-${currentStep}-step`}
+        onTouchStart={handleSwipeTouchStart}
+        onTouchEnd={handleSwipeTouchEnd}
+      >
 
-        <section ref={stageBodyRef} className="new-sample-sheet">
-          {(error || message) ? (
-            <div className="new-sample-feedback-stack">
-              {error ? <p className="error">{error}</p> : null}
-              {message ? <p className="success">{message}</p> : null}
+        {/* ── Header ── */}
+        <header className="nsv2-header">
+          {currentStep === 'photo' ? (
+            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </Link>
+          ) : (
+            <button type="button" className="nsv2-back" aria-label="Voltar" onClick={handleBackFromDetails}>
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          )}
+
+          <div className="nsv2-header-center">
+            <h2 className="nsv2-title">Nova Amostra</h2>
+            <div className="nsv2-step-dots">
+              <button type="button" className={`nsv2-dot ${currentStep === 'photo' ? 'is-active' : ''}`} onClick={() => handleDotClick('photo')} aria-label="Etapa foto" />
+              <button type="button" className={`nsv2-dot ${currentStep === 'details' ? 'is-active' : ''}`} onClick={() => handleDotClick('details')} aria-label="Etapa formulario" />
             </div>
-          ) : null}
+          </div>
 
-          {/* Photo block */}
-          <div className="new-sample-photo-block">
-            {arrivalPhotoPreviewUrl ? (
-              <div className="new-sample-photo-stage">
-                <img
-                  src={arrivalPhotoPreviewUrl}
-                  alt="Pre-visualizacao da foto de chegada"
-                  className="new-sample-photo-preview"
-                />
-                {photoCheckAnimating ? (
-                  <div className="new-sample-photo-check-fx">
-                    <div className="new-sample-photo-check-glow" />
-                    <div className="new-sample-photo-check-ring" />
-                    <svg className="new-sample-photo-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m5 12.5 4.3 4.2L19 7" />
-                    </svg>
-                  </div>
-                ) : null}
-                {!photoCheckAnimating && currentStep === 'photo' ? (
-                  <div className="new-sample-photo-overlay-actions">
-                    <button
-                      type="button"
-                      className="new-sample-photo-overlay-btn is-change"
-                      onClick={() => router.push('/camera?intent=arrival-photo')}
-                      disabled={submitting}
-                      aria-label="Alterar foto"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" />
-                        <path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="new-sample-photo-overlay-btn is-remove"
-                      onClick={clearArrivalPhoto}
-                      disabled={submitting}
-                      aria-label="Remover foto"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M18 6 6 18" />
-                        <path d="m6 6 12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : arrivalPhotoLoading ? (
-              <div className="new-sample-photo-stage">
-                <span className="new-sample-photo-placeholder">
-                  <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
-                  <span className="new-sample-photo-placeholder-title">Preparando foto...</span>
-                </span>
-              </div>
-            ) : (
+          <button
+            type="button"
+            className="nsv2-avatar"
+            aria-label="Abrir menu de perfil"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
+          >
+            <span className="nsv2-avatar-initials">{avatarInitials}</span>
+          </button>
+        </header>
+
+        {/* ── Step 1: Photo Capture ── */}
+        {currentStep === 'photo' && !arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
+          <section className="nsv2-body">
+            <div className="nsv2-capture-area">
               <button
                 type="button"
-                className="new-sample-photo-stage new-sample-photo-stage-action"
+                className="nsv2-capture-zone"
                 onClick={() => router.push('/camera?intent=arrival-photo')}
                 disabled={submitting}
               >
-                <span className="new-sample-photo-placeholder">
-                  <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                      <circle cx="12" cy="13.3" r="3.1" />
-                    </svg>
-                  </span>
-                  <span className="new-sample-photo-placeholder-title">Toque para abrir a camera</span>
-                  <span className="new-sample-photo-placeholder-text">Capture ou importe uma imagem da amostra</span>
+                <span className="nsv2-capture-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                    <circle cx="12" cy="13.3" r="3.1" />
+                  </svg>
                 </span>
+                <span className="nsv2-capture-title">Toque para abrir a camera</span>
+                <span className="nsv2-capture-subtitle">Capture uma imagem da amostra</span>
+              </button>
+
+              <div className="nsv2-capture-options">
+                <label className="nsv2-capture-option">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="m21 15-5-5L5 21" />
+                  </svg>
+                  <span>Importar da galeria</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="nsv2-file-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setArrivalPhoto(file);
+                        setCurrentStep('details');
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+
+                <span className="nsv2-option-divider" aria-hidden="true" />
+
+                <button
+                  type="button"
+                  className="nsv2-capture-option nsv2-capture-option-skip"
+                  onClick={handleSkipPhoto}
+                  disabled={submitting}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M17 1l4 4-4 4" />
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                    <path d="M7 23l-4-4 4-4" />
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                  </svg>
+                  <span>Sem foto</span>
+                </button>
+              </div>
+            </div>
+
+            {error ? <p className="nsv2-inline-error">{error}</p> : null}
+          </section>
+        ) : null}
+
+        {/* ── Step 1: Photo Loading ── */}
+        {currentStep === 'photo' && arrivalPhotoLoading ? (
+          <section className="nsv2-body">
+            <div className="nsv2-capture-area">
+              <div className="nsv2-capture-zone">
+                <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
+                <span className="nsv2-capture-title">Preparando foto...</span>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── Step 1.5: Photo Confirmation ── */}
+        {currentStep === 'photo' && arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
+          <section className="nsv2-body nsv2-body-photo">
+            <div className="nsv2-photo-preview-wrap">
+              <img
+                src={arrivalPhotoPreviewUrl}
+                alt="Pre-visualizacao da foto"
+                className="nsv2-photo-preview"
+              />
+
+              {photoCheckAnimating ? (
+                <div className="new-sample-photo-check-fx">
+                  <div className="new-sample-photo-check-glow" />
+                  <div className="new-sample-photo-check-ring" />
+                  <svg className="new-sample-photo-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="m5 12.5 4.3 4.2L19 7" />
+                  </svg>
+                </div>
+              ) : null}
+
+              {!photoCheckAnimating ? (
+                <div className="nsv2-photo-actions">
+                  <button
+                    type="button"
+                    className="nsv2-photo-btn nsv2-photo-btn-redo"
+                    onClick={clearArrivalPhoto}
+                    disabled={submitting}
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" />
+                      <path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" />
+                    </svg>
+                    <span>Refazer</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="nsv2-photo-btn nsv2-photo-btn-confirm"
+                    onClick={handleContinueFromPhoto}
+                    disabled={submitting}
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m5 12.5 4.3 4.2L19 7" />
+                    </svg>
+                    <span>Confirmar</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── Step 2: Form with Photo ── */}
+        {currentStep === 'details' ? (
+          <section className="nsv2-body nsv2-body-form">
+            {/* Compressed photo strip */}
+            {arrivalPhotoPreviewUrl ? (
+              <div className="nsv2-photo-strip">
+                <img src={arrivalPhotoPreviewUrl} alt="" className="nsv2-photo-strip-img" />
+                <div className="nsv2-photo-strip-gradient" />
+                <div className="nsv2-photo-strip-actions">
+                  <button
+                    type="button"
+                    className="nsv2-photo-mini-btn"
+                    onClick={() => setPhotoFullscreen(true)}
+                    aria-label="Expandir foto"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="nsv2-photo-mini-btn"
+                    onClick={() => { clearArrivalPhoto(); setCurrentStep('photo'); }}
+                    aria-label="Refazer foto"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false"><path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" /><path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" /></svg>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="nsv2-no-photo-strip" onClick={() => setCurrentStep('photo')}>
+                <span className="nsv2-no-photo-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
+                    <circle cx="12" cy="13.3" r="3.1" />
+                  </svg>
+                </span>
+                <span className="nsv2-no-photo-text">Nenhuma foto adicionada</span>
+                <span className="nsv2-no-photo-add">Adicionar</span>
               </button>
             )}
 
-            {currentStep === 'photo' && arrivalPhoto && !photoCheckAnimating ? (
-              <button
-                type="button"
-                className="new-sample-confirm-photo-btn"
-                onClick={handleContinueFromPhoto}
-                disabled={submitting}
-              >
-                Confirmar foto
-              </button>
-            ) : null}
-          </div>
+            {/* Form card */}
+            <div className={`nsv2-form-card ${arrivalPhotoPreviewUrl ? 'has-photo' : ''}`}>
+              <div className="nsv2-drag-handle" aria-hidden="true"><span /></div>
 
-          {/* Skip photo - only in photo step without a photo */}
-          {currentStep === 'photo' && !arrivalPhoto && !arrivalPhotoLoading && !photoCheckAnimating ? (
-            <div className="new-sample-skip-photo">
-              <button
-                type="button"
-                className="new-sample-skip-photo-btn"
-                disabled={submitting}
-                onClick={handleSkipPhoto}
-                aria-label="Continuar sem foto"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M12 8v8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M8 14l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <span className="new-sample-skip-photo-label">Continuar sem foto</span>
-            </div>
-          ) : null}
+              <div className="nsv2-form-card-heading">
+                <span className="nsv2-form-card-title">Dados da Amostra</span>
+                <span className="nsv2-form-card-required">* obrigatorio</span>
+              </div>
 
-          {/* Form block - visible only on details step */}
-          {currentStep === 'details' ? (
-            <div className="new-sample-form-block">
-              <div className="new-sample-details-grid">
-                <div className="new-sample-field-group">
-                  <ClientLookupField
-                    session={session}
-                    label="Proprietario"
-                    kind="owner"
-                    inputRef={ownerInputRef}
-                    invalid={Boolean(requiredFieldErrors.owner)}
-                    invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
-                    selectedClient={selectedOwnerClient}
-                    onSelectClient={(client) => {
-                      setSelectedOwnerClient(client);
-                      setOwner(client?.displayName ?? '');
-                      setSelectedOwnerRegistrationId(null);
-                      clearRequiredFieldError('owner');
-                      setError(null);
-                    }}
-                    onRequestCreate={(searchTerm) => {
-                      setQuickCreateSeed(searchTerm);
-                      setQuickCreateOpen(true);
-                    }}
-                    createLabel="Cadastrar proprietario"
-                  />
-                </div>
+              {error ? <p className="nsv2-inline-error">{error}</p> : null}
+              {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
-                <div className="new-sample-field-group new-sample-field-group-select">
-                  <ClientRegistrationSelect
-                    label="Inscricao"
-                    registrations={ownerRegistrations}
-                    value={selectedOwnerRegistrationId}
-                    disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                    onChange={setSelectedOwnerRegistrationId}
-                  />
-                  {ownerRegistrationLoading ? (
-                    <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
-                  ) : null}
-                </div>
-
-                <div className="new-sample-compact-fields">
-                  <label className="new-sample-field-group">
-                    Sacas
-                    <input
-                      ref={sacksInputRef}
-                      value={sacks}
-                      className={requiredFieldErrors.sacks ? 'new-sample-input-error' : undefined}
-                      aria-invalid={Boolean(requiredFieldErrors.sacks)}
-                      onChange={(event) => {
-                        setSacks(event.target.value);
-                        clearRequiredFieldError('sacks');
+              <div ref={stageBodyRef} className="nsv2-form-scroll">
+                <div className="nsv2-form-grid">
+                  <div className="nsv2-grid-full">
+                    <ClientLookupField
+                      session={session}
+                      label="Proprietario"
+                      kind="owner"
+                      inputRef={ownerInputRef}
+                      invalid={Boolean(requiredFieldErrors.owner)}
+                      invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
+                      selectedClient={selectedOwnerClient}
+                      onSelectClient={(client) => {
+                        setSelectedOwnerClient(client);
+                        setOwner(client?.displayName ?? '');
+                        setSelectedOwnerRegistrationId(null);
+                        clearRequiredFieldError('owner');
+                        setError(null);
                       }}
-                      inputMode="numeric"
-                      placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
-                    />
-                  </label>
-
-                  <div
-                    ref={harvestFieldRef}
-                    className={`new-sample-harvest-field${requiredFieldErrors.harvest ? ' has-error' : ''}`}
-                  >
-                    <label htmlFor="new-sample-harvest-input">Safra</label>
-                    <input
-                      id="new-sample-harvest-input"
-                      ref={harvestInputRef}
-                      className={requiredFieldErrors.harvest ? 'new-sample-input-error' : undefined}
-                      aria-invalid={Boolean(requiredFieldErrors.harvest)}
-                      value={harvest}
-                      onFocus={() => setHarvestOptionsOpen(true)}
-                      onChange={(event) => {
-                        setHarvest(event.target.value);
-                        clearRequiredFieldError('harvest');
+                      onRequestCreate={(searchTerm) => {
+                        setQuickCreateSeed(searchTerm);
+                        setQuickCreateOpen(true);
                       }}
-                      placeholder={requiredFieldErrors.harvest ? requiredFieldErrors.harvest : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`}
+                      createLabel="Cadastrar proprietario"
                     />
+                  </div>
+
+                  <div className="nsv2-grid-full">
+                    <ClientRegistrationSelect
+                      label="Inscricao"
+                      registrations={ownerRegistrations}
+                      value={selectedOwnerRegistrationId}
+                      disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                      onChange={setSelectedOwnerRegistrationId}
+                    />
+                    {ownerRegistrationLoading ? (
+                      <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
+                    ) : null}
+                  </div>
+
+                  <div className="nsv2-grid-half">
+                    <label className="nsv2-field">
+                      <span className="nsv2-field-label">Sacas *</span>
+                      <input
+                        ref={sacksInputRef}
+                        value={sacks}
+                        className={`nsv2-field-input ${requiredFieldErrors.sacks ? 'has-error' : ''}`}
+                        aria-invalid={Boolean(requiredFieldErrors.sacks)}
+                        onChange={(event) => {
+                          setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                          clearRequiredFieldError('sacks');
+                        }}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="nsv2-grid-half" ref={harvestFieldRef}>
+                    <label className="nsv2-field" htmlFor="nsv2-harvest-input">
+                      <span className="nsv2-field-label">Safra *</span>
+                      <input
+                        id="nsv2-harvest-input"
+                        ref={harvestInputRef}
+                        className={`nsv2-field-input ${requiredFieldErrors.harvest ? 'has-error' : ''}`}
+                        aria-invalid={Boolean(requiredFieldErrors.harvest)}
+                        value={harvest}
+                        onFocus={() => setHarvestOptionsOpen(true)}
+                        onChange={(event) => {
+                          setHarvest(event.target.value);
+                          clearRequiredFieldError('harvest');
+                        }}
+                        placeholder={requiredFieldErrors.harvest ? requiredFieldErrors.harvest : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`}
+                      />
+                    </label>
                     {harvestOptionsOpen ? (
                       <div className="new-sample-harvest-options">
                         {HARVEST_PRESET_OPTIONS.map((option) => (
@@ -893,51 +1155,92 @@ function NewSamplePageContent() {
                       </div>
                     ) : null}
                   </div>
+
+                  <div className="nsv2-grid-half">
+                    <label className="nsv2-field">
+                      <span className="nsv2-field-label">Lote de origem *</span>
+                      <input
+                        ref={originLotInputRef}
+                        value={originLot}
+                        className={`nsv2-field-input ${requiredFieldErrors.originLot ? 'has-error' : ''}`}
+                        aria-invalid={Boolean(requiredFieldErrors.originLot)}
+                        onChange={(event) => {
+                          setOriginLot(event.target.value);
+                          clearRequiredFieldError('originLot');
+                        }}
+                        placeholder={requiredFieldErrors.originLot ? requiredFieldErrors.originLot : 'Codigo do lote'}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="nsv2-grid-half">
+                    <label className="nsv2-field">
+                      <span className="nsv2-field-label">Observacoes</span>
+                      <input
+                        value={notes}
+                        className="nsv2-field-input"
+                        onChange={(event) => setNotes(event.target.value)}
+                        placeholder=""
+                      />
+                    </label>
+                  </div>
                 </div>
 
-                <label className="new-sample-field-group">
-                  Lote de origem
-                  <input
-                    ref={originLotInputRef}
-                    value={originLot}
-                    className={requiredFieldErrors.originLot ? 'new-sample-input-error' : undefined}
-                    aria-invalid={Boolean(requiredFieldErrors.originLot)}
-                    onChange={(event) => {
-                      setOriginLot(event.target.value);
-                      clearRequiredFieldError('originLot');
-                    }}
-                    placeholder={requiredFieldErrors.originLot ? requiredFieldErrors.originLot : 'Codigo do lote'}
-                  />
-                </label>
-
-                <label className="new-sample-field-group new-sample-notes-field">
-                  Observacoes
-                  <textarea
-                    className="new-sample-notes-textarea"
-                    rows={1}
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                    placeholder=""
-                  />
-                </label>
               </div>
-
-              <div className="new-sample-form-actions">
+              <div className="nsv2-submit-wrap">
                 <button
                   ref={lastCreateButtonRef}
                   type="button"
-                  className="new-sample-create-btn"
-                  disabled={submitting}
-                  onClick={(event) => openReviewModal(event.currentTarget)}
+                  className="nsv2-submit-btn"
+                  disabled={submitting || !isOnline}
+                  onClick={(event) => {
+                    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                    openReviewModal(event.currentTarget);
+                  }}
                 >
-                  {submitting ? 'Criando...' : 'Criar amostra'}
+                  <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
                 </button>
               </div>
             </div>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
+
+        {/* Offline banner */}
+        {!isOnline ? (
+          <div className="nsv2-offline-banner">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M1 1l22 22" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><line x1="12" y1="20" x2="12.01" y2="20" />
+            </svg>
+            <span>Sem conexao</span>
+          </div>
+        ) : null}
 
       </section>
+
+      {/* Discard sheet */}
+      {discardSheetVisible ? (
+        <div className={`nsv2-discard-backdrop ${discardSheetAnimIn ? 'is-open' : ''}`} onClick={closeDiscardSheet}>
+          <div className={`nsv2-discard-sheet ${discardSheetAnimIn ? 'is-open' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="nsv2-discard-handle" aria-hidden="true"><span /></div>
+            <p className="nsv2-discard-title">Descartar alteracoes?</p>
+            <p className="nsv2-discard-subtitle">Os dados preenchidos serao perdidos.</p>
+            <div className="nsv2-discard-actions">
+              <button type="button" className="nsv2-discard-btn nsv2-discard-btn-cancel" onClick={closeDiscardSheet}>Continuar editando</button>
+              <button type="button" className="nsv2-discard-btn nsv2-discard-btn-confirm" onClick={handleDiscardConfirm}>Descartar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Photo fullscreen overlay */}
+      {photoFullscreen && arrivalPhotoPreviewUrl ? (
+        <div className="nsv2-fullscreen-overlay" onClick={() => setPhotoFullscreen(false)}>
+          <img src={arrivalPhotoPreviewUrl} alt="Foto em tela cheia" className="nsv2-fullscreen-img" onClick={(e) => e.stopPropagation()} />
+          <button type="button" className="nsv2-fullscreen-close" onClick={() => setPhotoFullscreen(false)} aria-label="Fechar">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          </button>
+        </div>
+      ) : null}
 
       {labelModalOpen ? (
         <div
@@ -1051,30 +1354,36 @@ function NewSamplePageContent() {
 
               {labelModalStep === 'completed' ? (
                 <>
-                  {printableSample ? (
-                    <Link
-                      href={`/samples/${printableSample.id}`}
-                      className="new-sample-modal-circle is-secondary"
-                      aria-label="Ver detalhes"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M5 12h14" />
-                        <path d="m13 6 6 6-6 6" />
-                      </svg>
-                    </Link>
+                  {printStatus === 'pending' ? (
+                    <p className="nsv2-print-status">Aguardando impressao...</p>
                   ) : null}
-                  <button
-                    ref={modalPrimaryActionRef}
-                    type="button"
-                    className="new-sample-modal-circle is-primary"
-                    onClick={resetDraft}
-                    aria-label="Nova amostra"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
+                  {printStatus === 'success' ? (
+                    <p className="nsv2-print-status nsv2-print-success">Impressao concluida! Redirecionando...</p>
+                  ) : null}
+                  {printStatus === 'failed' || printStatus === 'timeout' ? (
+                    <p className="nsv2-print-status nsv2-print-failed">Impressao nao confirmada</p>
+                  ) : null}
+
+                  <div className="nsv2-modal-completed-actions">
+                    {printableSample ? (
+                      <Link href={`/samples/${printableSample.id}`} className="new-sample-modal-circle is-secondary" aria-label="Ver detalhes">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                      </Link>
+                    ) : null}
+                    <button ref={modalPrimaryActionRef} type="button" className="new-sample-modal-circle is-primary" onClick={resetDraft} aria-label="Nova amostra">
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+                    </button>
+                  </div>
+
+                  {printExitWarningOpen ? (
+                    <div className="nsv2-print-exit-warning">
+                      <p>Impressao em andamento. Deseja sair?</p>
+                      <div className="nsv2-print-exit-actions">
+                        <button type="button" className="nsv2-discard-btn nsv2-discard-btn-cancel" onClick={() => setPrintExitWarningOpen(false)}>Aguardar</button>
+                        <button type="button" className="nsv2-discard-btn nsv2-discard-btn-confirm" onClick={forceCloseLabelModal}>Sair</button>
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -1085,7 +1394,7 @@ function NewSamplePageContent() {
       <ClientQuickCreateModal
         session={session}
         open={quickCreateOpen}
-        title="Cadastro rapido de proprietario"
+        title="Novo proprietario"
         initialSearch={quickCreateSeed}
         initialPersonType="PJ"
         initialIsSeller
