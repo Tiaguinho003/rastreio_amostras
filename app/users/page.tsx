@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import {
@@ -28,6 +29,32 @@ function userStatusLabel(status: UserStatus) {
 
 function userStatusThemeClass(status: UserStatus) {
   return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
+}
+
+const AVATAR_COLORS = ['#1B5E20', '#2E7D32', '#0D47A1', '#1565C0', '#4E342E', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#E65100'];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
+}
+
+function getUserAvatarColor(name: string): string {
+  return AVATAR_COLORS[hashStr(name) % AVATAR_COLORS.length];
+}
+
+function getUserInitials(name: string): string {
+  return name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+}
+
+function getRoleBadgeStyle(role: UserRole): { color: string; bg: string; border: string } {
+  switch (role) {
+    case 'ADMIN': return { color: '#C62828', bg: '#FEF2F2', border: '#FECACA' };
+    case 'CLASSIFIER': return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' };
+    case 'REGISTRATION': return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' };
+    case 'COMMERCIAL': return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' };
+    default: return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0' };
+  }
 }
 
 function formatUserCardSummary(user: UserSummary) {
@@ -436,367 +463,249 @@ export default function UsersPage() {
     }
   }
 
-  const totalLabel = listState.loading ? 'Carregando...' : `${listState.total} usuarios`;
+  const userFullName = session.user.fullName ?? session.user.username;
+  const userAvatarInitials = userFullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="samples-page-panel">
-        <div className="samples-page-toolbar">
-          <form className="samples-page-search-bar" onSubmit={handleSearchSubmit}>
-            <div className="sample-search-field samples-page-search-field">
-              <input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Nome, usuario ou email"
-              />
-              <button type="submit" className="samples-page-search-submit-icon" aria-label="Buscar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </button>
-            </div>
+      <section className="clients-page-v2">
+        <header className="clients-v2-header">
+          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+          </Link>
+          <div className="clients-v2-header-center">
+            <h2 className="nsv2-title">Usuarios</h2>
+          </div>
+          <button type="button" className="nsv2-avatar" aria-label="Perfil" onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}>
+            <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
+          </button>
+        </header>
 
-            <button
-              type="button"
-              className="samples-page-filter-toggle"
-              aria-label="Filtrar por perfil"
-              onClick={() => {
-                if (roleFilter) {
-                  setRoleFilter('');
-                  setStatusFilter('');
-                  dispatchList({ type: 'setPage', page: 1 });
-                } else {
-                  const nextRole = ROLE_OPTIONS[(ROLE_OPTIONS.indexOf(roleFilter as UserRole) + 1) % ROLE_OPTIONS.length];
-                  setRoleFilter(nextRole);
-                  dispatchList({ type: 'setPage', page: 1 });
-                }
-              }}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M3 6h18" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
-              </svg>
-            </button>
-
-            <button
-              type="button"
-              className="samples-page-create-client-button"
-              aria-label="Novo usuario"
-              onClick={(event) => openCreateModal(event.currentTarget)}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-            </button>
+        <div className="hero-search-wrap">
+          <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
+            <svg className="hero-search-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+            <input className="hero-search-input" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nome ou email..." autoComplete="off" spellCheck={false} />
           </form>
-
-          {(roleFilter || statusFilter) ? (
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              {roleFilter ? (
-                <button
-                  type="button"
-                  className="app-modal-chip"
-                  onClick={() => { setRoleFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {getRoleLabel(roleFilter)} ×
-                </button>
-              ) : null}
-              {statusFilter ? (
-                <button
-                  type="button"
-                  className="app-modal-chip"
-                  onClick={() => { setStatusFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {statusFilter === 'ACTIVE' ? 'Ativo' : 'Inativo'} ×
-                </button>
-              ) : null}
-            </div>
-          ) : null}
         </div>
 
-        {listState.error ? (
-          <section className="samples-page-list-area">
-            <p className="error" style={{ margin: 0, padding: '1rem' }}>{listState.error}</p>
-          </section>
-        ) : listState.loading ? (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{totalLabel}</p>
-            </header>
-            <div className="samples-page-list-state">
-              <p className="samples-page-empty">Carregando usuarios...</p>
-            </div>
-          </section>
-        ) : listState.items.length === 0 ? (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{totalLabel}</p>
-            </header>
-            <div className="samples-page-list-state">
-              <p className="samples-page-empty">
-                {appliedSearch ? 'Nenhum usuario encontrado para a pesquisa.' : 'Nenhum usuario cadastrado.'}
-              </p>
-            </div>
-          </section>
-        ) : (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{totalLabel}</p>
-            </header>
-            <div ref={scrollRef} className="samples-page-list-scroll" aria-label="Lista de usuarios" tabIndex={-1}>
-              <div className="samples-page-list">
-                {listState.items.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    className={`samples-page-item records-client-card ${userStatusThemeClass(user.status)}`}
-                    onClick={(event) => openUserDetail(user.id, event.currentTarget)}
-                  >
-                    <div className="samples-page-item-main">
-                      <p className="dashboard-latest-registration-title">{user.fullName}</p>
-                      <p className="dashboard-latest-registration-subtitle">{formatUserCardSummary(user)}</p>
-                      <p className="dashboard-latest-registration-meta">{formatUserCardMeta(user)}</p>
-                    </div>
-                  </button>
-                ))}
+        <section className="clients-v2-sheet">
+          {/* Chips: role filter */}
+          <div className="spv2-chips" style={{ justifyContent: 'center', overflowX: 'visible' }}>
+            <button type="button" className={`spv2-chip${!roleFilter ? ' is-active' : ''}`} onClick={() => { setRoleFilter(''); dispatchList({ type: 'setPage', page: 1 }); }}>
+              <span className="spv2-chip-label" style={!roleFilter ? { color: '#1B5E20' } : undefined}>Todos</span>
+              <span className="spv2-chip-count" style={!roleFilter ? { color: '#1B5E20', background: 'rgba(27,94,32,0.1)' } : undefined}>{listState.total}</span>
+            </button>
+            {ROLE_OPTIONS.map((role) => {
+              const isActive = roleFilter === role;
+              const style = getRoleBadgeStyle(role);
+              return (
+                <button key={role} type="button" className={`spv2-chip${isActive ? ' is-active' : ''}`} style={isActive ? { background: `${style.color}14`, borderColor: style.color } : undefined} onClick={() => { setRoleFilter(isActive ? '' : role); dispatchList({ type: 'setPage', page: 1 }); }}>
+                  <span className="spv2-chip-dot" style={{ background: style.color }} />
+                  <span className="spv2-chip-label" style={isActive ? { color: style.color } : undefined}>{getRoleLabel(role)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Count */}
+          <div className="spv2-list-meta">
+            <span className="spv2-list-count">{listState.total} usuarios</span>
+          </div>
+
+          {/* List */}
+          {listState.loading ? (
+            <div className="spv2-list-scroll"><div className="spv2-empty"><p className="spv2-empty-text">Carregando...</p></div></div>
+          ) : listState.items.length === 0 ? (
+            <div className="spv2-list-scroll">
+              <div className="spv2-empty">
+                <svg style={{ width: 36 }} viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="#ddd" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="7" r="4" fill="none" stroke="#ddd" strokeWidth="1.6" /></svg>
+                <p className="spv2-empty-text">Nenhum usuario encontrado</p>
+                <p className="spv2-empty-sub">Tente outro termo de busca</p>
               </div>
             </div>
-          </section>
-        )}
+          ) : (
+            <div ref={scrollRef} className="spv2-list-scroll" tabIndex={-1}>
+              {listState.items.map((user, i) => {
+                const avatarColor = getUserAvatarColor(user.fullName);
+                const initials = getUserInitials(user.fullName);
+                const roleStyle = getRoleBadgeStyle(user.role);
+                return (
+                  <button key={user.id} type="button" className="cv2-card" style={{ animationDelay: `${i * 0.04}s` }} onClick={(event) => openUserDetail(user.id, event.currentTarget)}>
+                    <span className="cv2-card-avatar" style={{ background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc)`, boxShadow: `0 2px 8px ${avatarColor}4D` }}>
+                      <span>{initials}</span>
+                    </span>
+                    <div className="cv2-card-content">
+                      <div className="cv2-card-top">
+                        <span className="cv2-card-name">{user.fullName}</span>
+                        <span className="cv2-card-role" style={{ color: roleStyle.color, background: roleStyle.bg, borderColor: roleStyle.border }}>{getRoleLabel(user.role)}</span>
+                      </div>
+                      <div className="cv2-card-bottom">
+                        <span style={{ fontSize: 'clamp(10px,2.8vw,11px)', color: '#aaa' }}>{user.email}</span>
+                        {user.status !== 'ACTIVE' ? <span className="cv2-card-role is-none">Inativo</span> : null}
+                        {user.isLocked ? <span className="cv2-card-role" style={{ color: '#C62828', background: '#FEF2F2', borderColor: '#FECACA' }}>Bloqueado</span> : null}
+                      </div>
+                    </div>
+                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-        <footer className="samples-page-footer">
-          <div className="samples-page-pagination-controls" role="group" aria-label="Paginacao">
-            <button
-              type="button"
-              className="samples-page-pagination-button"
-              aria-label="Pagina anterior"
-              disabled={!listState.hasPrev || listState.loading}
-              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage - 1 })}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="m14.5 6-6 6 6 6" />
-              </svg>
+          {/* Pagination */}
+          <footer className="spv2-footer">
+            <button type="button" className="spv2-page-btn" disabled={!listState.hasPrev || listState.loading} onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage - 1 })}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
             </button>
-            <p className="samples-page-pagination-counter">
-              <strong>{listState.currentPage}</strong>
-              <span>/</span>
-              <span>{listState.totalPages}</span>
-            </p>
-            <button
-              type="button"
-              className="samples-page-pagination-button"
-              aria-label="Proxima pagina"
-              disabled={!listState.hasNext || listState.loading}
-              onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage + 1 })}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="m9.5 6 6 6-6 6" />
-              </svg>
+            <span className="spv2-page-info"><strong>{listState.currentPage}</strong> / {listState.totalPages}</span>
+            <button type="button" className="spv2-page-btn" disabled={!listState.hasNext || listState.loading} onClick={() => dispatchList({ type: 'setPage', page: listState.currentPage + 1 })}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
             </button>
-          </div>
-        </footer>
+          </footer>
+        </section>
       </section>
 
-      {/* --- Detail / Edit Modal --- */}
+      {/* FAB */}
+      <button type="button" className="cv2-fab" aria-label="Novo usuario" onClick={(event) => openCreateModal(event.currentTarget)}>
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+      </button>
+
+      {/* Detail / Edit Modal */}
       {modal.mode === 'view' || modal.mode === 'edit' ? (
-        <div className="client-modal-backdrop" onClick={closeModal}>
-          <section
-            ref={modalTrapRef}
-            className="client-modal panel stack records-client-detail-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="user-detail-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="client-modal-header">
-              <div className="records-client-detail-header-copy">
-                <h3 id="user-detail-title" style={{ margin: 0 }}>
-                  {modal.user?.fullName ?? 'Usuario'}
-                </h3>
-                {modal.user && !modal.loading ? (
-                  <div className="records-client-detail-header-meta">
-                    <span className="records-client-detail-code">{modal.user.username}</span>
-                    <span className={`status-badge records-client-status-badge ${modal.user.status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-danger'}`}>
-                      {userStatusLabel(modal.user.status)}
-                    </span>
-                    {modal.user.isLocked ? (
-                      <span className="status-badge records-client-status-badge status-badge-warning">Bloqueado</span>
-                    ) : null}
+        <div className="app-modal-backdrop" onClick={closeModal}>
+          <section ref={modalTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            {modal.user ? (() => {
+              const detailColor = getUserAvatarColor(modal.user.fullName);
+              const detailInit = getUserInitials(modal.user.fullName);
+              return (
+                <div className="cdm-header">
+                  <span className="cdm-header-avatar" style={{ background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)` }}><span>{detailInit}</span></span>
+                  <div className="cdm-header-copy">
+                    <h3 className="cdm-header-name">{modal.user.fullName}</h3>
+                    <div className="cdm-header-meta">
+                      <span className="cdm-header-code">@{modal.user.username}</span>
+                      <span className={`cdm-header-status ${modal.user.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}>{userStatusLabel(modal.user.status)}</span>
+                      {modal.user.isLocked ? <span className="cdm-header-status is-inactive" style={{ color: '#C62828', background: '#FEF2F2', borderColor: '#FECACA' }}>Bloqueado</span> : null}
+                    </div>
                   </div>
-                ) : null}
+                  <button ref={closeButtonRef} type="button" className="cdm-close" onClick={closeModal} aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </button>
+                </div>
+              );
+            })() : (
+              <div className="cdm-header">
+                <h3 className="cdm-header-name" style={{ flex: 1 }}>Usuario</h3>
+                <button ref={closeButtonRef} type="button" className="cdm-close" onClick={closeModal} aria-label="Fechar">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </button>
               </div>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                className="records-client-detail-close"
-                onClick={closeModal}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
+            )}
 
             {modal.loading ? (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando...</p>
+              <div className="cdm-loading">Carregando...</div>
             ) : modal.error && !modal.user ? (
-              <p className="error" style={{ margin: 0 }}>{modal.error}</p>
+              <div className="cdm-error">{modal.error}</div>
             ) : modal.user ? (
               <>
                 {modal.mode === 'view' ? (
-                  <article className="panel stack records-client-detail-summary">
-                    <p className="records-client-detail-line"><strong>Email:</strong> {modal.user.email}</p>
-                    <p className="records-client-detail-line"><strong>Telefone:</strong> {modal.user.phone ?? 'Nao informado'}</p>
-                    <p className="records-client-detail-line"><strong>Perfil:</strong> {getRoleLabel(modal.user.role)}</p>
-                    <p className="records-client-detail-line"><strong>Criado em:</strong> {new Date(modal.user.createdAt).toLocaleDateString('pt-BR')}</p>
-                    {modal.user.lastLoginAt ? (
-                      <p className="records-client-detail-line"><strong>Ultimo acesso:</strong> {new Date(modal.user.lastLoginAt).toLocaleString('pt-BR')}</p>
-                    ) : null}
-                    {modal.user.pendingEmailChange ? (
-                      <p className="records-client-detail-line"><strong>Email pendente:</strong> {modal.user.pendingEmailChange.newEmail}</p>
-                    ) : null}
-                  </article>
-                ) : (
-                  <form className="stack" onSubmit={handleEdit}>
-                    <label>
-                      Nome completo
-                      <input value={editForm.fullName} onChange={(e) => setEditForm((c) => ({ ...c, fullName: e.target.value }))} />
-                    </label>
-                    <label>
-                      Usuario
-                      <input value={editForm.username} onChange={(e) => setEditForm((c) => ({ ...c, username: e.target.value }))} />
-                    </label>
-                    <label>
-                      Email
-                      <input value={editForm.email} onChange={(e) => setEditForm((c) => ({ ...c, email: e.target.value }))} />
-                    </label>
-                    <label>
-                      Telefone
-                      <input value={editForm.phone} onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))} />
-                    </label>
-                    <label>
-                      Perfil
-                      <select value={editForm.role} onChange={(e) => setEditForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
-                        {ROLE_OPTIONS.map((role) => (
-                          <option key={role} value={role}>{getRoleLabel(role)}</option>
-                        ))}
-                      </select>
-                    </label>
+                  <>
+                    <div className="cdm-info-grid">
+                      <div className="cdm-info-row">
+                        <div className="cdm-info-item"><span className="cdm-info-label">Email</span><span className="cdm-info-value">{modal.user.email}</span></div>
+                        <div className="cdm-info-item"><span className="cdm-info-label">Telefone</span><span className="cdm-info-value">{modal.user.phone ?? 'Nao informado'}</span></div>
+                      </div>
+                      <div className="cdm-info-row">
+                        <div className="cdm-info-item">
+                          <span className="cdm-info-label">Perfil</span>
+                          {(() => { const s = getRoleBadgeStyle(modal.user!.role); return <span className="cdm-type-badge" style={{ color: s.color, background: s.bg }}>{getRoleLabel(modal.user!.role)}</span>; })()}
+                        </div>
+                        <div className="cdm-info-item"><span className="cdm-info-label">Criado em</span><span className="cdm-info-value">{new Date(modal.user.createdAt).toLocaleDateString('pt-BR')}</span></div>
+                      </div>
+                    </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <button type="submit" disabled={modal.saving}>
-                        {modal.saving ? 'Salvando...' : 'Salvar'}
-                      </button>
-                      <button type="button" className="secondary-button" onClick={() => dispatchModal({ type: 'close' })} disabled={modal.saving}>
-                        Cancelar
-                      </button>
+                    {modal.error ? <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>{modal.error}</p> : null}
+                    {modal.message ? <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>{modal.message}</p> : null}
+
+                    <div className="sdv-edit-actions">
+                      <button type="button" className="cdm-manage-link" onClick={() => dispatchModal({ type: 'switchToEdit' })} disabled={modal.saving}>Editar</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'clamp(6px,1.8vw,8px)', flexWrap: 'wrap' }}>
+                      {modal.user.status === 'ACTIVE' ? (
+                        <button type="button" className="sdv-com-action-loss" style={{ flex: 1, padding: 'clamp(8px,2.2vw,10px)' }} onClick={handleInactivate} disabled={modal.saving}>Inativar</button>
+                      ) : (
+                        <button type="button" className="sdv-cls-action-complete" style={{ flex: 1, padding: 'clamp(8px,2.2vw,10px)', fontSize: 'clamp(11px,3vw,12px)' }} onClick={handleReactivate} disabled={modal.saving}>Reativar</button>
+                      )}
+                      {modal.user.isLocked ? (
+                        <button type="button" className="sdv-cls-action-complete" style={{ flex: 1, padding: 'clamp(8px,2.2vw,10px)', fontSize: 'clamp(11px,3vw,12px)' }} onClick={handleUnlock} disabled={modal.saving}>Desbloquear</button>
+                      ) : null}
+                      <button type="button" className="sdv-cls-action-save" style={{ flex: 1, padding: 'clamp(8px,2.2vw,10px)', fontSize: 'clamp(11px,3vw,12px)' }} onClick={handlePasswordReset} disabled={modal.saving}>Redefinir senha</button>
+                    </div>
+                  </>
+                ) : (
+                  <form className="sdv-edit-fields" onSubmit={handleEdit}>
+                    <div className="sdv-edit-row">
+                      <label className="sdv-edit-field"><span className="sdv-edit-label">Nome completo</span><input className="sdv-edit-input" value={editForm.fullName} onChange={(e) => setEditForm((c) => ({ ...c, fullName: e.target.value }))} /></label>
+                      <label className="sdv-edit-field"><span className="sdv-edit-label">Usuario</span><input className="sdv-edit-input" value={editForm.username} onChange={(e) => setEditForm((c) => ({ ...c, username: e.target.value }))} /></label>
+                    </div>
+                    <label className="sdv-edit-field"><span className="sdv-edit-label">Email</span><input className="sdv-edit-input" value={editForm.email} onChange={(e) => setEditForm((c) => ({ ...c, email: e.target.value }))} /></label>
+                    <div className="sdv-edit-row">
+                      <label className="sdv-edit-field"><span className="sdv-edit-label">Telefone</span><input className="sdv-edit-input" value={editForm.phone} onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))} /></label>
+                      <label className="sdv-edit-field">
+                        <span className="sdv-edit-label">Perfil</span>
+                        <select className="sdv-edit-input" value={editForm.role} onChange={(e) => setEditForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
+                          {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{getRoleLabel(role)}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    {modal.error ? <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>{modal.error}</p> : null}
+                    <div className="sdv-edit-actions">
+                      <button type="submit" className="cdm-manage-link" disabled={modal.saving} style={{ opacity: modal.saving ? 0.65 : 1 }}>{modal.saving ? 'Salvando...' : 'Salvar'}</button>
                     </div>
                   </form>
                 )}
-
-                {modal.error ? <p className="error" style={{ margin: 0 }}>{modal.error}</p> : null}
-                {modal.message ? <p style={{ margin: 0, color: 'var(--muted)' }}>{modal.message}</p> : null}
-
-                {modal.mode === 'view' ? (
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={() => dispatchModal({ type: 'switchToEdit' })} disabled={modal.saving}>
-                      Editar
-                    </button>
-                    {modal.user.status === 'ACTIVE' ? (
-                      <button type="button" className="secondary-button" onClick={handleInactivate} disabled={modal.saving}>
-                        Inativar
-                      </button>
-                    ) : (
-                      <button type="button" className="secondary-button" onClick={handleReactivate} disabled={modal.saving}>
-                        Reativar
-                      </button>
-                    )}
-                    {modal.user.isLocked ? (
-                      <button type="button" className="secondary-button" onClick={handleUnlock} disabled={modal.saving}>
-                        Desbloquear
-                      </button>
-                    ) : null}
-                    <button type="button" className="secondary-button" onClick={handlePasswordReset} disabled={modal.saving}>
-                      Redefinir senha
-                    </button>
-                  </div>
-                ) : null}
               </>
             ) : null}
           </section>
         </div>
       ) : null}
 
-      {/* --- Create Modal --- */}
+      {/* Create Modal */}
       {modal.mode === 'create' ? (
-        <div className="client-modal-backdrop" onClick={closeModal}>
-          <section
-            ref={modalTrapRef}
-            className="client-modal panel stack records-client-detail-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="user-create-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="client-modal-header">
-              <h3 id="user-create-title" style={{ margin: 0 }}>Novo usuario</h3>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                className="records-client-detail-close"
-                onClick={closeModal}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
+        <div className="app-modal-backdrop" onClick={closeModal}>
+          <section ref={modalTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Novo usuario</h3>
+              <button ref={closeButtonRef} type="button" className="cdm-close" onClick={closeModal} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
             </div>
 
-            <form className="stack" onSubmit={handleCreate}>
-              <label>
-                Nome completo
-                <input value={createForm.fullName} onChange={(e) => setCreateForm((c) => ({ ...c, fullName: e.target.value }))} />
-              </label>
-              <label>
-                Usuario
-                <input value={createForm.username} onChange={(e) => setCreateForm((c) => ({ ...c, username: e.target.value }))} />
-              </label>
-              <label>
-                Email
-                <input value={createForm.email} onChange={(e) => setCreateForm((c) => ({ ...c, email: e.target.value }))} autoComplete="email" />
-              </label>
-              <label>
-                Telefone
-                <input value={createForm.phone} onChange={(e) => setCreateForm((c) => ({ ...c, phone: e.target.value }))} />
-              </label>
-              <label>
-                Perfil
-                <select value={createForm.role} onChange={(e) => setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
-                  {ROLE_OPTIONS.map((role) => (
-                    <option key={role} value={role}>{getRoleLabel(role)}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Senha inicial
-                <input
-                  type="password"
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm((c) => ({ ...c, password: e.target.value }))}
-                  autoComplete="new-password"
-                  placeholder="Minimo de 8 caracteres"
-                />
-              </label>
+            <form className="sdv-edit-fields" onSubmit={handleCreate}>
+              <div className="sdv-edit-row">
+                <label className="sdv-edit-field"><span className="sdv-edit-label">Nome completo</span><input className="sdv-edit-input" value={createForm.fullName} onChange={(e) => setCreateForm((c) => ({ ...c, fullName: e.target.value }))} /></label>
+                <label className="sdv-edit-field"><span className="sdv-edit-label">Usuario</span><input className="sdv-edit-input" value={createForm.username} onChange={(e) => setCreateForm((c) => ({ ...c, username: e.target.value }))} /></label>
+              </div>
+              <label className="sdv-edit-field"><span className="sdv-edit-label">Email</span><input className="sdv-edit-input" value={createForm.email} onChange={(e) => setCreateForm((c) => ({ ...c, email: e.target.value }))} autoComplete="email" /></label>
+              <div className="sdv-edit-row">
+                <label className="sdv-edit-field"><span className="sdv-edit-label">Telefone</span><input className="sdv-edit-input" value={createForm.phone} onChange={(e) => setCreateForm((c) => ({ ...c, phone: e.target.value }))} /></label>
+                <label className="sdv-edit-field">
+                  <span className="sdv-edit-label">Perfil</span>
+                  <select className="sdv-edit-input" value={createForm.role} onChange={(e) => setCreateForm((c) => ({ ...c, role: e.target.value as UserRole }))}>
+                    {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{getRoleLabel(role)}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label className="sdv-edit-field"><span className="sdv-edit-label">Senha inicial</span><input className="sdv-edit-input" type="password" value={createForm.password} onChange={(e) => setCreateForm((c) => ({ ...c, password: e.target.value }))} autoComplete="new-password" placeholder="Minimo 8 caracteres" /></label>
 
-              {modal.error ? <p className="error" style={{ margin: 0 }}>{modal.error}</p> : null}
-              {modal.message ? <p style={{ margin: 0, color: 'var(--muted)' }}>{modal.message}</p> : null}
+              {modal.error ? <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>{modal.error}</p> : null}
+              {modal.message ? <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>{modal.message}</p> : null}
 
-              <button type="submit" disabled={modal.saving}>
-                {modal.saving ? 'Criando...' : 'Criar usuario'}
-              </button>
+              <div className="sdv-edit-actions">
+                <button type="submit" className="cdm-manage-link" disabled={modal.saving} style={{ opacity: modal.saving ? 0.65 : 1 }}>{modal.saving ? 'Criando...' : 'Criar usuario'}</button>
+              </div>
             </form>
           </section>
         </div>
