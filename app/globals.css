@@ -4439,7 +4439,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(10px, 3vw, 14px) clamp(10px, 3vw, 14px) 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
+  padding-bottom: calc(env(safe-area-inset-bottom) + 4.2rem);
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
@@ -4471,8 +4471,8 @@ button:disabled {
 .spv2-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: clamp(4px, 1.5vw, 6px);
+  padding: clamp(6px, 1.8vw, 8px) clamp(10px, 3vw, 14px);
   border-radius: 20px;
   border: 1.5px solid rgba(0, 0, 0, 0.06);
   background: #ffffff;
@@ -4488,24 +4488,24 @@ button:disabled {
 }
 
 .spv2-chip-dot {
-  width: 7px;
-  height: 7px;
+  width: clamp(6px, 1.8vw, 7px);
+  height: clamp(6px, 1.8vw, 7px);
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .spv2-chip-label {
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 12px);
   font-weight: 600;
   color: #888;
   line-height: 1;
 }
 
 .spv2-chip-count {
-  font-size: 10px;
+  font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 700;
   color: #aaa;
-  padding: 1px 6px;
+  padding: 1px clamp(4px, 1.5vw, 6px);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.04);
   line-height: 1.4;
@@ -4582,10 +4582,10 @@ button:disabled {
 .spv2-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: clamp(10px, 3vw, 14px);
+  padding: clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 16px);
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: clamp(14px, 4vw, 16px);
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
   text-decoration: none;
@@ -4602,7 +4602,7 @@ button:disabled {
 
 .spv2-card-bar {
   width: 4px;
-  height: 44px;
+  height: clamp(36px, 10vw, 44px);
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -4622,7 +4622,7 @@ button:disabled {
 }
 
 .spv2-card-code {
-  font-size: 15px;
+  font-size: clamp(13px, 3.8vw, 15px);
   font-weight: 700;
   color: #1a1a1a;
   overflow: hidden;
@@ -4631,7 +4631,7 @@ button:disabled {
 }
 
 .spv2-card-badge {
-  font-size: 10px;
+  font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 6px;
@@ -4648,7 +4648,7 @@ button:disabled {
 }
 
 .spv2-card-owner {
-  font-size: 12px;
+  font-size: clamp(11px, 3vw, 12px);
   color: #666;
   font-weight: 500;
   overflow: hidden;
@@ -4668,7 +4668,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: clamp(10px, 2.8vw, 11px);
   color: #aaa;
   white-space: nowrap;
 }
@@ -4685,8 +4685,8 @@ button:disabled {
 }
 
 .spv2-card-chevron {
-  width: 14px;
-  height: 14px;
+  width: clamp(12px, 3.5vw, 14px);
+  height: clamp(12px, 3.5vw, 14px);
   flex-shrink: 0;
   fill: none;
   stroke: #ccc;
@@ -4818,7 +4818,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(4px, 1vw, 6px) 0 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
+  padding-bottom: calc(env(safe-area-inset-bottom) + 4.2rem);
   overflow: hidden;
   min-height: 0;
 }
@@ -4828,10 +4828,10 @@ button:disabled {
 .cv2-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(12px, 3.5vw, 14px);
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: clamp(14px, 4vw, 16px);
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
   text-decoration: none;
@@ -4852,15 +4852,15 @@ button:disabled {
 .cv2-card-avatar {
   display: inline-grid;
   place-items: center;
-  width: 46px;
-  min-width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: clamp(40px, 11vw, 46px);
+  min-width: clamp(40px, 11vw, 46px);
+  height: clamp(40px, 11vw, 46px);
+  border-radius: clamp(12px, 3.5vw, 14px);
   flex-shrink: 0;
 }
 
 .cv2-card-avatar span {
-  font-size: 16px;
+  font-size: clamp(14px, 3.8vw, 16px);
   font-weight: 700;
   color: #ffffff;
   line-height: 1;
@@ -4881,13 +4881,13 @@ button:disabled {
 }
 
 .cv2-card-name {
-  font-size: 14px;
+  font-size: clamp(13px, 3.5vw, 14px);
   font-weight: 700;
   color: #1a1a1a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 160px;
+  max-width: min(160px, 42vw);
 }
 
 .cv2-card-type {
@@ -4917,9 +4917,9 @@ button:disabled {
 }
 
 .cv2-card-role {
-  font-size: 10px;
+  font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px clamp(6px, 1.8vw, 8px);
   border-radius: 6px;
   border: 1px solid;
   white-space: nowrap;
@@ -4947,11 +4947,11 @@ button:disabled {
 
 .cv2-fab {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + 10px);
-  right: 20px;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 4.6rem);
+  right: clamp(14px, 4vw, 20px);
+  width: clamp(46px, 13vw, 52px);
+  height: clamp(46px, 13vw, 52px);
+  border-radius: clamp(14px, 4vw, 16px);
   border: 0;
   background: linear-gradient(135deg, #1B5E20, #2E7D32);
   box-shadow: 0 4px 20px rgba(27, 94, 32, 0.4);
@@ -4968,11 +4968,224 @@ button:disabled {
 }
 
 .cv2-fab svg {
-  width: 22px;
-  height: 22px;
+  width: clamp(18px, 5vw, 22px);
+  height: clamp(18px, 5vw, 22px);
   fill: none;
   stroke: #ffffff;
   stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Client detail modal (cdm) ── */
+
+.cdm-modal {
+  position: relative;
+  width: min(380px, calc(100vw - 1rem));
+  max-height: min(420px, calc(100dvh - 2rem));
+  background: #fdf9ec;
+  border-radius: 20px;
+  padding: clamp(16px, 4vw, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 3.5vw, 18px);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.cdm-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+}
+
+.cdm-header-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(38px, 10vw, 44px);
+  min-width: clamp(38px, 10vw, 44px);
+  height: clamp(38px, 10vw, 44px);
+  border-radius: clamp(12px, 3.5vw, 14px);
+  flex-shrink: 0;
+}
+
+.cdm-header-avatar span {
+  font-size: clamp(14px, 3.8vw, 16px);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.cdm-header-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cdm-header-name {
+  margin: 0;
+  font-size: clamp(14px, 3.8vw, 16px);
+  font-weight: 700;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdm-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cdm-header-code {
+  font-size: 11px;
+  color: #999;
+  font-weight: 500;
+}
+
+.cdm-header-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 6px;
+}
+
+.cdm-header-status.is-active {
+  color: #27AE60;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+}
+
+.cdm-header-status.is-inactive {
+  color: #999;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+}
+
+.cdm-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.cdm-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #888;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cdm-loading,
+.cdm-error {
+  font-size: 13px;
+  color: #999;
+  text-align: center;
+  padding: 20px 0;
+  margin: 0;
+}
+
+.cdm-error {
+  color: #c45c5c;
+}
+
+.cdm-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2.5vw, 12px);
+}
+
+.cdm-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 2.5vw, 12px);
+}
+
+.cdm-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cdm-info-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cdm-info-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.cdm-type-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.cdm-type-badge.is-pf {
+  color: #E67E22;
+  background: #FFF7ED;
+}
+
+.cdm-type-badge.is-pj {
+  color: #2980B9;
+  background: #EFF6FF;
+}
+
+.cdm-roles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cdm-manage-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: clamp(12px, 3vw, 14px);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(27, 94, 32, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.cdm-manage-link:active {
+  transform: scale(0.96);
+}
+
+.cdm-manage-link svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -5755,9 +5968,11 @@ button:disabled {
   width: min(26rem, calc(100vw - 1rem));
   max-height: min(38rem, calc(100dvh - 1.5rem));
   overflow: hidden;
+  overflow-x: hidden;
   border-radius: 24px;
   padding: 0.8rem;
   gap: 0.5rem;
+  box-sizing: border-box;
 }
 
 .samples-filter-modal-header {
@@ -5782,7 +5997,9 @@ button:disabled {
 
 .samples-filter-modal-content {
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
@@ -5791,6 +6008,8 @@ button:disabled {
 .samples-filter-fields {
   display: grid;
   gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .samples-filter-field {
@@ -5807,6 +6026,7 @@ button:disabled {
 
 .samples-filter-field-input {
   width: 100%;
+  min-width: 0;
   padding: 0.42rem 0.55rem;
   border: 1px solid rgba(195, 200, 190, 0.85);
   border-radius: 10px;
@@ -5817,6 +6037,7 @@ button:disabled {
   font-weight: 500;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: border-color 160ms ease, box-shadow 160ms ease;
+  box-sizing: border-box;
 }
 
 .samples-filter-field-input::placeholder {

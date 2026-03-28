@@ -11,7 +11,7 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { CommercialStatus, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
-const SAMPLE_PAGE_LIMIT = 30;
+const SAMPLE_PAGE_LIMIT = 15;
 const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
 const STATUS_FILTER_OPTIONS = [
   { value: 'PRINT_PENDING', label: 'Impressao pendente' },

@@ -11,7 +11,7 @@ import { formatClientDocument, formatPhone } from '../../lib/client-field-format
 import type { ClientRegistrationSummary, ClientStatus, ClientSummary } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
-const CLIENT_PAGE_LIMIT = 30;
+const CLIENT_PAGE_LIMIT = 15;
 
 function clientDocument(client: ClientSummary | null) {
   if (!client) {
@@ -572,21 +572,31 @@ function ClientsPage() {
         <div className="client-modal-backdrop" onClick={closeClientDetail}>
           <section
             ref={clientDetailTrapRef}
-            className="client-modal panel stack records-client-detail-modal"
+            className="cdm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="records-client-detail-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="client-modal-header">
-              <div className="records-client-detail-header-copy">
-                <h3 id="records-client-detail-title" style={{ margin: 0 }}>
+            <div className="cdm-header">
+              {clientsState.detail ? (() => {
+                const detailName = clientDisplayName(clientsState.detail!);
+                const detailColor = getAvatarColor(detailName);
+                const detailInitials = getClientInitials(detailName);
+                return (
+                  <span className="cdm-header-avatar" style={{ background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)` }}>
+                    <span>{detailInitials}</span>
+                  </span>
+                );
+              })() : null}
+              <div className="cdm-header-copy">
+                <h3 id="records-client-detail-title" className="cdm-header-name">
                   {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
                 </h3>
                 {clientsState.detail ? (
-                  <div className="records-client-detail-header-meta">
-                    <span className="records-client-detail-code">Codigo {clientsState.detail.code}</span>
-                    <span className={`status-badge records-client-status-badge ${clientStatusBadgeClass(clientsState.detail.status)}`}>
+                  <div className="cdm-header-meta">
+                    <span className="cdm-header-code">Cod. {clientsState.detail.code}</span>
+                    <span className={`cdm-header-status ${clientsState.detail.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}>
                       {clientStatusLabel(clientsState.detail.status)}
                     </span>
                   </div>
@@ -595,84 +605,55 @@ function ClientsPage() {
               <button
                 ref={clientDetailCloseButtonRef}
                 type="button"
-                className="records-client-detail-close"
+                className="cdm-close"
                 onClick={closeClientDetail}
-                aria-label="Fechar detalhe do cliente"
+                aria-label="Fechar"
               >
-                <span aria-hidden="true">×</span>
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
             </div>
 
             {clientsState.detailLoading ? (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>Carregando detalhes do cliente...</p>
+              <div className="cdm-loading">Carregando...</div>
             ) : clientsState.detailError ? (
-              <p className="error" style={{ margin: 0 }}>{clientsState.detailError}</p>
+              <div className="cdm-error">{clientsState.detailError}</div>
             ) : clientsState.detail ? (
               <>
-                <article className="panel stack records-client-detail-summary">
-                  <p className="records-client-detail-line">
-                    <strong>Documento:</strong> {selectedClientDocument ?? 'Nao informado'}
-                  </p>
-                  <p className="records-client-detail-line">
-                    <strong>Telefone:</strong> {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
-                  </p>
-                  <p className="records-client-detail-line">
-                    <strong>Tipo:</strong> {clientsState.detail.personType}
-                  </p>
-                  <p className="records-client-detail-line">
-                    <strong>Inscricoes:</strong> {clientsState.detail.activeRegistrationCount}/{clientsState.detail.registrationCount} ativas
-                  </p>
-                  <div className="records-client-detail-roles">
-                    {selectedClientRoles.length > 0 ? (
-                      selectedClientRoles.map((role) => (
-                        <span key={role} className="app-modal-chip records-client-role-chip">{role}</span>
-                      ))
-                    ) : (
-                      <span className="app-modal-chip records-client-role-chip">Sem papel operacional</span>
-                    )}
-                  </div>
-                </article>
-
-                <article className="panel stack records-client-detail-registrations">
-                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ margin: 0 }}>Inscricoes</h4>
-                    <span style={{ color: 'var(--muted)' }}>{clientsState.registrations.length}</span>
-                  </div>
-
-                  {clientsState.registrations.length === 0 ? (
-                    <p style={{ margin: 0, color: 'var(--muted)' }}>Nenhuma inscricao cadastrada.</p>
-                  ) : (
-                    <div className="clients-registration-list">
-                      {clientsState.registrations.map((registration) => (
-                        <article key={registration.id} className="clients-registration-item records-client-registration-item">
-                          <div className="records-client-registration-head">
-                            <div>
-                              <strong>{registration.registrationNumber}</strong>
-                              <p className="records-client-registration-meta">
-                                {registration.registrationType} · {registration.city}/{registration.state}
-                              </p>
-                            </div>
-                            <span className={`status-badge records-client-status-badge ${registrationStatusBadgeClass(registration.status)}`}>
-                              {registration.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
-                            </span>
-                          </div>
-                        </article>
-                      ))}
+                <div className="cdm-info-grid">
+                  <div className="cdm-info-row">
+                    <div className="cdm-info-item">
+                      <span className="cdm-info-label">Documento</span>
+                      <span className="cdm-info-value">{selectedClientDocument ?? 'Nao informado'}</span>
                     </div>
-                  )}
-                </article>
+                    <div className="cdm-info-item">
+                      <span className="cdm-info-label">Telefone</span>
+                      <span className="cdm-info-value">{formatPhone(clientsState.detail.phone) ?? 'Nao informado'}</span>
+                    </div>
+                  </div>
+                  <div className="cdm-info-row">
+                    <div className="cdm-info-item">
+                      <span className="cdm-info-label">Tipo</span>
+                      <span className={`cdm-type-badge ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}>{clientsState.detail.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}</span>
+                    </div>
+                    <div className="cdm-info-item">
+                      <span className="cdm-info-label">Papel</span>
+                      <div className="cdm-roles">
+                        {clientsState.detail.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}
+                        {clientsState.detail.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}
+                        {!clientsState.detail.isBuyer && !clientsState.detail.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                <Link href={`/clients/${clientsState.detail.id}`} className="records-client-detail-manage-link">
+                <Link href={`/clients/${clientsState.detail.id}`} className="cdm-manage-link">
                   Gerenciar cliente
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
+                    <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
                   </svg>
                 </Link>
               </>
-            ) : (
-              <p style={{ margin: 0, color: 'var(--muted)' }}>Selecione um cliente para visualizar os detalhes.</p>
-            )}
+            ) : null}
           </section>
         </div>
       ) : null}
