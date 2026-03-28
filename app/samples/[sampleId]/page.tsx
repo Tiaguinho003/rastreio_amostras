@@ -2021,358 +2021,135 @@ export default function SampleDetailPage() {
                   </section>
                 ) : detailSection === 'CLASSIFICATION' ? (
                   isClassificationStatus(detail.sample.status) ? (
-                    <section className="stack sample-detail-info-pane sample-detail-classification-pane" id="classification-section" ref={classificationSectionRef}>
-                      {fromQrSource ? (
-                        <p className="success sample-classification-feedback" style={{ margin: 0 }}>
-                          Acesso por leitura de QR confirmado para esta amostra.
-                        </p>
-                      ) : null}
-
+                    <section className="sdv-classification" id="classification-section" ref={classificationSectionRef}>
+                      {/* Pending start */}
                       {detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'QR_PENDING_PRINT' || detail.sample.status === 'QR_PRINTED' ? (
-                        <section className="panel sample-classification-start-card">
-                          <div className="sample-classification-start-copy">
-                            <h4 style={{ margin: 0 }}>Classificacao pronta para iniciar</h4>
+                        <div className="sdv-cls-pending">
+                          <div className="sdv-cls-pending-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
                           </div>
-                          <button type="button" onClick={handleStartClassification} disabled={classificationStarting}>
-                            {classificationStarting ? 'Iniciando classificacao...' : 'Iniciar classificacao'}
+                          <p className="sdv-cls-pending-title">Classificacao pendente</p>
+                          <p className="sdv-cls-pending-sub">Esta amostra ainda nao foi classificada</p>
+                          <button type="button" className="cdm-manage-link" onClick={handleStartClassification} disabled={classificationStarting} style={{ padding: 'clamp(10px, 2.8vw, 12px) clamp(24px, 7vw, 28px)' }}>
+                            {classificationStarting ? 'Iniciando...' : 'Iniciar classificacao'}
                           </button>
-                        </section>
+                        </div>
                       ) : null}
 
+                      {/* Workspace */}
                       {classificationShowsWorkspace ? (
-                        <form
-                          className={[
-                            'stack sample-classification-flow',
-                            'sample-classification-step-shell',
-                            classificationEditHighlightActive ? 'is-editing' : '',
-                            classificationFieldsReadOnly ? 'is-readonly' : ''
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            if (classificationStep === 'PHOTO') {
-                              handleAdvanceFromClassificationPhoto();
-                              return;
-                            }
+                        <>
+                          {/* Hidden file input */}
+                          <input
+                            id="sample-classification-photo-input"
+                            ref={classificationPhotoInputRef}
+                            style={{ display: 'none' }}
+                            accept="image/*"
+                            capture="environment"
+                            type="file"
+                            disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
+                            onChange={(event) => { handleClassificationPhotoSelected(event.target.files?.[0] ?? null); if (event.target.files?.[0]) { void handleUploadClassificationPhoto(); } }}
+                          />
 
-                            if (classificationStep === 'GENERAL') {
-                              handleAdvanceFromClassificationGeneral();
-                              return;
-                            }
-
-                            if (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') {
-                              void handleCompleteClassification();
-                              return;
-                            }
-
-                            if (classificationEditMode) {
-                              handleRequestClassificationUpdate();
-                            }
-                          }}
-                        >
-                          <div className="sample-classification-step-header">
-                            <div className="sample-classification-step-switch-row">
-                            <div className="sample-classification-step-switch" role="tablist" aria-label="Etapas da classificacao">
-                              <button
-                                type="button"
-                                className={classificationStep === 'PHOTO' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                                onClick={() => setClassificationStep('PHOTO')}
-                              >
-                                Foto
-                                {classificationAttachment ? (
-                                  <span className="sample-classification-step-check" aria-label="Foto adicionada">
-                                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                      <path d="m5 12.5 4.3 4.2L19 7" />
-                                    </svg>
-                                  </span>
+                          {/* Card 1: Photo */}
+                          <div className="sdv-card">
+                            <span className="sdv-card-title">Foto da classificacao</span>
+                            {classificationVisiblePhotoPreviewUrl ? (
+                              <div className="sdv-photo-wrap" style={{ position: 'relative' }}>
+                                <img src={classificationVisiblePhotoPreviewUrl} alt="Foto da classificacao" className="sdv-photo-img" style={{ height: 'clamp(110px, 30vw, 130px)' }} onClick={() => { if (classificationSavedPhotoUrl) setClassificationPhotoPreviewOpen(true); }} />
+                                {classificationPhotoEditingAllowed ? (
+                                  <button type="button" className="sdv-photo-change-btn" onClick={() => classificationPhotoInputRef.current?.click()} disabled={classificationPhotoUploading}>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
+                                    <span>Trocar</span>
+                                  </button>
                                 ) : null}
-                              </button>
-                              <button
-                                type="button"
-                                className={classificationStep === 'GENERAL' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                                onClick={() => setClassificationStep('GENERAL')}
-                                disabled={!classificationCanAccessDataSteps}
-                                aria-disabled={!classificationCanAccessDataSteps}
-                              >
-                                Dados
-                              </button>
-                              <button
-                                type="button"
-                                className={classificationStep === 'MEASURES' ? 'sample-classification-step-tab is-active' : 'sample-classification-step-tab'}
-                                onClick={() => setClassificationStep('MEASURES')}
-                                disabled={!classificationCanAccessDataSteps}
-                                aria-disabled={!classificationCanAccessDataSteps}
-                              >
-                                Leituras
-                              </button>
-                            </div>
-                            </div>
-                          </div>
-
-                          <div ref={classificationStepBodyRef} className="sample-classification-step-body">
-                            {classificationStep === 'PHOTO' ? (
-                              <section className="panel stack sample-classification-photo-panel">
-                                <div className="sample-classification-photo-shell">
-                                  <label
-                                    htmlFor="sample-classification-photo-input"
-                                    className={`new-sample-photo-stage sample-classification-photo-stage${
-                                      classificationPhotoEditingAllowed ? '' : ' is-static'
-                                    }`}
-                                  >
-                                    <input
-                                      id="sample-classification-photo-input"
-                                      ref={classificationPhotoInputRef}
-                                      className="new-sample-file-input"
-                                      accept="image/*"
-                                      capture="environment"
-                                      type="file"
-                                      disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                                      onChange={(event) => handleClassificationPhotoSelected(event.target.files?.[0] ?? null)}
-                                    />
-
-                                    {classificationVisiblePhotoPreviewUrl ? (
-                                      <img
-                                        src={classificationVisiblePhotoPreviewUrl}
-                                        alt="Pre-visualizacao da foto da classificacao"
-                                        className="new-sample-photo-preview"
-                                        onClick={(event) => {
-                                          if (classificationSavedPhotoUrl && !classificationSelectedPhoto) {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            setClassificationPhotoPreviewOpen(true);
-                                          }
-                                        }}
-                                        style={classificationSavedPhotoUrl && !classificationSelectedPhoto ? { cursor: 'pointer' } : undefined}
-                                      />
-                                    ) : (
-                                      <span className="new-sample-photo-placeholder sample-classification-photo-placeholder">
-                                        <span className="new-sample-photo-placeholder-icon" aria-hidden="true">
-                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                            <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                                            <circle cx="12" cy="13.3" r="3.1" />
-                                          </svg>
-                                        </span>
-                                        <span className="new-sample-photo-placeholder-title">Espaco reservado para foto</span>
-                                        <span className="new-sample-photo-placeholder-text">
-                                          {classificationPhotoEditingAllowed
-                                            ? classificationAttachment
-                                              ? 'Toque para substituir a foto'
-                                              : 'Toque para capturar ou anexar'
-                                            : classificationAttachment
-                                              ? 'Foto registrada para esta classificacao'
-                                              : 'Imagem da classificacao nao localizada'}
-                                        </span>
-                                      </span>
-                                    )}
-
-                                    {showClassificationPhotoConfirmEffect ? (
-                                      <span key={classificationPhotoConfirmEffectKey} className="new-sample-photo-confirm-fx" aria-hidden="true">
-                                        <span className="new-sample-photo-confirm-glow" />
-                                        <span className="new-sample-photo-confirm-ring" />
-                                        <span className="new-sample-photo-confirm-badge">
-                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                            <path d="m5 12.5 4.3 4.2L19 7" />
-                                          </svg>
-                                        </span>
-                                        <span className="new-sample-photo-spark new-sample-photo-spark-a" />
-                                        <span className="new-sample-photo-spark new-sample-photo-spark-b" />
-                                        <span className="new-sample-photo-spark new-sample-photo-spark-c" />
-                                        <span className="new-sample-photo-spark new-sample-photo-spark-d" />
-                                        <span className="new-sample-photo-spark new-sample-photo-spark-e" />
-                                      </span>
-                                    ) : null}
-
-                                    {classificationPhotoEditingAllowed ? (
-                                      <div className="sample-classification-photo-inline-actions">
-                                        <button
-                                          type="button"
-                                          className={`sample-classification-photo-inline-button sample-classification-photo-inline-icon${
-                                            classificationAttachment || classificationSelectedPhoto ? ' is-ready is-discard' : ''
-                                          }`}
-                                          onClick={(event) => {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            classificationPhotoInputRef.current?.click();
-                                          }}
-                                          disabled={classificationPhotoUploading}
-                                          aria-label={classificationAttachment ? 'Enviar nova foto' : 'Adicionar foto'}
-                                          title={classificationAttachment ? 'Enviar nova foto' : 'Adicionar foto'}
-                                        >
-                                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                            <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                                            <circle cx="12" cy="13.3" r="3.1" />
-                                          </svg>
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          className={`sample-classification-photo-inline-button sample-classification-photo-inline-icon is-confirm${
-                                            classificationSelectedPhoto ? ' is-ready' : ''
-                                          }`}
-                                          onClick={(event) => {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            void handleUploadClassificationPhoto();
-                                          }}
-                                          disabled={classificationPhotoUploading || !classificationSelectedPhoto}
-                                          aria-label="Salvar foto da classificacao"
-                                          title="Salvar foto da classificacao"
-                                        >
-                                          {classificationPhotoUploading ? (
-                                            <span className="sample-classification-photo-inline-spinner" aria-hidden="true" />
-                                          ) : (
-                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                              <path d="m5 12.5 4.3 4.2L19 7" />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      </div>
-                                    ) : null}
-                                  </label>
-                                </div>
-                              </section>
-                            ) : null}
-
-                          {classificationStep === 'GENERAL' ? (
-                            <section className="panel stack sample-classification-form-panel">
-                              <div className="grid sample-classification-form-grid sample-classification-form-grid-general">
-                                {renderClassificationInputField('padrao', 'Padrao')}
-                                {renderClassificationInputField('catacao', 'Catacao')}
-                                {renderClassificationInputField('aspecto', 'Aspecto')}
-                                {renderClassificationInputField('bebida', 'Bebida')}
-                                {renderClassificationInputField('classificador', 'Classificador')}
-                                {renderClassificationInputField('loteOrigem', 'Lote de origem')}
-                                {renderClassificationInputField('aspectoCor', 'Aspecto da cor', {
-                                  className: 'sample-classification-field-span-full'
-                                })}
                               </div>
-                            </section>
-                          ) : null}
-
-                          {classificationStep === 'MEASURES' ? (
-                            <section className="panel stack sample-classification-form-panel sample-classification-measures-panel">
-                              <div className="grid sample-classification-measures-grid">
-                                {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
-                                {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
-                                {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
-                                {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
-                                {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
-                              </div>
-
-                              <div className="grid sample-classification-sieve-grid sample-classification-sieve-grid-compact">
-                                {SIEVE_FIELDS.map((field) => (
-                                  renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' })
-                                ))}
-                              </div>
-
-                              {renderClassificationTextareaField('observacoes', 'Observacoes', {
-                                className: 'sample-classification-field-span-full',
-                                rows: 2
-                              })}
-                            </section>
-                          ) : null}
-                          </div>
-
-                          <div className="sample-classification-footer">
-                            <button
-                              className="secondary sample-classification-nav-arrow"
-                              type="button"
-                              onClick={handleGoBackClassificationStep}
-                              disabled={!classificationCanGoPrev}
-                              aria-label="Voltar etapa da classificacao"
-                              title="Voltar"
-                            >
-                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                <path d="M15 6 9 12l6 6" />
-                              </svg>
-                            </button>
-
-                            <div className="sample-classification-footer-actions">
-                            {classificationEditMode ? (
-                              <>
-                                <button
-                                  className="secondary"
-                                  type="button"
-                                  onClick={cancelClassificationEdit}
-                                  disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                                >
-                                  Cancelar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleRequestClassificationUpdate}
-                                  disabled={classificationUpdating || classificationSaving || classificationCompleting}
-                                >
-                                  Salvar
-                                </button>
-                              </>
                             ) : (
-                              <>
-                                {detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && classificationStep === 'MEASURES' ? (
-                                  <>
-                                    <button
-                                      className="secondary"
-                                      type="button"
-                                      onClick={handleSaveClassificationPartial}
-                                      disabled={classificationSaving || classificationCompleting || classificationUpdating}
-                                    >
-                                      {classificationSaving ? 'Salvando...' : 'Salvar'}
-                                    </button>
-                                    <button
-                                      type="submit"
-                                      disabled={
-                                        classificationCompleting ||
-                                        classificationSaving ||
-                                        classificationUpdating ||
-                                        !classificationCanComplete
-                                      }
-                                    >
-                                      {classificationCompleting ? 'Concluindo...' : 'Concluir'}
-                                    </button>
-                                  </>
-                                ) : null}
-                              </>
+                              <button type="button" className="sdv-cls-photo-empty" onClick={() => classificationPhotoInputRef.current?.click()} disabled={!classificationPhotoEditingAllowed}>
+                                <div className="sdv-cls-photo-empty-icon">
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
+                                </div>
+                                <span className="sdv-cls-photo-empty-title">Adicionar foto</span>
+                                <span className="sdv-cls-photo-empty-sub">Obrigatorio para classificar</span>
+                              </button>
                             )}
-                            </div>
+                          </div>
 
-                            <div className="sample-classification-footer-right">
-                              {detail.sample.status === 'CLASSIFIED' && !classificationEditMode ? (
-                                <button
-                                  className="secondary sample-classification-nav-arrow"
-                                  type="button"
-                                  onClick={startClassificationEdit}
-                                  disabled={classificationStepBusy}
-                                  aria-label="Editar classificacao"
-                                  title="Editar classificacao"
-                                >
-                                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                  </svg>
+                          {/* Card 2: Dados */}
+                          <div className="sdv-card">
+                            <div className="sdv-card-header">
+                              <span className="sdv-card-title">Dados da classificacao</span>
+                              {detail.sample.status === 'CLASSIFIED' ? (
+                                <button type="button" className="sdv-edit-btn" onClick={() => classificationEditMode ? cancelClassificationEdit() : startClassificationEdit()}>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                                  <span style={classificationEditMode ? { color: '#C0392B' } : undefined}>{classificationEditMode ? 'Cancelar' : 'Editar'}</span>
                                 </button>
                               ) : null}
-                              <button
-                                className="secondary sample-classification-nav-arrow"
-                                type="button"
-                                onClick={handleGoForwardClassificationStep}
-                                disabled={!classificationCanGoNext}
-                                aria-label="Avancar etapa da classificacao"
-                                title="Avancar"
-                              >
-                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                                  <path d="m9 6 6 6-6 6" />
-                                </svg>
-                              </button>
+                            </div>
+                            <div className="sdv-cls-fields">
+                              {renderClassificationInputField('padrao', 'Padrao')}
+                              {renderClassificationInputField('catacao', 'Catacao')}
+                              {renderClassificationInputField('aspecto', 'Aspecto')}
+                              {renderClassificationInputField('bebida', 'Bebida')}
+                              {renderClassificationInputField('classificador', 'Classificador')}
+                              {renderClassificationInputField('loteOrigem', 'Lote de origem')}
+                              <div className="sdv-cls-field-full">
+                                {renderClassificationInputField('aspectoCor', 'Aspecto da cor')}
+                              </div>
                             </div>
                           </div>
-                        </form>
+
+                          {/* Card 3: Leituras */}
+                          <div className="sdv-card">
+                            <div className="sdv-card-header">
+                              <span className="sdv-card-title">Leituras e analises</span>
+                              {detail.sample.status === 'CLASSIFIED' ? (
+                                <button type="button" className="sdv-edit-btn" onClick={() => classificationEditMode ? cancelClassificationEdit() : startClassificationEdit()}>
+                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                                  <span style={classificationEditMode ? { color: '#C0392B' } : undefined}>{classificationEditMode ? 'Cancelar' : 'Editar'}</span>
+                                </button>
+                              ) : null}
+                            </div>
+                            <div className="sdv-cls-fields sdv-cls-fields-3col">
+                              {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
+                              {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
+                              {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
+                            </div>
+                            <div className="sdv-cls-fields">
+                              {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
+                              {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
+                            </div>
+                            <div className="sdv-cls-sieve-label">Peneiras (%)</div>
+                            <div className="sdv-cls-fields sdv-cls-fields-3col">
+                              {SIEVE_FIELDS.map((field) => renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' }))}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          {detail.sample.status !== 'CLASSIFIED' ? (
+                            <div className="sdv-cls-actions">
+                              <button type="button" className="sdv-cls-action-save" onClick={() => void handleSaveClassificationPartial()} disabled={classificationSaving || classificationCompleting}>
+                                {classificationSaving ? 'Salvando...' : 'Salvar'}
+                              </button>
+                              <button type="button" className="sdv-cls-action-complete" onClick={() => void handleCompleteClassification()} disabled={classificationCompleting || classificationSaving || !classificationCanComplete}>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
+                                {classificationCompleting ? 'Concluindo...' : 'Concluir'}
+                              </button>
+                            </div>
+                          ) : classificationEditMode ? (
+                            <div className="sdv-cls-actions">
+                              <button type="button" className="sdv-cls-action-complete" onClick={handleRequestClassificationUpdate} disabled={classificationUpdating}>
+                                {classificationUpdating ? 'Salvando...' : 'Salvar edicao'}
+                              </button>
+                            </div>
+                          ) : null}
+                        </>
                       ) : null}
                       <NoticeSlot notice={classificationNotice} />
                     </section>
                   ) : (
-                    <section className="stack sample-detail-info-pane sample-detail-empty-pane" id="classification-section" ref={classificationSectionRef}>
-                      <p style={{ margin: 0, color: 'var(--muted)' }}>Classificacao indisponivel no status atual.</p>
+                    <section className="sdv-classification" id="classification-section" ref={classificationSectionRef}>
+                      <p style={{ margin: 0, color: '#999', textAlign: 'center', padding: '40px 0' }}>Classificacao indisponivel no status atual.</p>
                     </section>
                   )
                 ) : (
