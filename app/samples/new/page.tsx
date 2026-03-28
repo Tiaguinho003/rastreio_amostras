@@ -161,9 +161,6 @@ function NewSamplePageContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [photoFullscreen, setPhotoFullscreen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [discardSheetOpen, setDiscardSheetOpen] = useState(false);
-  const [discardSheetVisible, setDiscardSheetVisible] = useState(false);
-  const [discardSheetAnimIn, setDiscardSheetAnimIn] = useState(false);
   const [printStatus, setPrintStatus] = useState<'pending' | 'success' | 'failed' | 'timeout' | null>(null);
   const [printExitWarningOpen, setPrintExitWarningOpen] = useState(false);
   const printPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -385,7 +382,7 @@ function NewSamplePageContent() {
         setArrivalPhotoLoading(false);
         setActiveCameraHandoffId(photo.handoffId);
         setError(null);
-        setCurrentStep('photo');
+        setCurrentStep('details');
         setPendingPhotoAutoAdvance(true);
 
         clearCameraHandoffRouteState();
@@ -402,30 +399,19 @@ function NewSamplePageContent() {
   }, [activeCameraHandoffId, cameraHandoffParam, cameraSourceParam]);
 
   useEffect(() => {
-    if (!pendingPhotoAutoAdvance || currentStep !== 'photo' || !arrivalPhoto) {
+    if (!pendingPhotoAutoAdvance || currentStep !== 'details' || !arrivalPhoto) {
       return;
     }
 
-    const checkTimer = window.setTimeout(() => {
-      setPhotoCheckAnimating(true);
-    }, 1500);
+    setPhotoCheckAnimating(true);
 
-    return () => window.clearTimeout(checkTimer);
-  }, [pendingPhotoAutoAdvance, currentStep, arrivalPhoto]);
-
-  useEffect(() => {
-    if (!photoCheckAnimating) {
-      return;
-    }
-
-    const advanceTimer = window.setTimeout(() => {
+    const dismissTimer = window.setTimeout(() => {
       setPhotoCheckAnimating(false);
       setPendingPhotoAutoAdvance(false);
-      setCurrentStep('details');
-    }, 1000);
+    }, 1200);
 
-    return () => window.clearTimeout(advanceTimer);
-  }, [photoCheckAnimating]);
+    return () => window.clearTimeout(dismissTimer);
+  }, [pendingPhotoAutoAdvance, currentStep, arrivalPhoto]);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -774,36 +760,10 @@ function NewSamplePageContent() {
     return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || notes.trim() || arrivalPhoto);
   }
 
-  function openDiscardSheet() {
-    setDiscardSheetOpen(true);
-    setDiscardSheetVisible(true);
-    setDiscardSheetAnimIn(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setDiscardSheetAnimIn(true);
-      });
-    });
-  }
-
-  function closeDiscardSheet() {
-    setDiscardSheetAnimIn(false);
-    setTimeout(() => {
-      setDiscardSheetVisible(false);
-      setDiscardSheetOpen(false);
-    }, 300);
-  }
 
   function handleBackFromDetails() {
-    if (hasUnsavedData()) {
-      openDiscardSheet();
-    } else {
-      setCurrentStep('photo');
-    }
-  }
-
-  function handleDiscardConfirm() {
-    closeDiscardSheet();
-    setTimeout(() => setCurrentStep('photo'), 300);
+    clearArrivalPhoto();
+    setCurrentStep('photo');
   }
   const canSwipeForward = currentStep === 'photo' && !photoCheckAnimating && !submitting;
   const canSwipeBack = currentStep === 'details' && !submitting;
@@ -882,76 +842,75 @@ function NewSamplePageContent() {
         {/* ── Step 1: Photo Capture ── */}
         {currentStep === 'photo' && !arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
           <section className="nsv2-body">
-            <div className="nsv2-capture-area">
-              <button
-                type="button"
-                className="nsv2-capture-zone"
-                onClick={() => router.push('/camera?intent=arrival-photo')}
-                disabled={submitting}
-              >
-                <span className="nsv2-capture-circle" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                    <circle cx="12" cy="13.3" r="3.1" />
+            <div className="nsv2-s1-content">
+              {/* Floating beans */}
+              <div className="nsv2-s1-beans" aria-hidden="true">
+                {[1,2,3,4].map((n) => (
+                  <svg key={n} className={`nsv2-s1-bean nsv2-s1-bean-${n}`} viewBox="0 0 20 28">
+                    <ellipse cx="10" cy="14" rx="8.5" ry="12.5" fill="currentColor" />
+                    <path d="M10 2.5c-1.8 4-2.2 8-0.5 11.5s1.8 7.5 0.5 11.5" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="1.2" strokeLinecap="round" />
                   </svg>
-                </span>
-                <span className="nsv2-capture-title">Toque para abrir a camera</span>
-                <span className="nsv2-capture-subtitle">Capture uma imagem da amostra</span>
-              </button>
-
-              <div className="nsv2-capture-options">
-                <label className="nsv2-capture-option">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="3" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="m21 15-5-5L5 21" />
-                  </svg>
-                  <span>Importar da galeria</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="nsv2-file-input"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setArrivalPhoto(file);
-                        setCurrentStep('details');
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-
-                <span className="nsv2-option-divider" aria-hidden="true" />
-
-                <button
-                  type="button"
-                  className="nsv2-capture-option nsv2-capture-option-skip"
-                  onClick={handleSkipPhoto}
-                  disabled={submitting}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M17 1l4 4-4 4" />
-                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                    <path d="M7 23l-4-4 4-4" />
-                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-                  </svg>
-                  <span>Sem foto</span>
-                </button>
+                ))}
               </div>
-            </div>
 
-            {error ? <p className="nsv2-inline-error">{error}</p> : null}
+              {/* Illustration — coffee bean with scan */}
+              <div className="nsv2-s1-illustration nsv2-fadeUp" style={{ animationDelay: '0s' }}>
+                <div className="nsv2-s1-ring nsv2-s1-ring-1" />
+                <div className="nsv2-s1-ring nsv2-s1-ring-2" />
+                <div className="nsv2-s1-circle">
+                  <svg className="nsv2-s1-bean-illust" viewBox="0 0 40 56" aria-hidden="true">
+                    <ellipse cx="20" cy="28" rx="17" ry="25" fill="#8B7355" />
+                    <ellipse cx="20" cy="28" rx="17" ry="25" fill="url(#beanGrad)" />
+                    <path d="M20 5c-3.5 8-4.2 16-1 23s3.5 15 1 23" fill="none" stroke="rgba(50,30,10,0.4)" strokeWidth="2" strokeLinecap="round" />
+                    <defs><linearGradient id="beanGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#c4a882" stopOpacity="0.6" /><stop offset="100%" stopColor="#6b5438" stopOpacity="0.3" /></linearGradient></defs>
+                  </svg>
+                  <div className="nsv2-s1-scanline" />
+                  <span className="nsv2-s1-cam-badge">
+                    <svg viewBox="0 0 24 24" focusable="false"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
+                  </span>
+                </div>
+              </div>
+
+              {/* Text — title only */}
+              <div className="nsv2-s1-text nsv2-fadeUp" style={{ animationDelay: '0.15s' }}>
+                <p className="nsv2-s1-title">Registre sua amostra</p>
+              </div>
+
+              {/* Action buttons */}
+              <div className="nsv2-s1-actions nsv2-fadeUp" style={{ animationDelay: '0.25s' }}>
+                <button type="button" className="nsv2-s1-btn-primary" onClick={() => router.push('/camera?intent=arrival-photo')} disabled={submitting}>
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
+                  <span>Abrir camera</span>
+                </button>
+                <div className="nsv2-s1-btn-row">
+                  <label className="nsv2-s1-btn-secondary">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
+                    <span>Galeria</span>
+                    <input type="file" accept="image/*" className="nsv2-file-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setArrivalPhoto(file); setCurrentStep('details'); } e.target.value = ''; }} />
+                  </label>
+                  <button type="button" className="nsv2-s1-btn-tertiary" onClick={handleSkipPhoto} disabled={submitting}>
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                    <span>Sem foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {error ? <p className="nsv2-inline-error">{error}</p> : null}
+            </div>
           </section>
         ) : null}
 
         {/* ── Step 1: Photo Loading ── */}
         {currentStep === 'photo' && arrivalPhotoLoading ? (
           <section className="nsv2-body">
-            <div className="nsv2-capture-area">
-              <div className="nsv2-capture-zone">
-                <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
-                <span className="nsv2-capture-title">Preparando foto...</span>
+            <div className="nsv2-s1-content">
+              <div className="nsv2-s1-illustration">
+                <div className="nsv2-s1-circle">
+                  <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
+                </div>
+              </div>
+              <div className="nsv2-s1-text">
+                <p className="nsv2-s1-title">Preparando foto...</p>
               </div>
             </div>
           </section>
@@ -961,47 +920,30 @@ function NewSamplePageContent() {
         {currentStep === 'photo' && arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
           <section className="nsv2-body nsv2-body-photo">
             <div className="nsv2-photo-preview-wrap">
-              <img
-                src={arrivalPhotoPreviewUrl}
-                alt="Pre-visualizacao da foto"
-                className="nsv2-photo-preview"
-              />
+              <img src={arrivalPhotoPreviewUrl} alt="Pre-visualizacao da foto" className="nsv2-photo-preview" />
 
-              {photoCheckAnimating ? (
-                <div className="new-sample-photo-check-fx">
-                  <div className="new-sample-photo-check-glow" />
-                  <div className="new-sample-photo-check-ring" />
-                  <svg className="new-sample-photo-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="m5 12.5 4.3 4.2L19 7" />
-                  </svg>
+              {/* Check animation */}
+              <div className={`nsv2-photo-check ${photoCheckAnimating ? 'is-visible' : ''}`}>
+                <div className="nsv2-photo-check-ring" />
+                <div className="nsv2-photo-check-circle">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
                 </div>
-              ) : null}
+              </div>
 
+              {/* Overlay + buttons */}
               {!photoCheckAnimating ? (
-                <div className="nsv2-photo-actions">
-                  <button
-                    type="button"
-                    className="nsv2-photo-btn nsv2-photo-btn-redo"
-                    onClick={clearArrivalPhoto}
-                    disabled={submitting}
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" />
-                      <path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" />
-                    </svg>
-                    <span>Refazer</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="nsv2-photo-btn nsv2-photo-btn-confirm"
-                    onClick={handleContinueFromPhoto}
-                    disabled={submitting}
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m5 12.5 4.3 4.2L19 7" />
-                    </svg>
-                    <span>Confirmar</span>
-                  </button>
+                <div className="nsv2-photo-confirm-overlay">
+                  <p className="nsv2-photo-confirm-label">Foto capturada</p>
+                  <div className="nsv2-photo-confirm-btns nsv2-fadeUp" style={{ animationDelay: '0.3s' }}>
+                    <button type="button" className="nsv2-photo-btn nsv2-photo-btn-redo" onClick={clearArrivalPhoto} disabled={submitting}>
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" /><path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" /></svg>
+                      <span>Refazer</span>
+                    </button>
+                    <button type="button" className="nsv2-photo-btn nsv2-photo-btn-confirm" onClick={handleContinueFromPhoto} disabled={submitting}>
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
+                      <span>Usar esta foto</span>
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -1011,6 +953,15 @@ function NewSamplePageContent() {
         {/* ── Step 2: Form with Photo ── */}
         {currentStep === 'details' ? (
           <section className="nsv2-body nsv2-body-form">
+            {/* Camera check overlay */}
+            {photoCheckAnimating ? (
+              <div className="nsv2-form-check-overlay">
+                <div className="nsv2-photo-check-circle">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
+                </div>
+              </div>
+            ) : null}
+
             {/* Compressed photo strip */}
             {arrivalPhotoPreviewUrl ? (
               <div className="nsv2-photo-strip">
@@ -1216,21 +1167,6 @@ function NewSamplePageContent() {
         ) : null}
 
       </section>
-
-      {/* Discard sheet */}
-      {discardSheetVisible ? (
-        <div className={`nsv2-discard-backdrop ${discardSheetAnimIn ? 'is-open' : ''}`} onClick={closeDiscardSheet}>
-          <div className={`nsv2-discard-sheet ${discardSheetAnimIn ? 'is-open' : ''}`} onClick={(e) => e.stopPropagation()}>
-            <div className="nsv2-discard-handle" aria-hidden="true"><span /></div>
-            <p className="nsv2-discard-title">Descartar alteracoes?</p>
-            <p className="nsv2-discard-subtitle">Os dados preenchidos serao perdidos.</p>
-            <div className="nsv2-discard-actions">
-              <button type="button" className="nsv2-discard-btn nsv2-discard-btn-cancel" onClick={closeDiscardSheet}>Continuar editando</button>
-              <button type="button" className="nsv2-discard-btn nsv2-discard-btn-confirm" onClick={handleDiscardConfirm}>Descartar</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {/* Photo fullscreen overlay */}
       {photoFullscreen && arrivalPhotoPreviewUrl ? (

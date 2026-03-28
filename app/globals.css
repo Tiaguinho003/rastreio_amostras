@@ -10658,10 +10658,40 @@ button:disabled {
     inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
+.camera-hub-back-btn {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(36px, 10vw, 40px);
+  height: clamp(36px, 10vw, 40px);
+  border: 0;
+  border-radius: clamp(10px, 3vw, 12px);
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.camera-hub-back-btn:active {
+  transform: scale(0.9);
+}
+
+.camera-hub-back-btn svg {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .camera-hub-headline {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px));
+  left: clamp(12px, 3.5vw, 16px);
   right: 6.2rem;
   display: grid;
   gap: 0.55rem;
@@ -11690,6 +11720,9 @@ button:disabled {
   height: clamp(32px, 9vw, 36px);
   border-radius: clamp(9px, 2.8vw, 11px);
   background: rgba(255, 255, 255, 0.12);
+  padding: 0;
+  border: 0;
+  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s;
 }
@@ -11732,10 +11765,10 @@ button:disabled {
 
 .nsv2-dot {
   display: block;
-  height: clamp(8px, 2.5vw, 10px);
-  border-radius: clamp(4px, 1.2vw, 5px);
+  height: clamp(5px, 1.5vw, 6px);
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.25);
-  width: clamp(8px, 2.5vw, 10px);
+  width: clamp(5px, 1.5vw, 6px);
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -11744,7 +11777,7 @@ button:disabled {
 }
 
 .nsv2-dot.is-active {
-  width: clamp(22px, 6.5vw, 26px);
+  width: clamp(16px, 4.5vw, 18px);
   background: #ffffff;
 }
 
@@ -11783,55 +11816,143 @@ button:disabled {
   align-items: center;
   justify-content: center;
   min-height: 0;
-  padding: clamp(16px, 5vw, 24px);
+  padding: clamp(12px, 3.5vw, 16px) clamp(16px, 5vw, 24px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(8px, 2vw, 12px));
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   overflow: hidden;
 }
 
-/* ── Step 1: Capture Area ── */
+/* ── Step 1: Redesigned Capture ── */
 
-.nsv2-capture-area {
+@keyframes nsv2-fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nsv2-beanFloat {
+  0%, 100% { transform: translateY(0) rotate(var(--bean-rot, 0deg)); }
+  50% { transform: translateY(-6px) rotate(calc(var(--bean-rot, 0deg) + 5deg)); }
+}
+
+@keyframes nsv2-scanline {
+  0% { top: 10%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 85%; opacity: 0; }
+}
+
+@keyframes nsv2-camBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes nsv2-ringPulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.08); opacity: 0.15; }
+}
+
+@keyframes nsv2-checkPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes nsv2-checkRing {
+  0% { transform: scale(0.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.nsv2-fadeUp {
+  animation: nsv2-fadeUp 0.6s ease both;
+}
+
+.nsv2-s1-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(20px, 6vw, 28px);
+  gap: clamp(12px, 3.5vw, 16px);
   width: 100%;
   max-width: min(340px, 100%);
 }
 
-.nsv2-capture-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(12px, 3.5vw, 16px);
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border: 2px dashed rgba(46, 125, 50, 0.2);
-  border-radius: clamp(14px, 4.5vw, 18px);
-  background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
-  padding: 0;
-}
+/* Floating beans */
+.nsv2-s1-beans { position: absolute; inset: 0; pointer-events: none; }
+.nsv2-s1-bean { position: absolute; color: rgba(0, 0, 0, 0.04); animation: nsv2-beanFloat 4s ease-in-out infinite; }
+.nsv2-s1-bean-1 { top: 5%; left: 8%; width: clamp(10px, 3vw, 12px); --bean-rot: -20deg; animation-delay: 0s; }
+.nsv2-s1-bean-2 { top: 12%; right: 10%; width: clamp(12px, 3.5vw, 14px); --bean-rot: 35deg; animation-delay: 1s; }
+.nsv2-s1-bean-3 { bottom: 20%; left: 5%; width: clamp(11px, 3.2vw, 13px); --bean-rot: 55deg; animation-delay: 2s; }
+.nsv2-s1-bean-4 { bottom: 10%; right: 8%; width: clamp(10px, 2.8vw, 11px); --bean-rot: -40deg; animation-delay: 0.5s; }
 
-.nsv2-capture-zone:active {
-  transform: scale(0.98);
-}
-
-.nsv2-capture-circle {
+/* Illustration */
+.nsv2-s1-illustration {
+  position: relative;
   display: inline-grid;
   place-items: center;
-  width: clamp(48px, 14vw, 56px);
-  height: clamp(48px, 14vw, 56px);
-  border-radius: 999px;
-  background: rgba(46, 125, 50, 0.08);
+  width: clamp(110px, 33vw, 130px);
+  height: clamp(110px, 33vw, 130px);
 }
 
-.nsv2-capture-circle svg {
-  width: 50%;
-  height: 50%;
+.nsv2-s1-ring {
+  position: absolute;
+  inset: clamp(-8px, -2.5vw, -10px);
+  border: 1px solid rgba(46, 125, 50, 0.08);
+  border-radius: 999px;
+  animation: nsv2-ringPulse 3s ease-in-out infinite;
+}
+
+.nsv2-s1-ring-2 {
+  inset: clamp(-18px, -5vw, -22px);
+  animation-delay: 1.5s;
+}
+
+.nsv2-s1-circle {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.06), rgba(46, 125, 50, 0.02));
+  border: 1px solid rgba(46, 125, 50, 0.08);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.nsv2-s1-bean-illust {
+  width: clamp(40px, 12vw, 50px);
+  height: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.nsv2-s1-scanline {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(46, 125, 50, 0.7) 50%, transparent 100%);
+  box-shadow: 0 0 10px rgba(46, 125, 50, 0.5);
+  animation: nsv2-scanline 2.5s ease-in-out infinite;
+  z-index: 2;
+}
+
+.nsv2-s1-cam-badge {
+  position: absolute;
+  bottom: clamp(2px, 0.8vw, 4px);
+  right: clamp(2px, 0.8vw, 4px);
+  width: clamp(24px, 7vw, 28px);
+  height: clamp(24px, 7vw, 28px);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  display: inline-grid;
+  place-items: center;
+  animation: nsv2-camBounce 2s ease-in-out infinite;
+}
+
+.nsv2-s1-cam-badge svg {
+  width: 55%;
+  height: 55%;
   fill: none;
   stroke: #2E7D32;
   stroke-width: 1.6;
@@ -11839,46 +11960,114 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-.nsv2-capture-title {
-  font-size: clamp(14px, 3.8vw, 15px);
-  font-weight: 600;
+/* Text */
+.nsv2-s1-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 6px);
+  text-align: center;
+}
+
+.nsv2-s1-title {
+  margin: 0;
+  font-size: clamp(18px, 5vw, 20px);
+  font-weight: 700;
   color: #1a1a1a;
 }
 
-.nsv2-capture-subtitle {
-  font-size: clamp(11px, 3vw, 12px);
+.nsv2-s1-subtitle {
+  margin: 0;
+  font-size: clamp(12px, 3.2vw, 13px);
   color: #999;
+  line-height: 1.5;
+  max-width: min(260px, 80vw);
 }
 
-.nsv2-capture-options {
+/* Mini stepper */
+.nsv2-s1-stepper {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 6vw, 24px);
+}
+
+.nsv2-s1-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 5px);
+}
+
+.nsv2-s1-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(22px, 6vw, 24px);
+  height: clamp(22px, 6vw, 24px);
+  border-radius: 999px;
+  font-size: clamp(10px, 2.8vw, 11px);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.06);
+  color: #bbb;
+}
+
+.nsv2-s1-step.is-active .nsv2-s1-step-num {
+  background: #2E7D32;
+  color: #ffffff;
+}
+
+.nsv2-s1-step-label {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 600;
+  color: #bbb;
+}
+
+.nsv2-s1-step.is-active .nsv2-s1-step-label {
+  color: #2E7D32;
+}
+
+/* Action buttons */
+.nsv2-s1-actions {
+  width: 100%;
+  max-width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.nsv2-s1-btn-primary {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(14px, 4vw, 18px);
-}
-
-.nsv2-capture-option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: clamp(5px, 1.5vw, 6px);
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 500;
-  color: #2E7D32;
-  cursor: pointer;
+  gap: clamp(8px, 2.5vw, 10px);
+  width: 100%;
+  padding: clamp(13px, 3.8vw, 15px);
   border: 0;
-  background: transparent;
-  padding: clamp(6px, 2vw, 8px) 0;
+  border-radius: clamp(12px, 3.5vw, 14px);
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  color: #ffffff;
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(27, 94, 32, 0.3);
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.nsv2-capture-option:active {
-  opacity: 0.7;
+.nsv2-s1-btn-primary:hover,
+.nsv2-s1-btn-primary:focus {
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  outline: none;
 }
 
-.nsv2-capture-option svg {
-  width: clamp(16px, 4.5vw, 18px);
-  height: clamp(16px, 4.5vw, 18px);
+.nsv2-s1-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: 0 2px 10px rgba(27, 94, 32, 0.2);
+}
+
+.nsv2-s1-btn-primary svg {
+  width: clamp(18px, 5vw, 20px);
+  height: clamp(18px, 5vw, 20px);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
@@ -11886,8 +12075,55 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-.nsv2-capture-option-skip {
+.nsv2-s1-btn-row {
+  display: flex;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.nsv2-s1-btn-secondary,
+.nsv2-s1-btn-tertiary {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 8px);
+  padding: clamp(11px, 3.2vw, 13px);
+  border-radius: clamp(10px, 3vw, 12px);
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.nsv2-s1-btn-secondary {
+  background: #ffffff;
+  border: 1.5px solid rgba(46, 125, 50, 0.15);
+  color: #2E7D32;
+}
+
+.nsv2-s1-btn-tertiary {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
   color: #999;
+}
+
+.nsv2-s1-btn-secondary:active,
+.nsv2-s1-btn-tertiary:active {
+  transform: scale(0.96);
+}
+
+.nsv2-s1-btn-secondary svg,
+.nsv2-s1-btn-tertiary svg {
+  width: clamp(16px, 4.2vw, 18px);
+  height: clamp(16px, 4.2vw, 18px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .nsv2-file-input {
@@ -11897,13 +12133,6 @@ button:disabled {
   cursor: pointer;
   width: 100%;
   height: 100%;
-}
-
-.nsv2-option-divider {
-  width: 1px;
-  height: clamp(12px, 3.5vw, 14px);
-  background: rgba(0, 0, 0, 0.12);
-  flex-shrink: 0;
 }
 
 .nsv2-inline-error {
@@ -11941,16 +12170,80 @@ button:disabled {
   object-fit: cover;
 }
 
-.nsv2-photo-actions {
+/* Check animation on photo */
+.nsv2-photo-check {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.nsv2-photo-check.is-visible {
+  opacity: 1;
+}
+
+.nsv2-photo-check-circle {
+  width: clamp(60px, 18vw, 72px);
+  height: clamp(60px, 18vw, 72px);
+  border-radius: 999px;
+  background: rgba(46, 125, 50, 0.85);
+  display: grid;
+  place-items: center;
+  animation: nsv2-checkPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  z-index: 1;
+}
+
+.nsv2-photo-check-circle svg {
+  width: 45%;
+  height: 45%;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nsv2-photo-check-ring {
+  position: absolute;
+  width: clamp(85px, 25vw, 100px);
+  height: clamp(85px, 25vw, 100px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  animation: nsv2-checkRing 0.8s ease-out both;
+  animation-delay: 0.2s;
+}
+
+/* Confirm overlay */
+.nsv2-photo-confirm-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 3.5vw, 16px);
+  padding: clamp(48px, 14vw, 64px) clamp(20px, 6vw, 28px) clamp(20px, 6vw, 28px);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.45));
+}
+
+.nsv2-photo-confirm-label {
+  margin: 0;
+  font-size: clamp(14px, 3.8vw, 15px);
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.nsv2-photo-confirm-btns {
+  display: flex;
   justify-content: center;
   gap: clamp(10px, 3vw, 14px);
-  padding: clamp(40px, 12vw, 56px) clamp(20px, 6vw, 28px) clamp(20px, 6vw, 28px);
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.45));
+  width: 100%;
+  max-width: min(320px, 100%);
 }
 
 .nsv2-photo-btn {
@@ -11996,6 +12289,7 @@ button:disabled {
 /* ── Step 2: Form body ── */
 
 .nsv2-body-form {
+  position: relative;
   padding: 0;
   align-items: stretch;
   justify-content: flex-start;
@@ -12004,7 +12298,7 @@ button:disabled {
 
 .nsv2-photo-strip {
   position: relative;
-  height: clamp(120px, 35vw, 140px);
+  height: clamp(100px, 28vw, 120px);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -12061,6 +12355,19 @@ button:disabled {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ── Camera Check Overlay on Form ── */
+
+.nsv2-form-check-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(253, 249, 236, 0.85);
+  animation: nsv2-fadeUp 0.3s ease both;
+  pointer-events: none;
 }
 
 /* ── No Photo Strip ── */
@@ -12137,7 +12444,7 @@ button:disabled {
 .nsv2-drag-handle {
   display: flex;
   justify-content: center;
-  padding: clamp(10px, 3vw, 12px) 0 0;
+  padding: clamp(8px, 2.5vw, 10px) 0 0;
 }
 
 .nsv2-drag-handle span {
@@ -12152,7 +12459,7 @@ button:disabled {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: clamp(10px, 3vw, 14px) clamp(18px, 5vw, 22px) 0;
+  padding: clamp(6px, 2vw, 10px) clamp(16px, 4.5vw, 20px) 0;
 }
 
 .nsv2-form-card-title {
@@ -12170,12 +12477,12 @@ button:disabled {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: clamp(12px, 3.5vw, 16px) clamp(18px, 5vw, 22px) clamp(10px, 3vw, 14px);
+  padding: clamp(8px, 2.5vw, 12px) clamp(16px, 4.5vw, 20px) clamp(6px, 2vw, 10px);
 }
 
 .nsv2-submit-wrap {
   flex-shrink: 0;
-  padding: clamp(10px, 3vw, 14px) clamp(18px, 5vw, 22px) calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(8px, 2vw, 12px));
+  padding: clamp(8px, 2.5vw, 10px) clamp(16px, 4.5vw, 20px) calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(6px, 1.5vw, 8px));
   background: #ffffff;
 }
 
@@ -12184,7 +12491,7 @@ button:disabled {
 .nsv2-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(10px, 3vw, 12px) clamp(8px, 2.5vw, 10px);
+  gap: clamp(8px, 2.5vw, 10px) clamp(8px, 2.5vw, 10px);
 }
 
 .nsv2-grid-full {
@@ -12202,16 +12509,16 @@ button:disabled {
 }
 
 .nsv2-field-label {
-  font-size: clamp(9px, 2.5vw, 10px);
-  font-weight: 600;
-  color: #999;
+  font-size: clamp(9px, 2.5vw, 9.5px);
+  font-weight: 700;
+  color: #aaa;
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
 
 .nsv2-field-input {
   width: 100%;
-  padding: clamp(9px, 2.8vw, 10px) clamp(10px, 3vw, 12px);
+  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
   border: 1.5px solid rgba(0, 0, 0, 0.05);
   border-radius: clamp(8px, 2.5vw, 10px);
   background: #f7f5f1;

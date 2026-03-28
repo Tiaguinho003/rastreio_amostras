@@ -507,20 +507,14 @@ function CameraPageContent() {
             <div ref={overlayRef} className="camera-hub-overlay" aria-hidden="true" />
 
             <div className="camera-hub-headline">
-              <span className={`camera-hub-status-badge is-${cameraStatus}`}>{cameraStateLabel}</span>
-              {showStatusText
-                ? cameraError
-                  ? (
-                    <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
-                      {cameraError}
-                    </p>
-                    )
-                  : (
-                    <p className="camera-hub-status-text" aria-live="polite">
-                      {statusMessage}
-                    </p>
-                    )
-                : null}
+              <button type="button" className="camera-hub-back-btn" onClick={() => router.back()} aria-label="Voltar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+              {showStatusText && cameraError ? (
+                <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
+                  {cameraError}
+                </p>
+              ) : null}
             </div>
 
             <div className="camera-hub-top-actions">
