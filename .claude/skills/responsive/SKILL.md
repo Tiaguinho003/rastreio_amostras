@@ -107,6 +107,15 @@ Sempre usar as variaveis ja definidas:
 - `--mobile-page-bg` - background da pagina
 - `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` - safe areas do dispositivo
 
+### 11. Botoes sem destaque verde
+
+- NENHUM botao do app deve ficar verde ao ser clicado, focado ou selecionado — sem excecao
+- O estilo global de `button` usa `background: transparent` — nunca alterar para `var(--accent)` ou qualquer verde
+- Para feedback de interacao, usar `transform: scale()` (efeito de afundar) ou reducao de opacidade
+- Sempre aplicar `-webkit-tap-highlight-color: transparent` em botoes interativos no mobile
+- Remover `outline` verde em `:focus-visible` — usar cores neutras (`rgba(0,0,0,0.15)`) se necessario
+- Botoes que precisam de fundo (formularios, acoes) devem usar classes especificas (`.login-card-submit`, `button.danger`, etc), nunca depender do estilo global
+
 ## Checklist rapido
 
 Ao escrever ou revisar CSS mobile, confirmar:
@@ -118,3 +127,4 @@ Ao escrever ou revisar CSS mobile, confirmar:
 - [ ] Status bar integrada com a cor do topo
 - [ ] Mensagens de feedback nao movimentam o layout
 - [ ] Proporcoes se mantem de 320px a 430px+
+- [ ] Nenhum botao fica verde ao clicar/focar

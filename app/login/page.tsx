@@ -12,11 +12,13 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [forgotPasswordRequestedByQuery, setForgotPasswordRequestedByQuery] = useState(false);
   const forgotPasswordTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -74,6 +76,34 @@ export default function LoginPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = null;
+    }
+
+    if (!error) return;
+
+    errorTimerRef.current = setTimeout(() => setError(null), 8000);
+
+    function handleClick(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (target.closest('a, button, [role="button"], input, select, textarea')) {
+        setError(null);
+      }
+    }
+
+    document.addEventListener('click', handleClick, true);
+
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+    };
+  }, [error]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -118,82 +148,108 @@ export default function LoginPage() {
 
   return (
     <main className="login-page mobile-edge-shell mobile-edge-shell-login">
-      <section className="login-card">
-        <div className="login-card-brand" aria-label="Safras">
-          <Image
-            src="/logo-laudo.png"
-            alt="Safras & negocios"
-            width={296}
-            height={296}
-            priority
-            className="login-card-brand-image"
-          />
-          <h1 className="login-visually-hidden">Entrar no sistema</h1>
+      <section className="login-header">
+        <div className="login-header-beans" aria-hidden="true">
+          <svg className="login-bean login-bean-1" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
+          <svg className="login-bean login-bean-2" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
+          <svg className="login-bean login-bean-3" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
+          <svg className="login-bean login-bean-4" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
+          <svg className="login-bean login-bean-5" viewBox="0 0 24 34"><ellipse cx="12" cy="17" rx="10" ry="15" fill="currentColor" /><path d="M12 4c-2 5-2 10 0 15s2 10 0 15" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.3" /></svg>
         </div>
 
-        <form className="login-card-form" onSubmit={handleSubmit}>
-          <div className="login-card-fields">
-            <label className="login-field-shell">
-              <span className="login-visually-hidden">Usuario</span>
+        <Image
+          src="/logo-safras-branco.png"
+          alt="Safras e Negocios"
+          width={1024}
+          height={299}
+          priority
+          className="login-header-logo"
+        />
+        <h1 className="login-visually-hidden">Entrar no sistema</h1>
+      </section>
+
+      <section className="login-form-section">
+        <div className="login-drag-handle" aria-hidden="true"><span /></div>
+
+        <div className="login-form-heading">
+          <p className="login-form-title">Bem-vindo de volta</p>
+          <p className="login-form-subtitle">Faca login para continuar</p>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-form-fields">
+            <label className={`login-field ${error && !username.trim() ? 'has-error' : ''}`}>
+              <span className="login-field-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Z" /><path d="M4 20a8 8 0 0 1 16 0" /></svg>
+              </span>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
-                placeholder="Usuário"
+                placeholder={error && !username.trim() ? error : 'Usuario'}
                 className="login-field-input"
               />
+              <span className="login-visually-hidden">Usuario</span>
             </label>
 
-            <label className="login-field-shell">
-              <span className="login-visually-hidden">Senha</span>
+            <label className={`login-field ${error && username.trim() ? 'has-error' : ''}`}>
+              <span className="login-field-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </span>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 autoCapitalize="none"
-                placeholder="Senha"
+                placeholder={error && username.trim() ? error : 'Senha'}
                 className="login-field-input"
               />
+              <button
+                type="button"
+                className="login-field-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" /></svg>
+                )}
+              </button>
+              <span className="login-visually-hidden">Senha</span>
             </label>
           </div>
 
-          <div className="login-card-actions">
+          <div className="login-form-forgot">
             <button
               ref={forgotPasswordTriggerRef}
               type="button"
-              className="login-card-link"
+              className="login-forgot-link"
               onClick={handleOpenForgotPassword}
             >
               Esqueceu a senha?
             </button>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="login-card-submit"
-              aria-label={loading ? 'Entrando...' : 'Entrar'}
-              title={loading ? 'Entrando...' : 'Entrar'}
-            >
-              <svg
-                viewBox="0 0 48 48"
-                fill="currentColor"
-                aria-hidden="true"
-                className="login-card-submit-icon"
-              >
-                <path d="M20 4h18a6 6 0 0 1 6 6v28a6 6 0 0 1-6 6H20v-5h18a1 1 0 0 0 1-1V10a1 1 0 0 0-1-1H20V4z" />
-                <path d="M4 22h22.34l-7.17-7.17L22 12l12 12-12 12-2.83-2.83L26.34 26H4v-4z" />
+          <button
+            type="submit"
+            disabled={loading}
+            className="login-submit-btn"
+          >
+            <span>{loading ? 'Entrando...' : 'Entrar'}</span>
+            {!loading ? (
+              <svg viewBox="0 0 24 24" className="login-submit-arrow" aria-hidden="true">
+                <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
               </svg>
-              <span className="login-visually-hidden">{loading ? 'Entrando...' : 'Entrar'}</span>
-            </button>
-          </div>
-
-          <div className="login-card-feedback" aria-live="polite">
-            {error ? <p className="error login-card-error">{error}</p> : null}
-          </div>
+            ) : null}
+          </button>
         </form>
+
+        <p className="login-footer-text">Safras & Negocios &copy; 2025 · v1.0</p>
       </section>
 
       <ForgotPasswordModal

@@ -4,11 +4,15 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { getCurrentSession } from '../lib/api-client';
+import { ApiError, getCurrentSession } from '../lib/api-client';
+
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && !navigator.onLine;
+}
 
 const SPLASH_DURATION_MS = 2800;
 const EXIT_ANIMATION_MS = 700;
-const SPLASH_COOLDOWN_MS = 10 * 60 * 1000;
+const SPLASH_COOLDOWN_MS = 5 * 60 * 1000;
 const STORAGE_KEY = 'splash-last-shown';
 
 function isCooldownExpired(): boolean {
@@ -51,9 +55,22 @@ export function SplashScreen() {
       activeRef.current = false;
       recordSplashTimestamp();
 
+      if (isOffline()) {
+        router.replace('/offline');
+        return;
+      }
+
       getCurrentSession()
         .then(() => router.replace('/dashboard'))
-        .catch(() => router.replace('/login'));
+        .catch((cause) => {
+          if (cause instanceof ApiError) {
+            router.replace('/login');
+          } else if (isOffline()) {
+            router.replace('/offline');
+          } else {
+            router.replace('/login');
+          }
+        });
     }, SPLASH_DURATION_MS + EXIT_ANIMATION_MS);
 
     timersRef.current = [t1, t2];
@@ -62,13 +79,28 @@ export function SplashScreen() {
   useEffect(() => {
     if (!isCooldownExpired()) {
       setVisible(false);
+
+      if (isOffline()) {
+        router.replace('/offline');
+        return;
+      }
+
+      getCurrentSession()
+        .then(() => router.replace('/dashboard'))
+        .catch(() => {
+          if (isOffline()) {
+            router.replace('/offline');
+          } else {
+            router.replace('/login');
+          }
+        });
       return;
     }
 
     runSplash();
 
     return () => timersRef.current.forEach(clearTimeout);
-  }, [runSplash]);
+  }, [runSplash, router]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

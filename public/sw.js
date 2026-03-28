@@ -1,5 +1,5 @@
-const CACHE_NAME = 'rastreio-shell-v1';
-const STATIC_PATHS = ['/', '/login', '/manifest.webmanifest', '/logo-laudo.png'];
+const CACHE_NAME = 'rastreio-shell-v2';
+const STATIC_PATHS = ['/', '/login', '/offline', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -70,6 +70,13 @@ self.addEventListener('fetch', (event) => {
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
           return cachedResponse;
+        }
+
+        if (request.destination === 'document') {
+          const offlinePage = await caches.match('/offline');
+          if (offlinePage) {
+            return offlinePage;
+          }
         }
 
         throw new Error('Network unavailable and no cached response was found');
