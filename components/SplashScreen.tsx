@@ -10,14 +10,13 @@ function isOffline(): boolean {
   return typeof navigator !== 'undefined' && !navigator.onLine;
 }
 
-const SPLASH_DURATION_MS = 3000;
+const MIN_SPLASH_MS = 1200;
 const EXIT_ANIMATION_MS = 700;
-const BACKGROUND_COOLDOWN_MS = 5 * 60 * 1000;
+const BACKGROUND_COOLDOWN_MS = 15 * 1000;
 
 const SESSION_KEY = 'splash-shown-this-session';
 const BACKGROUND_KEY = 'splash-last-background';
 
-/** Splash já foi exibida nesta sessão do app (fecha o app = reseta). */
 function wasShownThisSession(): boolean {
   try {
     return sessionStorage.getItem(SESSION_KEY) === '1';
@@ -29,12 +28,9 @@ function wasShownThisSession(): boolean {
 function markShownThisSession(): void {
   try {
     sessionStorage.setItem(SESSION_KEY, '1');
-  } catch {
-    /* storage unavailable */
-  }
+  } catch {}
 }
 
-/** Cooldown para o caso de voltar do background (visibilitychange). */
 function isBackgroundCooldownExpired(): boolean {
   try {
     const raw = localStorage.getItem(BACKGROUND_KEY);
@@ -48,27 +44,21 @@ function isBackgroundCooldownExpired(): boolean {
 function recordBackgroundTimestamp(): void {
   try {
     localStorage.setItem(BACKGROUND_KEY, String(Date.now()));
-  } catch {
-    /* storage unavailable */
-  }
+  } catch {}
 }
 
-function resolveDestination(router: ReturnType<typeof useRouter>) {
+function resolveDestination(): Promise<string> {
   if (isOffline()) {
-    router.replace('/offline');
-    return;
+    return Promise.resolve('/offline');
   }
 
-  getCurrentSession()
-    .then(() => router.replace('/dashboard'))
+  return getCurrentSession()
+    .then(() => '/dashboard')
     .catch((cause) => {
       if (cause instanceof ApiError) {
-        router.replace('/login');
-      } else if (isOffline()) {
-        router.replace('/offline');
-      } else {
-        router.replace('/login');
+        return '/login';
       }
+      return isOffline() ? '/offline' : '/login';
     });
 }
 
@@ -88,23 +78,29 @@ export function SplashScreen() {
 
     timersRef.current.forEach(clearTimeout);
 
-    const t1 = setTimeout(() => setExiting(true), SPLASH_DURATION_MS);
-    const t2 = setTimeout(() => {
-      setVisible(false);
-      activeRef.current = false;
-      markShownThisSession();
-      recordBackgroundTimestamp();
-      resolveDestination(router);
-    }, SPLASH_DURATION_MS + EXIT_ANIMATION_MS);
+    const startedAt = Date.now();
 
-    timersRef.current = [t1, t2];
+    resolveDestination().then((destination) => {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
+
+      const t1 = setTimeout(() => setExiting(true), remaining);
+      const t2 = setTimeout(() => {
+        setVisible(false);
+        activeRef.current = false;
+        markShownThisSession();
+        recordBackgroundTimestamp();
+        router.replace(destination);
+      }, remaining + EXIT_ANIMATION_MS);
+
+      timersRef.current = [t1, t2];
+    });
   }, [router]);
 
-  // Abertura do app: mostra splash se é uma sessão nova (app foi fechado e reaberto)
   useEffect(() => {
     if (wasShownThisSession()) {
       setVisible(false);
-      resolveDestination(router);
+      resolveDestination().then((dest) => router.replace(dest));
       return;
     }
 
@@ -113,7 +109,6 @@ export function SplashScreen() {
     return () => timersRef.current.forEach(clearTimeout);
   }, [runSplash, router]);
 
-  // Background → foreground: mostra splash se cooldown de 5 min expirou
   useEffect(() => {
     const onVisibilityChange = () => {
       if (
