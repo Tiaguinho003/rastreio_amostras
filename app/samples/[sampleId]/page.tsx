@@ -301,7 +301,7 @@ function buildClassificationDataPayload(
     imp: parseNumberInput(form.imp),
     classificador: form.classificador.trim() || null,
     peneirasPercentuais: hasSieve ? sieve : null,
-    defeito: parseNumberInput(form.defeito),
+    defeito: (() => { const v = parseNumberInput(form.defeito); return v !== null ? Math.round(v) : null; })(),
     umidade: parseNumberInput(form.umidade),
     aspectoCor: form.aspectoCor.trim() || null,
     observacoes: form.observacoes.trim() || null,
@@ -326,7 +326,7 @@ function buildTechnicalFromClassificationData(data: ClassificationDataPayload): 
   const technical: ClassificationTechnicalPayload = {};
 
   if (data.defeito !== null) {
-    technical.defectsCount = data.defeito;
+    technical.defectsCount = Math.round(data.defeito);
   }
   if (data.umidade !== null) {
     technical.moisture = data.umidade;
@@ -1387,7 +1387,6 @@ export default function SampleDetailPage() {
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
-      setClassificationStep('MEASURES');
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
@@ -1467,20 +1466,17 @@ export default function SampleDetailPage() {
     }
 
     if (!classificationAttachment) {
-      setClassificationStep('PHOTO');
       setClassificationNotice({ kind: 'error', text: 'A foto da classificacao e obrigatoria para concluir.' });
       return;
     }
 
     if (classificationSelectedPhoto) {
-      setClassificationStep('PHOTO');
-      setClassificationNotice({ kind: 'error', text: 'Use a nova foto selecionada ou clique em "Tentar novamente" antes de concluir.' });
+      setClassificationNotice({ kind: 'error', text: 'Confirme a foto selecionada antes de concluir.' });
       return;
     }
 
     const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
-      setClassificationStep('MEASURES');
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
