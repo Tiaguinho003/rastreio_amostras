@@ -430,10 +430,6 @@ function canRequestReprintStatus(status: SampleStatus): boolean {
   );
 }
 
-function isPrintPendingStatus(status: SampleStatus): boolean {
-  return status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT';
-}
-
 function isClassificationStatus(status: SampleStatus): boolean {
   return CLASSIFICATION_STATUSES.includes(status);
 }
@@ -597,11 +593,12 @@ export default function SampleDetailPage() {
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
+  const [arrivalPhotoPreviewOpen, setArrivalPhotoPreviewOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(null);
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
-  const [showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] = useState(false);
-  const [classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] = useState(0);
+  const [_showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] = useState(false);
+  const [_classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] = useState(0);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
@@ -880,28 +877,9 @@ export default function SampleDetailPage() {
   const classificationVisiblePhotoPreviewUrl =
     classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
   const classificationSavedPhotoUrl = classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
-  const classificationPhotoStatusLabel = classificationPhotoUploading
-    ? 'Salvando foto...'
-    : '';
   const classificationCanComplete = !classificationPhotoUploading && !classificationSelectedPhoto && Boolean(classificationAttachment);
   const classificationCanAccessDataSteps = Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
-  const classificationEditHighlightActive = classificationEditMode;
-  const classificationStepNumber = classificationStep === 'PHOTO' ? 1 : classificationStep === 'GENERAL' ? 2 : 3;
-  const classificationStepTitle =
-    classificationStep === 'PHOTO' ? 'Foto da classificacao' : classificationStep === 'GENERAL' ? 'Dados gerais' : 'Leituras e peneiras';
-  const classificationStepBusy =
-    classificationPhotoUploading || classificationSaving || classificationCompleting || classificationUpdating;
-  const classificationCanGoPrev = !classificationEditMode && classificationStep !== 'PHOTO' && !classificationStepBusy;
-  const classificationCanGoNext =
-    !classificationEditMode &&
-    !classificationStepBusy &&
-    (classificationStep === 'PHOTO'
-      ? classificationCanAccessDataSteps && !classificationSelectedPhoto
-      : classificationStep === 'GENERAL');
   const classificationTabDotTone = detail ? getOperationalStatusDotTone(detail.sample.status) : null;
-  const classificationTabDotLabel = detail ? getOperationalStatusDotLabel(detail.sample.status) : null;
-  const commercialTabDotTone = detail ? getCommercialStatusDotTone(detail.sample.commercialStatus) : null;
-  const commercialTabDotLabel = detail ? getCommercialStatusDotLabel(detail.sample.commercialStatus) : null;
 
   useEffect(() => {
     return () => {
@@ -1419,46 +1397,6 @@ export default function SampleDetailPage() {
     }
   }
 
-  function handleAdvanceFromClassificationPhoto() {
-    if (classificationSelectedPhoto) {
-      void handleUploadClassificationPhoto();
-      return;
-    }
-
-    if (classificationCanAccessDataSteps) {
-      setClassificationStep('GENERAL');
-      return;
-    }
-
-    setClassificationNotice({ kind: 'error', text: 'Selecione e salve uma foto da classificacao antes de continuar.' });
-  }
-
-  function handleAdvanceFromClassificationGeneral() {
-    setClassificationNotice(null);
-    setClassificationStep('MEASURES');
-  }
-
-  function handleGoBackClassificationStep() {
-    if (classificationStep === 'GENERAL') {
-      setClassificationStep('PHOTO');
-      return;
-    }
-
-    if (classificationStep === 'MEASURES') {
-      setClassificationStep('GENERAL');
-    }
-  }
-
-  function handleGoForwardClassificationStep() {
-    if (classificationStep === 'PHOTO') {
-      handleAdvanceFromClassificationPhoto();
-      return;
-    }
-
-    if (classificationStep === 'GENERAL') {
-      handleAdvanceFromClassificationGeneral();
-    }
-  }
 
   async function handleCompleteClassification() {
     if (!session || !detail || detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS') {
@@ -1545,44 +1483,7 @@ export default function SampleDetailPage() {
     setRegistrationEditReasonModalOpen(false);
   }
 
-  function handleRequestRegistrationUpdate() {
-    if (!session || !detail) {
-      return;
-    }
 
-    if (!canEditRegistrationStatus(detail.sample.status)) {
-      setRegistrationModalNotice({ kind: 'error', text: 'Status atual nao permite edicao de registro.' });
-      return;
-    }
-
-    if (!selectedOwnerClient) {
-      setRegistrationModalNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de salvar.' });
-      return;
-    }
-
-    const parsedForm = registrationFormSchema.safeParse({
-      owner: selectedOwnerClient.displayName ?? owner,
-      sacks,
-      harvest,
-      originLot
-    });
-    if (!parsedForm.success) {
-      setRegistrationModalNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados invalidos' });
-      return;
-    }
-
-    // Validate directly and save (motivo fields are in the same modal now)
-    void handleConfirmRegistrationUpdate();
-  }
-
-  function closeRegistrationEditReasonModal() {
-    if (registrationUpdating) {
-      return;
-    }
-
-    setRegistrationEditReasonModalOpen(false);
-    setRegistrationModalNotice(null);
-  }
 
   async function handleConfirmRegistrationUpdate() {
     if (!session || !detail) {
@@ -1992,7 +1893,7 @@ export default function SampleDetailPage() {
                         const arrivalAttachment = detail.attachments.find((a) => a.kind === 'ARRIVAL_PHOTO');
                         if (arrivalAttachment) {
                           return (
-                            <button type="button" className="sdv-photo-wrap" onClick={() => setClassificationPhotoPreviewOpen(true)}>
+                            <button type="button" className="sdv-photo-wrap" onClick={() => setArrivalPhotoPreviewOpen(true)}>
                               <img src={`/api/v1/samples/${detail.sample.id}/photos/${arrivalAttachment.id}`} alt="Foto da amostra" className="sdv-photo-img" />
                               <span className="sdv-photo-hint">Toque para ampliar</span>
                             </button>
@@ -2511,26 +2412,6 @@ export default function SampleDetailPage() {
         </div>
       ) : null}
 
-      {registrationEditReasonModalOpen ? (
-        <div className="app-modal-backdrop" onClick={() => closeRegistrationEditReasonModal()}>
-          <section ref={registrationEditTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>Confirmar edicao</h3>
-              <button type="button" className="cdm-close" onClick={closeRegistrationEditReasonModal} disabled={registrationUpdating} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-              </button>
-            </div>
-            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Confirme o motivo para registrar a edicao.</p>
-            <NoticeSlot notice={registrationModalNotice} />
-            <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating} style={{ opacity: registrationUpdating ? 0.65 : 1 }}>
-                {registrationUpdating ? 'Salvando...' : 'Confirmar'}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
       {classificationEditReasonModalOpen ? (
         <div
           className="app-modal-backdrop"
@@ -2622,40 +2503,20 @@ export default function SampleDetailPage() {
       ) : null}
 
       {classificationPhotoPreviewOpen && classificationSavedPhotoUrl ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => setClassificationPhotoPreviewOpen(false)}
-        >
-          <section
-            className="app-modal sample-classification-photo-preview-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Foto da classificacao"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 className="app-modal-title">Foto da classificacao</h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => setClassificationPhotoPreviewOpen(false)}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </header>
-            <div className="sample-classification-photo-preview-body">
-              <img
-                src={classificationSavedPhotoUrl}
-                alt="Foto da classificacao em tamanho ampliado"
-                className="sample-classification-photo-preview-img"
-              />
-            </div>
-          </section>
+        <div className="app-modal-backdrop" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={() => setClassificationPhotoPreviewOpen(false)}>
+          <img src={classificationSavedPhotoUrl} alt="Foto da classificacao" style={{ maxWidth: '92vw', maxHeight: '85dvh', objectFit: 'contain', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()} />
         </div>
       ) : null}
+
+      {arrivalPhotoPreviewOpen && detail ? (() => {
+        const arrivalAtt = detail.attachments.find((a) => a.kind === 'ARRIVAL_PHOTO');
+        if (!arrivalAtt) return null;
+        return (
+          <div className="app-modal-backdrop" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={() => setArrivalPhotoPreviewOpen(false)}>
+            <img src={`/api/v1/samples/${detail.sample.id}/photos/${arrivalAtt.id}`} alt="Foto da amostra" style={{ maxWidth: '92vw', maxHeight: '85dvh', objectFit: 'contain', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()} />
+          </div>
+        );
+      })() : null}
 
       {exportTypeSelectorOpen ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>
