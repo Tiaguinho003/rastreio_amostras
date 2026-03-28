@@ -5671,6 +5671,47 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Photo confirm bar */
+.sdv-photo-confirm-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: clamp(6px, 1.8vw, 8px);
+  padding: clamp(8px, 2.2vw, 10px);
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 0 0 12px 12px;
+}
+
+.sdv-photo-confirm-btn {
+  flex: 1;
+  padding: clamp(8px, 2.2vw, 10px);
+  border-radius: 8px;
+  border: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sdv-photo-confirm-btn.is-cancel {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.sdv-photo-confirm-btn.is-save {
+  background: #2E7D32;
+  color: #ffffff;
+}
+
+.sdv-photo-confirm-btn:disabled {
+  opacity: 0.5;
+}
+
 /* Action buttons */
 .sdv-cls-actions {
   display: flex;

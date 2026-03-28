@@ -2048,7 +2048,7 @@ export default function SampleDetailPage() {
                             capture="environment"
                             type="file"
                             disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                            onChange={(event) => { handleClassificationPhotoSelected(event.target.files?.[0] ?? null); if (event.target.files?.[0]) { void handleUploadClassificationPhoto(); } }}
+                            onChange={(event) => handleClassificationPhotoSelected(event.target.files?.[0] ?? null)}
                           />
 
                           {/* Card 1: Photo */}
@@ -2056,12 +2056,22 @@ export default function SampleDetailPage() {
                             <span className="sdv-card-title">Foto da classificacao</span>
                             {classificationVisiblePhotoPreviewUrl ? (
                               <div className="sdv-photo-wrap" style={{ position: 'relative' }}>
-                                <img src={classificationVisiblePhotoPreviewUrl} alt="Foto da classificacao" className="sdv-photo-img" style={{ height: 'clamp(110px, 30vw, 130px)' }} onClick={() => { if (classificationSavedPhotoUrl) setClassificationPhotoPreviewOpen(true); }} />
-                                {classificationPhotoEditingAllowed ? (
+                                <img src={classificationVisiblePhotoPreviewUrl} alt="Foto da classificacao" className="sdv-photo-img" style={{ height: 'clamp(110px, 30vw, 130px)' }} onClick={() => { if (classificationSavedPhotoUrl && !classificationSelectedPhoto) setClassificationPhotoPreviewOpen(true); }} />
+                                {classificationPhotoEditingAllowed && !classificationSelectedPhoto ? (
                                   <button type="button" className="sdv-photo-change-btn" onClick={() => classificationPhotoInputRef.current?.click()} disabled={classificationPhotoUploading}>
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
                                     <span>Trocar</span>
                                   </button>
+                                ) : null}
+                                {classificationSelectedPhoto ? (
+                                  <div className="sdv-photo-confirm-bar">
+                                    <button type="button" className="sdv-photo-confirm-btn is-cancel" onClick={() => clearClassificationSelectedPhoto()}>
+                                      Descartar
+                                    </button>
+                                    <button type="button" className="sdv-photo-confirm-btn is-save" onClick={() => void handleUploadClassificationPhoto()} disabled={classificationPhotoUploading}>
+                                      {classificationPhotoUploading ? 'Enviando...' : 'Confirmar foto'}
+                                    </button>
+                                  </div>
                                 ) : null}
                               </div>
                             ) : (
