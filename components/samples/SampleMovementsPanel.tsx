@@ -82,131 +82,131 @@ export function SampleMovementsPanel({
     setError(null);
   }
 
-  return (
-    <section className="sample-commercial-stack">
-      <SampleCommercialSummaryCard sample={sample} />
+  const sold = sample.soldSacks ?? 0;
+  const lost = sample.lostSacks ?? 0;
+  const available = sample.availableSacks ?? 0;
+  const totalDeclared = sample.declared?.sacks ?? (sold + lost + available);
+  const total = totalDeclared || 1;
+  const soldPct = (sold / total) * 100;
+  const lostPct = (lost / total) * 100;
+  const availPct = Math.max(0, 100 - soldPct - lostPct);
+  const commercialLabel = sold > 0 && available === 0 ? 'Vendido' : sold > 0 ? 'Parcial' : 'Disponivel';
+  const commercialStyle = commercialLabel === 'Vendido'
+    ? { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' }
+    : commercialLabel === 'Parcial'
+      ? { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' }
+      : { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' };
 
-      <section className="panel stack sample-movement-panel-card">
-        <div className="sample-movement-panel-head">
-          <div className="sample-movement-panel-copy">
-            <h3 style={{ margin: 0 }}>Movimentacoes comerciais</h3>
+  return (
+    <section className="sdv-commercial">
+      {/* Card 1: Resumo */}
+      <div className="sdv-card">
+        <div className="sdv-card-header">
+          <span className="sdv-card-title">Resumo comercial</span>
+          <span className="sdv-com-status" style={{ color: commercialStyle.color, background: commercialStyle.bg, borderColor: commercialStyle.border }}>{commercialLabel}</span>
+        </div>
+        <div className="sdv-com-bar">
+          <div className="sdv-com-bar-seg is-sold" style={{ width: `${soldPct}%`, animationDelay: '0s' }} />
+          <div className="sdv-com-bar-seg is-lost" style={{ width: `${lostPct}%`, animationDelay: '0.1s' }} />
+          <div className="sdv-com-bar-seg is-avail" style={{ width: `${availPct}%`, animationDelay: '0.2s' }} />
+        </div>
+        <div className="sdv-com-minis">
+          <div className="sdv-com-mini is-sold">
+            <div className="sdv-com-mini-label">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+              <span>Vendidas</span>
+            </div>
+            <span className="sdv-com-mini-value">{sold}</span>
+            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
+          </div>
+          <div className="sdv-com-mini is-lost">
+            <div className="sdv-com-mini-label">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+              <span>Perdidas</span>
+            </div>
+            <span className="sdv-com-mini-value">{lost}</span>
+            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
+          </div>
+          <div className="sdv-com-mini is-avail">
+            <div className="sdv-com-mini-label">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+              <span>Disponiveis</span>
+            </div>
+            <span className="sdv-com-mini-value">{available}</span>
+            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
           </div>
         </div>
+      </div>
 
-        {error ? <p className="error">{error}</p> : null}
+      {/* Card 2: Movimentações */}
+      <div className="sdv-card">
+        <div className="sdv-card-header">
+          <span className="sdv-card-title">Movimentacoes</span>
+          <span className="sdv-com-count">{sortedMovements.length} registros</span>
+        </div>
 
-        <div className="sample-movement-panel-body">
-          {hasMovements ? (
-            <div className="sample-movement-list">
-              {sortedMovements.map((movement) => {
-                const isCancelled = movement.status === 'CANCELLED';
-                const isSale = movement.movementType === 'SALE';
-                const buyerLabel = getMovementBuyerLabel(movement);
+        {error ? <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p> : null}
 
-                return (
-                  <article
-                    key={movement.id}
-                    className={`sample-movement-card${isCancelled ? ' is-cancelled' : ''}${isSale ? ' is-sale' : ' is-loss'}`}
-                  >
-                    <div className="sample-movement-card-content">
-                      <div className="sample-movement-card-head">
-                        <div className="sample-movement-card-type-row">
-                          {isCancelled ? (
-                            <span className="sample-movement-card-cancelled-badge">Cancelada</span>
-                          ) : null}
-                          <span className="sample-movement-card-date">{formatMovementDate(movement.movementDate)}</span>
-                          <strong className="sample-movement-card-qty">
-                            {movement.quantitySacks} {movement.quantitySacks === 1 ? 'saca' : 'sacas'}
-                          </strong>
-                        </div>
-                        {!isCancelled ? (
-                          <div className="sample-movement-card-actions">
-                            <button
-                              type="button"
-                              className="secondary sample-movement-card-action-btn"
-                              onClick={() => {
-                                setEditMovement(movement);
-                                clearFeedback();
-                              }}
-                              disabled={saving}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary sample-movement-card-action-btn is-danger"
-                              onClick={() => {
-                                setCancelMovement(movement);
-                                setCancelReasonText('');
-                                clearFeedback();
-                              }}
-                              disabled={saving}
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {(buyerLabel || (!isSale && movement.lossReasonText) || movement.notes) ? (
-                        <div className="sample-movement-card-body">
-                          {buyerLabel ? (
-                            <span className="sample-movement-card-meta">{buyerLabel}</span>
-                          ) : null}
-                          {!isSale && movement.lossReasonText ? (
-                            <span className="sample-movement-card-meta">{movement.lossReasonText}</span>
-                          ) : null}
-                          {movement.notes ? (
-                            <span className="sample-movement-card-meta">{movement.notes}</span>
-                          ) : null}
-                        </div>
-                      ) : null}
+        {hasMovements ? (
+          <div className="sdv-com-movements">
+            {sortedMovements.map((movement, i) => {
+              const isCancelled = movement.status === 'CANCELLED';
+              const isSale = movement.movementType === 'SALE';
+              const buyerLabel = getMovementBuyerLabel(movement);
+              return (
+                <div key={movement.id} className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`} style={{ animationDelay: `${i * 0.05}s` }}>
+                  <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
+                    {isSale ? (
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+                    )}
+                  </div>
+                  <div className="sdv-com-mov-content">
+                    <div className="sdv-com-mov-top">
+                      <span className="sdv-com-mov-qty">{movement.quantitySacks} sacas</span>
+                      <span className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}>{isSale ? 'Venda' : 'Perda'}</span>
+                      {isCancelled ? <span className="sdv-com-mov-badge is-cancelled">Cancelada</span> : null}
                     </div>
+                    <div className="sdv-com-mov-bottom">
+                      <span>{formatMovementDate(movement.movementDate)}</span>
+                      {buyerLabel ? (<><span className="sdv-com-mov-sep" /><span>→ {buyerLabel}</span></>) : null}
+                      {!isSale && movement.lossReasonText ? (<><span className="sdv-com-mov-sep" /><span style={{ color: '#C0392B' }}>{movement.lossReasonText}</span></>) : null}
+                    </div>
+                  </div>
+                  {!isCancelled ? (
+                    <div className="sdv-com-mov-actions">
+                      <button type="button" className="sdv-com-mov-act" onClick={() => { setEditMovement(movement); clearFeedback(); }} disabled={saving}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                      </button>
+                      <button type="button" className="sdv-com-mov-act is-danger" onClick={() => { setCancelMovement(movement); setCancelReasonText(''); clearFeedback(); }} disabled={saving}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="sdv-com-empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+            <span>Nenhuma movimentacao registrada</span>
+          </div>
+        )}
+      </div>
 
-                    <span className={`sample-movement-card-type-badge${isSale ? ' is-sale' : ' is-loss'}`}>
-                      {isSale ? 'Venda' : 'Perda'}
-                    </span>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="sample-movement-empty">
-              Nenhuma movimentacao registrada. Use as acoes abaixo para registrar uma venda ou uma perda nesta amostra.
-            </p>
-          )}
-
-        </div>
-
-        <div className="sample-movement-register-actions">
-          <button
-            type="button"
-            className="sample-movement-register-btn is-loss"
-            disabled={sample.status !== 'CLASSIFIED'}
-            title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar perda'}
-            onClick={() => {
-              setCreateType('LOSS');
-              setCreateOpen(true);
-              clearFeedback();
-            }}
-          >
-            Perda
-          </button>
-          <button
-            type="button"
-            className="sample-movement-register-btn is-sale"
-            disabled={sample.status !== 'CLASSIFIED'}
-            title={sample.status !== 'CLASSIFIED' ? 'A amostra precisa estar classificada para registrar movimentacoes' : 'Registrar venda'}
-            onClick={() => {
-              setCreateType('SALE');
-              setCreateOpen(true);
-              clearFeedback();
-            }}
-          >
-            Venda
-          </button>
-        </div>
-      </section>
+      {/* Action buttons */}
+      <div className="sdv-com-actions">
+        <button type="button" className="sdv-com-action-loss" disabled={sample.status !== 'CLASSIFIED'} onClick={() => { setCreateType('LOSS'); setCreateOpen(true); clearFeedback(); }}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+          Perda
+        </button>
+        <button type="button" className="sdv-com-action-sale" disabled={sample.status !== 'CLASSIFIED'} onClick={() => { setCreateType('SALE'); setCreateOpen(true); clearFeedback(); }}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+          Venda
+        </button>
+      </div>
 
       <SampleMovementModal
         session={session}

@@ -5770,6 +5770,323 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Commercial tab v2 */
+.sdv-commercial {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+  animation: sdv-fadeIn 0.3s ease both;
+}
+
+.sdv-com-status {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 600;
+  padding: 3px clamp(8px, 2.5vw, 10px);
+  border-radius: 6px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Stacked bar */
+@keyframes sdv-barGrow {
+  from { width: 0; }
+}
+
+.sdv-com-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  gap: 2px;
+  margin: clamp(12px, 3vw, 16px) 0;
+}
+
+.sdv-com-bar-seg {
+  border-radius: 5px;
+  min-width: 4px;
+  animation: sdv-barGrow 0.8s ease both;
+}
+
+.sdv-com-bar-seg.is-sold { background: #27AE60; }
+.sdv-com-bar-seg.is-lost { background: #C0392B; }
+.sdv-com-bar-seg.is-avail { background: #2980B9; }
+
+/* Mini cards */
+.sdv-com-minis {
+  display: flex;
+  gap: clamp(6px, 1.8vw, 8px);
+}
+
+.sdv-com-mini {
+  flex: 1;
+  border-radius: clamp(10px, 3vw, 12px);
+  padding: clamp(10px, 2.8vw, 12px) clamp(8px, 2.2vw, 10px);
+  text-align: center;
+  border: 1px solid;
+}
+
+.sdv-com-mini.is-sold { background: rgba(39, 174, 96, 0.08); border-color: rgba(39, 174, 96, 0.15); }
+.sdv-com-mini.is-lost { background: rgba(192, 57, 43, 0.08); border-color: rgba(192, 57, 43, 0.15); }
+.sdv-com-mini.is-avail { background: rgba(41, 128, 185, 0.08); border-color: rgba(41, 128, 185, 0.15); }
+
+.sdv-com-mini-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: clamp(4px, 1.2vw, 6px);
+}
+
+.sdv-com-mini-label svg {
+  width: clamp(10px, 2.8vw, 12px);
+  height: clamp(10px, 2.8vw, 12px);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-com-mini.is-sold .sdv-com-mini-label svg { stroke: #27AE60; }
+.sdv-com-mini.is-sold .sdv-com-mini-label span { color: #27AE60; }
+.sdv-com-mini.is-lost .sdv-com-mini-label svg { stroke: #C0392B; }
+.sdv-com-mini.is-lost .sdv-com-mini-label span { color: #C0392B; }
+.sdv-com-mini.is-avail .sdv-com-mini-label svg { stroke: #2980B9; }
+.sdv-com-mini.is-avail .sdv-com-mini-label span { color: #2980B9; }
+
+.sdv-com-mini-label span {
+  font-size: clamp(8px, 2.2vw, 9px);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sdv-com-mini-value {
+  display: block;
+  font-size: clamp(20px, 5.5vw, 24px);
+  font-weight: 700;
+}
+
+.sdv-com-mini.is-sold .sdv-com-mini-value { color: #27AE60; }
+.sdv-com-mini.is-lost .sdv-com-mini-value { color: #C0392B; }
+.sdv-com-mini.is-avail .sdv-com-mini-value { color: #2980B9; }
+
+.sdv-com-mini-total {
+  display: block;
+  font-size: clamp(8px, 2.2vw, 9px);
+  color: #bbb;
+}
+
+/* Count label */
+.sdv-com-count {
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: #999;
+}
+
+/* Movements list */
+.sdv-com-movements {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.8vw, 8px);
+}
+
+.sdv-com-mov {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(10px, 2.8vw, 12px) clamp(12px, 3.2vw, 14px);
+  background: #fafafa;
+  border-radius: clamp(10px, 3vw, 12px);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  animation: spv2-cardIn 0.35s ease both;
+}
+
+.sdv-com-mov.is-cancelled { opacity: 0.55; }
+
+.sdv-com-mov-icon {
+  width: clamp(34px, 9vw, 38px);
+  height: clamp(34px, 9vw, 38px);
+  border-radius: clamp(8px, 2.5vw, 10px);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid;
+}
+
+.sdv-com-mov-icon.is-sale { background: #F0FDF4; border-color: #BBF7D0; }
+.sdv-com-mov-icon.is-loss { background: #FEF2F2; border-color: #FECACA; }
+
+.sdv-com-mov-icon svg {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-com-mov-icon.is-sale svg { stroke: #27AE60; }
+.sdv-com-mov-icon.is-loss svg { stroke: #C0392B; }
+
+.sdv-com-mov-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.8vw, 3px);
+}
+
+.sdv-com-mov-top {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 1.5vw, 6px);
+}
+
+.sdv-com-mov-qty {
+  font-size: clamp(14px, 3.8vw, 16px);
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.sdv-com-mov-badge {
+  font-size: clamp(8px, 2.2vw, 9px);
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px clamp(5px, 1.5vw, 7px);
+  border-radius: 5px;
+}
+
+.sdv-com-mov-badge.is-sale { color: #27AE60; background: #F0FDF4; }
+.sdv-com-mov-badge.is-loss { color: #C0392B; background: #FEF2F2; }
+.sdv-com-mov-badge.is-cancelled { color: #999; background: #f0f0f0; }
+
+.sdv-com-mov-bottom {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 6px);
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: #aaa;
+  flex-wrap: wrap;
+}
+
+.sdv-com-mov-sep {
+  width: 1px;
+  height: 9px;
+  background: rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.sdv-com-mov-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sdv-com-mov-act {
+  width: clamp(26px, 7vw, 28px);
+  height: clamp(26px, 7vw, 28px);
+  border-radius: 7px;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sdv-com-mov-act svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: #666;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-com-mov-act.is-danger { background: #FEF2F2; }
+.sdv-com-mov-act.is-danger svg { stroke: #C0392B; }
+
+/* Empty state */
+.sdv-com-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.8vw, 8px);
+  padding: clamp(24px, 6vw, 32px) 0;
+}
+
+.sdv-com-empty svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: #ddd;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-com-empty span {
+  font-size: clamp(12px, 3.2vw, 13px);
+  color: #ccc;
+  font-weight: 500;
+}
+
+/* Action buttons */
+.sdv-com-actions {
+  display: flex;
+  gap: clamp(8px, 2.2vw, 10px);
+  margin-top: 4px;
+}
+
+.sdv-com-action-loss,
+.sdv-com-action-sale {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 1.5vw, 6px);
+  padding: clamp(12px, 3vw, 14px);
+  border-radius: 13px;
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.sdv-com-action-loss:active,
+.sdv-com-action-sale:active { transform: scale(0.96); }
+
+.sdv-com-action-loss:disabled,
+.sdv-com-action-sale:disabled { opacity: 0.45; }
+
+.sdv-com-action-loss {
+  flex: 1;
+  background: #FEF2F2;
+  border: 1.5px solid #FECACA;
+  color: #C0392B;
+}
+
+.sdv-com-action-sale {
+  flex: 1.3;
+  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  border: 0;
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(27, 94, 32, 0.3);
+}
+
+.sdv-com-action-loss svg,
+.sdv-com-action-sale svg {
+  width: clamp(14px, 3.8vw, 16px);
+  height: clamp(14px, 3.8vw, 16px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ── Client detail modal (cdm) ── */
 
 .cdm-modal {
