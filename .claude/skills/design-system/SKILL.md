@@ -9,20 +9,24 @@ Este documento define a linguagem visual do app. Toda pagina e componente DEVE s
 
 ## 1. Estrutura de Pagina
 
-Toda pagina autenticada segue o padrao **Header Verde + Sheet Bege**:
+Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
 
-### Header Verde
-- Gradiente base: `linear-gradient(160deg, #1f5d43 0%, #1B5E20 40%, #2E7D32 80%, #388E3C 100%)`
-- O topo do gradiente DEVE ser `#1f5d43` (mesma cor do `theme-color` e da status bar)
-- `padding-top` inclui `env(safe-area-inset-top)` + espacamento generoso
-- Conteudo especifico da pagina (saudacao, titulo, busca, etc)
-- `overflow: hidden` para elementos decorativos nao vazarem
+### Fundo Verde (app-shell)
+- O verde vem do `app-shell-main.is-dashboard-route`: `linear-gradient(180deg, #1f5d43 0%, #14372a 100%)`
+- O topo DEVE ser `#1f5d43` (mesma cor do `theme-color` e da status bar)
+- Toda pagina que usa este padrao deve ser adicionada como `isLayeredRoute` no AppShell
 
-### Sheet de Conteudo
+### Header da Pagina
+- **background: transparent** — NUNCA usar gradiente proprio no header. O header herda o verde do app-shell
+- `align-items: flex-end` para posicionar conteudo na base da area verde, proximo ao sheet bege
+- `padding-top` inclui `env(safe-area-inset-top)` + espacamento generoso para criar a area verde visivel
+- Conteudo especifico da pagina (titulo, botao voltar, avatar, etc)
+
+### Sheet de Conteudo (area bege)
 - Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`
-- Sobrepoe o header com `margin-top` negativo e `border-radius` arredondado no topo: `clamp(18px, 5vw, 24px)`
-- `box-shadow: 0 -4px 20px rgba(0,0,0,0.04)` para sutil elevacao
+- `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
 - `padding-bottom` respeita tabbar: `calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance))`
+- O sheet ocupa o restante da tela com `flex: 1`
 
 ### Paginas sem header verde
 - Paginas como settings, detalhes de amostra podem usar header mais compacto
@@ -59,7 +63,7 @@ Toda pagina autenticada segue o padrao **Header Verde + Sheet Bege**:
 | Terciario / muted | `#999` |
 | Sobre verde (titulo) | `#ffffff` |
 | Sobre verde (subtitulo) | `rgba(255,255,255,0.5)` a `rgba(255,255,255,0.7)` |
-| Placeholder | `rgba(0,0,0,0.35)` |
+| Placeholder | `rgba(0,0,0,0.18)` |
 
 ### Status (pendencias, alertas)
 | Status | Cor | Uso |
@@ -240,8 +244,9 @@ box-shadow: 0 4px 24px rgba(27, 94, 32, 0.3);
 
 Ao construir ou revisar qualquer pagina:
 
-- [ ] Header verde com gradiente iniciando em `#1f5d43`
-- [ ] Sheet bege sobrepondo header com border-radius e margin negativo
+- [ ] Fundo verde vem do app-shell (`is-dashboard-route`), header com `background: transparent`
+- [ ] Header com `align-items: flex-end` (conteudo na base, proximo ao sheet)
+- [ ] Sheet bege com `border-radius: 20px 20px 0 0` criando efeito 3D sobre o verde
 - [ ] Cards com sombra 3D (3 camadas + inset)
 - [ ] Linha lateral colorida em cards com status
 - [ ] Campos com icone, fundo `#f8f6f2`, borda verde ao focar

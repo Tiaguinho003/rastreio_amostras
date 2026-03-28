@@ -180,7 +180,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isNewSample = pathname === '/samples/new';
-  const isLayeredRoute = isDashboard || isNewSample;
+  const isSamplesList = pathname === '/samples';
+  const isClientsList = pathname === '/clients';
+  const isLayeredRoute = isDashboard || isNewSample || isSamplesList || isClientsList;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);

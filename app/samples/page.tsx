@@ -116,6 +116,51 @@ function formatSampleCardMeta(sample: SampleSnapshot) {
   return `Criada ${formatDate(sample.createdAt)} | Atual. ${formatDate(sample.updatedAt)}`;
 }
 
+type ChipFilter = 'all' | 'open' | 'partial' | 'sold' | 'lost';
+
+const CHIP_DEFINITIONS: ReadonlyArray<{ id: ChipFilter; label: string; color: string | null }> = [
+  { id: 'all', label: 'Todos', color: null },
+  { id: 'open', label: 'Em aberto', color: '#44505d' },
+  { id: 'partial', label: 'Venda parcial', color: '#c5a12e' },
+  { id: 'sold', label: 'Vendido', color: '#2a6539' },
+  { id: 'lost', label: 'Perdido', color: '#b44646' },
+];
+
+function getCardStatusColor(status: string): string {
+  switch (status) {
+    case 'REGISTRATION_CONFIRMED':
+    case 'QR_PENDING_PRINT': return '#C0392B';
+    case 'QR_PRINTED': return '#E67E22';
+    case 'CLASSIFICATION_IN_PROGRESS': return '#2980B9';
+    case 'CLASSIFIED': return '#27AE60';
+    case 'INVALIDATED': return '#C0392B';
+    default: return '#999';
+  }
+}
+
+function getCardStatusLabel(status: string): string {
+  switch (status) {
+    case 'REGISTRATION_CONFIRMED':
+    case 'QR_PENDING_PRINT': return 'Em aberto';
+    case 'QR_PRINTED': return 'Impressa';
+    case 'CLASSIFICATION_IN_PROGRESS': return 'Classificando';
+    case 'CLASSIFIED': return 'Finalizada';
+    case 'INVALIDATED': return 'Invalidada';
+    default: return '';
+  }
+}
+
+function matchesChipFilter(sample: SampleSnapshot, chip: ChipFilter): boolean {
+  switch (chip) {
+    case 'all': return true;
+    case 'open': return sample.commercialStatus === 'OPEN';
+    case 'partial': return sample.commercialStatus === 'PARTIALLY_SOLD';
+    case 'sold': return sample.commercialStatus === 'SOLD';
+    case 'lost': return sample.commercialStatus === 'LOST';
+    default: return true;
+  }
+}
+
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
     filters.owner.trim().length > 0 ||
@@ -391,6 +436,8 @@ function SamplesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
+  const [activeChip, setActiveChip] = useState<ChipFilter>('all');
+  const [sortNewest, setSortNewest] = useState(true);
 
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -408,6 +455,27 @@ function SamplesPage() {
     { id: 'sacks', label: 'Sacas', summary: getFilterSectionSummary('sacks', draftHiddenFilters), active: hasFilterSectionValue('sacks', draftHiddenFilters) },
     { id: 'period', label: 'Periodo', summary: getFilterSectionSummary('period', draftHiddenFilters), active: hasFilterSectionValue('period', draftHiddenFilters) }
   ], [draftHiddenFilters]);
+
+  const chipCounts = useMemo(() => {
+    const items = samplesState.items;
+    const counts: Record<ChipFilter, number> = { all: items.length, open: 0, partial: 0, sold: 0, lost: 0 };
+    for (const s of items) {
+      if (s.commercialStatus === 'OPEN') counts.open++;
+      if (s.commercialStatus === 'PARTIALLY_SOLD') counts.partial++;
+      if (s.commercialStatus === 'SOLD') counts.sold++;
+      if (s.commercialStatus === 'LOST') counts.lost++;
+    }
+    return counts;
+  }, [samplesState.items]);
+
+  const displayItems = useMemo(() => {
+    const filtered = activeChip === 'all' ? samplesState.items : samplesState.items.filter((s) => matchesChipFilter(s, activeChip));
+    return [...filtered].sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      return sortNewest ? tb - ta : ta - tb;
+    });
+  }, [samplesState.items, activeChip, sortNewest]);
 
   useEffect(() => {
     samplesScrollRef.current?.scrollTo({ top: 0 });
@@ -683,152 +751,156 @@ function SamplesPage() {
     );
   }
 
+  const fullName = session.user.fullName ?? session.user.username;
+  const avatarInitials = fullName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
   return (
     <AppShell session={session} onLogout={logout}>
-      <section className="panel stack samples-page-panel">
-        <header className="row samples-page-header-row">
-          <div className="samples-page-header-main">
-            <h2 className="samples-page-title">Amostras</h2>
+      <section className="samples-page-v2">
+        <header className="samples-page-v2-header">
+          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+          </Link>
+          <div className="samples-page-v2-header-center">
+            <h2 className="nsv2-title">Amostras</h2>
           </div>
+          <button
+            type="button"
+            className="nsv2-avatar"
+            aria-label="Abrir menu de perfil"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
+          >
+            <span className="nsv2-avatar-initials">{avatarInitials}</span>
+          </button>
         </header>
 
-        <div className="samples-page-toolbar">
-          <form
-            className="sample-search samples-page-search-bar"
-            role="search"
-            onSubmit={handleSearchSubmit}
-          >
-            <div className="sample-search-field samples-page-search-field">
-              <input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Lote ou proprietario"
-                autoComplete="off"
-                spellCheck={false}
-                aria-label="Pesquisar por lote ou proprietario"
-              />
-              <button
-                type="submit"
-                className="samples-page-search-submit-icon"
-                aria-label="Buscar registros"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m16.2 16.2 4.1 4.1" />
-                </svg>
-              </button>
-            </div>
-          </form>
-
-          <div className="samples-page-filter-control">
+        {/* Search bar — in green area, dashboard style */}
+        <div className="hero-search-wrap">
+          <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
+            <svg className="hero-search-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+            <input
+              className="hero-search-input"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar por lote ou proprietario"
+              autoComplete="off"
+              spellCheck={false}
+            />
             <button
               type="button"
-              className={`samples-page-filter-toggle${filtersOpen ? ' is-open' : ''}`}
-              aria-haspopup="dialog"
-              aria-expanded={filtersOpen}
-              aria-controls="samples-filter-modal"
-              aria-label={filtersOpen ? 'Fechar filtros' : 'Abrir filtros'}
+              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
+              aria-label="Filtros avancados"
               onClick={(event) => {
-                if (filtersOpen) {
-                  closeFilters();
-                  return;
-                }
-
+                if (filtersOpen) { closeFilters(); return; }
                 openFilters(event.currentTarget);
               }}
             >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
+                <path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" />
               </svg>
-              {activeHiddenFiltersCount > 0 ? <span className="samples-page-filter-badge">{activeHiddenFiltersCount}</span> : null}
+              {activeHiddenFiltersCount > 0 ? <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span> : null}
             </button>
-          </div>
+          </form>
         </div>
 
-        {samplesState.error ? <p className="error">{samplesState.error}</p> : null}
+        <section className="samples-page-v2-sheet">
+          {/* Section 1: Status chips */}
+          <div className="spv2-chips">
+            {CHIP_DEFINITIONS.map((chip) => {
+              const isActive = activeChip === chip.id;
+              const count = chipCounts[chip.id];
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  className={`spv2-chip${isActive ? ' is-active' : ''}`}
+                  style={isActive && chip.color ? { background: `${chip.color}14`, borderColor: chip.color } : undefined}
+                  onClick={() => setActiveChip(chip.id)}
+                >
+                  {chip.color ? <span className="spv2-chip-dot" style={{ background: chip.color }} /> : null}
+                  <span className="spv2-chip-label" style={isActive && chip.color ? { color: chip.color } : undefined}>{chip.label}</span>
+                  <span className="spv2-chip-count" style={isActive && chip.color ? { background: `${chip.color}1A`, color: chip.color } : undefined}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {samplesState.loading ? (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{currentTotalLabel}</p>
-            </header>
-            <div className="samples-page-list-state">
-              <p className="samples-page-empty">Carregando registros...</p>
-            </div>
-          </section>
-        ) : samplesState.items.length === 0 ? (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{currentTotalLabel}</p>
-            </header>
-            <div className="samples-page-list-state">
-              <p className="samples-page-empty">
-                {appliedSearch || hasAppliedHiddenFilters ? 'Nenhum registro encontrado para a pesquisa aplicada.' : 'Nenhum registro cadastrado.'}
-              </p>
-            </div>
-          </section>
-        ) : (
-          <section className="samples-page-list-area">
-            <header className="samples-page-list-header">
-              <p className="samples-page-list-total">{currentTotalLabel}</p>
-            </header>
-            <div ref={samplesScrollRef} className="samples-page-list-scroll" aria-label="Lista de registros cadastrados">
-              <div className="samples-page-list">
-                {samplesState.items.map((sample) => (
-                  <Link key={sample.id} href={`/samples/${sample.id}`} className={`dashboard-latest-registration-card samples-page-item ${getStatusThemeClass(sample.status)}`}>
-                    <div className="samples-page-item-main">
-                      <p className="dashboard-latest-registration-title">{sample.internalLotNumber ?? sample.id}</p>
-                      <p className="dashboard-latest-registration-subtitle">{sample.declared.owner || 'Proprietario nao informado'}</p>
-                    </div>
-
-                    <div className="samples-page-item-indicator">
-                      <span className={`samples-page-item-commercial ${getCommercialStatusTheme(sample.commercialStatus)}`}>
-                        {getCommercialLabel(sample.commercialStatus)}
-                      </span>
-                      <span className="samples-page-item-dot" aria-hidden="true" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        <footer className="samples-page-footer">
-          <div className="samples-page-pagination-controls" role="group" aria-label="Paginacao da lista">
-            <button
-              type="button"
-              className="samples-page-pagination-button"
-              aria-label="Pagina anterior"
-              disabled={!paginationHasPrev || paginationBusy}
-              onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 })}
-            >
+          {/* Section 2: Count + Sort */}
+          <div className="spv2-list-meta">
+            <span className="spv2-list-count">{displayItems.length} registros</span>
+            <button type="button" className="spv2-sort-btn" onClick={() => setSortNewest((v) => !v)}>
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="m14.5 6-6 6 6 6" />
+                <path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h6" />
               </svg>
-              <span className="login-visually-hidden">Anterior</span>
-            </button>
-            <p className="samples-page-pagination-counter">
-              <strong>{currentVisiblePage}</strong>
-              <span>/</span>
-              <span>{currentVisibleTotalPages}</span>
-            </p>
-            <button
-              type="button"
-              className="samples-page-pagination-button"
-              aria-label="Proxima pagina"
-              disabled={!paginationHasNext || paginationBusy}
-              onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 })}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="m9.5 6 6 6-6 6" />
-              </svg>
-              <span className="login-visually-hidden">Proximo</span>
+              <span>{sortNewest ? 'Recentes' : 'Antigos'}</span>
             </button>
           </div>
-        </footer>
+
+          {/* Section 3: Card list */}
+          {samplesState.loading ? (
+            <div className="spv2-list-scroll">
+              <div className="spv2-empty">
+                <p className="spv2-empty-text">Carregando...</p>
+              </div>
+            </div>
+          ) : displayItems.length === 0 ? (
+            <div className="spv2-list-scroll">
+              <div className="spv2-empty">
+                <svg className="spv2-empty-icon" viewBox="0 0 40 56" aria-hidden="true">
+                  <ellipse cx="20" cy="28" rx="17" ry="25" fill="#ddd" />
+                  <path d="M20 5c-3.5 8-4.2 16-1 23s3.5 15 1 23" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <p className="spv2-empty-text">Nenhuma amostra encontrada</p>
+                <p className="spv2-empty-sub">Tente outro filtro ou termo de busca</p>
+              </div>
+            </div>
+          ) : (
+            <div ref={samplesScrollRef} className="spv2-list-scroll">
+              {displayItems.map((sample, i) => {
+                const statusColor = getCardStatusColor(sample.status);
+                const statusLabel = getCardStatusLabel(sample.status);
+                return (
+                  <Link
+                    key={sample.id}
+                    href={`/samples/${sample.id}`}
+                    className="spv2-card"
+                    style={{ animationDelay: `${i * 0.04}s` }}
+                  >
+                    <span className="spv2-card-bar" style={{ background: statusColor }} />
+                    <div className="spv2-card-content">
+                      <div className="spv2-card-top">
+                        <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
+                        <span className="spv2-card-badge" style={{ color: statusColor, background: `${statusColor}14`, borderColor: `${statusColor}33` }}>{statusLabel}</span>
+                      </div>
+                      <div className="spv2-card-bottom">
+                        <span className="spv2-card-owner">{sample.declared.owner || 'Nao informado'}</span>
+                        <span className="spv2-card-sep" />
+                        <span className="spv2-card-detail">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+                          {sample.declared.sacks ?? '—'} sacas
+                        </span>
+                      </div>
+                    </div>
+                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Pagination */}
+          <footer className="spv2-footer">
+            <button type="button" className="spv2-page-btn" disabled={!paginationHasPrev || paginationBusy} onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 })}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+            </button>
+            <span className="spv2-page-info"><strong>{currentVisiblePage}</strong> / {currentVisibleTotalPages}</span>
+            <button type="button" className="spv2-page-btn" disabled={!paginationHasNext || paginationBusy} onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 })}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+            </button>
+          </footer>
+        </section>
       </section>
 
       {filtersOpen ? (
