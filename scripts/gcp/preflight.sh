@@ -46,9 +46,10 @@ check_gcloud_resource() {
   fi
 }
 
-load_cloud_homolog_context
+CLOUD_ENV="${1:-cloud-homolog}"
+load_cloud_context "${CLOUD_ENV}"
 
-echo "=== Cloud Homolog Preflight ==="
+echo "=== Cloud Preflight (${CLOUD_ENV}) ==="
 echo "[gcp] project: ${GCLOUD_PROJECT_ID:-<missing>}"
 echo "[gcp] region: ${GCLOUD_REGION}"
 echo "[gcp] service: ${GCLOUD_CLOUD_RUN_SERVICE}"
@@ -136,8 +137,8 @@ done
 
 echo
 if [[ "${FAILURES}" -gt 0 ]]; then
-  echo "Cloud homolog preflight FAILED with ${FAILURES} issue(s) and ${WARNINGS} warning(s)"
+  echo "Cloud preflight FAILED with ${FAILURES} issue(s) and ${WARNINGS} warning(s)"
   exit 1
 fi
 
-echo "Cloud homolog preflight PASSED with ${WARNINGS} warning(s)"
+echo "Cloud preflight PASSED with ${WARNINGS} warning(s)"

@@ -15,8 +15,17 @@ data/email-outbox
 .env.cloud-homolog.ops
 .env.internal-production
 .env.internal-production.ops
+.env.cloud-production
+.env.cloud-production.ops
 .env.prod
 .env.homolog
 *.tsbuildinfo
 rootCA.pem
 *:Zone.Identifier
+
+# Screenshots de desenvolvimento
+/*.png
+/*.jpg
+
+# MCP config (local)
+.mcp.json

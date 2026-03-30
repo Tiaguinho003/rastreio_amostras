@@ -3,11 +3,13 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 canonical_cloud_env_file() {
-  printf '%s/.env.cloud-homolog\n' "${PROJECT_DIR}"
+  local env_name="${1:-cloud-homolog}"
+  printf '%s/.env.%s\n' "${PROJECT_DIR}" "${env_name}"
 }
 
 canonical_cloud_ops_env_file() {
-  printf '%s/.env.cloud-homolog.ops\n' "${PROJECT_DIR}"
+  local env_name="${1:-cloud-homolog}"
+  printf '%s/.env.%s.ops\n' "${PROJECT_DIR}" "${env_name}"
 }
 
 source_local_env() {
@@ -24,19 +26,25 @@ source_local_env() {
   set +a
 }
 
-load_cloud_homolog_context() {
+load_cloud_context() {
+  local env_name="${1:-cloud-homolog}"
   local env_file
   local ops_env_file
 
-  env_file="${ENV_FILE:-$(canonical_cloud_env_file)}"
-  ops_env_file="${OPS_ENV_FILE:-$(canonical_cloud_ops_env_file)}"
+  env_file="${ENV_FILE:-$(canonical_cloud_env_file "${env_name}")}"
+  ops_env_file="${OPS_ENV_FILE:-$(canonical_cloud_ops_env_file "${env_name}")}"
 
   source_local_env "${env_file}"
   source_local_env "${ops_env_file}"
-  derive_cloud_homolog_defaults
+  derive_cloud_defaults
 }
 
-derive_cloud_homolog_defaults() {
+# Backward compatibility
+load_cloud_homolog_context() {
+  load_cloud_context "cloud-homolog"
+}
+
+derive_cloud_defaults() {
   : "${GCLOUD_REGION:=southamerica-east1}"
   : "${GCLOUD_ARTIFACT_REGISTRY_HOST:=${GCLOUD_REGION}-docker.pkg.dev}"
   : "${GCLOUD_IMAGE_NAME:=rastreio-interno-amostras}"
@@ -82,24 +90,39 @@ derive_cloud_homolog_defaults() {
 runtime_env_vars_csv() {
   local app_base_url="${1:-${APP_BASE_URL:-https://app.exemplo.local}}"
 
-  printf 'NODE_ENV=production,APP_BASE_URL=%s,SESSION_COOKIE_SECURE=%s,EMAIL_TRANSPORT=%s,EMAIL_OUTBOX_DIR=%s,EMAIL_OUTBOX_FROM=%s,UPLOADS_DIR=%s,MAX_UPLOAD_SIZE_BYTES=%s' \
+  local csv
+  csv="$(printf 'NODE_ENV=production,APP_BASE_URL=%s,SESSION_COOKIE_SECURE=%s,EMAIL_TRANSPORT=%s,UPLOADS_DIR=%s,MAX_UPLOAD_SIZE_BYTES=%s' \
     "${app_base_url}" \
     "${SESSION_COOKIE_SECURE}" \
     "${EMAIL_TRANSPORT}" \
-    "${EMAIL_OUTBOX_DIR}" \
-    "${EMAIL_OUTBOX_FROM:-rastreio-homolog@example.local}" \
     "${UPLOADS_DIR}" \
-    "${MAX_UPLOAD_SIZE_BYTES}"
+    "${MAX_UPLOAD_SIZE_BYTES}")"
+
+  if [[ "${EMAIL_TRANSPORT}" == "smtp" ]]; then
+    csv="${csv},SMTP_HOST=${SMTP_HOST},SMTP_PORT=${SMTP_PORT},SMTP_SECURE=${SMTP_SECURE:-false},SMTP_FROM=${SMTP_FROM}"
+    if [[ -n "${SMTP_USER:-}" ]]; then csv="${csv},SMTP_USER=${SMTP_USER}"; fi
+  else
+    csv="${csv},EMAIL_OUTBOX_DIR=${EMAIL_OUTBOX_DIR},EMAIL_OUTBOX_FROM=${EMAIL_OUTBOX_FROM:-rastreio@example.local}"
+  fi
+
+  printf '%s' "${csv}"
 }
 
 runtime_secret_mappings_csv() {
-  printf 'DATABASE_URL=%s:latest,AUTH_SECRET=%s:latest,BOOTSTRAP_ADMIN_FULL_NAME=%s:latest,BOOTSTRAP_ADMIN_USERNAME=%s:latest,BOOTSTRAP_ADMIN_EMAIL=%s:latest,BOOTSTRAP_ADMIN_PASSWORD=%s:latest' \
+  local csv
+  csv="$(printf 'DATABASE_URL=%s:latest,AUTH_SECRET=%s:latest,BOOTSTRAP_ADMIN_FULL_NAME=%s:latest,BOOTSTRAP_ADMIN_USERNAME=%s:latest,BOOTSTRAP_ADMIN_EMAIL=%s:latest,BOOTSTRAP_ADMIN_PASSWORD=%s:latest' \
     "${GCLOUD_SECRET_DATABASE_URL}" \
     "${GCLOUD_SECRET_AUTH_SECRET}" \
     "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME}" \
     "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME}" \
     "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL}" \
-    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD}"
+    "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD}")"
+
+  if [[ -n "${GCLOUD_SECRET_SMTP_PASS:-}" ]]; then
+    csv="${csv},SMTP_PASS=${GCLOUD_SECRET_SMTP_PASS}:latest"
+  fi
+
+  printf '%s' "${csv}"
 }
 
 runtime_volume_spec() {

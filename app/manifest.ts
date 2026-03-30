@@ -14,8 +14,14 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'any',
     icons: [
       {
-        src: '/logo-laudo.png',
-        sizes: '554x554',
+        src: '/icon-safras.png',
+        sizes: '224x224',
+        type: 'image/png',
+        purpose: 'any'
+      },
+      {
+        src: '/icon-safras.png',
+        sizes: '224x224',
         type: 'image/png',
         purpose: 'maskable'
       }

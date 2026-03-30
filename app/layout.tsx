@@ -25,8 +25,8 @@ export const metadata: Metadata = {
     telephone: false
   },
   icons: {
-    apple: [{ url: '/logo-laudo.png', sizes: '554x554', type: 'image/png' }],
-    icon: [{ url: '/logo-laudo.png', sizes: '554x554', type: 'image/png' }]
+    apple: [{ url: '/icon-safras.png', sizes: '224x224', type: 'image/png' }],
+    icon: [{ url: '/icon-safras.png', sizes: '224x224', type: 'image/png' }]
   }
 };
 
