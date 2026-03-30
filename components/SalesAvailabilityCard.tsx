@@ -1,19 +1,21 @@
 'use client';
 
+import Link from 'next/link';
+
 import type { DashboardSalesAvailabilityResponse } from '../lib/types';
 
 type SalesAvailabilityData = DashboardSalesAvailabilityResponse;
 
 const BAND_COLORS = {
-  over15: '#C0392B',
-  from8to15: '#E67E22',
-  under7: '#27AE60'
+  over30: '#C0392B',
+  from15to30: '#E5A100',
+  under15: '#27AE60'
 } as const;
 
 const BAND_LABELS = {
-  over15: 'Ha mais de 15 dias',
-  from8to15: 'Ha 8-15 dias',
-  under7: 'Ha menos de 7 dias'
+  over30: '+30',
+  from15to30: '+15',
+  under15: '-15'
 } as const;
 
 function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; total: number }) {
@@ -22,9 +24,9 @@ function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; t
   }
 
   const segments = [
-    { key: 'over15' as const, value: bands.over15 },
-    { key: 'from8to15' as const, value: bands.from8to15 },
-    { key: 'under7' as const, value: bands.under7 }
+    { key: 'over30' as const, value: bands.over30 },
+    { key: 'from15to30' as const, value: bands.from15to30 },
+    { key: 'under15' as const, value: bands.under15 }
   ].filter((s) => s.value > 0);
 
   return (
@@ -45,9 +47,9 @@ function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; t
 
 export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData }) {
   const bandEntries = [
-    { key: 'over15' as const, value: data.bands.over15 },
-    { key: 'from8to15' as const, value: data.bands.from8to15 },
-    { key: 'under7' as const, value: data.bands.under7 }
+    { key: 'over30' as const, value: data.bands.over30 },
+    { key: 'from15to30' as const, value: data.bands.from15to30 },
+    { key: 'under15' as const, value: data.bands.under15 }
   ];
 
   return (
@@ -72,17 +74,23 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
 
       <div className="sales-card-legend">
         {bandEntries.map((entry) => (
-          <div key={entry.key} className="sales-card-legend-row">
-            <span className="sales-card-legend-dot" style={{ background: BAND_COLORS[entry.key] }} />
-            <span className="sales-card-legend-label">{BAND_LABELS[entry.key]}</span>
-            <strong className="sales-card-legend-value" style={{ color: BAND_COLORS[entry.key] }}>
+          <Link
+            key={entry.key}
+            href={`/samples?aging=${entry.key}`}
+            className="sales-card-legend-card"
+            style={{ borderColor: BAND_COLORS[entry.key] }}
+          >
+            <span className="sales-card-legend-title" style={{ color: BAND_COLORS[entry.key] }}>
+              {BAND_LABELS[entry.key]}
+            </span>
+            <strong className="sales-card-legend-count">
               {entry.value}
             </strong>
-          </div>
+          </Link>
         ))}
       </div>
 
-      {data.bands.over15 > 0 ? (
+      {data.bands.over30 > 0 ? (
         <div className="sales-card-alert">
           <span className="sales-card-alert-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
@@ -92,7 +100,7 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
             </svg>
           </span>
           <span className="sales-card-alert-text">
-            {data.bands.over15} {data.bands.over15 === 1 ? 'amostra parada' : 'amostras paradas'} ha mais de 15 dias
+            {data.bands.over30} {data.bands.over30 === 1 ? 'amostra parada' : 'amostras paradas'} ha mais de 30 dias
           </span>
         </div>
       ) : null}

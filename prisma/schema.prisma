@@ -117,6 +117,18 @@ enum ClientAuditEventType {
   CLIENT_REGISTRATION_REACTIVATED
 }
 
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WarehouseAuditEventType {
+  WAREHOUSE_CREATED
+  WAREHOUSE_UPDATED
+  WAREHOUSE_INACTIVATED
+  WAREHOUSE_REACTIVATED
+}
+
 enum AttachmentKind {
   ARRIVAL_PHOTO
   CLASSIFICATION_PHOTO
@@ -195,6 +207,8 @@ model Sample {
   declaredSacks               Int?      @map("declared_sacks")
   declaredHarvest             String?   @map("declared_harvest")
   declaredOriginLot           String?   @map("declared_origin_lot")
+  warehouseId                 String?   @db.Uuid @map("warehouse_id")
+  declaredWarehouse           String?   @map("declared_warehouse")
   soldSacks                   Int       @default(0) @map("sold_sacks")
   lostSacks                   Int       @default(0) @map("lost_sacks")
   labelPhotoCount             Int       @default(0) @map("label_photo_count")
@@ -215,6 +229,7 @@ model Sample {
 
   ownerClient       Client?             @relation("SampleOwnerClient", fields: [ownerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   ownerRegistration ClientRegistration? @relation("SampleOwnerRegistration", fields: [ownerRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  warehouse         Warehouse?          @relation(fields: [warehouseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   events            SampleEvent[]
   attachments       SampleAttachment[]
   printJobs         PrintJob[]
@@ -232,6 +247,7 @@ model Sample {
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")
+  @@index([warehouseId], map: "idx_sample_warehouse")
   @@map("sample")
 }
 
@@ -331,7 +347,8 @@ model User {
   emailChangeRequests   EmailChangeRequest[]
   auditEventsAsTarget   UserAuditEvent[] @relation("UserAuditTarget")
   auditEventsAsActor    UserAuditEvent[] @relation("UserAuditActor")
-  clientAuditEventsAsActor ClientAuditEvent[] @relation("ClientAuditActor")
+  clientAuditEventsAsActor    ClientAuditEvent[]    @relation("ClientAuditActor")
+  warehouseAuditEventsAsActor WarehouseAuditEvent[] @relation("WarehouseAuditActor")
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
@@ -533,4 +550,44 @@ model UserAuditEvent {
   @@index([eventType, createdAt], map: "idx_user_audit_event_type_created")
   @@index([createdAt], map: "idx_user_audit_created")
   @@map("user_audit_event")
+}
+
+model Warehouse {
+  id            String          @id @db.Uuid
+  name          String
+  nameCanonical String          @unique(map: "uq_warehouse_name_canonical") @map("name_canonical")
+  address       String?
+  phone         String?
+  status        WarehouseStatus @default(ACTIVE)
+  createdAt     DateTime        @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(6) @map("updated_at")
+
+  samples             Sample[]
+  auditEventsAsTarget WarehouseAuditEvent[] @relation("WarehouseAuditTarget")
+
+  @@index([status, nameCanonical], map: "idx_warehouse_status_name")
+  @@index([createdAt, id], map: "idx_warehouse_created_id")
+  @@map("warehouse")
+}
+
+model WarehouseAuditEvent {
+  eventId           String                   @id @db.Uuid @map("event_id")
+  targetWarehouseId String?                  @db.Uuid @map("target_warehouse_id")
+  actorUserId       String?                  @db.Uuid @map("actor_user_id")
+  eventType         WarehouseAuditEventType  @map("event_type")
+  payload           Json
+  reasonText        String?                  @map("reason_text")
+  requestId         String                   @map("request_id")
+  correlationId     String?                  @map("correlation_id")
+  metadataIp        String?                  @map("metadata_ip")
+  metadataUserAgent String?                  @map("metadata_user_agent")
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  targetWarehouse Warehouse? @relation("WarehouseAuditTarget", fields: [targetWarehouseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actorUser       User?      @relation("WarehouseAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([targetWarehouseId, createdAt], map: "idx_warehouse_audit_target_created")
+  @@index([eventType, createdAt], map: "idx_warehouse_audit_event_type_created")
+  @@index([createdAt], map: "idx_warehouse_audit_created")
+  @@map("warehouse_audit_event")
 }

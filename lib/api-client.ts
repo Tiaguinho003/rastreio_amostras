@@ -29,7 +29,9 @@ import type {
   UserMutationResponse,
   UserPasswordMutationResponse,
   UserResponse,
-  UsersListResponse
+  UsersListResponse,
+  WarehouseLookupResponse,
+  WarehouseSummary
 } from './types';
 
 export class ApiError extends Error {
@@ -303,6 +305,91 @@ export function lookupClients(
   return request<ClientLookupResponse>(`/clients/lookup?${params.toString()}`, {
     method: 'GET',
     session
+  });
+}
+
+export function lookupWarehouses(
+  session: SessionData,
+  query: {
+    search: string;
+  }
+) {
+  const params = new URLSearchParams();
+  params.set('search', query.search);
+
+  return request<WarehouseLookupResponse>(`/warehouses/lookup?${params.toString()}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function listWarehouses(
+  session: SessionData,
+  query: {
+    search?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {},
+  options: { signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.status) params.set('status', query.status);
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+
+  return request<{ items: WarehouseSummary[]; page: { limit: number; page: number; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean } }>(`/warehouses${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal
+  });
+}
+
+export function createWarehouse(
+  session: SessionData,
+  data: { name: string; address?: string | null; phone?: string | null }
+) {
+  return request<{ warehouse: WarehouseSummary }>('/warehouses', {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function getWarehouse(session: SessionData, warehouseId: string) {
+  return request<{ warehouse: WarehouseSummary }>(`/warehouses/${warehouseId}`, {
+    method: 'GET',
+    session
+  });
+}
+
+export function updateWarehouse(
+  session: SessionData,
+  warehouseId: string,
+  data: { name?: string; address?: string | null; phone?: string | null; reasonText?: string | null }
+) {
+  return request<{ warehouse: WarehouseSummary }>(`/warehouses/${warehouseId}`, {
+    method: 'PATCH',
+    session,
+    body: data
+  });
+}
+
+export function inactivateWarehouse(session: SessionData, warehouseId: string, data: { reasonText: string }) {
+  return request<{ warehouse: WarehouseSummary }>(`/warehouses/${warehouseId}/inactivate`, {
+    method: 'POST',
+    session,
+    body: data
+  });
+}
+
+export function reactivateWarehouse(session: SessionData, warehouseId: string, data: { reasonText: string }) {
+  return request<{ warehouse: WarehouseSummary }>(`/warehouses/${warehouseId}/reactivate`, {
+    method: 'POST',
+    session,
+    body: data
   });
 }
 
@@ -675,6 +762,7 @@ export function listSamples(
     createdDate?: string;
     createdMonth?: string;
     createdYear?: string;
+    classifiedAging?: string;
   } = {},
   options: { signal?: AbortSignal } = {}
 ) {
@@ -695,6 +783,7 @@ export function listSamples(
   if (query.createdDate) params.set('createdDate', query.createdDate);
   if (query.createdMonth) params.set('createdMonth', query.createdMonth);
   if (query.createdYear) params.set('createdYear', query.createdYear);
+  if (query.classifiedAging) params.set('classifiedAging', query.classifiedAging);
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<ListSamplesResponse>(`/samples${suffix}`, {
@@ -728,6 +817,8 @@ export function createSampleAndPreparePrint(
     receivedChannel?: 'in_person' | 'courier' | 'driver' | 'other';
     notes?: string | null;
     printerId?: string | null;
+    warehouseName?: string | null;
+    warehouseId?: string | null;
     arrivalPhoto?: File | null;
   }
 ) {
@@ -752,6 +843,12 @@ export function createSampleAndPreparePrint(
     if (data.printerId !== undefined && data.printerId !== null) {
       formData.append('printerId', data.printerId);
     }
+    if (data.warehouseName) {
+      formData.append('warehouseName', data.warehouseName);
+    }
+    if (data.warehouseId) {
+      formData.append('warehouseId', data.warehouseId);
+    }
 
     formData.append('arrivalPhoto', data.arrivalPhoto);
 
@@ -775,7 +872,9 @@ export function createSampleAndPreparePrint(
       originLot: data.originLot,
       receivedChannel: data.receivedChannel ?? 'in_person',
       notes: data.notes ?? null,
-      printerId: data.printerId ?? null
+      printerId: data.printerId ?? null,
+      warehouseName: data.warehouseName ?? null,
+      warehouseId: data.warehouseId ?? null
     }
   });
 }

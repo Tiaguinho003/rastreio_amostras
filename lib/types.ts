@@ -200,6 +200,23 @@ export interface ClientRegistrationSummary {
   updatedAt: string | null;
 }
 
+export type WarehouseStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface WarehouseSummary {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  status: WarehouseStatus;
+  sampleCount?: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface WarehouseLookupResponse {
+  items: WarehouseSummary[];
+}
+
 export interface ClientResponse {
   client: ClientSummary;
 }
@@ -368,11 +385,13 @@ export interface SampleSnapshot {
   lastEventSequence: number;
   ownerClientId?: string | null;
   ownerRegistrationId?: string | null;
+  warehouseId?: string | null;
   declared: {
     owner: string | null;
     sacks: number | null;
     harvest: string | null;
     originLot: string | null;
+    warehouse?: string | null;
   };
   ownerClient?: {
     id: string;
@@ -401,6 +420,13 @@ export interface SampleSnapshot {
     state: string;
     postalCode: string;
     complement: string | null;
+  } | null;
+  warehouse?: {
+    id: string;
+    name: string;
+    address: string | null;
+    phone: string | null;
+    status: WarehouseStatus;
   } | null;
   soldSacks?: number;
   lostSacks?: number;
@@ -551,9 +577,9 @@ export interface DashboardSalesAvailabilityResponse {
   total: number;
   classifiedToday: number;
   bands: {
-    over15: number;
-    from8to15: number;
-    under7: number;
+    over30: number;
+    from15to30: number;
+    under15: number;
   };
 }
 

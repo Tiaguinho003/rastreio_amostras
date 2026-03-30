@@ -460,7 +460,7 @@ function normalizeRegistrationFieldValue(fieldName, value) {
 }
 
 function parseRegistrationUpdatePatch(after) {
-  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId']);
+  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId', 'warehouseId', 'warehouseName']);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
   const declared = hasOwn(after, 'declared') ? after.declared : undefined;
@@ -493,10 +493,22 @@ function parseRegistrationUpdatePatch(after) {
     patch.ownerRegistrationId = normalizeNullableUuid(after.ownerRegistrationId, 'after.ownerRegistrationId');
   }
 
+  if (hasOwn(after, 'warehouseId')) {
+    patch.hasWarehouseId = true;
+    patch.warehouseId = normalizeNullableUuid(after.warehouseId, 'after.warehouseId');
+  }
+
+  if (hasOwn(after, 'warehouseName')) {
+    patch.hasWarehouseName = true;
+    patch.warehouseName = typeof after.warehouseName === 'string' ? after.warehouseName.trim() : null;
+  }
+
   if (
     Object.keys(patch.declared).length === 0 &&
     patch.hasOwnerClientId !== true &&
-    patch.hasOwnerRegistrationId !== true
+    patch.hasOwnerRegistrationId !== true &&
+    patch.hasWarehouseId !== true &&
+    patch.hasWarehouseName !== true
   ) {
     throw new HttpError(422, 'after must include at least one editable registration field');
   }
@@ -740,6 +752,35 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
     if (!valuesEqual(currentOwnerValue, nextOwnerDisplayName)) {
       beforeDeclared.owner = currentOwnerValue;
       afterDeclared.owner = nextOwnerDisplayName;
+    }
+  }
+
+  const hasWarehousePatch = parsedPatch.hasWarehouseId === true || parsedPatch.hasWarehouseName === true;
+  if (hasWarehousePatch) {
+    const currentWarehouseId = sample.warehouseId ?? null;
+    const currentDeclaredWarehouse = hasOwn(currentDeclared, 'warehouse') ? currentDeclared.warehouse : null;
+    const resolvedWarehouse = parsedPatch.resolvedWarehouseBinding;
+
+    if (resolvedWarehouse) {
+      if (!valuesEqual(currentWarehouseId, resolvedWarehouse.warehouseId)) {
+        before.warehouseId = currentWarehouseId;
+        after.warehouseId = resolvedWarehouse.warehouseId;
+      }
+      if (!valuesEqual(currentDeclaredWarehouse, resolvedWarehouse.warehouseName)) {
+        beforeDeclared.warehouse = currentDeclaredWarehouse;
+        afterDeclared.warehouse = resolvedWarehouse.warehouseName;
+      }
+    } else if (parsedPatch.hasWarehouseId === true && parsedPatch.warehouseId === null) {
+      if (currentWarehouseId !== null) {
+        before.warehouseId = currentWarehouseId;
+        after.warehouseId = null;
+      }
+      if (currentDeclaredWarehouse !== null) {
+        before.declaredWarehouse = currentDeclaredWarehouse;
+        after.declaredWarehouse = null;
+        beforeDeclared.warehouse = currentDeclaredWarehouse;
+        afterDeclared.warehouse = null;
+      }
     }
   }
 
@@ -1101,12 +1142,32 @@ function isInternalLotNumberUniqueConflict(error) {
   return message.includes('internal_lot_number') || message.includes('uq_sample_internal_lot');
 }
 
+async function resolveWarehouseForWrite({ warehouseName, warehouseId, warehouseService, actorContext }) {
+  if (warehouseId !== undefined && warehouseId !== null) {
+    if (!warehouseService) {
+      throw new Error('warehouseService is required for warehouse ID resolution');
+    }
+    return warehouseService.resolveWarehouseById(warehouseId);
+  }
+
+  const trimmed = typeof warehouseName === 'string' ? warehouseName.trim() : '';
+  if (trimmed.length > 0) {
+    if (!warehouseService) {
+      throw new Error('warehouseService is required for warehouse resolution');
+    }
+    return warehouseService.resolveOrCreateWarehouse(trimmed, actorContext);
+  }
+
+  return null;
+}
+
 export class SampleCommandService {
-  constructor({ eventService, queryService, uploadService = null, clientService = null }) {
+  constructor({ eventService, queryService, uploadService = null, clientService = null, warehouseService = null }) {
     this.eventService = eventService;
     this.queryService = queryService;
     this.uploadService = uploadService;
     this.clientService = clientService;
+    this.warehouseService = warehouseService;
   }
 
   async receiveSample(input, actorContext) {
@@ -1139,6 +1200,12 @@ export class SampleCommandService {
       inputOwnerRegistrationId: normalizeNullableUuid(input.ownerRegistrationId, 'ownerRegistrationId'),
       clientService: this.clientService,
       mode: 'create'
+    });
+    const warehouseBinding = await resolveWarehouseForWrite({
+      warehouseName: input.warehouseName ?? null,
+      warehouseId: normalizeNullableUuid(input.warehouseId, 'warehouseId'),
+      warehouseService: this.warehouseService,
+      actorContext
     });
     const declared = {
       owner:
@@ -1252,6 +1319,8 @@ export class SampleCommandService {
               declared,
               ownerClientId: ownerBinding?.ownerClientId ?? null,
               ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
+              warehouseId: warehouseBinding?.warehouseId ?? null,
+              declaredWarehouse: warehouseBinding?.warehouseName ?? null,
               labelPhotoIds: arrivalPhotoIds,
               ocr: normalizeOcrPayload(null),
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`
@@ -1474,6 +1543,8 @@ export class SampleCommandService {
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
           ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
+          warehouseId: input.warehouseId ?? null,
+          declaredWarehouse: input.declaredWarehouse ?? null,
           labelPhotos: attachmentIds,
           ocr
         },
@@ -1761,9 +1832,18 @@ export class SampleCommandService {
       clientService: this.clientService,
       mode: 'update'
     });
+    const warehouseBinding = (parsedPatch.hasWarehouseId === true || parsedPatch.hasWarehouseName === true)
+      ? await resolveWarehouseForWrite({
+          warehouseName: parsedPatch.warehouseName ?? null,
+          warehouseId: parsedPatch.warehouseId ?? null,
+          warehouseService: this.warehouseService,
+          actorContext: actor
+        })
+      : undefined;
     const effectivePatch = {
       ...parsedPatch,
-      resolvedOwnerBinding: ownerBinding
+      resolvedOwnerBinding: ownerBinding,
+      resolvedWarehouseBinding: warehouseBinding
     };
     const updatePayload = buildRegistrationUpdatePayload(sample, effectivePatch);
     if (!updatePayload) {

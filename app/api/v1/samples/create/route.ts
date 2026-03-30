@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
         receivedChannel: formData.get('receivedChannel'),
         notes: formData.get('notes'),
         printerId: formData.get('printerId'),
+        warehouseName: formData.get('warehouseName'),
+        warehouseId: formData.get('warehouseId'),
         arrivalPhotoFileBuffer,
         arrivalPhotoMimeType,
         arrivalPhotoOriginalFileName

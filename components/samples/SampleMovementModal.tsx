@@ -236,30 +236,18 @@ export function SampleMovementModal({
 
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
-            <>
-              <div className="sdv-edit-field">
-                <ClientLookupField
-                  session={session}
-                  label="Comprador"
-                  kind="buyer"
-                  selectedClient={buyerClient}
-                  disabled={saving}
-                  compact
-                  onSelectClient={(client) => { setBuyerClient(client); setBuyerRegistrationId(null); setError(null); }}
-                  emptyMessage="Nenhum comprador encontrado."
-                />
-              </div>
-              <div className="sdv-edit-field">
-                <ClientRegistrationSelect
-                  label="Inscricao (opcional)"
-                  registrations={buyerRegistrations}
-                  value={buyerRegistrationId}
-                  disabled={!buyerClient || loadingRegistrations || saving}
-                  onChange={setBuyerRegistrationId}
-                  compact
-                />
-              </div>
-            </>
+            <div className="sdv-edit-field">
+              <ClientLookupField
+                session={session}
+                label="Comprador"
+                kind="buyer"
+                selectedClient={buyerClient}
+                disabled={saving}
+                compact
+                onSelectClient={(client) => { setBuyerClient(client); setBuyerRegistrationId(null); setError(null); }}
+                emptyMessage="Nenhum comprador encontrado."
+              />
+            </div>
           ) : (
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Motivo da perda</span>

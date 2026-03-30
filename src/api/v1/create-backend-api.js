@@ -8,6 +8,7 @@ import { SampleQueryService } from '../../samples/sample-query-service.js';
 import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-upload-service.js';
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
+import { WarehouseService } from '../../warehouses/warehouse-service.js';
 import { createBackendApiV1 } from './backend-api.js';
 
 function isProductionEnv() {
@@ -42,11 +43,15 @@ export function createBackendApiV1FromEnv() {
   const clientService = new ClientService({
     prisma
   });
+  const warehouseService = new WarehouseService({
+    prisma
+  });
   const commandService = new SampleCommandService({
     eventService,
     queryService,
     uploadService,
-    clientService
+    clientService,
+    warehouseService
   });
   const reportService = new SamplePdfReportService({
     queryService,
@@ -63,6 +68,7 @@ export function createBackendApiV1FromEnv() {
     authService,
     userService,
     clientService,
+    warehouseService,
     commandService,
     queryService,
     reportService

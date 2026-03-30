@@ -257,6 +257,12 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.declaredHarvest = event.payload.declared.harvest;
     updateData.declaredOriginLot = event.payload.declared.originLot;
     updateData.labelPhotoCount = labelPhotos.length;
+    if (hasOwn(event.payload, 'warehouseId')) {
+      updateData.warehouseId = event.payload.warehouseId ?? null;
+    }
+    if (hasOwn(event.payload, 'declaredWarehouse')) {
+      updateData.declaredWarehouse = event.payload.declaredWarehouse ?? null;
+    }
   }
 
   if (event.eventType === 'REGISTRATION_UPDATED') {
@@ -275,6 +281,10 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(declaredAfter, 'sacks')) updateData.declaredSacks = declaredAfter.sacks;
     if (hasOwn(declaredAfter, 'harvest')) updateData.declaredHarvest = declaredAfter.harvest;
     if (hasOwn(declaredAfter, 'originLot')) updateData.declaredOriginLot = declaredAfter.originLot;
+
+    if (hasOwn(after, 'warehouseId')) updateData.warehouseId = after.warehouseId;
+    if (hasOwn(after, 'declaredWarehouse')) updateData.declaredWarehouse = after.declaredWarehouse;
+    if (hasOwn(declaredAfter, 'warehouse')) updateData.declaredWarehouse = declaredAfter.warehouse;
 
     if (hasOwn(after, 'soldSacks')) updateData.soldSacks = after.soldSacks;
     if (hasOwn(after, 'lostSacks')) updateData.lostSacks = after.lostSacks;

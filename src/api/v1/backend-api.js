@@ -102,6 +102,7 @@ export function createBackendApiV1({
   authService = null,
   userService = null,
   clientService = null,
+  warehouseService = null,
   commandService,
   queryService,
   reportService = null
@@ -207,6 +208,8 @@ export function createBackendApiV1({
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
             printerId: body.printerId ?? null,
+            warehouseName: body.warehouseName ?? null,
+            warehouseId: body.warehouseId ?? null,
             arrivalPhoto
           },
           actor
@@ -551,7 +554,8 @@ export function createBackendApiV1({
           sacksMax: readOptionalQueryString(query.sacksMax),
           createdDate: readOptionalQueryString(query.createdDate),
           createdMonth: readOptionalQueryString(query.createdMonth),
-          createdYear: readOptionalQueryString(query.createdYear)
+          createdYear: readOptionalQueryString(query.createdYear),
+          classifiedAging: readOptionalQueryString(query.classifiedAging)
         });
 
         return {
@@ -1680,6 +1684,221 @@ export function createBackendApiV1({
           },
           actor
         );
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    // ── Warehouses ──────────────────────────────────────────────────
+
+    listWarehouses: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await warehouseService.listWarehouses(
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            status: query.status
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    lookupWarehouses: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await warehouseService.lookupWarehouses(
+          {
+            search: query.search
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    getWarehouse: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const result = await warehouseService.getWarehouse(warehouseId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    createWarehouse: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await warehouseService.createWarehouse(
+          {
+            name: body.name,
+            address: body.address,
+            phone: body.phone
+          },
+          actor
+        );
+
+        return {
+          status: 201,
+          body: result
+        };
+      }),
+
+    updateWarehouse: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await warehouseService.updateWarehouse(
+          warehouseId,
+          body,
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    getWarehouseImpact: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const result = await warehouseService.getWarehouseImpact(warehouseId, actor);
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    inactivateWarehouse: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await warehouseService.inactivateWarehouse(
+          warehouseId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    reactivateWarehouse: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await warehouseService.reactivateWarehouse(
+          warehouseId,
+          {
+            reasonText: body.reasonText
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result
+        };
+      }),
+
+    listWarehouseAuditEvents: (input) =>
+      executeApiForInput(input, async () => {
+        if (!warehouseService) {
+          throw new HttpError(501, 'Warehouse service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const warehouseId = input?.params?.warehouseId;
+        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
+          throw new HttpError(422, 'warehouseId path param is required');
+        }
+
+        const query = input?.query ?? {};
+        const result = await warehouseService.listAuditEvents(
+          warehouseId,
+          {
+            page: query.page,
+            limit: query.limit
+          },
+          actor
+        );
+
         return {
           status: 200,
           body: result

@@ -9,6 +9,7 @@ import { ClientLookupField } from '../../../components/clients/ClientLookupField
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
+import { WarehouseLookupField } from '../../../components/warehouses/WarehouseLookupField';
 import {
   ApiError,
   completeClassification,
@@ -39,7 +40,8 @@ import type {
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
-  SessionUser
+  SessionUser,
+  WarehouseSummary
 } from '../../../lib/types';
 
 type ClassificationFormState = {
@@ -615,6 +617,8 @@ export default function SampleDetailPage() {
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseSummary | null>(null);
+  const [warehouseText, setWarehouseText] = useState('');
   const [confirming, setConfirming] = useState(false);
 
   const [printerId, setPrinterId] = useState('printer-main');
@@ -699,6 +703,8 @@ export default function SampleDetailPage() {
           setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
           setHarvest(response.sample.declared.harvest ?? '');
           setOriginLot(response.sample.declared.originLot ?? '');
+          setSelectedWarehouse(response.sample.warehouse ? { id: response.sample.warehouse.id, name: response.sample.warehouse.name, address: response.sample.warehouse.address, phone: response.sample.warehouse.phone, status: response.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
+          setWarehouseText(response.sample.declared?.warehouse ?? '');
         }
 
         if (!classificationEditModeRef.current) {
@@ -1458,6 +1464,8 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
+    setSelectedWarehouse(detail.sample.warehouse ? { id: detail.sample.warehouse.id, name: detail.sample.warehouse.name, address: detail.sample.warehouse.address, phone: detail.sample.warehouse.phone, status: detail.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
+    setWarehouseText(detail.sample.declared?.warehouse ?? '');
     registrationEditModeRef.current = true;
     setRegistrationEditMode(true);
     setGeneralNotice(null);
@@ -1476,6 +1484,8 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
+    setSelectedWarehouse(detail.sample.warehouse ? { id: detail.sample.warehouse.id, name: detail.sample.warehouse.name, address: detail.sample.warehouse.address, phone: detail.sample.warehouse.phone, status: detail.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
+    setWarehouseText(detail.sample.declared?.warehouse ?? '');
     registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
@@ -1518,13 +1528,30 @@ export default function SampleDetailPage() {
     setRegistrationModalNotice(null);
 
     try {
+      const afterPayload: { [key: string]: string | number | boolean | null | { [key: string]: string | number | boolean | null } } = {
+        declared: parsedForm.data,
+        ownerClientId: selectedOwnerClient.id,
+        ownerRegistrationId: selectedOwnerRegistrationId
+      };
+
+      const currentWarehouseId = detail.sample.warehouseId ?? null;
+      const nextWarehouseId = selectedWarehouse?.id ?? null;
+      const nextWarehouseName = warehouseText.trim() || null;
+      const currentWarehouseName = detail.sample.declared?.warehouse ?? null;
+
+      if (nextWarehouseId !== currentWarehouseId || nextWarehouseName !== currentWarehouseName) {
+        if (nextWarehouseId) {
+          afterPayload.warehouseId = nextWarehouseId;
+        } else if (nextWarehouseName) {
+          afterPayload.warehouseName = nextWarehouseName;
+        } else {
+          afterPayload.warehouseId = null;
+        }
+      }
+
       await updateRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
-        after: {
-          declared: parsedForm.data,
-          ownerClientId: selectedOwnerClient.id,
-          ownerRegistrationId: selectedOwnerRegistrationId
-        },
+        after: afterPayload,
         reasonCode: parsedReason.data.reasonCode,
         reasonText: parsedReason.data.reasonText
       });
@@ -1873,6 +1900,10 @@ export default function SampleDetailPage() {
                           <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.originLot)}</span>
                         </div>
                         <div className="sdv-info-item">
+                          <span className="sdv-info-label">Armazem</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared?.warehouse)}</span>
+                        </div>
+                        <div className="sdv-info-item">
                           <span className="sdv-info-label">Recebido em</span>
                           <span className="sdv-info-value">{formatTimestamp(detail.sample.createdAt)}</span>
                         </div>
@@ -2195,6 +2226,9 @@ export default function SampleDetailPage() {
               <p>
                 <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
               </p>
+              <p>
+                <strong>Armazem:</strong> {buildReadableValue(detail.sample.declared?.warehouse)}
+              </p>
             </div>
           </article>
         </section>
@@ -2256,6 +2290,9 @@ export default function SampleDetailPage() {
                   </p>
                   <p>
                     <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
+              </p>
+              <p>
+                <strong>Armazem:</strong> {buildReadableValue(detail.sample.declared?.warehouse)}
                   </p>
                 </div>
               </article>
@@ -2383,6 +2420,21 @@ export default function SampleDetailPage() {
                 <span className="sdv-edit-label">Lote de origem</span>
                 <input className="sdv-edit-input" value={originLot} onChange={(event) => setOriginLot(event.target.value)} disabled={registrationUpdating} />
               </label>
+              <div className="sdv-edit-field">
+                <WarehouseLookupField
+                  session={session}
+                  label="Armazem"
+                  selectedWarehouse={selectedWarehouse}
+                  onSelectWarehouse={(w) => {
+                    setSelectedWarehouse(w);
+                    setWarehouseText(w?.name ?? '');
+                  }}
+                  onTextChange={setWarehouseText}
+                  disabled={registrationUpdating}
+                  compact
+                  placeholder="Busque ou digite o armazem"
+                />
+              </div>
 
               <div className="sdv-edit-sep" />
 

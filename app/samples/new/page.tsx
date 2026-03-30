@@ -9,6 +9,7 @@ import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
+import { WarehouseLookupField } from '../../../components/warehouses/WarehouseLookupField';
 import {
   ApiError,
   createSampleAndPreparePrint,
@@ -20,7 +21,8 @@ import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/
 import type {
   ClientRegistrationSummary,
   ClientSummary,
-  CreateSampleAndPreparePrintResponse
+  CreateSampleAndPreparePrintResponse,
+  WarehouseSummary
 } from '../../../lib/types';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
@@ -86,6 +88,8 @@ interface PendingDraftPayload {
   receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
   notes: string | null;
   printerId: string | null;
+  warehouseName: string | null;
+  warehouseId: string | null;
   arrivalPhoto: File | null;
 }
 
@@ -145,6 +149,8 @@ function NewSamplePageContent() {
   const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseSummary | null>(null);
+  const [warehouseText, setWarehouseText] = useState('');
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
@@ -689,6 +695,8 @@ function NewSamplePageContent() {
       receivedChannel: parsed.data.receivedChannel,
       notes: parsed.data.notes ?? null,
       printerId: null,
+      warehouseName: warehouseText.trim() || null,
+      warehouseId: selectedWarehouse?.id ?? null,
       arrivalPhoto
     });
 
@@ -717,6 +725,8 @@ function NewSamplePageContent() {
         receivedChannel: pendingDraft.receivedChannel,
         notes: pendingDraft.notes,
         printerId: pendingDraft.printerId,
+        warehouseName: pendingDraft.warehouseName,
+        warehouseId: pendingDraft.warehouseId,
         arrivalPhoto: pendingDraft.arrivalPhoto
       });
 
@@ -753,6 +763,7 @@ function NewSamplePageContent() {
   const previewSacks = pendingDraft?.sacks ?? printableSample?.declared.sacks ?? null;
   const previewHarvest = pendingDraft?.harvest ?? printableSample?.declared.harvest ?? null;
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
+  const previewWarehouse = pendingDraft?.warehouseName ?? printableSample?.declared?.warehouse ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
   const detailsPhotoStatusLabel = arrivalPhoto ? 'Foto anexada' : 'Sem foto';
 
@@ -1037,6 +1048,22 @@ function NewSamplePageContent() {
                     ) : null}
                   </div>
 
+                  <div className="nsv2-grid-full">
+                    <WarehouseLookupField
+                      session={session}
+                      label="Armazem"
+                      selectedWarehouse={selectedWarehouse}
+                      onSelectWarehouse={(w) => {
+                        setSelectedWarehouse(w);
+                        setWarehouseText(w?.name ?? '');
+                        setError(null);
+                      }}
+                      onTextChange={setWarehouseText}
+                      disabled={submitting}
+                      placeholder="Busque ou digite o nome do armazem"
+                    />
+                  </div>
+
                   <div className="nsv2-grid-half">
                     <label className="nsv2-field">
                       <span className="nsv2-field-label">Sacas *</span>
@@ -1226,6 +1253,9 @@ function NewSamplePageContent() {
                   </p>
                   <p>
                     <strong>Lote origem:</strong> {previewValue(previewOriginLot)}
+                  </p>
+                  <p>
+                    <strong>Armazem:</strong> {previewValue(previewWarehouse)}
                   </p>
                 </div>
                 {labelModalStep === 'completed' ? (

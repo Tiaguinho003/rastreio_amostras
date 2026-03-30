@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
@@ -51,6 +52,14 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   sacksMax: '',
   periodMode: 'exact',
   periodValue: ''
+};
+
+const AGING_BANDS = ['over30', 'from15to30', 'under15'] as const;
+type AgingBand = (typeof AGING_BANDS)[number];
+const AGING_LABELS: Record<AgingBand, string> = {
+  over30: 'Mais de 30 dias',
+  from15to30: 'Entre 15 e 30 dias',
+  under15: 'Ate 15 dias'
 };
 
 const FILTER_SECTION_ORDER: FilterSectionId[] = ['owner', 'buyer', 'status', 'commercialStatus', 'harvest', 'sacks', 'period'];
@@ -427,6 +436,8 @@ export default function SamplesPageWrapper() {
 
 function SamplesPage() {
   const { session, loading, logout } = useRequireAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [samplesState, dispatchSamples] = useReducer(samplesListReducer, SAMPLES_INITIAL);
   const [searchInput, setSearchInput] = useState('');
@@ -434,6 +445,9 @@ function SamplesPage() {
   const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const agingParam = searchParams.get('aging');
+  const activeAging: AgingBand | null = agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
   const [activeChip, setActiveChip] = useState<ChipFilter>('all');
@@ -555,7 +569,8 @@ function SamplesPage() {
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
-        ...buildPeriodQuery(appliedHiddenFilters)
+        ...buildPeriodQuery(appliedHiddenFilters),
+        classifiedAging: activeAging || undefined
       },
       {
         signal: abortController.signal
@@ -584,16 +599,22 @@ function SamplesPage() {
       active = false;
       abortController.abort();
     };
-  }, [appliedHiddenFilters, appliedSearch, samplesState.currentPage, session]);
+  }, [activeAging, appliedHiddenFilters, appliedSearch, samplesState.currentPage, session]);
+
+  function clearAging() {
+    router.replace('/samples', { scroll: false });
+  }
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activeAging) clearAging();
     setAppliedSearch(searchInput.trim());
     dispatchSamples({ type: 'setPage', page: 1 });
   }
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activeAging) clearAging();
     const nextFilters = normalizeHiddenFilters(draftHiddenFilters);
     setAppliedHiddenFilters(nextFilters);
     setDraftHiddenFilters(nextFilters);
@@ -603,6 +624,7 @@ function SamplesPage() {
   }
 
   function handleClearFiltersOnly() {
+    if (activeAging) clearAging();
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setActiveFilterSection('owner');
@@ -806,6 +828,17 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
+          {activeAging ? (
+            <div className="spv2-aging-banner">
+              <span className="spv2-aging-banner-text">
+                {AGING_LABELS[activeAging]} — classificadas, em aberto
+              </span>
+              <button type="button" className="spv2-aging-banner-clear" onClick={clearAging} aria-label="Limpar filtro">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </button>
+            </div>
+          ) : null}
+
           {/* Section 1: Status chips */}
           <div className="spv2-chips">
             {CHIP_DEFINITIONS.map((chip) => {

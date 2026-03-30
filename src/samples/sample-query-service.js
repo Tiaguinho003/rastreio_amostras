@@ -65,6 +65,18 @@ const SAMPLE_OWNER_INCLUDE = {
     }
   }
 };
+const SAMPLE_WAREHOUSE_INCLUDE = {
+  warehouse: {
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      phone: true,
+      status: true
+    }
+  }
+};
+const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE, ...SAMPLE_WAREHOUSE_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
   buyerClient: {
     select: {
@@ -408,6 +420,42 @@ function resolveCreatedPeriodRangeInSaoPaulo({ createdDate = null, createdMonth 
   return null;
 }
 
+const CLASSIFIED_AGING_BANDS = ['over30', 'from15to30', 'under15'];
+
+function resolveClassifiedAgingConditions(classifiedAging) {
+  const normalized = normalizeOptionalText(classifiedAging);
+  if (!normalized) return null;
+
+  if (!CLASSIFIED_AGING_BANDS.includes(normalized)) {
+    throw new HttpError(422, 'classifiedAging must be one of: over30, from15to30, under15');
+  }
+
+  const nowUtc = new Date();
+  const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const spYear = nowSp.getUTCFullYear();
+  const spMonth = nowSp.getUTCMonth();
+  const spDay = nowSp.getUTCDate();
+
+  const boundary30 = new Date(Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+  const boundary15 = new Date(Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+
+  const conditions = [
+    { status: 'CLASSIFIED' },
+    { commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } },
+    { classifiedAt: { not: null } }
+  ];
+
+  if (normalized === 'over30') {
+    conditions.push({ classifiedAt: { lt: boundary30 } });
+  } else if (normalized === 'from15to30') {
+    conditions.push({ classifiedAt: { gte: boundary30, lt: boundary15 } });
+  } else {
+    conditions.push({ classifiedAt: { gte: boundary15 } });
+  }
+
+  return conditions;
+}
+
 function resolveStatusGroupStatuses(statusGroup) {
   const normalized = normalizeOptionalText(statusGroup);
   if (!normalized) {
@@ -622,7 +670,8 @@ function mapPendingPrintJob(row) {
         owner: sample.declaredOwner ?? null,
         sacks: sample.declaredSacks ?? null,
         harvest: sample.declaredHarvest ?? null,
-        originLot: sample.declaredOriginLot ?? null
+        originLot: sample.declaredOriginLot ?? null,
+        warehouse: sample.declaredWarehouse ?? null
       }
     }
   };
@@ -644,6 +693,7 @@ function mapSample(row) {
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
     ownerRegistrationId: row.ownerRegistrationId ?? null,
+    warehouseId: row.warehouseId ?? null,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:
@@ -654,10 +704,18 @@ function mapSample(row) {
       owner: row.declaredOwner,
       sacks: row.declaredSacks,
       harvest: row.declaredHarvest,
-      originLot: row.declaredOriginLot
+      originLot: row.declaredOriginLot,
+      warehouse: row.declaredWarehouse ?? null
     },
     ownerClient: mapOwnerClient(row.ownerClient),
     ownerRegistration: mapOwnerRegistration(row.ownerRegistration),
+    warehouse: row.warehouse ? {
+      id: row.warehouse.id,
+      name: row.warehouse.name,
+      address: row.warehouse.address ?? null,
+      phone: row.warehouse.phone ?? null,
+      status: row.warehouse.status
+    } : null,
     labelPhotoCount: row.labelPhotoCount,
     latestClassification: {
       version: row.latestClassificationVersion,
@@ -736,7 +794,7 @@ export class SampleQueryService {
   async findSampleOrNull(sampleId) {
     const sample = await this.prisma.sample.findUnique({
       where: { id: sampleId },
-      include: SAMPLE_OWNER_INCLUDE
+      include: SAMPLE_INCLUDE
     });
     return mapSample(sample);
   }
@@ -825,7 +883,7 @@ export class SampleQueryService {
         OR: orConditions
       },
       take: 50,
-      include: SAMPLE_OWNER_INCLUDE
+      include: SAMPLE_INCLUDE
     });
 
     if (rows.length === 0) {
@@ -928,7 +986,8 @@ export class SampleQueryService {
     sacksMax = null,
     createdDate = null,
     createdMonth = null,
-    createdYear = null
+    createdYear = null,
+    classifiedAging = null
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const safeOffset = Math.max(offset, 0);
@@ -1035,6 +1094,11 @@ export class SampleQueryService {
       });
     }
 
+    const agingConditions = resolveClassifiedAgingConditions(classifiedAging);
+    if (agingConditions) {
+      conditions.push(...agingConditions);
+    }
+
     const where = conditions.length > 0 ? { AND: conditions } : undefined;
 
     const [rows, total] = await this.prisma.$transaction([
@@ -1043,7 +1107,7 @@ export class SampleQueryService {
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
-        include: SAMPLE_OWNER_INCLUDE
+        include: SAMPLE_INCLUDE
       }),
       this.prisma.sample.count({ where })
     ]);
@@ -1344,18 +1408,18 @@ export class SampleQueryService {
     const todayStartUtc = new Date(Date.UTC(spYear, spMonth, spDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
     const todayEndUtc = new Date(Date.UTC(spYear, spMonth, spDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
 
+    const boundary30 = new Date(Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
     const boundary15 = new Date(Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-    const boundary7 = new Date(Date.UTC(spYear, spMonth, spDay - 7, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
 
     const rows = await this.prisma.$queryRaw`
       SELECT
         COUNT(*)::INTEGER                                                                    AS "total",
         COUNT(*) FILTER (WHERE s."classified_at" >= ${todayStartUtc}
                            AND s."classified_at" <  ${todayEndUtc})::INTEGER                 AS "classifiedToday",
-        COUNT(*) FILTER (WHERE s."classified_at" <  ${boundary15})::INTEGER                  AS "over15",
-        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary15}
-                           AND s."classified_at" <  ${boundary7})::INTEGER                   AS "from8to15",
-        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary7})::INTEGER                   AS "under7"
+        COUNT(*) FILTER (WHERE s."classified_at" <  ${boundary30})::INTEGER                  AS "over30",
+        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary30}
+                           AND s."classified_at" <  ${boundary15})::INTEGER                  AS "from15to30",
+        COUNT(*) FILTER (WHERE s."classified_at" >= ${boundary15})::INTEGER                  AS "under15"
       FROM "sample" s
       WHERE s."status" = 'CLASSIFIED'
         AND s."commercial_status" IN ('OPEN', 'PARTIALLY_SOLD')
@@ -1368,9 +1432,9 @@ export class SampleQueryService {
       total: toIntegerOrZero(row.total),
       classifiedToday: toIntegerOrZero(row.classifiedToday),
       bands: {
-        over15: toIntegerOrZero(row.over15),
-        from8to15: toIntegerOrZero(row.from8to15),
-        under7: toIntegerOrZero(row.under7)
+        over30: toIntegerOrZero(row.over30),
+        from15to30: toIntegerOrZero(row.from15to30),
+        under15: toIntegerOrZero(row.under15)
       }
     };
   }
