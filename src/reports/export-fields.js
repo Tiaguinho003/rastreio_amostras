@@ -16,7 +16,6 @@ export const SAMPLE_EXPORT_FIELDS = [
   'imp',
   'defeito',
   'umidade',
-  'aspectoCor',
   'classificador',
   'observacoes',
   'classificationOriginLot',
@@ -44,7 +43,6 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   imp: 'IMP',
   defeito: 'Defeito',
   umidade: 'Umidade',
-  aspectoCor: 'Aspecto da cor',
   classificador: 'Classificador',
   observacoes: 'Observacoes',
   classificationOriginLot: 'Lote de origem (classificacao)',
@@ -56,7 +54,7 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
 const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
-const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10', 'fundo'];
+const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p10', 'mk9', 'mk10', 'mk11', 'fundo'];
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set(['originLot', 'classificationOriginLot']);
 const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)
@@ -138,7 +136,6 @@ function buildFieldValueMap(detail) {
     imp: classificationData.imp,
     defeito: classificationData.defeito,
     umidade: classificationData.umidade,
-    aspectoCor: classificationData.aspectoCor,
     classificador: classificationData.classificador,
     observacoes: classificationData.observacoes,
     classificationOriginLot: classificationData.loteOrigem,

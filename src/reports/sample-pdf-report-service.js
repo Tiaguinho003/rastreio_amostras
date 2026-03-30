@@ -273,63 +273,60 @@ async function renderSamplePdf({
   const lineRight = docX + docWidth - 24;
   const headerHeight = 94;
   const headerY = docTop - headerHeight;
-  drawHorizontalGradient(page, {
+  const headerGreen = rgb(0.14, 0.43, 0.29);
+  page.drawRectangle({
     x: docX + 1,
     y: headerY,
     width: docWidth - 2,
     height: headerHeight - 1,
-    leftColor: rgb(1, 1, 1),
-    rightColor: rgb(0.14, 0.43, 0.29)
+    color: headerGreen
   });
 
   if (logoImage) {
-    const logoMaxWidth = 440;
-    const logoMaxHeight = 140;
+    const logoMaxWidth = 280;
+    const logoMaxHeight = 76;
     const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height);
     const logoWidth = logoImage.width * logoScale;
     const logoHeight = logoImage.height * logoScale;
     page.drawImage(logoImage, {
-      x: docX + 40,
+      x: docX + 20,
       y: headerY + (headerHeight - logoHeight) / 2,
       width: logoWidth,
       height: logoHeight
     });
   }
 
-  const companyRows = [
-    { label: 'CIDADE/UF', value: COMPANY_INFO.cityUf, maxLines: 1 },
-    { label: 'TELEFONE', value: COMPANY_INFO.phone, maxLines: 1 },
-    { label: 'ENDERECO', value: COMPANY_INFO.address, maxLines: 2 }
-  ];
-  const infoContentWidth = 206;
-  const companyInfoX = docX + docWidth - infoContentWidth - 12;
-  let companyRowY = headerY + 36;
-  for (const row of companyRows) {
-    const labelText = `${row.label}:`;
-    const labelWidth = fontBold.widthOfTextAtSize(labelText, 7.5);
-    page.drawText(labelText, {
-      x: companyInfoX,
-      y: companyRowY,
-      size: 7.5,
-      font: fontBold,
-      color: rgb(0.93, 0.98, 0.93)
+  const companyInfoRightEdge = docX + docWidth - 16;
+  const companyLineSpacing = 12;
+  const companyStartY = headerY + headerHeight - 24;
+
+  page.drawText(COMPANY_INFO.cityUf, {
+    x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(COMPANY_INFO.cityUf, 8),
+    y: companyStartY,
+    size: 8,
+    font: fontRegular,
+    color: rgb(1, 1, 1)
+  });
+
+  page.drawText(COMPANY_INFO.phone, {
+    x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(COMPANY_INFO.phone, 8),
+    y: companyStartY - companyLineSpacing,
+    size: 8,
+    font: fontRegular,
+    color: rgb(1, 1, 1)
+  });
+
+  const addressLines = wrapTextToWidth(COMPANY_INFO.address, fontRegular, 7, 220, 2);
+  let addrY = companyStartY - companyLineSpacing * 2;
+  for (const line of addressLines) {
+    page.drawText(line, {
+      x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(line, 7),
+      y: addrY,
+      size: 7,
+      font: fontRegular,
+      color: rgb(0.85, 0.92, 0.85)
     });
-
-    const wrapped = wrapTextToWidth(row.value, fontRegular, 7.5, infoContentWidth - labelWidth - 4, row.maxLines);
-    const lines = wrapped.length > 0 ? wrapped : ['-'];
-    let valueY = companyRowY;
-    for (const line of lines) {
-      page.drawText(line, {
-        x: companyInfoX + labelWidth + 4,
-        y: valueY,
-        size: 7.5,
-        font: fontRegular,
-        color: rgb(1, 1, 1)
-      });
-      valueY -= 8.5;
-    }
-
-    companyRowY -= Math.max(10, lines.length * 8.5 + 2);
+    addrY -= 9;
   }
 
   page.drawLine({
@@ -397,7 +394,6 @@ async function renderSamplePdf({
     ['imp', 'IMP'],
     ['defeito', 'Defeitos'],
     ['umidade', 'Umidade'],
-    ['aspectoCor', 'Aspecto da Cor'],
     ['classificador', 'Classificador'],
     ['observacoes', 'Observacoes']
   ]) {

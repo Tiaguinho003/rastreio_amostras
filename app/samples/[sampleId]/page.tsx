@@ -59,17 +59,19 @@ type ClassificationFormState = {
   classificador: string;
   defeito: string;
   umidade: string;
-  aspectoCor: string;
   observacoes: string;
   loteOrigem: string;
   peneiraP18: string;
   peneiraP17: string;
   peneiraP16: string;
-  peneiraMk: string;
   peneiraP15: string;
   peneiraP14: string;
   peneiraP13: string;
+  peneiraP12: string;
   peneiraP10: string;
+  peneiraMk9: string;
+  peneiraMk10: string;
+  peneiraMk11: string;
   peneiraFundo: string;
 };
 
@@ -77,11 +79,14 @@ type ClassificationSievePayload = {
   p18: number | null;
   p17: number | null;
   p16: number | null;
-  mk: number | null;
   p15: number | null;
   p14: number | null;
   p13: number | null;
+  p12: number | null;
   p10: number | null;
+  mk9: number | null;
+  mk10: number | null;
+  mk11: number | null;
   fundo: number | null;
 };
 
@@ -98,7 +103,6 @@ type ClassificationDataPayload = {
   peneirasPercentuais: ClassificationSievePayload | null;
   defeito: number | null;
   umidade: number | null;
-  aspectoCor: string | null;
   observacoes: string | null;
   loteOrigem: string | null;
 };
@@ -133,17 +137,19 @@ const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   classificador: '',
   defeito: '',
   umidade: '',
-  aspectoCor: '',
   observacoes: '',
   loteOrigem: '',
   peneiraP18: '',
   peneiraP17: '',
   peneiraP16: '',
-  peneiraMk: '',
   peneiraP15: '',
   peneiraP14: '',
   peneiraP13: '',
+  peneiraP12: '',
   peneiraP10: '',
+  peneiraMk9: '',
+  peneiraMk10: '',
+  peneiraMk11: '',
   peneiraFundo: ''
 };
 
@@ -151,11 +157,14 @@ const SIEVE_FIELDS: NumericField[] = [
   { key: 'peneiraP18', label: 'Peneira 18 (%)' },
   { key: 'peneiraP17', label: 'Peneira 17 (%)' },
   { key: 'peneiraP16', label: 'Peneira 16 (%)' },
-  { key: 'peneiraMk', label: 'Peneira MK (%)' },
   { key: 'peneiraP15', label: 'Peneira 15 (%)' },
   { key: 'peneiraP14', label: 'Peneira 14 (%)' },
   { key: 'peneiraP13', label: 'Peneira 13 (%)' },
+  { key: 'peneiraP12', label: 'Peneira 12 (%)' },
   { key: 'peneiraP10', label: 'Peneira 10 (%)' },
+  { key: 'peneiraMk9', label: 'Peneira MK 9 (%)' },
+  { key: 'peneiraMk10', label: 'Peneira MK 10 (%)' },
+  { key: 'peneiraMk11', label: 'Peneira MK 11 (%)' },
   { key: 'peneiraFundo', label: 'Fundo (%)' }
 ];
 
@@ -287,11 +296,14 @@ function buildClassificationDataPayload(
     p18: parseNumberInput(form.peneiraP18),
     p17: parseNumberInput(form.peneiraP17),
     p16: parseNumberInput(form.peneiraP16),
-    mk: parseNumberInput(form.peneiraMk),
     p15: parseNumberInput(form.peneiraP15),
     p14: parseNumberInput(form.peneiraP14),
     p13: parseNumberInput(form.peneiraP13),
+    p12: parseNumberInput(form.peneiraP12),
     p10: parseNumberInput(form.peneiraP10),
+    mk9: parseNumberInput(form.peneiraMk9),
+    mk10: parseNumberInput(form.peneiraMk10),
+    mk11: parseNumberInput(form.peneiraMk11),
     fundo: parseNumberInput(form.peneiraFundo)
   };
 
@@ -308,7 +320,6 @@ function buildClassificationDataPayload(
     peneirasPercentuais: hasSieve ? sieve : null,
     defeito: (() => { const v = parseNumberInput(form.defeito); return v !== null ? Math.round(v) : null; })(),
     umidade: parseNumberInput(form.umidade),
-    aspectoCor: form.aspectoCor.trim() || null,
     observacoes: form.observacoes.trim() || null,
     loteOrigem: form.loteOrigem.trim() || null
   };
@@ -323,7 +334,6 @@ function buildClassificationDataPayload(
 type ClassificationTechnicalPayload = {
   defectsCount?: number;
   moisture?: number;
-  colorAspect?: string | null;
   notes?: string | null;
 };
 
@@ -335,9 +345,6 @@ function buildTechnicalFromClassificationData(data: ClassificationDataPayload): 
   }
   if (data.umidade !== null) {
     technical.moisture = data.umidade;
-  }
-  if (data.aspectoCor !== null) {
-    technical.colorAspect = data.aspectoCor;
   }
   if (data.observacoes !== null) {
     technical.notes = data.observacoes;
@@ -372,17 +379,19 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     classificador: toText(mergedData.classificador) || fallbackClassifier,
     defeito: toText(mergedData.defeito),
     umidade: toText(mergedData.umidade),
-    aspectoCor: toText(mergedData.aspectoCor),
     observacoes: toText(mergedData.observacoes),
     loteOrigem: toText(mergedData.loteOrigem) || toText(detail.sample.declared.originLot),
     peneiraP18: toText(mergedSieve.p18),
     peneiraP17: toText(mergedSieve.p17),
     peneiraP16: toText(mergedSieve.p16),
-    peneiraMk: toText(mergedSieve.mk),
     peneiraP15: toText(mergedSieve.p15),
     peneiraP14: toText(mergedSieve.p14),
     peneiraP13: toText(mergedSieve.p13),
+    peneiraP12: toText(mergedSieve.p12),
     peneiraP10: toText(mergedSieve.p10),
+    peneiraMk9: toText(mergedSieve.mk9),
+    peneiraMk10: toText(mergedSieve.mk10),
+    peneiraMk11: toText(mergedSieve.mk11),
     peneiraFundo: toText(mergedSieve.fundo)
   };
 }
@@ -1897,6 +1906,28 @@ export default function SampleDetailPage() {
 
             <NoticeSlot notice={pageNotice} />
 
+            {/* Bloco de ações fixo */}
+            <div className="sdv-actions-bar">
+              <button type="button" className="sdv-action-card" onClick={(event) => openLabelReviewModal(event.currentTarget)} disabled={!canQuickPrint || labelModalSubmitting}>
+                <span className="sdv-action-card-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4.8h10V8" /><rect x="5" y="9" width="14" height="7" rx="1.8" /><path d="M8 14h8" /><path d="M8 16.8h8V20H8z" /></svg>
+                </span>
+                <span className="sdv-action-card-label">Imprimir</span>
+              </button>
+              <button type="button" className="sdv-action-card" onClick={handleOpenExportTypeSelector} disabled={!canQuickReport || Boolean(exportingPdfType)}>
+                <span className="sdv-action-card-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                </span>
+                <span className="sdv-action-card-label">Gerar laudo</span>
+              </button>
+              <button type="button" className="sdv-action-card" onClick={() => { setPhysicalSendClient(null); setPhysicalSendDate(getTodayDateInput()); setPhysicalSendModalOpen(true); }} disabled={!canQuickReport || physicalSending}>
+                <span className="sdv-action-card-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                </span>
+                <span className="sdv-action-card-label">Enviar</span>
+              </button>
+            </div>
+
             {/* Abas */}
             <div className="sdv-tabs" role="tablist" aria-label="Secoes da amostra">
               <button type="button" role="tab" aria-selected={detailSection === 'GENERAL'} className={`sdv-tab${detailSection === 'GENERAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('GENERAL')}>
@@ -1904,7 +1935,7 @@ export default function SampleDetailPage() {
                 <span>Geral</span>
               </button>
               <button type="button" role="tab" aria-selected={detailSection === 'CLASSIFICATION'} className={`sdv-tab${detailSection === 'CLASSIFICATION' ? ' is-active' : ''}`} onClick={() => setDetailSection('CLASSIFICATION')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
                 <span>Classificacao</span>
                 {classificationTabDotTone && detail.sample.status !== 'CLASSIFIED' ? <span className="sdv-tab-dot" /> : null}
               </button>
@@ -1919,31 +1950,7 @@ export default function SampleDetailPage() {
               <div className={`sdv-content-inner${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
                 {detailSection === 'GENERAL' ? (
                   <section className="sdv-general">
-                    {/* Card 1: QR Code + Actions */}
-                    <div className="sdv-card">
-                      <div className="sdv-qr-row">
-                        <div className="sdv-qr-box">
-                          <QRCodeCanvas value={qrValue} size={76} />
-                        </div>
-                        <div className="sdv-qr-actions">
-                          <span className="sdv-qr-label">QR Code da amostra</span>
-                          <button type="button" className="sdv-qr-btn is-primary" onClick={(event) => openLabelReviewModal(event.currentTarget)} disabled={!canQuickPrint || labelModalSubmitting}>
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4.8h10V8" /><rect x="5" y="9" width="14" height="7" rx="1.8" /><path d="M8 14h8" /><path d="M8 16.8h8V20H8z" /></svg>
-                            <span>Imprimir etiqueta</span>
-                          </button>
-                          <button type="button" className="sdv-qr-btn is-secondary" onClick={handleOpenExportTypeSelector} disabled={!canQuickReport || Boolean(exportingPdfType)}>
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
-                            <span>Gerar laudo</span>
-                          </button>
-                          <button type="button" className="sdv-qr-btn is-secondary" onClick={() => { setPhysicalSendClient(null); setPhysicalSendDate(getTodayDateInput()); setPhysicalSendModalOpen(true); }} disabled={!canQuickReport || physicalSending}>
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
-                            <span>Enviar amostra</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 2: Informações */}
+                    {/* Card 1: Informações */}
                     <div className="sdv-card sdv-info-compact">
                       <div className="sdv-info-grid">
                         <div className="sdv-info-item">
@@ -1969,18 +1976,18 @@ export default function SampleDetailPage() {
                           <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.originLot)}</span>
                         </div>
                         <div className="sdv-info-item">
-                          <span className="sdv-info-label">Armazem</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared?.warehouse)}</span>
-                        </div>
-                        <div className="sdv-info-item">
                           <span className="sdv-info-label">Recebido em</span>
                           <span className="sdv-info-value">{formatTimestamp(detail.sample.createdAt)}</span>
                         </div>
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Armazem</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared?.warehouse)}</span>
+                        </div>
                       </div>
                       {canEditRegistrationStatus(detail.sample.status) ? (
-                        <button type="button" className="sdv-edit-btn sdv-edit-btn-inline" onClick={startRegistrationEdit}>
+                        <button type="button" className="sdv-edit-btn sdv-edit-btn-corner" onClick={startRegistrationEdit}>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
-                          <span>Editar informacoes</span>
+                          <span>Editar</span>
                         </button>
                       ) : null}
                       <NoticeSlot notice={generalNotice} />
@@ -2010,7 +2017,7 @@ export default function SampleDetailPage() {
                     {sendHistory.length > 0 ? (
                       <div className="sdv-card">
                         <span className="sdv-card-title">Historico de envios</span>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 2.5vw, 10px)', marginTop: 'clamp(8px, 2.5vw, 10px)' }}>
                           {sendHistory.map((evt) => {
                             const isPhysical = evt.eventType === 'PHYSICAL_SAMPLE_SENT';
                             const payload = evt.payload as Record<string, unknown>;
@@ -2020,17 +2027,17 @@ export default function SampleDetailPage() {
                               ? (payload.sentDate as string)
                               : new Date(evt.occurredAt).toLocaleDateString('pt-BR');
                             return (
-                              <div key={evt.eventId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: '#F8FAFC', borderRadius: '8px', fontSize: 'clamp(11px, 3vw, 13px)' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', background: isPhysical ? '#E8F5E9' : '#E3F2FD', flexShrink: 0 }}>
+                              <div key={evt.eventId} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 3vw, 12px)', padding: 'clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 14px)', background: '#F8FAFC', borderRadius: 'clamp(10px, 3vw, 12px)', fontSize: 'clamp(13px, 3.5vw, 14px)' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'clamp(36px, 10vw, 42px)', height: 'clamp(36px, 10vw, 42px)', borderRadius: '50%', background: isPhysical ? '#E8F5E9' : '#E3F2FD', flexShrink: 0 }}>
                                   {isPhysical ? (
-                                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ stroke: '#2E7D32', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#2E7D32', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
                                   ) : (
-                                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ stroke: '#1565C0', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#1565C0', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
                                   )}
                                 </span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontWeight: 600, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clientName}</div>
-                                  <div style={{ color: '#999', fontSize: 'clamp(10px, 2.6vw, 11px)' }}>
+                                  <div style={{ color: '#999', fontSize: 'clamp(11px, 3vw, 12px)', marginTop: '2px' }}>
                                     {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
                                   </div>
                                 </div>
@@ -2134,9 +2141,6 @@ export default function SampleDetailPage() {
                               {renderClassificationInputField('bebida', 'Bebida')}
                               {renderClassificationInputField('classificador', 'Classificador')}
                               {renderClassificationInputField('loteOrigem', 'Lote de origem')}
-                              <div className="sdv-cls-field-full">
-                                {renderClassificationInputField('aspectoCor', 'Aspecto da cor')}
-                              </div>
                             </div>
                           </div>
 

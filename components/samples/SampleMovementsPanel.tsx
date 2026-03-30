@@ -117,7 +117,6 @@ export function SampleMovementsPanel({
               <span>Vendidas</span>
             </div>
             <span className="sdv-com-mini-value">{sold}</span>
-            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
           </div>
           <div className="sdv-com-mini is-lost">
             <div className="sdv-com-mini-label">
@@ -125,7 +124,6 @@ export function SampleMovementsPanel({
               <span>Perdidas</span>
             </div>
             <span className="sdv-com-mini-value">{lost}</span>
-            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
           </div>
           <div className="sdv-com-mini is-avail">
             <div className="sdv-com-mini-label">
@@ -133,7 +131,6 @@ export function SampleMovementsPanel({
               <span>Disponiveis</span>
             </div>
             <span className="sdv-com-mini-value">{available}</span>
-            <span className="sdv-com-mini-total">de {totalDeclared} sacas</span>
           </div>
         </div>
       </div>

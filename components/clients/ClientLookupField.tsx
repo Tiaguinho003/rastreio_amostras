@@ -142,6 +142,9 @@ export function ClientLookupField({
     setSearch(client.displayName ?? '');
     setOpen(false);
     setError(null);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     onSelectClient(client);
   }
 

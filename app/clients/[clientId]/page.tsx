@@ -821,7 +821,7 @@ export default function ClientDetailPage() {
                     {/* Card: Informações */}
                     <div className="sdv-card sdv-info-compact">
                       <div className="sdv-info-grid">
-                        <div className="sdv-info-item">
+                        <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">{client.personType === 'PF' ? 'Nome completo' : 'Razao social'}</span>
                           <span className="sdv-info-value">{client.personType === 'PF' ? (client.fullName || '\u2014') : (client.legalName || '\u2014')}</span>
                         </div>
@@ -829,14 +829,14 @@ export default function ClientDetailPage() {
                           <span className="sdv-info-label">{client.personType === 'PF' ? 'CPF' : 'CNPJ'}</span>
                           <span className="sdv-info-value">{client.personType === 'PF' ? (formatClientDocument(client.cpf, 'PF') || '\u2014') : (formatClientDocument(client.cnpj, 'PJ') || '\u2014')}</span>
                         </div>
-                        <div className="sdv-info-sep" />
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Papeis</span>
-                          <div className="cdm-roles">{client.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}{client.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}{!client.isBuyer && !client.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}</div>
-                        </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Telefone</span>
                           <span className="sdv-info-value">{formatPhone(client.phone) || '\u2014'}</span>
+                        </div>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Papeis</span>
+                          <div className="cdm-roles">{client.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}{client.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}{!client.isBuyer && !client.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}</div>
                         </div>
                       </div>
                       <button type="button" className="sdv-edit-btn sdv-edit-btn-inline" onClick={openEditClient}>
@@ -900,10 +900,10 @@ export default function ClientDetailPage() {
                       style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: '0.15rem',
-                        padding: '0.14rem',
+                        gap: '0.2rem',
+                        padding: '0.18rem',
                         border: '1px solid #d6d2c5',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         background: 'linear-gradient(180deg, #f7f4ee 0%, #f0ece3 100%)',
                         flexShrink: 0
                       }}
@@ -914,12 +914,12 @@ export default function ClientDetailPage() {
                         onClick={() => setCommercialSubTab('SALE')}
                         style={{
                           border: 0,
-                          borderRadius: '7px',
+                          borderRadius: '9px',
                           background: commercialSubTab === 'SALE' ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'transparent',
                           color: commercialSubTab === 'SALE' ? '#ffffff' : '#5f6c61',
-                          fontSize: '0.72rem',
+                          fontSize: 'clamp(0.82rem, 3.2vw, 0.92rem)',
                           fontWeight: 600,
-                          padding: '0.22rem 0.5rem',
+                          padding: 'clamp(0.38rem, 1.5vw, 0.48rem) 0.6rem',
                           lineHeight: 1.2,
                           boxShadow: commercialSubTab === 'SALE' ? '0 3px 8px rgba(45, 89, 42, 0.18)' : 'none',
                           opacity: !client.isSeller ? 0.46 : 1,
@@ -934,12 +934,12 @@ export default function ClientDetailPage() {
                         onClick={() => setCommercialSubTab('PURCHASE')}
                         style={{
                           border: 0,
-                          borderRadius: '7px',
+                          borderRadius: '9px',
                           background: commercialSubTab === 'PURCHASE' ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)' : 'transparent',
                           color: commercialSubTab === 'PURCHASE' ? '#ffffff' : '#5f6c61',
-                          fontSize: '0.72rem',
+                          fontSize: 'clamp(0.82rem, 3.2vw, 0.92rem)',
                           fontWeight: 600,
-                          padding: '0.22rem 0.5rem',
+                          padding: 'clamp(0.38rem, 1.5vw, 0.48rem) 0.6rem',
                           lineHeight: 1.2,
                           boxShadow: commercialSubTab === 'PURCHASE' ? '0 3px 8px rgba(45, 89, 42, 0.18)' : 'none',
                           opacity: !client.isBuyer ? 0.46 : 1,

@@ -962,28 +962,10 @@ function NewSamplePageContent() {
 
             {/* Compressed photo strip */}
             {arrivalPhotoPreviewUrl ? (
-              <div className="nsv2-photo-strip">
+              <button type="button" className="nsv2-photo-strip" onClick={() => setPhotoFullscreen(true)} aria-label="Expandir foto">
                 <img src={arrivalPhotoPreviewUrl} alt="" className="nsv2-photo-strip-img" />
                 <div className="nsv2-photo-strip-gradient" />
-                <div className="nsv2-photo-strip-actions">
-                  <button
-                    type="button"
-                    className="nsv2-photo-mini-btn"
-                    onClick={() => setPhotoFullscreen(true)}
-                    aria-label="Expandir foto"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="nsv2-photo-mini-btn"
-                    onClick={() => { clearArrivalPhoto(); setCurrentStep('photo'); }}
-                    aria-label="Refazer foto"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false"><path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" /><path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" /></svg>
-                  </button>
-                </div>
-              </div>
+              </button>
             ) : (
               <button type="button" className="nsv2-no-photo-strip" onClick={() => setCurrentStep('photo')}>
                 <span className="nsv2-no-photo-icon" aria-hidden="true">
@@ -1325,18 +1307,21 @@ function NewSamplePageContent() {
                     </button>
                   </div>
 
-                  {printExitWarningOpen ? (
-                    <div className="nsv2-print-exit-warning">
-                      <p>Impressao em andamento. Deseja sair?</p>
-                      <div className="nsv2-print-exit-actions">
-                        <button type="button" className="nsv2-discard-btn nsv2-discard-btn-cancel" onClick={() => setPrintExitWarningOpen(false)}>Aguardar</button>
-                        <button type="button" className="nsv2-discard-btn nsv2-discard-btn-confirm" onClick={forceCloseLabelModal}>Sair</button>
-                      </div>
-                    </div>
-                  ) : null}
                 </>
               ) : null}
             </div>
+
+            {printExitWarningOpen ? (
+              <div className="nsv2-exit-overlay">
+                <div className="nsv2-exit-dialog">
+                  <p className="nsv2-exit-dialog-text">Impressao em andamento. Deseja sair?</p>
+                  <div className="nsv2-exit-dialog-actions">
+                    <button type="button" className="nsv2-exit-dialog-btn is-cancel" onClick={() => setPrintExitWarningOpen(false)}>Aguardar</button>
+                    <button type="button" className="nsv2-exit-dialog-btn is-confirm" onClick={forceCloseLabelModal}>Sair</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}

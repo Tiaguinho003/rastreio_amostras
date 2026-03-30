@@ -49,7 +49,6 @@ export type SampleExportField =
   | 'imp'
   | 'defeito'
   | 'umidade'
-  | 'aspectoCor'
   | 'classificador'
   | 'observacoes'
   | 'classificationOriginLot'

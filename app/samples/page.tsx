@@ -125,15 +125,6 @@ function formatSampleCardMeta(sample: SampleSnapshot) {
   return `Criada ${formatDate(sample.createdAt)} | Atual. ${formatDate(sample.updatedAt)}`;
 }
 
-type ChipFilter = 'all' | 'open' | 'partial' | 'sold' | 'lost';
-
-const CHIP_DEFINITIONS: ReadonlyArray<{ id: ChipFilter; label: string; color: string | null }> = [
-  { id: 'all', label: 'Todos', color: null },
-  { id: 'open', label: 'Em aberto', color: '#44505d' },
-  { id: 'partial', label: 'Venda parcial', color: '#c5a12e' },
-  { id: 'sold', label: 'Vendido', color: '#2a6539' },
-  { id: 'lost', label: 'Perdido', color: '#b44646' },
-];
 
 function getCardStatusColor(status: string): string {
   switch (status) {
@@ -159,16 +150,6 @@ function getCardStatusLabel(status: string): string {
   }
 }
 
-function matchesChipFilter(sample: SampleSnapshot, chip: ChipFilter): boolean {
-  switch (chip) {
-    case 'all': return true;
-    case 'open': return sample.commercialStatus === 'OPEN';
-    case 'partial': return sample.commercialStatus === 'PARTIALLY_SOLD';
-    case 'sold': return sample.commercialStatus === 'SOLD';
-    case 'lost': return sample.commercialStatus === 'LOST';
-    default: return true;
-  }
-}
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
@@ -450,7 +431,6 @@ function SamplesPage() {
   const activeAging: AgingBand | null = agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
-  const [activeChip, setActiveChip] = useState<ChipFilter>('all');
   const [sortNewest, setSortNewest] = useState(true);
 
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
@@ -470,26 +450,13 @@ function SamplesPage() {
     { id: 'period', label: 'Periodo', summary: getFilterSectionSummary('period', draftHiddenFilters), active: hasFilterSectionValue('period', draftHiddenFilters) }
   ], [draftHiddenFilters]);
 
-  const chipCounts = useMemo(() => {
-    const items = samplesState.items;
-    const counts: Record<ChipFilter, number> = { all: items.length, open: 0, partial: 0, sold: 0, lost: 0 };
-    for (const s of items) {
-      if (s.commercialStatus === 'OPEN') counts.open++;
-      if (s.commercialStatus === 'PARTIALLY_SOLD') counts.partial++;
-      if (s.commercialStatus === 'SOLD') counts.sold++;
-      if (s.commercialStatus === 'LOST') counts.lost++;
-    }
-    return counts;
-  }, [samplesState.items]);
-
   const displayItems = useMemo(() => {
-    const filtered = activeChip === 'all' ? samplesState.items : samplesState.items.filter((s) => matchesChipFilter(s, activeChip));
-    return [...filtered].sort((a, b) => {
+    return [...samplesState.items].sort((a, b) => {
       const ta = new Date(a.createdAt).getTime();
       const tb = new Date(b.createdAt).getTime();
       return sortNewest ? tb - ta : ta - tb;
     });
-  }, [samplesState.items, activeChip, sortNewest]);
+  }, [samplesState.items, sortNewest]);
 
   useEffect(() => {
     samplesScrollRef.current?.scrollTo({ top: 0 });
@@ -838,27 +805,6 @@ function SamplesPage() {
               </button>
             </div>
           ) : null}
-
-          {/* Section 1: Status chips */}
-          <div className="spv2-chips">
-            {CHIP_DEFINITIONS.map((chip) => {
-              const isActive = activeChip === chip.id;
-              const count = chipCounts[chip.id];
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  className={`spv2-chip${isActive ? ' is-active' : ''}`}
-                  style={isActive && chip.color ? { background: `${chip.color}14`, borderColor: chip.color } : undefined}
-                  onClick={() => setActiveChip(chip.id)}
-                >
-                  {chip.color ? <span className="spv2-chip-dot" style={{ background: chip.color }} /> : null}
-                  <span className="spv2-chip-label" style={isActive && chip.color ? { color: chip.color } : undefined}>{chip.label}</span>
-                  <span className="spv2-chip-count" style={isActive && chip.color ? { background: `${chip.color}1A`, color: chip.color } : undefined}>{count}</span>
-                </button>
-              );
-            })}
-          </div>
 
           {/* Section 2: Count + Sort */}
           <div className="spv2-list-meta">
