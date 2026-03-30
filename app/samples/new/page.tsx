@@ -1001,10 +1001,6 @@ function NewSamplePageContent() {
             <div className={`nsv2-form-card ${arrivalPhotoPreviewUrl ? 'has-photo' : ''}`}>
               <div className="nsv2-drag-handle" aria-hidden="true"><span /></div>
 
-              <div className="nsv2-form-card-heading">
-                <span className="nsv2-form-card-title">Dados da Amostra</span>
-                <span className="nsv2-form-card-required">* obrigatorio</span>
-              </div>
 
               {error ? <p className="nsv2-inline-error">{error}</p> : null}
               {message ? <p className="nsv2-inline-success">{message}</p> : null}
@@ -1016,6 +1012,7 @@ function NewSamplePageContent() {
                       session={session}
                       label="Proprietario"
                       kind="owner"
+                      required
                       inputRef={ownerInputRef}
                       invalid={Boolean(requiredFieldErrors.owner)}
                       invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
@@ -1066,7 +1063,7 @@ function NewSamplePageContent() {
 
                   <div className="nsv2-grid-half">
                     <label className="nsv2-field">
-                      <span className="nsv2-field-label">Sacas *</span>
+                      <span className="nsv2-field-label">Sacas<span className="nsv2-required-star"> *</span></span>
                       <input
                         ref={sacksInputRef}
                         value={sacks}
@@ -1085,7 +1082,7 @@ function NewSamplePageContent() {
 
                   <div className="nsv2-grid-half" ref={harvestFieldRef}>
                     <label className="nsv2-field" htmlFor="nsv2-harvest-input">
-                      <span className="nsv2-field-label">Safra *</span>
+                      <span className="nsv2-field-label">Safra<span className="nsv2-required-star"> *</span></span>
                       <input
                         id="nsv2-harvest-input"
                         ref={harvestInputRef}
@@ -1123,7 +1120,7 @@ function NewSamplePageContent() {
 
                   <div className="nsv2-grid-half">
                     <label className="nsv2-field">
-                      <span className="nsv2-field-label">Lote de origem *</span>
+                      <span className="nsv2-field-label">Lote de origem<span className="nsv2-required-star"> *</span></span>
                       <input
                         ref={originLotInputRef}
                         value={originLot}

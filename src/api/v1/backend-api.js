@@ -594,7 +594,8 @@ export function createBackendApiV1({
           {
             sampleId,
             exportType: body.exportType,
-            destination: body.destination
+            destination: body.destination,
+            recipientClientId: body.recipientClientId
           },
           actor
         );
@@ -612,6 +613,27 @@ export function createBackendApiV1({
             auditEvent: exported.auditEvent,
             buffer: exported.buffer
           }
+        };
+      }),
+
+    recordPhysicalSampleSent: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const body = readRequestBody(input);
+
+        const result = await commandService.recordPhysicalSampleSent(
+          {
+            sampleId,
+            recipientClientId: body.recipientClientId,
+            sentDate: body.sentDate
+          },
+          actor
+        );
+
+        return {
+          status: 201,
+          body: { event: result.event }
         };
       }),
 

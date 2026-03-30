@@ -258,7 +258,6 @@ export default function DashboardPage() {
 
   const operationModalData = data ? buildOperationModalData(data, activeOperationPanel) : null;
   const latestRegistrationItems = data ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT) : [];
-  const totalPending = data?.totalPending ?? 0;
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
@@ -314,8 +313,7 @@ export default function DashboardPage() {
                       <span className="dashboard-operation-badge">{data.printPending.total}</span>
                     ) : null}
                   </span>
-                  <span className="dashboard-operation-label">Impressoes</span>
-                  <span className="dashboard-operation-sub">Pendentes</span>
+                  <span className="dashboard-operation-label">Impressão</span>
                 </button>
 
                 <button
@@ -336,8 +334,7 @@ export default function DashboardPage() {
                       <span className="dashboard-operation-badge">{data.classificationPending.total}</span>
                     ) : null}
                   </span>
-                  <span className="dashboard-operation-label">Classificacoes</span>
-                  <span className="dashboard-operation-sub">Pendentes</span>
+                  <span className="dashboard-operation-label">Classificação</span>
                 </button>
 
                 <button
@@ -359,8 +356,7 @@ export default function DashboardPage() {
                       <span className="dashboard-operation-badge">{data.classificationInProgress.total}</span>
                     ) : null}
                   </span>
-                  <span className="dashboard-operation-label">Em andamento</span>
-                  <span className="dashboard-operation-sub">{totalPending} na fila</span>
+                  <span className="dashboard-operation-label">Classificando</span>
                 </button>
               </div>
             ) : (
@@ -368,17 +364,14 @@ export default function DashboardPage() {
                 <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
                   <span className="dashboard-skeleton-icon-wrap" />
                   <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-xs" />
                 </div>
                 <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
                   <span className="dashboard-skeleton-icon-wrap" />
                   <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-xs" />
                 </div>
                 <div className="dashboard-operation-card dashboard-skeleton-card" aria-hidden="true">
                   <span className="dashboard-skeleton-icon-wrap" />
                   <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-xs" />
                 </div>
               </div>
             )}

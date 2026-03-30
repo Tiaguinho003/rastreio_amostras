@@ -18,6 +18,8 @@ import {
   getClient,
   getSampleDetail,
   invalidateSample,
+  listSampleEvents,
+  recordPhysicalSampleSent,
   requestQrReprint,
   requestQrPrint,
   saveClassificationPartial,
@@ -37,6 +39,7 @@ import type {
   InvalidateReasonCode,
   PrintAction,
   SampleDetailResponse,
+  SampleEvent,
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
@@ -605,7 +608,15 @@ export default function SampleDetailPage() {
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<SampleExportType | null>(null);
-  const [exportDestination, setExportDestination] = useState('');
+  const [exportRecipientClient, setExportRecipientClient] = useState<ClientSummary | null>(null);
+
+  const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
+  const [physicalSendClient, setPhysicalSendClient] = useState<ClientSummary | null>(null);
+  const [physicalSendDate, setPhysicalSendDate] = useState('');
+  const [physicalSending, setPhysicalSending] = useState(false);
+
+  const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
+  const [loadingSendHistory, setLoadingSendHistory] = useState(false);
 
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
@@ -656,6 +667,7 @@ export default function SampleDetailPage() {
   const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
   const exportTypeTrapRef = useFocusTrap(exportTypeSelectorOpen);
   const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
+  const physicalSendTrapRef = useFocusTrap(physicalSendModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const labelModalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -803,7 +815,7 @@ export default function SampleDetailPage() {
     setExportTypeSelectorOpen(false);
     setExportConfirmationOpen(false);
     setPendingExportType(null);
-    setExportDestination('');
+    setExportRecipientClient(null);
     setLabelModalOpen(false);
     setLabelModalStep('review');
     setLabelModalSubmitting(false);
@@ -1002,6 +1014,26 @@ export default function SampleDetailPage() {
     classificationStepBodyRef.current?.scrollTo({ top: 0 });
   }, [classificationStep]);
 
+  const fetchSendHistory = useCallback(async () => {
+    if (!session || !sampleId) return;
+    setLoadingSendHistory(true);
+    try {
+      const response = await listSampleEvents(session, sampleId, { limit: 200 });
+      const sends = response.events.filter(
+        (e: SampleEvent) => e.eventType === 'REPORT_EXPORTED' || e.eventType === 'PHYSICAL_SAMPLE_SENT'
+      );
+      setSendHistory(sends);
+    } catch {
+      /* silent — history is supplementary */
+    } finally {
+      setLoadingSendHistory(false);
+    }
+  }, [session, sampleId]);
+
+  useEffect(() => {
+    fetchSendHistory();
+  }, [fetchSendHistory]);
+
   if (loading || !session) {
     return null;
   }
@@ -1069,7 +1101,7 @@ export default function SampleDetailPage() {
 
     setGeneralNotice(null);
     setPendingExportType(exportType);
-    setExportDestination('');
+    setExportRecipientClient(null);
     setExportConfirmationOpen(true);
   }
 
@@ -1103,10 +1135,10 @@ export default function SampleDetailPage() {
 
     setExportConfirmationOpen(false);
     setPendingExportType(null);
-    setExportDestination('');
+    setExportRecipientClient(null);
   }
 
-  async function handleExportPdf(exportType: SampleExportType, destination?: string | null) {
+  async function handleExportPdf(exportType: SampleExportType, recipientClient: ClientSummary | null) {
     if (!session || !detail) {
       return;
     }
@@ -1116,15 +1148,19 @@ export default function SampleDetailPage() {
       return;
     }
 
+    if (!recipientClient) {
+      setGeneralNotice({ kind: 'error', text: 'Selecione o destinatario do laudo.' });
+      return;
+    }
+
     setGeneralNotice(null);
     setExportingPdfType(exportType);
 
     try {
-      const normalizedDestination =
-        typeof destination === 'string' && destination.trim().length > 0 ? destination.trim() : null;
       const exported = await exportSamplePdf(session, sampleId, {
         exportType,
-        destination: normalizedDestination
+        destination: recipientClient.displayName,
+        recipientClientId: recipientClient.id
       });
 
       const blobUrl = URL.createObjectURL(exported.blob);
@@ -1139,7 +1175,8 @@ export default function SampleDetailPage() {
       setGeneralNotice({ kind: 'success', text: `Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.` });
       setExportConfirmationOpen(false);
       setPendingExportType(null);
-      setExportDestination('');
+      setExportRecipientClient(null);
+      fetchSendHistory();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setGeneralNotice({ kind: 'error', text: cause.message });
@@ -1152,11 +1189,39 @@ export default function SampleDetailPage() {
   }
 
   async function handleConfirmExportFromModal() {
-    if (!pendingExportType) {
+    if (!pendingExportType || !exportRecipientClient) {
       return;
     }
 
-    await handleExportPdf(pendingExportType, exportDestination);
+    await handleExportPdf(pendingExportType, exportRecipientClient);
+  }
+
+  async function handlePhysicalSend() {
+    if (!session || !detail || !physicalSendClient) {
+      return;
+    }
+
+    setPhysicalSending(true);
+    setGeneralNotice(null);
+
+    try {
+      await recordPhysicalSampleSent(session, sampleId, {
+        recipientClientId: physicalSendClient.id,
+        sentDate: physicalSendDate
+      });
+
+      setGeneralNotice({ kind: 'success', text: 'Envio de amostra fisica registrado com sucesso.' });
+      setPhysicalSendModalOpen(false);
+      fetchSendHistory();
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setGeneralNotice({ kind: 'error', text: cause.message });
+      } else {
+        setGeneralNotice({ kind: 'error', text: 'Falha ao registrar envio de amostra.' });
+      }
+    } finally {
+      setPhysicalSending(false);
+    }
   }
 
   async function handleConfirmRegistration() {
@@ -1870,6 +1935,10 @@ export default function SampleDetailPage() {
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
                             <span>Gerar laudo</span>
                           </button>
+                          <button type="button" className="sdv-qr-btn is-secondary" onClick={() => { setPhysicalSendClient(null); setPhysicalSendDate(getTodayDateInput()); setPhysicalSendModalOpen(true); }} disabled={!canQuickReport || physicalSending}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                            <span>Enviar amostra</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1937,6 +2006,40 @@ export default function SampleDetailPage() {
                         );
                       })()}
                     </div>
+
+                    {sendHistory.length > 0 ? (
+                      <div className="sdv-card">
+                        <span className="sdv-card-title">Historico de envios</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                          {sendHistory.map((evt) => {
+                            const isPhysical = evt.eventType === 'PHYSICAL_SAMPLE_SENT';
+                            const payload = evt.payload as Record<string, unknown>;
+                            const snapshot = payload.recipientClientSnapshot as Record<string, unknown> | null;
+                            const clientName = String(snapshot?.displayName ?? payload.destination ?? '-');
+                            const dateStr = isPhysical
+                              ? (payload.sentDate as string)
+                              : new Date(evt.occurredAt).toLocaleDateString('pt-BR');
+                            return (
+                              <div key={evt.eventId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: '#F8FAFC', borderRadius: '8px', fontSize: 'clamp(11px, 3vw, 13px)' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', background: isPhysical ? '#E8F5E9' : '#E3F2FD', flexShrink: 0 }}>
+                                  {isPhysical ? (
+                                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ stroke: '#2E7D32', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                                  ) : (
+                                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ stroke: '#1565C0', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                                  )}
+                                </span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clientName}</div>
+                                  <div style={{ color: '#999', fontSize: 'clamp(10px, 2.6vw, 11px)' }}>
+                                    {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
 
                     {detail.sample.status === 'INVALIDATED' ? (
                       <div className="sdv-card" style={{ borderLeft: '3px solid #C0392B' }}>
@@ -2605,13 +2708,59 @@ export default function SampleDetailPage() {
             </div>
             <div className="sdv-edit-fields">
               <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Destinatario (opcional)</span>
-                <input className="sdv-edit-input" value={exportDestination} onChange={(event) => setExportDestination(event.target.value)} placeholder="Ex.: Comprador XPTO / email / setor" disabled={Boolean(exportingPdfType)} />
+                <span className="sdv-edit-label">Destinatario</span>
+                <ClientLookupField
+                  session={session!}
+                  label="Destinatario"
+                  kind="any"
+                  selectedClient={exportRecipientClient}
+                  onSelectClient={setExportRecipientClient}
+                  disabled={Boolean(exportingPdfType)}
+                  placeholder="Busque por nome, documento ou codigo"
+                  compact
+                />
               </label>
             </div>
             <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType)} style={{ opacity: exportingPdfType ? 0.65 : 1 }}>
+              <button type="button" className="cdm-manage-link" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType) || !exportRecipientClient} style={{ opacity: (exportingPdfType || !exportRecipientClient) ? 0.65 : 1 }}>
                 {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {physicalSendModalOpen ? (
+        <div className="app-modal-backdrop" onClick={() => !physicalSending && setPhysicalSendModalOpen(false)}>
+          <section ref={physicalSendTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="cdm-header" style={{ gap: '10px' }}>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>Enviar amostra fisica</h3>
+              <button type="button" className="cdm-close" onClick={() => setPhysicalSendModalOpen(false)} disabled={physicalSending} aria-label="Fechar">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </button>
+            </div>
+            <div className="sdv-edit-fields">
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Destinatario</span>
+                <ClientLookupField
+                  session={session!}
+                  label="Destinatario"
+                  kind="any"
+                  selectedClient={physicalSendClient}
+                  onSelectClient={setPhysicalSendClient}
+                  disabled={physicalSending}
+                  placeholder="Busque por nome, documento ou codigo"
+                  compact
+                />
+              </label>
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Data de envio</span>
+                <input type="date" className="sdv-edit-input" value={physicalSendDate} onChange={(event) => setPhysicalSendDate(event.target.value)} disabled={physicalSending} />
+              </label>
+            </div>
+            <div className="sdv-edit-actions">
+              <button type="button" className="cdm-manage-link" onClick={handlePhysicalSend} disabled={physicalSending || !physicalSendClient} style={{ opacity: (physicalSending || !physicalSendClient) ? 0.65 : 1 }}>
+                {physicalSending ? 'Registrando...' : 'Confirmar envio'}
               </button>
             </div>
           </section>

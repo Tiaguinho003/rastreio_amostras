@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/physical-sample-sent.payload.schema.json",
+  "title": "PHYSICAL_SAMPLE_SENT payload",
+  "type": "object",
+  "properties": {
+    "recipientClientId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+    "recipientClientSnapshot": { "type": "object" },
+    "sentDate": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "recipientClientId",
+    "recipientClientSnapshot",
+    "sentDate"
+  ],
+  "additionalProperties": false
+}

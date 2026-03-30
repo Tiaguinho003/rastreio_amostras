@@ -789,6 +789,7 @@ export class SamplePdfReportService {
         exportType,
         fileName,
         destination,
+        recipientClientId: input.recipientClientId ?? null,
         selectedFields: exportedFields,
         classificationPhotoId: classificationAttachment.id,
         templateVersion: 'v1',

@@ -21,6 +21,7 @@ type ClientLookupFieldProps = {
   onRequestCreate?: (search: string) => void;
   createLabel?: string;
   compact?: boolean;
+  required?: boolean;
 };
 
 function getClientDocument(client: ClientSummary) {
@@ -41,7 +42,8 @@ export function ClientLookupField({
   emptyMessage = 'Nenhum cliente encontrado.',
   onRequestCreate,
   createLabel = 'Cadastrar cliente',
-  compact = false
+  compact = false,
+  required = false
 }: ClientLookupFieldProps) {
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
@@ -146,7 +148,7 @@ export function ClientLookupField({
   return (
     <div className={`client-lookup-field${invalid ? ' is-invalid' : ''}${compact ? ' is-compact' : ''}`} ref={wrapRef}>
       <label htmlFor={inputId} className={compact ? 'login-visually-hidden' : undefined}>
-        {label}
+        {label}{required ? <span className="nsv2-required-star"> *</span> : null}
       </label>
       <div className={`client-lookup-shell${compact ? ' is-compact' : ''}${selectedClient ? ' has-selection' : ''}`}>
         <input

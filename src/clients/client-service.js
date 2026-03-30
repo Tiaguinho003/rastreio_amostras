@@ -391,6 +391,48 @@ export class ClientService {
     };
   }
 
+  async resolveRecipientClient(recipientClientId) {
+    if (typeof recipientClientId !== 'string' || recipientClientId.length === 0) {
+      throw new HttpError(422, 'recipientClientId is required', {
+        code: 'RECIPIENT_CLIENT_REQUIRED'
+      });
+    }
+
+    const client = await this.prisma.client.findUnique({
+      where: { id: recipientClientId },
+      select: {
+        id: true,
+        code: true,
+        personType: true,
+        fullName: true,
+        legalName: true,
+        tradeName: true,
+        cpf: true,
+        cnpj: true,
+        phone: true,
+        isBuyer: true,
+        isSeller: true,
+        status: true
+      }
+    });
+
+    if (!client) {
+      throw new HttpError(422, 'recipientClientId does not reference an existing client', {
+        code: 'RECIPIENT_CLIENT_NOT_FOUND',
+        field: 'recipientClientId'
+      });
+    }
+
+    if (client.status !== CLIENT_STATUSES.ACTIVE) {
+      throw new HttpError(422, 'recipientClientId must reference an active client', {
+        code: 'RECIPIENT_CLIENT_INACTIVE',
+        field: 'recipientClientId'
+      });
+    }
+
+    return toClientSummary(client);
+  }
+
   async requireClientById(tx, clientId) {
     const client = await tx.client.findUnique({
       where: { id: clientId },

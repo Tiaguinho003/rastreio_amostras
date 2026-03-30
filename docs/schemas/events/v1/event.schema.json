@@ -27,6 +27,7 @@
     { "$ref": "./events/loss-cancelled.event.schema.json" },
     { "$ref": "./events/commercial-status-updated.event.schema.json" },
     { "$ref": "./events/sample-invalidated.event.schema.json" },
-    { "$ref": "./events/report-exported.event.schema.json" }
+    { "$ref": "./events/report-exported.event.schema.json" },
+    { "$ref": "./events/physical-sample-sent.event.schema.json" }
   ]
 }

@@ -2265,7 +2265,6 @@ export class SampleCommandService {
     const format = normalizeRequiredText(input.format ?? 'PDF', 'format').toUpperCase();
     const exportType = normalizeReportExportType(input.exportType);
     const fileName = normalizeRequiredText(input.fileName, 'fileName');
-    const destination = normalizeOptionalText(input.destination, 'destination', 255);
     const classificationPhotoId = normalizeRequiredText(input.classificationPhotoId, 'classificationPhotoId');
     const templateVersion = normalizeRequiredText(input.templateVersion ?? 'v1', 'templateVersion');
     const selectedFields = normalizeRequiredStringArray(input.selectedFields ?? [], 'selectedFields');
@@ -2276,6 +2275,20 @@ export class SampleCommandService {
       throw new HttpError(422, 'checksumSha256 must be a 64-char lowercase hex string');
     }
 
+    let recipientClientId = null;
+    let recipientClientSnapshot = null;
+    let destination = normalizeOptionalText(input.destination, 'destination', 255);
+
+    if (input.recipientClientId) {
+      const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
+      if (!UUID_REGEX.test(clientId)) {
+        throw new HttpError(422, 'recipientClientId must be a valid UUID');
+      }
+      recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
+      recipientClientId = clientId;
+      destination = recipientClientSnapshot.displayName ?? destination;
+    }
+
     const event = buildEventEnvelope({
       eventType: 'REPORT_EXPORTED',
       sampleId: sample.id,
@@ -2284,11 +2297,51 @@ export class SampleCommandService {
         exportType,
         fileName,
         destination,
+        recipientClientId,
+        recipientClientSnapshot,
         selectedFields,
         classificationPhotoId,
         templateVersion,
         sizeBytes,
         checksumSha256
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'classification',
+      actorContext: actor
+    });
+
+    return this.eventService.appendEvent(event);
+  }
+
+  async recordPhysicalSampleSent(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record physical sample sent');
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    assertSampleStatus(sample, ['CLASSIFIED'], 'record physical sample sent');
+
+    const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
+    if (!UUID_REGEX.test(clientId)) {
+      throw new HttpError(422, 'recipientClientId must be a valid UUID');
+    }
+
+    const recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
+
+    const sentDate = input.sentDate
+      ? normalizeRequiredText(input.sentDate, 'sentDate')
+      : buildBusinessDateStamp();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sentDate)) {
+      throw new HttpError(422, 'sentDate must be in YYYY-MM-DD format');
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'PHYSICAL_SAMPLE_SENT',
+      sampleId: sample.id,
+      payload: {
+        recipientClientId: clientId,
+        recipientClientSnapshot,
+        sentDate
       },
       fromStatus: null,
       toStatus: null,

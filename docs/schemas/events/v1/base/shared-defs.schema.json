@@ -39,7 +39,8 @@
         "LOSS_CANCELLED",
         "COMMERCIAL_STATUS_UPDATED",
         "SAMPLE_INVALIDATED",
-        "REPORT_EXPORTED"
+        "REPORT_EXPORTED",
+        "PHYSICAL_SAMPLE_SENT"
       ]
     },
     "sampleStatus": {

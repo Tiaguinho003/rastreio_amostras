@@ -915,6 +915,7 @@ export async function exportSamplePdf(
   data: {
     exportType: SampleExportType;
     destination?: string | null;
+    recipientClientId?: string | null;
   }
 ) {
   const response = await fetch(`${API_BASE}/samples/${sampleId}/export/pdf`, {
@@ -924,7 +925,8 @@ export async function exportSamplePdf(
     },
     body: JSON.stringify({
       exportType: data.exportType,
-      destination: data.destination ?? null
+      destination: data.destination ?? null,
+      recipientClientId: data.recipientClientId ?? null
     }),
     cache: 'no-store',
     credentials: 'same-origin'
@@ -945,6 +947,24 @@ export async function exportSamplePdf(
     blob,
     fileName
   };
+}
+
+export function recordPhysicalSampleSent(
+  session: SessionData,
+  sampleId: string,
+  data: {
+    recipientClientId: string;
+    sentDate: string;
+  }
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/physical-send`, {
+    method: 'POST',
+    session,
+    body: {
+      recipientClientId: data.recipientClientId,
+      sentDate: data.sentDate
+    }
+  });
 }
 
 export function resolveSampleByQr(session: SessionData, qrContent: string) {
