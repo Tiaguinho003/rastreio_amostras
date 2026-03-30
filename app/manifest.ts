@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#1f5d43',
     theme_color: '#1f5d43',
     lang: 'pt-BR',
-    orientation: 'portrait',
+    orientation: 'any',
     icons: [
       {
         src: '/logo-laudo.png',

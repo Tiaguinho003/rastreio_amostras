@@ -158,6 +158,7 @@ function NewSamplePageContent() {
   const [arrivalPhoto, setArrivalPhoto] = useState<File | null>(null);
   const [arrivalPhotoLoading, setArrivalPhotoLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<NewSampleStep>('photo');
+  const isDesktopRef = useRef(false);
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
   const [pendingPhotoAutoAdvance, setPendingPhotoAutoAdvance] = useState(false);
   const [photoCheckAnimating, setPhotoCheckAnimating] = useState(false);
@@ -288,6 +289,13 @@ function NewSamplePageContent() {
         window.clearTimeout(invalidFocusTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth > 900) {
+      isDesktopRef.current = true;
+      setCurrentStep('details');
+    }
   }, []);
 
   useEffect(() => {
@@ -567,7 +575,7 @@ function NewSamplePageContent() {
     setNotes('');
     setArrivalPhoto(null);
     setArrivalPhotoLoading(false);
-    setCurrentStep('photo');
+    setCurrentStep(isDesktopRef.current ? 'details' : 'photo');
     setHarvestOptionsOpen(false);
     setActiveCameraHandoffId(null);
     setPendingPhotoAutoAdvance(false);
@@ -773,6 +781,10 @@ function NewSamplePageContent() {
 
 
   function handleBackFromDetails() {
+    if (isDesktopRef.current) {
+      router.push('/dashboard');
+      return;
+    }
     clearArrivalPhoto();
     setCurrentStep('photo');
   }
