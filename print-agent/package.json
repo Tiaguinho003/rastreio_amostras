@@ -1,0 +1,13 @@
+{
+  "name": "safras-print-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Print agent para impressao de etiquetas de amostras de cafe — Elgin L42 Pro",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
