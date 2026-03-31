@@ -1,7 +1,25 @@
 import { loadConfig } from './config.js';
-import { setLevel, info, error } from './logger.js';
+import { setLevel, info, warn, error } from './logger.js';
 import { login } from './auth.js';
 import { startPolling } from './poller.js';
+import { sendToPrinter } from './printer.js';
+
+function calibratePrinter(config) {
+  const tspl = [
+    'SET RIBBON ON',
+    'SIZE 100 mm, 35 mm',
+    'GAP 3 mm, 0 mm',
+    'GAPDETECT',
+  ].join('\r\n') + '\r\n';
+
+  info('Calibrando sensor de gap da impressora...');
+  try {
+    sendToPrinter(config.printerName, null, tspl);
+    info('Calibracao concluida');
+  } catch (err) {
+    warn(`Calibracao falhou: ${err.message}. Continuando mesmo assim.`);
+  }
+}
 
 async function main() {
   const config = loadConfig();
@@ -14,6 +32,8 @@ async function main() {
   info(`Intervalo:  ${config.pollIntervalMs}ms`);
   info(`Retry:      ${config.printRetryCount}x (delay base: ${config.printRetryDelayMs}ms)`);
   info('');
+
+  calibratePrinter(config);
 
   try {
     await login(config);

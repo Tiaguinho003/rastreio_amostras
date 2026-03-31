@@ -28,18 +28,32 @@ echo Node.js:    %NODE_PATH%
 echo Pasta:      %AGENT_DIR%
 echo.
 
-schtasks /Create /TN "SafrasPrintAgent" /TR "\"%NODE_PATH%\" \"%AGENT_DIR%index.js\"" /SC ONLOGON /RL HIGHEST /F
+REM Remove tarefa agendada antiga se existir
+schtasks /Delete /TN "SafrasPrintAgent" /F >nul 2>&1
 
-if %errorlevel% equ 0 (
+REM Cria script de inicializacao
+echo @echo off > "%AGENT_DIR%start.bat"
+echo title Safras Print Agent >> "%AGENT_DIR%start.bat"
+echo cd /d "%AGENT_DIR%" >> "%AGENT_DIR%start.bat"
+echo "%NODE_PATH%" index.js >> "%AGENT_DIR%start.bat"
+echo pause >> "%AGENT_DIR%start.bat"
+
+REM Cria atalho na pasta Inicializar do Windows
+set STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+set SHORTCUT=%STARTUP_DIR%\SafrasPrintAgent.lnk
+
+powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT%'); $s.TargetPath = '%AGENT_DIR%start.bat'; $s.WorkingDirectory = '%AGENT_DIR%'; $s.WindowStyle = 7; $s.Description = 'Safras Print Agent'; $s.Save()"
+
+if exist "%SHORTCUT%" (
     echo.
-    echo [OK] Tarefa agendada criada com sucesso.
-    echo O agente iniciara automaticamente quando voce fizer login no Windows.
+    echo [OK] Atalho criado na pasta Inicializar.
+    echo O agente iniciara automaticamente com janela visivel no login.
     echo.
-    echo Para iniciar agora, abra o Prompt de Comando nesta pasta e execute:
-    echo   node index.js
+    echo Para iniciar agora, execute:
+    echo   "%AGENT_DIR%start.bat"
 ) else (
     echo.
-    echo [ERRO] Falha ao criar tarefa. Execute este script como Administrador.
+    echo [ERRO] Falha ao criar atalho. Tente executar como Administrador.
 )
 
 echo.
