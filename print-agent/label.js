@@ -69,8 +69,8 @@ export function buildLabel(job) {
     // Sacks
     `TEXT 265,148,"2",0,1,1,"Sacas: ${sacks}"`,
     '',
-    // Logo bitmap command (data follows as binary)
-    `BITMAP 640,8,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,
+    // Logo bitmap command — bottom right (data follows as binary)
+    `BITMAP 590,202,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,
   ].join('\r\n');
 
   parts.push(Buffer.from(header, 'ascii'));
