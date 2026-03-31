@@ -1,19 +1,30 @@
 import { sendToPrinter } from './printer.js';
+import { buildLabel } from './label.js';
 import { loadConfig } from './config.js';
 
 const config = loadConfig();
-const tspl = [
-  'SIZE 100 mm, 35 mm',
-  'GAP 3 mm, 0 mm',
-  'DIRECTION 1',
-  'CLS',
-  'TEXT 50,50,"4",0,1,1,"TESTE SAFRAS"',
-  'TEXT 50,110,"3",0,1,1,"Impressao OK"',
-  'PRINT 1,1',
-].join('\r\n') + '\r\n';
+
+const mockJob = {
+  sampleId: 'test-sample-001',
+  printAction: 'PRINT',
+  attemptNumber: 1,
+  sample: {
+    id: 'test-sample-001',
+    internalLotNumber: 'A-0042',
+    qrValue: 'A-0042',
+    version: 1,
+    declared: {
+      owner: 'Fazenda São João',
+      sacks: 25,
+    }
+  }
+};
 
 console.log(`Impressora: ${config.printerName}`);
-console.log('Enviando etiqueta de teste...');
+console.log('Gerando etiqueta de teste...');
+
+const tspl = buildLabel(mockJob);
+console.log(`Tamanho: ${tspl.length} bytes`);
 
 try {
   sendToPrinter(config.printerName, null, tspl);
