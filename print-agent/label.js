@@ -38,6 +38,8 @@ export function buildLabel(job) {
   const owner = sanitize(job.sample.declared?.owner, 33);
 
   const lines = [
+    'SET RIBBON ON',
+    'DENSITY 10',
     'SIZE 100 mm, 35 mm',
     'GAP 3 mm, 0 mm',
     'DIRECTION 1',
