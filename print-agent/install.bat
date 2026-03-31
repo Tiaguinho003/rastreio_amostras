@@ -12,9 +12,23 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+for /f "tokens=*" %%i in ('where node') do set NODE_PATH=%%i
+
 set AGENT_DIR=%~dp0
 
-schtasks /Create /TN "SafrasPrintAgent" /TR "node \"%AGENT_DIR%index.js\"" /SC ONLOGON /RL HIGHEST /F
+if not exist "%AGENT_DIR%.env" (
+    echo [ERRO] Arquivo .env nao encontrado em %AGENT_DIR%
+    echo Copie .env.example para .env e preencha os valores.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Node.js:    %NODE_PATH%
+echo Pasta:      %AGENT_DIR%
+echo.
+
+schtasks /Create /TN "SafrasPrintAgent" /TR "\"%NODE_PATH%\" \"%AGENT_DIR%index.js\"" /SC ONLOGON /RL HIGHEST /F
 
 if %errorlevel% equ 0 (
     echo.

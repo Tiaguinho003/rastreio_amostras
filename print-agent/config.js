@@ -50,6 +50,8 @@ export function loadConfig() {
     printerName: required(vars, 'PRINTER_NAME'),
     printerId: vars.PRINTER_ID || 'elgin-l42-office',
     pollIntervalMs: parseInt(vars.POLL_INTERVAL_MS || '7000', 10),
+    printRetryCount: Math.max(parseInt(vars.PRINT_RETRY_COUNT || '3', 10), 1),
+    printRetryDelayMs: Math.max(parseInt(vars.PRINT_RETRY_DELAY_MS || '2000', 10), 500),
     logLevel: vars.LOG_LEVEL || 'info',
   });
 }

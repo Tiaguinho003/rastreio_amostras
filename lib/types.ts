@@ -488,11 +488,22 @@ export interface SampleEvent {
   };
 }
 
+export interface LatestPrintJob {
+  jobId: string;
+  printAction: PrintAction;
+  attemptNumber: number;
+  status: PrintJobStatus;
+  printerId: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
 export interface SampleDetailResponse {
   sample: SampleSnapshot;
   attachments: SampleAttachment[];
   events: SampleEvent[];
   movements?: SampleMovement[];
+  latestPrintJob: LatestPrintJob | null;
 }
 
 export interface SampleMovement {

@@ -819,7 +819,8 @@ export function createBackendApiV1({
         await resolveActorContext(input, authService);
         const query = input?.query ?? {};
         const result = await queryService.listPendingPrintJobs({
-          limit: query.limit
+          limit: query.limit,
+          sampleId: query.sampleId ?? null
         });
         return {
           status: 200,

@@ -17,7 +17,10 @@ export function sendToPrinter(printerName, _port, tsplCommands) {
     });
     log.debug('Dados enviados para impressora com sucesso');
   } catch (err) {
-    throw new Error(`Falha ao enviar para impressora "${printerName}": ${err.message}`);
+    const hint = err.killed
+      ? 'Impressora nao respondeu em 10s. Verifique se esta ligada e conectada via USB.'
+      : 'Verifique: (1) impressora ligada, (2) cabo USB conectado, (3) porta no .env correta (PRINTER_NAME).';
+    throw new Error(`Falha ao enviar para "${printerName}": ${err.message}. ${hint}`);
   } finally {
     try { unlinkSync(tmpFile); } catch {}
   }

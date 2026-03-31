@@ -884,6 +884,9 @@ export default function SampleDetailPage() {
     () => detail?.sample.internalLotNumber ?? detail?.sample.id ?? '',
     [detail?.sample.internalLotNumber, detail?.sample.id]
   );
+  const printFailed = detail
+    ? detail.sample.status === 'QR_PENDING_PRINT' && detail.latestPrintJob?.status === 'FAILED'
+    : false;
   const canQuickPrint = detail
     ? detail.sample.status === 'REGISTRATION_CONFIRMED' || canRequestReprintStatus(detail.sample.status)
     : false;
@@ -1950,6 +1953,25 @@ export default function SampleDetailPage() {
               <div className={`sdv-content-inner${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
                 {detailSection === 'GENERAL' ? (
                   <section className="sdv-general">
+                    {printFailed ? (
+                      <div className="sdv-card sdv-print-failed-card">
+                        <div className="sdv-print-failed-row">
+                          <div className="sdv-print-failed-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                          </div>
+                          <div className="sdv-print-failed-body">
+                            <span className="sdv-print-failed-title">Impressao falhou</span>
+                            <span className="sdv-print-failed-sub">
+                              Tentativa {detail!.latestPrintJob!.attemptNumber}
+                              {detail!.latestPrintJob!.error ? ` — ${detail!.latestPrintJob!.error}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        <button type="button" className="sdv-print-failed-retry" onClick={(event) => openLabelReviewModal(event.currentTarget)}>
+                          Tentar novamente
+                        </button>
+                      </div>
+                    ) : null}
                     {/* Card 1: Informações */}
                     <div className="sdv-card sdv-info-compact">
                       <div className="sdv-info-grid">

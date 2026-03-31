@@ -3,6 +3,8 @@ import { ensureAuthenticated, getAuthHeaders, clearSession, login } from './auth
 import { sendToPrinter } from './printer.js';
 import { buildLabel } from './label.js';
 
+const printedJobIds = new Set();
+
 async function fetchPendingJobs(config) {
   const res = await fetch(`${config.backendUrl}/api/v1/print-queue/pending?limit=10`, {
     headers: { ...getAuthHeaders() },
@@ -24,29 +26,51 @@ async function fetchPendingJobs(config) {
 }
 
 async function reportSuccess(config, job) {
+  const lotId = job.sample.internalLotNumber || job.sampleId.slice(0, 8);
   const body = {
     printAction: job.printAction,
     attemptNumber: job.attemptNumber,
     printerId: config.printerId,
+    expectedVersion: job.sample.version,
   };
 
-  if (job.printAction === 'PRINT') {
-    body.expectedVersion = job.sample.version;
-  }
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/printed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      });
 
-  const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/printed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify(body),
-  });
+      if (res.ok) {
+        printedJobIds.delete(job.jobId);
+        return;
+      }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    log.warn(`Falha ao reportar sucesso para ${job.sample.internalLotNumber}: HTTP ${res.status} ${text}`);
+      if (res.status === 409) {
+        log.warn(`[${lotId}] Report ignorado (conflito de versao). Job ja processado pelo backend.`);
+        printedJobIds.delete(job.jobId);
+        return;
+      }
+
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${text}`);
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        const delay = 2000 * attempt;
+        log.warn(`[${lotId}] Falha ao reportar sucesso (${attempt}/${maxAttempts}): ${err.message}. Retry em ${delay}ms...`);
+        await sleep(delay);
+      } else {
+        log.error(`[${lotId}] ATENCAO: Etiqueta foi impressa mas o backend NAO confirmou apos ${maxAttempts} tentativas.`);
+        log.error(`[${lotId}] O job sera ignorado ate o proximo reinicio do agente. Verifique a conexao.`);
+      }
+    }
   }
 }
 
 async function reportFailure(config, job, errorMessage) {
+  const lotId = job.sample.internalLotNumber || job.sampleId.slice(0, 8);
   const body = {
     printAction: job.printAction,
     attemptNumber: job.attemptNumber,
@@ -54,33 +78,69 @@ async function reportFailure(config, job, errorMessage) {
     error: errorMessage,
   };
 
-  const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/print/failed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify(body),
-  });
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/print/failed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    log.warn(`Falha ao reportar erro para ${job.sample.internalLotNumber}: HTTP ${res.status} ${text}`);
+      if (res.ok || res.status === 409) return;
+
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${text}`);
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        await sleep(2000);
+      } else {
+        log.warn(`[${lotId}] Nao foi possivel reportar falha ao backend. O job sera retentado na proxima poll.`);
+      }
+    }
   }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 async function processJob(config, job) {
   const lotId = job.sample.internalLotNumber || job.sampleId.slice(0, 8);
+
+  if (printedJobIds.has(job.jobId)) {
+    log.info(`[${lotId}] Job ja impresso nesta sessao. Retentando report ao backend...`);
+    await reportSuccess(config, job);
+    return;
+  }
+
   log.info(`[${lotId}] Imprimindo etiqueta (${job.printAction} #${job.attemptNumber})...`);
 
   const tspl = buildLabel(job);
   log.debug(`[${lotId}] TSPL:\n${tspl}`);
 
-  try {
-    await sendToPrinter(config.printerName, null, tspl);
-    log.info(`[${lotId}] Impressao enviada com sucesso`);
-    await reportSuccess(config, job);
-  } catch (err) {
-    log.error(`[${lotId}] Falha na impressao: ${err.message}`);
-    await reportFailure(config, job, err.message);
+  const maxRetries = config.printRetryCount;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await sendToPrinter(config.printerName, null, tspl);
+      log.info(`[${lotId}] Impressao enviada com sucesso`);
+      printedJobIds.add(job.jobId);
+      await reportSuccess(config, job);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delayMs = config.printRetryDelayMs * Math.pow(2, attempt - 1);
+        log.warn(`[${lotId}] Tentativa ${attempt}/${maxRetries} falhou: ${err.message}. Retry em ${delayMs}ms...`);
+        await sleep(delayMs);
+      }
+    }
   }
+
+  log.error(`[${lotId}] Falha na impressao apos ${maxRetries} tentativa(s): ${lastError.message}`);
+  await reportFailure(config, job, lastError.message);
 }
 
 export async function pollCycle(config) {

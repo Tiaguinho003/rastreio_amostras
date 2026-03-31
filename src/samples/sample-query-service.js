@@ -834,11 +834,44 @@ export class SampleQueryService {
     };
   }
 
+  async findLatestPrintJob(sampleId) {
+    const row = await this.prisma.printJob.findFirst({
+      where: { sampleId },
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true,
+        printAction: true,
+        attemptNumber: true,
+        status: true,
+        printerId: true,
+        error: true,
+        createdAt: true
+      }
+    });
+
+    if (!row) return null;
+
+    return {
+      jobId: row.id,
+      printAction: row.printAction,
+      attemptNumber: row.attemptNumber,
+      status: row.status,
+      printerId: row.printerId ?? null,
+      error: row.error ?? null,
+      createdAt: row.createdAt.toISOString()
+    };
+  }
+
   async listPendingPrintJobs(options = {}) {
     const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
+    const where = { status: 'PENDING' };
+
+    if (options.sampleId) {
+      where.sampleId = options.sampleId;
+    }
 
     const rows = await this.prisma.printJob.findMany({
-      where: { status: 'PENDING' },
+      where,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: limit,
       include: {
@@ -851,7 +884,8 @@ export class SampleQueryService {
             declaredOwner: true,
             declaredSacks: true,
             declaredHarvest: true,
-            declaredOriginLot: true
+            declaredOriginLot: true,
+            declaredWarehouse: true
           }
         }
       }
@@ -1236,17 +1270,19 @@ export class SampleQueryService {
 
   async getSampleDetail(sampleId, options = {}) {
     const sample = await this.requireSample(sampleId);
-    const [attachments, events, movements] = await Promise.all([
+    const [attachments, events, movements, latestPrintJob] = await Promise.all([
       this.listAttachments(sampleId),
       this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
-      this.listSampleMovements(sampleId)
+      this.listSampleMovements(sampleId),
+      this.findLatestPrintJob(sampleId)
     ]);
 
     return {
       sample,
       attachments,
       events,
-      movements
+      movements,
+      latestPrintJob
     };
   }
 

@@ -14,7 +14,8 @@ import {
   ApiError,
   createSampleAndPreparePrint,
   getClient,
-  getPendingPrintJobs
+  getPendingPrintJobs,
+  getSampleDetail
 } from '../../../lib/api-client';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
@@ -453,19 +454,27 @@ function NewSamplePageContent() {
     const sampleId = created.sample.id;
 
     printPollingRef.current = setInterval(() => {
-      getPendingPrintJobs(session, { limit: 50 })
+      getPendingPrintJobs(session, { limit: 1, sampleId })
         .then((res) => {
-          const job = res.items.find((j) => j.sampleId === sampleId);
-          if (!job) {
-            setPrintStatus('success');
-          }
+          if (res.items.length > 0) return;
+          getSampleDetail(session, sampleId, { eventLimit: 0 })
+            .then((detail) => {
+              if (detail.latestPrintJob?.status === 'FAILED') {
+                setPrintStatus('failed');
+              } else {
+                setPrintStatus('success');
+              }
+            })
+            .catch(() => {
+              setPrintStatus('success');
+            });
         })
         .catch(() => {});
     }, 2000);
 
     printTimeoutRef.current = setTimeout(() => {
       setPrintStatus((current) => (current === 'pending' ? 'timeout' : current));
-    }, 10000);
+    }, 30000);
 
     return () => {
       if (printPollingRef.current) clearInterval(printPollingRef.current);
@@ -1304,7 +1313,10 @@ function NewSamplePageContent() {
                   {printStatus === 'success' ? (
                     <p className="nsv2-print-status nsv2-print-success">Impressao concluida! Redirecionando...</p>
                   ) : null}
-                  {printStatus === 'failed' || printStatus === 'timeout' ? (
+                  {printStatus === 'failed' ? (
+                    <p className="nsv2-print-status nsv2-print-failed">Impressao falhou. Tente novamente pela pagina de detalhes.</p>
+                  ) : null}
+                  {printStatus === 'timeout' ? (
                     <p className="nsv2-print-status nsv2-print-failed">Impressao nao confirmada</p>
                   ) : null}
 

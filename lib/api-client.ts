@@ -731,10 +731,13 @@ export function getDashboardSalesAvailability(session: SessionData) {
   });
 }
 
-export function getPendingPrintJobs(session: SessionData, options: { limit?: number } = {}) {
+export function getPendingPrintJobs(session: SessionData, options: { limit?: number; sampleId?: string } = {}) {
   const params = new URLSearchParams();
   if (typeof options.limit === 'number') {
     params.set('limit', String(options.limit));
+  }
+  if (options.sampleId) {
+    params.set('sampleId', options.sampleId);
   }
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<PendingPrintQueueResponse>(`/print-queue/pending${suffix}`, {

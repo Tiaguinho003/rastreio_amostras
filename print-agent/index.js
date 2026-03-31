@@ -12,6 +12,7 @@ async function main() {
   info(`Impressora: ${config.printerName}`);
   info(`Printer ID: ${config.printerId}`);
   info(`Intervalo:  ${config.pollIntervalMs}ms`);
+  info(`Retry:      ${config.printRetryCount}x (delay base: ${config.printRetryDelayMs}ms)`);
   info('');
 
   try {
