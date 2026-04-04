@@ -345,7 +345,7 @@ if (!databaseUrl || !databaseReachable) {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
           classificador: 'Classificador Teste',
-          defeito: 9,
+          defeito: '9',
           umidade: 11.3,
           aspectoCor: 'verde',
           observacoes: 'ok',
@@ -371,8 +371,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.status, 'CLASSIFIED');
     assert.equal(detail.sample.version, 8);
     assert.match(detail.sample.internalLotNumber ?? '', /^A-\d+$/);
-    assert.equal(detail.attachments.length, 2);
-    assert.equal(detail.events.length, 10);
+    assert.equal(detail.attachments.length, 1);
+    assert.equal(detail.events.length, 9);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');

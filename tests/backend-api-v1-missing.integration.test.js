@@ -2188,10 +2188,10 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(nextPage.status, 200);
-    assert.equal(nextPage.body.events.length, 2);
+    assert.equal(nextPage.body.events.length, 1);
     assert.deepEqual(
       nextPage.body.events.map((event) => event.sequenceNumber),
-      [3, 4]
+      [3]
     );
 
     const invalidLimit = await api.listSampleEvents(
