@@ -20,14 +20,14 @@ test('LocalUploadService saves files below the configured limit', async () => {
   try {
     const saved = await service.saveSamplePhoto({
       sampleId: 'sample-1',
-      kind: 'ARRIVAL_PHOTO',
+      kind: 'CLASSIFICATION_PHOTO',
       buffer: Buffer.from('small-image'),
       mimeType: 'image/jpeg',
       originalFileName: 'small.jpg'
     });
 
     assert.equal(saved.sizeBytes, Buffer.byteLength('small-image'));
-    assert.match(saved.storagePath, /^samples[\\/]+sample-1[\\/]+arrival[\\/]/);
+    assert.match(saved.storagePath, /^samples[\\/]+sample-1[\\/]+classification[\\/]/);
 
     const absolutePath = path.join(baseDir, saved.storagePath);
     const bytes = await fs.readFile(absolutePath, 'utf8');

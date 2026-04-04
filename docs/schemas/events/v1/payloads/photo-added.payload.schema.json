@@ -10,7 +10,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["ARRIVAL_PHOTO", "CLASSIFICATION_PHOTO"]
+      "enum": ["CLASSIFICATION_PHOTO"]
     },
     "storagePath": {
       "type": "string",

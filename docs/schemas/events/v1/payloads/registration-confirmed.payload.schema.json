@@ -33,11 +33,6 @@
     "declaredWarehouse": {
       "type": ["string", "null"]
     },
-    "labelPhotos": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 1 },
-      "minItems": 0
-    },
     "ocr": {
       "type": "object",
       "properties": {

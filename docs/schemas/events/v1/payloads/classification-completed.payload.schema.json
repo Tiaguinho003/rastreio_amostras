@@ -32,19 +32,16 @@
           "type": ["string", "null"]
         },
         "broca": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100
+          "type": ["string", "null"]
         },
         "pva": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100
+          "type": ["string", "null"]
         },
         "imp": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100
+          "type": ["string", "null"]
+        },
+        "pau": {
+          "type": ["string", "null"]
         },
         "classificador": {
           "type": ["string", "null"]
@@ -56,17 +53,31 @@
             "p17": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p16": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "mk": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "mk9": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "mk10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "mk11": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p15": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p14": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p13": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p12": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "fundo": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+            "fundos": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "peneira": { "type": "string", "minLength": 1 },
+                  "percentual": { "type": "number", "minimum": 0, "maximum": 100 }
+                },
+                "required": ["peneira", "percentual"]
+              },
+              "maxItems": 2
+            }
           },
           "additionalProperties": false
         },
         "defeito": {
-          "type": ["integer", "null"],
-          "minimum": 0
+          "type": ["string", "null"]
         },
         "umidade": {
           "type": ["number", "null"],

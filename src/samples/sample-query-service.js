@@ -716,7 +716,6 @@ function mapSample(row) {
       phone: row.warehouse.phone ?? null,
       status: row.warehouse.status
     } : null,
-    labelPhotoCount: row.labelPhotoCount,
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,

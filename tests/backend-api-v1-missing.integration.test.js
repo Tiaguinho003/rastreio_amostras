@@ -154,16 +154,6 @@ if (!databaseUrl || !databaseReachable) {
       actorClassifier
     );
 
-    await commandService.addLabelPhoto(
-      {
-        sampleId,
-        fileBuffer: Buffer.from(`photo-${sampleId}`),
-        mimeType: 'image/jpeg',
-        originalFileName: 'etiqueta.jpg'
-      },
-      actorClassifier
-    );
-
     await commandService.confirmRegistration(
       {
         sampleId,
@@ -206,19 +196,6 @@ if (!databaseUrl || !databaseReachable) {
       actorClassifier
     );
 
-    await commandService.addLabelPhoto(
-      {
-        sampleId,
-        fileBuffer: Buffer.from(`photo-${sampleId}`),
-        mimeType: 'image/jpeg',
-        originalFileName: 'etiqueta.jpg'
-      },
-      actorClassifier
-    );
-
-    const attachmentIds = await queryService.listAttachmentIds(sampleId, {
-      kind: 'ARRIVAL_PHOTO'
-    });
     const sampleLotNumber = await queryService.getNextInternalLotNumber(new Date().getUTCFullYear());
 
     const event = buildEventEnvelope({
@@ -232,7 +209,6 @@ if (!databaseUrl || !databaseReachable) {
           harvest: '25/26',
           originLot: 'ORIG-001'
         },
-        labelPhotos: attachmentIds,
         ocr: {
           provider: 'LOCAL',
           overallConfidence: 0.8,
@@ -660,7 +636,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(created.body.sample.status, 'QR_PENDING_PRINT');
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(created.body.sample.labelPhotoCount, 0);
     assert.equal(created.body.qr.value, created.body.sample.internalLotNumber ?? created.body.sample.id);
     assert.equal(created.body.print?.printAction, 'PRINT');
     assert.equal(created.body.print?.attemptNumber, 1);
@@ -671,45 +646,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.deepEqual(
       events.map((event) => event.eventType),
       ['SAMPLE_RECEIVED', 'REGISTRATION_STARTED', 'REGISTRATION_CONFIRMED', 'QR_PRINT_REQUESTED']
-    );
-  });
-
-  test('POST /samples/create accepts optional arrival photo and persists it before registration confirmation', async () => {
-    const ownerClient = await createSellerClient({
-      legalName: 'Fazenda Com Foto',
-      tradeName: 'Fazenda Com Foto'
-    });
-
-    const created = await api.createSampleAndPreparePrint(
-      buildInput({
-        body: {
-          clientDraftId: randomUUID(),
-          ownerClientId: ownerClient.client.id,
-          sacks: 9,
-          harvest: '25/26',
-          originLot: 'ORIG-COM-FOTO',
-          receivedChannel: 'courier',
-          arrivalPhotoFileBuffer: Buffer.from('arrival-photo-content'),
-          arrivalPhotoMimeType: 'image/jpeg',
-          arrivalPhotoOriginalFileName: 'chegada.jpg'
-        }
-      })
-    );
-
-    assert.equal(created.status, 201);
-    assert.equal(created.body.sample.status, 'QR_PENDING_PRINT');
-    assert.equal(created.body.sample.labelPhotoCount, 1);
-    assert.equal(created.body.print?.printAction, 'PRINT');
-    assert.equal(created.body.print?.attemptNumber, 1);
-    assert.equal(created.body.print?.status, 'PENDING');
-
-    const detail = await queryService.getSampleDetail(created.body.sample.id, { eventLimit: 20 });
-    const arrivalPhotos = detail.attachments.filter((attachment) => attachment.kind === 'ARRIVAL_PHOTO');
-    assert.equal(arrivalPhotos.length, 1);
-
-    assert.deepEqual(
-      detail.events.map((event) => event.eventType),
-      ['SAMPLE_RECEIVED', 'REGISTRATION_STARTED', 'PHOTO_ADDED', 'REGISTRATION_CONFIRMED', 'QR_PRINT_REQUESTED']
     );
   });
 

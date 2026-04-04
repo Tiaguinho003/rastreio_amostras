@@ -430,7 +430,6 @@ export interface SampleSnapshot {
   soldSacks?: number;
   lostSacks?: number;
   availableSacks?: number | null;
-  labelPhotoCount: number;
   latestClassification: {
     version: number | null;
     data: Record<string, unknown> | null;
@@ -455,7 +454,7 @@ export interface SampleSnapshot {
 export interface SampleAttachment {
   id: string;
   sampleId: string;
-  kind: 'ARRIVAL_PHOTO' | 'CLASSIFICATION_PHOTO';
+  kind: 'CLASSIFICATION_PHOTO';
   storagePath: string;
   mimeType: string | null;
   sizeBytes: number | null;
@@ -622,7 +621,7 @@ export interface CommandResponse<TSample = unknown> {
   event: SampleEvent;
   photo?: {
     attachmentId: string;
-    kind: 'ARRIVAL_PHOTO' | 'CLASSIFICATION_PHOTO';
+    kind: 'CLASSIFICATION_PHOTO';
     storagePath: string;
     fileName: string;
     mimeType: string | null;

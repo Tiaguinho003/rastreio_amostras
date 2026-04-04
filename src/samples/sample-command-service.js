@@ -9,11 +9,9 @@ const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
 const CREATE_SAMPLE_MAX_RETRIES = 12;
 const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other']);
 const PHOTO_KINDS = {
-  ARRIVAL: 'ARRIVAL_PHOTO',
   CLASSIFICATION: 'CLASSIFICATION_PHOTO'
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.ARRIVAL]: ['REGISTRATION_IN_PROGRESS'],
   [PHOTO_KINDS.CLASSIFICATION]: ['CLASSIFICATION_IN_PROGRESS']
 };
 const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
@@ -58,6 +56,7 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'broca',
   'pva',
   'imp',
+  'pau',
   'classificador',
   'defeito',
   'umidade',
@@ -65,7 +64,7 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'observacoes',
   'loteOrigem'
 ];
-const CLASSIFICATION_SIEVE_FIELDS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10', 'fundo'];
+const CLASSIFICATION_SIEVE_FIELDS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10', 'fundos'];
 const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'type',
   'screen',
@@ -532,6 +531,14 @@ function parseClassificationSievePatch(value) {
     if (!hasOwn(value, key)) {
       continue;
     }
+    if (key === 'fundos') {
+      if (value[key] === null) {
+        patch.fundos = null;
+      } else if (Array.isArray(value[key])) {
+        patch.fundos = value[key];
+      }
+      continue;
+    }
     patch[key] = normalizeNullableNumber(value[key], `after.classificationData.peneirasPercentuais.${key}`);
   }
 
@@ -543,8 +550,9 @@ function parseClassificationSievePatch(value) {
 }
 
 function normalizeClassificationDataFieldValue(fieldName, value) {
-  if (fieldName === 'broca' || fieldName === 'pva' || fieldName === 'imp' || fieldName === 'defeito') {
-    return normalizeNullableNumber(value, `after.classificationData.${fieldName}`);
+  if (fieldName === 'broca' || fieldName === 'pva' || fieldName === 'imp' || fieldName === 'pau' || fieldName === 'defeito') {
+    if (value === null || value === undefined) return null;
+    return typeof value === 'string' ? value.trim() || null : String(value);
   }
 
   if (fieldName === 'umidade') {
@@ -1031,11 +1039,7 @@ function normalizeReceivedChannel(value) {
 }
 
 function normalizePhotoKind(value) {
-  if (!value) {
-    return PHOTO_KINDS.ARRIVAL;
-  }
-
-  if (value === PHOTO_KINDS.ARRIVAL || value === PHOTO_KINDS.CLASSIFICATION) {
+  if (value === PHOTO_KINDS.CLASSIFICATION) {
     return value;
   }
 
@@ -1219,14 +1223,6 @@ export class SampleCommandService {
     const notes = normalizeOptionalText(input.notes, 'notes', 500);
     const printerId = normalizeOptionalText(input.printerId, 'printerId', 120);
     const sampleId = buildDeterministicUuid(`${actor.actorUserId}:${clientDraftId}`);
-    const hasArrivalPhotoBuffer = Buffer.isBuffer(input.arrivalPhoto?.fileBuffer) && input.arrivalPhoto.fileBuffer.length > 0;
-    const arrivalPhoto = hasArrivalPhotoBuffer
-      ? {
-          fileBuffer: input.arrivalPhoto.fileBuffer,
-          mimeType: input.arrivalPhoto.mimeType ?? null,
-          originalFileName: input.arrivalPhoto.originalFileName ?? null
-        }
-      : null;
 
     let createdThisRequest = false;
     let lastEvent = null;
@@ -1281,37 +1277,7 @@ export class SampleCommandService {
       }
 
       if (sample.status === 'REGISTRATION_IN_PROGRESS') {
-        if (arrivalPhoto) {
-          const existingArrivalPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.ARRIVAL);
-          if (!existingArrivalPhoto) {
-            try {
-              const photoResult = await this.addSamplePhoto(
-                {
-                  sampleId,
-                  kind: PHOTO_KINDS.ARRIVAL,
-                  fileBuffer: arrivalPhoto.fileBuffer,
-                  mimeType: arrivalPhoto.mimeType,
-                  originalFileName: arrivalPhoto.originalFileName,
-                  replaceExisting: false
-                },
-                actor
-              );
-              lastEvent = photoResult.event;
-              continue;
-            } catch (error) {
-              if (isStatusConflict(error)) {
-                continue;
-              }
-              throw error;
-            }
-          }
-        }
-
         try {
-          const arrivalPhotoIds = await this.queryService.listAttachmentIds(sample.id, {
-            kind: PHOTO_KINDS.ARRIVAL
-          });
-
           const confirmed = await this.confirmRegistration(
             {
               sampleId,
@@ -1321,7 +1287,6 @@ export class SampleCommandService {
               ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
               warehouseId: warehouseBinding?.warehouseId ?? null,
               declaredWarehouse: warehouseBinding?.warehouseName ?? null,
-              labelPhotoIds: arrivalPhotoIds,
               ocr: normalizeOcrPayload(null),
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`
             },
@@ -1425,7 +1390,7 @@ export class SampleCommandService {
 
   async addSamplePhoto(input, actorContext) {
     const kind = normalizePhotoKind(input.kind);
-    const actionLabel = kind === PHOTO_KINDS.ARRIVAL ? 'add arrival photo' : 'add classification photo';
+    const actionLabel = 'add classification photo';
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, actionLabel);
 
     if (!this.uploadService) {
@@ -1463,7 +1428,7 @@ export class SampleCommandService {
       },
       fromStatus: null,
       toStatus: null,
-      module: kind === PHOTO_KINDS.ARRIVAL ? 'registration' : 'classification',
+      module: 'classification',
       actorContext: actor
     });
 
@@ -1487,16 +1452,6 @@ export class SampleCommandService {
     }
   }
 
-  async addLabelPhoto(input, actorContext) {
-    return this.addSamplePhoto(
-      {
-        ...input,
-        kind: PHOTO_KINDS.ARRIVAL
-      },
-      actorContext
-    );
-  }
-
   async addClassificationPhoto(input, actorContext) {
     return this.addSamplePhoto(
       {
@@ -1513,10 +1468,6 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, ['REGISTRATION_IN_PROGRESS'], 'confirm registration');
-
-    const attachmentIds = Array.isArray(input.labelPhotoIds)
-      ? input.labelPhotoIds
-      : await this.queryService.listAttachmentIds(sample.id, { kind: PHOTO_KINDS.ARRIVAL });
 
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,
@@ -1545,7 +1496,6 @@ export class SampleCommandService {
           ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
           warehouseId: input.warehouseId ?? null,
           declaredWarehouse: input.declaredWarehouse ?? null,
-          labelPhotos: attachmentIds,
           ocr
         },
         fromStatus: 'REGISTRATION_IN_PROGRESS',

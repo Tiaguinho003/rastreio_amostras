@@ -7,10 +7,12 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ProfileBottomSheet } from './ProfileBottomSheet';
 import { SampleSearchField } from './SampleSearchField';
-import { recordInitialPasswordDecision } from '../lib/api-client';
+import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
+import { changePasswordSchema } from '../lib/form-schemas';
 import { getRoleLabel, isAdmin } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
+import { useFocusTrap } from '../lib/use-focus-trap';
 
 interface AppShellProps {
   session: SessionData;
@@ -100,8 +102,11 @@ function renderNavIcon(icon: NavIcon) {
   if (icon === 'camera') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M5.5 8.4h3l1.4-2.4h4.2l1.4 2.4h3A1.9 1.9 0 0 1 20.4 10v7.2a1.9 1.9 0 0 1-1.9 1.9H5.5a1.9 1.9 0 0 1-1.9-1.9V10a1.9 1.9 0 0 1 1.9-1.6Z" />
-        <circle cx="12" cy="13.5" r="3.3" />
+        <path d="M4 8V5.6A1.6 1.6 0 0 1 5.6 4H8" />
+        <path d="M16 4h2.4A1.6 1.6 0 0 1 20 5.6V8" />
+        <path d="M20 16v2.4a1.6 1.6 0 0 1-1.6 1.6H16" />
+        <path d="M8 20H5.6A1.6 1.6 0 0 1 4 18.4V16" />
+        <path d="M7.5 12h9" />
       </svg>
     );
   }
@@ -150,11 +155,8 @@ function renderNavIcon(icon: NavIcon) {
 function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   if (pathname === '/camera') {
     return {
-      title: 'Captura rapida',
-      subtitle: 'Escaneie QR, confirme a amostra e siga direto para o proximo passo.',
-      ctaHref: '/samples/new',
-      ctaLabel: 'Novo manual',
-      ctaIcon: 'new-sample'
+      title: 'Leitor QR',
+      subtitle: 'Escaneie o QR code da etiqueta para localizar a amostra.'
     };
   }
 
@@ -190,6 +192,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [passwordModalStep, setPasswordModalStep] = useState<'decision' | 'change'>('decision');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+  const showPasswordDecisionModal = session.user.initialPasswordDecision === 'PENDING' || passwordModalStep === 'change';
+  const passwordModalTrapRef = useFocusTrap(showPasswordDecisionModal);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -246,23 +257,73 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     };
   }, []);
 
-  async function handleInitialPasswordDecision(decision: 'KEPT' | 'CHANGED') {
+  useEffect(() => {
+    if (!showPasswordDecisionModal) return;
+    const block = (e: KeyboardEvent) => { if (e.key === 'Escape') e.preventDefault(); };
+    document.addEventListener('keydown', block);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', block);
+      document.body.style.overflow = '';
+    };
+  }, [showPasswordDecisionModal]);
+
+  async function handleKeepPassword() {
     setDecisionLoading(true);
     setDecisionError(null);
 
     try {
-      const response = await recordInitialPasswordDecision(session, decision);
+      const response = await recordInitialPasswordDecision(session, 'KEPT');
       if (onSessionChange) {
         onSessionChange(mergeUserIntoSession(session, response.user));
-      }
-
-      if (decision === 'CHANGED') {
-        router.push('/settings?section=password');
       }
     } catch (error) {
       setDecisionError(error instanceof Error ? error.message : 'Falha ao registrar a escolha');
     } finally {
       setDecisionLoading(false);
+    }
+  }
+
+  async function handleChooseChangePassword() {
+    setDecisionLoading(true);
+    setDecisionError(null);
+
+    try {
+      const response = await recordInitialPasswordDecision(session, 'CHANGED');
+      if (onSessionChange) {
+        onSessionChange(mergeUserIntoSession(session, response.user));
+      }
+      setPasswordModalStep('change');
+    } catch (error) {
+      setDecisionError(error instanceof Error ? error.message : 'Falha ao registrar a escolha');
+    } finally {
+      setDecisionLoading(false);
+    }
+  }
+
+  async function handleSubmitNewPassword() {
+    setPasswordChangeError(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeError('As senhas nao coincidem.');
+      return;
+    }
+
+    const parsed = changePasswordSchema.safeParse({ password: newPassword });
+    if (!parsed.success) {
+      setPasswordChangeError(parsed.error.issues[0]?.message ?? 'Senha invalida');
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+    try {
+      await changeCurrentUserPassword(session, parsed.data.password);
+      if (onSessionChange) onSessionChange(null);
+      router.replace('/login?reason=session-ended');
+    } catch (error) {
+      setPasswordChangeError(error instanceof Error ? error.message : 'Falha ao alterar senha');
+    } finally {
+      setPasswordChangeLoading(false);
     }
   }
 
@@ -387,38 +448,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           </section>
         ) : null}
 
-        {session.user.initialPasswordDecision === 'PENDING' ? (
-          <section className="panel stack app-shell-password-banner">
-            <div className="app-shell-password-banner-inner">
-              <div className="app-shell-password-banner-copy">
-                <h3 style={{ margin: 0 }}>Senha inicial</h3>
-                <p className="app-shell-password-banner-text">
-                  Voce pode manter a senha inicial por enquanto ou ir agora para altera-la.
-                </p>
-                {decisionError ? (
-                  <p className="error" style={{ margin: '0.5rem 0 0' }}>
-                    {decisionError}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="app-shell-password-banner-actions">
-                <button type="button" onClick={() => handleInitialPasswordDecision('KEPT')} disabled={decisionLoading}>
-                  {decisionLoading ? 'Salvando...' : 'Manter'}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => handleInitialPasswordDecision('CHANGED')}
-                  disabled={decisionLoading}
-                >
-                  Alterar
-                </button>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
         <div className="app-shell-page-content">
           {children}
         </div>
@@ -454,6 +483,87 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           })}
         </div>
       </nav>
+
+      {showPasswordDecisionModal ? (
+        <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
+          <section ref={passwordModalTrapRef} className="app-modal app-modal-password-decision" role="dialog" aria-modal="true">
+            {passwordModalStep === 'decision' ? (
+              <>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 className="app-modal-title">Senha inicial</h3>
+                    <p className="app-modal-description">
+                      Sua conta esta usando a senha definida pelo administrador. Voce pode mante-la ou escolher uma nova senha agora.
+                    </p>
+                  </div>
+                </header>
+                {decisionError ? <p className="app-modal-error">{decisionError}</p> : null}
+                <div className="app-modal-actions">
+                  <button type="button" className="app-modal-secondary" onClick={handleKeepPassword} disabled={decisionLoading}>
+                    {decisionLoading ? 'Salvando...' : 'Manter senha'}
+                  </button>
+                  <button type="button" className="app-modal-submit" onClick={handleChooseChangePassword} disabled={decisionLoading}>
+                    Alterar senha
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 className="app-modal-title">Nova senha</h3>
+                    <p className="app-modal-description">
+                      Escolha uma senha com no minimo 8 caracteres.
+                    </p>
+                  </div>
+                </header>
+                <div className="app-modal-content">
+                  <form className="app-modal-password-form" onSubmit={(e) => { e.preventDefault(); void handleSubmitNewPassword(); }}>
+                    <div className="app-modal-password-field">
+                      <span className="app-modal-password-label">Nova senha</span>
+                      <div className="app-modal-password-input-wrap">
+                        <input
+                          className="app-modal-password-input"
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="Minimo de 8 caracteres"
+                        />
+                        <button type="button" className="app-modal-password-toggle" onClick={() => setShowNewPassword((v) => !v)} tabIndex={-1} aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}>
+                          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: '#aaa', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>{showNewPassword ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></> : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>}</svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="app-modal-password-field">
+                      <span className="app-modal-password-label">Confirmar nova senha</span>
+                      <div className="app-modal-password-input-wrap">
+                        <input
+                          className="app-modal-password-input"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="Repita a nova senha"
+                        />
+                        <button type="button" className="app-modal-password-toggle" onClick={() => setShowConfirmPassword((v) => !v)} tabIndex={-1} aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}>
+                          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: '#aaa', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>{showConfirmPassword ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></> : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>}</svg>
+                        </button>
+                      </div>
+                    </div>
+                    {passwordChangeError ? <p className="app-modal-error">{passwordChangeError}</p> : null}
+                  </form>
+                </div>
+                <div className="app-modal-actions">
+                  <button type="button" className="app-modal-submit" onClick={() => void handleSubmitNewPassword()} disabled={passwordChangeLoading || newPassword.length < 8}>
+                    {passwordChangeLoading ? 'Salvando...' : 'Salvar nova senha'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

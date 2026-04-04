@@ -72,7 +72,11 @@ type ClassificationFormState = {
   peneiraMk9: string;
   peneiraMk10: string;
   peneiraMk11: string;
-  peneiraFundo: string;
+  fundo1Peneira: string;
+  fundo1Percent: string;
+  fundo2Peneira: string;
+  fundo2Percent: string;
+  pau: string;
 };
 
 type ClassificationSievePayload = {
@@ -87,7 +91,7 @@ type ClassificationSievePayload = {
   mk9: number | null;
   mk10: number | null;
   mk11: number | null;
-  fundo: number | null;
+  fundos: Array<{ peneira: string; percentual: number }> | null;
 };
 
 type ClassificationDataPayload = {
@@ -96,12 +100,13 @@ type ClassificationDataPayload = {
   catacao: string | null;
   aspecto: string | null;
   bebida: string | null;
-  broca: number | null;
-  pva: number | null;
-  imp: number | null;
+  broca: string | null;
+  pva: string | null;
+  imp: string | null;
+  pau: string | null;
   classificador: string | null;
   peneirasPercentuais: ClassificationSievePayload | null;
-  defeito: number | null;
+  defeito: string | null;
   umidade: number | null;
   observacoes: string | null;
   loteOrigem: string | null;
@@ -150,7 +155,11 @@ const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   peneiraMk9: '',
   peneiraMk10: '',
   peneiraMk11: '',
-  peneiraFundo: ''
+  fundo1Peneira: '',
+  fundo1Percent: '',
+  fundo2Peneira: '',
+  fundo2Percent: '',
+  pau: ''
 };
 
 const SIEVE_FIELDS: NumericField[] = [
@@ -164,14 +173,14 @@ const SIEVE_FIELDS: NumericField[] = [
   { key: 'peneiraP10', label: 'Peneira 10 (%)' },
   { key: 'peneiraMk9', label: 'Peneira MK 9 (%)' },
   { key: 'peneiraMk10', label: 'Peneira MK 10 (%)' },
-  { key: 'peneiraMk11', label: 'Peneira MK 11 (%)' },
-  { key: 'peneiraFundo', label: 'Fundo (%)' }
+  { key: 'peneiraMk11', label: 'Peneira MK 11 (%)' }
 ];
 
 const NUMERIC_FIELDS: NumericField[] = [
   { key: 'broca', label: 'Broca' },
   { key: 'pva', label: 'PVA' },
   { key: 'imp', label: 'IMP' },
+  { key: 'pau', label: 'PAU' },
   { key: 'defeito', label: 'Defeito' },
   { key: 'umidade', label: 'Umidade' },
   ...SIEVE_FIELDS
@@ -292,6 +301,18 @@ function buildClassificationDataPayload(
     includeAutomaticDate?: boolean;
   } = {}
 ): ClassificationDataPayload {
+  const fundos: Array<{ peneira: string; percentual: number }> = [];
+  const f1p = form.fundo1Peneira.trim();
+  const f1v = parseNumberInput(form.fundo1Percent);
+  if (f1p && f1v !== null) {
+    fundos.push({ peneira: f1p, percentual: f1v });
+  }
+  const f2p = form.fundo2Peneira.trim();
+  const f2v = parseNumberInput(form.fundo2Percent);
+  if (f2p && f2v !== null) {
+    fundos.push({ peneira: f2p, percentual: f2v });
+  }
+
   const sieve: ClassificationSievePayload = {
     p18: parseNumberInput(form.peneiraP18),
     p17: parseNumberInput(form.peneiraP17),
@@ -304,7 +325,7 @@ function buildClassificationDataPayload(
     mk9: parseNumberInput(form.peneiraMk9),
     mk10: parseNumberInput(form.peneiraMk10),
     mk11: parseNumberInput(form.peneiraMk11),
-    fundo: parseNumberInput(form.peneiraFundo)
+    fundos: fundos.length > 0 ? fundos : null
   };
 
   const hasSieve = Object.values(sieve).some((value) => value !== null);
@@ -313,12 +334,13 @@ function buildClassificationDataPayload(
     catacao: form.catacao.trim() || null,
     aspecto: form.aspecto.trim() || null,
     bebida: form.bebida.trim() || null,
-    broca: parseNumberInput(form.broca),
-    pva: parseNumberInput(form.pva),
-    imp: parseNumberInput(form.imp),
+    broca: form.broca.trim() || null,
+    pva: form.pva.trim() || null,
+    imp: form.imp.trim() || null,
+    pau: form.pau.trim() || null,
     classificador: form.classificador.trim() || null,
     peneirasPercentuais: hasSieve ? sieve : null,
-    defeito: (() => { const v = parseNumberInput(form.defeito); return v !== null ? Math.round(v) : null; })(),
+    defeito: form.defeito.trim() || null,
     umidade: parseNumberInput(form.umidade),
     observacoes: form.observacoes.trim() || null,
     loteOrigem: form.loteOrigem.trim() || null
@@ -341,7 +363,10 @@ function buildTechnicalFromClassificationData(data: ClassificationDataPayload): 
   const technical: ClassificationTechnicalPayload = {};
 
   if (data.defeito !== null) {
-    technical.defectsCount = Math.round(data.defeito);
+    const parsed = parseInt(data.defeito, 10);
+    if (Number.isFinite(parsed)) {
+      technical.defectsCount = Math.round(parsed);
+    }
   }
   if (data.umidade !== null) {
     technical.moisture = data.umidade;
@@ -392,7 +417,11 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     peneiraMk9: toText(mergedSieve.mk9),
     peneiraMk10: toText(mergedSieve.mk10),
     peneiraMk11: toText(mergedSieve.mk11),
-    peneiraFundo: toText(mergedSieve.fundo)
+    fundo1Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.peneira ?? ''; })(),
+    fundo1Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.percentual != null ? String(f[0].percentual) : ''; })(),
+    fundo2Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.peneira ?? ''; })(),
+    fundo2Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.percentual != null ? String(f[1].percentual) : ''; })(),
+    pau: toText(mergedData.pau)
   };
 }
 
@@ -595,6 +624,7 @@ export default function SampleDetailPage() {
   const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
   const focusClassification = searchParams.get('focus') === 'classification';
   const fromQrSource = searchParams.get('source') === 'qr';
+  const highlightPrint = searchParams.get('highlight') === 'print';
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
@@ -607,12 +637,12 @@ export default function SampleDetailPage() {
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
-  const [arrivalPhotoPreviewOpen, setArrivalPhotoPreviewOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(null);
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
   const [_showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] = useState(false);
   const [_classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] = useState(0);
+  const [printHighlighted, setPrintHighlighted] = useState(false);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
@@ -995,6 +1025,17 @@ export default function SampleDetailPage() {
       setDetailSection('CLASSIFICATION');
     }
   }, [detail, detailSection, focusClassification]);
+
+  useEffect(() => {
+    if (!highlightPrint || !detail) {
+      return;
+    }
+
+    setPrintHighlighted(true);
+
+    const timer = setTimeout(() => setPrintHighlighted(false), 10000);
+    return () => clearTimeout(timer);
+  }, [highlightPrint, detail]);
 
   useEffect(() => {
     if (!classificationCanAccessDataSteps && classificationStep !== 'PHOTO') {
@@ -1911,7 +1952,7 @@ export default function SampleDetailPage() {
 
             {/* Bloco de ações fixo */}
             <div className="sdv-actions-bar">
-              <button type="button" className="sdv-action-card" onClick={(event) => openLabelReviewModal(event.currentTarget)} disabled={!canQuickPrint || labelModalSubmitting}>
+              <button type="button" className={`sdv-action-card${printHighlighted ? ' is-highlight-pulse' : ''}`} onClick={(event) => { setPrintHighlighted(false); openLabelReviewModal(event.currentTarget); }} disabled={!canQuickPrint || labelModalSubmitting}>
                 <span className="sdv-action-card-icon">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4.8h10V8" /><rect x="5" y="9" width="14" height="7" rx="1.8" /><path d="M8 14h8" /><path d="M8 16.8h8V20H8z" /></svg>
                 </span>
@@ -2013,27 +2054,6 @@ export default function SampleDetailPage() {
                         </button>
                       ) : null}
                       <NoticeSlot notice={generalNotice} />
-                    </div>
-
-                    {/* Card 3: Foto */}
-                    <div className="sdv-card">
-                      <span className="sdv-card-title">Foto da amostra</span>
-                      {(() => {
-                        const arrivalAttachment = detail.attachments.find((a) => a.kind === 'ARRIVAL_PHOTO');
-                        if (arrivalAttachment) {
-                          return (
-                            <button type="button" className="sdv-photo-wrap" onClick={() => setArrivalPhotoPreviewOpen(true)}>
-                              <img src={`/api/v1/samples/${detail.sample.id}/photos/${arrivalAttachment.id}`} alt="Foto da amostra" className="sdv-photo-img" />
-                              <span className="sdv-photo-hint">Toque para ampliar</span>
-                            </button>
-                          );
-                        }
-                        return (
-                          <div className="sdv-photo-empty">
-                            <span>Sem foto</span>
-                          </div>
-                        );
-                      })()}
                     </div>
 
                     {sendHistory.length > 0 ? (
@@ -2181,6 +2201,7 @@ export default function SampleDetailPage() {
                               {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
                               {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
                               {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
+                              {renderClassificationInputField('pau', 'PAU', { inputMode: 'decimal' })}
                             </div>
                             <div className="sdv-cls-fields">
                               {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
@@ -2189,6 +2210,53 @@ export default function SampleDetailPage() {
                             <div className="sdv-cls-sieve-label">Peneiras (%)</div>
                             <div className="sdv-cls-fields sdv-cls-fields-3col">
                               {SIEVE_FIELDS.map((field) => renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' }))}
+                            </div>
+                            <div className="sdv-cls-sieve-label">Fundos</div>
+                            <div className="sdv-cls-sieve-fund-row">
+                              <label className="sdv-cls-field sdv-cls-field-inline">
+                                Fundo 1 — Peneira
+                                <input
+                                  value={classificationForm.fundo1Peneira}
+                                  onChange={(e) => updateClassificationField('fundo1Peneira', e.target.value)}
+                                  readOnly={classificationFieldsReadOnly}
+                                  placeholder="Ex: 13"
+                                  className="sdv-cls-control"
+                                />
+                              </label>
+                              <label className="sdv-cls-field sdv-cls-field-inline">
+                                %
+                                <input
+                                  value={classificationForm.fundo1Percent}
+                                  onChange={(e) => updateClassificationField('fundo1Percent', e.target.value)}
+                                  readOnly={classificationFieldsReadOnly}
+                                  inputMode="decimal"
+                                  placeholder="%"
+                                  className="sdv-cls-control"
+                                />
+                              </label>
+                            </div>
+                            <div className="sdv-cls-sieve-fund-row">
+                              <label className="sdv-cls-field sdv-cls-field-inline">
+                                Fundo 2 — Peneira
+                                <input
+                                  value={classificationForm.fundo2Peneira}
+                                  onChange={(e) => updateClassificationField('fundo2Peneira', e.target.value)}
+                                  readOnly={classificationFieldsReadOnly}
+                                  placeholder="Ex: 10"
+                                  className="sdv-cls-control"
+                                />
+                              </label>
+                              <label className="sdv-cls-field sdv-cls-field-inline">
+                                %
+                                <input
+                                  value={classificationForm.fundo2Percent}
+                                  onChange={(e) => updateClassificationField('fundo2Percent', e.target.value)}
+                                  readOnly={classificationFieldsReadOnly}
+                                  inputMode="decimal"
+                                  placeholder="%"
+                                  className="sdv-cls-control"
+                                />
+                              </label>
                             </div>
                           </div>
 
@@ -2688,16 +2756,6 @@ export default function SampleDetailPage() {
           <img src={classificationSavedPhotoUrl} alt="Foto da classificacao" style={{ maxWidth: '92vw', maxHeight: '85dvh', objectFit: 'contain', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()} />
         </div>
       ) : null}
-
-      {arrivalPhotoPreviewOpen && detail ? (() => {
-        const arrivalAtt = detail.attachments.find((a) => a.kind === 'ARRIVAL_PHOTO');
-        if (!arrivalAtt) return null;
-        return (
-          <div className="app-modal-backdrop" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={() => setArrivalPhotoPreviewOpen(false)}>
-            <img src={`/api/v1/samples/${detail.sample.id}/photos/${arrivalAtt.id}`} alt="Foto da amostra" style={{ maxWidth: '92vw', maxHeight: '85dvh', objectFit: 'contain', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()} />
-          </div>
-        );
-      })() : null}
 
       {exportTypeSelectorOpen ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>

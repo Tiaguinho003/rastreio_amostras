@@ -50,7 +50,7 @@ const API_BASE = '/api/v1';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
-type PhotoKind = 'ARRIVAL_PHOTO' | 'CLASSIFICATION_PHOTO';
+type PhotoKind = 'CLASSIFICATION_PHOTO';
 
 async function parseJsonSafe(response: Response): Promise<Record<string, unknown>> {
   try {
@@ -822,46 +822,8 @@ export function createSampleAndPreparePrint(
     printerId?: string | null;
     warehouseName?: string | null;
     warehouseId?: string | null;
-    arrivalPhoto?: File | null;
   }
 ) {
-  if (data.arrivalPhoto) {
-    const formData = new FormData();
-    formData.append('clientDraftId', data.clientDraftId);
-    formData.append('owner', data.owner);
-    if (data.ownerClientId) {
-      formData.append('ownerClientId', data.ownerClientId);
-    }
-    if (data.ownerRegistrationId) {
-      formData.append('ownerRegistrationId', data.ownerRegistrationId);
-    }
-    formData.append('sacks', String(data.sacks));
-    formData.append('harvest', data.harvest);
-    formData.append('originLot', data.originLot);
-    formData.append('receivedChannel', data.receivedChannel ?? 'in_person');
-
-    if (data.notes !== undefined && data.notes !== null) {
-      formData.append('notes', data.notes);
-    }
-    if (data.printerId !== undefined && data.printerId !== null) {
-      formData.append('printerId', data.printerId);
-    }
-    if (data.warehouseName) {
-      formData.append('warehouseName', data.warehouseName);
-    }
-    if (data.warehouseId) {
-      formData.append('warehouseId', data.warehouseId);
-    }
-
-    formData.append('arrivalPhoto', data.arrivalPhoto);
-
-    return request<CreateSampleAndPreparePrintResponse>('/samples/create', {
-      method: 'POST',
-      session,
-      formData
-    });
-  }
-
   return request<CreateSampleAndPreparePrintResponse>('/samples/create', {
     method: 'POST',
     session,
@@ -997,13 +959,6 @@ export function uploadSamplePhoto(
     method: 'POST',
     session,
     formData
-  });
-}
-
-export function uploadLabelPhoto(session: SessionData, sampleId: string, file: File, replaceExisting = true) {
-  return uploadSamplePhoto(session, sampleId, file, {
-    kind: 'ARRIVAL_PHOTO',
-    replaceExisting
   });
 }
 
@@ -1205,9 +1160,10 @@ export function completeClassification(
       catacao?: string | null;
       aspecto?: string | null;
       bebida?: string | null;
-      broca?: number | null;
-      pva?: number | null;
-      imp?: number | null;
+      broca?: string | null;
+      pva?: string | null;
+      imp?: string | null;
+      pau?: string | null;
       classificador?: string | null;
       peneirasPercentuais?: {
         p18?: number | null;
@@ -1221,9 +1177,9 @@ export function completeClassification(
         mk9?: number | null;
         mk10?: number | null;
         mk11?: number | null;
-        fundo?: number | null;
+        fundos?: Array<{ peneira: string; percentual: number }> | null;
       } | null;
-      defeito?: number | null;
+      defeito?: string | null;
       umidade?: number | null;
       observacoes?: string | null;
       loteOrigem?: string | null;

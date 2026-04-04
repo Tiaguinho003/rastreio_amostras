@@ -54,7 +54,7 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
 const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
-const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p10', 'mk9', 'mk10', 'mk11', 'fundo'];
+const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p10', 'mk9', 'mk10', 'mk11'];
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set(['originLot', 'classificationOriginLot']);
 const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)
@@ -106,6 +106,15 @@ function formatSieve(value) {
 
     const printableKey = key.toUpperCase();
     parts.push(`${printableKey}: ${formatNumber(parsed)}%`);
+  }
+
+  if (Array.isArray(value.fundos)) {
+    for (let i = 0; i < value.fundos.length; i++) {
+      const f = value.fundos[i];
+      if (f && f.peneira && f.percentual != null) {
+        parts.push(`FUNDO${i + 1} P${f.peneira}: ${formatNumber(f.percentual)}%`);
+      }
+    }
   }
 
   if (parts.length === 0) {

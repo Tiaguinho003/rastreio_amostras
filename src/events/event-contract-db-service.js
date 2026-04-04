@@ -67,6 +67,7 @@ const CLASSIFICATION_DATA_KEYS = [
   'broca',
   'pva',
   'imp',
+  'pau',
   'classificador',
   'defeito',
   'umidade',
@@ -78,7 +79,7 @@ const CLASSIFICATION_DATA_KEYS = [
   'versaoClassificacao'
 ];
 
-const SIEVE_PERCENT_KEYS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10', 'fundo'];
+const SIEVE_PERCENT_KEYS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10'];
 
 function applyClassificationDataPatch(target, source) {
   if (!isObject(source)) {
@@ -109,6 +110,11 @@ function applyClassificationDataPatch(target, source) {
         existingSieve[key] = rawSieve[key];
       }
     }
+
+    if (hasOwn(rawSieve, 'fundos')) {
+      existingSieve.fundos = Array.isArray(rawSieve.fundos) ? rawSieve.fundos : null;
+    }
+    delete existingSieve.fundo;
 
     target.peneirasPercentuais = existingSieve;
   }
@@ -193,7 +199,9 @@ function buildClassificationProjectionPatch({ currentSample, fromPayload, increm
   }
 
   if (mergedClassificationData && hasOwn(mergedClassificationData, 'defeito')) {
-    patch.latestDefectsCount = mergedClassificationData.defeito;
+    const defeitoRaw = mergedClassificationData.defeito;
+    const defeitoParsed = typeof defeitoRaw === 'string' ? parseInt(defeitoRaw, 10) : (typeof defeitoRaw === 'number' ? defeitoRaw : NaN);
+    patch.latestDefectsCount = Number.isFinite(defeitoParsed) ? Math.round(defeitoParsed) : null;
   } else if (technical && hasOwn(technical, 'defectsCount')) {
     patch.latestDefectsCount = technical.defectsCount;
   }
@@ -243,8 +251,6 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
   }
 
   if (event.eventType === 'REGISTRATION_CONFIRMED') {
-    const labelPhotos = Array.isArray(event.payload.labelPhotos) ? event.payload.labelPhotos : [];
-
     updateData.internalLotNumber = event.payload.sampleLotNumber;
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
@@ -256,7 +262,6 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.declaredSacks = event.payload.declared.sacks;
     updateData.declaredHarvest = event.payload.declared.harvest;
     updateData.declaredOriginLot = event.payload.declared.originLot;
-    updateData.labelPhotoCount = labelPhotos.length;
     if (hasOwn(event.payload, 'warehouseId')) {
       updateData.warehouseId = event.payload.warehouseId ?? null;
     }

@@ -92,7 +92,6 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
         harvest: '24/25',
         originLot: 'LOTE-ORIGEM-001'
       },
-      labelPhotos: ['attachment-1'],
       ocr: {
         provider: 'LOCAL',
         overallConfidence: 0.82,
@@ -120,14 +119,14 @@ export function photoAddedEvent(sampleId, overrides = {}) {
     toStatus: null,
     payload: {
       attachmentId: payload.attachmentId ?? 'attachment-1',
-      kind: payload.kind ?? 'ARRIVAL_PHOTO',
-      storagePath: payload.storagePath ?? `samples/${sampleId}/arrival/attachment-1-foto.jpg`,
+      kind: payload.kind ?? 'CLASSIFICATION_PHOTO',
+      storagePath: payload.storagePath ?? `samples/${sampleId}/classification/attachment-1-foto.jpg`,
       fileName: payload.fileName ?? 'foto.jpg',
       mimeType: payload.mimeType ?? 'image/jpeg',
       sizeBytes: payload.sizeBytes ?? 1024,
       checksumSha256: payload.checksumSha256 ?? null
     },
-    module: payload.kind === 'CLASSIFICATION_PHOTO' ? 'classification' : 'registration',
+    module: 'classification',
     ...overrides
   });
 }

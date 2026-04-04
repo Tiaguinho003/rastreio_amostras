@@ -180,22 +180,6 @@ export function createBackendApiV1({
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
 
-        let arrivalPhoto = null;
-        let arrivalPhotoFileBuffer = null;
-        if (Buffer.isBuffer(body.arrivalPhotoFileBuffer)) {
-          arrivalPhotoFileBuffer = body.arrivalPhotoFileBuffer;
-        } else if (typeof body.arrivalPhotoBase64 === 'string' && body.arrivalPhotoBase64.length > 0) {
-          arrivalPhotoFileBuffer = Buffer.from(body.arrivalPhotoBase64, 'base64');
-        }
-
-        if (arrivalPhotoFileBuffer) {
-          arrivalPhoto = {
-            fileBuffer: arrivalPhotoFileBuffer,
-            mimeType: body.arrivalPhotoMimeType ?? null,
-            originalFileName: body.arrivalPhotoOriginalFileName ?? null
-          };
-        }
-
         const result = await commandService.createSampleAndPreparePrint(
           {
             clientDraftId: body.clientDraftId,
@@ -209,8 +193,7 @@ export function createBackendApiV1({
             notes: body.notes ?? null,
             printerId: body.printerId ?? null,
             warehouseName: body.warehouseName ?? null,
-            warehouseId: body.warehouseId ?? null,
-            arrivalPhoto
+            warehouseId: body.warehouseId ?? null
           },
           actor
         );
@@ -251,7 +234,7 @@ export function createBackendApiV1({
         const result = await commandService.addSamplePhoto(
           {
             sampleId,
-            kind: body.kind ?? 'ARRIVAL_PHOTO',
+            kind: 'CLASSIFICATION_PHOTO',
             fileBuffer,
             mimeType: body.mimeType ?? null,
             originalFileName: body.originalFileName ?? null,
@@ -278,7 +261,6 @@ export function createBackendApiV1({
             ownerClientId: body.ownerClientId,
             ownerRegistrationId: body.ownerRegistrationId,
             ocr: body.ocr,
-            labelPhotoIds: body.labelPhotoIds,
             idempotencyKey: body.idempotencyKey
           },
           actor

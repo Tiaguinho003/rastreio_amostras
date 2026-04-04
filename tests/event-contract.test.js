@@ -45,7 +45,6 @@ test('schema validation rejects invalid payload with 422', () => {
         harvest: '24/25',
         originLot: 'LOTE-ORIGEM-001'
       },
-      labelPhotos: [],
       ocr: {
         provider: 'LOCAL',
         overallConfidence: 0.82,

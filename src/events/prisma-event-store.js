@@ -207,7 +207,7 @@ class PrismaEventStoreTx {
 
   async createAttachmentFromEvent(event) {
     const payload = event.payload;
-    const kind = payload.kind === 'CLASSIFICATION_PHOTO' ? 'CLASSIFICATION_PHOTO' : 'ARRIVAL_PHOTO';
+    const kind = 'CLASSIFICATION_PHOTO';
     const safeFileName =
       typeof payload.fileName === 'string' && payload.fileName.length > 0
         ? payload.fileName

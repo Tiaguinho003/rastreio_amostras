@@ -75,7 +75,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.version, 3);
     assert.equal(sample.lastEventSequence, 3);
     assert.equal(sample.internalLotNumber, 'A-5444');
-    assert.equal(sample.labelPhotoCount, 1);
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
     assert.equal(count, 3);

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -18,7 +18,6 @@ import {
   getSampleDetail
 } from '../../../lib/api-client';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
-import { clearPendingArrivalPhoto, readPendingArrivalPhoto } from '../../../lib/mobile-camera-photo-store';
 import type {
   ClientRegistrationSummary,
   ClientSummary,
@@ -76,7 +75,6 @@ const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
 type RequiredFieldName = 'owner' | 'sacks' | 'harvest' | 'originLot';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 type LabelModalStep = 'review' | 'completed';
-type NewSampleStep = 'photo' | 'details';
 
 interface PendingDraftPayload {
   clientDraftId: string;
@@ -91,7 +89,6 @@ interface PendingDraftPayload {
   printerId: string | null;
   warehouseName: string | null;
   warehouseId: string | null;
-  arrivalPhoto: File | null;
 }
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
@@ -140,7 +137,6 @@ function buildModalTitle(step: LabelModalStep) {
 function NewSamplePageContent() {
   const { session, loading, logout } = useRequireAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [clientDraftId, setClientDraftId] = useState(loadOrCreateDraftId);
   const [owner, setOwner] = useState('');
@@ -156,26 +152,17 @@ function NewSamplePageContent() {
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
   const [notes, setNotes] = useState('');
-  const [arrivalPhoto, setArrivalPhoto] = useState<File | null>(null);
-  const [arrivalPhotoLoading, setArrivalPhotoLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<NewSampleStep>('photo');
-  const isDesktopRef = useRef(false);
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
-  const [pendingPhotoAutoAdvance, setPendingPhotoAutoAdvance] = useState(false);
-  const [photoCheckAnimating, setPhotoCheckAnimating] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [photoFullscreen, setPhotoFullscreen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [printStatus, setPrintStatus] = useState<'pending' | 'success' | 'failed' | 'timeout' | null>(null);
   const [printExitWarningOpen, setPrintExitWarningOpen] = useState(false);
   const printPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(EMPTY_REQUIRED_FIELD_ERRORS);
-
-  const swipeRef = useRef<{ startX: number; startY: number }>({ startX: 0, startY: 0 });
 
   const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
   const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
@@ -195,48 +182,8 @@ function NewSamplePageContent() {
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const modalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
-  const pageMountedRef = useRef(true);
-  const cameraHydrationRequestRef = useRef(0);
-
-  const [activeCameraHandoffId, setActiveCameraHandoffId] = useState<string | null>(null);
-
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
   const canCloseModal = labelModalStep === 'review' || labelModalStep === 'completed';
-  const cameraSourceParam = searchParams.get('source');
-  const cameraHandoffParam = searchParams.get('handoff');
-
-  function clearCameraHandoffRouteState() {
-    if (cameraSourceParam === 'camera' || cameraHandoffParam) {
-      router.replace('/samples/new');
-    }
-  }
-
-  const arrivalPhotoPreviewUrl = useMemo(() => {
-    if (!arrivalPhoto) {
-      return null;
-    }
-
-    return URL.createObjectURL(arrivalPhoto);
-  }, [arrivalPhoto]);
-
-  useEffect(() => {
-    pageMountedRef.current = true;
-    return () => {
-      pageMountedRef.current = false;
-    };
-  }, []);
-
-
-
-  useEffect(() => {
-    if (!arrivalPhotoPreviewUrl) {
-      return;
-    }
-
-    return () => {
-      URL.revokeObjectURL(arrivalPhotoPreviewUrl);
-    };
-  }, [arrivalPhotoPreviewUrl]);
 
   useEffect(() => {
     if (!session || !selectedOwnerClient) {
@@ -291,23 +238,6 @@ function NewSamplePageContent() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (window.innerWidth > 900) {
-      isDesktopRef.current = true;
-      setCurrentStep('details');
-    }
-  }, []);
-
-  useEffect(() => {
-    stageBodyRef.current?.scrollTo({ top: 0 });
-  }, [currentStep]);
-
-  useEffect(() => {
-    if (currentStep !== 'details') {
-      setHarvestOptionsOpen(false);
-    }
-  }, [currentStep]);
 
   useEffect(() => {
     if (!harvestOptionsOpen) {
@@ -370,63 +300,6 @@ function NewSamplePageContent() {
       }, 0);
     };
   }, [canCloseModal, labelModalOpen]);
-
-  useEffect(() => {
-    if (cameraSourceParam !== 'camera' || !cameraHandoffParam || activeCameraHandoffId === cameraHandoffParam) {
-      return;
-    }
-
-    const requestId = cameraHydrationRequestRef.current + 1;
-    cameraHydrationRequestRef.current = requestId;
-    setArrivalPhotoLoading(true);
-
-    void readPendingArrivalPhoto(cameraHandoffParam)
-      .then((photo) => {
-        if (!pageMountedRef.current || cameraHydrationRequestRef.current !== requestId) {
-          return;
-        }
-
-        if (!photo) {
-          setArrivalPhotoLoading(false);
-          setError('A foto capturada nao estava mais disponivel. Continue com o registro manualmente.');
-          clearCameraHandoffRouteState();
-          return;
-        }
-
-        setArrivalPhoto(photo.file);
-        setArrivalPhotoLoading(false);
-        setActiveCameraHandoffId(photo.handoffId);
-        setError(null);
-        setCurrentStep('details');
-        setPendingPhotoAutoAdvance(true);
-
-        clearCameraHandoffRouteState();
-      })
-      .catch(() => {
-        if (!pageMountedRef.current || cameraHydrationRequestRef.current !== requestId) {
-          return;
-        }
-
-        setArrivalPhotoLoading(false);
-        setError('Falha ao recuperar a foto capturada. Continue com o registro manualmente.');
-        clearCameraHandoffRouteState();
-      });
-  }, [activeCameraHandoffId, cameraHandoffParam, cameraSourceParam]);
-
-  useEffect(() => {
-    if (!pendingPhotoAutoAdvance || currentStep !== 'details' || !arrivalPhoto) {
-      return;
-    }
-
-    setPhotoCheckAnimating(true);
-
-    const dismissTimer = window.setTimeout(() => {
-      setPhotoCheckAnimating(false);
-      setPendingPhotoAutoAdvance(false);
-    }, 1200);
-
-    return () => window.clearTimeout(dismissTimer);
-  }, [pendingPhotoAutoAdvance, currentStep, arrivalPhoto]);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -506,28 +379,11 @@ function NewSamplePageContent() {
     return null;
   }
 
-  function clearArrivalPhoto() {
-    if (activeCameraHandoffId) {
-      void clearPendingArrivalPhoto(activeCameraHandoffId);
-    }
-
-    clearCameraHandoffRouteState();
-    setArrivalPhoto(null);
-    setArrivalPhotoLoading(false);
-    setActiveCameraHandoffId(null);
-    setPendingPhotoAutoAdvance(false);
-    setPhotoCheckAnimating(false);
-    cameraHydrationRequestRef.current += 1;
-    setError(null);
-    setPhotoFullscreen(false);
-  }
-
   function focusRequiredField(field: RequiredFieldName) {
     if (invalidFocusTimeoutRef.current !== null) {
       window.clearTimeout(invalidFocusTimeoutRef.current);
     }
 
-    setCurrentStep('details');
     invalidFocusTimeoutRef.current = window.setTimeout(() => {
       const target =
         field === 'owner'
@@ -553,23 +409,7 @@ function NewSamplePageContent() {
     focusRequiredField(firstInvalidField);
   }
 
-  function handleContinueFromPhoto() {
-    setError(null);
-    setMessage(null);
-    setCurrentStep('details');
-  }
-
-  function handleSkipPhoto() {
-    setError(null);
-    setMessage(null);
-    setCurrentStep('details');
-  }
-
   function resetDraft() {
-    if (activeCameraHandoffId) {
-      void clearPendingArrivalPhoto(activeCameraHandoffId);
-    }
-    clearCameraHandoffRouteState();
     setClientDraftId(renewDraftId());
     setOwner('');
     setSelectedOwnerClient(null);
@@ -582,14 +422,7 @@ function NewSamplePageContent() {
     setHarvest('');
     setOriginLot('');
     setNotes('');
-    setArrivalPhoto(null);
-    setArrivalPhotoLoading(false);
-    setCurrentStep(isDesktopRef.current ? 'details' : 'photo');
     setHarvestOptionsOpen(false);
-    setActiveCameraHandoffId(null);
-    setPendingPhotoAutoAdvance(false);
-    setPhotoCheckAnimating(false);
-    cameraHydrationRequestRef.current += 1;
     setPendingDraft(null);
     setLabelModalOpen(false);
     setLabelModalStep('review');
@@ -600,7 +433,6 @@ function NewSamplePageContent() {
     setModalMessage(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
     setSubmitting(false);
-    setPhotoFullscreen(false);
     setPrintStatus(null);
     setPrintExitWarningOpen(false);
     if (printPollingRef.current) { clearInterval(printPollingRef.current); printPollingRef.current = null; }
@@ -713,8 +545,7 @@ function NewSamplePageContent() {
       notes: parsed.data.notes ?? null,
       printerId: null,
       warehouseName: warehouseText.trim() || null,
-      warehouseId: selectedWarehouse?.id ?? null,
-      arrivalPhoto
+      warehouseId: selectedWarehouse?.id ?? null
     });
 
     setLabelModalStep('review');
@@ -743,17 +574,10 @@ function NewSamplePageContent() {
         notes: pendingDraft.notes,
         printerId: pendingDraft.printerId,
         warehouseName: pendingDraft.warehouseName,
-        warehouseId: pendingDraft.warehouseId,
-        arrivalPhoto: pendingDraft.arrivalPhoto
+        warehouseId: pendingDraft.warehouseId
       });
 
       clearPersistedDraftId();
-
-      if (activeCameraHandoffId) {
-        await clearPendingArrivalPhoto(activeCameraHandoffId);
-        setActiveCameraHandoffId(null);
-      }
-      clearCameraHandoffRouteState();
 
       setCreated(result);
       setLabelModalStep('completed');
@@ -782,51 +606,10 @@ function NewSamplePageContent() {
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
   const previewWarehouse = pendingDraft?.warehouseName ?? printableSample?.declared?.warehouse ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
-  const detailsPhotoStatusLabel = arrivalPhoto ? 'Foto anexada' : 'Sem foto';
-
   function hasUnsavedData() {
-    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || notes.trim() || arrivalPhoto);
+    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || notes.trim());
   }
 
-
-  function handleBackFromDetails() {
-    if (isDesktopRef.current) {
-      router.push('/dashboard');
-      return;
-    }
-    clearArrivalPhoto();
-    setCurrentStep('photo');
-  }
-  const canSwipeForward = currentStep === 'photo' && !photoCheckAnimating && !submitting;
-  const canSwipeBack = currentStep === 'details' && !submitting;
-
-  function handleSwipeTouchStart(e: React.TouchEvent) {
-    swipeRef.current.startX = e.touches[0].clientX;
-    swipeRef.current.startY = e.touches[0].clientY;
-  }
-
-  function handleSwipeTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - swipeRef.current.startX;
-    const dy = e.changedTouches[0].clientY - swipeRef.current.startY;
-    if (Math.abs(dy) > Math.abs(dx)) return;
-    if (Math.abs(dx) < 50) return;
-
-    if (dx < 0 && canSwipeForward) {
-      handleContinueFromPhoto();
-    } else if (dx > 0 && canSwipeBack) {
-      setCurrentStep('photo');
-    }
-  }
-
-  function handleDotClick(step: NewSampleStep) {
-    if (submitting || photoCheckAnimating) return;
-    if (step === currentStep) return;
-    if (step === 'details') {
-      handleContinueFromPhoto();
-    } else {
-      setCurrentStep('photo');
-    }
-  }
 
   const fullName = session.user.fullName ?? session.user.username;
   const avatarInitials = (() => {
@@ -835,30 +618,16 @@ function NewSamplePageContent() {
   })();
   return (
     <AppShell session={session} onLogout={logout}>
-      <section
-        className={`nsv2-page is-${currentStep}-step`}
-        onTouchStart={handleSwipeTouchStart}
-        onTouchEnd={handleSwipeTouchEnd}
-      >
+      <section className="nsv2-page is-details-step">
 
         {/* ── Header ── */}
         <header className="nsv2-header">
-          {currentStep === 'photo' ? (
-            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-            </Link>
-          ) : (
-            <button type="button" className="nsv2-back" aria-label="Voltar" onClick={handleBackFromDetails}>
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-          )}
+          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+          </Link>
 
           <div className="nsv2-header-center">
             <h2 className="nsv2-title">Nova Amostra</h2>
-            <div className="nsv2-step-dots">
-              <button type="button" className={`nsv2-dot ${currentStep === 'photo' ? 'is-active' : ''}`} onClick={() => handleDotClick('photo')} aria-label="Etapa foto" />
-              <button type="button" className={`nsv2-dot ${currentStep === 'details' ? 'is-active' : ''}`} onClick={() => handleDotClick('details')} aria-label="Etapa formulario" />
-            </div>
           </div>
 
           <button
@@ -871,137 +640,9 @@ function NewSamplePageContent() {
           </button>
         </header>
 
-        {/* ── Step 1: Photo Capture ── */}
-        {currentStep === 'photo' && !arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
-          <section className="nsv2-body">
-            <div className="nsv2-s1-content">
-              {/* Illustration — coffee bean with scan */}
-              <div className="nsv2-s1-illustration nsv2-fadeUp" style={{ animationDelay: '0s' }}>
-                <div className="nsv2-s1-ring nsv2-s1-ring-1" />
-                <div className="nsv2-s1-ring nsv2-s1-ring-2" />
-                <div className="nsv2-s1-circle">
-                  <svg className="nsv2-s1-bean-illust" viewBox="0 0 40 56" aria-hidden="true">
-                    <ellipse cx="20" cy="28" rx="17" ry="25" fill="#8B7355" />
-                    <ellipse cx="20" cy="28" rx="17" ry="25" fill="url(#beanGrad)" />
-                    <path d="M20 5c-3.5 8-4.2 16-1 23s3.5 15 1 23" fill="none" stroke="rgba(50,30,10,0.4)" strokeWidth="2" strokeLinecap="round" />
-                    <defs><linearGradient id="beanGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#c4a882" stopOpacity="0.6" /><stop offset="100%" stopColor="#6b5438" stopOpacity="0.3" /></linearGradient></defs>
-                  </svg>
-                  <div className="nsv2-s1-scanline" />
-                </div>
-              </div>
-
-              {/* Text — title only */}
-              <div className="nsv2-s1-text nsv2-fadeUp" style={{ animationDelay: '0.15s' }}>
-                <p className="nsv2-s1-title">Registre sua amostra</p>
-              </div>
-
-              {/* Action buttons */}
-              <div className="nsv2-s1-actions nsv2-fadeUp" style={{ animationDelay: '0.25s' }}>
-                <button type="button" className="nsv2-s1-btn-primary" onClick={() => router.push('/camera?intent=arrival-photo')} disabled={submitting}>
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
-                  <span>Abrir camera</span>
-                </button>
-                <div className="nsv2-s1-btn-row">
-                  <label className="nsv2-s1-btn-secondary">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
-                    <span>Galeria</span>
-                    <input type="file" accept="image/*" className="nsv2-file-input" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setArrivalPhoto(file); setCurrentStep('details'); } e.target.value = ''; }} />
-                  </label>
-                  <button type="button" className="nsv2-s1-btn-tertiary" onClick={handleSkipPhoto} disabled={submitting}>
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-                    <span>Sem foto</span>
-                  </button>
-                </div>
-              </div>
-
-              {error ? <p className="nsv2-inline-error">{error}</p> : null}
-            </div>
-          </section>
-        ) : null}
-
-        {/* ── Step 1: Photo Loading ── */}
-        {currentStep === 'photo' && arrivalPhotoLoading ? (
-          <section className="nsv2-body">
-            <div className="nsv2-s1-content">
-              <div className="nsv2-s1-illustration">
-                <div className="nsv2-s1-circle">
-                  <span className="new-sample-photo-loading-spinner" aria-hidden="true" />
-                </div>
-              </div>
-              <div className="nsv2-s1-text">
-                <p className="nsv2-s1-title">Preparando foto...</p>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {/* ── Step 1.5: Photo Confirmation ── */}
-        {currentStep === 'photo' && arrivalPhotoPreviewUrl && !arrivalPhotoLoading ? (
-          <section className="nsv2-body nsv2-body-photo">
-            <div className="nsv2-photo-preview-wrap">
-              <img src={arrivalPhotoPreviewUrl} alt="Pre-visualizacao da foto" className="nsv2-photo-preview" />
-
-              {/* Check animation */}
-              <div className={`nsv2-photo-check ${photoCheckAnimating ? 'is-visible' : ''}`}>
-                <div className="nsv2-photo-check-ring" />
-                <div className="nsv2-photo-check-circle">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
-                </div>
-              </div>
-
-              {/* Overlay + buttons */}
-              {!photoCheckAnimating ? (
-                <div className="nsv2-photo-confirm-overlay">
-                  <p className="nsv2-photo-confirm-label">Foto capturada</p>
-                  <div className="nsv2-photo-confirm-btns nsv2-fadeUp" style={{ animationDelay: '0.3s' }}>
-                    <button type="button" className="nsv2-photo-btn nsv2-photo-btn-redo" onClick={clearArrivalPhoto} disabled={submitting}>
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M21.5 2.5l-3.2 3.2M2.5 12a9.5 9.5 0 0 1 16.3-6.6" /><path d="M2.5 21.5l3.2-3.2M21.5 12a9.5 9.5 0 0 1-16.3 6.6" /></svg>
-                      <span>Refazer</span>
-                    </button>
-                    <button type="button" className="nsv2-photo-btn nsv2-photo-btn-confirm" onClick={handleContinueFromPhoto} disabled={submitting}>
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
-                      <span>Usar esta foto</span>
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        {/* ── Step 2: Form with Photo ── */}
-        {currentStep === 'details' ? (
-          <section className="nsv2-body nsv2-body-form">
-            {/* Camera check overlay */}
-            {photoCheckAnimating ? (
-              <div className="nsv2-form-check-overlay">
-                <div className="nsv2-photo-check-circle">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Compressed photo strip */}
-            {arrivalPhotoPreviewUrl ? (
-              <button type="button" className="nsv2-photo-strip" onClick={() => setPhotoFullscreen(true)} aria-label="Expandir foto">
-                <img src={arrivalPhotoPreviewUrl} alt="" className="nsv2-photo-strip-img" />
-                <div className="nsv2-photo-strip-gradient" />
-              </button>
-            ) : (
-              <button type="button" className="nsv2-no-photo-strip" onClick={() => setCurrentStep('photo')}>
-                <span className="nsv2-no-photo-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" />
-                    <circle cx="12" cy="13.3" r="3.1" />
-                  </svg>
-                </span>
-                <span className="nsv2-no-photo-text">Nenhuma foto adicionada</span>
-                <span className="nsv2-no-photo-add">Adicionar</span>
-              </button>
-            )}
-
-            {/* Form card */}
-            <div className={`nsv2-form-card ${arrivalPhotoPreviewUrl ? 'has-photo' : ''}`}>
+        {/* ── Form ── */}
+        <section className="nsv2-body nsv2-body-form">
+          <div className="nsv2-form-card">
               <div className="nsv2-drag-handle" aria-hidden="true"><span /></div>
 
 
@@ -1168,7 +809,6 @@ function NewSamplePageContent() {
               </div>
             </div>
           </section>
-        ) : null}
 
         {/* Offline banner */}
         {!isOnline ? (
@@ -1181,16 +821,6 @@ function NewSamplePageContent() {
         ) : null}
 
       </section>
-
-      {/* Photo fullscreen overlay */}
-      {photoFullscreen && arrivalPhotoPreviewUrl ? (
-        <div className="nsv2-fullscreen-overlay" onClick={() => setPhotoFullscreen(false)}>
-          <img src={arrivalPhotoPreviewUrl} alt="Foto em tela cheia" className="nsv2-fullscreen-img" onClick={(e) => e.stopPropagation()} />
-          <button type="button" className="nsv2-fullscreen-close" onClick={() => setPhotoFullscreen(false)} aria-label="Fechar">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-          </button>
-        </div>
-      ) : null}
 
       {labelModalOpen ? (
         <div

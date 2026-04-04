@@ -131,7 +131,6 @@ enum WarehouseAuditEventType {
 }
 
 enum AttachmentKind {
-  ARRIVAL_PHOTO
   CLASSIFICATION_PHOTO
 }
 
@@ -212,7 +211,6 @@ model Sample {
   declaredWarehouse           String?   @map("declared_warehouse")
   soldSacks                   Int       @default(0) @map("sold_sacks")
   lostSacks                   Int       @default(0) @map("lost_sacks")
-  labelPhotoCount             Int       @default(0) @map("label_photo_count")
   latestClassificationVersion Int?      @map("latest_classification_version")
   latestClassificationData    Json?     @map("latest_classification_data")
   classificationDraftData     Json?     @map("classification_draft_data")

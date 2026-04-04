@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import nodemailer from 'nodemailer';
+import { renderEmailHtml } from './email-html-template.js';
 
 function isProductionEnv() {
   return (process.env.NODE_ENV ?? 'development').toLowerCase() === 'production';
@@ -48,7 +49,7 @@ class LocalOutboxEmailService {
     this.outboxDir = outboxDir;
   }
 
-  async sendMail({ to, subject, text }) {
+  async sendMail({ to, subject, text, html }) {
     await fs.mkdir(this.outboxDir, { recursive: true });
     const filePath = path.join(this.outboxDir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.json`);
     await fs.writeFile(
@@ -59,6 +60,7 @@ class LocalOutboxEmailService {
           to,
           subject,
           text,
+          html: html ?? null,
           createdAt: new Date().toISOString()
         },
         null,
@@ -77,12 +79,13 @@ class SmtpEmailService {
     this.transport = transport;
   }
 
-  async sendMail({ to, subject, text }) {
+  async sendMail({ to, subject, text, html }) {
     const info = await this.transport.sendMail({
       from: this.from,
       to,
       subject,
-      text
+      text,
+      html: html ?? undefined
     });
 
     return { id: info.messageId ?? null };
@@ -152,75 +155,118 @@ export class AppEmailService {
   }
 
   async sendUserCreated({ to, fullName, username, password }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Sua conta foi criada',
-      text: `${buildGreeting(fullName)}\n\nSua conta no sistema foi criada.\nUsuario: ${username}\nSenha inicial: ${password}\n\nAo entrar, voce podera manter ou alterar essa senha.\n`
+    const subject = 'Sua conta foi criada';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSua conta no sistema foi criada.\nUsuario: ${username}\nSenha inicial: ${password}\n\nAo entrar, voce podera manter ou alterar essa senha.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: [`Sua conta no sistema foi criada com o usuario ${username}.`, 'Ao entrar, voce podera manter ou alterar essa senha.'],
+      highlight: { label: 'Senha inicial', value: password }
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendPasswordResetByAdmin({ to, fullName, username, password }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Sua senha foi redefinida',
-      text: `${buildGreeting(fullName)}\n\nSua senha foi redefinida por um administrador.\nUsuario: ${username}\nNova senha: ${password}\n`
+    const subject = 'Sua senha foi redefinida';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSua senha foi redefinida por um administrador.\nUsuario: ${username}\nNova senha: ${password}\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: [`Sua senha foi redefinida por um administrador. Seu usuario e ${username}.`],
+      highlight: { label: 'Nova senha', value: password }
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendPasswordResetCode({ to, fullName, code }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Codigo para redefinir sua senha',
-      text: `${buildGreeting(fullName)}\n\nSeu codigo para redefinicao de senha e: ${code}\nValidade: 15 minutos.\n`
+    const subject = 'Codigo para redefinir sua senha';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSeu codigo para redefinicao de senha e: ${code}\nValidade: 15 minutos.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: ['Use o codigo abaixo para redefinir sua senha. Ele expira em 15 minutos.'],
+      highlight: { label: 'Codigo', value: code }
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendUserReactivated({ to, fullName }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Sua conta foi reativada',
-      text: `${buildGreeting(fullName)}\n\nSua conta foi reativada e o acesso ao sistema esta disponivel novamente.\n`
+    const subject = 'Sua conta foi reativada';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSua conta foi reativada e o acesso ao sistema esta disponivel novamente.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: ['Sua conta foi reativada e o acesso ao sistema esta disponivel novamente.']
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendUserInactivated({ to, fullName }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Sua conta foi inativada',
-      text: `${buildGreeting(fullName)}\n\nSua conta foi inativada. Para mais informacoes, fale com um administrador.\n`
+    const subject = 'Sua conta foi inativada';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSua conta foi inativada. Para mais informacoes, fale com um administrador.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: ['Sua conta foi inativada. Para mais informacoes, fale com um administrador.']
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendPasswordChangedNotice({ to, fullName }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Sua senha foi alterada',
-      text: `${buildGreeting(fullName)}\n\nRecebemos uma alteracao de senha na sua conta.\nSe nao foi voce, fale com um administrador imediatamente.\n`
+    const subject = 'Sua senha foi alterada';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nRecebemos uma alteracao de senha na sua conta.\nSe nao foi voce, fale com um administrador imediatamente.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: ['Recebemos uma alteracao de senha na sua conta.'],
+      footerNote: 'Se nao foi voce, fale com um administrador imediatamente.'
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendUsernameChangedNotice({ to, fullName, username }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Seu usuario foi alterado',
-      text: `${buildGreeting(fullName)}\n\nSeu nome de usuario foi alterado.\nNovo usuario: ${username}\n`
+    const subject = 'Seu usuario foi alterado';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nSeu nome de usuario foi alterado.\nNovo usuario: ${username}\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: ['Seu nome de usuario foi alterado.'],
+      highlight: { label: 'Novo usuario', value: username }
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendEmailChangeOldEmailNotice({ to, fullName, newEmail }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Solicitacao de troca de email',
-      text: `${buildGreeting(fullName)}\n\nFoi solicitada a troca do email da sua conta para: ${newEmail}\nSe essa alteracao nao foi esperada, fale com um administrador.\n`
+    const subject = 'Solicitacao de troca de email';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nFoi solicitada a troca do email da sua conta para: ${newEmail}\nSe essa alteracao nao foi esperada, fale com um administrador.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: [`Foi solicitada a troca do email da sua conta para: ${newEmail}`],
+      footerNote: 'Se essa alteracao nao foi esperada, fale com um administrador.'
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 
   async sendEmailChangeCode({ to, fullName, code, newEmail }) {
-    return this.delegate.sendMail({
-      to,
-      subject: 'Confirme seu novo email',
-      text: `${buildGreeting(fullName)}\n\nUse o codigo ${code} para confirmar o novo email ${newEmail}.\nValidade: 15 minutos.\n`
+    const subject = 'Confirme seu novo email';
+    const greeting = buildGreeting(fullName);
+    const text = `${greeting}\n\nUse o codigo ${code} para confirmar o novo email ${newEmail}.\nValidade: 15 minutos.\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: [`Use o codigo abaixo para confirmar o novo email ${newEmail}. Ele expira em 15 minutos.`],
+      highlight: { label: 'Codigo', value: code }
     });
+    return this.delegate.sendMail({ to, subject, text, html });
   }
 }
 

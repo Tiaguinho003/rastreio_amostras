@@ -6,7 +6,6 @@ import { HttpError } from '../contracts/errors.js';
 import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './upload-policy.js';
 
 const ATTACHMENT_KIND_TO_FOLDER = {
-  ARRIVAL_PHOTO: 'arrival',
   CLASSIFICATION_PHOTO: 'classification'
 };
 
@@ -65,16 +64,6 @@ export class LocalUploadService {
       sizeBytes: buffer.length,
       checksumSha256
     };
-  }
-
-  async saveLabelPhoto({ sampleId, buffer, mimeType = null, originalFileName = null }) {
-    return this.saveSamplePhoto({
-      sampleId,
-      kind: 'ARRIVAL_PHOTO',
-      buffer,
-      mimeType,
-      originalFileName
-    });
   }
 
   async deleteByStoragePath(storagePath) {

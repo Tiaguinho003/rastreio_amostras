@@ -96,16 +96,6 @@ if (!databaseUrl || !databaseReachable) {
       actorClassifier
     );
 
-    await commandService.addLabelPhoto(
-      {
-        sampleId,
-        fileBuffer: Buffer.from(`fake-image-content-${sampleId}`),
-        mimeType: 'image/jpeg',
-        originalFileName: 'etiqueta.jpg'
-      },
-      actorClassifier
-    );
-
     await commandService.confirmRegistration(
       {
         sampleId,
@@ -229,7 +219,6 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(confirmed.statusCode, 201);
-    assert.equal(confirmed.sample.labelPhotoCount, 0);
     assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
   });
 
@@ -259,18 +248,6 @@ if (!databaseUrl || !databaseReachable) {
       actorClassifier
     );
     assert.equal(started.statusCode, 201);
-
-    const photo = await commandService.addLabelPhoto(
-      {
-        sampleId,
-        fileBuffer: Buffer.from('fake-image-content'),
-        mimeType: 'image/jpeg',
-        originalFileName: 'etiqueta.jpg'
-      },
-      actorClassifier
-    );
-    assert.equal(photo.statusCode, 201);
-    assert.ok(photo.photo.storagePath.includes(sampleId));
 
     const confirmed = await commandService.confirmRegistration(
       {
