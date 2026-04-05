@@ -107,17 +107,6 @@ if (!databaseUrl || !databaseReachable) {
           harvest: '25/26',
           originLot: `ORIG-${sampleId.slice(0, 8)}`
         },
-        ocr: {
-          provider: 'LOCAL',
-          overallConfidence: 0.91,
-          fieldConfidence: {
-            owner: 0.95,
-            sacks: 0.82,
-            harvest: 0.85,
-            originLot: 0.79
-          },
-          rawTextRef: null
-        },
         idempotencyKey: randomUUID()
       },
       actorClassifier
@@ -259,17 +248,6 @@ if (!databaseUrl || !databaseReachable) {
           sacks: 11,
           harvest: '25/26',
           originLot: 'ORIG-999'
-        },
-        ocr: {
-          provider: 'LOCAL',
-          overallConfidence: 0.87,
-          fieldConfidence: {
-            owner: 0.95,
-            sacks: 0.8,
-            harvest: 0.85,
-            originLot: 0.77
-          },
-          rawTextRef: null
         },
         idempotencyKey: randomUUID()
       },

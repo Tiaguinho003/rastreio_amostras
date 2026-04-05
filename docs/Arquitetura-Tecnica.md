@@ -123,7 +123,6 @@ Regra consolidada:
 
 ## Limites tecnicos atuais
 
-1. OCR automatico ainda nao foi implementado como servico real.
-2. Nao existe worker dedicado para processamento assincromo.
+1. Nao existe worker dedicado para processamento assincromo.
 3. O dominio de amostras ainda nao possui segregacao forte de permissao por papel.
 4. O restore de backup nao possui wrapper canonico proprio; o backup e canonico, mas o restore continua procedimento manual de operador.

@@ -1,0 +1,3 @@
+-- Add classification extraction event types
+ALTER TYPE "SampleEventType" ADD VALUE 'CLASSIFICATION_EXTRACTION_COMPLETED';
+ALTER TYPE "SampleEventType" ADD VALUE 'CLASSIFICATION_EXTRACTION_FAILED';

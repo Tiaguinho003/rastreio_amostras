@@ -614,6 +614,24 @@ export interface SampleEventsResponse {
   events: SampleEvent[];
 }
 
+export interface ExtractionCrossValidationDetail {
+  field: string;
+  extracted: string | null;
+  registered: string | null;
+  match: boolean;
+}
+
+export interface ExtractionResult {
+  extractedFields: Record<string, string | null>;
+  crossValidation: {
+    hasMismatches: boolean;
+    details: ExtractionCrossValidationDetail[];
+  };
+  model: string;
+  photoAttachmentId: string;
+  processingTimeMs: number;
+}
+
 export interface CommandResponse<TSample = unknown> {
   statusCode: number;
   idempotent: boolean;
@@ -628,6 +646,7 @@ export interface CommandResponse<TSample = unknown> {
     sizeBytes: number;
     checksumSha256: string;
   };
+  extraction?: ExtractionResult | null;
 }
 
 export interface CreateSampleAndPreparePrintResponse {

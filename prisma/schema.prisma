@@ -34,7 +34,6 @@ enum ModuleType {
   CLASSIFICATION @map("classification")
   PRINT          @map("print")
   COMMERCIAL     @map("commercial")
-  OCR            @map("ocr")
 }
 
 enum IdempotencyScope {
@@ -50,9 +49,6 @@ enum SampleEventType {
   SAMPLE_RECEIVED
   REGISTRATION_STARTED
   PHOTO_ADDED
-  OCR_EXTRACTED
-  OCR_FAILED
-  OCR_CONFIRMED
   REGISTRATION_CONFIRMED
   QR_PRINT_REQUESTED
   QR_PRINT_FAILED
@@ -73,6 +69,8 @@ enum SampleEventType {
   SAMPLE_INVALIDATED
   REPORT_EXPORTED
   PHYSICAL_SAMPLE_SENT
+  CLASSIFICATION_EXTRACTION_COMPLETED
+  CLASSIFICATION_EXTRACTION_FAILED
 }
 
 enum CommercialStatus {

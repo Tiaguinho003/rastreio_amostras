@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/classification-extraction-completed.payload.schema.json",
+  "title": "CLASSIFICATION_EXTRACTION_COMPLETED payload",
+  "type": "object",
+  "properties": {
+    "extractedFields": {
+      "type": "object",
+      "properties": {
+        "padrao": { "type": ["string", "null"] },
+        "catacao": { "type": ["string", "null"] },
+        "aspecto": { "type": ["string", "null"] },
+        "bebida": { "type": ["string", "null"] },
+        "p18": { "type": ["string", "null"] },
+        "p17": { "type": ["string", "null"] },
+        "p16": { "type": ["string", "null"] },
+        "mk": { "type": ["string", "null"] },
+        "p15": { "type": ["string", "null"] },
+        "p14": { "type": ["string", "null"] },
+        "p13": { "type": ["string", "null"] },
+        "p10": { "type": ["string", "null"] },
+        "fundo1_peneira": { "type": ["string", "null"] },
+        "fundo1_percentual": { "type": ["string", "null"] },
+        "fundo2_peneira": { "type": ["string", "null"] },
+        "fundo2_percentual": { "type": ["string", "null"] },
+        "defeitos": { "type": ["string", "null"] },
+        "broca": { "type": ["string", "null"] },
+        "pva": { "type": ["string", "null"] },
+        "impureza": { "type": ["string", "null"] },
+        "pau": { "type": ["string", "null"] },
+        "ap": { "type": ["string", "null"] },
+        "gpi": { "type": ["string", "null"] },
+        "umidade": { "type": ["string", "null"] }
+      },
+      "required": ["padrao", "catacao", "aspecto", "bebida", "defeitos", "umidade"],
+      "additionalProperties": false
+    },
+    "crossValidation": {
+      "type": "object",
+      "properties": {
+        "hasMismatches": { "type": "boolean" },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": { "type": "string", "minLength": 1 },
+              "extracted": { "type": ["string", "null"] },
+              "registered": { "type": ["string", "null"] },
+              "match": { "type": "boolean" }
+            },
+            "required": ["field", "extracted", "registered", "match"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["hasMismatches", "details"],
+      "additionalProperties": false
+    },
+    "model": { "type": "string", "minLength": 1 },
+    "photoAttachmentId": { "type": "string", "minLength": 1 },
+    "processingTimeMs": { "type": "integer", "minimum": 0 }
+  },
+  "required": ["extractedFields", "crossValidation", "model", "photoAttachmentId", "processingTimeMs"],
+  "additionalProperties": false
+}

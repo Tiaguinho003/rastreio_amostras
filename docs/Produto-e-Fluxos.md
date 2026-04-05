@@ -91,7 +91,7 @@ Regra oficial:
    `owner`, `sacks`, `harvest`, `originLot`.
 3. A foto de chegada e opcional.
 4. Ao confirmar o registro, o sistema gera automaticamente um lote interno no padrao `A-NNNN` (sequencial global, ex: A-5444, A-5445).
-5. O OCR permanece apenas como interface prevista no contrato. O fluxo implementado e manual.
+5. O fluxo de registro e inteiramente manual.
 
 ### 2. Impressao de QR
 
@@ -153,8 +153,7 @@ Regra oficial:
 
 ## Fora do escopo atual
 
-1. OCR automatico com worker real ou servico externo.
-2. Fila externa para impressao ou processamento assincromo.
+1. Fila externa para impressao ou processamento assincromo.
 3. Ambiente `homolog` como trilha oficial de runtime.
 4. Suite E2E versionada no repositorio.
 5. RBAC tecnico detalhado por modulo de amostras.

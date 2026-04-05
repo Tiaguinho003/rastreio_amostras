@@ -6,9 +6,6 @@
     { "$ref": "./events/sample-received.event.schema.json" },
     { "$ref": "./events/registration-started.event.schema.json" },
     { "$ref": "./events/photo-added.event.schema.json" },
-    { "$ref": "./events/ocr-extracted.event.schema.json" },
-    { "$ref": "./events/ocr-failed.event.schema.json" },
-    { "$ref": "./events/ocr-confirmed.event.schema.json" },
     { "$ref": "./events/registration-confirmed.event.schema.json" },
     { "$ref": "./events/qr-print-requested.event.schema.json" },
     { "$ref": "./events/qr-print-failed.event.schema.json" },
@@ -28,6 +25,8 @@
     { "$ref": "./events/commercial-status-updated.event.schema.json" },
     { "$ref": "./events/sample-invalidated.event.schema.json" },
     { "$ref": "./events/report-exported.event.schema.json" },
-    { "$ref": "./events/physical-sample-sent.event.schema.json" }
+    { "$ref": "./events/physical-sample-sent.event.schema.json" },
+    { "$ref": "./events/classification-extraction-completed.event.schema.json" },
+    { "$ref": "./events/classification-extraction-failed.event.schema.json" }
   ]
 }

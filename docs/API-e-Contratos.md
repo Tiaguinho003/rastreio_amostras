@@ -158,5 +158,5 @@ npm run test:integration:db
 ## Decisoes documentadas nesta consolidacao
 
 1. `v1` e um contrato interno da aplicacao, nao uma API publica estabilizada para terceiros.
-2. OCR automatico permanece fora do escopo implementado, mesmo que o contrato preveja estrutura de payload.
+2. Extracao de dados por IA sera implementada no modulo de classificacao (via foto da ficha de classificacao).
 3. O contrato de eventos segue ativo e executavel porque os schemas em `docs/schemas/events/v1/` continuam fazendo parte da validacao do repositorio.

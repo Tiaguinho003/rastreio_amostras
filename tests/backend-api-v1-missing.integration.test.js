@@ -165,17 +165,6 @@ if (!databaseUrl || !databaseReachable) {
           harvest: '25/26',
           originLot: 'ORIG-001'
         },
-        ocr: {
-          provider: 'LOCAL',
-          overallConfidence: 0.8,
-          fieldConfidence: {
-            owner: 0.9,
-            sacks: 0.8,
-            harvest: 0.8,
-            originLot: 0.7
-          },
-          rawTextRef: null
-        },
         idempotencyKey: randomUUID()
       },
       actorClassifier
@@ -209,17 +198,6 @@ if (!databaseUrl || !databaseReachable) {
           harvest: '25/26',
           originLot: 'ORIG-001'
         },
-        ocr: {
-          provider: 'LOCAL',
-          overallConfidence: 0.8,
-          fieldConfidence: {
-            owner: 0.9,
-            sacks: 0.8,
-            harvest: 0.8,
-            originLot: 0.7
-          },
-          rawTextRef: null
-        }
       },
       fromStatus: 'REGISTRATION_IN_PROGRESS',
       toStatus: 'REGISTRATION_CONFIRMED',

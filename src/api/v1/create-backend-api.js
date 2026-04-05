@@ -9,6 +9,7 @@ import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-uplo
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
 import { WarehouseService } from '../../warehouses/warehouse-service.js';
+import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
 import { createBackendApiV1 } from './backend-api.js';
 
 function isProductionEnv() {
@@ -46,12 +47,17 @@ export function createBackendApiV1FromEnv() {
   const warehouseService = new WarehouseService({
     prisma
   });
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const extractionService = openaiApiKey
+    ? new ClassificationExtractionService({ apiKey: openaiApiKey })
+    : null;
   const commandService = new SampleCommandService({
     eventService,
     queryService,
     uploadService,
     clientService,
-    warehouseService
+    warehouseService,
+    extractionService
   });
   const reportService = new SamplePdfReportService({
     queryService,

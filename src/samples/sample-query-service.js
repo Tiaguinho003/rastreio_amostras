@@ -227,8 +227,7 @@ function moduleFromDb(moduleName) {
     REGISTRATION: 'registration',
     CLASSIFICATION: 'classification',
     PRINT: 'print',
-    COMMERCIAL: 'commercial',
-    OCR: 'ocr'
+    COMMERCIAL: 'commercial'
   };
   return map[moduleName] ?? moduleName;
 }

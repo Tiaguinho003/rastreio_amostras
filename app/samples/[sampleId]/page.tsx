@@ -36,6 +36,7 @@ import type {
   ClientRegistrationSummary,
   ClientSummary,
   CommercialStatus,
+  ExtractionResult,
   InvalidateReasonCode,
   PrintAction,
   SampleDetailResponse,
@@ -77,6 +78,8 @@ type ClassificationFormState = {
   fundo2Peneira: string;
   fundo2Percent: string;
   pau: string;
+  ap: string;
+  gpi: string;
 };
 
 type ClassificationSievePayload = {
@@ -104,6 +107,8 @@ type ClassificationDataPayload = {
   pva: string | null;
   imp: string | null;
   pau: string | null;
+  ap: string | null;
+  gpi: string | null;
   classificador: string | null;
   peneirasPercentuais: ClassificationSievePayload | null;
   defeito: string | null;
@@ -159,7 +164,9 @@ const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   fundo1Percent: '',
   fundo2Peneira: '',
   fundo2Percent: '',
-  pau: ''
+  pau: '',
+  ap: '',
+  gpi: ''
 };
 
 const SIEVE_FIELDS: NumericField[] = [
@@ -181,6 +188,8 @@ const NUMERIC_FIELDS: NumericField[] = [
   { key: 'pva', label: 'PVA' },
   { key: 'imp', label: 'IMP' },
   { key: 'pau', label: 'PAU' },
+  { key: 'ap', label: 'AP' },
+  { key: 'gpi', label: 'GPI' },
   { key: 'defeito', label: 'Defeito' },
   { key: 'umidade', label: 'Umidade' },
   ...SIEVE_FIELDS
@@ -338,6 +347,8 @@ function buildClassificationDataPayload(
     pva: form.pva.trim() || null,
     imp: form.imp.trim() || null,
     pau: form.pau.trim() || null,
+    ap: form.ap.trim() || null,
+    gpi: form.gpi.trim() || null,
     classificador: form.classificador.trim() || null,
     peneirasPercentuais: hasSieve ? sieve : null,
     defeito: form.defeito.trim() || null,
@@ -421,8 +432,67 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     fundo1Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.percentual != null ? String(f[0].percentual) : ''; })(),
     fundo2Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.peneira ?? ''; })(),
     fundo2Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.percentual != null ? String(f[1].percentual) : ''; })(),
-    pau: toText(mergedData.pau)
+    pau: toText(mergedData.pau),
+    ap: toText(mergedData.ap),
+    gpi: toText(mergedData.gpi)
   };
+}
+
+function mapExtractionToForm(fields: Record<string, string | null>): Partial<ClassificationFormState> {
+  const mapped: Partial<ClassificationFormState> = {};
+  const fieldMap: Record<string, keyof ClassificationFormState> = {
+    padrao: 'padrao',
+    catacao: 'catacao',
+    aspecto: 'aspecto',
+    bebida: 'bebida',
+    p18: 'peneiraP18',
+    p17: 'peneiraP17',
+    p16: 'peneiraP16',
+    mk: 'peneiraMk9',
+    p15: 'peneiraP15',
+    p14: 'peneiraP14',
+    p13: 'peneiraP13',
+    p10: 'peneiraP10',
+    fundo1_peneira: 'fundo1Peneira',
+    fundo1_percentual: 'fundo1Percent',
+    fundo2_peneira: 'fundo2Peneira',
+    fundo2_percentual: 'fundo2Percent',
+    defeitos: 'defeito',
+    broca: 'broca',
+    pva: 'pva',
+    impureza: 'imp',
+    pau: 'pau',
+    ap: 'ap',
+    gpi: 'gpi',
+    umidade: 'umidade'
+  };
+
+  for (const [extractedKey, formKey] of Object.entries(fieldMap)) {
+    const value = fields[extractedKey];
+    if (value !== null && value !== undefined) {
+      mapped[formKey] = String(value);
+    }
+  }
+
+  return mapped;
+}
+
+function buildMismatchMessage(crossValidation: ExtractionResult['crossValidation']): string {
+  const fieldLabels: Record<string, string> = {
+    lote: 'Lote',
+    sacas: 'Sacas',
+    safra: 'Safra',
+    data: 'Data'
+  };
+
+  const mismatches = crossValidation.details
+    .filter(d => !d.match)
+    .map(d => {
+      const label = fieldLabels[d.field] ?? d.field;
+      return `${label}: ficha "${d.extracted ?? '?'}", registro "${d.registered ?? '?'}"`;
+    });
+
+  return `Atenção: dados divergentes — ${mismatches.join('. ')}`;
 }
 
 function NoticeSlot({ notice }: { notice: Notice }) {
@@ -1110,12 +1180,22 @@ export default function SampleDetailPage() {
 
     try {
       const compressed = await compressImage(classificationSelectedPhoto);
-      await uploadClassificationPhoto(session, sampleId, compressed, true);
+      const uploadResult = await uploadClassificationPhoto(session, sampleId, compressed, true);
       setClassificationSavedPhotoFile(compressed);
       setClassificationSelectedPhoto(null);
       if (classificationPhotoInputRef.current) {
         classificationPhotoInputRef.current.value = '';
       }
+
+      if (uploadResult?.extraction?.extractedFields) {
+        const extracted = mapExtractionToForm(uploadResult.extraction.extractedFields);
+        setClassificationForm(prev => ({ ...prev, ...extracted }));
+      }
+
+      if (uploadResult?.extraction?.crossValidation?.hasMismatches) {
+        setClassificationNotice({ kind: 'error', text: buildMismatchMessage(uploadResult.extraction.crossValidation) });
+      }
+
       await syncDetailState();
       setClassificationPhotoConfirmEffectKey((current) => current + 1);
       setShowClassificationPhotoConfirmEffect(true);

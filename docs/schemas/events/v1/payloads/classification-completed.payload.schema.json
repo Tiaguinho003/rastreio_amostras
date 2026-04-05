@@ -43,6 +43,12 @@
         "pau": {
           "type": ["string", "null"]
         },
+        "ap": {
+          "type": ["string", "null"]
+        },
+        "gpi": {
+          "type": ["string", "null"]
+        },
         "classificador": {
           "type": ["string", "null"]
         },

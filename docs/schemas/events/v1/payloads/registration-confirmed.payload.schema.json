@@ -32,36 +32,8 @@
     },
     "declaredWarehouse": {
       "type": ["string", "null"]
-    },
-    "ocr": {
-      "type": "object",
-      "properties": {
-        "provider": {
-          "type": "string",
-          "enum": ["LOCAL", "EXTERNAL"]
-        },
-        "overallConfidence": {
-          "$ref": "../base/shared-defs.schema.json#/$defs/confidenceScore"
-        },
-        "fieldConfidence": {
-          "type": "object",
-          "properties": {
-            "owner": { "$ref": "../base/shared-defs.schema.json#/$defs/confidenceScore" },
-            "sacks": { "$ref": "../base/shared-defs.schema.json#/$defs/confidenceScore" },
-            "harvest": { "$ref": "../base/shared-defs.schema.json#/$defs/confidenceScore" },
-            "originLot": { "$ref": "../base/shared-defs.schema.json#/$defs/confidenceScore" }
-          },
-          "required": ["owner", "sacks", "harvest", "originLot"],
-          "additionalProperties": false
-        },
-        "rawTextRef": {
-          "type": ["string", "null"]
-        }
-      },
-      "required": ["provider", "overallConfidence", "fieldConfidence", "rawTextRef"],
-      "additionalProperties": false
     }
   },
-  "required": ["sampleLotNumber", "declared", "ocr"],
+  "required": ["sampleLotNumber", "declared"],
   "additionalProperties": false
 }

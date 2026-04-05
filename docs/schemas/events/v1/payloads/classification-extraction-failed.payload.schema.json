@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/classification-extraction-failed.payload.schema.json",
+  "title": "CLASSIFICATION_EXTRACTION_FAILED payload",
+  "type": "object",
+  "properties": {
+    "errorCode": {
+      "type": "string",
+      "enum": ["OPENAI_ERROR", "PARSE_ERROR", "TIMEOUT", "UNKNOWN"]
+    },
+    "errorMessage": { "type": ["string", "null"] },
+    "photoAttachmentId": { "type": "string", "minLength": 1 }
+  },
+  "required": ["errorCode", "photoAttachmentId"],
+  "additionalProperties": false
+}

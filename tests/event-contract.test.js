@@ -19,7 +19,9 @@ import {
   lossRecordedEvent,
   lossCancelledEvent,
   reportExportedEvent,
-  commercialStatusUpdatedEvent
+  commercialStatusUpdatedEvent,
+  classificationExtractionCompletedEvent,
+  classificationExtractionFailedEvent
 } from './helpers/event-builders.js';
 
 function createService() {
@@ -45,17 +47,6 @@ test('schema validation rejects invalid payload with 422', () => {
         harvest: '24/25',
         originLot: 'LOTE-ORIGEM-001'
       },
-      ocr: {
-        provider: 'LOCAL',
-        overallConfidence: 0.82,
-        fieldConfidence: {
-          owner: 0.9,
-          sacks: 0.7,
-          harvest: 0.8,
-          originLot: 0.6
-        },
-        rawTextRef: null
-      }
     }
   });
 
@@ -82,17 +73,6 @@ test('registration confirmed accepts payload without label photos', () => {
           harvest: '24/25',
           originLot: 'LOTE-ORIGEM-001'
         },
-        ocr: {
-          provider: 'LOCAL',
-          overallConfidence: 0.82,
-          fieldConfidence: {
-            owner: 0.9,
-            sacks: 0.7,
-            harvest: 0.8,
-            originLot: 0.6
-          },
-          rawTextRef: null
-        }
       }
     }),
     { expectedVersion: 2 }
@@ -495,4 +475,46 @@ test('qr reprint success mutates when sample is still QR_PENDING_PRINT', () => {
   assert.equal(reprinted.event.eventType, 'QR_PRINTED');
   assert.equal(afterReprint.status, 'QR_PRINTED');
   assert.equal(afterReprint.version, beforeReprint.version + 1);
+});
+
+test('classification extraction completed is accepted and does not mutate sample', () => {
+  const { store, service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+
+  const before = store.getSample(sampleId);
+  const result = service.appendEvent(
+    classificationExtractionCompletedEvent(sampleId),
+    { expectedVersion: before.version }
+  );
+  const after = store.getSample(sampleId);
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.event.eventType, 'CLASSIFICATION_EXTRACTION_COMPLETED');
+  assert.equal(after.status, before.status);
+  assert.equal(after.version, before.version);
+});
+
+test('classification extraction failed is accepted and does not mutate sample', () => {
+  const { store, service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+
+  const before = store.getSample(sampleId);
+  const result = service.appendEvent(
+    classificationExtractionFailedEvent(sampleId),
+    { expectedVersion: before.version }
+  );
+  const after = store.getSample(sampleId);
+
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.event.eventType, 'CLASSIFICATION_EXTRACTION_FAILED');
+  assert.equal(after.status, before.status);
+  assert.equal(after.version, before.version);
 });

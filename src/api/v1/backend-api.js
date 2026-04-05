@@ -260,7 +260,6 @@ export function createBackendApiV1({
             declared: body.declared,
             ownerClientId: body.ownerClientId,
             ownerRegistrationId: body.ownerRegistrationId,
-            ocr: body.ocr,
             idempotencyKey: body.idempotencyKey
           },
           actor

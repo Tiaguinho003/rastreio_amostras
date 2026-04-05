@@ -92,17 +92,6 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
         harvest: '24/25',
         originLot: 'LOTE-ORIGEM-001'
       },
-      ocr: {
-        provider: 'LOCAL',
-        overallConfidence: 0.82,
-        fieldConfidence: {
-          owner: 0.9,
-          sacks: 0.7,
-          harvest: 0.8,
-          originLot: 0.6
-        },
-        rawTextRef: null
-      },
       ...payloadOverrides
     },
     module: 'registration',
@@ -393,6 +382,75 @@ export function lossCancelledEvent(sampleId, overrides = {}) {
       ...payloadOverrides
     },
     module: 'commercial',
+    ...eventOverrides
+  });
+}
+
+export function classificationExtractionCompletedEvent(sampleId, overrides = {}) {
+  const { payload: payloadOverrides, ...eventOverrides } = overrides;
+  return buildEvent({
+    eventType: 'CLASSIFICATION_EXTRACTION_COMPLETED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      extractedFields: {
+        padrao: '7/8',
+        catacao: null,
+        aspecto: 'verde cana',
+        bebida: 'dura',
+        p18: '12',
+        p17: '35',
+        p16: '20',
+        mk: '5',
+        p15: '10',
+        p14: '8',
+        p13: '5',
+        p10: '3',
+        fundo1_peneira: '9',
+        fundo1_percentual: '2',
+        fundo2_peneira: null,
+        fundo2_percentual: null,
+        defeitos: '45',
+        broca: '2',
+        pva: '3',
+        impureza: '1',
+        pau: '0',
+        ap: '1',
+        gpi: '0',
+        umidade: '11,5'
+      },
+      crossValidation: {
+        hasMismatches: false,
+        details: [
+          { field: 'lote', extracted: 'A-5444', registered: 'A-5444', match: true },
+          { field: 'sacas', extracted: '50', registered: '50', match: true }
+        ]
+      },
+      model: 'gpt-4o-mini',
+      photoAttachmentId: randomUUID(),
+      processingTimeMs: 1234,
+      ...payloadOverrides
+    },
+    module: 'classification',
+    ...eventOverrides
+  });
+}
+
+export function classificationExtractionFailedEvent(sampleId, overrides = {}) {
+  const { payload: payloadOverrides, ...eventOverrides } = overrides;
+  return buildEvent({
+    eventType: 'CLASSIFICATION_EXTRACTION_FAILED',
+    sampleId,
+    fromStatus: null,
+    toStatus: null,
+    payload: {
+      errorCode: 'OPENAI_ERROR',
+      errorMessage: 'API request failed',
+      photoAttachmentId: randomUUID(),
+      ...payloadOverrides
+    },
+    module: 'classification',
     ...eventOverrides
   });
 }

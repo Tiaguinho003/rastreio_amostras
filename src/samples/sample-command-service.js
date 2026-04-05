@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import path from 'node:path';
 
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
@@ -57,6 +58,8 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'pva',
   'imp',
   'pau',
+  'ap',
+  'gpi',
   'classificador',
   'defeito',
   'umidade',
@@ -1099,6 +1102,68 @@ function requireUserActor(actorContext, allowedRoles, actionLabel) {
   return actor;
 }
 
+function normalizeCompareText(a, b) {
+  const na = String(a).trim().toLowerCase().replace(/[\s\-\/]/g, '');
+  const nb = String(b).trim().toLowerCase().replace(/[\s\-\/]/g, '');
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+function parseNumericString(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().replace(',', '.');
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+}
+
+function crossValidateExtraction(identificacao, sample) {
+  const details = [];
+
+  if (identificacao.lote !== null) {
+    const registered = sample.internalLotNumber ?? null;
+    details.push({
+      field: 'lote',
+      extracted: identificacao.lote,
+      registered,
+      match: registered !== null && normalizeCompareText(identificacao.lote, registered)
+    });
+  }
+
+  if (identificacao.sacas !== null) {
+    const extractedNum = parseNumericString(identificacao.sacas);
+    const registered = sample.declared?.sacks ?? null;
+    details.push({
+      field: 'sacas',
+      extracted: identificacao.sacas,
+      registered: registered !== null ? String(registered) : null,
+      match: registered !== null && extractedNum !== null && extractedNum === registered
+    });
+  }
+
+  if (identificacao.safra !== null) {
+    const registered = sample.declared?.harvest ?? null;
+    details.push({
+      field: 'safra',
+      extracted: identificacao.safra,
+      registered,
+      match: registered !== null && normalizeCompareText(identificacao.safra, registered)
+    });
+  }
+
+  if (identificacao.data !== null) {
+    details.push({
+      field: 'data',
+      extracted: identificacao.data,
+      registered: null,
+      match: true
+    });
+  }
+
+  return {
+    hasMismatches: details.some(d => !d.match),
+    details
+  };
+}
+
 function normalizeDeclaredFields(declared, options = {}) {
   if (!declared || typeof declared !== 'object') {
     throw new HttpError(422, 'declared fields are required');
@@ -1115,24 +1180,6 @@ function normalizeDeclaredFields(declared, options = {}) {
     sacks: declared.sacks,
     harvest: declared.harvest,
     originLot: declared.originLot
-  };
-}
-
-function normalizeOcrPayload(ocr) {
-  if (ocr && typeof ocr === 'object') {
-    return ocr;
-  }
-
-  return {
-    provider: 'LOCAL',
-    overallConfidence: 0,
-    fieldConfidence: {
-      owner: 0,
-      sacks: 0,
-      harvest: 0,
-      originLot: 0
-    },
-    rawTextRef: null
   };
 }
 
@@ -1166,12 +1213,13 @@ async function resolveWarehouseForWrite({ warehouseName, warehouseId, warehouseS
 }
 
 export class SampleCommandService {
-  constructor({ eventService, queryService, uploadService = null, clientService = null, warehouseService = null }) {
+  constructor({ eventService, queryService, uploadService = null, clientService = null, warehouseService = null, extractionService = null }) {
     this.eventService = eventService;
     this.queryService = queryService;
     this.uploadService = uploadService;
     this.clientService = clientService;
     this.warehouseService = warehouseService;
+    this.extractionService = extractionService;
   }
 
   async receiveSample(input, actorContext) {
@@ -1287,7 +1335,6 @@ export class SampleCommandService {
               ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
               warehouseId: warehouseBinding?.warehouseId ?? null,
               declaredWarehouse: warehouseBinding?.warehouseName ?? null,
-              ocr: normalizeOcrPayload(null),
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`
             },
             actor
@@ -1439,12 +1486,57 @@ export class SampleCommandService {
         await this.uploadService.deleteByStoragePath(existingAttachment.storagePath).catch(() => {});
       }
 
+      let extraction = null;
+      if (this.extractionService && this.uploadService) {
+        try {
+          const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
+          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath);
+          const crossValidation = crossValidateExtraction(raw.identificacao, sample);
+          extraction = {
+            extractedFields: raw.classificacao,
+            crossValidation,
+            model: 'gpt-4o-mini',
+            photoAttachmentId: saved.attachmentId,
+            processingTimeMs: raw.processingTimeMs
+          };
+
+          const extractionEvent = buildEventEnvelope({
+            eventType: 'CLASSIFICATION_EXTRACTION_COMPLETED',
+            sampleId: sample.id,
+            payload: extraction,
+            fromStatus: null,
+            toStatus: null,
+            module: 'classification',
+            actorContext: actor
+          });
+          await this.eventService.appendEvent(extractionEvent);
+        } catch (extractionError) {
+          try {
+            const failureEvent = buildEventEnvelope({
+              eventType: 'CLASSIFICATION_EXTRACTION_FAILED',
+              sampleId: sample.id,
+              payload: {
+                errorCode: extractionError.code ?? 'UNKNOWN',
+                errorMessage: String(extractionError.message ?? 'Extraction failed'),
+                photoAttachmentId: saved.attachmentId
+              },
+              fromStatus: null,
+              toStatus: null,
+              module: 'classification',
+              actorContext: actor
+            });
+            await this.eventService.appendEvent(failureEvent);
+          } catch { /* swallow — failure event persistence is non-critical */ }
+        }
+      }
+
       return {
         ...result,
         photo: {
           ...saved,
           kind
-        }
+        },
+        extraction
       };
     } catch (error) {
       await this.uploadService.deleteByStoragePath(saved.storagePath);
@@ -1479,7 +1571,6 @@ export class SampleCommandService {
     const declared = normalizeDeclaredFields(input.declared, {
       resolvedOwnerName: ownerBinding?.displayName ?? null
     });
-    const ocr = normalizeOcrPayload(input.ocr);
     const maxRetries = input.sampleLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
@@ -1495,8 +1586,7 @@ export class SampleCommandService {
           ownerClientId: ownerBinding?.ownerClientId ?? null,
           ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
           warehouseId: input.warehouseId ?? null,
-          declaredWarehouse: input.declaredWarehouse ?? null,
-          ocr
+          declaredWarehouse: input.declaredWarehouse ?? null
         },
         fromStatus: 'REGISTRATION_IN_PROGRESS',
         toStatus: 'REGISTRATION_CONFIRMED',
