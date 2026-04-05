@@ -11,6 +11,7 @@ import type {
   ClientsListResponse,
   CommandResponse,
   CreateSampleAndPreparePrintResponse,
+  ExtractAndPrepareResponse,
   DashboardPendingResponse,
   DashboardSalesAvailabilityResponse,
   InvalidateReasonCode,
@@ -966,6 +967,31 @@ export function uploadClassificationPhoto(session: SessionData, sampleId: string
   return uploadSamplePhoto(session, sampleId, file, {
     kind: 'CLASSIFICATION_PHOTO',
     replaceExisting
+  });
+}
+
+export function extractAndPrepareClassification(session: SessionData, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
+    method: 'POST',
+    session,
+    formData
+  });
+}
+
+export function confirmClassificationFromCamera(
+  session: SessionData,
+  data: {
+    sampleId: string;
+    classificationData: Record<string, unknown>;
+    isUpdate: boolean;
+  }
+) {
+  return request<CommandResponse>('/classification/confirm', {
+    method: 'POST',
+    session,
+    body: data
   });
 }
 

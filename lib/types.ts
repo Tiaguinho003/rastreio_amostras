@@ -649,6 +649,25 @@ export interface CommandResponse<TSample = unknown> {
   extraction?: ExtractionResult | null;
 }
 
+export interface ExtractAndPrepareResponse {
+  statusCode: number;
+  sample: {
+    id: string;
+    internalLotNumber: string | null;
+    status: string;
+    version: number;
+    declared: {
+      owner: string | null;
+      sacks: number | null;
+      harvest: string | null;
+      originLot: string | null;
+    };
+  };
+  extractedFields: Record<string, string | null>;
+  alreadyClassified: boolean;
+  processingTimeMs: number;
+}
+
 export interface CreateSampleAndPreparePrintResponse {
   statusCode: number;
   idempotent: boolean;

@@ -1907,6 +1907,48 @@ export function createBackendApiV1({
           status: 200,
           body: result
         };
+      }),
+
+    extractAndPrepareClassification: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+
+        let fileBuffer = null;
+        if (Buffer.isBuffer(body.fileBuffer)) {
+          fileBuffer = body.fileBuffer;
+        } else if (typeof body.fileBase64 === 'string' && body.fileBase64.length > 0) {
+          fileBuffer = Buffer.from(body.fileBase64, 'base64');
+        }
+
+        const result = await commandService.extractAndPrepareClassification(
+          {
+            fileBuffer,
+            mimeType: body.mimeType ?? null,
+            originalFileName: body.originalFileName ?? null
+          },
+          actor
+        );
+
+        return { status: result.statusCode, body: result };
+      }),
+
+    confirmClassificationFromCamera: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+
+        const result = await commandService.confirmClassificationFromCamera(
+          {
+            sampleId: body.sampleId,
+            classificationData: body.classificationData,
+            isUpdate: body.isUpdate === true,
+            idempotencyKey: body.idempotencyKey
+          },
+          actor
+        );
+
+        return { status: result.statusCode, body: result };
       })
   };
 }

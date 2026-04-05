@@ -2448,4 +2448,191 @@ export class SampleCommandService {
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
   }
+
+  async extractAndPrepareClassification(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'extract and prepare classification');
+
+    if (!this.extractionService) {
+      throw new HttpError(503, 'Servico de extracao nao configurado');
+    }
+    if (!this.uploadService) {
+      throw new HttpError(503, 'Servico de upload nao configurado');
+    }
+    if (!input.fileBuffer || !Buffer.isBuffer(input.fileBuffer)) {
+      throw new HttpError(422, 'Foto e obrigatoria');
+    }
+
+    const tempFileName = `camera-${randomUUID()}.jpg`;
+    const tempDir = path.join(this.uploadService.baseDir, '_temp');
+    const fs = await import('node:fs/promises');
+    await fs.mkdir(tempDir, { recursive: true });
+    const tempPath = path.join(tempDir, tempFileName);
+
+    try {
+      await fs.writeFile(tempPath, input.fileBuffer);
+      const raw = await this.extractionService.extractClassificationFromPhoto(tempPath);
+      const lote = raw.identificacao.lote;
+
+      if (!lote) {
+        throw new HttpError(422, 'Nao foi possivel identificar o lote na ficha');
+      }
+
+      let sample;
+      try {
+        const resolved = await this.queryService.resolveSampleByQrToken(lote);
+        sample = resolved.sample;
+      } catch {
+        throw new HttpError(404, `Amostra nao encontrada para o lote ${lote}`);
+      }
+
+      if (sample.status === 'INVALIDATED') {
+        throw new HttpError(409, 'Esta amostra foi invalidada');
+      }
+
+      if (sample.status === 'PHYSICAL_RECEIVED' || sample.status === 'REGISTRATION_IN_PROGRESS') {
+        throw new HttpError(409, 'Esta amostra ainda nao teve o registro confirmado');
+      }
+
+      const alreadyClassified = sample.status === 'CLASSIFIED';
+
+      if (!alreadyClassified) {
+        const maxRetries = 5;
+        for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+          const current = await this.queryService.requireSample(sample.id);
+
+          if (['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED'].includes(current.status)) {
+            try {
+              await this.startClassification({ sampleId: current.id, expectedVersion: current.version }, actor);
+              continue;
+            } catch (err) {
+              if (err.status === 409) { continue; }
+              throw err;
+            }
+          }
+
+          if (current.status === 'CLASSIFICATION_IN_PROGRESS') {
+            await this.addSamplePhoto({
+              sampleId: current.id,
+              kind: PHOTO_KINDS.CLASSIFICATION,
+              fileBuffer: input.fileBuffer,
+              mimeType: input.mimeType ?? 'image/jpeg',
+              originalFileName: input.originalFileName ?? tempFileName,
+              replaceExisting: true
+            }, actor);
+            break;
+          }
+
+          break;
+        }
+      }
+
+      const finalSample = await this.queryService.requireSample(sample.id);
+
+      return {
+        statusCode: 200,
+        sample: {
+          id: finalSample.id,
+          internalLotNumber: finalSample.internalLotNumber,
+          status: finalSample.status,
+          version: finalSample.version,
+          declared: finalSample.declared
+        },
+        extractedFields: raw.classificacao,
+        alreadyClassified,
+        processingTimeMs: raw.processingTimeMs
+      };
+    } finally {
+      await fs.rm(tempPath, { force: true }).catch(() => {});
+    }
+  }
+
+  async confirmClassificationFromCamera(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'confirm classification from camera');
+    const sampleId = normalizeNullableUuid(input.sampleId, 'sampleId');
+    if (!sampleId) {
+      throw new HttpError(422, 'sampleId e obrigatorio');
+    }
+
+    const sample = await this.queryService.requireSample(sampleId);
+    const classifierName = actor.displayName ?? actor.username ?? null;
+    const classificationDate = buildBusinessDateStamp();
+    const classificationData = isPlainObject(input.classificationData) ? {
+      ...input.classificationData,
+      dataClassificacao: classificationDate,
+      classificador: classifierName
+    } : { dataClassificacao: classificationDate, classificador: classifierName };
+
+    const technical = {};
+    if (classificationData.defeito) {
+      const parsed = parseInt(classificationData.defeito, 10);
+      if (Number.isFinite(parsed)) { technical.defectsCount = Math.round(parsed); }
+    }
+    if (classificationData.umidade !== null && classificationData.umidade !== undefined) {
+      const moisture = typeof classificationData.umidade === 'number'
+        ? classificationData.umidade
+        : Number(String(classificationData.umidade).replace(',', '.'));
+      if (Number.isFinite(moisture)) { technical.moisture = moisture; }
+    }
+
+    if (input.isUpdate) {
+      const allowedUpdateFields = new Set([...CLASSIFICATION_DATA_EDITABLE_FIELDS]);
+      const parsedPatch = {};
+      for (const [key, value] of Object.entries(classificationData)) {
+        if (allowedUpdateFields.has(key)) {
+          parsedPatch[key] = value;
+        }
+      }
+
+      if (isPlainObject(classificationData.peneirasPercentuais)) {
+        const sieve = classificationData.peneirasPercentuais;
+        const sievePatch = {};
+        for (const sieveKey of CLASSIFICATION_SIEVE_FIELDS) {
+          if (sieve[sieveKey] !== undefined) {
+            sievePatch[sieveKey] = sieve[sieveKey];
+          }
+        }
+        if (Object.keys(sievePatch).length > 0) {
+          parsedPatch.peneirasPercentuais = sievePatch;
+        }
+      }
+
+      return this.updateClassification({
+        sampleId,
+        expectedVersion: sample.version,
+        after: parsedPatch,
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Reclassificacao via foto'
+      }, actorContext);
+    }
+
+    assertSampleStatus(sample, ['CLASSIFICATION_IN_PROGRESS'], 'confirm classification');
+
+    const classificationPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.CLASSIFICATION);
+    if (!classificationPhoto) {
+      throw new HttpError(409, 'Foto de classificacao e obrigatoria para concluir');
+    }
+
+    const payload = {
+      classificationPhotoId: classificationPhoto.id,
+      classificationData,
+      classifierName
+    };
+    if (Object.keys(technical).length > 0) {
+      payload.technical = technical;
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'CLASSIFICATION_COMPLETED',
+      sampleId: sample.id,
+      payload,
+      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      toStatus: 'CLASSIFIED',
+      module: 'classification',
+      actorContext: actor,
+      idempotencyScope: 'CLASSIFICATION_COMPLETE',
+      idempotencyKey: input.idempotencyKey ?? randomUUID()
+    });
+
+    return this.eventService.appendEvent(event, { expectedVersion: sample.version });
+  }
 }
