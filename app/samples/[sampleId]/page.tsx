@@ -1192,9 +1192,10 @@ export default function SampleDetailPage() {
         setClassificationForm(prev => ({ ...prev, ...extracted }));
       }
 
-      if (uploadResult?.extraction?.crossValidation?.hasMismatches) {
-        setClassificationNotice({ kind: 'error', text: buildMismatchMessage(uploadResult.extraction.crossValidation) });
-      }
+      // Cross-validation alerts disabled — extraction pre-fill is sufficient
+      // if (uploadResult?.extraction?.crossValidation?.hasMismatches) {
+      //   setClassificationNotice({ kind: 'error', text: buildMismatchMessage(uploadResult.extraction.crossValidation) });
+      // }
 
       await syncDetailState();
       setClassificationPhotoConfirmEffectKey((current) => current + 1);
