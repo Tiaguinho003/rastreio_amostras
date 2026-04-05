@@ -1511,6 +1511,7 @@ export class SampleCommandService {
           });
           await this.eventService.appendEvent(extractionEvent);
         } catch (extractionError) {
+          console.error('[extraction] Classification extraction failed:', extractionError.code ?? 'UNKNOWN', extractionError.message);
           try {
             const failureEvent = buildEventEnvelope({
               eventType: 'CLASSIFICATION_EXTRACTION_FAILED',
@@ -1526,7 +1527,9 @@ export class SampleCommandService {
               actorContext: actor
             });
             await this.eventService.appendEvent(failureEvent);
-          } catch { /* swallow — failure event persistence is non-critical */ }
+          } catch (eventError) {
+            console.error('[extraction] Failed to persist extraction failure event:', eventError.message);
+          }
         }
       }
 

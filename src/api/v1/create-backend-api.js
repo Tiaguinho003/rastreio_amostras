@@ -47,10 +47,13 @@ export function createBackendApiV1FromEnv() {
   const warehouseService = new WarehouseService({
     prisma
   });
-  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
     ? new ClassificationExtractionService({ apiKey: openaiApiKey })
     : null;
+  if (!extractionService) {
+    console.warn('[extraction] OPENAI_API_KEY not configured — classification extraction disabled');
+  }
   const commandService = new SampleCommandService({
     eventService,
     queryService,
