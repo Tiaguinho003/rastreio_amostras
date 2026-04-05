@@ -7,6 +7,7 @@ import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import {
   ApiError,
+  type JsonValue,
   extractAndPrepareClassification,
   confirmClassificationFromCamera,
   resolveSampleByQr
@@ -550,7 +551,7 @@ function CameraPageContent() {
 
       await confirmClassificationFromCamera(session, {
         sampleId: extractionResult.sample.id,
-        classificationData: classificationData as unknown as Record<string, unknown>,
+        classificationData: classificationData as { [key: string]: JsonValue },
         isUpdate: extractionResult.alreadyClassified
       });
 

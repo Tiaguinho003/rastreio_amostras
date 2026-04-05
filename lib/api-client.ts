@@ -50,7 +50,7 @@ export class ApiError extends Error {
 const API_BASE = '/api/v1';
 
 type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
+export type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
 type PhotoKind = 'CLASSIFICATION_PHOTO';
 
 async function parseJsonSafe(response: Response): Promise<Record<string, unknown>> {
@@ -984,7 +984,7 @@ export function confirmClassificationFromCamera(
   session: SessionData,
   data: {
     sampleId: string;
-    classificationData: Record<string, unknown>;
+    classificationData: { [key: string]: JsonValue };
     isUpdate: boolean;
   }
 ) {
