@@ -17,7 +17,6 @@ const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
 const STATUS_FILTER_OPTIONS = [
   { value: 'PRINT_PENDING', label: 'Impressao pendente' },
   { value: 'CLASSIFICATION_PENDING', label: 'Classificacao pendente' },
-  { value: 'CLASSIFICATION_IN_PROGRESS', label: 'Classificacao em andamento' },
   { value: 'CLASSIFIED', label: 'Classificada' }
 ] as const;
 const COMMERCIAL_FILTER_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [

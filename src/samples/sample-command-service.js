@@ -13,7 +13,7 @@ const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO'
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.CLASSIFICATION]: ['CLASSIFICATION_IN_PROGRESS']
+  [PHOTO_KINDS.CLASSIFICATION]: ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED']
 };
 const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
@@ -1487,7 +1487,7 @@ export class SampleCommandService {
       }
 
       let extraction = null;
-      if (this.extractionService && this.uploadService) {
+      if (this.extractionService && this.uploadService && !input.skipExtraction) {
         try {
           const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
           const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath);
@@ -1792,10 +1792,10 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['CLASSIFICATION_IN_PROGRESS'], 'complete classification');
+    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'complete classification');
     const classificationPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.CLASSIFICATION);
     if (!classificationPhoto) {
-      throw new HttpError(409, 'CLASSIFICATION_IN_PROGRESS requires classification photo before completion');
+      throw new HttpError(409, 'Foto de classificacao e obrigatoria para completar');
     }
     const classificationDate = buildBusinessDateStamp();
 
@@ -1837,7 +1837,7 @@ export class SampleCommandService {
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId: sample.id,
       payload,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      fromStatus: sample.status,
       toStatus: 'CLASSIFIED',
       module: 'classification',
       actorContext: actor,
@@ -1943,14 +1943,13 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, CLASSIFICATION_UPDATE_ALLOWED_STATUSES, 'update classification');
-    const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
+    const reasonCode = typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
+      ? normalizeUpdateReasonCode(input.reasonCode)
+      : 'DATA_FIX';
     const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
-    if (reasonCode === 'OTHER' && !hasReasonText) {
-      throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
-    }
     const reasonText = hasReasonText
       ? normalizeUpdateReasonText(input.reasonText)
-      : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
+      : 'Atualizacao de classificacao';
     const parsedPatch = parseClassificationUpdatePatch(input.after ?? input.changes ?? {});
     const updatePayload = buildClassificationUpdatePayload(sample, parsedPatch);
     if (!updatePayload) {
@@ -2450,7 +2449,7 @@ export class SampleCommandService {
   }
 
   async extractAndPrepareClassification(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'extract and prepare classification');
+    requireUserActor(actorContext, USER_ACTION_ROLES, 'extract and prepare classification');
 
     if (!this.extractionService) {
       throw new HttpError(503, 'Servico de extracao nao configurado');
@@ -2462,87 +2461,28 @@ export class SampleCommandService {
       throw new HttpError(422, 'Foto e obrigatoria');
     }
 
-    const tempFileName = `camera-${randomUUID()}.jpg`;
+    const photoToken = randomUUID();
+    const tempFileName = `temp-${photoToken}.jpg`;
     const tempDir = path.join(this.uploadService.baseDir, '_temp');
     const fs = await import('node:fs/promises');
     await fs.mkdir(tempDir, { recursive: true });
     const tempPath = path.join(tempDir, tempFileName);
 
+    await fs.writeFile(tempPath, input.fileBuffer);
+
     try {
-      await fs.writeFile(tempPath, input.fileBuffer);
       const raw = await this.extractionService.extractClassificationFromPhoto(tempPath);
-      const lote = raw.identificacao.lote;
-
-      if (!lote) {
-        throw new HttpError(422, 'Nao foi possivel identificar o lote na ficha');
-      }
-
-      let sample;
-      try {
-        const resolved = await this.queryService.resolveSampleByQrToken(lote);
-        sample = resolved.sample;
-      } catch {
-        throw new HttpError(404, `Amostra nao encontrada para o lote ${lote}`);
-      }
-
-      if (sample.status === 'INVALIDATED') {
-        throw new HttpError(409, 'Esta amostra foi invalidada');
-      }
-
-      if (sample.status === 'PHYSICAL_RECEIVED' || sample.status === 'REGISTRATION_IN_PROGRESS') {
-        throw new HttpError(409, 'Esta amostra ainda nao teve o registro confirmado');
-      }
-
-      const alreadyClassified = sample.status === 'CLASSIFIED';
-
-      if (!alreadyClassified) {
-        const maxRetries = 5;
-        for (let attempt = 0; attempt < maxRetries; attempt += 1) {
-          const current = await this.queryService.requireSample(sample.id);
-
-          if (['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED'].includes(current.status)) {
-            try {
-              await this.startClassification({ sampleId: current.id, expectedVersion: current.version }, actor);
-              continue;
-            } catch (err) {
-              if (err.status === 409) { continue; }
-              throw err;
-            }
-          }
-
-          if (current.status === 'CLASSIFICATION_IN_PROGRESS') {
-            await this.addSamplePhoto({
-              sampleId: current.id,
-              kind: PHOTO_KINDS.CLASSIFICATION,
-              fileBuffer: input.fileBuffer,
-              mimeType: input.mimeType ?? 'image/jpeg',
-              originalFileName: input.originalFileName ?? tempFileName,
-              replaceExisting: true
-            }, actor);
-            break;
-          }
-
-          break;
-        }
-      }
-
-      const finalSample = await this.queryService.requireSample(sample.id);
 
       return {
         statusCode: 200,
-        sample: {
-          id: finalSample.id,
-          internalLotNumber: finalSample.internalLotNumber,
-          status: finalSample.status,
-          version: finalSample.version,
-          declared: finalSample.declared
-        },
         extractedFields: raw.classificacao,
-        alreadyClassified,
+        identification: raw.identificacao,
+        photoToken,
         processingTimeMs: raw.processingTimeMs
       };
-    } finally {
+    } catch (err) {
       await fs.rm(tempPath, { force: true }).catch(() => {});
+      throw err;
     }
   }
 
@@ -2552,8 +2492,40 @@ export class SampleCommandService {
     if (!sampleId) {
       throw new HttpError(422, 'sampleId e obrigatorio');
     }
+    if (!input.photoToken || typeof input.photoToken !== 'string') {
+      throw new HttpError(422, 'photoToken e obrigatorio');
+    }
 
     const sample = await this.queryService.requireSample(sampleId);
+    const classifiableStatuses = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'];
+    assertSampleStatus(sample, classifiableStatuses, 'confirm classification from camera');
+
+    // Read photo from temp
+    if (!this.uploadService) {
+      throw new HttpError(503, 'Servico de upload nao configurado');
+    }
+    const fs = await import('node:fs/promises');
+    const tempDir = path.join(this.uploadService.baseDir, '_temp');
+    const tempPath = path.join(tempDir, `temp-${input.photoToken}.jpg`);
+    let fileBuffer;
+    try {
+      fileBuffer = await fs.readFile(tempPath);
+    } catch {
+      throw new HttpError(404, 'Foto temporaria nao encontrada. Tire a foto novamente.');
+    }
+
+    // Upload photo to sample
+    await this.addSamplePhoto({
+      sampleId,
+      kind: PHOTO_KINDS.CLASSIFICATION,
+      fileBuffer,
+      mimeType: 'image/jpeg',
+      originalFileName: `classification-${sampleId}.jpg`,
+      replaceExisting: true,
+      skipExtraction: true
+    }, actor);
+
+    // Build classification data
     const classifierName = actor.displayName ?? actor.username ?? null;
     const classificationDate = buildBusinessDateStamp();
     const classificationData = isPlainObject(input.classificationData) ? {
@@ -2574,7 +2546,12 @@ export class SampleCommandService {
       if (Number.isFinite(moisture)) { technical.moisture = moisture; }
     }
 
-    if (input.isUpdate) {
+    // Re-read sample after photo upload (version changed)
+    const current = await this.queryService.requireSample(sampleId);
+    let result;
+
+    if (sample.status === 'CLASSIFIED') {
+      // Reclassification: update existing classification
       const allowedUpdateFields = new Set([...CLASSIFICATION_DATA_EDITABLE_FIELDS]);
       const parsedPatch = {};
       for (const [key, value] of Object.entries(classificationData)) {
@@ -2582,7 +2559,6 @@ export class SampleCommandService {
           parsedPatch[key] = value;
         }
       }
-
       if (isPlainObject(classificationData.peneirasPercentuais)) {
         const sieve = classificationData.peneirasPercentuais;
         const sievePatch = {};
@@ -2595,44 +2571,28 @@ export class SampleCommandService {
           parsedPatch.peneirasPercentuais = sievePatch;
         }
       }
-
-      return this.updateClassification({
+      result = await this.updateClassification({
         sampleId,
-        expectedVersion: sample.version,
+        expectedVersion: current.version,
         after: parsedPatch,
         reasonCode: 'DATA_FIX',
         reasonText: 'Reclassificacao via foto'
       }, actorContext);
+    } else {
+      // New classification
+      result = await this.completeClassification({
+        sampleId,
+        expectedVersion: current.version,
+        classificationData,
+        technical: Object.keys(technical).length > 0 ? technical : undefined,
+        classifierName,
+        idempotencyKey: input.idempotencyKey
+      }, actorContext);
     }
 
-    assertSampleStatus(sample, ['CLASSIFICATION_IN_PROGRESS'], 'confirm classification');
+    // Cleanup temp file (best-effort)
+    await fs.rm(tempPath, { force: true }).catch(() => {});
 
-    const classificationPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.CLASSIFICATION);
-    if (!classificationPhoto) {
-      throw new HttpError(409, 'Foto de classificacao e obrigatoria para concluir');
-    }
-
-    const payload = {
-      classificationPhotoId: classificationPhoto.id,
-      classificationData,
-      classifierName
-    };
-    if (Object.keys(technical).length > 0) {
-      payload.technical = technical;
-    }
-
-    const event = buildEventEnvelope({
-      eventType: 'CLASSIFICATION_COMPLETED',
-      sampleId: sample.id,
-      payload,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
-      toStatus: 'CLASSIFIED',
-      module: 'classification',
-      actorContext: actor,
-      idempotencyScope: 'CLASSIFICATION_COMPLETE',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
-    });
-
-    return this.eventService.appendEvent(event, { expectedVersion: sample.version });
+    return result;
   }
 }

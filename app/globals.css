@@ -6009,6 +6009,66 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Classification block in General tab */
+.sdv-cls-block-summary {
+  display: flex;
+  gap: clamp(10px, 3vw, 14px);
+  align-items: flex-start;
+}
+
+.sdv-cls-block-thumb {
+  width: clamp(60px, 18vw, 80px);
+  height: clamp(60px, 18vw, 80px);
+  object-fit: cover;
+  border-radius: clamp(8px, 2vw, 10px);
+  flex-shrink: 0;
+}
+
+.sdv-cls-block-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: clamp(6px, 1.5vw, 8px) clamp(10px, 3vw, 14px);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Floating classify button */
+.sdv-fab-classify {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + clamp(72px, 18vw, 80px));
+  right: clamp(14px, 4vw, 18px);
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 1.5vw, 7px);
+  padding: clamp(10px, 2.8vw, 12px) clamp(16px, 4.5vw, 20px);
+  border: 0;
+  border-radius: 999px;
+  background: var(--text-primary, #1A1A1A);
+  color: #fff;
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+  z-index: 10;
+}
+
+.sdv-fab-classify:active {
+  transform: scale(0.97);
+}
+
+.sdv-fab-classify svg {
+  width: clamp(16px, 4.3vw, 18px);
+  height: clamp(16px, 4.3vw, 18px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Commercial tab v2 */
 .sdv-commercial {
   display: flex;
@@ -12935,6 +12995,40 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+.camera-hub-gallery-btn {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px));
+  right: clamp(12px, 3.5vw, 16px);
+  display: inline-grid;
+  place-items: center;
+  width: clamp(36px, 10vw, 40px);
+  height: clamp(36px, 10vw, 40px);
+  border: 0;
+  border-radius: clamp(10px, 3vw, 12px);
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+  z-index: 2;
+}
+
+.camera-hub-gallery-btn:active {
+  transform: scale(0.9);
+}
+
+.camera-hub-gallery-btn svg {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .camera-hub-headline {
   position: absolute;
   top: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px));
@@ -13369,12 +13463,26 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.2rem;
+  align-items: center;
   padding: 0.7rem 1.2rem;
   background: rgba(111, 207, 151, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 0.82rem;
   color: var(--text-secondary);
   flex-shrink: 0;
+}
+
+.cam-confirm-lot-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.cam-confirm-lot-input {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.88rem;
 }
 
 .cam-confirm-body {

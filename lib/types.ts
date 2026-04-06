@@ -651,7 +651,20 @@ export interface CommandResponse<TSample = unknown> {
 
 export interface ExtractAndPrepareResponse {
   statusCode: number;
-  sample: {
+  extractedFields: Record<string, string | null>;
+  identification: {
+    lote: string | null;
+    sacas: string | null;
+    safra: string | null;
+    data: string | null;
+  };
+  photoToken: string;
+  processingTimeMs: number;
+}
+
+export interface ResolveSampleByLotResponse {
+  found: boolean;
+  sample?: {
     id: string;
     internalLotNumber: string | null;
     status: string;
@@ -663,9 +676,6 @@ export interface ExtractAndPrepareResponse {
       originLot: string | null;
     };
   };
-  extractedFields: Record<string, string | null>;
-  alreadyClassified: boolean;
-  processingTimeMs: number;
 }
 
 export interface CreateSampleAndPreparePrintResponse {

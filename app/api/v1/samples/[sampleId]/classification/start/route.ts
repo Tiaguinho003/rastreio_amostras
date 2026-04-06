@@ -1,3 +1,4 @@
+// DEPRECATED: classificacao agora e feita exclusivamente pela camera (/classification/confirm)
 import { NextRequest } from 'next/server';
 
 import { executeBackend, readJsonBody } from '../../../../_lib/adapter';

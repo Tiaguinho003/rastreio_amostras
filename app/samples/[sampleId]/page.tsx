@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
@@ -66,8 +66,7 @@ import {
 
 
 type LabelModalStep = 'review' | 'completed';
-type SampleDetailSection = 'GENERAL' | 'CLASSIFICATION' | 'COMMERCIAL';
-type ClassificationStep = 'PHOTO' | 'GENERAL' | 'MEASURES';
+type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
 
 const CLASSIFICATION_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
@@ -188,14 +187,11 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     peneiraP18: toText(mergedSieve.p18),
     peneiraP17: toText(mergedSieve.p17),
     peneiraP16: toText(mergedSieve.p16),
+    peneiraMk: toText(mergedSieve.mk),
     peneiraP15: toText(mergedSieve.p15),
     peneiraP14: toText(mergedSieve.p14),
     peneiraP13: toText(mergedSieve.p13),
-    peneiraP12: toText(mergedSieve.p12),
     peneiraP10: toText(mergedSieve.p10),
-    peneiraMk9: toText(mergedSieve.mk9),
-    peneiraMk10: toText(mergedSieve.mk10),
-    peneiraMk11: toText(mergedSieve.mk11),
     fundo1Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.peneira ?? ''; })(),
     fundo1Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.percentual != null ? String(f[0].percentual) : ''; })(),
     fundo2Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.peneira ?? ''; })(),
@@ -418,12 +414,13 @@ function mapSampleOwnerClientToSummary(client: SampleDetailResponse['sample']['o
 
 export default function SampleDetailPage() {
   const { session, loading, logout } = useRequireAuth();
+  const router = useRouter();
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();
   const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
-  const focusClassification = searchParams.get('focus') === 'classification';
   const fromQrSource = searchParams.get('source') === 'qr';
   const highlightPrint = searchParams.get('highlight') === 'print';
+  const [reclassifyModalOpen, setReclassifyModalOpen] = useState(false);
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
@@ -485,7 +482,7 @@ export default function SampleDetailPage() {
   const [classificationStarting, setClassificationStarting] = useState(false);
   const [classificationSaving, setClassificationSaving] = useState(false);
   const [classificationCompleting, setClassificationCompleting] = useState(false);
-  const [classificationStep, setClassificationStep] = useState<ClassificationStep>('PHOTO');
+  const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>('PHOTO');
   const [detailSection, setDetailSection] = useState<SampleDetailSection>('GENERAL');
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const registrationEditModeRef = useRef(false);
@@ -814,16 +811,6 @@ export default function SampleDetailPage() {
       }, 0);
     };
   }, [invalidateModalOpen, invalidating]);
-
-  useEffect(() => {
-    if (!detail || !focusClassification) {
-      return;
-    }
-
-    if (detailSection !== 'CLASSIFICATION') {
-      setDetailSection('CLASSIFICATION');
-    }
-  }, [detail, detailSection, focusClassification]);
 
   useEffect(() => {
     if (!highlightPrint || !detail) {
@@ -1788,11 +1775,6 @@ export default function SampleDetailPage() {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14" rx="7" ry="9" /><path d="M12 6c-1.5 3-1.8 6-.5 9s1.5 6 .5 9" /></svg>
                 <span>Geral</span>
               </button>
-              <button type="button" role="tab" aria-selected={detailSection === 'CLASSIFICATION'} className={`sdv-tab${detailSection === 'CLASSIFICATION' ? ' is-active' : ''}`} onClick={() => setDetailSection('CLASSIFICATION')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-                <span>Classificacao</span>
-                {classificationTabDotTone && detail.sample.status !== 'CLASSIFIED' ? <span className="sdv-tab-dot" /> : null}
-              </button>
               <button type="button" role="tab" aria-selected={detailSection === 'COMMERCIAL'} className={`sdv-tab${detailSection === 'COMMERCIAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('COMMERCIAL')}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                 <span>Comercial</span>
@@ -1801,7 +1783,7 @@ export default function SampleDetailPage() {
 
             {/* Conteúdo com scroll */}
             <section className="sdv-content">
-              <div className={`sdv-content-inner${detailSection === 'CLASSIFICATION' ? ' is-classification' : ''}`}>
+              <div className="sdv-content-inner">
                 {detailSection === 'GENERAL' ? (
                   <section className="sdv-general">
                     {printFailed ? (
@@ -1900,6 +1882,43 @@ export default function SampleDetailPage() {
                       </div>
                     ) : null}
 
+                    {/* Bloco de classificacao */}
+                    {(() => {
+                      const classData = detail.sample.latestClassification?.data;
+                      const classPhotoUrl = classificationAttachment
+                        ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
+                        : null;
+                      if (!classData) {
+                        return (
+                          <div className="sdv-card">
+                            <span className="sdv-card-title">Classificacao</span>
+                            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Sem classificacao</p>
+                          </div>
+                        );
+                      }
+                      const cd = classData as Record<string, unknown>;
+                      const padrao = String(cd.padrao ?? '—');
+                      const defeito = String(cd.defeito ?? '—');
+                      const catacao = String(cd.catacao ?? '—');
+                      return (
+                        <div className="sdv-card sdv-cls-block">
+                          <div className="sdv-card-header">
+                            <span className="sdv-card-title">Classificacao</span>
+                          </div>
+                          <div className="sdv-cls-block-summary">
+                            {classPhotoUrl ? (
+                              <img src={classPhotoUrl} alt="Foto da classificacao" className="sdv-cls-block-thumb" />
+                            ) : null}
+                            <div className="sdv-cls-block-fields">
+                              <div className="sdv-info-item"><span className="sdv-info-label">Padrao</span><span className="sdv-info-value">{padrao}</span></div>
+                              <div className="sdv-info-item"><span className="sdv-info-label">Defeito</span><span className="sdv-info-value">{defeito}</span></div>
+                              <div className="sdv-info-item"><span className="sdv-info-label">Catacao</span><span className="sdv-info-value">{catacao}</span></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {detail.sample.status === 'INVALIDATED' ? (
                       <div className="sdv-card" style={{ borderLeft: '3px solid #C0392B' }}>
                         <span className="sdv-card-title" style={{ color: '#C0392B' }}>Amostra invalidada</span>
@@ -1909,191 +1928,6 @@ export default function SampleDetailPage() {
                       </div>
                     ) : null}
                   </section>
-                ) : detailSection === 'CLASSIFICATION' ? (
-                  isClassificationStatus(detail.sample.status) ? (
-                    <section className="sdv-classification" id="classification-section" ref={classificationSectionRef}>
-                      {/* Pending start */}
-                      {detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'QR_PENDING_PRINT' || detail.sample.status === 'QR_PRINTED' ? (
-                        <div className="sdv-cls-pending">
-                          <div className="sdv-cls-pending-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                          </div>
-                          <p className="sdv-cls-pending-title">Classificacao pendente</p>
-                          <p className="sdv-cls-pending-sub">Esta amostra ainda nao foi classificada</p>
-                          <button type="button" className="cdm-manage-link" onClick={handleStartClassification} disabled={classificationStarting} style={{ padding: 'clamp(10px, 2.8vw, 12px) clamp(24px, 7vw, 28px)' }}>
-                            {classificationStarting ? 'Iniciando...' : 'Iniciar classificacao'}
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {/* Workspace */}
-                      {classificationShowsWorkspace ? (
-                        <>
-                          {/* Hidden file input */}
-                          <input
-                            id="sample-classification-photo-input"
-                            ref={classificationPhotoInputRef}
-                            style={{ display: 'none' }}
-                            accept="image/*"
-                            capture="environment"
-                            type="file"
-                            disabled={!classificationPhotoEditingAllowed || classificationPhotoUploading}
-                            onChange={(event) => handleClassificationPhotoSelected(event.target.files?.[0] ?? null)}
-                          />
-
-                          {/* Card 1: Photo */}
-                          <div className="sdv-card">
-                            <span className="sdv-card-title">Foto da classificacao</span>
-                            {classificationVisiblePhotoPreviewUrl ? (
-                              <div className="sdv-photo-wrap" style={{ position: 'relative' }}>
-                                <img src={classificationVisiblePhotoPreviewUrl} alt="Foto da classificacao" className="sdv-photo-img" style={{ height: 'clamp(110px, 30vw, 130px)' }} onClick={() => { if (classificationSavedPhotoUrl && !classificationSelectedPhoto) setClassificationPhotoPreviewOpen(true); }} />
-                                {classificationPhotoEditingAllowed && !classificationSelectedPhoto ? (
-                                  <button type="button" className="sdv-photo-change-btn" onClick={() => classificationPhotoInputRef.current?.click()} disabled={classificationPhotoUploading}>
-                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
-                                    <span>Trocar</span>
-                                  </button>
-                                ) : null}
-                                {classificationSelectedPhoto ? (
-                                  <div className="sdv-photo-confirm-bar">
-                                    <button type="button" className="sdv-photo-confirm-btn is-cancel" onClick={() => clearClassificationSelectedPhoto()}>
-                                      Descartar
-                                    </button>
-                                    <button type="button" className="sdv-photo-confirm-btn is-save" onClick={() => void handleUploadClassificationPhoto()} disabled={classificationPhotoUploading}>
-                                      {classificationPhotoUploading ? 'Enviando...' : 'Confirmar foto'}
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <button type="button" className="sdv-cls-photo-empty" onClick={() => classificationPhotoInputRef.current?.click()} disabled={!classificationPhotoEditingAllowed}>
-                                <div className="sdv-cls-photo-empty-icon">
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3l1.1-2h5.8l1.1 2h3A1.8 1.8 0 0 1 20 10.3v7.4a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 17.7v-7.4A1.8 1.8 0 0 1 5.8 8.5Z" /><circle cx="12" cy="13.3" r="3.1" /></svg>
-                                </div>
-                                <span className="sdv-cls-photo-empty-title">Adicionar foto</span>
-                                <span className="sdv-cls-photo-empty-sub">Obrigatorio para classificar</span>
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Card 2: Dados */}
-                          <div className="sdv-card">
-                            <div className="sdv-card-header">
-                              <span className="sdv-card-title">Dados da classificacao</span>
-                              {detail.sample.status === 'CLASSIFIED' ? (
-                                <button type="button" className="sdv-edit-btn" onClick={() => classificationEditMode ? cancelClassificationEdit() : startClassificationEdit()}>
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
-                                  <span style={classificationEditMode ? { color: '#C0392B' } : undefined}>{classificationEditMode ? 'Cancelar' : 'Editar'}</span>
-                                </button>
-                              ) : null}
-                            </div>
-                            <div className="sdv-cls-fields">
-                              {renderClassificationInputField('padrao', 'Padrao')}
-                              {renderClassificationInputField('catacao', 'Catacao')}
-                              {renderClassificationInputField('aspecto', 'Aspecto')}
-                              {renderClassificationInputField('bebida', 'Bebida')}
-                              {renderClassificationInputField('classificador', 'Classificador')}
-                              {renderClassificationInputField('loteOrigem', 'Lote de origem')}
-                            </div>
-                          </div>
-
-                          {/* Card 3: Leituras */}
-                          <div className="sdv-card">
-                            <div className="sdv-card-header">
-                              <span className="sdv-card-title">Leituras e analises</span>
-                              {detail.sample.status === 'CLASSIFIED' ? (
-                                <button type="button" className="sdv-edit-btn" onClick={() => classificationEditMode ? cancelClassificationEdit() : startClassificationEdit()}>
-                                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
-                                  <span style={classificationEditMode ? { color: '#C0392B' } : undefined}>{classificationEditMode ? 'Cancelar' : 'Editar'}</span>
-                                </button>
-                              ) : null}
-                            </div>
-                            <div className="sdv-cls-fields sdv-cls-fields-3col">
-                              {renderClassificationInputField('broca', 'Broca', { inputMode: 'decimal' })}
-                              {renderClassificationInputField('pva', 'PVA', { inputMode: 'decimal' })}
-                              {renderClassificationInputField('imp', 'IMP', { inputMode: 'decimal' })}
-                              {renderClassificationInputField('pau', 'PAU', { inputMode: 'decimal' })}
-                            </div>
-                            <div className="sdv-cls-fields">
-                              {renderClassificationInputField('defeito', 'Defeito', { inputMode: 'decimal' })}
-                              {renderClassificationInputField('umidade', 'Umidade', { inputMode: 'decimal' })}
-                            </div>
-                            <div className="sdv-cls-sieve-label">Peneiras (%)</div>
-                            <div className="sdv-cls-fields sdv-cls-fields-3col">
-                              {SIEVE_FIELDS.map((field) => renderClassificationInputField(field.key, field.label, { inputMode: 'decimal' }))}
-                            </div>
-                            <div className="sdv-cls-sieve-label">Fundos</div>
-                            <div className="sdv-cls-sieve-fund-row">
-                              <label className="sdv-cls-field sdv-cls-field-inline">
-                                Fundo 1 — Peneira
-                                <input
-                                  value={classificationForm.fundo1Peneira}
-                                  onChange={(e) => updateClassificationField('fundo1Peneira', e.target.value)}
-                                  readOnly={classificationFieldsReadOnly}
-                                  placeholder="Ex: 13"
-                                  className="sdv-cls-control"
-                                />
-                              </label>
-                              <label className="sdv-cls-field sdv-cls-field-inline">
-                                %
-                                <input
-                                  value={classificationForm.fundo1Percent}
-                                  onChange={(e) => updateClassificationField('fundo1Percent', e.target.value)}
-                                  readOnly={classificationFieldsReadOnly}
-                                  inputMode="decimal"
-                                  placeholder="%"
-                                  className="sdv-cls-control"
-                                />
-                              </label>
-                            </div>
-                            <div className="sdv-cls-sieve-fund-row">
-                              <label className="sdv-cls-field sdv-cls-field-inline">
-                                Fundo 2 — Peneira
-                                <input
-                                  value={classificationForm.fundo2Peneira}
-                                  onChange={(e) => updateClassificationField('fundo2Peneira', e.target.value)}
-                                  readOnly={classificationFieldsReadOnly}
-                                  placeholder="Ex: 10"
-                                  className="sdv-cls-control"
-                                />
-                              </label>
-                              <label className="sdv-cls-field sdv-cls-field-inline">
-                                %
-                                <input
-                                  value={classificationForm.fundo2Percent}
-                                  onChange={(e) => updateClassificationField('fundo2Percent', e.target.value)}
-                                  readOnly={classificationFieldsReadOnly}
-                                  inputMode="decimal"
-                                  placeholder="%"
-                                  className="sdv-cls-control"
-                                />
-                              </label>
-                            </div>
-                          </div>
-
-                          {/* Action buttons */}
-                          {detail.sample.status !== 'CLASSIFIED' ? (
-                            <div className="sdv-cls-actions">
-                              <button type="button" className="sdv-cls-action-complete" onClick={() => void handleCompleteClassification()} disabled={classificationCompleting || !classificationCanComplete}>
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.3 4.2L19 7" /></svg>
-                                {classificationCompleting ? 'Concluindo...' : 'Concluir'}
-                              </button>
-                            </div>
-                          ) : classificationEditMode ? (
-                            <div className="sdv-cls-actions">
-                              <button type="button" className="sdv-cls-action-complete" onClick={handleRequestClassificationUpdate} disabled={classificationUpdating}>
-                                {classificationUpdating ? 'Salvando...' : 'Salvar edicao'}
-                              </button>
-                            </div>
-                          ) : null}
-                        </>
-                      ) : null}
-                      <NoticeSlot notice={classificationNotice} />
-                    </section>
-                  ) : (
-                    <section className="sdv-classification" id="classification-section" ref={classificationSectionRef}>
-                      <p style={{ margin: 0, color: '#999', textAlign: 'center', padding: '40px 0' }}>Classificacao indisponivel no status atual.</p>
-                    </section>
-                  )
                 ) : (
                   <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
                     <SampleMovementsPanel
@@ -2655,6 +2489,46 @@ export default function SampleDetailPage() {
               </button>
             </div>
           </section>
+        </div>
+      ) : null}
+      {/* Botao flutuante Classificar */}
+      {detail && detail.sample.status !== 'INVALIDATED' ? (
+        <button
+          type="button"
+          className="sdv-fab-classify"
+          onClick={() => {
+            if (detail.sample.status === 'CLASSIFIED') {
+              setReclassifyModalOpen(true);
+            } else {
+              router.push(`/camera?sampleId=${sampleId}`);
+            }
+          }}
+          aria-label="Classificar amostra"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+          <span>Classificar</span>
+        </button>
+      ) : null}
+
+      {/* Modal de reclassificacao */}
+      {reclassifyModalOpen ? (
+        <div className="app-modal-backdrop" onClick={() => setReclassifyModalOpen(false)}>
+          <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
+            <p className="cam-already-text">
+              Esta amostra ja possui classificacao. Deseja reclassificar?
+            </p>
+            <div className="cam-already-actions">
+              <button type="button" className="cam-already-btn-no" onClick={() => setReclassifyModalOpen(false)}>
+                Nao
+              </button>
+              <button type="button" className="cam-already-btn-yes" onClick={() => {
+                setReclassifyModalOpen(false);
+                router.push(`/camera?sampleId=${sampleId}`);
+              }}>
+                Sim, reclassificar
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </AppShell>

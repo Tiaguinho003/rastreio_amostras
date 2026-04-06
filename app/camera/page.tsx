@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
@@ -10,7 +10,9 @@ import {
   type JsonValue,
   extractAndPrepareClassification,
   confirmClassificationFromCamera,
-  resolveSampleByQr
+  resolveSampleByLot,
+  resolveSampleByQr,
+  getSampleDetail
 } from '../../lib/api-client';
 import { compressImage } from '../../lib/compress-image';
 import {
@@ -20,7 +22,7 @@ import {
   validateClassificationForm,
   buildClassificationDataPayload
 } from '../../lib/classification-form';
-import type { ExtractAndPrepareResponse, ResolveSampleByQrResponse } from '../../lib/types';
+import type { ExtractAndPrepareResponse, ResolveSampleByLotResponse, ResolveSampleByQrResponse } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -32,8 +34,11 @@ type ClassificationFlowState =
   | 'preview'
   | 'extracting'
   | 'error'
-  | 'already-classified'
   | 'confirming'
+  | 'resolving'
+  | 'overwrite-confirm'
+  | 'not-found'
+  | 'lot-mismatch'
   | 'submitting'
   | 'success';
 
@@ -57,17 +62,25 @@ function isPermissionLikeError(error: unknown) {
   return /permission|notallowed|denied|secure context/i.test(error.message);
 }
 
+function normalizeLot(lot: string | null | undefined): string {
+  return (lot ?? '').trim().toUpperCase();
+}
+
 // --- Classification Confirmation Modal ---
 
 function ClassificationConfirmModal({
-  sample,
+  mode,
+  lotNumber,
+  onLotNumberChange,
   form,
   onFormChange,
   onConfirm,
   onCancel,
   submitting
 }: {
-  sample: ExtractAndPrepareResponse['sample'];
+  mode: 'no-context' | 'with-context';
+  lotNumber: string;
+  onLotNumberChange?: (value: string) => void;
   form: ClassificationFormState;
   onFormChange: (key: keyof ClassificationFormState, value: string) => void;
   onConfirm: () => void;
@@ -98,7 +111,7 @@ function ClassificationConfirmModal({
     { key: 'peneiraP18', label: 'P.18 %' },
     { key: 'peneiraP17', label: 'P.17 %' },
     { key: 'peneiraP16', label: 'P.16 %' },
-    { key: 'peneiraMk9', label: 'MK %' },
+    { key: 'peneiraMk', label: 'MK %' },
     { key: 'peneiraP15', label: 'P.15 %' },
     { key: 'peneiraP14', label: 'P.14 %' },
     { key: 'peneiraP13', label: 'P.13 %' },
@@ -125,15 +138,26 @@ function ClassificationConfirmModal({
         <header className="cam-confirm-header">
           <h3 className="cam-confirm-title">Confirmar classificacao</h3>
           <button type="button" className="app-modal-close" onClick={onCancel} aria-label="Cancelar">
-            <span aria-hidden="true">×</span>
+            <span aria-hidden="true">&times;</span>
           </button>
         </header>
 
         <div className="cam-confirm-sample-info">
-          <span><strong>Lote:</strong> {sample.internalLotNumber ?? '—'}</span>
-          <span><strong>Dono:</strong> {sample.declared.owner ?? '—'}</span>
-          <span><strong>Sacas:</strong> {sample.declared.sacks ?? '—'}</span>
-          <span><strong>Safra:</strong> {sample.declared.harvest ?? '—'}</span>
+          {mode === 'no-context' ? (
+            <label className="cam-confirm-lot-field">
+              <span className="cam-confirm-field-label"><strong>Lote</strong></span>
+              <input
+                type="text"
+                className="cam-confirm-input cam-confirm-lot-input"
+                value={lotNumber}
+                onChange={(e) => onLotNumberChange?.(e.target.value)}
+                disabled={submitting}
+                placeholder="Numero do lote"
+              />
+            </label>
+          ) : (
+            <span><strong>Lote:</strong> {lotNumber || '\u2014'}</span>
+          )}
         </div>
 
         <div className="cam-confirm-body">
@@ -231,6 +255,11 @@ function ClassificationConfirmModal({
 function CameraPageContent() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Context mode: if sampleId is in URL, we're in "with-context" mode (Flow B)
+  const contextSampleId = searchParams.get('sampleId');
+  const hasContext = Boolean(contextSampleId);
 
   // QR Scanner refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -244,6 +273,7 @@ function CameraPageContent() {
   const resolvingScanRef = useRef(false);
   const mountedRef = useRef(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
   // QR Scanner state
   const [cameraStatus, setCameraStatus] = useState<'idle' | 'starting' | 'scanning' | 'permission-denied' | 'unsupported'>('idle');
@@ -263,6 +293,15 @@ function CameraPageContent() {
   const [flowError, setFlowError] = useState<string | null>(null);
   const [confirmedSampleId, setConfirmedSampleId] = useState<string | null>(null);
 
+  // Context sample (Flow B)
+  const [contextSampleLot, setContextSampleLot] = useState<string | null>(null);
+
+  // Lot editing (Flow A)
+  const [editableLot, setEditableLot] = useState('');
+
+  // Resolve result (Flow A)
+  const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(null);
+
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
 
@@ -276,6 +315,18 @@ function CameraPageContent() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  // Load context sample lot (Flow B)
+  useEffect(() => {
+    if (!contextSampleId || !session) return;
+    let cancelled = false;
+    getSampleDetail(session, contextSampleId).then((detail) => {
+      if (!cancelled && detail?.sample) {
+        setContextSampleLot(detail.sample.internalLotNumber ?? null);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [contextSampleId, session]);
 
   // Cleanup captured photo URL
   useEffect(() => {
@@ -296,9 +347,9 @@ function CameraPageContent() {
       event.preventDefault();
       if (resultModalOpen) {
         setResultModalOpen(false);
-      } else if (flowState === 'preview' || flowState === 'error' || flowState === 'already-classified') {
+      } else if (flowState === 'preview' || flowState === 'error' || flowState === 'not-found' || flowState === 'lot-mismatch') {
         resetClassificationFlow();
-      } else if (flowState === 'confirming') {
+      } else if (flowState === 'confirming' || flowState === 'overwrite-confirm') {
         resetClassificationFlow();
       }
     };
@@ -311,7 +362,7 @@ function CameraPageContent() {
     };
   }, [resultModalOpen, flowState]);
 
-  // --- Scanner functions (same as before) ---
+  // --- Scanner functions ---
 
   const clearRestartTimeout = useCallback(() => {
     if (restartTimeoutRef.current !== null) {
@@ -474,8 +525,13 @@ function CameraPageContent() {
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
     setFlowError(null);
     setConfirmedSampleId(null);
+    setEditableLot('');
+    setResolvedSample(null);
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
+    }
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = '';
     }
   }
 
@@ -508,14 +564,10 @@ function CameraPageContent() {
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
-
-      if (result.alreadyClassified) {
-        setFlowState('already-classified');
-      } else {
-        const extracted = mapExtractionToForm(result.extractedFields);
-        setClassificationForm(prev => ({ ...prev, ...extracted }));
-        setFlowState('confirming');
-      }
+      const extracted = mapExtractionToForm(result.extractedFields);
+      setClassificationForm(prev => ({ ...prev, ...extracted }));
+      setEditableLot(result.identification.lote ?? '');
+      setFlowState('confirming');
     } catch (error) {
       if (!mountedRef.current) return;
       setFlowError(readErrorMessage(error, 'Falha na extracao. Tente novamente.'));
@@ -523,15 +575,33 @@ function CameraPageContent() {
     }
   }
 
-  function handleAcceptAlreadyClassified() {
-    if (!extractionResult) return;
-    const extracted = mapExtractionToForm(extractionResult.extractedFields);
-    setClassificationForm(prev => ({ ...prev, ...extracted }));
-    setFlowState('confirming');
-  }
-
   function updateFormField(key: keyof ClassificationFormState, value: string) {
     setClassificationForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function saveClassification(sampleId: string) {
+    if (!session || !extractionResult) return;
+
+    setFlowState('submitting');
+    setFlowError(null);
+
+    try {
+      const classificationData = buildClassificationDataPayload(classificationForm, { includeAutomaticDate: true });
+
+      await confirmClassificationFromCamera(session, {
+        sampleId,
+        classificationData: classificationData as { [key: string]: JsonValue },
+        photoToken: extractionResult.photoToken
+      });
+
+      if (!mountedRef.current) return;
+      setConfirmedSampleId(sampleId);
+      setFlowState('success');
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setFlowError(readErrorMessage(error, 'Falha ao salvar classificacao.'));
+      setFlowState('confirming');
+    }
   }
 
   async function handleConfirmClassification() {
@@ -543,26 +613,57 @@ function CameraPageContent() {
       return;
     }
 
-    setFlowState('submitting');
-    setFlowError(null);
+    if (hasContext && contextSampleId) {
+      // Flow B: validate lot match
+      const extractedLot = normalizeLot(extractionResult.identification.lote);
+      const sampleLot = normalizeLot(contextSampleLot);
 
-    try {
-      const classificationData = buildClassificationDataPayload(classificationForm, { includeAutomaticDate: true });
+      if (extractedLot && sampleLot && extractedLot !== sampleLot) {
+        setFlowState('lot-mismatch');
+        return;
+      }
 
-      await confirmClassificationFromCamera(session, {
-        sampleId: extractionResult.sample.id,
-        classificationData: classificationData as { [key: string]: JsonValue },
-        isUpdate: extractionResult.alreadyClassified
-      });
+      await saveClassification(contextSampleId);
+    } else {
+      // Flow A: resolve sample by lot
+      const lot = editableLot.trim();
+      if (!lot) {
+        setFlowError('Numero do lote e obrigatorio.');
+        return;
+      }
 
-      if (!mountedRef.current) return;
-      setConfirmedSampleId(extractionResult.sample.id);
-      setFlowState('success');
-    } catch (error) {
-      if (!mountedRef.current) return;
-      setFlowError(readErrorMessage(error, 'Falha ao salvar classificacao.'));
-      setFlowState('confirming');
+      setFlowState('resolving');
+      setFlowError(null);
+
+      try {
+        const resolved = await resolveSampleByLot(session, lot);
+
+        if (!mountedRef.current) return;
+
+        if (!resolved.found || !resolved.sample) {
+          setFlowState('not-found');
+          return;
+        }
+
+        setResolvedSample(resolved.sample);
+
+        if (resolved.sample.status === 'CLASSIFIED') {
+          setFlowState('overwrite-confirm');
+          return;
+        }
+
+        await saveClassification(resolved.sample.id);
+      } catch (error) {
+        if (!mountedRef.current) return;
+        setFlowError(readErrorMessage(error, 'Falha ao buscar amostra.'));
+        setFlowState('confirming');
+      }
     }
+  }
+
+  async function handleConfirmOverwrite() {
+    if (!resolvedSample) return;
+    await saveClassification(resolvedSample.id);
   }
 
   // --- QR result handlers ---
@@ -575,17 +676,20 @@ function CameraPageContent() {
   function handleOpenSampleDetails() {
     if (!result) return;
     setResultModalOpen(false);
-    const id = result.sample.id;
-    const status = result.sample.status;
-
-    if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
-      router.push(`/samples/${id}?highlight=print`);
-    } else if (status === 'QR_PRINTED' || status === 'CLASSIFICATION_IN_PROGRESS') {
-      router.push(`/samples/${id}?focus=classification`);
-    } else {
-      router.push(`/samples/${id}`);
-    }
+    router.push(`/samples/${result.sample.id}`);
   }
+
+  // --- Auto-redirect on success ---
+
+  useEffect(() => {
+    if (flowState !== 'success' || !confirmedSampleId) return;
+    const timer = window.setTimeout(() => {
+      if (mountedRef.current) {
+        router.push(`/samples/${confirmedSampleId}`);
+      }
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [flowState, confirmedSampleId, router]);
 
   if (loading || !session) {
     return null;
@@ -622,6 +726,32 @@ function CameraPageContent() {
               }} aria-label="Voltar">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
               </button>
+
+              {/* Gallery button */}
+              {flowState === 'idle' && cameraStatus === 'scanning' ? (
+                <>
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handlePhotoSelected(e.target.files?.[0] ?? null)}
+                  />
+                  <button
+                    type="button"
+                    className="camera-hub-gallery-btn"
+                    onClick={() => galleryInputRef.current?.click()}
+                    aria-label="Selecionar da galeria"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <path d="m21 15-5-5L5 21" />
+                    </svg>
+                  </button>
+                </>
+              ) : null}
+
               {showStatusText && cameraError && flowState === 'idle' ? (
                 <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
                   {cameraError}
@@ -685,6 +815,14 @@ function CameraPageContent() {
                 </div>
               ) : null}
 
+              {/* Resolving lot */}
+              {flowState === 'resolving' ? (
+                <div className="camera-hub-extracting">
+                  <div className="camera-hub-extracting-spinner" />
+                  <span className="camera-hub-extracting-label">Buscando amostra...</span>
+                </div>
+              ) : null}
+
               {/* Success */}
               {flowState === 'success' ? (
                 <div className="camera-hub-success">
@@ -734,19 +872,57 @@ function CameraPageContent() {
         </div>
       ) : null}
 
-      {/* Already classified dialog */}
-      {flowState === 'already-classified' && extractionResult ? (
-        <div className="app-modal-backdrop" onClick={resetClassificationFlow}>
-          <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-already-text">
-              A amostra <strong>{extractionResult.sample.internalLotNumber}</strong> ja foi classificada. Deseja atualizar?
+      {/* Lot mismatch dialog (Flow B) */}
+      {flowState === 'lot-mismatch' ? (
+        <div className="app-modal-backdrop" onClick={() => {}}>
+          <div className="cam-error-card" onClick={(e) => e.stopPropagation()}>
+            <p className="cam-error-text">
+              O lote da classificacao nao confere com a respectiva amostra.
             </p>
             <div className="cam-already-actions">
-              <button type="button" className="cam-already-btn-no" onClick={resetClassificationFlow}>
+              <button type="button" className="cam-already-btn-no" onClick={() => router.back()}>
+                Cancelar
+              </button>
+              <button type="button" className="cam-already-btn-yes" onClick={resetClassificationFlow}>
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Overwrite confirm dialog (Flow A) */}
+      {flowState === 'overwrite-confirm' && resolvedSample ? (
+        <div className="app-modal-backdrop" onClick={() => setFlowState('confirming')}>
+          <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
+            <p className="cam-already-text">
+              A amostra <strong>{resolvedSample.internalLotNumber}</strong> ja possui classificacao. Deseja sobrescrever?
+            </p>
+            <div className="cam-already-actions">
+              <button type="button" className="cam-already-btn-no" onClick={() => setFlowState('confirming')}>
                 Nao
               </button>
-              <button type="button" className="cam-already-btn-yes" onClick={handleAcceptAlreadyClassified}>
-                Sim, atualizar
+              <button type="button" className="cam-already-btn-yes" onClick={() => void handleConfirmOverwrite()}>
+                Sim, sobrescrever
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Not found dialog (Flow A) */}
+      {flowState === 'not-found' ? (
+        <div className="app-modal-backdrop" onClick={() => {}}>
+          <div className="cam-error-card" onClick={(e) => e.stopPropagation()}>
+            <p className="cam-error-text">
+              Nenhuma amostra encontrada com o lote <strong>{editableLot}</strong>.
+            </p>
+            <div className="cam-already-actions">
+              <button type="button" className="cam-already-btn-no" onClick={() => router.push('/dashboard')}>
+                Sair
+              </button>
+              <button type="button" className="cam-already-btn-yes" onClick={() => router.push('/samples/new')}>
+                Cadastrar nova amostra
               </button>
             </div>
           </div>
@@ -760,7 +936,9 @@ function CameraPageContent() {
             <div className="cam-confirm-error" role="alert">{flowError}</div>
           ) : null}
           <ClassificationConfirmModal
-            sample={extractionResult.sample}
+            mode={hasContext ? 'with-context' : 'no-context'}
+            lotNumber={hasContext ? (contextSampleLot ?? '') : editableLot}
+            onLotNumberChange={hasContext ? undefined : setEditableLot}
             form={classificationForm}
             onFormChange={updateFormField}
             onConfirm={() => void handleConfirmClassification()}

@@ -12,6 +12,7 @@ import type {
   CommandResponse,
   CreateSampleAndPreparePrintResponse,
   ExtractAndPrepareResponse,
+  ResolveSampleByLotResponse,
   DashboardPendingResponse,
   DashboardSalesAvailabilityResponse,
   InvalidateReasonCode,
@@ -985,13 +986,20 @@ export function confirmClassificationFromCamera(
   data: {
     sampleId: string;
     classificationData: { [key: string]: JsonValue };
-    isUpdate: boolean;
+    photoToken: string;
   }
 ) {
   return request<CommandResponse>('/classification/confirm', {
     method: 'POST',
     session,
     body: data
+  });
+}
+
+export function resolveSampleByLot(session: SessionData, lotNumber: string) {
+  return request<ResolveSampleByLotResponse>(`/classification/resolve-lot?lot=${encodeURIComponent(lotNumber)}`, {
+    method: 'GET',
+    session
   });
 }
 
@@ -1297,18 +1305,22 @@ export function updateClassification(
   data: {
     expectedVersion: number;
     after: { [key: string]: JsonValue };
-    reasonCode: UpdateReasonCode;
-    reasonText: string;
+    reasonCode?: UpdateReasonCode;
+    reasonText?: string;
     before?: { [key: string]: JsonValue };
   }
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    after: data.after,
-    reasonCode: data.reasonCode,
-    reasonText: data.reasonText
+    after: data.after
   };
 
+  if (data.reasonCode) {
+    body.reasonCode = data.reasonCode;
+  }
+  if (data.reasonText) {
+    body.reasonText = data.reasonText;
+  }
   if (data.before) {
     body.before = data.before;
   }

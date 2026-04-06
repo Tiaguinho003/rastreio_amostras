@@ -19,14 +19,11 @@ export type ClassificationFormState = {
   peneiraP18: string;
   peneiraP17: string;
   peneiraP16: string;
+  peneiraMk: string;
   peneiraP15: string;
   peneiraP14: string;
   peneiraP13: string;
-  peneiraP12: string;
   peneiraP10: string;
-  peneiraMk9: string;
-  peneiraMk10: string;
-  peneiraMk11: string;
   fundo1Peneira: string;
   fundo1Percent: string;
   fundo2Peneira: string;
@@ -40,14 +37,11 @@ export type ClassificationSievePayload = {
   p18: number | null;
   p17: number | null;
   p16: number | null;
+  mk: number | null;
   p15: number | null;
   p14: number | null;
   p13: number | null;
-  p12: number | null;
   p10: number | null;
-  mk9: number | null;
-  mk10: number | null;
-  mk11: number | null;
   fundos: Array<{ peneira: string; percentual: number }> | null;
 };
 
@@ -101,14 +95,11 @@ export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   peneiraP18: '',
   peneiraP17: '',
   peneiraP16: '',
+  peneiraMk: '',
   peneiraP15: '',
   peneiraP14: '',
   peneiraP13: '',
-  peneiraP12: '',
   peneiraP10: '',
-  peneiraMk9: '',
-  peneiraMk10: '',
-  peneiraMk11: '',
   fundo1Peneira: '',
   fundo1Percent: '',
   fundo2Peneira: '',
@@ -122,14 +113,11 @@ export const SIEVE_FIELDS: NumericField[] = [
   { key: 'peneiraP18', label: 'Peneira 18 (%)' },
   { key: 'peneiraP17', label: 'Peneira 17 (%)' },
   { key: 'peneiraP16', label: 'Peneira 16 (%)' },
+  { key: 'peneiraMk', label: 'MK (%)' },
   { key: 'peneiraP15', label: 'Peneira 15 (%)' },
   { key: 'peneiraP14', label: 'Peneira 14 (%)' },
   { key: 'peneiraP13', label: 'Peneira 13 (%)' },
-  { key: 'peneiraP12', label: 'Peneira 12 (%)' },
-  { key: 'peneiraP10', label: 'Peneira 10 (%)' },
-  { key: 'peneiraMk9', label: 'Peneira MK 9 (%)' },
-  { key: 'peneiraMk10', label: 'Peneira MK 10 (%)' },
-  { key: 'peneiraMk11', label: 'Peneira MK 11 (%)' }
+  { key: 'peneiraP10', label: 'Peneira 10 (%)' }
 ];
 
 export const NUMERIC_FIELDS: NumericField[] = [
@@ -202,14 +190,11 @@ export function buildClassificationDataPayload(
     p18: parseNumberInput(form.peneiraP18),
     p17: parseNumberInput(form.peneiraP17),
     p16: parseNumberInput(form.peneiraP16),
+    mk: parseNumberInput(form.peneiraMk),
     p15: parseNumberInput(form.peneiraP15),
     p14: parseNumberInput(form.peneiraP14),
     p13: parseNumberInput(form.peneiraP13),
-    p12: parseNumberInput(form.peneiraP12),
     p10: parseNumberInput(form.peneiraP10),
-    mk9: parseNumberInput(form.peneiraMk9),
-    mk10: parseNumberInput(form.peneiraMk10),
-    mk11: parseNumberInput(form.peneiraMk11),
     fundos: fundos.length > 0 ? fundos : null
   };
 
@@ -269,7 +254,7 @@ export function mapExtractionToForm(fields: Record<string, string | null>): Part
     p18: 'peneiraP18',
     p17: 'peneiraP17',
     p16: 'peneiraP16',
-    mk: 'peneiraMk9',
+    mk: 'peneiraMk',
     p15: 'peneiraP15',
     p14: 'peneiraP14',
     p13: 'peneiraP13',

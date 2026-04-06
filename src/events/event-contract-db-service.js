@@ -68,6 +68,8 @@ const CLASSIFICATION_DATA_KEYS = [
   'pva',
   'imp',
   'pau',
+  'ap',
+  'gpi',
   'classificador',
   'defeito',
   'umidade',

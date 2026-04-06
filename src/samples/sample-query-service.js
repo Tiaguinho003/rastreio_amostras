@@ -895,6 +895,28 @@ export class SampleQueryService {
     };
   }
 
+  async resolveSampleByLot(lotNumber) {
+    if (typeof lotNumber !== 'string' || lotNumber.trim().length === 0) {
+      return { found: false };
+    }
+
+    const normalized = lotNumber.trim().toUpperCase();
+
+    const row = await this.prisma.sample.findFirst({
+      where: {
+        internalLotNumber: { equals: normalized, mode: 'insensitive' }
+      },
+      include: SAMPLE_INCLUDE
+    });
+
+    if (!row) {
+      return { found: false };
+    }
+
+    const sample = mapSample(row);
+    return { found: true, sample };
+  }
+
   async resolveSampleByQrToken(qrContent) {
     if (typeof qrContent !== 'string' || qrContent.trim().length === 0) {
       throw new HttpError(422, 'qr content is required');

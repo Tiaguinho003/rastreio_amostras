@@ -654,6 +654,42 @@ export function createBackendApiV1({
         };
       }),
 
+    resolveSampleByLot: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const lot = typeof query.lot === 'string' ? query.lot.trim() : '';
+
+        if (!lot) {
+          return { status: 422, body: { error: 'Numero do lote e obrigatorio' } };
+        }
+
+        const result = await queryService.resolveSampleByLot(lot);
+
+        if (!result.found) {
+          return { status: 200, body: { found: false } };
+        }
+
+        return {
+          status: 200,
+          body: {
+            found: true,
+            sample: {
+              id: result.sample.id,
+              internalLotNumber: result.sample.internalLotNumber,
+              status: result.sample.status,
+              version: result.sample.version,
+              declared: {
+                owner: result.sample.declared.owner,
+                sacks: result.sample.declared.sacks,
+                harvest: result.sample.declared.harvest,
+                originLot: result.sample.declared.originLot
+              }
+            }
+          }
+        };
+      }),
+
     listSampleEvents: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
@@ -1942,7 +1978,7 @@ export function createBackendApiV1({
           {
             sampleId: body.sampleId,
             classificationData: body.classificationData,
-            isUpdate: body.isUpdate === true,
+            photoToken: body.photoToken,
             idempotencyKey: body.idempotencyKey
           },
           actor
