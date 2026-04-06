@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
@@ -952,5 +952,9 @@ function CameraPageContent() {
 }
 
 export default function CameraPage() {
-  return <CameraPageContent />;
+  return (
+    <Suspense>
+      <CameraPageContent />
+    </Suspense>
+  );
 }
