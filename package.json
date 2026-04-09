@@ -6,9 +6,6 @@
   "description": "Sistema fullstack para rastreio interno de amostras com registro, QR, classificacao e operacao on-premise",
   "scripts": {
     "dev": "next dev",
-    "dev:mobile:cert": "bash scripts/dev/generate-mobile-cert.sh",
-    "dev:mobile:https": "bash scripts/dev/run-mobile-https.sh",
-    "dev:mobile:url": "bash scripts/dev/show-mobile-url.sh",
     "runtime:compose": "bash scripts/runtime/compose.sh",
     "runtime:migrate": "bash scripts/runtime/migrate.sh",
     "runtime:seed": "bash scripts/runtime/seed.sh",
