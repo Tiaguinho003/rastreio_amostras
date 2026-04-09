@@ -1104,6 +1104,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(printPendingFiltered.body.page.total, 1);
     assert.equal(printPendingFiltered.body.items[0].status, 'QR_PENDING_PRINT');
 
+    // CLASSIFICATION_PENDING agora unifica QR_PRINTED + CLASSIFICATION_IN_PROGRESS (refactor 07/04).
+    // O filtro statusGroup CLASSIFICATION_IN_PROGRESS nao existe mais como grupo separado.
     const classificationPendingFiltered = await api.listSamples(
       buildInput({
         query: {
@@ -1112,19 +1114,9 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
     assert.equal(classificationPendingFiltered.status, 200);
-    assert.equal(classificationPendingFiltered.body.page.total, 1);
-    assert.equal(classificationPendingFiltered.body.items[0].status, 'QR_PRINTED');
-
-    const classificationInProgressFiltered = await api.listSamples(
-      buildInput({
-        query: {
-          statusGroup: 'CLASSIFICATION_IN_PROGRESS'
-        }
-      })
-    );
-    assert.equal(classificationInProgressFiltered.status, 200);
-    assert.equal(classificationInProgressFiltered.body.page.total, 1);
-    assert.equal(classificationInProgressFiltered.body.items[0].status, 'CLASSIFICATION_IN_PROGRESS');
+    assert.equal(classificationPendingFiltered.body.page.total, 2);
+    const pendingStatuses = classificationPendingFiltered.body.items.map((item) => item.status).sort();
+    assert.deepEqual(pendingStatuses, ['CLASSIFICATION_IN_PROGRESS', 'QR_PRINTED']);
 
     const classifiedFiltered = await api.listSamples(
       buildInput({
@@ -1546,7 +1538,7 @@ if (!databaseUrl || !databaseReachable) {
           after: {
             classificationData: {
               padrao: 'PADRAO-B',
-              umidade: 10.9
+              bebida: 'DURA'
             }
           },
           reasonCode: 'TYPO',
@@ -1561,7 +1553,7 @@ if (!databaseUrl || !databaseReachable) {
     const sample = await queryService.requireSample(sampleId);
     assert.equal(sample.status, 'CLASSIFIED');
     assert.equal(sample.latestClassification.data?.padrao, 'PADRAO-B');
-    assert.equal(sample.latestClassification.data?.umidade, 10.9);
+    assert.equal(sample.latestClassification.data?.bebida, 'DURA');
     assert.equal(sample.version, 8);
   });
 
@@ -1791,7 +1783,9 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(lostRemaining.status, 201);
     assert.equal(lostRemaining.body.event.eventType, 'LOSS_RECORDED');
-    assert.equal(lostRemaining.body.sample.commercialStatus, 'PARTIALLY_SOLD');
+    // resolveCommercialStatusFromTotals: quando available <= 0 e soldSacks > 0, vira SOLD
+    // (mesmo havendo perda parcial: vendido conta como "fechamento positivo")
+    assert.equal(lostRemaining.body.sample.commercialStatus, 'SOLD');
     assert.equal(lostRemaining.body.sample.soldSacks, 4);
     assert.equal(lostRemaining.body.sample.lostSacks, 7);
 

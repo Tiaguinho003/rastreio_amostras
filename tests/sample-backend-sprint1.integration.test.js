@@ -307,7 +307,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 6,
         snapshotPartial: {
           padrao: 'PADRAO-1',
-          umidade: 11.3
+          bebida: 'DURA'
         },
         completionPercent: 45
       },
@@ -324,18 +324,15 @@ if (!databaseUrl || !databaseReachable) {
           padrao: 'PADRAO-1',
           classificador: 'Classificador Teste',
           defeito: '9',
-          umidade: 11.3,
-          aspectoCor: 'verde',
-          observacoes: 'ok',
-          loteOrigem: 'ORIG-999'
+          bebida: 'DURA',
+          aspecto: 'verde',
+          observacoes: 'ok'
         },
         technical: {
           type: 'BICA CORRIDA',
           screen: '16',
           defectsCount: 9,
-          moisture: 11.3,
           density: 702,
-          colorAspect: 'verde',
           notes: 'ok'
         },
         consumptionGrams: null,
@@ -354,8 +351,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
-    assert.equal(detail.sample.latestClassification.data?.umidade, 11.3);
-    assert.equal(detail.sample.latestClassification.data?.loteOrigem, 'ORIG-999');
+    assert.equal(detail.sample.latestClassification.data?.bebida, 'DURA');
+    assert.equal(detail.sample.latestClassification.data?.aspecto, 'verde');
 
     const printJobs = await prisma.printJob.findMany({
       where: { sampleId },
