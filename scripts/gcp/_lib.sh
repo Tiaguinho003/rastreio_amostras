@@ -48,7 +48,10 @@ derive_cloud_defaults() {
   : "${GCLOUD_REGION:=southamerica-east1}"
   : "${GCLOUD_ARTIFACT_REGISTRY_HOST:=${GCLOUD_REGION}-docker.pkg.dev}"
   : "${GCLOUD_IMAGE_NAME:=rastreio-interno-amostras}"
-  : "${GCLOUD_IMAGE_TAG:=cloud-homolog}"
+  if [[ -z "${GCLOUD_IMAGE_TAG:-}" ]]; then
+    GCLOUD_IMAGE_TAG="$(git -C "${PROJECT_DIR}" rev-parse --short HEAD 2>/dev/null || echo 'no-git')"
+    export GCLOUD_IMAGE_TAG
+  fi
   : "${GCLOUD_CLOUD_RUN_SERVICE:=rastreio-hml-app}"
   : "${GCLOUD_CLOUD_RUN_MIGRATE_JOB:=rastreio-hml-migrate}"
   : "${GCLOUD_CLOUD_RUN_SEED_JOB:=rastreio-hml-seed}"
