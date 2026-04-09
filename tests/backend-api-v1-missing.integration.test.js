@@ -264,11 +264,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 6,
         classificationData: {
-          padrao: 'PADRAO-A',
-          umidade: 11.2
-        },
-        technical: {
-          moisture: 11.2
+          padrao: 'PADRAO-A'
         },
         idempotencyKey: randomUUID()
       },

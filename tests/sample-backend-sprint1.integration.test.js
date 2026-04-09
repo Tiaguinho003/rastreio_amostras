@@ -501,7 +501,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 6,
         snapshotPartial: {
           padrao: 'PADRAO-BASE',
-          umidade: 10.9
+          bebida: 'DURA'
         },
         completionPercent: 35
       },
@@ -513,7 +513,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 7,
         snapshotPartial: {
-          broca: 2
+          aspecto: 'BOM'
         },
         completionPercent: 60
       },
@@ -525,8 +525,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.version, 8);
     assert.equal(detail.sample.classificationDraft.completionPercent, 60);
     assert.equal(detail.sample.classificationDraft.snapshot?.padrao, 'PADRAO-BASE');
-    assert.equal(detail.sample.classificationDraft.snapshot?.umidade, 10.9);
-    assert.equal(detail.sample.classificationDraft.snapshot?.broca, 2);
+    assert.equal(detail.sample.classificationDraft.snapshot?.bebida, 'DURA');
+    assert.equal(detail.sample.classificationDraft.snapshot?.aspecto, 'BOM');
   });
 
   test('returns dedicated dashboard list for samples pending classification', async () => {
@@ -549,18 +549,17 @@ if (!databaseUrl || !databaseReachable) {
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.printPending.total, 0);
+    // classificationPending agora unifica QR_PRINTED + CLASSIFICATION_IN_PROGRESS (refactor 07/04)
     assert.equal(dashboard.classificationPending.counts.QR_PRINTED, 1);
-    assert.equal(dashboard.classificationPending.total, 1);
+    assert.equal(dashboard.classificationPending.counts.CLASSIFICATION_IN_PROGRESS, 1);
+    assert.equal(dashboard.classificationPending.total, 2);
+    // classificationInProgress mantido para compat: counts/total ok, items vazio
     assert.equal(dashboard.classificationInProgress.counts.CLASSIFICATION_IN_PROGRESS, 1);
     assert.equal(dashboard.classificationInProgress.total, 1);
 
     const statusBySampleId = new Map(dashboard.classificationPending.items.map((sample) => [sample.id, sample.status]));
     assert.equal(statusBySampleId.get(readySampleId), 'QR_PRINTED');
-
-    const inProgressStatusBySampleId = new Map(
-      dashboard.classificationInProgress.items.map((sample) => [sample.id, sample.status])
-    );
-    assert.equal(inProgressStatusBySampleId.get(inProgressSampleId), 'CLASSIFICATION_IN_PROGRESS');
+    assert.equal(statusBySampleId.get(inProgressSampleId), 'CLASSIFICATION_IN_PROGRESS');
   });
 
   test('returns dedicated dashboard list for samples with pending print (not printed yet)', async () => {
