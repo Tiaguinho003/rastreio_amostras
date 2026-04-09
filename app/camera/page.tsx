@@ -526,8 +526,8 @@ function CameraPageContent() {
 
     try {
       if (!scannerClassRef.current) {
-        const module = await import('qr-scanner');
-        scannerClassRef.current = module.default;
+        const qrScannerModule = await import('qr-scanner');
+        scannerClassRef.current = qrScannerModule.default;
       }
 
       const QrScanner = scannerClassRef.current;
