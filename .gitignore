@@ -33,6 +33,9 @@ rootCA.pem
 # Claude Code local settings (pode conter credenciais locais)
 .claude/settings.local.json
 
+# Fichas PDF geradas via `npm run generate:fichas` (nao versionado)
+/ficha-*.pdf
+
 # Cache local de outras ferramentas
 .codex
 

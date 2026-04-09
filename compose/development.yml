@@ -1,5 +1,4 @@
 # Canonical Compose file for the `development` environment.
-# Phase 1 keeps the legacy root docker-compose.yml for compatibility.
 
 name: rastreio-development
 

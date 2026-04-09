@@ -20,6 +20,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "validate:schemas": "node scripts/validate-schemas.js",
+    "generate:fichas": "node scripts/generate-classification-sheet.mjs",
     "test:contracts": "node --test tests/event-contract.test.js",
     "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js tests/session-cookie-policy.test.js tests/local-upload-service.test.js tests/client-support.test.js",
     "test:backend:integration": "node --test tests/sample-backend-sprint1.integration.test.js",
@@ -27,9 +28,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f db",
+    "db:up": "docker compose -f compose/development.yml up -d db",
+    "db:down": "docker compose -f compose/development.yml down",
+    "db:logs": "docker compose -f compose/development.yml logs -f db",
     "test": "npm run validate:schemas && npm run test:contracts && npm run test:unit"
   },
   "dependencies": {

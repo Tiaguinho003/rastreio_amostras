@@ -14,4 +14,4 @@ Documentos relacionados: `docs/Operacao-e-Runtime.md`
 
 1. estes arquivos so fazem sentido dentro do fluxo descrito em `docs/Operacao-e-Runtime.md`;
 2. `cloud-homolog` nao usa Compose; essa trilha opera por `Cloud Run` e `scripts/gcp/`;
-3. `docker-compose.yml` e `docker-compose.prod.yml` permanecem apenas como compatibilidade legada.
+3. `docker-compose.prod.yml` permanece na raiz apenas como compatibilidade legada (usado por `scripts/ops/homolog-preflight.sh`).

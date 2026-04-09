@@ -16,4 +16,4 @@ Documentos relacionados: `docs/Operacao-e-Runtime.md`
 ## Regra
 
 1. esses arquivos suportam os ambientes `development`, `cloud-homolog` e `internal-production`;
-2. `.env.example`, `.env.prod.example` e `.env.homolog.example` continuam apenas como compatibilidade legada.
+2. `.env.homolog.example` permanece na raiz apenas como compatibilidade legada (sem substituto canonico equivalente para o homolog on-premise).
