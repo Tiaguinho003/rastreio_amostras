@@ -2,8 +2,12 @@
   "name": "rastreio-interno-amostras",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "description": "Sistema fullstack para rastreio interno de amostras com registro, QR, classificacao e operacao on-premise",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "runtime:compose": "bash scripts/runtime/compose.sh",
