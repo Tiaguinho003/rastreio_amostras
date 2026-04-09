@@ -433,7 +433,7 @@ if (!databaseUrl || !databaseReachable) {
       (error) =>
         error instanceof HttpError &&
         error.status === 409 &&
-        error.message.includes('requires classification photo')
+        error.message.includes('Foto de classificacao e obrigatoria')
     );
   });
 
