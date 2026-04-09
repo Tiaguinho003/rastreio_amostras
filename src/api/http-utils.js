@@ -1,7 +1,9 @@
 import { HttpError } from '../contracts/errors.js';
 
 function isPrismaInitializationError(error) {
-  return Boolean(error) && typeof error === 'object' && error.name === 'PrismaClientInitializationError';
+  return (
+    Boolean(error) && typeof error === 'object' && error.name === 'PrismaClientInitializationError'
+  );
 }
 
 function isPrismaDatabaseUnavailable(error) {
@@ -24,9 +26,9 @@ function toDatabaseUnavailableResponse(error) {
     body: {
       error: {
         message: 'Database unavailable',
-        ...(includeDetails ? { details: { reason: error.message } } : {})
-      }
-    }
+        ...(includeDetails ? { details: { reason: error.message } } : {}),
+      },
+    },
   };
 }
 
@@ -37,9 +39,9 @@ export function toHttpErrorResponse(error) {
       body: {
         error: {
           message: error.message,
-          details: error.details
-        }
-      }
+          details: error.details,
+        },
+      },
     };
   }
 
@@ -51,9 +53,9 @@ export function toHttpErrorResponse(error) {
     status: 500,
     body: {
       error: {
-        message: 'Internal server error'
-      }
-    }
+        message: 'Internal server error',
+      },
+    },
   };
 }
 
@@ -66,12 +68,15 @@ export async function executeApiWithOptions(handler, options = {}) {
     return await handler();
   } catch (error) {
     if (!(error instanceof HttpError)) {
-      const requestId = typeof options.requestId === 'string' && options.requestId.length > 0 ? options.requestId : null;
+      const requestId =
+        typeof options.requestId === 'string' && options.requestId.length > 0
+          ? options.requestId
+          : null;
       // Keep useful diagnostics in server logs while returning sanitized payloads.
       console.error('Unhandled API error', {
         requestId,
         name: error?.name ?? 'Error',
-        message: error?.message ?? 'Unknown error'
+        message: error?.message ?? 'Unknown error',
       });
       if (error?.stack) {
         console.error(error.stack);

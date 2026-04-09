@@ -14,6 +14,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const body = await readJsonBody(request);
   return executeBackend('updateSampleMovement', request, {
     params,
-    body
+    body,
   });
 }

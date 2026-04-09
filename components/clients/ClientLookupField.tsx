@@ -25,7 +25,10 @@ type ClientLookupFieldProps = {
 };
 
 function getClientDocument(client: ClientSummary) {
-  return formatClientDocument(client.document ?? (client.personType === 'PF' ? client.cpf : client.cnpj), client.personType);
+  return formatClientDocument(
+    client.document ?? (client.personType === 'PF' ? client.cpf : client.cnpj),
+    client.personType
+  );
 }
 
 export function ClientLookupField({
@@ -43,7 +46,7 @@ export function ClientLookupField({
   onRequestCreate,
   createLabel = 'Cadastrar cliente',
   compact = false,
-  required = false
+  required = false,
 }: ClientLookupFieldProps) {
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
@@ -107,7 +110,7 @@ export function ClientLookupField({
 
       lookupClients(session, {
         search: normalizedSearch,
-        kind
+        kind,
       })
         .then((response) => {
           if (!active) {
@@ -149,11 +152,17 @@ export function ClientLookupField({
   }
 
   return (
-    <div className={`client-lookup-field${invalid ? ' is-invalid' : ''}${compact ? ' is-compact' : ''}`} ref={wrapRef}>
+    <div
+      className={`client-lookup-field${invalid ? ' is-invalid' : ''}${compact ? ' is-compact' : ''}`}
+      ref={wrapRef}
+    >
       <label htmlFor={inputId} className={compact ? 'login-visually-hidden' : undefined}>
-        {label}{required ? <span className="nsv2-required-star"> *</span> : null}
+        {label}
+        {required ? <span className="nsv2-required-star"> *</span> : null}
       </label>
-      <div className={`client-lookup-shell${compact ? ' is-compact' : ''}${selectedClient ? ' has-selection' : ''}`}>
+      <div
+        className={`client-lookup-shell${compact ? ' is-compact' : ''}${selectedClient ? ' has-selection' : ''}`}
+      >
         <input
           id={inputId}
           ref={inputRef}
@@ -225,12 +234,20 @@ export function ClientLookupField({
             <ul className="client-lookup-list" role="listbox" aria-label={label}>
               {items.map((item) => (
                 <li key={item.id}>
-                  <button type="button" className="client-lookup-option" onClick={() => handleSelect(item)}>
-                    <span className="client-lookup-option-title">{item.displayName ?? 'Sem nome'}</span>
+                  <button
+                    type="button"
+                    className="client-lookup-option"
+                    onClick={() => handleSelect(item)}
+                  >
+                    <span className="client-lookup-option-title">
+                      {item.displayName ?? 'Sem nome'}
+                    </span>
                     <span className="client-lookup-option-meta">
                       Codigo {item.code} · {item.personType}
                       {getClientDocument(item) ? ` · ${getClientDocument(item)}` : ''}
-                      {item.primaryCity ? ` · ${item.primaryCity}${item.primaryState ? `/${item.primaryState}` : ''}` : ''}
+                      {item.primaryCity
+                        ? ` · ${item.primaryCity}${item.primaryState ? `/${item.primaryState}` : ''}`
+                        : ''}
                     </span>
                   </button>
                 </li>

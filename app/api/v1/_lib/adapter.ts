@@ -44,7 +44,7 @@ export async function executeBackend(
     headers: headersToObject(request.headers),
     params: options.params ?? {},
     query: queryToObject(request.nextUrl.searchParams),
-    body: options.body ?? {}
+    body: options.body ?? {},
   });
 
   return toNextResponse(result);

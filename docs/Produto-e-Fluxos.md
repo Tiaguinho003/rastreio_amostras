@@ -154,6 +154,6 @@ Regra oficial:
 ## Fora do escopo atual
 
 1. Fila externa para impressao ou processamento assincromo.
-3. Ambiente `homolog` como trilha oficial de runtime.
-4. Suite E2E versionada no repositorio.
-5. RBAC tecnico detalhado por modulo de amostras.
+2. Ambiente `homolog` como trilha oficial de runtime.
+3. Suite E2E versionada no repositorio.
+4. RBAC tecnico detalhado por modulo de amostras.

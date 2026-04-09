@@ -4,7 +4,11 @@ import { useEffect } from 'react';
 
 export function PwaRegistration() {
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !window.isSecureContext) {
+    if (
+      typeof window === 'undefined' ||
+      !('serviceWorker' in navigator) ||
+      !window.isSecureContext
+    ) {
       return;
     }
 

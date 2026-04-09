@@ -11,7 +11,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-sans',
-  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Noto Sans', 'sans-serif']
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Noto Sans', 'sans-serif'],
 });
 
 const metadataBase =
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Rastreio'
+    title: 'Rastreio',
   },
   formatDetection: {
-    telephone: false
+    telephone: false,
   },
   icons: {
     apple: [{ url: '/icon-safras.png', sizes: '224x224', type: 'image/png' }],
-    icon: [{ url: '/icon-safras.png', sizes: '224x224', type: 'image/png' }]
-  }
+    icon: [{ url: '/icon-safras.png', sizes: '224x224', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -44,7 +44,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  viewportFit: 'cover'
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -53,9 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PwaRegistration />
         <SplashScreen />
-        <PageTransition>
-          {children}
-        </PageTransition>
+        <PageTransition>{children}</PageTransition>
       </body>
     </html>
   );

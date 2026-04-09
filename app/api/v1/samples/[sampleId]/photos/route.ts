@@ -4,7 +4,10 @@ import { toHttpErrorResponse } from '../../../../../../src/api/http-utils.js';
 import { assertAcceptedUploadSize } from '../../../../../../src/uploads/upload-policy.js';
 import { executeBackend, toNextResponse } from '../../../_lib/adapter';
 
-export async function POST(request: NextRequest, context: { params: Promise<{ sampleId: string }> }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ sampleId: string }> }
+) {
   try {
     const params = await context.params;
     const formData = await request.formData();
@@ -23,7 +26,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
 
     if (fileValue instanceof File) {
       assertAcceptedUploadSize(fileValue.size, {
-        fieldLabel: 'Sample photo'
+        fieldLabel: 'Sample photo',
       });
       const bytes = await fileValue.arrayBuffer();
       fileBuffer = Buffer.from(bytes);
@@ -59,8 +62,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
         kind,
         mimeType,
         originalFileName,
-        replaceExisting
-      }
+        replaceExisting,
+      },
     });
   } catch (error) {
     return toNextResponse(toHttpErrorResponse(error));

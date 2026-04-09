@@ -2,7 +2,16 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { PDFDocument, StandardFonts, clip, endPath, popGraphicsState, pushGraphicsState, rectangle, rgb } from 'pdf-lib';
+import {
+  PDFDocument,
+  StandardFonts,
+  clip,
+  endPath,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
+  rgb,
+} from 'pdf-lib';
 
 import { HttpError } from '../contracts/errors.js';
 import {
@@ -10,7 +19,7 @@ import {
   SAMPLE_EXPORT_TYPES,
   buildSelectedExportFieldEntries,
   normalizeSampleExportType,
-  resolveSampleExportFieldsForType
+  resolveSampleExportFieldsForType,
 } from './export-fields.js';
 
 const PDF_PAGE_WIDTH = 595.28;
@@ -18,7 +27,7 @@ const PDF_PAGE_HEIGHT = 841.89;
 const COMPANY_INFO = {
   cityUf: 'Sao Sebastiao do Paraiso/MG',
   phone: '(35) 3531-4046',
-  address: 'Av. Oliveira Rezende, 1397 - Jardim Bernadete - Sao Sebastiao do Paraiso - MG'
+  address: 'Av. Oliveira Rezende, 1397 - Jardim Bernadete - Sao Sebastiao do Paraiso - MG',
 };
 
 function drawPageBackground(page) {
@@ -27,7 +36,7 @@ function drawPageBackground(page) {
     y: 0,
     width: PDF_PAGE_WIDTH,
     height: PDF_PAGE_HEIGHT,
-    color: rgb(0.976, 0.972, 0.954)
+    color: rgb(0.976, 0.972, 0.954),
   });
 }
 
@@ -35,7 +44,7 @@ function formatIssuedAt(isoString) {
   return new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
-    timeZone: 'America/Sao_Paulo'
+    timeZone: 'America/Sao_Paulo',
   }).format(new Date(isoString));
 }
 
@@ -55,13 +64,15 @@ function drawHorizontalGradient(page, { x, y, width, height, leftColor, rightCol
       y,
       width: stepWidth + 0.2,
       height,
-      color
+      color,
     });
   }
 }
 
 function fitTextToWidth(text, font, size, maxWidth) {
-  const normalized = String(text ?? '').replace(/\s+/g, ' ').trim();
+  const normalized = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized) {
     return '';
   }
@@ -93,7 +104,9 @@ function fitTextToWidth(text, font, size, maxWidth) {
 }
 
 function wrapTextToWidth(text, font, size, maxWidth, maxLines = 2) {
-  const normalized = String(text ?? '').replace(/\s+/g, ' ').trim();
+  const normalized = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized) {
     return [];
   }
@@ -149,13 +162,14 @@ function drawImageCover(page, image, { x, y, width, height }) {
     x: drawX,
     y: drawY,
     width: drawWidth,
-    height: drawHeight
+    height: drawHeight,
   });
   page.pushOperators(popGraphicsState());
 }
 
 function buildReportFileName(sample) {
-  const internalLot = typeof sample?.internalLotNumber === 'string' ? sample.internalLotNumber.trim() : '';
+  const internalLot =
+    typeof sample?.internalLotNumber === 'string' ? sample.internalLotNumber.trim() : '';
   if (!internalLot) {
     return 'amostra(sem-lote-interno).pdf';
   }
@@ -230,7 +244,7 @@ async function renderSamplePdf({
   selectedFieldEntries,
   issuedAtIso,
   logoPath,
-  destination
+  destination,
 }) {
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -266,7 +280,7 @@ async function renderSamplePdf({
     height: docHeight,
     borderWidth: 1,
     borderColor: rgb(0.84, 0.84, 0.84),
-    color: rgb(1, 1, 1)
+    color: rgb(1, 1, 1),
   });
 
   const lineLeft = docX + 24;
@@ -279,7 +293,7 @@ async function renderSamplePdf({
     y: headerY,
     width: docWidth - 2,
     height: headerHeight - 1,
-    color: headerGreen
+    color: headerGreen,
   });
 
   if (logoImage) {
@@ -292,7 +306,7 @@ async function renderSamplePdf({
       x: docX + 20,
       y: headerY + (headerHeight - logoHeight) / 2,
       width: logoWidth,
-      height: logoHeight
+      height: logoHeight,
     });
   }
 
@@ -305,7 +319,7 @@ async function renderSamplePdf({
     y: companyStartY,
     size: 8,
     font: fontRegular,
-    color: rgb(1, 1, 1)
+    color: rgb(1, 1, 1),
   });
 
   page.drawText(COMPANY_INFO.phone, {
@@ -313,7 +327,7 @@ async function renderSamplePdf({
     y: companyStartY - companyLineSpacing,
     size: 8,
     font: fontRegular,
-    color: rgb(1, 1, 1)
+    color: rgb(1, 1, 1),
   });
 
   const addressLines = wrapTextToWidth(COMPANY_INFO.address, fontRegular, 7, 220, 2);
@@ -324,7 +338,7 @@ async function renderSamplePdf({
       y: addrY,
       size: 7,
       font: fontRegular,
-      color: rgb(0.85, 0.92, 0.85)
+      color: rgb(0.85, 0.92, 0.85),
     });
     addrY -= 9;
   }
@@ -333,7 +347,7 @@ async function renderSamplePdf({
     start: { x: lineLeft, y: headerY },
     end: { x: lineRight, y: headerY },
     thickness: 1,
-    color: docLine
+    color: docLine,
   });
 
   const title = 'LAUDO TECNICO DE AMOSTRA';
@@ -344,22 +358,25 @@ async function renderSamplePdf({
     y: titleY,
     size: 16.5,
     font: fontBold,
-    color: docGreen
+    color: docGreen,
   });
 
   page.drawLine({
     start: { x: lineLeft, y: titleY - 10 },
     end: { x: lineRight, y: titleY - 10 },
     thickness: 1,
-    color: docLine
+    color: docLine,
   });
 
   const metaRows = [
     {
       label: 'Lote Interno',
-      value: typeof sample.internalLotNumber === 'string' && sample.internalLotNumber.trim() ? sample.internalLotNumber : '-'
+      value:
+        typeof sample.internalLotNumber === 'string' && sample.internalLotNumber.trim()
+          ? sample.internalLotNumber
+          : '-',
     },
-    { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) }
+    { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
   ];
   if (destination) {
     metaRows.push({ label: 'Destinatario', value: destination });
@@ -373,7 +390,7 @@ async function renderSamplePdf({
   for (const [id, label] of [
     ['owner', 'Proprietario'],
     ['harvest', 'Safra'],
-    ['sacks', 'Quantidade']
+    ['sacks', 'Quantidade'],
   ]) {
     const entry = entryById.get(id);
     if (entry) {
@@ -395,7 +412,7 @@ async function renderSamplePdf({
     ['defeito', 'Defeitos'],
     ['umidade', 'Umidade'],
     ['classificador', 'Classificador'],
-    ['observacoes', 'Observacoes']
+    ['observacoes', 'Observacoes'],
   ]) {
     const entry = entryById.get(id);
     if (entry) {
@@ -408,7 +425,7 @@ async function renderSamplePdf({
   for (const [id, label] of [
     ['technicalType', 'Tipo Tecnico'],
     ['technicalScreen', 'Peneira Tecnica'],
-    ['technicalDensity', 'Densidade Tecnica']
+    ['technicalDensity', 'Densidade Tecnica'],
   ]) {
     const entry = entryById.get(id);
     if (entry) {
@@ -430,7 +447,7 @@ async function renderSamplePdf({
       if (separatorIndex > 0) {
         sieveRows.push({
           label: part.slice(0, separatorIndex).trim(),
-          value: part.slice(separatorIndex + 1).trim()
+          value: part.slice(separatorIndex + 1).trim(),
         });
       } else {
         sieveRows.push({ label: 'Peneira', value: part });
@@ -457,21 +474,21 @@ async function renderSamplePdf({
       height,
       borderWidth: 1,
       borderColor: docLine,
-      color: rgb(1, 1, 1)
+      color: rgb(1, 1, 1),
     });
     page.drawRectangle({
       x,
       y: topY - sectionHeaderHeight,
       width,
       height: sectionHeaderHeight,
-      color: docGreen
+      color: docGreen,
     });
     page.drawText(title, {
       x: x + 10,
       y: topY - sectionHeaderHeight + 6.5,
       size: 9.8,
       font: fontBold,
-      color: rgb(1, 1, 1)
+      color: rgb(1, 1, 1),
     });
 
     const contentX = x + 10;
@@ -488,21 +505,26 @@ async function renderSamplePdf({
     for (let index = 0; index < visibleRows.length; index += 1) {
       const row = visibleRows[index];
       const label = fitTextToWidth(row.label, fontBold, 8.6, labelColumnWidth - 4);
-      const value = fitTextToWidth(row.value, fontRegular, 8.6, contentWidth - labelColumnWidth - 2);
+      const value = fitTextToWidth(
+        row.value,
+        fontRegular,
+        8.6,
+        contentWidth - labelColumnWidth - 2
+      );
 
       page.drawText(label, {
         x: contentX,
         y: cursorY,
         size: 8.6,
         font: fontBold,
-        color: rgb(0.25, 0.29, 0.26)
+        color: rgb(0.25, 0.29, 0.26),
       });
       page.drawText(value || '-', {
         x: contentX + labelColumnWidth,
         y: cursorY,
         size: 8.6,
         font: fontRegular,
-        color: docText
+        color: docText,
       });
 
       if (index < visibleRows.length - 1) {
@@ -510,7 +532,7 @@ async function renderSamplePdf({
           start: { x: contentX, y: cursorY - 3 },
           end: { x: contentX + contentWidth, y: cursorY - 3 },
           thickness: 0.7,
-          color: rgb(0.9, 0.91, 0.92)
+          color: rgb(0.9, 0.91, 0.92),
         });
       }
 
@@ -523,7 +545,7 @@ async function renderSamplePdf({
         y: Math.max(rowBottom, cursorY - 1),
         size: 8.2,
         font: fontRegular,
-        color: rgb(0.45, 0.47, 0.44)
+        color: rgb(0.45, 0.47, 0.44),
       });
     }
   };
@@ -550,7 +572,7 @@ async function renderSamplePdf({
       y: metaY,
       size: 9,
       font: fontBold,
-      color: rgb(0.23, 0.27, 0.25)
+      color: rgb(0.23, 0.27, 0.25),
     });
 
     let valueY = metaY;
@@ -561,7 +583,7 @@ async function renderSamplePdf({
         y: valueY,
         size: 9,
         font: fontRegular,
-        color: docText
+        color: docText,
       });
       valueY -= 10.5;
     }
@@ -583,7 +605,7 @@ async function renderSamplePdf({
       width: topLeftWidth,
       height: topRowHeight,
       title: 'Resumo do Lote',
-      rows: summaryRows
+      rows: summaryRows,
     });
   }
 
@@ -592,13 +614,13 @@ async function renderSamplePdf({
     y: cursorTop - 14,
     size: 9.8,
     font: fontBold,
-    color: docGreen
+    color: docGreen,
   });
   page.drawLine({
     start: { x: photoX + 10, y: cursorTop - 17.5 },
     end: { x: photoX + topRightWidth - 10, y: cursorTop - 17.5 },
     thickness: 0.8,
-    color: rgb(0.86, 0.89, 0.88)
+    color: rgb(0.86, 0.89, 0.88),
   });
 
   const photoInnerX = photoX;
@@ -610,7 +632,7 @@ async function renderSamplePdf({
     x: photoInnerX,
     y: photoInnerY,
     width: photoInnerW,
-    height: photoInnerH
+    height: photoInnerH,
   });
 
   cursorTop -= topRowHeight;
@@ -632,8 +654,10 @@ async function renderSamplePdf({
 
   if (additionalBlocks.includes('middle')) {
     cursorTop -= blockGap;
-    const middleHeight = additionalBlocks.length === 2 ? Math.round(remainingHeight * 0.62) : remainingHeight;
-    const classWidth = hasClassification && hasSieve ? Math.round(contentWidth * 0.6) : contentWidth;
+    const middleHeight =
+      additionalBlocks.length === 2 ? Math.round(remainingHeight * 0.62) : remainingHeight;
+    const classWidth =
+      hasClassification && hasSieve ? Math.round(contentWidth * 0.6) : contentWidth;
     const sieveWidth = contentWidth - classWidth - (hasClassification && hasSieve ? blockGap : 0);
 
     if (hasClassification) {
@@ -643,7 +667,7 @@ async function renderSamplePdf({
         width: classWidth,
         height: middleHeight,
         title: 'Dados de Classificacao',
-        rows: classificationRows
+        rows: classificationRows,
       });
     }
 
@@ -654,7 +678,7 @@ async function renderSamplePdf({
         width: hasClassification ? sieveWidth : contentWidth,
         height: middleHeight,
         title: 'Peneiras Percentuais',
-        rows: sieveRows
+        rows: sieveRows,
       });
     }
 
@@ -670,7 +694,7 @@ async function renderSamplePdf({
       width: contentWidth,
       height: technicalHeight,
       title: 'Dados Tecnicos',
-      rows: [...technicalRows, ...extraSectionRows]
+      rows: [...technicalRows, ...extraSectionRows],
     });
     cursorTop -= technicalHeight;
   }
@@ -680,7 +704,7 @@ async function renderSamplePdf({
     start: { x: lineLeft, y: footerY + 30 },
     end: { x: lineRight, y: footerY + 30 },
     thickness: 1,
-    color: docLine
+    color: docLine,
   });
   const footerYear = new Date(issuedAtIso).getUTCFullYear();
   const footerMain = `(c) ${footerYear} Safras & Negocios. Todos os direitos reservados.`;
@@ -692,14 +716,14 @@ async function renderSamplePdf({
     y: footerY + 14,
     size: 8,
     font: fontBold,
-    color: rgb(0.33, 0.37, 0.35)
+    color: rgb(0.33, 0.37, 0.35),
   });
   page.drawText(footerSubFitted, {
     x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerSubFitted, 7.1)) / 2,
     y: footerY + 4,
     size: 7.1,
     font: fontRegular,
-    color: rgb(0.45, 0.48, 0.45)
+    color: rgb(0.45, 0.48, 0.45),
   });
 
   const bytes = await pdfDoc.save();
@@ -707,7 +731,12 @@ async function renderSamplePdf({
 }
 
 export class SamplePdfReportService {
-  constructor({ queryService, commandService, uploadsBaseDir, logoPath = path.resolve(process.cwd(), 'public/logo-laudo.png') }) {
+  constructor({
+    queryService,
+    commandService,
+    uploadsBaseDir,
+    logoPath = path.resolve(process.cwd(), 'public/logo-laudo.png'),
+  }) {
     if (!queryService) {
       throw new Error('SamplePdfReportService requires queryService');
     }
@@ -742,12 +771,17 @@ export class SamplePdfReportService {
     const destination = normalizeReportDestination(input?.destination);
     const selectedFields = resolveSampleExportFieldsForType(exportType);
 
-    const classificationAttachment = detail.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO');
+    const classificationAttachment = detail.attachments.find(
+      (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
+    );
     if (!classificationAttachment) {
       throw new HttpError(409, 'CLASSIFIED sample requires CLASSIFICATION_PHOTO for report export');
     }
 
-    const photoAbsolutePath = sanitizeAttachmentPath(this.uploadsBaseDir, classificationAttachment.storagePath);
+    const photoAbsolutePath = sanitizeAttachmentPath(
+      this.uploadsBaseDir,
+      classificationAttachment.storagePath
+    );
     let classificationPhotoBytes;
     try {
       classificationPhotoBytes = await fs.readFile(photoAbsolutePath);
@@ -760,7 +794,7 @@ export class SamplePdfReportService {
     }
 
     const selectedFieldEntries = buildSelectedExportFieldEntries(detail, selectedFields, {
-      excludeEmpty: true
+      excludeEmpty: true,
     });
     const exportedFields = selectedFieldEntries.map((entry) => entry.id);
     const issuedAtIso = new Date().toISOString();
@@ -773,7 +807,7 @@ export class SamplePdfReportService {
       selectedFieldEntries,
       issuedAtIso,
       logoPath: [this.logoPath, this.logoFallbackPath],
-      destination
+      destination,
     });
 
     const checksumSha256 = createHash('sha256').update(pdfBuffer).digest('hex');
@@ -790,7 +824,7 @@ export class SamplePdfReportService {
         classificationPhotoId: classificationAttachment.id,
         templateVersion: 'v1',
         sizeBytes: pdfBuffer.length,
-        checksumSha256
+        checksumSha256,
       },
       actorContext
     );
@@ -804,7 +838,7 @@ export class SamplePdfReportService {
       destination,
       selectedFields: exportedFields,
       buffer: pdfBuffer,
-      auditEvent: auditResult.event
+      auditEvent: auditResult.event,
     };
   }
 }

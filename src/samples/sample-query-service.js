@@ -4,14 +4,14 @@ const PENDING_STATUSES = [
   'PHYSICAL_RECEIVED',
   'REGISTRATION_IN_PROGRESS',
   'QR_PENDING_PRINT',
-  'CLASSIFICATION_IN_PROGRESS'
+  'CLASSIFICATION_IN_PROGRESS',
 ];
 const PRINT_PENDING_STATUSES = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT'];
 const CLASSIFICATION_PENDING_STATUSES = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'];
 const SAMPLE_STATUS_FILTER_GROUPS = {
   PRINT_PENDING: PRINT_PENDING_STATUSES,
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
-  CLASSIFIED: ['CLASSIFIED']
+  CLASSIFIED: ['CLASSIFIED'],
 };
 const LATEST_REGISTRATION_STATUSES = [
   'REGISTRATION_CONFIRMED',
@@ -19,7 +19,7 @@ const LATEST_REGISTRATION_STATUSES = [
   'QR_PRINTED',
   'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
-  'INVALIDATED'
+  'INVALIDATED',
 ];
 const DASHBOARD_LIST_LIMIT = 20;
 const DASHBOARD_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
@@ -27,7 +27,8 @@ const SAMPLES_LIST_DEFAULT_LIMIT = 30;
 const SAMPLES_LIST_MAX_LIMIT = 30;
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 const MAX_QR_PARTS = 64;
-const UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
+const UUID_PATTERN =
+  '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'A-\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 const SAMPLE_OWNER_INCLUDE = {
@@ -44,8 +45,8 @@ const SAMPLE_OWNER_INCLUDE = {
       phone: true,
       isBuyer: true,
       isSeller: true,
-      status: true
-    }
+      status: true,
+    },
   },
   ownerRegistration: {
     select: {
@@ -59,9 +60,9 @@ const SAMPLE_OWNER_INCLUDE = {
       city: true,
       state: true,
       postalCode: true,
-      complement: true
-    }
-  }
+      complement: true,
+    },
+  },
 };
 const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
@@ -78,8 +79,8 @@ const SAMPLE_MOVEMENT_INCLUDE = {
       phone: true,
       isBuyer: true,
       isSeller: true,
-      status: true
-    }
+      status: true,
+    },
   },
   buyerRegistration: {
     select: {
@@ -93,9 +94,9 @@ const SAMPLE_MOVEMENT_INCLUDE = {
       city: true,
       state: true,
       postalCode: true,
-      complement: true
-    }
-  }
+      complement: true,
+    },
+  },
 };
 
 function tryDecodeURIComponent(value) {
@@ -154,7 +155,7 @@ function extractQrLookupCandidates(qrContent) {
         'internalLot',
         'internalLotNumber',
         'qr',
-        'token'
+        'token',
       ]) {
         appendQueueValue(queue, url.searchParams.get(key));
       }
@@ -196,7 +197,7 @@ function extractQrLookupCandidates(qrContent) {
 
   return {
     idCandidates,
-    lotCandidates
+    lotCandidates,
   };
 }
 
@@ -204,7 +205,7 @@ function sourceFromDb(source) {
   const map = {
     WEB: 'web',
     API: 'api',
-    WORKER: 'worker'
+    WORKER: 'worker',
   };
   return map[source] ?? source;
 }
@@ -214,7 +215,7 @@ function moduleFromDb(moduleName) {
     REGISTRATION: 'registration',
     CLASSIFICATION: 'classification',
     PRINT: 'print',
-    COMMERCIAL: 'commercial'
+    COMMERCIAL: 'commercial',
   };
   return map[moduleName] ?? moduleName;
 }
@@ -297,7 +298,7 @@ function resolveSacksRange({ sacksMin = null, sacksMax = null }) {
 
   return {
     gte: min ?? undefined,
-    lte: max ?? undefined
+    lte: max ?? undefined,
   };
 }
 
@@ -330,7 +331,7 @@ function parseCreatedDateRangeInSaoPaulo(createdDate) {
 
   return {
     startUtc,
-    endUtc
+    endUtc,
   };
 }
 
@@ -357,7 +358,7 @@ function parseCreatedMonthRangeInSaoPaulo(createdMonth) {
 
   return {
     startUtc,
-    endUtc
+    endUtc,
   };
 }
 
@@ -377,18 +378,25 @@ function parseCreatedYearRangeInSaoPaulo(createdYear) {
 
   return {
     startUtc,
-    endUtc
+    endUtc,
   };
 }
 
-function resolveCreatedPeriodRangeInSaoPaulo({ createdDate = null, createdMonth = null, createdYear = null }) {
+function resolveCreatedPeriodRangeInSaoPaulo({
+  createdDate = null,
+  createdMonth = null,
+  createdYear = null,
+}) {
   const normalizedDate = normalizeOptionalText(createdDate);
   const normalizedMonth = normalizeOptionalText(createdMonth);
   const normalizedYear = normalizeOptionalText(createdYear);
 
   const informedPeriods = [normalizedDate, normalizedMonth, normalizedYear].filter(Boolean).length;
   if (informedPeriods > 1) {
-    throw new HttpError(422, 'Use only one period filter: createdDate, createdMonth or createdYear');
+    throw new HttpError(
+      422,
+      'Use only one period filter: createdDate, createdMonth or createdYear'
+    );
   }
 
   if (normalizedDate) {
@@ -422,13 +430,17 @@ function resolveClassifiedAgingConditions(classifiedAging) {
   const spMonth = nowSp.getUTCMonth();
   const spDay = nowSp.getUTCDate();
 
-  const boundary30 = new Date(Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-  const boundary15 = new Date(Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+  const boundary30 = new Date(
+    Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+  );
+  const boundary15 = new Date(
+    Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+  );
 
   const conditions = [
     { status: 'CLASSIFIED' },
     { commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } },
-    { classifiedAt: { not: null } }
+    { classifiedAt: { not: null } },
   ];
 
   if (normalized === 'over30') {
@@ -480,46 +492,49 @@ function buildBuyerMovementFilter(buyer) {
   }
 
   const numericSearch = Number.parseInt(normalizedBuyer, 10);
-  const exactCode = Number.isSafeInteger(numericSearch) && String(numericSearch) === normalizedBuyer ? numericSearch : null;
+  const exactCode =
+    Number.isSafeInteger(numericSearch) && String(numericSearch) === normalizedBuyer
+      ? numericSearch
+      : null;
   const digits = normalizedBuyer.replace(/\D+/g, '');
 
   const clientOr = [
     {
       fullName: {
         contains: normalizedBuyer,
-        mode: 'insensitive'
-      }
+        mode: 'insensitive',
+      },
     },
     {
       legalName: {
         contains: normalizedBuyer,
-        mode: 'insensitive'
-      }
+        mode: 'insensitive',
+      },
     },
     {
       tradeName: {
         contains: normalizedBuyer,
-        mode: 'insensitive'
-      }
-    }
+        mode: 'insensitive',
+      },
+    },
   ];
 
   if (digits) {
     clientOr.push({
       cpf: {
-        contains: digits
-      }
+        contains: digits,
+      },
     });
     clientOr.push({
       cnpj: {
-        contains: digits
-      }
+        contains: digits,
+      },
     });
   }
 
   if (exactCode !== null) {
     clientOr.push({
-      code: exactCode
+      code: exactCode,
     });
   }
 
@@ -530,11 +545,11 @@ function buildBuyerMovementFilter(buyer) {
         status: 'ACTIVE',
         buyerClient: {
           is: {
-            OR: clientOr
-          }
-        }
-      }
-    }
+            OR: clientOr,
+          },
+        },
+      },
+    },
   };
 }
 
@@ -547,7 +562,10 @@ function mapOwnerClient(ownerClient) {
     id: ownerClient.id,
     code: ownerClient.code,
     personType: ownerClient.personType,
-    displayName: ownerClient.personType === 'PF' ? ownerClient.fullName ?? null : ownerClient.legalName ?? null,
+    displayName:
+      ownerClient.personType === 'PF'
+        ? (ownerClient.fullName ?? null)
+        : (ownerClient.legalName ?? null),
     fullName: ownerClient.fullName ?? null,
     legalName: ownerClient.legalName ?? null,
     tradeName: ownerClient.tradeName ?? null,
@@ -556,7 +574,7 @@ function mapOwnerClient(ownerClient) {
     phone: ownerClient.phone ?? null,
     isBuyer: ownerClient.isBuyer,
     isSeller: ownerClient.isSeller,
-    status: ownerClient.status
+    status: ownerClient.status,
   };
 }
 
@@ -576,7 +594,7 @@ function mapOwnerRegistration(ownerRegistration) {
     city: ownerRegistration.city,
     state: ownerRegistration.state,
     postalCode: ownerRegistration.postalCode,
-    complement: ownerRegistration.complement ?? null
+    complement: ownerRegistration.complement ?? null,
   };
 }
 
@@ -603,7 +621,7 @@ function mapSampleMovement(row) {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     buyerClient: mapOwnerClient(row.buyerClient),
-    buyerRegistration: mapOwnerRegistration(row.buyerRegistration)
+    buyerRegistration: mapOwnerRegistration(row.buyerRegistration),
   };
 }
 
@@ -615,7 +633,7 @@ const DASHBOARD_SAMPLE_SELECT = {
   declaredOwner: true,
   declaredSacks: true,
   declaredHarvest: true,
-  createdAt: true
+  createdAt: true,
 };
 
 function mapDashboardSample(row) {
@@ -632,9 +650,9 @@ function mapDashboardSample(row) {
       owner: row.declaredOwner,
       sacks: row.declaredSacks,
       harvest: row.declaredHarvest,
-      location: row.declaredLocation ?? null
+      location: row.declaredLocation ?? null,
     },
-    createdAt: row.createdAt.toISOString()
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -659,9 +677,9 @@ function mapPendingPrintJob(row) {
         sacks: sample.declaredSacks ?? null,
         harvest: sample.declaredHarvest ?? null,
         originLot: sample.declaredOriginLot ?? null,
-        location: sample.declaredLocation ?? null
-      }
-    }
+        location: sample.declaredLocation ?? null,
+      },
+    },
   };
 }
 
@@ -693,7 +711,7 @@ function mapSample(row) {
       sacks: row.declaredSacks,
       harvest: row.declaredHarvest,
       originLot: row.declaredOriginLot,
-      location: row.declaredLocation ?? null
+      location: row.declaredLocation ?? null,
     },
     ownerClient: mapOwnerClient(row.ownerClient),
     ownerRegistration: mapOwnerRegistration(row.ownerRegistration),
@@ -707,15 +725,15 @@ function mapSample(row) {
         moisture: null,
         density: toNumberOrNull(row.latestDensity),
         colorAspect: row.latestColorAspect,
-        notes: row.latestNotes
-      }
+        notes: row.latestNotes,
+      },
     },
     classificationDraft: {
       snapshot: toObjectOrNull(row.classificationDraftData),
-      completionPercent: row.classificationDraftCompletionPercent
+      completionPercent: row.classificationDraftCompletionPercent,
     },
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString()
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -741,8 +759,8 @@ function mapEvent(event) {
     metadata: {
       module: moduleFromDb(event.metadataModule),
       ip: event.metadataIp,
-      userAgent: event.metadataUserAgent
-    }
+      userAgent: event.metadataUserAgent,
+    },
   };
 }
 
@@ -774,7 +792,7 @@ export class SampleQueryService {
   async findSampleOrNull(sampleId) {
     const sample = await this.prisma.sample.findUnique({
       where: { id: sampleId },
-      include: SAMPLE_INCLUDE
+      include: SAMPLE_INCLUDE,
     });
     return mapSample(sample);
   }
@@ -790,7 +808,7 @@ export class SampleQueryService {
   async findPendingPrintJobOrNull(sampleId, printAction = null) {
     const where = {
       sampleId,
-      status: 'PENDING'
+      status: 'PENDING',
     };
 
     if (printAction) {
@@ -799,7 +817,7 @@ export class SampleQueryService {
 
     const pending = await this.prisma.printJob.findFirst({
       where,
-      orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }]
+      orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }],
     });
 
     if (!pending) {
@@ -810,7 +828,7 @@ export class SampleQueryService {
       printAction: pending.printAction,
       attemptNumber: pending.attemptNumber,
       printerId: pending.printerId ?? null,
-      status: pending.status
+      status: pending.status,
     };
   }
 
@@ -825,8 +843,8 @@ export class SampleQueryService {
         status: true,
         printerId: true,
         error: true,
-        createdAt: true
-      }
+        createdAt: true,
+      },
     });
 
     if (!row) return null;
@@ -838,7 +856,7 @@ export class SampleQueryService {
       status: row.status,
       printerId: row.printerId ?? null,
       error: row.error ?? null,
-      createdAt: row.createdAt.toISOString()
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -848,7 +866,7 @@ export class SampleQueryService {
       status: 'PENDING',
       // Only return jobs for samples still awaiting print — if the sample
       // already advanced past QR_PENDING_PRINT the job is stale.
-      sample: { status: 'QR_PENDING_PRINT' }
+      sample: { status: 'QR_PENDING_PRINT' },
     };
 
     if (options.sampleId) {
@@ -870,15 +888,15 @@ export class SampleQueryService {
             declaredOwner: true,
             declaredSacks: true,
             declaredHarvest: true,
-            declaredOriginLot: true
-          }
-        }
-      }
+            declaredOriginLot: true,
+          },
+        },
+      },
     });
 
     return {
       items: rows.map(mapPendingPrintJob),
-      total: rows.length
+      total: rows.length,
     };
   }
 
@@ -891,9 +909,9 @@ export class SampleQueryService {
 
     const row = await this.prisma.sample.findFirst({
       where: {
-        internalLotNumber: { equals: normalized, mode: 'insensitive' }
+        internalLotNumber: { equals: normalized, mode: 'insensitive' },
       },
-      include: SAMPLE_INCLUDE
+      include: SAMPLE_INCLUDE,
     });
 
     if (!row) {
@@ -916,15 +934,15 @@ export class SampleQueryService {
 
     const orConditions = [
       ...idCandidates.map((id) => ({ id })),
-      ...lotCandidates.map((internalLotNumber) => ({ internalLotNumber }))
+      ...lotCandidates.map((internalLotNumber) => ({ internalLotNumber })),
     ];
 
     const rows = await this.prisma.sample.findMany({
       where: {
-        OR: orConditions
+        OR: orConditions,
       },
       take: 50,
-      include: SAMPLE_INCLUDE
+      include: SAMPLE_INCLUDE,
     });
 
     if (rows.length === 0) {
@@ -941,7 +959,9 @@ export class SampleQueryService {
 
     const rowsByLot = new Map(
       rows
-        .filter((row) => typeof row.internalLotNumber === 'string' && row.internalLotNumber.length > 0)
+        .filter(
+          (row) => typeof row.internalLotNumber === 'string' && row.internalLotNumber.length > 0
+        )
         .map((row) => [row.internalLotNumber.toUpperCase(), row])
     );
     for (const lotCandidate of lotCandidates) {
@@ -956,7 +976,7 @@ export class SampleQueryService {
 
   async listAttachmentIds(sampleId, options = {}) {
     const where = {
-      sampleId
+      sampleId,
     };
     if (options.kind) {
       where.kind = options.kind;
@@ -965,7 +985,7 @@ export class SampleQueryService {
     const attachments = await this.prisma.sampleAttachment.findMany({
       where,
       orderBy: { createdAt: 'asc' },
-      select: { id: true }
+      select: { id: true },
     });
 
     return attachments.map((attachment) => attachment.id);
@@ -974,7 +994,7 @@ export class SampleQueryService {
   async findAttachmentByKind(sampleId, kind) {
     const attachment = await this.prisma.sampleAttachment.findFirst({
       where: { sampleId, kind },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!attachment) {
@@ -989,14 +1009,14 @@ export class SampleQueryService {
       mimeType: attachment.mimeType,
       sizeBytes: attachment.sizeBytes,
       checksumSha256: attachment.checksumSha256,
-      createdAt: attachment.createdAt.toISOString()
+      createdAt: attachment.createdAt.toISOString(),
     };
   }
 
   async listAttachments(sampleId) {
     const attachments = await this.prisma.sampleAttachment.findMany({
       where: { sampleId },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
 
     return attachments.map((attachment) => ({
@@ -1007,7 +1027,7 @@ export class SampleQueryService {
       mimeType: attachment.mimeType,
       sizeBytes: attachment.sizeBytes,
       checksumSha256: attachment.checksumSha256,
-      createdAt: attachment.createdAt.toISOString()
+      createdAt: attachment.createdAt.toISOString(),
     }));
   }
 
@@ -1028,7 +1048,7 @@ export class SampleQueryService {
     createdDate = null,
     createdMonth = null,
     createdYear = null,
-    classifiedAging = null
+    classifiedAging = null,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const safeOffset = Math.max(offset, 0);
@@ -1039,11 +1059,11 @@ export class SampleQueryService {
     const createdPeriodRange = resolveCreatedPeriodRangeInSaoPaulo({
       createdDate,
       createdMonth,
-      createdYear
+      createdYear,
     });
     const sacksRange = resolveSacksRange({
       sacksMin,
-      sacksMax
+      sacksMax,
     });
 
     const conditions = [];
@@ -1054,16 +1074,16 @@ export class SampleQueryService {
           {
             internalLotNumber: {
               contains: normalizedSearch,
-              mode: 'insensitive'
-            }
+              mode: 'insensitive',
+            },
           },
           {
             declaredOwner: {
               contains: normalizedSearch,
-              mode: 'insensitive'
-            }
-          }
-        ]
+              mode: 'insensitive',
+            },
+          },
+        ],
       });
     }
 
@@ -1076,15 +1096,15 @@ export class SampleQueryService {
     if (resolvedStatusGroupStatuses) {
       conditions.push({
         status: {
-          in: resolvedStatusGroupStatuses
-        }
+          in: resolvedStatusGroupStatuses,
+        },
       });
     }
 
     const resolvedCommercialStatus = resolveCommercialStatus(commercialStatus);
     if (resolvedCommercialStatus) {
       conditions.push({
-        commercialStatus: resolvedCommercialStatus
+        commercialStatus: resolvedCommercialStatus,
       });
     }
 
@@ -1093,8 +1113,8 @@ export class SampleQueryService {
       conditions.push({
         internalLotNumber: {
           contains: normalizedLot,
-          mode: 'insensitive'
-        }
+          mode: 'insensitive',
+        },
       });
     }
 
@@ -1103,8 +1123,8 @@ export class SampleQueryService {
       conditions.push({
         declaredOwner: {
           equals: normalizedOwner,
-          mode: 'insensitive'
-        }
+          mode: 'insensitive',
+        },
       });
     }
 
@@ -1116,13 +1136,13 @@ export class SampleQueryService {
     const normalizedHarvest = normalizeOptionalText(harvest);
     if (normalizedHarvest) {
       conditions.push({
-        declaredHarvest: normalizedHarvest
+        declaredHarvest: normalizedHarvest,
       });
     }
 
     if (sacksRange) {
       conditions.push({
-        declaredSacks: sacksRange
+        declaredSacks: sacksRange,
       });
     }
 
@@ -1130,8 +1150,8 @@ export class SampleQueryService {
       conditions.push({
         createdAt: {
           gte: createdPeriodRange.startUtc,
-          lt: createdPeriodRange.endUtc
-        }
+          lt: createdPeriodRange.endUtc,
+        },
       });
     }
 
@@ -1148,9 +1168,9 @@ export class SampleQueryService {
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
-        include: SAMPLE_INCLUDE
+        include: SAMPLE_INCLUDE,
       }),
-      this.prisma.sample.count({ where })
+      this.prisma.sample.count({ where }),
     ]);
 
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
@@ -1166,8 +1186,8 @@ export class SampleQueryService {
         total,
         totalPages,
         hasPrev,
-        hasNext
-      }
+        hasNext,
+      },
     };
   }
 
@@ -1176,13 +1196,13 @@ export class SampleQueryService {
 
     const where = {
       sampleId,
-      ...(typeof afterSequence === 'number' ? { sequenceNumber: { gt: afterSequence } } : {})
+      ...(typeof afterSequence === 'number' ? { sequenceNumber: { gt: afterSequence } } : {}),
     };
 
     const rows = await this.prisma.sampleEvent.findMany({
       where,
       orderBy: { sequenceNumber: 'asc' },
-      take: safeLimit
+      take: safeLimit,
     });
 
     return rows.map(mapEvent);
@@ -1192,9 +1212,9 @@ export class SampleQueryService {
     const row = await this.prisma.sampleMovement.findFirst({
       where: {
         sampleId,
-        id: movementId
+        id: movementId,
       },
-      include: SAMPLE_MOVEMENT_INCLUDE
+      include: SAMPLE_MOVEMENT_INCLUDE,
     });
 
     return mapSampleMovement(row);
@@ -1211,11 +1231,17 @@ export class SampleQueryService {
 
   async listSampleMovements(sampleId, { movementType = null, status = null } = {}) {
     const normalizedMovementType =
-      typeof movementType === 'string' && movementType.trim().length > 0 ? movementType.trim().toUpperCase() : null;
+      typeof movementType === 'string' && movementType.trim().length > 0
+        ? movementType.trim().toUpperCase()
+        : null;
     const normalizedStatus =
       typeof status === 'string' && status.trim().length > 0 ? status.trim().toUpperCase() : null;
 
-    if (normalizedMovementType && normalizedMovementType !== 'SALE' && normalizedMovementType !== 'LOSS') {
+    if (
+      normalizedMovementType &&
+      normalizedMovementType !== 'SALE' &&
+      normalizedMovementType !== 'LOSS'
+    ) {
       throw new HttpError(422, 'movementType must be one of: SALE, LOSS');
     }
 
@@ -1226,13 +1252,13 @@ export class SampleQueryService {
     const where = {
       sampleId,
       ...(normalizedMovementType ? { movementType: normalizedMovementType } : {}),
-      ...(normalizedStatus ? { status: normalizedStatus } : {})
+      ...(normalizedStatus ? { status: normalizedStatus } : {}),
     };
 
     const rows = await this.prisma.sampleMovement.findMany({
       where,
       include: SAMPLE_MOVEMENT_INCLUDE,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
     return rows.map((row) => mapSampleMovement(row));
@@ -1242,8 +1268,8 @@ export class SampleQueryService {
     const row = await this.prisma.sampleEvent.findFirst({
       where: {
         sampleId,
-        eventId
-      }
+        eventId,
+      },
     });
 
     if (!row) {
@@ -1266,10 +1292,10 @@ export class SampleQueryService {
     const lastPrintJob = await this.prisma.printJob.findFirst({
       where: {
         sampleId,
-        printAction
+        printAction,
       },
       orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }],
-      select: { attemptNumber: true }
+      select: { attemptNumber: true },
     });
 
     return (lastPrintJob?.attemptNumber ?? 0) + 1;
@@ -1281,7 +1307,7 @@ export class SampleQueryService {
       this.listAttachments(sampleId),
       this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
       this.listSampleMovements(sampleId),
-      this.findLatestPrintJob(sampleId)
+      this.findLatestPrintJob(sampleId),
     ]);
 
     return {
@@ -1289,7 +1315,7 @@ export class SampleQueryService {
       attachments,
       events,
       movements,
-      latestPrintJob
+      latestPrintJob,
     };
   }
 
@@ -1298,8 +1324,8 @@ export class SampleQueryService {
       ...new Set([
         ...PENDING_STATUSES,
         ...PRINT_PENDING_STATUSES,
-        ...CLASSIFICATION_PENDING_STATUSES
-      ])
+        ...CLASSIFICATION_PENDING_STATUSES,
+      ]),
     ];
 
     const [
@@ -1309,51 +1335,51 @@ export class SampleQueryService {
       classificationPendingRows,
       latestRegistrationRows,
       latestRegistrationTotal,
-      todayReceivedRows
+      todayReceivedRows,
     ] = await this.prisma.$transaction([
       this.prisma.sample.groupBy({
         by: ['status'],
         where: {
-          status: { in: ALL_DASHBOARD_STATUSES }
+          status: { in: ALL_DASHBOARD_STATUSES },
         },
-        _count: { status: true }
+        _count: { status: true },
       }),
       this.prisma.sample.findMany({
         where: {
-          status: { in: PENDING_STATUSES }
-        },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: PRINT_PENDING_STATUSES }
+          status: { in: PENDING_STATUSES },
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT
+        select: DASHBOARD_SAMPLE_SELECT,
       }),
       this.prisma.sample.findMany({
         where: {
-          status: { in: CLASSIFICATION_PENDING_STATUSES }
+          status: { in: PRINT_PENDING_STATUSES },
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT
+        select: DASHBOARD_SAMPLE_SELECT,
       }),
       this.prisma.sample.findMany({
         where: {
-          status: { in: LATEST_REGISTRATION_STATUSES }
+          status: { in: CLASSIFICATION_PENDING_STATUSES },
+        },
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        take: DASHBOARD_LIST_LIMIT,
+        select: DASHBOARD_SAMPLE_SELECT,
+      }),
+      this.prisma.sample.findMany({
+        where: {
+          status: { in: LATEST_REGISTRATION_STATUSES },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT
+        select: DASHBOARD_SAMPLE_SELECT,
       }),
       this.prisma.sample.count({
         where: {
-          status: { in: LATEST_REGISTRATION_STATUSES }
-        }
+          status: { in: LATEST_REGISTRATION_STATUSES },
+        },
       }),
       (() => {
         const nowUtc = new Date();
@@ -1361,15 +1387,19 @@ export class SampleQueryService {
         const year = nowSp.getUTCFullYear();
         const month = nowSp.getUTCMonth();
         const day = nowSp.getUTCDate();
-        const startUtc = new Date(Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0));
-        const endUtc = new Date(Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0));
+        const startUtc = new Date(
+          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
+        );
+        const endUtc = new Date(
+          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
+        );
         return this.prisma.$queryRaw`
           SELECT COUNT(*)::INTEGER AS total
           FROM "sample" s
           WHERE s."created_at" >= ${startUtc}
             AND s."created_at" <= ${endUtc}
         `;
-      })()
+      })(),
     ]);
 
     const countByStatus = {};
@@ -1409,22 +1439,24 @@ export class SampleQueryService {
       printPending: {
         counts: printPendingCounts,
         total: printPendingTotal,
-        items: printPendingRows.map(mapDashboardSample)
+        items: printPendingRows.map(mapDashboardSample),
       },
       classificationPending: {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
-        items: classificationPendingRows.map(mapDashboardSample)
+        items: classificationPendingRows.map(mapDashboardSample),
       },
       classificationInProgress: {
-        counts: { CLASSIFICATION_IN_PROGRESS: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0 },
+        counts: {
+          CLASSIFICATION_IN_PROGRESS: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
+        },
         total: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
-        items: []
+        items: [],
       },
       latestRegistrations: {
         total: latestRegistrationTotal,
-        items: latestRegistrationRows.map(mapDashboardSample)
-      }
+        items: latestRegistrationRows.map(mapDashboardSample),
+      },
     };
   }
 
@@ -1436,11 +1468,19 @@ export class SampleQueryService {
     const spMonth = nowSp.getUTCMonth();
     const spDay = nowSp.getUTCDate();
 
-    const todayStartUtc = new Date(Date.UTC(spYear, spMonth, spDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-    const todayEndUtc = new Date(Date.UTC(spYear, spMonth, spDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+    const todayStartUtc = new Date(
+      Date.UTC(spYear, spMonth, spDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+    );
+    const todayEndUtc = new Date(
+      Date.UTC(spYear, spMonth, spDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+    );
 
-    const boundary30 = new Date(Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-    const boundary15 = new Date(Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
+    const boundary30 = new Date(
+      Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+    );
+    const boundary15 = new Date(
+      Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
+    );
 
     const rows = await this.prisma.$queryRaw`
       SELECT
@@ -1465,8 +1505,8 @@ export class SampleQueryService {
       bands: {
         over30: toIntegerOrZero(row.over30),
         from15to30: toIntegerOrZero(row.from15to30),
-        under15: toIntegerOrZero(row.under15)
-      }
+        under15: toIntegerOrZero(row.under15),
+      },
     };
   }
 
@@ -1481,7 +1521,8 @@ export class SampleQueryService {
 
     const lastLot = result[0]?.internal_lot_number ?? null;
     const lastSequence = lastLot ? Number(lastLot.replace('A-', '')) : initialSequence;
-    const nextSequence = Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : initialSequence + 1;
+    const nextSequence =
+      Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : initialSequence + 1;
 
     return `A-${nextSequence}`;
   }

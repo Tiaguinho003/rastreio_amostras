@@ -6,28 +6,38 @@ import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
-const USER_ACTION_ROLES = [USER_ROLES.ADMIN, USER_ROLES.CLASSIFIER, USER_ROLES.REGISTRATION, USER_ROLES.COMMERCIAL];
+const USER_ACTION_ROLES = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.CLASSIFIER,
+  USER_ROLES.REGISTRATION,
+  USER_ROLES.COMMERCIAL,
+];
 const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
 const CREATE_SAMPLE_MAX_RETRIES = 12;
 const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other']);
 const PHOTO_KINDS = {
-  CLASSIFICATION: 'CLASSIFICATION_PHOTO'
+  CLASSIFICATION: 'CLASSIFICATION_PHOTO',
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.CLASSIFICATION]: ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED']
+  [PHOTO_KINDS.CLASSIFICATION]: ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'],
 };
-const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
+const REPRINT_ALLOWED_STATUSES = [
+  'QR_PENDING_PRINT',
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
 const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
 const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['CLASSIFIED']);
 const MOVEMENT_TYPES = {
   SALE: 'SALE',
-  LOSS: 'LOSS'
+  LOSS: 'LOSS',
 };
 const MOVEMENT_STATUSES = {
   ACTIVE: 'ACTIVE',
-  CANCELLED: 'CANCELLED'
+  CANCELLED: 'CANCELLED',
 };
 const MAX_UPDATE_REASON_WORDS = 10;
 const DEFAULT_REGISTRATION_UPDATE_REASON_CODE = 'OTHER';
@@ -38,7 +48,7 @@ const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
   'QR_PENDING_PRINT',
   'QR_PRINTED',
   'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED'
+  'CLASSIFIED',
 ];
 const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
   'PHYSICAL_RECEIVED',
@@ -47,7 +57,7 @@ const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
   'QR_PENDING_PRINT',
   'QR_PRINTED',
   'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED'
+  'CLASSIFIED',
 ];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
 const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
@@ -63,15 +73,28 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'gpi',
   'classificador',
   'defeito',
-  'observacoes'
+  'observacoes',
 ];
-const CLASSIFICATION_SIEVE_FIELDS = ['p19', 'p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'fundos'];
+const CLASSIFICATION_SIEVE_FIELDS = [
+  'p19',
+  'p18',
+  'p17',
+  'p16',
+  'mk',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p11',
+  'p10',
+  'fundos',
+];
 const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'type',
   'screen',
   'defectsCount',
   'density',
-  'notes'
+  'notes',
 ];
 const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
   'movementType',
@@ -80,17 +103,16 @@ const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
   'quantitySacks',
   'movementDate',
   'notes',
-  'lossReasonText'
+  'lossReasonText',
 ]);
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function buildBusinessDateStamp(date = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: BUSINESS_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
+    day: '2-digit',
   }).format(date);
 }
 
@@ -204,7 +226,7 @@ function readCurrentCommercialSummary(sample) {
   return {
     declaredSacks: typeof sample?.declared?.sacks === 'number' ? sample.declared.sacks : null,
     soldSacks: typeof sample?.soldSacks === 'number' ? sample.soldSacks : 0,
-    lostSacks: typeof sample?.lostSacks === 'number' ? sample.lostSacks : 0
+    lostSacks: typeof sample?.lostSacks === 'number' ? sample.lostSacks : 0,
   };
 }
 
@@ -232,7 +254,7 @@ function buildCommercialProjection({ declaredSacks, soldSacks, lostSacks }) {
       soldSacks,
       lostSacks,
       availableSacks: 0,
-      commercialStatus: 'OPEN'
+      commercialStatus: 'OPEN',
     };
   }
 
@@ -248,8 +270,8 @@ function buildCommercialProjection({ declaredSacks, soldSacks, lostSacks }) {
     commercialStatus: resolveCommercialStatusFromTotals({
       declaredSacks,
       soldSacks,
-      lostSacks
-    })
+      lostSacks,
+    }),
   };
 }
 
@@ -259,7 +281,7 @@ function buildBuyerSnapshot(binding) {
       buyerClientId: null,
       buyerRegistrationId: null,
       buyerClientSnapshot: null,
-      buyerRegistrationSnapshot: null
+      buyerRegistrationSnapshot: null,
     };
   }
 
@@ -267,7 +289,7 @@ function buildBuyerSnapshot(binding) {
     buyerClientId: binding.buyerClientId,
     buyerRegistrationId: binding.buyerRegistrationId,
     buyerClientSnapshot: binding.buyerClient,
-    buyerRegistrationSnapshot: binding.buyerRegistration
+    buyerRegistrationSnapshot: binding.buyerRegistration,
   };
 }
 
@@ -282,7 +304,7 @@ function formatMovementSnapshot(movement) {
     lossReasonText: movement.lossReasonText ?? null,
     buyerClientSnapshot: movement.buyerClientSnapshot ?? null,
     buyerRegistrationSnapshot: movement.buyerRegistrationSnapshot ?? null,
-    status: movement.status
+    status: movement.status,
   };
 }
 
@@ -397,7 +419,9 @@ function normalizeNullableNumber(value, fieldName, options = {}) {
   }
 
   const parsed =
-    typeof value === 'number' ? value : Number(typeof value === 'string' ? value.replace(',', '.') : value);
+    typeof value === 'number'
+      ? value
+      : Number(typeof value === 'string' ? value.replace(',', '.') : value);
 
   if (!Number.isFinite(parsed)) {
     throw new HttpError(422, `${fieldName} must be a valid number`);
@@ -464,7 +488,12 @@ function normalizeRegistrationFieldValue(fieldName, value) {
 }
 
 function parseRegistrationUpdatePatch(after) {
-  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId']);
+  const allowedTopLevel = new Set([
+    ...REGISTRATION_EDITABLE_FIELDS,
+    'declared',
+    'ownerClientId',
+    'ownerRegistrationId',
+  ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
   const declared = hasOwn(after, 'declared') ? after.declared : undefined;
@@ -473,7 +502,7 @@ function parseRegistrationUpdatePatch(after) {
   }
 
   const patch = {
-    declared: {}
+    declared: {},
   };
   for (const field of REGISTRATION_EDITABLE_FIELDS) {
     const hasTopLevel = hasOwn(after, field);
@@ -494,7 +523,10 @@ function parseRegistrationUpdatePatch(after) {
 
   if (hasOwn(after, 'ownerRegistrationId')) {
     patch.hasOwnerRegistrationId = true;
-    patch.ownerRegistrationId = normalizeNullableUuid(after.ownerRegistrationId, 'after.ownerRegistrationId');
+    patch.ownerRegistrationId = normalizeNullableUuid(
+      after.ownerRegistrationId,
+      'after.ownerRegistrationId'
+    );
   }
 
   if (
@@ -517,7 +549,11 @@ function parseClassificationSievePatch(value) {
     return null;
   }
 
-  assertNoUnknownKeys(value, new Set(CLASSIFICATION_SIEVE_FIELDS), 'after.classificationData.peneirasPercentuais');
+  assertNoUnknownKeys(
+    value,
+    new Set(CLASSIFICATION_SIEVE_FIELDS),
+    'after.classificationData.peneirasPercentuais'
+  );
 
   const patch = {};
   for (const key of CLASSIFICATION_SIEVE_FIELDS) {
@@ -532,7 +568,10 @@ function parseClassificationSievePatch(value) {
       }
       continue;
     }
-    patch[key] = normalizeNullableNumber(value[key], `after.classificationData.peneirasPercentuais.${key}`);
+    patch[key] = normalizeNullableNumber(
+      value[key],
+      `after.classificationData.peneirasPercentuais.${key}`
+    );
   }
 
   if (Object.keys(patch).length === 0) {
@@ -543,7 +582,12 @@ function parseClassificationSievePatch(value) {
 }
 
 function normalizeClassificationDataFieldValue(fieldName, value) {
-  if (fieldName === 'broca' || fieldName === 'pva' || fieldName === 'imp' || fieldName === 'defeito') {
+  if (
+    fieldName === 'broca' ||
+    fieldName === 'pva' ||
+    fieldName === 'imp' ||
+    fieldName === 'defeito'
+  ) {
     if (value === null || value === undefined) return null;
     return typeof value === 'string' ? value.trim() || null : String(value);
   }
@@ -553,7 +597,10 @@ function normalizeClassificationDataFieldValue(fieldName, value) {
 
 function normalizeClassificationTechnicalFieldValue(fieldName, value) {
   if (fieldName === 'defectsCount') {
-    return normalizeNullableNumber(value, 'after.technical.defectsCount', { integer: true, min: 0 });
+    return normalizeNullableNumber(value, 'after.technical.defectsCount', {
+      integer: true,
+      min: 0,
+    });
   }
 
   if (fieldName === 'density') {
@@ -571,7 +618,7 @@ function parseClassificationUpdatePatch(after) {
     'classificationVersion',
     'classifierUserId',
     'classificadorUserId',
-    'versaoClassificacao'
+    'versaoClassificacao',
   ]);
 
   const allowedTopLevel = new Set([
@@ -580,7 +627,7 @@ function parseClassificationUpdatePatch(after) {
     'classificationData',
     'technical',
     'consumptionGrams',
-    'peneirasPercentuais'
+    'peneirasPercentuais',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
@@ -590,7 +637,9 @@ function parseClassificationUpdatePatch(after) {
     }
   }
 
-  const classificationData = hasOwn(after, 'classificationData') ? after.classificationData : undefined;
+  const classificationData = hasOwn(after, 'classificationData')
+    ? after.classificationData
+    : undefined;
   if (classificationData !== undefined) {
     assertNoUnknownKeys(
       classificationData,
@@ -598,14 +647,21 @@ function parseClassificationUpdatePatch(after) {
       'after.classificationData'
     );
 
-    if (hasOwn(classificationData, 'classificadorUserId') || hasOwn(classificationData, 'versaoClassificacao')) {
+    if (
+      hasOwn(classificationData, 'classificadorUserId') ||
+      hasOwn(classificationData, 'versaoClassificacao')
+    ) {
       throw new HttpError(422, 'classificationData id/version fields are not editable');
     }
   }
 
   const technical = hasOwn(after, 'technical') ? after.technical : undefined;
   if (technical !== undefined) {
-    assertNoUnknownKeys(technical, new Set(CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS), 'after.technical');
+    assertNoUnknownKeys(
+      technical,
+      new Set(CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS),
+      'after.technical'
+    );
   }
 
   const classificationDataPatch = {};
@@ -621,14 +677,17 @@ function parseClassificationUpdatePatch(after) {
     classificationDataPatch[field] = normalizeClassificationDataFieldValue(field, selected);
   }
 
-  const topSievePatch = hasOwn(after, 'peneirasPercentuais') ? parseClassificationSievePatch(after.peneirasPercentuais) : undefined;
+  const topSievePatch = hasOwn(after, 'peneirasPercentuais')
+    ? parseClassificationSievePatch(after.peneirasPercentuais)
+    : undefined;
   const nestedSievePatch =
     isPlainObject(classificationData) && hasOwn(classificationData, 'peneirasPercentuais')
       ? parseClassificationSievePatch(classificationData.peneirasPercentuais)
       : undefined;
 
   if (topSievePatch !== undefined || nestedSievePatch !== undefined) {
-    classificationDataPatch.peneirasPercentuais = nestedSievePatch !== undefined ? nestedSievePatch : topSievePatch;
+    classificationDataPatch.peneirasPercentuais =
+      nestedSievePatch !== undefined ? nestedSievePatch : topSievePatch;
   }
 
   const technicalPatch = {};
@@ -645,11 +704,15 @@ function parseClassificationUpdatePatch(after) {
   }
 
   const hasConsumptionTop = hasOwn(after, 'consumptionGrams');
-  const hasConsumptionNested = isPlainObject(classificationData) && hasOwn(classificationData, 'consumoGramas');
+  const hasConsumptionNested =
+    isPlainObject(classificationData) && hasOwn(classificationData, 'consumoGramas');
   const consumptionGrams = hasConsumptionTop
     ? normalizeNullableNumber(after.consumptionGrams, 'after.consumptionGrams')
     : hasConsumptionNested
-      ? normalizeNullableNumber(classificationData.consumoGramas, 'after.classificationData.consumoGramas')
+      ? normalizeNullableNumber(
+          classificationData.consumoGramas,
+          'after.classificationData.consumoGramas'
+        )
       : undefined;
 
   if (
@@ -663,7 +726,7 @@ function parseClassificationUpdatePatch(after) {
   return {
     classificationData: classificationDataPatch,
     technical: technicalPatch,
-    consumptionGrams
+    consumptionGrams,
   };
 }
 
@@ -679,7 +742,10 @@ function parseMovementUpdatePatch(after) {
     patch.buyerClientId = normalizeNullableUuid(after.buyerClientId, 'after.buyerClientId');
   }
   if (hasOwn(after, 'buyerRegistrationId')) {
-    patch.buyerRegistrationId = normalizeNullableUuid(after.buyerRegistrationId, 'after.buyerRegistrationId');
+    patch.buyerRegistrationId = normalizeNullableUuid(
+      after.buyerRegistrationId,
+      'after.buyerRegistrationId'
+    );
   }
   if (hasOwn(after, 'quantitySacks')) {
     patch.quantitySacks = normalizeMovementQuantity(after.quantitySacks, 'after.quantitySacks');
@@ -763,7 +829,7 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
 
   return {
     before,
-    after
+    after,
   };
 }
 
@@ -774,7 +840,7 @@ async function resolveStructuredOwnerForWrite({
   hasOwnerClientId = false,
   hasOwnerRegistrationId = false,
   clientService,
-  mode
+  mode,
 }) {
   const currentOwnerClientId = sample?.ownerClientId ?? null;
   const currentOwnerRegistrationId = sample?.ownerRegistrationId ?? null;
@@ -805,7 +871,7 @@ async function resolveStructuredOwnerForWrite({
 
     return clientService.resolveOwnerBinding({
       ownerClientId: inputOwnerClientId,
-      ownerRegistrationId: inputOwnerRegistrationId ?? null
+      ownerRegistrationId: inputOwnerRegistrationId ?? null,
     });
   }
 
@@ -827,7 +893,9 @@ async function resolveStructuredOwnerForWrite({
       nextOwnerClientId = inputOwnerClientId;
 
       if (ownerChanged) {
-        nextOwnerRegistrationId = hasOwnerRegistrationId ? inputOwnerRegistrationId ?? null : null;
+        nextOwnerRegistrationId = hasOwnerRegistrationId
+          ? (inputOwnerRegistrationId ?? null)
+          : null;
       } else if (hasOwnerRegistrationId) {
         nextOwnerRegistrationId = inputOwnerRegistrationId ?? null;
       }
@@ -852,14 +920,14 @@ async function resolveStructuredOwnerForWrite({
 
   return clientService.resolveOwnerBinding({
     ownerClientId: nextOwnerClientId,
-    ownerRegistrationId: nextOwnerRegistrationId
+    ownerRegistrationId: nextOwnerRegistrationId,
   });
 }
 
 async function resolveBuyerBindingForMovement({
   clientService,
   buyerClientId,
-  buyerRegistrationId
+  buyerRegistrationId,
 }) {
   if (!clientService) {
     throw new Error('clientService is required for sale movements');
@@ -867,13 +935,17 @@ async function resolveBuyerBindingForMovement({
 
   return clientService.resolveBuyerBinding({
     buyerClientId,
-    buyerRegistrationId
+    buyerRegistrationId,
   });
 }
 
 function buildClassificationUpdatePayload(sample, parsedPatch) {
-  const currentData = isPlainObject(sample.latestClassification?.data) ? sample.latestClassification.data : {};
-  const currentTechnical = isPlainObject(sample.latestClassification?.technical) ? sample.latestClassification.technical : {};
+  const currentData = isPlainObject(sample.latestClassification?.data)
+    ? sample.latestClassification.data
+    : {};
+  const currentTechnical = isPlainObject(sample.latestClassification?.technical)
+    ? sample.latestClassification.technical
+    : {};
   const before = {};
   const after = {};
 
@@ -898,7 +970,9 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
 
     if (hasOwn(parsedPatch.classificationData, 'peneirasPercentuais')) {
       const nextSievePatch = parsedPatch.classificationData.peneirasPercentuais;
-      const currentSieve = isPlainObject(currentData.peneirasPercentuais) ? currentData.peneirasPercentuais : null;
+      const currentSieve = isPlainObject(currentData.peneirasPercentuais)
+        ? currentData.peneirasPercentuais
+        : null;
 
       if (nextSievePatch === null) {
         if (currentSieve !== null) {
@@ -963,7 +1037,9 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
   }
 
   if (parsedPatch.consumptionGrams !== undefined) {
-    const currentConsumption = hasOwn(currentData, 'consumoGramas') ? currentData.consumoGramas : null;
+    const currentConsumption = hasOwn(currentData, 'consumoGramas')
+      ? currentData.consumoGramas
+      : null;
     if (!valuesEqual(currentConsumption, parsedPatch.consumptionGrams)) {
       before.consumptionGrams = currentConsumption;
       after.consumptionGrams = parsedPatch.consumptionGrams;
@@ -976,7 +1052,7 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
 
   return {
     before,
-    after
+    after,
   };
 }
 
@@ -1030,7 +1106,11 @@ function isStatusConflict(error) {
 }
 
 function requireExpectedVersion(expectedVersion) {
-  if (typeof expectedVersion !== 'number' || !Number.isInteger(expectedVersion) || expectedVersion < 0) {
+  if (
+    typeof expectedVersion !== 'number' ||
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 0
+  ) {
     throw new HttpError(422, 'expectedVersion must be a non-negative integer');
   }
 }
@@ -1060,8 +1140,14 @@ function requireUserActor(actorContext, allowedRoles, actionLabel) {
 }
 
 function normalizeCompareText(a, b) {
-  const na = String(a).trim().toLowerCase().replace(/[\s\-\/]/g, '');
-  const nb = String(b).trim().toLowerCase().replace(/[\s\-\/]/g, '');
+  const na = String(a)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-\/]/g, '');
+  const nb = String(b)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-\/]/g, '');
   return na === nb || na.includes(nb) || nb.includes(na);
 }
 
@@ -1081,7 +1167,7 @@ function crossValidateExtraction(identificacao, sample) {
       field: 'lote',
       extracted: identificacao.lote,
       registered,
-      match: registered !== null && normalizeCompareText(identificacao.lote, registered)
+      match: registered !== null && normalizeCompareText(identificacao.lote, registered),
     });
   }
 
@@ -1092,7 +1178,7 @@ function crossValidateExtraction(identificacao, sample) {
       field: 'sacas',
       extracted: identificacao.sacas,
       registered: registered !== null ? String(registered) : null,
-      match: registered !== null && extractedNum !== null && extractedNum === registered
+      match: registered !== null && extractedNum !== null && extractedNum === registered,
     });
   }
 
@@ -1102,7 +1188,7 @@ function crossValidateExtraction(identificacao, sample) {
       field: 'safra',
       extracted: identificacao.safra,
       registered,
-      match: registered !== null && normalizeCompareText(identificacao.safra, registered)
+      match: registered !== null && normalizeCompareText(identificacao.safra, registered),
     });
   }
 
@@ -1111,13 +1197,13 @@ function crossValidateExtraction(identificacao, sample) {
       field: 'data',
       extracted: identificacao.data,
       registered: null,
-      match: true
+      match: true,
     });
   }
 
   return {
-    hasMismatches: details.some(d => !d.match),
-    details
+    hasMismatches: details.some((d) => !d.match),
+    details,
   };
 }
 
@@ -1126,7 +1212,8 @@ function normalizeDeclaredFields(declared, options = {}) {
     throw new HttpError(422, 'declared fields are required');
   }
 
-  const resolvedOwnerName = typeof options.resolvedOwnerName === 'string' ? options.resolvedOwnerName.trim() : null;
+  const resolvedOwnerName =
+    typeof options.resolvedOwnerName === 'string' ? options.resolvedOwnerName.trim() : null;
   const owner =
     resolvedOwnerName && resolvedOwnerName.length > 0
       ? resolvedOwnerName
@@ -1137,7 +1224,7 @@ function normalizeDeclaredFields(declared, options = {}) {
     sacks: declared.sacks,
     harvest: declared.harvest,
     originLot: declared.originLot,
-    location: normalizeOptionalText(declared.location, 'location', 30)
+    location: normalizeOptionalText(declared.location, 'location', 30),
   };
 }
 
@@ -1152,7 +1239,14 @@ function isInternalLotNumberUniqueConflict(error) {
 }
 
 export class SampleCommandService {
-  constructor({ eventService, queryService, uploadService = null, clientService = null, extractionService = null, formDetectionService = null }) {
+  constructor({
+    eventService,
+    queryService,
+    uploadService = null,
+    clientService = null,
+    extractionService = null,
+    formDetectionService = null,
+  }) {
     this.eventService = eventService;
     this.queryService = queryService;
     this.uploadService = uploadService;
@@ -1170,12 +1264,12 @@ export class SampleCommandService {
       sampleId,
       payload: {
         receivedChannel: input.receivedChannel ?? 'in_person',
-        notes: input.notes ?? null
+        notes: input.notes ?? null,
       },
       fromStatus: null,
       toStatus: 'PHYSICAL_RECEIVED',
       module: 'registration',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event);
@@ -1188,18 +1282,19 @@ export class SampleCommandService {
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample: null,
       inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
-      inputOwnerRegistrationId: normalizeNullableUuid(input.ownerRegistrationId, 'ownerRegistrationId'),
+      inputOwnerRegistrationId: normalizeNullableUuid(
+        input.ownerRegistrationId,
+        'ownerRegistrationId'
+      ),
       clientService: this.clientService,
-      mode: 'create'
+      mode: 'create',
     });
     const declared = {
-      owner:
-        ownerBinding?.displayName ??
-        normalizeRequiredText(input.owner, 'owner'),
+      owner: ownerBinding?.displayName ?? normalizeRequiredText(input.owner, 'owner'),
       sacks: normalizeSacks(input.sacks),
       harvest: normalizeRequiredText(input.harvest, 'harvest'),
       originLot: normalizeOptionalText(input.originLot, 'originLot', 100),
-      location: normalizeOptionalText(input.location, 'location', 30)
+      location: normalizeOptionalText(input.location, 'location', 30),
     };
     const receivedChannel = normalizeReceivedChannel(input.receivedChannel ?? 'in_person');
     const notes = normalizeOptionalText(input.notes, 'notes', 500);
@@ -1219,7 +1314,7 @@ export class SampleCommandService {
             {
               sampleId,
               receivedChannel,
-              notes
+              notes,
             },
             actor
           );
@@ -1244,7 +1339,7 @@ export class SampleCommandService {
             {
               sampleId,
               expectedVersion: sample.version,
-              notes
+              notes,
             },
             actor
           );
@@ -1267,7 +1362,7 @@ export class SampleCommandService {
               declared,
               ownerClientId: ownerBinding?.ownerClientId ?? null,
               ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
-              idempotencyKey: `draft:${clientDraftId}:registration-confirm`
+              idempotencyKey: `draft:${clientDraftId}:registration-confirm`,
             },
             actor
           );
@@ -1290,7 +1385,7 @@ export class SampleCommandService {
               expectedVersion: sample.version,
               attemptNumber: nextAttempt,
               printerId,
-              idempotencyKey: `draft:${clientDraftId}:qr-print:${nextAttempt}`
+              idempotencyKey: `draft:${clientDraftId}:qr-print:${nextAttempt}`,
             },
             actor
           );
@@ -1299,7 +1394,7 @@ export class SampleCommandService {
             printAction: 'PRINT',
             attemptNumber: nextAttempt,
             printerId,
-            status: 'PENDING'
+            status: 'PENDING',
           };
           continue;
         } catch (error) {
@@ -1318,7 +1413,7 @@ export class SampleCommandService {
       ) {
         const pendingPrintAttempt =
           sample.status === 'QR_PENDING_PRINT'
-            ? activePrintAttempt ?? (await this.queryService.findPendingPrintJobOrNull(sample.id))
+            ? (activePrintAttempt ?? (await this.queryService.findPendingPrintJobOrNull(sample.id)))
             : null;
 
         return {
@@ -1328,21 +1423,27 @@ export class SampleCommandService {
           sample,
           draft: {
             clientDraftId,
-            sampleId: sample.id
+            sampleId: sample.id,
           },
           qr: {
             value: sample.internalLotNumber ?? sample.id,
             internalLotNumber: sample.internalLotNumber,
-            status: sample.status
+            status: sample.status,
           },
-          print: pendingPrintAttempt
+          print: pendingPrintAttempt,
         };
       }
 
-      throw new HttpError(409, `Sample ${sample.id} is in unsupported status ${sample.status} for create flow`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} is in unsupported status ${sample.status} for create flow`
+      );
     }
 
-    throw new HttpError(409, 'Could not finalize sample creation flow due to concurrent updates. Retry request.');
+    throw new HttpError(
+      409,
+      'Could not finalize sample creation flow due to concurrent updates. Retry request.'
+    );
   }
 
   async startRegistration(input, actorContext) {
@@ -1356,12 +1457,12 @@ export class SampleCommandService {
       eventType: 'REGISTRATION_STARTED',
       sampleId: sample.id,
       payload: {
-        notes: input.notes ?? null
+        notes: input.notes ?? null,
       },
       fromStatus: 'PHYSICAL_RECEIVED',
       toStatus: 'REGISTRATION_IN_PROGRESS',
       module: 'registration',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1390,7 +1491,7 @@ export class SampleCommandService {
       kind,
       buffer: input.fileBuffer,
       mimeType: input.mimeType ?? null,
-      originalFileName: input.originalFileName ?? null
+      originalFileName: input.originalFileName ?? null,
     });
 
     const event = buildEventEnvelope({
@@ -1403,33 +1504,38 @@ export class SampleCommandService {
         fileName: saved.fileName,
         mimeType: saved.mimeType,
         sizeBytes: saved.sizeBytes,
-        checksumSha256: saved.checksumSha256
+        checksumSha256: saved.checksumSha256,
       },
       fromStatus: null,
       toStatus: null,
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     try {
       const result = await this.eventService.appendEvent(event);
 
       if (existingAttachment?.storagePath && existingAttachment.storagePath !== saved.storagePath) {
-        await this.uploadService.deleteByStoragePath(existingAttachment.storagePath).catch(() => {});
+        await this.uploadService
+          .deleteByStoragePath(existingAttachment.storagePath)
+          .catch(() => {});
       }
 
       let extraction = null;
       if (this.extractionService && this.uploadService && !input.skipExtraction) {
         try {
           const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
-          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath, sample.classificationType ?? null);
+          const raw = await this.extractionService.extractClassificationFromPhoto(
+            absolutePath,
+            sample.classificationType ?? null
+          );
           const crossValidation = crossValidateExtraction(raw.identificacao, sample);
           extraction = {
             extractedFields: raw.classificacao,
             crossValidation,
             model: 'gpt-4o',
             photoAttachmentId: saved.attachmentId,
-            processingTimeMs: raw.processingTimeMs
+            processingTimeMs: raw.processingTimeMs,
           };
 
           const extractionEvent = buildEventEnvelope({
@@ -1439,11 +1545,15 @@ export class SampleCommandService {
             fromStatus: null,
             toStatus: null,
             module: 'classification',
-            actorContext: actor
+            actorContext: actor,
           });
           await this.eventService.appendEvent(extractionEvent);
         } catch (extractionError) {
-          console.error('[extraction] Classification extraction failed:', extractionError.code ?? 'UNKNOWN', extractionError.message);
+          console.error(
+            '[extraction] Classification extraction failed:',
+            extractionError.code ?? 'UNKNOWN',
+            extractionError.message
+          );
           try {
             const failureEvent = buildEventEnvelope({
               eventType: 'CLASSIFICATION_EXTRACTION_FAILED',
@@ -1451,16 +1561,19 @@ export class SampleCommandService {
               payload: {
                 errorCode: extractionError.code ?? 'UNKNOWN',
                 errorMessage: String(extractionError.message ?? 'Extraction failed'),
-                photoAttachmentId: saved.attachmentId
+                photoAttachmentId: saved.attachmentId,
               },
               fromStatus: null,
               toStatus: null,
               module: 'classification',
-              actorContext: actor
+              actorContext: actor,
             });
             await this.eventService.appendEvent(failureEvent);
           } catch (eventError) {
-            console.error('[extraction] Failed to persist extraction failure event:', eventError.message);
+            console.error(
+              '[extraction] Failed to persist extraction failure event:',
+              eventError.message
+            );
           }
         }
       }
@@ -1469,9 +1582,9 @@ export class SampleCommandService {
         ...result,
         photo: {
           ...saved,
-          kind
+          kind,
         },
-        extraction
+        extraction,
       };
     } catch (error) {
       await this.uploadService.deleteByStoragePath(saved.storagePath);
@@ -1483,7 +1596,7 @@ export class SampleCommandService {
     return this.addSamplePhoto(
       {
         ...input,
-        kind: PHOTO_KINDS.CLASSIFICATION
+        kind: PHOTO_KINDS.CLASSIFICATION,
       },
       actorContext
     );
@@ -1499,12 +1612,15 @@ export class SampleCommandService {
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,
       inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
-      inputOwnerRegistrationId: normalizeNullableUuid(input.ownerRegistrationId, 'ownerRegistrationId'),
+      inputOwnerRegistrationId: normalizeNullableUuid(
+        input.ownerRegistrationId,
+        'ownerRegistrationId'
+      ),
       clientService: this.clientService,
-      mode: 'confirm'
+      mode: 'confirm',
     });
     const declared = normalizeDeclaredFields(input.declared, {
-      resolvedOwnerName: ownerBinding?.displayName ?? null
+      resolvedOwnerName: ownerBinding?.displayName ?? null,
     });
     const maxRetries = input.sampleLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
@@ -1519,20 +1635,26 @@ export class SampleCommandService {
           sampleLotNumber,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null
+          ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
         },
         fromStatus: 'REGISTRATION_IN_PROGRESS',
         toStatus: 'REGISTRATION_CONFIRMED',
         module: 'registration',
         actorContext: actor,
         idempotencyScope: 'REGISTRATION_CONFIRM',
-        idempotencyKey: input.idempotencyKey ?? randomUUID()
+        idempotencyKey: input.idempotencyKey ?? randomUUID(),
       });
 
       try {
-        return await this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+        return await this.eventService.appendEvent(event, {
+          expectedVersion: input.expectedVersion,
+        });
       } catch (error) {
-        if (!input.sampleLotNumber && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
+        if (
+          !input.sampleLotNumber &&
+          isInternalLotNumberUniqueConflict(error) &&
+          attempt < maxRetries
+        ) {
           continue;
         }
 
@@ -1560,14 +1682,14 @@ export class SampleCommandService {
       payload: {
         printAction: 'PRINT',
         attemptNumber,
-        printerId: input.printerId ?? null
+        printerId: input.printerId ?? null,
       },
       fromStatus: 'REGISTRATION_CONFIRMED',
       toStatus: 'QR_PENDING_PRINT',
       module: 'print',
       actorContext: actor,
       idempotencyScope: 'QR_PRINT',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
+      idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1582,8 +1704,7 @@ export class SampleCommandService {
     const attemptNumber =
       (input.attemptNumber !== undefined
         ? normalizeRequiredInteger(input.attemptNumber, 'attemptNumber', 1)
-        : null) ??
-      (await this.queryService.getNextPrintAttemptNumber(sample.id, 'REPRINT'));
+        : null) ?? (await this.queryService.getNextPrintAttemptNumber(sample.id, 'REPRINT'));
 
     const event = buildEventEnvelope({
       eventType: 'QR_REPRINT_REQUESTED',
@@ -1592,14 +1713,14 @@ export class SampleCommandService {
         printAction: 'REPRINT',
         attemptNumber,
         printerId: input.printerId ?? null,
-        reasonText: input.reasonText ?? null
+        reasonText: input.reasonText ?? null,
       },
       fromStatus: null,
       toStatus: null,
       module: 'print',
       actorContext: actor,
       idempotencyScope: 'QR_REPRINT',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
+      idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
     return this.eventService.appendEvent(event);
@@ -1623,12 +1744,12 @@ export class SampleCommandService {
         printAction,
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null,
-        error: input.error
+        error: input.error,
       },
       fromStatus: null,
       toStatus: null,
       module: 'print',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event);
@@ -1648,14 +1769,20 @@ export class SampleCommandService {
           sampleId: sample.id,
           printAction: printAction,
           attemptNumber: input.attemptNumber ?? 1,
-          status: 'PENDING'
+          status: 'PENDING',
         },
-        data: { status: 'SUCCESS', updatedAt: new Date() }
+        data: { status: 'SUCCESS', updatedAt: new Date() },
       });
-      return { statusCode: 200, idempotent: true, message: 'Sample already advanced past print phase' };
+      return {
+        statusCode: 200,
+        idempotent: true,
+        message: 'Sample already advanced past print phase',
+      };
     }
 
-    const mutatesSample = printAction === 'PRINT' || (printAction === 'REPRINT' && sample.status === 'QR_PENDING_PRINT');
+    const mutatesSample =
+      printAction === 'PRINT' ||
+      (printAction === 'REPRINT' && sample.status === 'QR_PENDING_PRINT');
 
     if (mutatesSample) {
       requireExpectedVersion(input.expectedVersion);
@@ -1673,12 +1800,12 @@ export class SampleCommandService {
       payload: {
         printAction,
         attemptNumber: input.attemptNumber,
-        printerId: input.printerId ?? null
+        printerId: input.printerId ?? null,
       },
       fromStatus: mutatesSample ? 'QR_PENDING_PRINT' : null,
       toStatus: mutatesSample ? 'QR_PRINTED' : null,
       module: 'print',
-      actorContext: actor
+      actorContext: actor,
     });
 
     if (mutatesSample) {
@@ -1700,12 +1827,12 @@ export class SampleCommandService {
       sampleId: sample.id,
       payload: {
         classificationId: input.classificationId ?? null,
-        notes: input.notes ?? null
+        notes: input.notes ?? null,
       },
       fromStatus: sample.status,
       toStatus: 'CLASSIFICATION_IN_PROGRESS',
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1716,19 +1843,25 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'save classification partial');
+    assertSampleStatus(
+      sample,
+      ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'],
+      'save classification partial'
+    );
 
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_SAVED_PARTIAL',
       sampleId: sample.id,
       payload: {
         snapshotPartial: input.snapshotPartial,
-        ...(typeof input.completionPercent === 'number' ? { completionPercent: input.completionPercent } : {})
+        ...(typeof input.completionPercent === 'number'
+          ? { completionPercent: input.completionPercent }
+          : {}),
       },
       fromStatus: null,
       toStatus: null,
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1739,8 +1872,15 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'complete classification');
-    const classificationPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.CLASSIFICATION);
+    assertSampleStatus(
+      sample,
+      ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'],
+      'complete classification'
+    );
+    const classificationPhoto = await this.queryService.findAttachmentByKind(
+      sample.id,
+      PHOTO_KINDS.CLASSIFICATION
+    );
     if (!classificationPhoto) {
       throw new HttpError(409, 'Foto de classificacao e obrigatoria para completar');
     }
@@ -1749,8 +1889,8 @@ export class SampleCommandService {
     const payload = {
       classificationPhotoId: classificationPhoto.id,
       classificationData: {
-        dataClassificacao: classificationDate
-      }
+        dataClassificacao: classificationDate,
+      },
     };
 
     if (isPlainObject(input.technical)) {
@@ -1760,7 +1900,7 @@ export class SampleCommandService {
     if (isPlainObject(input.classificationData)) {
       payload.classificationData = {
         ...input.classificationData,
-        dataClassificacao: classificationDate
+        dataClassificacao: classificationDate,
       };
     }
 
@@ -1793,7 +1933,7 @@ export class SampleCommandService {
       module: 'classification',
       actorContext: actor,
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
+      idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1809,7 +1949,8 @@ export class SampleCommandService {
       typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
         ? normalizeUpdateReasonCode(input.reasonCode)
         : DEFAULT_REGISTRATION_UPDATE_REASON_CODE;
-    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    const hasReasonText =
+      typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
     if (reasonCode === 'OTHER' && !hasReasonText) {
       throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
     }
@@ -1824,11 +1965,11 @@ export class SampleCommandService {
       hasOwnerClientId: parsedPatch.hasOwnerClientId === true,
       hasOwnerRegistrationId: parsedPatch.hasOwnerRegistrationId === true,
       clientService: this.clientService,
-      mode: 'update'
+      mode: 'update',
     });
     const effectivePatch = {
       ...parsedPatch,
-      resolvedOwnerBinding: ownerBinding
+      resolvedOwnerBinding: ownerBinding,
     };
     const updatePayload = buildRegistrationUpdatePayload(sample, effectivePatch);
     if (!updatePayload) {
@@ -1836,7 +1977,8 @@ export class SampleCommandService {
     }
 
     const nextDeclaredSacks =
-      updatePayload.after?.declared && Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'sacks')
+      updatePayload.after?.declared &&
+      Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'sacks')
         ? updatePayload.after.declared.sacks
         : null;
     if (typeof nextDeclaredSacks === 'number') {
@@ -1844,14 +1986,23 @@ export class SampleCommandService {
       const usedSacks = currentCommercial.soldSacks + currentCommercial.lostSacks;
       if (nextDeclaredSacks < usedSacks) {
         const parts = [];
-        if (currentCommercial.soldSacks > 0) parts.push(`${currentCommercial.soldSacks} vendida${currentCommercial.soldSacks === 1 ? '' : 's'}`);
-        if (currentCommercial.lostSacks > 0) parts.push(`${currentCommercial.lostSacks} perdida${currentCommercial.lostSacks === 1 ? '' : 's'}`);
-        throw new HttpError(409, `Nao e possivel reduzir para ${nextDeclaredSacks} sacas. Ja existem ${parts.join(' e ')} registradas. O minimo permitido e ${usedSacks}.`);
+        if (currentCommercial.soldSacks > 0)
+          parts.push(
+            `${currentCommercial.soldSacks} vendida${currentCommercial.soldSacks === 1 ? '' : 's'}`
+          );
+        if (currentCommercial.lostSacks > 0)
+          parts.push(
+            `${currentCommercial.lostSacks} perdida${currentCommercial.lostSacks === 1 ? '' : 's'}`
+          );
+        throw new HttpError(
+          409,
+          `Nao e possivel reduzir para ${nextDeclaredSacks} sacas. Ja existem ${parts.join(' e ')} registradas. O minimo permitido e ${usedSacks}.`
+        );
       }
       const projection = buildCommercialProjection({
         declaredSacks: nextDeclaredSacks,
         soldSacks: currentCommercial.soldSacks,
-        lostSacks: currentCommercial.lostSacks
+        lostSacks: currentCommercial.lostSacks,
       });
       updatePayload.after.soldSacks = projection.soldSacks;
       updatePayload.after.lostSacks = projection.lostSacks;
@@ -1875,12 +2026,12 @@ export class SampleCommandService {
         before: updatePayload.before,
         after: updatePayload.after,
         reasonCode,
-        reasonText
+        reasonText,
       },
       fromStatus: null,
       toStatus: null,
       module: 'registration',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1892,10 +2043,12 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, CLASSIFICATION_UPDATE_ALLOWED_STATUSES, 'update classification');
-    const reasonCode = typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
-      ? normalizeUpdateReasonCode(input.reasonCode)
-      : 'DATA_FIX';
-    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    const reasonCode =
+      typeof input.reasonCode === 'string' && input.reasonCode.trim().length > 0
+        ? normalizeUpdateReasonCode(input.reasonCode)
+        : 'DATA_FIX';
+    const hasReasonText =
+      typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
     const reasonText = hasReasonText
       ? normalizeUpdateReasonText(input.reasonText)
       : 'Atualizacao de classificacao';
@@ -1909,7 +2062,7 @@ export class SampleCommandService {
       before: updatePayload.before,
       after: updatePayload.after,
       reasonCode,
-      reasonText
+      reasonText,
     };
     if (input.classificationType) {
       updateEventPayload.classificationType = input.classificationType;
@@ -1922,7 +2075,7 @@ export class SampleCommandService {
       fromStatus: null,
       toStatus: null,
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -1934,15 +2087,24 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     if (sample.status === 'INVALIDATED') {
-      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot receive commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} is INVALIDATED and cannot receive commercial movements`
+      );
     }
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
-      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to create commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} must be CLASSIFIED to create commercial movements`
+      );
     }
 
     const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
     if (declaredSacks === null) {
-      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} does not have declared sacks to support commercial movements`
+      );
     }
 
     const movementType = normalizeMovementType(input.movementType);
@@ -1954,14 +2116,17 @@ export class SampleCommandService {
     let lossReasonText = null;
     if (movementType === MOVEMENT_TYPES.SALE) {
       const buyerClientId = normalizeNullableUuid(input.buyerClientId, 'buyerClientId');
-      const buyerRegistrationId = normalizeNullableUuid(input.buyerRegistrationId, 'buyerRegistrationId');
+      const buyerRegistrationId = normalizeNullableUuid(
+        input.buyerRegistrationId,
+        'buyerRegistrationId'
+      );
       if (!buyerClientId) {
         throw new HttpError(422, 'buyerClientId is required for SALE');
       }
       buyerBinding = await resolveBuyerBindingForMovement({
         clientService: this.clientService,
         buyerClientId,
-        buyerRegistrationId: buyerRegistrationId ?? null
+        buyerRegistrationId: buyerRegistrationId ?? null,
       });
       if (input.lossReasonText !== undefined && input.lossReasonText !== null) {
         throw new HttpError(422, 'lossReasonText is not allowed for SALE');
@@ -1979,7 +2144,7 @@ export class SampleCommandService {
     const projection = buildCommercialProjection({
       declaredSacks,
       soldSacks: soldSacks + (movementType === MOVEMENT_TYPES.SALE ? quantitySacks : 0),
-      lostSacks: lostSacks + (movementType === MOVEMENT_TYPES.LOSS ? quantitySacks : 0)
+      lostSacks: lostSacks + (movementType === MOVEMENT_TYPES.LOSS ? quantitySacks : 0),
     });
 
     const movementId = randomUUID();
@@ -1995,7 +2160,7 @@ export class SampleCommandService {
       soldSacks: projection.soldSacks,
       lostSacks: projection.lostSacks,
       availableSacks: projection.availableSacks,
-      commercialStatus: projection.commercialStatus
+      commercialStatus: projection.commercialStatus,
     };
 
     const event = buildEventEnvelope({
@@ -2005,7 +2170,7 @@ export class SampleCommandService {
       fromStatus: null,
       toStatus: null,
       module: 'commercial',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -2017,26 +2182,32 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     if (sample.status === 'INVALIDATED') {
-      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot update commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} is INVALIDATED and cannot update commercial movements`
+      );
     }
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
-      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to update commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} must be CLASSIFIED to update commercial movements`
+      );
     }
 
     const movementId = normalizeRequiredText(input.movementId, 'movementId');
     const movement = await this.queryService.requireSampleMovement(sample.id, movementId);
     if (movement.status !== MOVEMENT_STATUSES.ACTIVE) {
-      throw new HttpError(409, `Movement ${movement.id} is ${movement.status} and cannot be updated`);
+      throw new HttpError(
+        409,
+        `Movement ${movement.id} is ${movement.status} and cannot be updated`
+      );
     }
 
     const patch = parseMovementUpdatePatch(input.after ?? input.changes ?? {});
     const nextMovementType = patch.movementType ?? movement.movementType;
     const nextQuantitySacks = patch.quantitySacks ?? movement.quantitySacks;
     const nextMovementDate = patch.movementDate ?? movement.movementDate;
-    const nextNotes =
-      patch.notes !== undefined
-        ? patch.notes
-        : movement.notes;
+    const nextNotes = patch.notes !== undefined ? patch.notes : movement.notes;
 
     let buyerBinding = null;
     let nextBuyerClientId = null;
@@ -2066,7 +2237,7 @@ export class SampleCommandService {
         buyerBinding = await resolveBuyerBindingForMovement({
           clientService: this.clientService,
           buyerClientId: nextClientId,
-          buyerRegistrationId: nextRegistrationId
+          buyerRegistrationId: nextRegistrationId,
         });
         nextBuyerClientId = buyerBinding.buyerClientId;
         nextBuyerRegistrationId = buyerBinding.buyerRegistrationId;
@@ -2099,13 +2270,13 @@ export class SampleCommandService {
       lossReasonText: nextLossReasonText,
       buyerClientSnapshot:
         nextMovementType === MOVEMENT_TYPES.SALE
-          ? buyerBinding?.buyerClient ?? movement.buyerClientSnapshot ?? null
+          ? (buyerBinding?.buyerClient ?? movement.buyerClientSnapshot ?? null)
           : null,
       buyerRegistrationSnapshot:
         nextMovementType === MOVEMENT_TYPES.SALE
-          ? buyerBinding?.buyerRegistration ?? movement.buyerRegistrationSnapshot ?? null
+          ? (buyerBinding?.buyerRegistration ?? movement.buyerRegistrationSnapshot ?? null)
           : null,
-      status: movement.status
+      status: movement.status,
     };
 
     if (valuesEqual(beforeSnapshot, afterSnapshot)) {
@@ -2114,7 +2285,10 @@ export class SampleCommandService {
 
     const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
     if (declaredSacks === null) {
-      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} does not have declared sacks to support commercial movements`
+      );
     }
 
     const projection = buildCommercialProjection({
@@ -2126,7 +2300,7 @@ export class SampleCommandService {
       lostSacks:
         lostSacks -
         (movement.movementType === MOVEMENT_TYPES.LOSS ? movement.quantitySacks : 0) +
-        (nextMovementType === MOVEMENT_TYPES.LOSS ? nextQuantitySacks : 0)
+        (nextMovementType === MOVEMENT_TYPES.LOSS ? nextQuantitySacks : 0),
     });
 
     const event = buildEventEnvelope({
@@ -2140,12 +2314,12 @@ export class SampleCommandService {
         soldSacks: projection.soldSacks,
         lostSacks: projection.lostSacks,
         availableSacks: projection.availableSacks,
-        commercialStatus: projection.commercialStatus
+        commercialStatus: projection.commercialStatus,
       },
       fromStatus: null,
       toStatus: null,
       module: 'commercial',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -2157,10 +2331,16 @@ export class SampleCommandService {
 
     const sample = await this.queryService.requireSample(input.sampleId);
     if (sample.status === 'INVALIDATED') {
-      throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot cancel commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} is INVALIDATED and cannot cancel commercial movements`
+      );
     }
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
-      throw new HttpError(409, `Sample ${sample.id} must be CLASSIFIED to cancel commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} must be CLASSIFIED to cancel commercial movements`
+      );
     }
 
     const movementId = normalizeRequiredText(input.movementId, 'movementId');
@@ -2171,17 +2351,23 @@ export class SampleCommandService {
 
     const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
     if (declaredSacks === null) {
-      throw new HttpError(409, `Sample ${sample.id} does not have declared sacks to support commercial movements`);
+      throw new HttpError(
+        409,
+        `Sample ${sample.id} does not have declared sacks to support commercial movements`
+      );
     }
 
     const projection = buildCommercialProjection({
       declaredSacks,
-      soldSacks: soldSacks - (movement.movementType === MOVEMENT_TYPES.SALE ? movement.quantitySacks : 0),
-      lostSacks: lostSacks - (movement.movementType === MOVEMENT_TYPES.LOSS ? movement.quantitySacks : 0)
+      soldSacks:
+        soldSacks - (movement.movementType === MOVEMENT_TYPES.SALE ? movement.quantitySacks : 0),
+      lostSacks:
+        lostSacks - (movement.movementType === MOVEMENT_TYPES.LOSS ? movement.quantitySacks : 0),
     });
 
     const event = buildEventEnvelope({
-      eventType: movement.movementType === MOVEMENT_TYPES.SALE ? 'SALE_CANCELLED' : 'LOSS_CANCELLED',
+      eventType:
+        movement.movementType === MOVEMENT_TYPES.SALE ? 'SALE_CANCELLED' : 'LOSS_CANCELLED',
       sampleId: sample.id,
       payload: {
         movementId: movement.id,
@@ -2190,12 +2376,12 @@ export class SampleCommandService {
         soldSacks: projection.soldSacks,
         lostSacks: projection.lostSacks,
         availableSacks: projection.availableSacks,
-        commercialStatus: projection.commercialStatus
+        commercialStatus: projection.commercialStatus,
       },
       fromStatus: null,
       toStatus: null,
       module: 'commercial',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -2208,7 +2394,8 @@ export class SampleCommandService {
     const sample = await this.queryService.requireSample(input.sampleId);
     const targetEventId = normalizeRequiredText(input.targetEventId, 'targetEventId');
     const reasonCode = normalizeUpdateReasonCode(input.reasonCode);
-    const hasReasonText = typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
+    const hasReasonText =
+      typeof input.reasonText === 'string' && input.reasonText.trim().length > 0;
     if (reasonCode === 'OTHER' && !hasReasonText) {
       throw new HttpError(422, 'reasonText is required when reasonCode is OTHER');
     }
@@ -2217,7 +2404,10 @@ export class SampleCommandService {
       : DEFAULT_REGISTRATION_UPDATE_REASON_TEXT;
 
     const targetEvent = await this.queryService.requireSampleEvent(sample.id, targetEventId);
-    if (targetEvent.eventType !== 'REGISTRATION_UPDATED' && targetEvent.eventType !== 'CLASSIFICATION_UPDATED') {
+    if (
+      targetEvent.eventType !== 'REGISTRATION_UPDATED' &&
+      targetEvent.eventType !== 'CLASSIFICATION_UPDATED'
+    ) {
       throw new HttpError(409, `Event ${targetEventId} is not reversible`);
     }
 
@@ -2234,7 +2424,7 @@ export class SampleCommandService {
           expectedVersion: input.expectedVersion,
           after: revertAfter,
           reasonCode,
-          reasonText
+          reasonText,
         },
         actor
       );
@@ -2246,7 +2436,7 @@ export class SampleCommandService {
         expectedVersion: input.expectedVersion,
         after: revertAfter,
         reasonCode,
-        reasonText
+        reasonText,
       },
       actor
     );
@@ -2261,11 +2451,20 @@ export class SampleCommandService {
     const format = normalizeRequiredText(input.format ?? 'PDF', 'format').toUpperCase();
     const exportType = normalizeReportExportType(input.exportType);
     const fileName = normalizeRequiredText(input.fileName, 'fileName');
-    const classificationPhotoId = normalizeRequiredText(input.classificationPhotoId, 'classificationPhotoId');
+    const classificationPhotoId = normalizeRequiredText(
+      input.classificationPhotoId,
+      'classificationPhotoId'
+    );
     const templateVersion = normalizeRequiredText(input.templateVersion ?? 'v1', 'templateVersion');
-    const selectedFields = normalizeRequiredStringArray(input.selectedFields ?? [], 'selectedFields');
+    const selectedFields = normalizeRequiredStringArray(
+      input.selectedFields ?? [],
+      'selectedFields'
+    );
     const sizeBytes = normalizeRequiredInteger(input.sizeBytes, 'sizeBytes', 1);
-    const checksumSha256 = normalizeRequiredText(input.checksumSha256, 'checksumSha256').toLowerCase();
+    const checksumSha256 = normalizeRequiredText(
+      input.checksumSha256,
+      'checksumSha256'
+    ).toLowerCase();
 
     if (!/^[a-f0-9]{64}$/.test(checksumSha256)) {
       throw new HttpError(422, 'checksumSha256 must be a 64-char lowercase hex string');
@@ -2299,12 +2498,12 @@ export class SampleCommandService {
         classificationPhotoId,
         templateVersion,
         sizeBytes,
-        checksumSha256
+        checksumSha256,
       },
       fromStatus: null,
       toStatus: null,
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event);
@@ -2337,12 +2536,12 @@ export class SampleCommandService {
       payload: {
         recipientClientId: clientId,
         recipientClientSnapshot,
-        sentDate
+        sentDate,
       },
       fromStatus: null,
       toStatus: null,
       module: 'classification',
-      actorContext: actor
+      actorContext: actor,
     });
 
     return this.eventService.appendEvent(event);
@@ -2351,7 +2550,10 @@ export class SampleCommandService {
   async updateCommercialStatus(input, actorContext) {
     const toCommercialStatus = normalizeCommercialStatus(input.toCommercialStatus);
     if (toCommercialStatus !== 'LOST') {
-      throw new HttpError(422, 'Commercial status is now automatic. Only LOST can be triggered manually.');
+      throw new HttpError(
+        422,
+        'Commercial status is now automatic. Only LOST can be triggered manually.'
+      );
     }
 
     const sample = await this.queryService.requireSample(input.sampleId);
@@ -2369,7 +2571,7 @@ export class SampleCommandService {
         quantitySacks: projection.availableSacks,
         movementDate: buildBusinessDateStamp(),
         notes: null,
-        lossReasonText: input.reasonText
+        lossReasonText: input.reasonText,
       },
       actorContext
     );
@@ -2386,7 +2588,10 @@ export class SampleCommandService {
 
     const { soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
     if (soldSacks > 0 || lostSacks > 0) {
-      throw new HttpError(409, 'Nao e possivel invalidar uma amostra com movimentacoes comerciais ativas. Cancele as movimentacoes antes de invalidar.');
+      throw new HttpError(
+        409,
+        'Nao e possivel invalidar uma amostra com movimentacoes comerciais ativas. Cancele as movimentacoes antes de invalidar.'
+      );
     }
 
     const event = buildEventEnvelope({
@@ -2394,14 +2599,14 @@ export class SampleCommandService {
       sampleId: sample.id,
       payload: {
         reasonCode: input.reasonCode,
-        reasonText: input.reasonText
+        reasonText: input.reasonText,
       },
       fromStatus: sample.status,
       toStatus: 'INVALIDATED',
       module: 'registration',
       actorContext: actor,
       idempotencyScope: 'INVALIDATE',
-      idempotencyKey: input.idempotencyKey ?? randomUUID()
+      idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
@@ -2444,7 +2649,7 @@ export class SampleCommandService {
     return {
       statusCode: 200,
       photoToken,
-      detected
+      detected,
     };
   }
 
@@ -2515,7 +2720,10 @@ export class SampleCommandService {
     }
 
     try {
-      const raw = await this.extractionService.extractClassificationFromPhoto(extractionPath, input.classificationType);
+      const raw = await this.extractionService.extractClassificationFromPhoto(
+        extractionPath,
+        input.classificationType
+      );
 
       return {
         statusCode: 200,
@@ -2523,7 +2731,7 @@ export class SampleCommandService {
         identification: raw.identificacao,
         photoToken,
         formDetected,
-        processingTimeMs: raw.processingTimeMs
+        processingTimeMs: raw.processingTimeMs,
       };
     } catch (err) {
       if (createdTempFile) {
@@ -2534,7 +2742,11 @@ export class SampleCommandService {
   }
 
   async confirmClassificationFromCamera(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'confirm classification from camera');
+    const actor = requireUserActor(
+      actorContext,
+      USER_ACTION_ROLES,
+      'confirm classification from camera'
+    );
     const sampleId = normalizeNullableUuid(input.sampleId, 'sampleId');
     if (!sampleId) {
       throw new HttpError(422, 'sampleId e obrigatorio');
@@ -2561,29 +2773,36 @@ export class SampleCommandService {
     }
 
     // Upload photo to sample
-    await this.addSamplePhoto({
-      sampleId,
-      kind: PHOTO_KINDS.CLASSIFICATION,
-      fileBuffer,
-      mimeType: 'image/jpeg',
-      originalFileName: `classification-${sampleId}.jpg`,
-      replaceExisting: true,
-      skipExtraction: true
-    }, actor);
+    await this.addSamplePhoto(
+      {
+        sampleId,
+        kind: PHOTO_KINDS.CLASSIFICATION,
+        fileBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: `classification-${sampleId}.jpg`,
+        replaceExisting: true,
+        skipExtraction: true,
+      },
+      actor
+    );
 
     // Build classification data
     const classifierName = actor.displayName ?? actor.username ?? null;
     const classificationDate = buildBusinessDateStamp();
-    const classificationData = isPlainObject(input.classificationData) ? {
-      ...input.classificationData,
-      dataClassificacao: classificationDate,
-      classificador: classifierName
-    } : { dataClassificacao: classificationDate, classificador: classifierName };
+    const classificationData = isPlainObject(input.classificationData)
+      ? {
+          ...input.classificationData,
+          dataClassificacao: classificationDate,
+          classificador: classifierName,
+        }
+      : { dataClassificacao: classificationDate, classificador: classifierName };
 
     const technical = {};
     if (classificationData.defeito) {
       const parsed = parseInt(classificationData.defeito, 10);
-      if (Number.isFinite(parsed)) { technical.defectsCount = Math.round(parsed); }
+      if (Number.isFinite(parsed)) {
+        technical.defectsCount = Math.round(parsed);
+      }
     }
     // Re-read sample after photo upload (version changed)
     const current = await this.queryService.requireSample(sampleId);
@@ -2610,25 +2829,31 @@ export class SampleCommandService {
           parsedPatch.peneirasPercentuais = sievePatch;
         }
       }
-      result = await this.updateClassification({
-        sampleId,
-        expectedVersion: current.version,
-        after: parsedPatch,
-        reasonCode: 'DATA_FIX',
-        reasonText: 'Reclassificacao via foto',
-        classificationType: input.classificationType ?? null
-      }, actorContext);
+      result = await this.updateClassification(
+        {
+          sampleId,
+          expectedVersion: current.version,
+          after: parsedPatch,
+          reasonCode: 'DATA_FIX',
+          reasonText: 'Reclassificacao via foto',
+          classificationType: input.classificationType ?? null,
+        },
+        actorContext
+      );
     } else {
       // New classification
-      result = await this.completeClassification({
-        sampleId,
-        expectedVersion: current.version,
-        classificationData,
-        technical: Object.keys(technical).length > 0 ? technical : undefined,
-        classifierName,
-        idempotencyKey: input.idempotencyKey,
-        classificationType: input.classificationType ?? null
-      }, actorContext);
+      result = await this.completeClassification(
+        {
+          sampleId,
+          expectedVersion: current.version,
+          classificationData,
+          technical: Object.keys(technical).length > 0 ? technical : undefined,
+          classifierName,
+          idempotencyKey: input.idempotencyKey,
+          classificationType: input.classificationType ?? null,
+        },
+        actorContext
+      );
     }
 
     // Cleanup temp files (best-effort)

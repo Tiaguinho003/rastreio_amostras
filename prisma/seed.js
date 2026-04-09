@@ -99,8 +99,8 @@ async function importLegacyUsers() {
         passwordHash,
         role,
         status: 'ACTIVE',
-        initialPasswordDecision: 'PENDING'
-      }
+        initialPasswordDecision: 'PENDING',
+      },
     });
   }
 
@@ -125,8 +125,8 @@ async function createBootstrapAdmin() {
       passwordHash: await bcrypt.hash(password, 10),
       role: 'ADMIN',
       status: 'ACTIVE',
-      initialPasswordDecision: 'PENDING'
-    }
+      initialPasswordDecision: 'PENDING',
+    },
   });
 }
 

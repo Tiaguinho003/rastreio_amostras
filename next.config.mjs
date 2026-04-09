@@ -8,38 +8,38 @@ const nextConfig = {
         headers: [
           {
             key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
+            value: 'strict-origin-when-cross-origin',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            value: 'nosniff',
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
-          }
-        ]
+            value: 'SAMEORIGIN',
+          },
+        ],
       },
       {
         source: '/sw.js',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate'
-          }
-        ]
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
       },
       {
         source: '/manifest.webmanifest',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=3600'
-          }
-        ]
-      }
+            value: 'public, max-age=3600',
+          },
+        ],
+      },
     ];
-  }
+  },
 };
 
 export default nextConfig;

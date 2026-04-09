@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   resolveSessionCookieSecureMode,
-  shouldUseSecureSessionCookie
+  shouldUseSecureSessionCookie,
 } from '../src/auth/session-cookie-policy.js';
 
 test('resolveSessionCookieSecureMode normalizes explicit values and defaults to auto', () => {
@@ -20,7 +20,7 @@ test('shouldUseSecureSessionCookie honors explicit false even for https-like req
     shouldUseSecureSessionCookie({
       configuredValue: 'false',
       forwardedProto: 'https',
-      requestProtocol: 'https:'
+      requestProtocol: 'https:',
     }),
     false
   );
@@ -31,7 +31,7 @@ test('shouldUseSecureSessionCookie honors explicit true and auto detection', () 
     shouldUseSecureSessionCookie({
       configuredValue: 'true',
       forwardedProto: 'http',
-      requestProtocol: 'http:'
+      requestProtocol: 'http:',
     }),
     true
   );
@@ -40,7 +40,7 @@ test('shouldUseSecureSessionCookie honors explicit true and auto detection', () 
     shouldUseSecureSessionCookie({
       configuredValue: 'auto',
       forwardedProto: 'https',
-      requestProtocol: 'http:'
+      requestProtocol: 'http:',
     }),
     true
   );
@@ -49,7 +49,7 @@ test('shouldUseSecureSessionCookie honors explicit true and auto detection', () 
     shouldUseSecureSessionCookie({
       configuredValue: 'auto',
       forwardedProto: 'http',
-      requestProtocol: 'http:'
+      requestProtocol: 'http:',
     }),
     false
   );

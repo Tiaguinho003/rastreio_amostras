@@ -14,6 +14,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const body = await readJsonBody(request);
   return executeBackend('cancelSampleMovement', request, {
     params,
-    body
+    body,
   });
 }

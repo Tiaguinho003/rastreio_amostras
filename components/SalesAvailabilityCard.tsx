@@ -9,13 +9,13 @@ type SalesAvailabilityData = DashboardSalesAvailabilityResponse;
 const BAND_COLORS = {
   over30: '#C0392B',
   from15to30: '#E5A100',
-  under15: '#27AE60'
+  under15: '#27AE60',
 } as const;
 
 const BAND_LABELS = {
   over30: '+30',
   from15to30: '+15',
-  under15: '-15'
+  under15: '-15',
 } as const;
 
 function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; total: number }) {
@@ -26,7 +26,7 @@ function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; t
   const segments = [
     { key: 'over30' as const, value: bands.over30 },
     { key: 'from15to30' as const, value: bands.from15to30 },
-    { key: 'under15' as const, value: bands.under15 }
+    { key: 'under15' as const, value: bands.under15 },
   ].filter((s) => s.value > 0);
 
   return (
@@ -37,7 +37,7 @@ function StackedBar({ bands, total }: { bands: SalesAvailabilityData['bands']; t
           className="sales-bar-segment"
           style={{
             flex: segment.value,
-            background: BAND_COLORS[segment.key]
+            background: BAND_COLORS[segment.key],
           }}
         />
       ))}
@@ -49,7 +49,7 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
   const bandEntries = [
     { key: 'over30' as const, value: data.bands.over30 },
     { key: 'from15to30' as const, value: data.bands.from15to30 },
-    { key: 'under15' as const, value: data.bands.under15 }
+    { key: 'under15' as const, value: data.bands.under15 },
   ];
 
   return (
@@ -83,9 +83,7 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
             <span className="sales-card-legend-title" style={{ color: BAND_COLORS[entry.key] }}>
               {BAND_LABELS[entry.key]}
             </span>
-            <strong className="sales-card-legend-count">
-              {entry.value}
-            </strong>
+            <strong className="sales-card-legend-count">{entry.value}</strong>
           </Link>
         ))}
       </div>
@@ -100,7 +98,8 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
             </svg>
           </span>
           <span className="sales-card-alert-text">
-            {data.bands.over30} {data.bands.over30 === 1 ? 'amostra parada' : 'amostras paradas'} ha mais de 30 dias
+            {data.bands.over30} {data.bands.over30 === 1 ? 'amostra parada' : 'amostras paradas'} ha
+            mais de 30 dias
           </span>
         </div>
       ) : null}

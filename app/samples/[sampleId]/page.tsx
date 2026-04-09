@@ -25,10 +25,14 @@ import {
   startClassification,
   updateClassification,
   updateRegistration,
-  uploadClassificationPhoto
+  uploadClassificationPhoto,
 } from '../../../lib/api-client';
 import { compressImage } from '../../../lib/compress-image';
-import { invalidateSampleSchema, registrationFormSchema, updateReasonSchema } from '../../../lib/form-schemas';
+import {
+  invalidateSampleSchema,
+  registrationFormSchema,
+  updateReasonSchema,
+} from '../../../lib/form-schemas';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
@@ -43,7 +47,7 @@ import type {
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
-  SessionUser
+  SessionUser,
 } from '../../../lib/types';
 import {
   type ClassificationFormState,
@@ -61,38 +65,38 @@ import {
   buildClassificationDataPayload,
   buildTechnicalFromClassificationData,
   mapExtractionToForm,
-  getTypeConfig
+  getTypeConfig,
 } from '../../../lib/classification-form';
-
 
 type LabelModalStep = 'review' | 'completed';
 type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
-
-const CLASSIFICATION_STATUSES: SampleStatus[] = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
+const CLASSIFICATION_STATUSES: SampleStatus[] = [
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
   'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED'
+  'CLASSIFIED',
 ];
-
-
 
 const INVALIDATE_REASON_OPTIONS: Array<{ value: InvalidateReasonCode; label: string }> = [
   { value: 'DUPLICATE', label: 'Duplicada' },
   { value: 'WRONG_SAMPLE', label: 'Amostra incorreta' },
   { value: 'DAMAGED', label: 'Danificada' },
   { value: 'CANCELLED', label: 'Cancelada' },
-  { value: 'OTHER', label: 'Outro motivo' }
+  { value: 'OTHER', label: 'Outro motivo' },
 ];
 
 const UPDATE_REASON_OPTIONS: Array<{ value: UpdateReasonCode; label: string }> = [
   { value: 'DATA_FIX', label: 'Correcao de dados' },
   { value: 'TYPO', label: 'Erro de digitacao' },
   { value: 'MISSING_INFO', label: 'Informacao faltante' },
-  { value: 'OTHER', label: 'Outro motivo' }
+  { value: 'OTHER', label: 'Outro motivo' },
 ];
 
 type Notice = { kind: 'error' | 'success'; text: string } | null;
@@ -155,16 +159,24 @@ function formatDateInputLabel(value: string): string {
   return parsed.toLocaleDateString('pt-BR');
 }
 
-
-function buildClassificationFormState(detail: SampleDetailResponse, user: SessionUser): ClassificationFormState {
-  const latestData = isRecord(detail.sample.latestClassification.data) ? detail.sample.latestClassification.data : {};
+function buildClassificationFormState(
+  detail: SampleDetailResponse,
+  user: SessionUser
+): ClassificationFormState {
+  const latestData = isRecord(detail.sample.latestClassification.data)
+    ? detail.sample.latestClassification.data
+    : {};
   const draftData =
-    (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') && isRecord(detail.sample.classificationDraft.snapshot)
+    (detail.sample.status === 'QR_PRINTED' ||
+      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') &&
+    isRecord(detail.sample.classificationDraft.snapshot)
       ? detail.sample.classificationDraft.snapshot
       : {};
   const mergedData = { ...latestData, ...draftData };
 
-  const latestSieve = isRecord(latestData.peneirasPercentuais) ? latestData.peneirasPercentuais : {};
+  const latestSieve = isRecord(latestData.peneirasPercentuais)
+    ? latestData.peneirasPercentuais
+    : {};
   const draftSieve = isRecord(draftData.peneirasPercentuais) ? draftData.peneirasPercentuais : {};
   const mergedSieve = { ...latestSieve, ...draftSieve };
 
@@ -194,12 +206,24 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     peneiraP12: toText(mergedSieve.p12),
     peneiraP11: toText(mergedSieve.p11),
     peneiraP10: toText(mergedSieve.p10),
-    fundo1Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.peneira ?? ''; })(),
-    fundo1Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.percentual != null ? String(f[0].percentual) : ''; })(),
-    fundo2Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.peneira ?? ''; })(),
-    fundo2Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.percentual != null ? String(f[1].percentual) : ''; })(),
+    fundo1Peneira: (() => {
+      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
+      return f[0]?.peneira ?? '';
+    })(),
+    fundo1Percent: (() => {
+      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
+      return f[0]?.percentual != null ? String(f[0].percentual) : '';
+    })(),
+    fundo2Peneira: (() => {
+      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
+      return f[1]?.peneira ?? '';
+    })(),
+    fundo2Percent: (() => {
+      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
+      return f[1]?.percentual != null ? String(f[1].percentual) : '';
+    })(),
     ap: toText(mergedData.ap),
-    gpi: toText(mergedData.gpi)
+    gpi: toText(mergedData.gpi),
   };
 }
 
@@ -208,12 +232,12 @@ function buildMismatchMessage(crossValidation: ExtractionResult['crossValidation
     lote: 'Lote',
     sacas: 'Sacas',
     safra: 'Safra',
-    data: 'Data'
+    data: 'Data',
   };
 
   const mismatches = crossValidation.details
-    .filter(d => !d.match)
-    .map(d => {
+    .filter((d) => !d.match)
+    .map((d) => {
       const label = fieldLabels[d.field] ?? d.field;
       return `${label}: ficha "${d.extracted ?? '?'}", registro "${d.registered ?? '?'}"`;
     });
@@ -224,9 +248,7 @@ function buildMismatchMessage(crossValidation: ExtractionResult['crossValidation
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
     <div className="notice-slot" aria-live="polite">
-      {notice ? (
-        <p className={`notice-slot-text is-${notice.kind}`}>{notice.text}</p>
-      ) : null}
+      {notice ? <p className={`notice-slot-text is-${notice.kind}`}>{notice.text}</p> : null}
     </div>
   );
 }
@@ -384,7 +406,9 @@ function getLabelPrintActionForStatus(status: SampleStatus): PrintAction | null 
   return null;
 }
 
-function mapSampleOwnerClientToSummary(client: SampleDetailResponse['sample']['ownerClient']): ClientSummary | null {
+function mapSampleOwnerClientToSummary(
+  client: SampleDetailResponse['sample']['ownerClient']
+): ClientSummary | null {
   if (!client) {
     return null;
   }
@@ -409,7 +433,7 @@ function mapSampleOwnerClientToSummary(client: SampleDetailResponse['sample']['o
     primaryCity: null,
     primaryState: null,
     createdAt: null,
-    updatedAt: null
+    updatedAt: null,
   };
 }
 
@@ -435,10 +459,14 @@ export default function SampleDetailPage() {
 
   const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
-  const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(null);
+  const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
+    null
+  );
   const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
-  const [_showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] = useState(false);
-  const [_classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] = useState(0);
+  const [_showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] =
+    useState(false);
+  const [_classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] =
+    useState(0);
   const [printHighlighted, setPrintHighlighted] = useState(false);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
@@ -457,7 +485,9 @@ export default function SampleDetailPage() {
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
   const [ownerRegistrations, setOwnerRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(null);
+  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(
+    null
+  );
   const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
   const [ownerQuickCreateOpen, setOwnerQuickCreateOpen] = useState(false);
   const [ownerQuickCreateSeed, setOwnerQuickCreateSeed] = useState('');
@@ -478,27 +508,33 @@ export default function SampleDetailPage() {
   const [invalidating, setInvalidating] = useState(false);
   const [invalidateModalOpen, setInvalidateModalOpen] = useState(false);
 
-  const [classificationForm, setClassificationForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
+  const [classificationForm, setClassificationForm] =
+    useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [classificationStarting, setClassificationStarting] = useState(false);
   const [classificationSaving, setClassificationSaving] = useState(false);
   const [classificationCompleting, setClassificationCompleting] = useState(false);
-  const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>('PHOTO');
+  const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>(
+    'PHOTO'
+  );
   const [detailSection, setDetailSection] = useState<SampleDetailSection>('GENERAL');
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const registrationEditModeRef = useRef(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
-  const [registrationEditReasonCode, setRegistrationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
+  const [registrationEditReasonCode, setRegistrationEditReasonCode] =
+    useState<UpdateReasonCode>('OTHER');
   const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
   const [registrationEditReasonModalOpen, setRegistrationEditReasonModalOpen] = useState(false);
   const [classificationDetailOpen, setClassificationDetailOpen] = useState(false);
   const [classificationDetailEditing, setClassificationDetailEditing] = useState(false);
   const [classificationDetailSaving, setClassificationDetailSaving] = useState(false);
   const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
-  const [classificationDetailForm, setClassificationDetailForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
+  const [classificationDetailForm, setClassificationDetailForm] =
+    useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
-  const [classificationEditReasonCode, setClassificationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
+  const [classificationEditReasonCode, setClassificationEditReasonCode] =
+    useState<UpdateReasonCode>('OTHER');
   const [classificationEditReasonText, setClassificationEditReasonText] = useState('');
   const [classificationEditReasonModalOpen, setClassificationEditReasonModalOpen] = useState(false);
   const [classificationUpdating, setClassificationUpdating] = useState(false);
@@ -520,7 +556,9 @@ export default function SampleDetailPage() {
   const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
-  const hasActiveMovements = Boolean(detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0));
+  const hasActiveMovements = Boolean(
+    detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0)
+  );
 
   const fetchDetail = useCallback(
     async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
@@ -540,7 +578,7 @@ export default function SampleDetailPage() {
       try {
         const response = await getSampleDetail(session, sampleId, {
           eventLimit,
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         if (controller.signal.aborted) {
@@ -552,7 +590,9 @@ export default function SampleDetailPage() {
 
         if (!registrationEditModeRef.current) {
           setOwner(response.sample.declared.owner ?? '');
-          setSelectedOwnerClient(mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null));
+          setSelectedOwnerClient(
+            mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null)
+          );
           setSelectedOwnerRegistrationId(response.sample.ownerRegistrationId ?? null);
           setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
           setHarvest(response.sample.declared.harvest ?? '');
@@ -612,7 +652,9 @@ export default function SampleDetailPage() {
           return;
         }
 
-        const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
+        const activeRegistrations = response.registrations.filter(
+          (registration) => registration.status === 'ACTIVE'
+        );
         setOwnerRegistrations(activeRegistrations);
       })
       .catch((cause) => {
@@ -622,7 +664,13 @@ export default function SampleDetailPage() {
 
         setOwnerRegistrations([]);
         setSelectedOwnerRegistrationId(null);
-        setGeneralNotice({ kind: 'error', text: cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario' });
+        setGeneralNotice({
+          kind: 'error',
+          text:
+            cause instanceof ApiError
+              ? cause.message
+              : 'Falha ao carregar inscricoes do proprietario',
+        });
       })
       .finally(() => {
         if (active) {
@@ -709,7 +757,8 @@ export default function SampleDetailPage() {
   }, [classificationSavedPhotoFile]);
 
   const classificationAttachment = useMemo(
-    () => detail?.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null,
+    () =>
+      detail?.attachments.find((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO') ?? null,
     [detail]
   );
   const qrValue = useMemo(
@@ -720,29 +769,44 @@ export default function SampleDetailPage() {
     ? detail.sample.status === 'QR_PENDING_PRINT' && detail.latestPrintJob?.status === 'FAILED'
     : false;
   const canQuickPrint = detail
-    ? detail.sample.status === 'REGISTRATION_CONFIRMED' || canRequestReprintStatus(detail.sample.status)
+    ? detail.sample.status === 'REGISTRATION_CONFIRMED' ||
+      canRequestReprintStatus(detail.sample.status)
     : false;
-  const canQuickReport = Boolean(detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment);
+  const canQuickReport = Boolean(
+    detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment
+  );
   const labelModalPrintAction = detail ? getLabelPrintActionForStatus(detail.sample.status) : null;
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationShowsWorkspace = Boolean(
     detail &&
-      (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
+    (detail.sample.status === 'QR_PRINTED' ||
+      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
+      detail.sample.status === 'CLASSIFIED')
   );
   const classificationPhotoEditingAllowed =
     detail?.sample.status === 'QR_PRINTED' ||
     detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
     (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
-  const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
+  const classificationFieldsReadOnly =
+    detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
   const classificationVisiblePhotoPreviewUrl =
-    classificationSelectedPhotoPreviewUrl ?? classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
-  const classificationSavedPhotoUrl = classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
-  const classificationCanComplete = !classificationPhotoUploading && !classificationSelectedPhoto && Boolean(classificationAttachment);
-  const classificationCanAccessDataSteps = Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
-  const classificationTabDotTone = detail ? getOperationalStatusDotTone(detail.sample.status) : null;
+    classificationSelectedPhotoPreviewUrl ??
+    classificationSavedPhotoPreviewUrl ??
+    classificationServerPhotoUrl;
+  const classificationSavedPhotoUrl =
+    classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
+  const classificationCanComplete =
+    !classificationPhotoUploading &&
+    !classificationSelectedPhoto &&
+    Boolean(classificationAttachment);
+  const classificationCanAccessDataSteps =
+    Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
+  const classificationTabDotTone = detail
+    ? getOperationalStatusDotTone(detail.sample.status)
+    : null;
 
   useEffect(() => {
     return () => {
@@ -866,7 +930,8 @@ export default function SampleDetailPage() {
     try {
       const response = await listSampleEvents(session, sampleId, { limit: 200 });
       const sends = response.events.filter(
-        (e: SampleEvent) => e.eventType === 'REPORT_EXPORTED' || e.eventType === 'PHYSICAL_SAMPLE_SENT'
+        (e: SampleEvent) =>
+          e.eventType === 'REPORT_EXPORTED' || e.eventType === 'PHYSICAL_SAMPLE_SENT'
       );
       setSendHistory(sends);
     } catch {
@@ -885,16 +950,19 @@ export default function SampleDetailPage() {
   }
 
   if (!sampleId) {
-      return (
-        <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-          <p className="error">sampleId invalido na rota.</p>
-        </AppShell>
-      );
+    return (
+      <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+        <p className="error">sampleId invalido na rota.</p>
+      </AppShell>
+    );
   }
 
   async function handleUploadClassificationPhoto() {
     if (!session || !classificationSelectedPhoto || !detail) {
-      setClassificationNotice({ kind: 'error', text: 'Selecione uma foto de classificacao antes de usar.' });
+      setClassificationNotice({
+        kind: 'error',
+        text: 'Selecione uma foto de classificacao antes de usar.',
+      });
       return;
     }
 
@@ -912,7 +980,7 @@ export default function SampleDetailPage() {
 
       if (uploadResult?.extraction?.extractedFields) {
         const extracted = mapExtractionToForm(uploadResult.extraction.extractedFields);
-        setClassificationForm(prev => ({ ...prev, ...extracted }));
+        setClassificationForm((prev) => ({ ...prev, ...extracted }));
       }
 
       // Cross-validation alerts disabled — extraction pre-fill is sufficient
@@ -952,7 +1020,10 @@ export default function SampleDetailPage() {
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
+      setGeneralNotice({
+        kind: 'error',
+        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
+      });
       return;
     }
 
@@ -968,7 +1039,10 @@ export default function SampleDetailPage() {
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
+      setGeneralNotice({
+        kind: 'error',
+        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
+      });
       return;
     }
 
@@ -995,13 +1069,19 @@ export default function SampleDetailPage() {
     setExportRecipientClient(null);
   }
 
-  async function handleExportPdf(exportType: SampleExportType, recipientClient: ClientSummary | null) {
+  async function handleExportPdf(
+    exportType: SampleExportType,
+    recipientClient: ClientSummary | null
+  ) {
     if (!session || !detail) {
       return;
     }
 
     if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({ kind: 'error', text: 'A exportacao de laudo so e permitida para amostras classificadas.' });
+      setGeneralNotice({
+        kind: 'error',
+        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
+      });
       return;
     }
 
@@ -1017,7 +1097,7 @@ export default function SampleDetailPage() {
       const exported = await exportSamplePdf(session, sampleId, {
         exportType,
         destination: recipientClient.displayName,
-        recipientClientId: recipientClient.id
+        recipientClientId: recipientClient.id,
       });
 
       const blobUrl = URL.createObjectURL(exported.blob);
@@ -1029,7 +1109,10 @@ export default function SampleDetailPage() {
       anchor.remove();
       URL.revokeObjectURL(blobUrl);
 
-      setGeneralNotice({ kind: 'success', text: `Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.` });
+      setGeneralNotice({
+        kind: 'success',
+        text: `Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.`,
+      });
       setExportConfirmationOpen(false);
       setPendingExportType(null);
       setExportRecipientClient(null);
@@ -1064,10 +1147,13 @@ export default function SampleDetailPage() {
     try {
       await recordPhysicalSampleSent(session, sampleId, {
         recipientClientId: physicalSendClient.id,
-        sentDate: physicalSendDate
+        sentDate: physicalSendDate,
       });
 
-      setGeneralNotice({ kind: 'success', text: 'Envio de amostra fisica registrado com sucesso.' });
+      setGeneralNotice({
+        kind: 'success',
+        text: 'Envio de amostra fisica registrado com sucesso.',
+      });
       setPhysicalSendModalOpen(false);
       fetchSendHistory();
     } catch (cause) {
@@ -1089,7 +1175,10 @@ export default function SampleDetailPage() {
     setGeneralNotice(null);
 
     if (!selectedOwnerClient) {
-      setGeneralNotice({ kind: 'error', text: 'Selecione um cliente proprietario antes de confirmar o registro.' });
+      setGeneralNotice({
+        kind: 'error',
+        text: 'Selecione um cliente proprietario antes de confirmar o registro.',
+      });
       return;
     }
 
@@ -1098,11 +1187,14 @@ export default function SampleDetailPage() {
       sacks,
       harvest,
       originLot,
-      location: location.trim() ? location : null
+      location: location.trim() ? location : null,
     });
 
     if (!parsed.success) {
-      setGeneralNotice({ kind: 'error', text: parsed.error.issues[0]?.message ?? 'Dados de registro invalidos' });
+      setGeneralNotice({
+        kind: 'error',
+        text: parsed.error.issues[0]?.message ?? 'Dados de registro invalidos',
+      });
       return;
     }
 
@@ -1112,7 +1204,7 @@ export default function SampleDetailPage() {
         expectedVersion: detail.sample.version,
         ownerClientId: selectedOwnerClient.id,
         ownerRegistrationId: selectedOwnerRegistrationId,
-        declared: parsed.data
+        declared: parsed.data,
       });
       setGeneralNotice({ kind: 'success', text: 'Registro confirmado com sucesso.' });
       await syncDetailState();
@@ -1150,7 +1242,10 @@ export default function SampleDetailPage() {
 
     const printAction = getLabelPrintActionForStatus(detail.sample.status);
     if (!printAction) {
-      setGeneralNotice({ kind: 'error', text: 'A impressao ainda nao esta disponivel para este status.' });
+      setGeneralNotice({
+        kind: 'error',
+        text: 'A impressao ainda nao esta disponivel para este status.',
+      });
       return;
     }
 
@@ -1187,12 +1282,12 @@ export default function SampleDetailPage() {
       if (printAction === 'PRINT') {
         await requestQrPrint(session, sampleId, {
           expectedVersion: detail.sample.version,
-          printerId: normalizedPrinterId
+          printerId: normalizedPrinterId,
         });
       } else {
         await requestQrReprint(session, sampleId, {
           printerId: normalizedPrinterId,
-          reasonText: null
+          reasonText: null,
         });
       }
 
@@ -1220,17 +1315,23 @@ export default function SampleDetailPage() {
     }
 
     if (!canInvalidateSample) {
-      setInvalidateModalNotice({ kind: 'error', text: 'Sua sessao atual nao permite invalidar esta amostra.' });
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: 'Sua sessao atual nao permite invalidar esta amostra.',
+      });
       return;
     }
 
     const parsed = invalidateSampleSchema.safeParse({
       reasonCode: invalidateReasonCode,
-      reasonText: invalidateReasonText
+      reasonText: invalidateReasonText,
     });
 
     if (!parsed.success) {
-      setInvalidateModalNotice({ kind: 'error', text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos' });
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos',
+      });
       return;
     }
 
@@ -1241,7 +1342,7 @@ export default function SampleDetailPage() {
       await invalidateSample(session, sampleId, {
         expectedVersion: detail.sample.version,
         reasonCode: parsed.data.reasonCode,
-        reasonText: parsed.data.reasonText
+        reasonText: parsed.data.reasonText,
       });
       setInvalidateModalOpen(false);
       setGeneralNotice({ kind: 'success', text: 'Amostra invalidada com sucesso.' });
@@ -1260,7 +1361,13 @@ export default function SampleDetailPage() {
   }
 
   async function handleStartClassification() {
-    if (!session || !detail || !isClassificationStatus(detail.sample.status) || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED') {
+    if (
+      !session ||
+      !detail ||
+      !isClassificationStatus(detail.sample.status) ||
+      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
+      detail.sample.status === 'CLASSIFIED'
+    ) {
       return;
     }
 
@@ -1271,7 +1378,7 @@ export default function SampleDetailPage() {
       await startClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         classificationId: null,
-        notes: null
+        notes: null,
       });
       setClassificationStep('PHOTO');
       setClassificationNotice({ kind: 'success', text: 'Classificacao iniciada com sucesso.' });
@@ -1288,17 +1395,27 @@ export default function SampleDetailPage() {
   }
 
   async function handleSaveClassificationPartial() {
-    if (!session || !detail || (detail.sample.status !== 'QR_PRINTED' && detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')) {
+    if (
+      !session ||
+      !detail ||
+      (detail.sample.status !== 'QR_PRINTED' &&
+        detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')
+    ) {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
+    const validationError = validateClassificationForm(
+      classificationForm,
+      detail?.sample.classificationType
+    );
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm, { classificationType: detail?.sample.classificationType });
+    const classificationData = buildClassificationDataPayload(classificationForm, {
+      classificationType: detail?.sample.classificationType,
+    });
 
     setClassificationSaving(true);
     setClassificationNotice(null);
@@ -1309,7 +1426,7 @@ export default function SampleDetailPage() {
         snapshotPartial: ClassificationDataPayload;
       } = {
         expectedVersion: detail.sample.version,
-        snapshotPartial: { ...classificationData }
+        snapshotPartial: { ...classificationData },
       };
 
       await saveClassificationPartial(session, sampleId, partialPayload);
@@ -1326,23 +1443,36 @@ export default function SampleDetailPage() {
     }
   }
 
-
   async function handleCompleteClassification() {
-    if (!session || !detail || (detail.sample.status !== 'QR_PRINTED' && detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')) {
+    if (
+      !session ||
+      !detail ||
+      (detail.sample.status !== 'QR_PRINTED' &&
+        detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')
+    ) {
       return;
     }
 
     if (!classificationAttachment) {
-      setClassificationNotice({ kind: 'error', text: 'A foto da classificacao e obrigatoria para concluir.' });
+      setClassificationNotice({
+        kind: 'error',
+        text: 'A foto da classificacao e obrigatoria para concluir.',
+      });
       return;
     }
 
     if (classificationSelectedPhoto) {
-      setClassificationNotice({ kind: 'error', text: 'Confirme a foto selecionada antes de concluir.' });
+      setClassificationNotice({
+        kind: 'error',
+        text: 'Confirme a foto selecionada antes de concluir.',
+      });
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
+    const validationError = validateClassificationForm(
+      classificationForm,
+      detail?.sample.classificationType
+    );
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
@@ -1350,7 +1480,7 @@ export default function SampleDetailPage() {
 
     const classificationData = buildClassificationDataPayload(classificationForm, {
       includeAutomaticDate: true,
-      classificationType: detail?.sample.classificationType
+      classificationType: detail?.sample.classificationType,
     });
     const technical = buildTechnicalFromClassificationData(classificationData);
 
@@ -1362,7 +1492,7 @@ export default function SampleDetailPage() {
         expectedVersion: detail.sample.version,
         classificationData,
         technical,
-        classifierName: classificationData.classificador
+        classifierName: classificationData.classificador,
       });
       setClassificationNotice({ kind: 'success', text: 'Classificacao concluida com sucesso.' });
       await syncDetailState();
@@ -1415,8 +1545,6 @@ export default function SampleDetailPage() {
     setRegistrationEditReasonModalOpen(false);
   }
 
-
-
   async function handleConfirmRegistrationUpdate() {
     if (!session || !detail) {
       return;
@@ -1431,19 +1559,25 @@ export default function SampleDetailPage() {
       sacks,
       harvest,
       originLot,
-      location: location.trim() ? location : null
+      location: location.trim() ? location : null,
     });
     if (!parsedForm.success) {
-      setRegistrationModalNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos' });
+      setRegistrationModalNotice({
+        kind: 'error',
+        text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos',
+      });
       return;
     }
 
     const parsedReason = updateReasonSchema.safeParse({
       reasonCode: registrationEditReasonCode,
-      reasonText: registrationEditReasonText
+      reasonText: registrationEditReasonText,
     });
     if (!parsedReason.success) {
-      setRegistrationModalNotice({ kind: 'error', text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida' });
+      setRegistrationModalNotice({
+        kind: 'error',
+        text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida',
+      });
       return;
     }
 
@@ -1451,17 +1585,24 @@ export default function SampleDetailPage() {
     setRegistrationModalNotice(null);
 
     try {
-      const afterPayload: { [key: string]: string | number | boolean | null | { [key: string]: string | number | boolean | null } } = {
+      const afterPayload: {
+        [key: string]:
+          | string
+          | number
+          | boolean
+          | null
+          | { [key: string]: string | number | boolean | null };
+      } = {
         declared: parsedForm.data,
         ownerClientId: selectedOwnerClient.id,
-        ownerRegistrationId: selectedOwnerRegistrationId
+        ownerRegistrationId: selectedOwnerRegistrationId,
       };
 
       await updateRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
         after: afterPayload,
         reasonCode: parsedReason.data.reasonCode,
-        reasonText: parsedReason.data.reasonText
+        reasonText: parsedReason.data.reasonText,
       });
 
       setRegistrationEditReasonModalOpen(false);
@@ -1523,28 +1664,33 @@ export default function SampleDetailPage() {
   }
 
   function updateClassificationDetailField(key: keyof ClassificationFormState, value: string) {
-    setClassificationDetailForm(prev => ({ ...prev, [key]: value }));
+    setClassificationDetailForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function saveClassificationDetail() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') return;
 
-    const validationError = validateClassificationForm(classificationDetailForm, detail?.sample.classificationType);
+    const validationError = validateClassificationForm(
+      classificationDetailForm,
+      detail?.sample.classificationType
+    );
     if (validationError) return;
 
     setClassificationDetailSaving(true);
     try {
-      const classificationData = buildClassificationDataPayload(classificationDetailForm, { classificationType: detail?.sample.classificationType });
+      const classificationData = buildClassificationDataPayload(classificationDetailForm, {
+        classificationType: detail?.sample.classificationType,
+      });
       const technical = buildTechnicalFromClassificationData(classificationData);
 
       await updateClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         after: {
           classificationData,
-          ...(technical ? { technical } : {})
+          ...(technical ? { technical } : {}),
         },
         reasonCode: 'DATA_FIX',
-        reasonText: 'Edicao rapida'
+        reasonText: 'Edicao rapida',
       });
 
       setClassificationDetailSaved(true);
@@ -1566,7 +1712,10 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
+    const validationError = validateClassificationForm(
+      classificationForm,
+      detail?.sample.classificationType
+    );
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
@@ -1581,7 +1730,10 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
+    const validationError = validateClassificationForm(
+      classificationForm,
+      detail?.sample.classificationType
+    );
     if (validationError) {
       setClassificationModalNotice({ kind: 'error', text: validationError });
       return;
@@ -1589,14 +1741,19 @@ export default function SampleDetailPage() {
 
     const parsedReason = updateReasonSchema.safeParse({
       reasonCode: classificationEditReasonCode,
-      reasonText: classificationEditReasonText
+      reasonText: classificationEditReasonText,
     });
     if (!parsedReason.success) {
-      setClassificationModalNotice({ kind: 'error', text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida' });
+      setClassificationModalNotice({
+        kind: 'error',
+        text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida',
+      });
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm, { classificationType: detail?.sample.classificationType });
+    const classificationData = buildClassificationDataPayload(classificationForm, {
+      classificationType: detail?.sample.classificationType,
+    });
     const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationUpdating(true);
@@ -1607,10 +1764,10 @@ export default function SampleDetailPage() {
         expectedVersion: detail.sample.version,
         after: {
           classificationData,
-          ...(technical ? { technical } : {})
+          ...(technical ? { technical } : {}),
         },
         reasonCode: parsedReason.data.reasonCode,
-        reasonText: parsedReason.data.reasonText
+        reasonText: parsedReason.data.reasonText,
       });
 
       setClassificationEditReasonModalOpen(false);
@@ -1618,13 +1775,19 @@ export default function SampleDetailPage() {
       setClassificationEditMode(false);
       setClassificationEditReasonCode('OTHER');
       setClassificationEditReasonText('');
-      setClassificationNotice({ kind: 'success', text: 'Edicao de classificacao salva com sucesso.' });
+      setClassificationNotice({
+        kind: 'success',
+        text: 'Edicao de classificacao salva com sucesso.',
+      });
       await syncDetailState({ refreshHistory: true });
     } catch (cause) {
       if (cause instanceof ApiError) {
         setClassificationModalNotice({ kind: 'error', text: cause.message });
       } else {
-        setClassificationModalNotice({ kind: 'error', text: 'Falha ao salvar edicao de classificacao' });
+        setClassificationModalNotice({
+          kind: 'error',
+          text: 'Falha ao salvar edicao de classificacao',
+        });
       }
     } finally {
       setClassificationUpdating(false);
@@ -1643,7 +1806,7 @@ export default function SampleDetailPage() {
   function updateClassificationField(key: keyof ClassificationFormState, value: string) {
     setClassificationForm((current) => ({
       ...current,
-      [key]: value
+      [key]: value,
     }));
   }
 
@@ -1655,7 +1818,7 @@ export default function SampleDetailPage() {
         .filter(Boolean)
         .join(' '),
       controlClassName: ['sample-classification-control', stateClass].filter(Boolean).join(' '),
-      placeholder: classificationFieldsReadOnly ? '-' : undefined
+      placeholder: classificationFieldsReadOnly ? '-' : undefined,
     };
   }
 
@@ -1719,7 +1882,10 @@ export default function SampleDetailPage() {
 
     if (file.size > MAX_PHOTO_SIZE_BYTES) {
       const limitMb = Math.round(MAX_PHOTO_SIZE_BYTES / (1024 * 1024));
-      setClassificationNotice({ kind: 'error', text: `A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.` });
+      setClassificationNotice({
+        kind: 'error',
+        text: `A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.`,
+      });
       if (classificationPhotoInputRef.current) {
         classificationPhotoInputRef.current.value = '';
       }
@@ -1738,16 +1904,29 @@ export default function SampleDetailPage() {
   }
 
   const userFullName = session.user.fullName ?? session.user.username;
-  const userAvatarInitials = userFullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const userAvatarInitials = userFullName
+    .split(' ')
+    .map((w: string) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   function getSdvStatusColor(status: string) {
     switch (status) {
-      case 'REGISTRATION_CONFIRMED': case 'QR_PENDING_PRINT': return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Em aberto' };
-      case 'QR_PRINTED': return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A', label: 'Impressa' };
-      case 'CLASSIFICATION_IN_PROGRESS': return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE', label: 'Classificando' };
-      case 'CLASSIFIED': return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Finalizada' };
-      case 'INVALIDATED': return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Invalidada' };
-      default: return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0', label: '' };
+      case 'REGISTRATION_CONFIRMED':
+      case 'QR_PENDING_PRINT':
+        return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Em aberto' };
+      case 'QR_PRINTED':
+        return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A', label: 'Impressa' };
+      case 'CLASSIFICATION_IN_PROGRESS':
+        return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE', label: 'Classificando' };
+      case 'CLASSIFIED':
+        return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Finalizada' };
+      case 'INVALIDATED':
+        return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Invalidada' };
+      default:
+        return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0', label: '' };
     }
   }
 
@@ -1764,10 +1943,17 @@ export default function SampleDetailPage() {
             <header className="sdv-header">
               <div className="sdv-header-top">
                 <Link href="/samples" className="nsv2-back" aria-label="Voltar aos registros">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
                 </Link>
                 <span className="sdv-header-title">Detalhes</span>
-                <button type="button" className="nsv2-avatar" aria-label="Abrir menu de perfil" onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}>
+                <button
+                  type="button"
+                  className="nsv2-avatar"
+                  aria-label="Abrir menu de perfil"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
+                >
                   <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
                 </button>
               </div>
@@ -1775,17 +1961,46 @@ export default function SampleDetailPage() {
               <div className="sdv-identity-card">
                 <div className="sdv-identity-left">
                   <div className="sdv-identity-code-row">
-                    <span className="sdv-identity-code">{detail.sample.internalLotNumber ?? detail.sample.id}</span>
+                    <span className="sdv-identity-code">
+                      {detail.sample.internalLotNumber ?? detail.sample.id}
+                    </span>
                     {sdvStatus ? (
-                      <span className="sdv-identity-badge" style={{ color: sdvStatus.color, background: sdvStatus.bg, borderColor: sdvStatus.border }}>{sdvStatus.label}</span>
+                      <span
+                        className="sdv-identity-badge"
+                        style={{
+                          color: sdvStatus.color,
+                          background: sdvStatus.bg,
+                          borderColor: sdvStatus.border,
+                        }}
+                      >
+                        {sdvStatus.label}
+                      </span>
                     ) : null}
                   </div>
-                  <span className="sdv-identity-owner">{buildReadableValue(detail.sample.declared.owner)}</span>
+                  <span className="sdv-identity-owner">
+                    {buildReadableValue(detail.sample.declared.owner)}
+                  </span>
                 </div>
                 <div className="sdv-identity-actions">
                   {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
-                    <button type="button" className="sdv-identity-btn is-danger" onClick={(event) => { lastInvalidateTriggerRef.current = event.currentTarget; setInvalidateModalOpen(true); setInvalidateReasonCode('OTHER'); setInvalidateReasonText(''); setInvalidateModalNotice(null); setGeneralNotice(null); }} aria-label="Invalidar">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                    <button
+                      type="button"
+                      className="sdv-identity-btn is-danger"
+                      onClick={(event) => {
+                        lastInvalidateTriggerRef.current = event.currentTarget;
+                        setInvalidateModalOpen(true);
+                        setInvalidateReasonCode('OTHER');
+                        setInvalidateReasonText('');
+                        setInvalidateModalNotice(null);
+                        setGeneralNotice(null);
+                      }}
+                      aria-label="Invalidar"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                      </svg>
                     </button>
                   ) : null}
                 </div>
@@ -1796,21 +2011,56 @@ export default function SampleDetailPage() {
 
             {/* Bloco de ações fixo */}
             <div className="sdv-actions-bar">
-              <button type="button" className={`sdv-action-card${printHighlighted ? ' is-highlight-pulse' : ''}`} onClick={(event) => { setPrintHighlighted(false); openLabelReviewModal(event.currentTarget); }} disabled={!canQuickPrint || labelModalSubmitting}>
+              <button
+                type="button"
+                className={`sdv-action-card${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                onClick={(event) => {
+                  setPrintHighlighted(false);
+                  openLabelReviewModal(event.currentTarget);
+                }}
+                disabled={!canQuickPrint || labelModalSubmitting}
+              >
                 <span className="sdv-action-card-icon">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4.8h10V8" /><rect x="5" y="9" width="14" height="7" rx="1.8" /><path d="M8 14h8" /><path d="M8 16.8h8V20H8z" /></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 8V4.8h10V8" />
+                    <rect x="5" y="9" width="14" height="7" rx="1.8" />
+                    <path d="M8 14h8" />
+                    <path d="M8 16.8h8V20H8z" />
+                  </svg>
                 </span>
                 <span className="sdv-action-card-label">Imprimir</span>
               </button>
-              <button type="button" className="sdv-action-card" onClick={handleOpenExportTypeSelector} disabled={!canQuickReport || Boolean(exportingPdfType)}>
+              <button
+                type="button"
+                className="sdv-action-card"
+                onClick={handleOpenExportTypeSelector}
+                disabled={!canQuickReport || Boolean(exportingPdfType)}
+              >
                 <span className="sdv-action-card-icon">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 4.8h7l3 3V19.2H7z" />
+                    <path d="M14 4.8v3h3" />
+                    <path d="M9 12h6" />
+                    <path d="M9 15h6" />
+                  </svg>
                 </span>
                 <span className="sdv-action-card-label">Gerar laudo</span>
               </button>
-              <button type="button" className="sdv-action-card" onClick={() => { setPhysicalSendClient(null); setPhysicalSendDate(getTodayDateInput()); setPhysicalSendModalOpen(true); }} disabled={!canQuickReport || physicalSending}>
+              <button
+                type="button"
+                className="sdv-action-card"
+                onClick={() => {
+                  setPhysicalSendClient(null);
+                  setPhysicalSendDate(getTodayDateInput());
+                  setPhysicalSendModalOpen(true);
+                }}
+                disabled={!canQuickReport || physicalSending}
+              >
                 <span className="sdv-action-card-icon">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m22 2-7 20-4-9-9-4 20-7z" />
+                    <path d="M22 2 11 13" />
+                  </svg>
                 </span>
                 <span className="sdv-action-card-label">Enviar</span>
               </button>
@@ -1818,12 +2068,30 @@ export default function SampleDetailPage() {
 
             {/* Abas */}
             <div className="sdv-tabs" role="tablist" aria-label="Secoes da amostra">
-              <button type="button" role="tab" aria-selected={detailSection === 'GENERAL'} className={`sdv-tab${detailSection === 'GENERAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('GENERAL')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="14" rx="7" ry="9" /><path d="M12 6c-1.5 3-1.8 6-.5 9s1.5 6 .5 9" /></svg>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailSection === 'GENERAL'}
+                className={`sdv-tab${detailSection === 'GENERAL' ? ' is-active' : ''}`}
+                onClick={() => setDetailSection('GENERAL')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <ellipse cx="12" cy="14" rx="7" ry="9" />
+                  <path d="M12 6c-1.5 3-1.8 6-.5 9s1.5 6 .5 9" />
+                </svg>
                 <span>Geral</span>
               </button>
-              <button type="button" role="tab" aria-selected={detailSection === 'COMMERCIAL'} className={`sdv-tab${detailSection === 'COMMERCIAL' ? ' is-active' : ''}`} onClick={() => setDetailSection('COMMERCIAL')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailSection === 'COMMERCIAL'}
+                className={`sdv-tab${detailSection === 'COMMERCIAL' ? ' is-active' : ''}`}
+                onClick={() => setDetailSection('COMMERCIAL')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2v20" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
                 <span>Comercial</span>
               </button>
             </div>
@@ -1837,17 +2105,27 @@ export default function SampleDetailPage() {
                       <div className="sdv-card sdv-print-failed-card">
                         <div className="sdv-print-failed-row">
                           <div className="sdv-print-failed-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M12 8v4" />
+                              <path d="M12 16h.01" />
+                            </svg>
                           </div>
                           <div className="sdv-print-failed-body">
                             <span className="sdv-print-failed-title">Impressao falhou</span>
                             <span className="sdv-print-failed-sub">
                               Tentativa {detail!.latestPrintJob!.attemptNumber}
-                              {detail!.latestPrintJob!.error ? ` — ${detail!.latestPrintJob!.error}` : ''}
+                              {detail!.latestPrintJob!.error
+                                ? ` — ${detail!.latestPrintJob!.error}`
+                                : ''}
                             </span>
                           </div>
                         </div>
-                        <button type="button" className="sdv-print-failed-retry" onClick={(event) => openLabelReviewModal(event.currentTarget)}>
+                        <button
+                          type="button"
+                          className="sdv-print-failed-retry"
+                          onClick={(event) => openLabelReviewModal(event.currentTarget)}
+                        >
                           Tentar novamente
                         </button>
                       </div>
@@ -1857,39 +2135,62 @@ export default function SampleDetailPage() {
                       <div className="sdv-info-grid">
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Proprietario</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.owner)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(detail.sample.declared.owner)}
+                          </span>
                         </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Inscricao</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.ownerRegistration?.registrationNumber ?? null)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(
+                              detail.sample.ownerRegistration?.registrationNumber ?? null
+                            )}
+                          </span>
                         </div>
                         <div className="sdv-info-sep" />
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Sacas</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.sacks)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(detail.sample.declared.sacks)}
+                          </span>
                         </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Safra</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.harvest)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(detail.sample.declared.harvest)}
+                          </span>
                         </div>
                         <div className="sdv-info-sep" />
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Lote de origem</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.originLot)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(detail.sample.declared.originLot)}
+                          </span>
                         </div>
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Local</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.location)}</span>
+                          <span className="sdv-info-value">
+                            {buildReadableValue(detail.sample.declared.location)}
+                          </span>
                         </div>
                         <div className="sdv-info-sep" />
                         <div className="sdv-info-item">
                           <span className="sdv-info-label">Recebido em</span>
-                          <span className="sdv-info-value">{formatTimestamp(detail.sample.createdAt)}</span>
+                          <span className="sdv-info-value">
+                            {formatTimestamp(detail.sample.createdAt)}
+                          </span>
                         </div>
                       </div>
                       {canEditRegistrationStatus(detail.sample.status) ? (
-                        <button type="button" className="sdv-edit-btn sdv-edit-btn-corner" onClick={startRegistrationEdit}>
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                        <button
+                          type="button"
+                          className="sdv-edit-btn sdv-edit-btn-corner"
+                          onClick={startRegistrationEdit}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                          </svg>
                           <span>Editar</span>
                         </button>
                       ) : null}
@@ -1899,27 +2200,109 @@ export default function SampleDetailPage() {
                     {sendHistory.length > 0 ? (
                       <div className="sdv-card">
                         <span className="sdv-card-title">Historico de envios</span>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(8px, 2.5vw, 10px)', marginTop: 'clamp(8px, 2.5vw, 10px)' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 'clamp(8px, 2.5vw, 10px)',
+                            marginTop: 'clamp(8px, 2.5vw, 10px)',
+                          }}
+                        >
                           {sendHistory.map((evt) => {
                             const isPhysical = evt.eventType === 'PHYSICAL_SAMPLE_SENT';
                             const payload = evt.payload as Record<string, unknown>;
-                            const snapshot = payload.recipientClientSnapshot as Record<string, unknown> | null;
-                            const clientName = String(snapshot?.displayName ?? payload.destination ?? '-');
+                            const snapshot = payload.recipientClientSnapshot as Record<
+                              string,
+                              unknown
+                            > | null;
+                            const clientName = String(
+                              snapshot?.displayName ?? payload.destination ?? '-'
+                            );
                             const dateStr = isPhysical
                               ? (payload.sentDate as string)
                               : new Date(evt.occurredAt).toLocaleDateString('pt-BR');
                             return (
-                              <div key={evt.eventId} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 3vw, 12px)', padding: 'clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 14px)', background: '#F8FAFC', borderRadius: 'clamp(10px, 3vw, 12px)', fontSize: 'clamp(13px, 3.5vw, 14px)' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'clamp(36px, 10vw, 42px)', height: 'clamp(36px, 10vw, 42px)', borderRadius: '50%', background: isPhysical ? '#E8F5E9' : '#E3F2FD', flexShrink: 0 }}>
+                              <div
+                                key={evt.eventId}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 'clamp(10px, 3vw, 12px)',
+                                  padding: 'clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 14px)',
+                                  background: '#F8FAFC',
+                                  borderRadius: 'clamp(10px, 3vw, 12px)',
+                                  fontSize: 'clamp(13px, 3.5vw, 14px)',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 'clamp(36px, 10vw, 42px)',
+                                    height: 'clamp(36px, 10vw, 42px)',
+                                    borderRadius: '50%',
+                                    background: isPhysical ? '#E8F5E9' : '#E3F2FD',
+                                    flexShrink: 0,
+                                  }}
+                                >
                                   {isPhysical ? (
-                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#2f6b4a' /* brand-green-soft */, fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      width="18"
+                                      height="18"
+                                      aria-hidden="true"
+                                      style={{
+                                        stroke: '#2f6b4a' /* brand-green-soft */,
+                                        fill: 'none',
+                                        strokeWidth: 2,
+                                        strokeLinecap: 'round',
+                                        strokeLinejoin: 'round',
+                                      }}
+                                    >
+                                      <path d="m22 2-7 20-4-9-9-4 20-7z" />
+                                      <path d="M22 2 11 13" />
+                                    </svg>
                                   ) : (
-                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#1565C0', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      width="18"
+                                      height="18"
+                                      aria-hidden="true"
+                                      style={{
+                                        stroke: '#1565C0',
+                                        fill: 'none',
+                                        strokeWidth: 2,
+                                        strokeLinecap: 'round',
+                                        strokeLinejoin: 'round',
+                                      }}
+                                    >
+                                      <path d="M7 4.8h7l3 3V19.2H7z" />
+                                      <path d="M14 4.8v3h3" />
+                                      <path d="M9 12h6" />
+                                      <path d="M9 15h6" />
+                                    </svg>
                                   )}
                                 </span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 600, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clientName}</div>
-                                  <div style={{ color: '#999', fontSize: 'clamp(11px, 3vw, 12px)', marginTop: '2px' }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 600,
+                                      color: '#1A1A1A',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {clientName}
+                                  </div>
+                                  <div
+                                    style={{
+                                      color: '#999',
+                                      fontSize: 'clamp(11px, 3vw, 12px)',
+                                      marginTop: '2px',
+                                    }}
+                                  >
                                     {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
                                   </div>
                                 </div>
@@ -1940,7 +2323,15 @@ export default function SampleDetailPage() {
                         return (
                           <div className="sdv-card">
                             <span className="sdv-card-title">Classificacao</span>
-                            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Sem classificacao</p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 'clamp(12px, 3.2vw, 13px)',
+                                color: '#999',
+                              }}
+                            >
+                              Sem classificacao
+                            </p>
                           </div>
                         );
                       }
@@ -1952,18 +2343,45 @@ export default function SampleDetailPage() {
                         <div className="sdv-card sdv-cls-block">
                           <div className="sdv-card-header">
                             <span className="sdv-card-title">Classificacao</span>
-                            <button type="button" className="sdv-cls-expand-btn" onClick={openClassificationDetail} aria-label="Ver classificacao completa">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            <button
+                              type="button"
+                              className="sdv-cls-expand-btn"
+                              onClick={openClassificationDetail}
+                              aria-label="Ver classificacao completa"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                              </svg>
                             </button>
                           </div>
                           <div className="sdv-cls-block-summary">
                             {classPhotoUrl ? (
-                              <img src={classPhotoUrl} alt="Foto da classificacao" className="sdv-cls-block-thumb" />
+                              <img
+                                src={classPhotoUrl}
+                                alt="Foto da classificacao"
+                                className="sdv-cls-block-thumb"
+                              />
                             ) : null}
                             <div className="sdv-cls-block-fields">
-                              <div className="sdv-info-item"><span className="sdv-info-label">Padrao</span><span className="sdv-info-value">{padrao}</span></div>
-                              <div className="sdv-info-item"><span className="sdv-info-label">Defeito</span><span className="sdv-info-value">{defeito}</span></div>
-                              <div className="sdv-info-item"><span className="sdv-info-label">Catacao</span><span className="sdv-info-value">{catacao}</span></div>
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Padrao</span>
+                                <span className="sdv-info-value">{padrao}</span>
+                              </div>
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Defeito</span>
+                                <span className="sdv-info-value">{defeito}</span>
+                              </div>
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Catacao</span>
+                                <span className="sdv-info-value">{catacao}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1972,9 +2390,14 @@ export default function SampleDetailPage() {
 
                     {detail.sample.status === 'INVALIDATED' ? (
                       <div className="sdv-card" style={{ borderLeft: '3px solid #C0392B' }}>
-                        <span className="sdv-card-title" style={{ color: '#C0392B' }}>Amostra invalidada</span>
-                        <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>
-                          Esta amostra foi retirada do fluxo operacional e permanece apenas para consulta.
+                        <span className="sdv-card-title" style={{ color: '#C0392B' }}>
+                          Amostra invalidada
+                        </span>
+                        <p
+                          style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}
+                        >
+                          Esta amostra foi retirada do fluxo operacional e permanece apenas para
+                          consulta.
                         </p>
                       </div>
                     ) : null}
@@ -2020,7 +2443,9 @@ export default function SampleDetailPage() {
                 <h3 id="sample-detail-invalidate-modal-title" className="app-modal-title">
                   Invalidar amostra
                 </h3>
-                <p className="app-modal-description">Retire a amostra do fluxo apenas quando a operacao realmente exigir.</p>
+                <p className="app-modal-description">
+                  Retire a amostra do fluxo apenas quando a operacao realmente exigir.
+                </p>
               </div>
               <button
                 ref={invalidateModalCloseButtonRef}
@@ -2046,20 +2471,60 @@ export default function SampleDetailPage() {
               }}
             >
               {hasActiveMovements ? (
-                <div style={{ padding: 'clamp(10px, 3vw, 14px)', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <svg viewBox="0 0 24 24" style={{ width: 20, minWidth: 20, height: 20, fill: 'none', stroke: '#C0392B', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4" /><path d="M12 17h.01" />
+                <div
+                  style={{
+                    padding: 'clamp(10px, 3vw, 14px)',
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    style={{
+                      width: 20,
+                      minWidth: 20,
+                      height: 20,
+                      fill: 'none',
+                      stroke: '#C0392B',
+                      strokeWidth: 2,
+                      strokeLinecap: 'round',
+                      strokeLinejoin: 'round',
+                    }}
+                  >
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
                   </svg>
-                  <div style={{ fontSize: 'clamp(11px, 3vw, 12.5px)', color: '#7f1d1d', lineHeight: 1.45 }}>
-                    <strong style={{ display: 'block', marginBottom: 2 }}>Esta amostra possui movimentacoes comerciais</strong>
-                    Cancele todas as vendas e perdas registradas antes de invalidar. Isso garante a consistencia do historico de compras dos clientes.
+                  <div
+                    style={{
+                      fontSize: 'clamp(11px, 3vw, 12.5px)',
+                      color: '#7f1d1d',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <strong style={{ display: 'block', marginBottom: 2 }}>
+                      Esta amostra possui movimentacoes comerciais
+                    </strong>
+                    Cancele todas as vendas e perdas registradas antes de invalidar. Isso garante a
+                    consistencia do historico de compras dos clientes.
                   </div>
                 </div>
               ) : null}
 
               <label className="app-modal-field">
                 <span className="app-modal-label">Motivo da invalidacao</span>
-                <select className="app-modal-input" value={invalidateReasonCode} disabled={invalidating || hasActiveMovements} onChange={(event) => setInvalidateReasonCode(event.target.value as InvalidateReasonCode)}>
+                <select
+                  className="app-modal-input"
+                  value={invalidateReasonCode}
+                  disabled={invalidating || hasActiveMovements}
+                  onChange={(event) =>
+                    setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
+                  }
+                >
                   {INVALIDATE_REASON_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -2095,7 +2560,11 @@ export default function SampleDetailPage() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="danger sample-detail-invalidate-submit" disabled={invalidating || hasActiveMovements}>
+                <button
+                  type="submit"
+                  className="danger sample-detail-invalidate-submit"
+                  disabled={invalidating || hasActiveMovements}
+                >
                   {invalidating ? 'Invalidando...' : 'Invalidar'}
                 </button>
               </div>
@@ -2106,7 +2575,10 @@ export default function SampleDetailPage() {
 
       {detail ? (
         <section className="sample-detail-print-root" aria-hidden="true">
-          <article id="sample-detail-label-print" className="label-print-card sample-detail-label-print-card">
+          <article
+            id="sample-detail-label-print"
+            className="label-print-card sample-detail-label-print-card"
+          >
             <div className="label-qr">
               <QRCodeCanvas value={qrValue} size={120} />
             </div>
@@ -2175,10 +2647,12 @@ export default function SampleDetailPage() {
 
                 <div className="label-meta">
                   <p>
-                    <strong>Lote interno:</strong> {detail.sample.internalLotNumber ?? detail.sample.id}
+                    <strong>Lote interno:</strong>{' '}
+                    {detail.sample.internalLotNumber ?? detail.sample.id}
                   </p>
                   <p>
-                    <strong>Proprietario:</strong> {buildReadableValue(detail.sample.declared.owner)}
+                    <strong>Proprietario:</strong>{' '}
+                    {buildReadableValue(detail.sample.declared.owner)}
                   </p>
                   <p>
                     <strong>Sacas:</strong> {buildReadableValue(detail.sample.declared.sacks)}
@@ -2187,14 +2661,19 @@ export default function SampleDetailPage() {
                     <strong>Safra:</strong> {buildReadableValue(detail.sample.declared.harvest)}
                   </p>
                   <p>
-                    <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
+                    <strong>Lote origem:</strong>{' '}
+                    {buildReadableValue(detail.sample.declared.originLot)}
                   </p>
                 </div>
               </article>
             </div>
 
-            {labelModalError ? <p className="error new-sample-label-modal-feedback">{labelModalError}</p> : null}
-            {labelModalMessage ? <p className="success new-sample-label-modal-feedback">{labelModalMessage}</p> : null}
+            {labelModalError ? (
+              <p className="error new-sample-label-modal-feedback">{labelModalError}</p>
+            ) : null}
+            {labelModalMessage ? (
+              <p className="success new-sample-label-modal-feedback">{labelModalMessage}</p>
+            ) : null}
 
             <div className="row new-sample-print-actions new-sample-label-modal-actions">
               {labelModalStep === 'review' ? (
@@ -2212,7 +2691,12 @@ export default function SampleDetailPage() {
                         ? 'Reimprimir etiqueta'
                         : 'Imprimir etiqueta'}
                   </button>
-                  <button type="button" className="new-sample-label-action-edit" disabled={labelModalSubmitting} onClick={closeLabelModal}>
+                  <button
+                    type="button"
+                    className="new-sample-label-action-edit"
+                    disabled={labelModalSubmitting}
+                    onClick={closeLabelModal}
+                  >
                     Fechar
                   </button>
                 </>
@@ -2247,7 +2731,10 @@ export default function SampleDetailPage() {
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
           setSelectedOwnerRegistrationId(null);
-          setGeneralNotice({ kind: 'success', text: 'Cliente proprietario criado e selecionado com sucesso.' });
+          setGeneralNotice({
+            kind: 'success',
+            text: 'Cliente proprietario criado e selecionado com sucesso.',
+          });
         }}
       />
 
@@ -2262,9 +2749,24 @@ export default function SampleDetailPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 id="registration-edit-modal-title" className="cdm-header-name" style={{ flex: 1 }}>Editar informacoes</h3>
-              <button type="button" className="cdm-close" onClick={cancelRegistrationEdit} disabled={registrationUpdating} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <h3
+                id="registration-edit-modal-title"
+                className="cdm-header-name"
+                style={{ flex: 1 }}
+              >
+                Editar informacoes
+              </h3>
+              <button
+                type="button"
+                className="cdm-close"
+                onClick={cancelRegistrationEdit}
+                disabled={registrationUpdating}
+                aria-label="Fechar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
 
@@ -2295,7 +2797,9 @@ export default function SampleDetailPage() {
                   label="Inscricao"
                   registrations={ownerRegistrations}
                   value={selectedOwnerRegistrationId}
-                  disabled={!selectedOwnerClient || ownerRegistrationLoading || registrationUpdating}
+                  disabled={
+                    !selectedOwnerClient || ownerRegistrationLoading || registrationUpdating
+                  }
                   onChange={setSelectedOwnerRegistrationId}
                   placeholder="Selecionar"
                   compact
@@ -2304,36 +2808,78 @@ export default function SampleDetailPage() {
               <div className="sdv-edit-row">
                 <label className="sdv-edit-field">
                   <span className="sdv-edit-label">Sacas</span>
-                  <input className="sdv-edit-input" value={sacks} onChange={(event) => setSacks(event.target.value)} inputMode="numeric" disabled={registrationUpdating} />
+                  <input
+                    className="sdv-edit-input"
+                    value={sacks}
+                    onChange={(event) => setSacks(event.target.value)}
+                    inputMode="numeric"
+                    disabled={registrationUpdating}
+                  />
                 </label>
                 <label className="sdv-edit-field">
                   <span className="sdv-edit-label">Safra</span>
-                  <input className="sdv-edit-input" value={harvest} onChange={(event) => setHarvest(event.target.value)} disabled={registrationUpdating} />
+                  <input
+                    className="sdv-edit-input"
+                    value={harvest}
+                    onChange={(event) => setHarvest(event.target.value)}
+                    disabled={registrationUpdating}
+                  />
                 </label>
               </div>
               <div className="sdv-edit-row">
                 <label className="sdv-edit-field">
                   <span className="sdv-edit-label">Lote de origem</span>
-                  <input className="sdv-edit-input" value={originLot} onChange={(event) => setOriginLot(event.target.value)} disabled={registrationUpdating} />
+                  <input
+                    className="sdv-edit-input"
+                    value={originLot}
+                    onChange={(event) => setOriginLot(event.target.value)}
+                    disabled={registrationUpdating}
+                  />
                 </label>
                 <label className="sdv-edit-field">
                   <span className="sdv-edit-label">Local</span>
-                  <input className="sdv-edit-input" value={location} onChange={(event) => setLocation(event.target.value)} maxLength={30} placeholder="Ex: BM, Patos" disabled={registrationUpdating} />
+                  <input
+                    className="sdv-edit-input"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    maxLength={30}
+                    placeholder="Ex: BM, Patos"
+                    disabled={registrationUpdating}
+                  />
                 </label>
               </div>
               <div className="sdv-edit-sep" />
 
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Motivo da edicao</span>
-                <select className="sdv-edit-input" value={registrationEditReasonCode} onChange={(event) => setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)} disabled={registrationUpdating}>
+                <select
+                  className="sdv-edit-input"
+                  value={registrationEditReasonCode}
+                  onChange={(event) =>
+                    setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
+                  }
+                  disabled={registrationUpdating}
+                >
                   {UPDATE_REASON_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </label>
               <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}</span>
-                <input className="sdv-edit-input" value={registrationEditReasonText} onChange={(event) => setRegistrationEditReasonText(event.target.value)} placeholder={registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'} disabled={registrationUpdating} />
+                <span className="sdv-edit-label">
+                  Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}
+                </span>
+                <input
+                  className="sdv-edit-input"
+                  value={registrationEditReasonText}
+                  onChange={(event) => setRegistrationEditReasonText(event.target.value)}
+                  placeholder={
+                    registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
+                  }
+                  disabled={registrationUpdating}
+                />
               </label>
             </div>
 
@@ -2341,7 +2887,17 @@ export default function SampleDetailPage() {
             <NoticeSlot notice={generalNotice} />
 
             <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={() => void handleConfirmRegistrationUpdate()} disabled={registrationUpdating || (registrationEditReasonCode === 'OTHER' && registrationEditReasonText.trim().length === 0)} style={{ opacity: registrationUpdating ? 0.65 : 1 }}>
+              <button
+                type="button"
+                className="cdm-manage-link"
+                onClick={() => void handleConfirmRegistrationUpdate()}
+                disabled={
+                  registrationUpdating ||
+                  (registrationEditReasonCode === 'OTHER' &&
+                    registrationEditReasonText.trim().length === 0)
+                }
+                style={{ opacity: registrationUpdating ? 0.65 : 1 }}
+              >
                 {registrationUpdating ? 'Salvando...' : 'Salvar edicao'}
               </button>
             </div>
@@ -2350,150 +2906,250 @@ export default function SampleDetailPage() {
       ) : null}
 
       {/* Classification detail modal */}
-      {classificationDetailOpen && detail?.sample.latestClassification?.data ? (() => {
-        const f = classificationDetailForm;
-        const editing = classificationDetailEditing;
-        const saving = classificationDetailSaving;
-        const saved = classificationDetailSaved;
-        const canEdit = detail.sample.status === 'CLASSIFIED';
-        const renderVal = (key: keyof ClassificationFormState, label: string, inputMode: 'text' | 'decimal' = 'text') => (
-          <div className="cld-field" key={key}>
-            <span className="cld-field-label">{label}</span>
-            {editing ? (
-              <input
-                type="text"
-                inputMode={inputMode}
-                className="cld-field-input"
-                value={f[key]}
-                onChange={(e) => updateClassificationDetailField(key, e.target.value)}
-                disabled={saving}
-                placeholder="\u2014"
-              />
-            ) : (
-              <span className="cld-field-value">{f[key] || '\u2014'}</span>
-            )}
-          </div>
-        );
-        return (
-          <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
-            <section
-              ref={classificationDetailTrapRef}
-              className="cld-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Classificacao completa"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="cld-handle"><span /></div>
-
-              <header className="cld-header">
-                <h3 className="cld-title">Classificacao{detail.sample.classificationType ? ` \u2014 ${detail.sample.classificationType === 'LOW_CAFF' ? 'LOW CAFF' : detail.sample.classificationType}` : ''}</h3>
-                <div className="cld-header-actions">
-                  {canEdit && !editing ? (
-                    <button type="button" className="cld-edit-btn" onClick={() => setClassificationDetailEditing(true)}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                      Editar
-                    </button>
-                  ) : null}
-                  <button type="button" className="cld-close-btn" onClick={closeClassificationDetail} aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              </header>
-
-              {(() => {
-                const typeConfig = getTypeConfig(detail.sample.classificationType);
-                const sieveList = typeConfig?.sieveFields ?? ALL_SIEVE_FIELDS;
-                const defectList = typeConfig?.defectFields ?? [
-                  { key: 'broca' as const, label: 'Broca' },
-                  { key: 'pva' as const, label: 'PVA' },
-                  { key: 'imp' as const, label: 'Impureza' },
-                  { key: 'defeito' as const, label: 'Defeito' },
-                  { key: 'ap' as const, label: 'AP' },
-                  { key: 'gpi' as const, label: 'GPI' }
-                ];
-                const showFundo2 = typeConfig?.hasFundo2 !== false;
-                return (
-                  <div className={`cld-body${saved ? ' is-saved' : ''}`}>
-                    <div className="cld-section" style={{ '--sc': '#2f6b4a' } as React.CSSProperties}>
-                      <div className="cld-section-title"><span className="cld-dot" />Geral</div>
-                      <div className="cld-grid cld-grid-2">
-                        {renderVal('padrao', 'Padrao')}
-                        {renderVal('catacao', 'Catacao')}
-                        {renderVal('aspecto', 'Aspecto')}
-                        {renderVal('bebida', 'Bebida')}
-                        {renderVal('safra', 'Safra')}
-                      </div>
-                    </div>
-
-                    {sieveList.length > 0 && (
-                      <div className="cld-section" style={{ '--sc': '#2980B9' } as React.CSSProperties}>
-                        <div className="cld-section-title"><span className="cld-dot" />Peneiras <span className="cld-section-unit">%</span></div>
-                        <div className="cld-grid cld-grid-4">
-                          {sieveList.map(sf => renderVal(sf.key, sf.label, 'decimal'))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="cld-section" style={{ '--sc': '#D4A017' } as React.CSSProperties}>
-                      <div className="cld-section-title"><span className="cld-dot" />Fundos</div>
-                      <div className="cld-grid cld-grid-4">
-                        {renderVal('fundo1Peneira', 'FD1 Pen.')}
-                        {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
-                        {showFundo2 && renderVal('fundo2Peneira', 'FD2 Pen.')}
-                        {showFundo2 && renderVal('fundo2Percent', 'FD2 %', 'decimal')}
-                      </div>
-                    </div>
-
-                    {defectList.length > 0 && (
-                      <div className="cld-section" style={{ '--sc': '#C0392B' } as React.CSSProperties}>
-                        <div className="cld-section-title"><span className="cld-dot" />Defeitos e analises</div>
-                        <div className="cld-grid cld-grid-4">
-                          {defectList.map(df => renderVal(df.key, df.label, 'decimal'))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="cld-section" style={{ '--sc': '#7D3C98' } as React.CSSProperties}>
-                      <div className="cld-section-title"><span className="cld-dot" />Observacoes</div>
-                      {editing ? (
-                        <textarea
-                          className="cld-field-input cld-textarea"
-                          value={f.observacoes}
-                          onChange={(e) => updateClassificationDetailField('observacoes', e.target.value)}
-                          disabled={saving}
-                          placeholder="\u2014"
-                          rows={3}
-                        />
-                      ) : (
-                        <span className="cld-field-value cld-obs-value">{f.observacoes || '\u2014'}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="cld-actions" style={!editing ? { visibility: 'hidden' } : undefined}>
-                <button type="button" className="cld-btn-cancel" onClick={() => {
-                  if (detail && session) setClassificationDetailForm(buildClassificationFormState(detail, session.user));
-                  setClassificationDetailEditing(false);
-                }} disabled={saving} tabIndex={editing ? 0 : -1}>
-                  Cancelar
-                </button>
-                <button type="button" className="cld-btn-save" onClick={() => void saveClassificationDetail()} disabled={saving} tabIndex={editing ? 0 : -1}>
-                  {saving ? 'Salvando...' : 'Salvar'}
-                </button>
+      {classificationDetailOpen && detail?.sample.latestClassification?.data
+        ? (() => {
+            const f = classificationDetailForm;
+            const editing = classificationDetailEditing;
+            const saving = classificationDetailSaving;
+            const saved = classificationDetailSaved;
+            const canEdit = detail.sample.status === 'CLASSIFIED';
+            const renderVal = (
+              key: keyof ClassificationFormState,
+              label: string,
+              inputMode: 'text' | 'decimal' = 'text'
+            ) => (
+              <div className="cld-field" key={key}>
+                <span className="cld-field-label">{label}</span>
+                {editing ? (
+                  <input
+                    type="text"
+                    inputMode={inputMode}
+                    className="cld-field-input"
+                    value={f[key]}
+                    onChange={(e) => updateClassificationDetailField(key, e.target.value)}
+                    disabled={saving}
+                    placeholder="\u2014"
+                  />
+                ) : (
+                  <span className="cld-field-value">{f[key] || '\u2014'}</span>
+                )}
               </div>
+            );
+            return (
+              <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
+                <section
+                  ref={classificationDetailTrapRef}
+                  className="cld-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Classificacao completa"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="cld-handle">
+                    <span />
+                  </div>
 
-              {saved ? (
-                <div className="cld-saved-overlay" aria-live="polite">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#27AE60" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-                </div>
-              ) : null}
-            </section>
-          </div>
-        );
-      })() : null}
+                  <header className="cld-header">
+                    <h3 className="cld-title">
+                      Classificacao
+                      {detail.sample.classificationType
+                        ? ` \u2014 ${detail.sample.classificationType === 'LOW_CAFF' ? 'LOW CAFF' : detail.sample.classificationType}`
+                        : ''}
+                    </h3>
+                    <div className="cld-header-actions">
+                      {canEdit && !editing ? (
+                        <button
+                          type="button"
+                          className="cld-edit-btn"
+                          onClick={() => setClassificationDetailEditing(true)}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                          </svg>
+                          Editar
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="cld-close-btn"
+                        onClick={closeClassificationDetail}
+                        aria-label="Fechar"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        >
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </header>
+
+                  {(() => {
+                    const typeConfig = getTypeConfig(detail.sample.classificationType);
+                    const sieveList = typeConfig?.sieveFields ?? ALL_SIEVE_FIELDS;
+                    const defectList = typeConfig?.defectFields ?? [
+                      { key: 'broca' as const, label: 'Broca' },
+                      { key: 'pva' as const, label: 'PVA' },
+                      { key: 'imp' as const, label: 'Impureza' },
+                      { key: 'defeito' as const, label: 'Defeito' },
+                      { key: 'ap' as const, label: 'AP' },
+                      { key: 'gpi' as const, label: 'GPI' },
+                    ];
+                    const showFundo2 = typeConfig?.hasFundo2 !== false;
+                    return (
+                      <div className={`cld-body${saved ? ' is-saved' : ''}`}>
+                        <div
+                          className="cld-section"
+                          style={{ '--sc': '#2f6b4a' } as React.CSSProperties}
+                        >
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Geral
+                          </div>
+                          <div className="cld-grid cld-grid-2">
+                            {renderVal('padrao', 'Padrao')}
+                            {renderVal('catacao', 'Catacao')}
+                            {renderVal('aspecto', 'Aspecto')}
+                            {renderVal('bebida', 'Bebida')}
+                            {renderVal('safra', 'Safra')}
+                          </div>
+                        </div>
+
+                        {sieveList.length > 0 && (
+                          <div
+                            className="cld-section"
+                            style={{ '--sc': '#2980B9' } as React.CSSProperties}
+                          >
+                            <div className="cld-section-title">
+                              <span className="cld-dot" />
+                              Peneiras <span className="cld-section-unit">%</span>
+                            </div>
+                            <div className="cld-grid cld-grid-4">
+                              {sieveList.map((sf) => renderVal(sf.key, sf.label, 'decimal'))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div
+                          className="cld-section"
+                          style={{ '--sc': '#D4A017' } as React.CSSProperties}
+                        >
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Fundos
+                          </div>
+                          <div className="cld-grid cld-grid-4">
+                            {renderVal('fundo1Peneira', 'FD1 Pen.')}
+                            {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
+                            {showFundo2 && renderVal('fundo2Peneira', 'FD2 Pen.')}
+                            {showFundo2 && renderVal('fundo2Percent', 'FD2 %', 'decimal')}
+                          </div>
+                        </div>
+
+                        {defectList.length > 0 && (
+                          <div
+                            className="cld-section"
+                            style={{ '--sc': '#C0392B' } as React.CSSProperties}
+                          >
+                            <div className="cld-section-title">
+                              <span className="cld-dot" />
+                              Defeitos e analises
+                            </div>
+                            <div className="cld-grid cld-grid-4">
+                              {defectList.map((df) => renderVal(df.key, df.label, 'decimal'))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div
+                          className="cld-section"
+                          style={{ '--sc': '#7D3C98' } as React.CSSProperties}
+                        >
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Observacoes
+                          </div>
+                          {editing ? (
+                            <textarea
+                              className="cld-field-input cld-textarea"
+                              value={f.observacoes}
+                              onChange={(e) =>
+                                updateClassificationDetailField('observacoes', e.target.value)
+                              }
+                              disabled={saving}
+                              placeholder="\u2014"
+                              rows={3}
+                            />
+                          ) : (
+                            <span className="cld-field-value cld-obs-value">
+                              {f.observacoes || '\u2014'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div
+                    className="cld-actions"
+                    style={!editing ? { visibility: 'hidden' } : undefined}
+                  >
+                    <button
+                      type="button"
+                      className="cld-btn-cancel"
+                      onClick={() => {
+                        if (detail && session)
+                          setClassificationDetailForm(
+                            buildClassificationFormState(detail, session.user)
+                          );
+                        setClassificationDetailEditing(false);
+                      }}
+                      disabled={saving}
+                      tabIndex={editing ? 0 : -1}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="cld-btn-save"
+                      onClick={() => void saveClassificationDetail()}
+                      disabled={saving}
+                      tabIndex={editing ? 0 : -1}
+                    >
+                      {saving ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+
+                  {saved ? (
+                    <div className="cld-saved-overlay" aria-live="polite">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#27AE60"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          })()
+        : null}
 
       {classificationEditReasonModalOpen ? (
         <div
@@ -2536,7 +3192,9 @@ export default function SampleDetailPage() {
                 <select
                   className="app-modal-input"
                   value={classificationEditReasonCode}
-                  onChange={(event) => setClassificationEditReasonCode(event.target.value as UpdateReasonCode)}
+                  onChange={(event) =>
+                    setClassificationEditReasonCode(event.target.value as UpdateReasonCode)
+                  }
                   disabled={classificationUpdating}
                 >
                   {UPDATE_REASON_OPTIONS.map((option) => (
@@ -2549,13 +3207,18 @@ export default function SampleDetailPage() {
 
               <label className="app-modal-field">
                 <span className="app-modal-label">
-                  Justificativa{classificationEditReasonCode === 'OTHER' ? ' (obrigatoria, maximo 10 palavras)' : ' (opcional, maximo 10 palavras)'}
+                  Justificativa
+                  {classificationEditReasonCode === 'OTHER'
+                    ? ' (obrigatoria, maximo 10 palavras)'
+                    : ' (opcional, maximo 10 palavras)'}
                 </span>
                 <input
                   className="app-modal-input"
                   value={classificationEditReasonText}
                   onChange={(event) => setClassificationEditReasonText(event.target.value)}
-                  placeholder={classificationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'}
+                  placeholder={
+                    classificationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
+                  }
                   disabled={classificationUpdating}
                 />
               </label>
@@ -2567,7 +3230,11 @@ export default function SampleDetailPage() {
                   type="button"
                   className="app-modal-submit"
                   onClick={handleConfirmClassificationUpdate}
-                  disabled={classificationUpdating || (classificationEditReasonCode === 'OTHER' && classificationEditReasonText.trim().length === 0)}
+                  disabled={
+                    classificationUpdating ||
+                    (classificationEditReasonCode === 'OTHER' &&
+                      classificationEditReasonText.trim().length === 0)
+                  }
                 >
                   {classificationUpdating ? 'Salvando edicao...' : 'Salvar edicao'}
                 </button>
@@ -2586,28 +3253,78 @@ export default function SampleDetailPage() {
       ) : null}
 
       {classificationPhotoPreviewOpen && classificationSavedPhotoUrl ? (
-        <div className="app-modal-backdrop" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={() => setClassificationPhotoPreviewOpen(false)}>
-          <img src={classificationSavedPhotoUrl} alt="Foto da classificacao" style={{ maxWidth: '92vw', maxHeight: '85dvh', objectFit: 'contain', borderRadius: '12px' }} onClick={(e) => e.stopPropagation()} />
+        <div
+          className="app-modal-backdrop"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+          onClick={() => setClassificationPhotoPreviewOpen(false)}
+        >
+          <img
+            src={classificationSavedPhotoUrl}
+            alt="Foto da classificacao"
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '85dvh',
+              objectFit: 'contain',
+              borderRadius: '12px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       ) : null}
 
       {exportTypeSelectorOpen ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>
-          <section ref={exportTypeTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <section
+            ref={exportTypeTrapRef}
+            className="cdm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>Gerar laudo</h3>
-              <button type="button" className="cdm-close" onClick={handleCloseExportTypeSelector} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>
+                Gerar laudo
+              </h3>
+              <button
+                type="button"
+                className="cdm-close"
+                onClick={handleCloseExportTypeSelector}
+                aria-label="Fechar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
-            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>Selecione o tipo de laudo</p>
+            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>
+              Selecione o tipo de laudo
+            </p>
             <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={() => handleSelectExportTypeFromModal('COMPLETO')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
+              <button
+                type="button"
+                className="cdm-manage-link"
+                onClick={() => handleSelectExportTypeFromModal('COMPLETO')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 4.8h7l3 3V19.2H7z" />
+                  <path d="M14 4.8v3h3" />
+                  <path d="M9 12h6" />
+                  <path d="M9 15h6" />
+                </svg>
                 Laudo completo
               </button>
-              <button type="button" className="cdm-manage-link" style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0)' }} onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /></svg>
+              <button
+                type="button"
+                className="cdm-manage-link"
+                style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0)' }}
+                onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 4.8h7l3 3V19.2H7z" />
+                  <path d="M14 4.8v3h3" />
+                  <path d="M9 12h6" />
+                </svg>
                 Laudo comprador parcial
               </button>
             </div>
@@ -2617,11 +3334,28 @@ export default function SampleDetailPage() {
 
       {exportConfirmationOpen && pendingExportType ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
-          <section ref={exportConfirmTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <section
+            ref={exportConfirmTrapRef}
+            className="cdm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>Confirmar exportacao</h3>
-              <button type="button" className="cdm-close" onClick={handleCloseExportConfirmation} disabled={Boolean(exportingPdfType)} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>
+                Confirmar exportacao
+              </h3>
+              <button
+                type="button"
+                className="cdm-close"
+                onClick={handleCloseExportConfirmation}
+                disabled={Boolean(exportingPdfType)}
+                aria-label="Fechar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
             <div className="sdv-edit-fields">
@@ -2640,7 +3374,13 @@ export default function SampleDetailPage() {
               </label>
             </div>
             <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={handleConfirmExportFromModal} disabled={Boolean(exportingPdfType) || !exportRecipientClient} style={{ opacity: (exportingPdfType || !exportRecipientClient) ? 0.65 : 1 }}>
+              <button
+                type="button"
+                className="cdm-manage-link"
+                onClick={handleConfirmExportFromModal}
+                disabled={Boolean(exportingPdfType) || !exportRecipientClient}
+                style={{ opacity: exportingPdfType || !exportRecipientClient ? 0.65 : 1 }}
+              >
                 {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
               </button>
             </div>
@@ -2649,12 +3389,32 @@ export default function SampleDetailPage() {
       ) : null}
 
       {physicalSendModalOpen ? (
-        <div className="app-modal-backdrop" onClick={() => !physicalSending && setPhysicalSendModalOpen(false)}>
-          <section ref={physicalSendTrapRef} className="cdm-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="app-modal-backdrop"
+          onClick={() => !physicalSending && setPhysicalSendModalOpen(false)}
+        >
+          <section
+            ref={physicalSendTrapRef}
+            className="cdm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>Enviar amostra fisica</h3>
-              <button type="button" className="cdm-close" onClick={() => setPhysicalSendModalOpen(false)} disabled={physicalSending} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <h3 className="cdm-header-name" style={{ flex: 1 }}>
+                Enviar amostra fisica
+              </h3>
+              <button
+                type="button"
+                className="cdm-close"
+                onClick={() => setPhysicalSendModalOpen(false)}
+                disabled={physicalSending}
+                aria-label="Fechar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
             <div className="sdv-edit-fields">
@@ -2673,11 +3433,23 @@ export default function SampleDetailPage() {
               </label>
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Data de envio</span>
-                <input type="date" className="sdv-edit-input" value={physicalSendDate} onChange={(event) => setPhysicalSendDate(event.target.value)} disabled={physicalSending} />
+                <input
+                  type="date"
+                  className="sdv-edit-input"
+                  value={physicalSendDate}
+                  onChange={(event) => setPhysicalSendDate(event.target.value)}
+                  disabled={physicalSending}
+                />
               </label>
             </div>
             <div className="sdv-edit-actions">
-              <button type="button" className="cdm-manage-link" onClick={handlePhysicalSend} disabled={physicalSending || !physicalSendClient} style={{ opacity: (physicalSending || !physicalSendClient) ? 0.65 : 1 }}>
+              <button
+                type="button"
+                className="cdm-manage-link"
+                onClick={handlePhysicalSend}
+                disabled={physicalSending || !physicalSendClient}
+                style={{ opacity: physicalSending || !physicalSendClient ? 0.65 : 1 }}
+              >
                 {physicalSending ? 'Registrando...' : 'Confirmar envio'}
               </button>
             </div>
@@ -2698,7 +3470,10 @@ export default function SampleDetailPage() {
           }}
           aria-label="Classificar amostra"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
           <span>Classificar</span>
         </button>
       ) : null}
@@ -2711,13 +3486,21 @@ export default function SampleDetailPage() {
               Esta amostra ja possui classificacao. Deseja reclassificar?
             </p>
             <div className="cam-already-actions">
-              <button type="button" className="cam-already-btn-no" onClick={() => setReclassifyModalOpen(false)}>
+              <button
+                type="button"
+                className="cam-already-btn-no"
+                onClick={() => setReclassifyModalOpen(false)}
+              >
                 Nao
               </button>
-              <button type="button" className="cam-already-btn-yes" onClick={() => {
-                setReclassifyModalOpen(false);
-                router.push(`/camera?sampleId=${sampleId}`);
-              }}>
+              <button
+                type="button"
+                className="cam-already-btn-yes"
+                onClick={() => {
+                  setReclassifyModalOpen(false);
+                  router.push(`/camera?sampleId=${sampleId}`);
+                }}
+              >
                 Sim, reclassificar
               </button>
             </div>

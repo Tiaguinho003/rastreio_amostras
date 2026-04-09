@@ -2,7 +2,10 @@
 
 import type { SampleStatus } from '../lib/types';
 
-const HIDDEN_STATUS_BADGE = new Set<SampleStatus>(['PHYSICAL_RECEIVED', 'REGISTRATION_IN_PROGRESS']);
+const HIDDEN_STATUS_BADGE = new Set<SampleStatus>([
+  'PHYSICAL_RECEIVED',
+  'REGISTRATION_IN_PROGRESS',
+]);
 
 const STATUS_LABEL: Record<SampleStatus, string> = {
   PHYSICAL_RECEIVED: '',
@@ -12,7 +15,7 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
   QR_PRINTED: 'Classificacao pendente',
   CLASSIFICATION_IN_PROGRESS: 'Classificacao em andamento',
   CLASSIFIED: 'Classificada',
-  INVALIDATED: 'Invalidada'
+  INVALIDATED: 'Invalidada',
 };
 
 const STATUS_STYLE: Record<SampleStatus, string> = {
@@ -23,7 +26,7 @@ const STATUS_STYLE: Record<SampleStatus, string> = {
   QR_PRINTED: 'status-badge-warning',
   CLASSIFICATION_IN_PROGRESS: 'status-badge-classification-progress',
   CLASSIFIED: 'status-badge-success',
-  INVALIDATED: 'status-badge-danger'
+  INVALIDATED: 'status-badge-danger',
 };
 
 export function StatusBadge({ status }: { status: SampleStatus }) {

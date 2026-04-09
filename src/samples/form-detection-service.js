@@ -28,10 +28,7 @@ export class FormDetectionService {
     });
 
     try {
-      return await Promise.race([
-        this._detect(imageBuffer),
-        timeoutPromise
-      ]);
+      return await Promise.race([this._detect(imageBuffer), timeoutPromise]);
     } catch {
       return { detected: false, croppedBuffer: null };
     }
@@ -117,8 +114,8 @@ export class FormDetectionService {
 
     // Scale back to original coordinates with padding
     const { colRun, rowRun } = best;
-    const padX = Math.round(colRun.len * PADDING_RATIO / scale);
-    const padY = Math.round(rowRun.len * PADDING_RATIO / scale);
+    const padX = Math.round((colRun.len * PADDING_RATIO) / scale);
+    const padY = Math.round((rowRun.len * PADDING_RATIO) / scale);
 
     const cropLeft = Math.max(0, Math.round(colRun.start / scale) - padX);
     const cropTop = Math.max(0, Math.round(rowRun.start / scale) - padY);

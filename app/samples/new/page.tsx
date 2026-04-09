@@ -14,13 +14,13 @@ import {
   createSampleAndPreparePrint,
   getClient,
   getPendingPrintJobs,
-  getSampleDetail
+  getSampleDetail,
 } from '../../../lib/api-client';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import type {
   ClientRegistrationSummary,
   ClientSummary,
-  CreateSampleAndPreparePrintResponse
+  CreateSampleAndPreparePrintResponse,
 } from '../../../lib/types';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
@@ -55,11 +55,15 @@ function renewDraftId(): string {
 }
 
 function persistDraftId(id: string) {
-  try { sessionStorage.setItem(DRAFT_ID_STORAGE_KEY, id); } catch {}
+  try {
+    sessionStorage.setItem(DRAFT_ID_STORAGE_KEY, id);
+  } catch {}
 }
 
 function clearPersistedDraftId() {
-  try { sessionStorage.removeItem(DRAFT_ID_STORAGE_KEY); } catch {}
+  try {
+    sessionStorage.removeItem(DRAFT_ID_STORAGE_KEY);
+  } catch {}
 }
 
 function buildHarvestPresets(): readonly string[] {
@@ -91,22 +95,26 @@ interface PendingDraftPayload {
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
   sacks: null,
-  harvest: null
+  harvest: null,
 };
 
 function hasRequiredFieldErrors(fieldErrors: RequiredFieldErrors) {
   return Object.values(fieldErrors).some((value) => Boolean(value));
 }
 
-function getMissingRequiredFieldErrors(values: Record<RequiredFieldName, string>): RequiredFieldErrors {
+function getMissingRequiredFieldErrors(
+  values: Record<RequiredFieldName, string>
+): RequiredFieldErrors {
   return {
     owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
     sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
-    harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE
+    harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
   };
 }
 
-function getSchemaFieldErrors(issues: Array<{ path: PropertyKey[]; message: string }>): RequiredFieldErrors {
+function getSchemaFieldErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>
+): RequiredFieldErrors {
   const next = { ...EMPTY_REQUIRED_FIELD_ERRORS };
 
   for (const issue of issues) {
@@ -137,7 +145,9 @@ function NewSamplePageContent() {
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
   const [ownerRegistrations, setOwnerRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(null);
+  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(
+    null
+  );
   const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
@@ -152,11 +162,15 @@ function NewSamplePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [printStatus, setPrintStatus] = useState<'pending' | 'success' | 'failed' | 'timeout' | null>(null);
+  const [printStatus, setPrintStatus] = useState<
+    'pending' | 'success' | 'failed' | 'timeout' | null
+  >(null);
   const [printExitWarningOpen, setPrintExitWarningOpen] = useState(false);
   const printPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(EMPTY_REQUIRED_FIELD_ERRORS);
+  const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(
+    EMPTY_REQUIRED_FIELD_ERRORS
+  );
 
   const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
   const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
@@ -199,7 +213,9 @@ function NewSamplePageContent() {
           return;
         }
 
-        const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
+        const activeRegistrations = response.registrations.filter(
+          (registration) => registration.status === 'ACTIVE'
+        );
         setOwnerRegistrations(activeRegistrations);
         setSelectedOwnerRegistrationId((current) =>
           activeRegistrations.some((registration) => registration.id === current) ? current : null
@@ -212,7 +228,9 @@ function NewSamplePageContent() {
 
         setOwnerRegistrations([]);
         setSelectedOwnerRegistrationId(null);
-        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario');
+        setError(
+          cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario'
+        );
       })
       .finally(() => {
         if (active) {
@@ -393,7 +411,9 @@ function NewSamplePageContent() {
   }
 
   function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
-    const firstInvalidField = (['owner', 'sacks', 'harvest'] as const).find((field) => Boolean(fieldErrors[field]));
+    const firstInvalidField = (['owner', 'sacks', 'harvest'] as const).find((field) =>
+      Boolean(fieldErrors[field])
+    );
     if (!firstInvalidField) {
       return;
     }
@@ -428,8 +448,14 @@ function NewSamplePageContent() {
     setSubmitting(false);
     setPrintStatus(null);
     setPrintExitWarningOpen(false);
-    if (printPollingRef.current) { clearInterval(printPollingRef.current); printPollingRef.current = null; }
-    if (printTimeoutRef.current) { clearTimeout(printTimeoutRef.current); printTimeoutRef.current = null; }
+    if (printPollingRef.current) {
+      clearInterval(printPollingRef.current);
+      printPollingRef.current = null;
+    }
+    if (printTimeoutRef.current) {
+      clearTimeout(printTimeoutRef.current);
+      printTimeoutRef.current = null;
+    }
   }
 
   function clearRequiredFieldError(field: RequiredFieldName) {
@@ -440,7 +466,7 @@ function NewSamplePageContent() {
 
       return {
         ...current,
-        [field]: null
+        [field]: null,
       };
     });
   }
@@ -462,8 +488,14 @@ function NewSamplePageContent() {
   }
 
   function forceCloseLabelModal() {
-    if (printPollingRef.current) { clearInterval(printPollingRef.current); printPollingRef.current = null; }
-    if (printTimeoutRef.current) { clearTimeout(printTimeoutRef.current); printTimeoutRef.current = null; }
+    if (printPollingRef.current) {
+      clearInterval(printPollingRef.current);
+      printPollingRef.current = null;
+    }
+    if (printTimeoutRef.current) {
+      clearTimeout(printTimeoutRef.current);
+      printTimeoutRef.current = null;
+    }
     setPrintExitWarningOpen(false);
     setLabelModalOpen(false);
     router.push('/dashboard');
@@ -486,7 +518,7 @@ function NewSamplePageContent() {
     if (!selectedOwnerClient) {
       setRequiredFieldErrors((current) => ({
         ...current,
-        owner: REQUIRED_FIELD_MESSAGE
+        owner: REQUIRED_FIELD_MESSAGE,
       }));
       focusRequiredField('owner');
       return;
@@ -495,7 +527,7 @@ function NewSamplePageContent() {
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({
       owner,
       sacks,
-      harvest
+      harvest,
     });
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
@@ -510,7 +542,7 @@ function NewSamplePageContent() {
       harvest,
       originLot: originLot.trim() ? originLot : null,
       location: location.trim() ? location : null,
-      notes: notes.trim() ? notes : null
+      notes: notes.trim() ? notes : null,
     });
 
     if (!parsed.success) {
@@ -537,7 +569,7 @@ function NewSamplePageContent() {
       location: parsed.data.location ?? null,
       receivedChannel: parsed.data.receivedChannel,
       notes: parsed.data.notes ?? null,
-      printerId: null
+      printerId: null,
     });
 
     setLabelModalStep('review');
@@ -565,7 +597,7 @@ function NewSamplePageContent() {
         location: pendingDraft.location,
         receivedChannel: pendingDraft.receivedChannel,
         notes: pendingDraft.notes,
-        printerId: pendingDraft.printerId
+        printerId: pendingDraft.printerId,
       });
 
       clearPersistedDraftId();
@@ -598,23 +630,32 @@ function NewSamplePageContent() {
   const previewLocation = pendingDraft?.location ?? printableSample?.declared.location ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
   function hasUnsavedData() {
-    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || location.trim() || notes.trim());
+    return Boolean(
+      owner.trim() ||
+      sacks.trim() ||
+      harvest.trim() ||
+      originLot.trim() ||
+      location.trim() ||
+      notes.trim()
+    );
   }
-
 
   const fullName = session.user.fullName ?? session.user.username;
   const avatarInitials = (() => {
     const parts = fullName.trim().split(/\s+/);
-    return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase();
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : fullName.slice(0, 2).toUpperCase();
   })();
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="nsv2-page is-details-step">
-
         {/* ── Header ── */}
         <header className="nsv2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </Link>
 
           <div className="nsv2-header-center">
@@ -634,178 +675,191 @@ function NewSamplePageContent() {
         {/* ── Form ── */}
         <section className="nsv2-body nsv2-body-form">
           <div className="nsv2-form-card">
-              <div className="nsv2-drag-handle" aria-hidden="true"><span /></div>
+            <div className="nsv2-drag-handle" aria-hidden="true">
+              <span />
+            </div>
 
+            {error ? <p className="nsv2-inline-error">{error}</p> : null}
+            {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
-              {error ? <p className="nsv2-inline-error">{error}</p> : null}
-              {message ? <p className="nsv2-inline-success">{message}</p> : null}
-
-              <div ref={stageBodyRef} className="nsv2-form-scroll">
-                <div className="nsv2-form-grid">
-                  <div className="nsv2-grid-full">
-                    <ClientLookupField
-                      session={session}
-                      label="Proprietario"
-                      kind="owner"
-                      required
-                      inputRef={ownerInputRef}
-                      invalid={Boolean(requiredFieldErrors.owner)}
-                      invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
-                      selectedClient={selectedOwnerClient}
-                      onSelectClient={(client) => {
-                        setSelectedOwnerClient(client);
-                        setOwner(client?.displayName ?? '');
-                        setSelectedOwnerRegistrationId(null);
-                        clearRequiredFieldError('owner');
-                        setError(null);
-                      }}
-                      onRequestCreate={(searchTerm) => {
-                        setQuickCreateSeed(searchTerm);
-                        setQuickCreateOpen(true);
-                      }}
-                      createLabel="Cadastrar proprietario"
-                    />
-                  </div>
-
-                  <div className="nsv2-grid-full">
-                    <ClientRegistrationSelect
-                      label="Inscricao"
-                      registrations={ownerRegistrations}
-                      value={selectedOwnerRegistrationId}
-                      disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                      onChange={setSelectedOwnerRegistrationId}
-                    />
-                    {ownerRegistrationLoading ? (
-                      <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
-                    ) : null}
-                  </div>
-
-                  <div className="nsv2-grid-half">
-                    <label className="nsv2-field">
-                      <span className="nsv2-field-label">Sacas<span className="nsv2-required-star"> *</span></span>
-                      <input
-                        ref={sacksInputRef}
-                        value={sacks}
-                        className={`nsv2-field-input ${requiredFieldErrors.sacks ? 'has-error' : ''}`}
-                        aria-invalid={Boolean(requiredFieldErrors.sacks)}
-                        onChange={(event) => {
-                          setSacks(event.target.value.replace(/[^0-9]/g, ''));
-                          clearRequiredFieldError('sacks');
-                        }}
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="nsv2-grid-half" ref={harvestFieldRef}>
-                    <label className="nsv2-field" htmlFor="nsv2-harvest-input">
-                      <span className="nsv2-field-label">Safra<span className="nsv2-required-star"> *</span></span>
-                      <input
-                        id="nsv2-harvest-input"
-                        ref={harvestInputRef}
-                        className={`nsv2-field-input ${requiredFieldErrors.harvest ? 'has-error' : ''}`}
-                        aria-invalid={Boolean(requiredFieldErrors.harvest)}
-                        value={harvest}
-                        onFocus={() => setHarvestOptionsOpen(true)}
-                        onChange={(event) => {
-                          setHarvest(event.target.value);
-                          clearRequiredFieldError('harvest');
-                        }}
-                        placeholder={requiredFieldErrors.harvest ? requiredFieldErrors.harvest : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`}
-                      />
-                    </label>
-                    {harvestOptionsOpen ? (
-                      <div className="new-sample-harvest-options">
-                        {HARVEST_PRESET_OPTIONS.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
-                            onClick={() => {
-                              setHarvest(option);
-                              clearRequiredFieldError('harvest');
-                              setHarvestOptionsOpen(false);
-                            }}
-                            disabled={submitting}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="nsv2-grid-half">
-                    <label className="nsv2-field">
-                      <span className="nsv2-field-label">Lote de origem</span>
-                      <input
-                        ref={originLotInputRef}
-                        value={originLot}
-                        className="nsv2-field-input"
-                        onChange={(event) => {
-                          setOriginLot(event.target.value);
-                        }}
-                        placeholder="Codigo do lote"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="nsv2-grid-half">
-                    <label className="nsv2-field">
-                      <span className="nsv2-field-label">Local</span>
-                      <input
-                        value={location}
-                        className="nsv2-field-input"
-                        onChange={(event) => setLocation(event.target.value)}
-                        placeholder="Ex: BM, Patos"
-                        maxLength={30}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="nsv2-grid-full">
-                    <label className="nsv2-field">
-                      <span className="nsv2-field-label">Observacoes</span>
-                      <input
-                        value={notes}
-                        className="nsv2-field-input"
-                        onChange={(event) => setNotes(event.target.value)}
-                        placeholder=""
-                      />
-                    </label>
-                  </div>
+            <div ref={stageBodyRef} className="nsv2-form-scroll">
+              <div className="nsv2-form-grid">
+                <div className="nsv2-grid-full">
+                  <ClientLookupField
+                    session={session}
+                    label="Proprietario"
+                    kind="owner"
+                    required
+                    inputRef={ownerInputRef}
+                    invalid={Boolean(requiredFieldErrors.owner)}
+                    invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
+                    selectedClient={selectedOwnerClient}
+                    onSelectClient={(client) => {
+                      setSelectedOwnerClient(client);
+                      setOwner(client?.displayName ?? '');
+                      setSelectedOwnerRegistrationId(null);
+                      clearRequiredFieldError('owner');
+                      setError(null);
+                    }}
+                    onRequestCreate={(searchTerm) => {
+                      setQuickCreateSeed(searchTerm);
+                      setQuickCreateOpen(true);
+                    }}
+                    createLabel="Cadastrar proprietario"
+                  />
                 </div>
 
-              </div>
-              <div className="nsv2-submit-wrap">
-                <button
-                  ref={lastCreateButtonRef}
-                  type="button"
-                  className="nsv2-submit-btn"
-                  disabled={submitting || !isOnline}
-                  onClick={(event) => {
-                    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-                    openReviewModal(event.currentTarget);
-                  }}
-                >
-                  <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
-                </button>
+                <div className="nsv2-grid-full">
+                  <ClientRegistrationSelect
+                    label="Inscricao"
+                    registrations={ownerRegistrations}
+                    value={selectedOwnerRegistrationId}
+                    disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                    onChange={setSelectedOwnerRegistrationId}
+                  />
+                  {ownerRegistrationLoading ? (
+                    <span
+                      className="new-sample-select-spinner"
+                      aria-label="Carregando inscricoes"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="nsv2-grid-half">
+                  <label className="nsv2-field">
+                    <span className="nsv2-field-label">
+                      Sacas<span className="nsv2-required-star"> *</span>
+                    </span>
+                    <input
+                      ref={sacksInputRef}
+                      value={sacks}
+                      className={`nsv2-field-input ${requiredFieldErrors.sacks ? 'has-error' : ''}`}
+                      aria-invalid={Boolean(requiredFieldErrors.sacks)}
+                      onChange={(event) => {
+                        setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                        clearRequiredFieldError('sacks');
+                      }}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
+                    />
+                  </label>
+                </div>
+
+                <div className="nsv2-grid-half" ref={harvestFieldRef}>
+                  <label className="nsv2-field" htmlFor="nsv2-harvest-input">
+                    <span className="nsv2-field-label">
+                      Safra<span className="nsv2-required-star"> *</span>
+                    </span>
+                    <input
+                      id="nsv2-harvest-input"
+                      ref={harvestInputRef}
+                      className={`nsv2-field-input ${requiredFieldErrors.harvest ? 'has-error' : ''}`}
+                      aria-invalid={Boolean(requiredFieldErrors.harvest)}
+                      value={harvest}
+                      onFocus={() => setHarvestOptionsOpen(true)}
+                      onChange={(event) => {
+                        setHarvest(event.target.value);
+                        clearRequiredFieldError('harvest');
+                      }}
+                      placeholder={
+                        requiredFieldErrors.harvest
+                          ? requiredFieldErrors.harvest
+                          : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
+                      }
+                    />
+                  </label>
+                  {harvestOptionsOpen ? (
+                    <div className="new-sample-harvest-options">
+                      {HARVEST_PRESET_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setHarvest(option);
+                            clearRequiredFieldError('harvest');
+                            setHarvestOptionsOpen(false);
+                          }}
+                          disabled={submitting}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="nsv2-grid-half">
+                  <label className="nsv2-field">
+                    <span className="nsv2-field-label">Lote de origem</span>
+                    <input
+                      ref={originLotInputRef}
+                      value={originLot}
+                      className="nsv2-field-input"
+                      onChange={(event) => {
+                        setOriginLot(event.target.value);
+                      }}
+                      placeholder="Codigo do lote"
+                    />
+                  </label>
+                </div>
+
+                <div className="nsv2-grid-half">
+                  <label className="nsv2-field">
+                    <span className="nsv2-field-label">Local</span>
+                    <input
+                      value={location}
+                      className="nsv2-field-input"
+                      onChange={(event) => setLocation(event.target.value)}
+                      placeholder="Ex: BM, Patos"
+                      maxLength={30}
+                    />
+                  </label>
+                </div>
+
+                <div className="nsv2-grid-full">
+                  <label className="nsv2-field">
+                    <span className="nsv2-field-label">Observacoes</span>
+                    <input
+                      value={notes}
+                      className="nsv2-field-input"
+                      onChange={(event) => setNotes(event.target.value)}
+                      placeholder=""
+                    />
+                  </label>
+                </div>
               </div>
             </div>
-          </section>
+            <div className="nsv2-submit-wrap">
+              <button
+                ref={lastCreateButtonRef}
+                type="button"
+                className="nsv2-submit-btn"
+                disabled={submitting || !isOnline}
+                onClick={(event) => {
+                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                  openReviewModal(event.currentTarget);
+                }}
+              >
+                <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Offline banner */}
         {!isOnline ? (
           <div className="nsv2-offline-banner">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M1 1l22 22" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><line x1="12" y1="20" x2="12.01" y2="20" />
+              <path d="M1 1l22 22" />
+              <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+              <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+              <line x1="12" y1="20" x2="12.01" y2="20" />
             </svg>
             <span>Sem conexao</span>
           </div>
         ) : null}
-
       </section>
 
       {labelModalOpen ? (
@@ -844,19 +898,26 @@ function NewSamplePageContent() {
             </header>
 
             <div className="new-sample-label-modal-content">
-              <article id="sample-label-print" className="label-print-card new-sample-label-print-card">
+              <article
+                id="sample-label-print"
+                className="label-print-card new-sample-label-print-card"
+              >
                 {labelModalStep === 'review' ? (
                   <div className="label-qr new-sample-label-qr-placeholder" aria-hidden="true">
                     <span>Aguardando confirmacao</span>
                   </div>
                 ) : (
                   <div className="label-qr">
-                    <QRCodeSVG value={created?.qr.value ?? printableSample?.id ?? 'sample'} size={120} />
+                    <QRCodeSVG
+                      value={created?.qr.value ?? printableSample?.id ?? 'sample'}
+                      size={120}
+                    />
                   </div>
                 )}
                 <div className="label-meta">
                   <p>
-                    <strong>Lote interno:</strong> {previewInternalLot ?? 'Sera gerado ao confirmar'}
+                    <strong>Lote interno:</strong>{' '}
+                    {previewInternalLot ?? 'Sera gerado ao confirmar'}
                   </p>
                   <p>
                     <strong>Proprietario:</strong> {previewValue(previewOwner)}
@@ -880,7 +941,12 @@ function NewSamplePageContent() {
                   <div className="new-sample-modal-check-fx">
                     <div className="new-sample-modal-check-glow" />
                     <div className="new-sample-modal-check-ring" />
-                    <svg className="new-sample-modal-check-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <svg
+                      className="new-sample-modal-check-icon"
+                      viewBox="0 0 24 24"
+                      focusable="false"
+                      aria-hidden="true"
+                    >
                       <path d="m5 12.5 4.3 4.2L19 7" />
                     </svg>
                   </div>
@@ -888,7 +954,9 @@ function NewSamplePageContent() {
               </article>
             </div>
 
-            {modalError ? <p className="error new-sample-label-modal-feedback">{modalError}</p> : null}
+            {modalError ? (
+              <p className="error new-sample-label-modal-feedback">{modalError}</p>
+            ) : null}
 
             <div className="new-sample-label-modal-actions">
               {labelModalStep === 'review' ? (
@@ -929,10 +997,14 @@ function NewSamplePageContent() {
                     <p className="nsv2-print-status">Aguardando impressao...</p>
                   ) : null}
                   {printStatus === 'success' ? (
-                    <p className="nsv2-print-status nsv2-print-success">Impressao concluida! Redirecionando...</p>
+                    <p className="nsv2-print-status nsv2-print-success">
+                      Impressao concluida! Redirecionando...
+                    </p>
                   ) : null}
                   {printStatus === 'failed' ? (
-                    <p className="nsv2-print-status nsv2-print-failed">Impressao falhou. Tente novamente pela pagina de detalhes.</p>
+                    <p className="nsv2-print-status nsv2-print-failed">
+                      Impressao falhou. Tente novamente pela pagina de detalhes.
+                    </p>
                   ) : null}
                   {printStatus === 'timeout' ? (
                     <p className="nsv2-print-status nsv2-print-failed">Impressao nao confirmada</p>
@@ -940,15 +1012,30 @@ function NewSamplePageContent() {
 
                   <div className="nsv2-modal-completed-actions">
                     {printableSample ? (
-                      <Link href={`/samples/${printableSample.id}`} className="new-sample-modal-circle is-secondary" aria-label="Ver detalhes">
-                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                      <Link
+                        href={`/samples/${printableSample.id}`}
+                        className="new-sample-modal-circle is-secondary"
+                        aria-label="Ver detalhes"
+                      >
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path d="M5 12h14" />
+                          <path d="m13 6 6 6-6 6" />
+                        </svg>
                       </Link>
                     ) : null}
-                    <button ref={modalPrimaryActionRef} type="button" className="new-sample-modal-circle is-primary" onClick={resetDraft} aria-label="Nova amostra">
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+                    <button
+                      ref={modalPrimaryActionRef}
+                      type="button"
+                      className="new-sample-modal-circle is-primary"
+                      onClick={resetDraft}
+                      aria-label="Nova amostra"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
                     </button>
                   </div>
-
                 </>
               ) : null}
             </div>
@@ -958,8 +1045,20 @@ function NewSamplePageContent() {
                 <div className="nsv2-exit-dialog">
                   <p className="nsv2-exit-dialog-text">Impressao em andamento. Deseja sair?</p>
                   <div className="nsv2-exit-dialog-actions">
-                    <button type="button" className="nsv2-exit-dialog-btn is-cancel" onClick={() => setPrintExitWarningOpen(false)}>Aguardar</button>
-                    <button type="button" className="nsv2-exit-dialog-btn is-confirm" onClick={forceCloseLabelModal}>Sair</button>
+                    <button
+                      type="button"
+                      className="nsv2-exit-dialog-btn is-cancel"
+                      onClick={() => setPrintExitWarningOpen(false)}
+                    >
+                      Aguardar
+                    </button>
+                    <button
+                      type="button"
+                      className="nsv2-exit-dialog-btn is-confirm"
+                      onClick={forceCloseLabelModal}
+                    >
+                      Sair
+                    </button>
                   </div>
                 </div>
               </div>

@@ -23,7 +23,7 @@ function buildInitialForm({
   initialSearch = '',
   initialPersonType = 'PJ',
   initialIsBuyer = false,
-  initialIsSeller = true
+  initialIsSeller = true,
 }: {
   initialSearch?: string;
   initialPersonType?: ClientPersonType;
@@ -39,7 +39,7 @@ function buildInitialForm({
     cnpj: '',
     phone: '',
     isBuyer: initialIsBuyer,
-    isSeller: initialIsSeller
+    isSeller: initialIsSeller,
   };
 }
 
@@ -52,7 +52,7 @@ export function ClientQuickCreateModal({
   initialIsBuyer = false,
   initialIsSeller = true,
   onClose,
-  onCreated
+  onCreated,
 }: ClientQuickCreateModalProps) {
   const focusTrapRef = useFocusTrap(open);
   const [form, setForm] = useState(() =>
@@ -60,7 +60,7 @@ export function ClientQuickCreateModal({
       initialSearch,
       initialPersonType,
       initialIsBuyer,
-      initialIsSeller
+      initialIsSeller,
     })
   );
   const [saving, setSaving] = useState(false);
@@ -76,7 +76,7 @@ export function ClientQuickCreateModal({
           initialSearch,
           initialPersonType,
           initialIsBuyer,
-          initialIsSeller
+          initialIsSeller,
         })
       );
       setSaving(false);
@@ -98,7 +98,9 @@ export function ClientQuickCreateModal({
   const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
   const isNameFilled = nameValue.trim().length > 0;
   const isPhoneFilled = form.phone.replace(/\D/g, '').length > 0;
-  const isPhoneValid = form.phone.replace(/\D/g, '').length === 0 || [10, 11].includes(form.phone.replace(/\D/g, '').length);
+  const isPhoneValid =
+    form.phone.replace(/\D/g, '').length === 0 ||
+    [10, 11].includes(form.phone.replace(/\D/g, '').length);
   const isDocumentValid = documentDigitCount === 0 || isDocumentComplete;
 
   const canSubmit = useMemo(() => {
@@ -132,7 +134,7 @@ export function ClientQuickCreateModal({
         initialSearch,
         initialPersonType,
         initialIsBuyer,
-        initialIsSeller
+        initialIsSeller,
       })
     );
     setError(null);
@@ -157,11 +159,11 @@ export function ClientQuickCreateModal({
         fullName: form.personType === 'PF' ? form.fullName : undefined,
         legalName: form.personType === 'PJ' ? form.legalName : undefined,
         tradeName: form.personType === 'PJ' ? form.tradeName || null : undefined,
-        cpf: form.personType === 'PF' ? (form.cpf || null) : undefined,
-        cnpj: form.personType === 'PJ' ? (form.cnpj || null) : undefined,
+        cpf: form.personType === 'PF' ? form.cpf || null : undefined,
+        cnpj: form.personType === 'PJ' ? form.cnpj || null : undefined,
         phone: form.phone,
         isBuyer: form.isBuyer,
-        isSeller: form.isSeller
+        isSeller: form.isSeller,
       });
 
       setSaving(false);
@@ -177,7 +179,14 @@ export function ClientQuickCreateModal({
   }
 
   return (
-    <div className="client-modal-backdrop" onClick={() => { if (!saving && !showSuccess) { onClose(); } }}>
+    <div
+      className="client-modal-backdrop"
+      onClick={() => {
+        if (!saving && !showSuccess) {
+          onClose();
+        }
+      }}
+    >
       <section
         ref={focusTrapRef}
         className="client-modal panel stack client-quick-create-modal"
@@ -191,7 +200,14 @@ export function ClientQuickCreateModal({
           <div className="client-create-success-overlay" aria-live="polite">
             <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
               <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-              <path fill="none" stroke="#2f8a3e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" d="M15 27l7 7 15-15" />
+              <path
+                fill="none"
+                stroke="#2f8a3e"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 27l7 7 15-15"
+              />
             </svg>
           </div>
         ) : null}
@@ -216,8 +232,14 @@ export function ClientQuickCreateModal({
           <div className="client-quick-create-body">
             {error ? <p className="error client-quick-create-error">{error}</p> : null}
 
-            <section className="client-quick-create-group" aria-labelledby="client-quick-create-group-identificacao">
-              <p id="client-quick-create-group-identificacao" className="client-quick-create-group-title">
+            <section
+              className="client-quick-create-group"
+              aria-labelledby="client-quick-create-group-identificacao"
+            >
+              <p
+                id="client-quick-create-group-identificacao"
+                className="client-quick-create-group-title"
+              >
                 Identificacao
               </p>
 
@@ -239,7 +261,9 @@ export function ClientQuickCreateModal({
                   </select>
                 </label>
 
-                <label className={`client-quick-create-field${isDocumentInvalid ? ' is-field-error' : ''}`}>
+                <label
+                  className={`client-quick-create-field${isDocumentInvalid ? ' is-field-error' : ''}`}
+                >
                   {documentLabel}
                   <input
                     value={documentValue}
@@ -248,8 +272,14 @@ export function ClientQuickCreateModal({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        cpf: current.personType === 'PF' ? maskDocumentInput(event.target.value, 'PF') : current.cpf,
-                        cnpj: current.personType === 'PJ' ? maskDocumentInput(event.target.value, 'PJ') : current.cnpj
+                        cpf:
+                          current.personType === 'PF'
+                            ? maskDocumentInput(event.target.value, 'PF')
+                            : current.cpf,
+                        cnpj:
+                          current.personType === 'PJ'
+                            ? maskDocumentInput(event.target.value, 'PJ')
+                            : current.cnpj,
                       }))
                     }
                     placeholder={isDocumentInvalid ? (documentHint ?? '') : ''}
@@ -258,7 +288,9 @@ export function ClientQuickCreateModal({
               </div>
 
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}>
+                <label
+                  className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}
+                >
                   {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
                   <input
                     value={nameValue}
@@ -267,8 +299,10 @@ export function ClientQuickCreateModal({
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        fullName: current.personType === 'PF' ? event.target.value : current.fullName,
-                        legalName: current.personType === 'PJ' ? event.target.value : current.legalName
+                        fullName:
+                          current.personType === 'PF' ? event.target.value : current.fullName,
+                        legalName:
+                          current.personType === 'PJ' ? event.target.value : current.legalName,
                       }))
                     }
                     placeholder={hasNameError ? 'Obrigatorio' : ''}
@@ -283,7 +317,9 @@ export function ClientQuickCreateModal({
                     <input
                       value={form.tradeName}
                       disabled={saving}
-                      onChange={(event) => setForm((current) => ({ ...current, tradeName: event.target.value }))}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, tradeName: event.target.value }))
+                      }
                       placeholder=""
                     />
                   </label>
@@ -291,25 +327,38 @@ export function ClientQuickCreateModal({
               ) : null}
             </section>
 
-            <section className="client-quick-create-group" aria-labelledby="client-quick-create-group-contato">
+            <section
+              className="client-quick-create-group"
+              aria-labelledby="client-quick-create-group-contato"
+            >
               <p id="client-quick-create-group-contato" className="client-quick-create-group-title">
                 Contato
               </p>
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}>
+                <label
+                  className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}
+                >
                   Telefone
                   <input
                     value={form.phone}
                     disabled={saving}
                     className={hasPhoneError ? 'cqc-input-error' : undefined}
-                    onChange={(event) => setForm((current) => ({ ...current, phone: maskPhoneInput(event.target.value) }))}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        phone: maskPhoneInput(event.target.value),
+                      }))
+                    }
                     placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
                   />
                 </label>
               </div>
             </section>
 
-            <section className="client-quick-create-group" aria-labelledby="client-quick-create-group-papeis">
+            <section
+              className="client-quick-create-group"
+              aria-labelledby="client-quick-create-group-papeis"
+            >
               <p id="client-quick-create-group-papeis" className="client-quick-create-group-title">
                 Papel operacional
               </p>
@@ -319,7 +368,9 @@ export function ClientQuickCreateModal({
                     type="checkbox"
                     checked={form.isSeller}
                     disabled={saving}
-                    onChange={(event) => setForm((current) => ({ ...current, isSeller: event.target.checked }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, isSeller: event.target.checked }))
+                    }
                   />
                   <span className="client-quick-create-flag-label">Vendedor</span>
                 </label>
@@ -328,7 +379,9 @@ export function ClientQuickCreateModal({
                     type="checkbox"
                     checked={form.isBuyer}
                     disabled={saving}
-                    onChange={(event) => setForm((current) => ({ ...current, isBuyer: event.target.checked }))}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, isBuyer: event.target.checked }))
+                    }
                   />
                   <span className="client-quick-create-flag-label">Comprador</span>
                 </label>
@@ -337,7 +390,12 @@ export function ClientQuickCreateModal({
           </div>
 
           <div className="client-quick-create-actions">
-            <button type="button" className="app-modal-secondary" onClick={handleCloseAndReset} disabled={saving}>
+            <button
+              type="button"
+              className="app-modal-secondary"
+              onClick={handleCloseAndReset}
+              disabled={saving}
+            >
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={saving || !canSubmit}>

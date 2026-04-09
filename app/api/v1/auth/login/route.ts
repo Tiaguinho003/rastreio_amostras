@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     headers: Object.fromEntries(request.headers.entries()),
     params: {},
     query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-    body
+    body,
   });
 
   if (result.status !== 200) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     {
       expiresAt: payload.expiresAt,
       sessionId: payload.sessionId,
-      user: payload.user
+      user: payload.user,
     },
     { status: 200 }
   );

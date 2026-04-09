@@ -130,11 +130,7 @@ export function SplashScreen() {
     <div className={`splash-screen${exiting ? ' is-exiting' : ''}`} aria-hidden="true">
       <div className="splash-particles">
         {Array.from({ length: 14 }).map((_, i) => (
-          <span
-            key={i}
-            className="splash-particle"
-            style={{ '--p': i } as React.CSSProperties}
-          />
+          <span key={i} className="splash-particle" style={{ '--p': i } as React.CSSProperties} />
         ))}
       </div>
 

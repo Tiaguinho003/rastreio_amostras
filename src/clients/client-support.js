@@ -8,22 +8,22 @@ import {
   normalizeRequiredText,
   readLimitQuery,
   readPageQuery,
-  toIsoString
+  toIsoString,
 } from '../users/user-support.js';
 
 export const CLIENT_PERSON_TYPES = {
   PF: 'PF',
-  PJ: 'PJ'
+  PJ: 'PJ',
 };
 
 export const CLIENT_STATUSES = {
   ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE'
+  INACTIVE: 'INACTIVE',
 };
 
 export const CLIENT_REGISTRATION_STATUSES = {
   ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE'
+  INACTIVE: 'INACTIVE',
 };
 
 export const CLIENT_AUDIT_EVENT_TYPES = {
@@ -34,13 +34,13 @@ export const CLIENT_AUDIT_EVENT_TYPES = {
   CLIENT_REGISTRATION_CREATED: 'CLIENT_REGISTRATION_CREATED',
   CLIENT_REGISTRATION_UPDATED: 'CLIENT_REGISTRATION_UPDATED',
   CLIENT_REGISTRATION_INACTIVATED: 'CLIENT_REGISTRATION_INACTIVATED',
-  CLIENT_REGISTRATION_REACTIVATED: 'CLIENT_REGISTRATION_REACTIVATED'
+  CLIENT_REGISTRATION_REACTIVATED: 'CLIENT_REGISTRATION_REACTIVATED',
 };
 
 export const CLIENT_LOOKUP_KINDS = {
   OWNER: 'owner',
   BUYER: 'buyer',
-  ANY: 'any'
+  ANY: 'any',
 };
 
 export const CLIENT_LIST_LIMIT_DEFAULT = 10;
@@ -69,7 +69,7 @@ function normalizeClientPersonType(value, fieldName = 'personType') {
   if (!Object.values(CLIENT_PERSON_TYPES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -81,7 +81,7 @@ function normalizeClientStatus(value, fieldName = 'status') {
   if (!Object.values(CLIENT_STATUSES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -93,7 +93,7 @@ function normalizeClientRegistrationStatus(value, fieldName = 'status') {
   if (!Object.values(CLIENT_REGISTRATION_STATUSES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -104,7 +104,7 @@ function normalizeRequiredBoolean(value, fieldName) {
   if (typeof value !== 'boolean') {
     throw new HttpError(422, `${fieldName} must be a boolean`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -128,7 +128,7 @@ function normalizeBooleanLike(value, fieldName) {
 
   throw new HttpError(422, `${fieldName} must be true or false`, {
     code: 'VALIDATION_ERROR',
-    field: fieldName
+    field: fieldName,
   });
 }
 
@@ -154,7 +154,7 @@ function normalizeCpf(value, fieldName = 'cpf') {
   if (normalized.length !== 11) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -171,7 +171,7 @@ function normalizeCnpj(value, fieldName = 'cnpj') {
   if (normalized.length !== 14) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -188,7 +188,7 @@ function normalizeClientPhone(value, fieldName = 'phone') {
   if (digits.length !== 10 && digits.length !== 11) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -225,7 +225,7 @@ function normalizeLookupKind(value, fieldName = 'kind') {
   if (!Object.values(CLIENT_LOOKUP_KINDS).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -235,7 +235,7 @@ function normalizeLookupKind(value, fieldName = 'kind') {
 function normalizeClientFlags({ isBuyer, isSeller }) {
   return {
     isBuyer: typeof isBuyer === 'boolean' ? isBuyer : false,
-    isSeller: typeof isSeller === 'boolean' ? isSeller : false
+    isSeller: typeof isSeller === 'boolean' ? isSeller : false,
   };
 }
 
@@ -244,7 +244,7 @@ function assertProtectedClientFieldsAbsent(input) {
     if (hasOwn(input, field)) {
       throw new HttpError(422, `${field} cannot be provided`, {
         code: 'VALIDATION_ERROR',
-        field
+        field,
       });
     }
   }
@@ -254,7 +254,7 @@ function assertProtectedRegistrationFieldsAbsent(input) {
   if (hasOwn(input, 'status')) {
     throw new HttpError(422, 'status cannot be provided', {
       code: 'VALIDATION_ERROR',
-      field: 'status'
+      field: 'status',
     });
   }
 }
@@ -268,7 +268,7 @@ function buildClientWriteData({
   cnpj,
   phone,
   isBuyer,
-  isSeller
+  isSeller,
 }) {
   const flags = normalizeClientFlags({ isBuyer, isSeller });
 
@@ -284,7 +284,7 @@ function buildClientWriteData({
       cnpj: null,
       documentCanonical: normalizedCpf ?? `no-doc-${randomUUID()}`,
       phone: normalizeClientPhone(phone),
-      ...flags
+      ...flags,
     };
   }
 
@@ -301,7 +301,7 @@ function buildClientWriteData({
     cnpj: normalizedCnpj,
     documentCanonical: normalizedCnpj ?? `no-doc-${randomUUID()}`,
     phone: normalizeClientPhone(phone),
-    ...flags
+    ...flags,
   };
 }
 
@@ -312,7 +312,7 @@ export function normalizeCreateClientInput(input) {
   if (!normalizedPhone) {
     throw new HttpError(422, 'phone is required', {
       code: 'VALIDATION_ERROR',
-      field: 'phone'
+      field: 'phone',
     });
   }
 
@@ -325,7 +325,7 @@ export function normalizeCreateClientInput(input) {
     cnpj: input.cnpj,
     phone: input.phone,
     isBuyer: input.isBuyer,
-    isSeller: input.isSeller
+    isSeller: input.isSeller,
   });
 }
 
@@ -356,8 +356,8 @@ export function normalizeUpdateClientInput(input, currentClient) {
       cnpj: nextCnpj,
       phone: nextPhone,
       isBuyer: nextIsBuyer,
-      isSeller: nextIsSeller
-    })
+      isSeller: nextIsSeller,
+    }),
   };
 }
 
@@ -369,14 +369,14 @@ function buildRegistrationWriteData({
   city,
   state,
   postalCode,
-  complement
+  complement,
 }) {
   const normalizedNumber = normalizeRequiredText(registrationNumber, 'registrationNumber', 80);
   const canonical = normalizeRegistrationCanonical(normalizedNumber);
   if (!canonical) {
     throw new HttpError(422, 'registrationNumber is invalid', {
       code: 'VALIDATION_ERROR',
-      field: 'registrationNumber'
+      field: 'registrationNumber',
     });
   }
 
@@ -389,7 +389,7 @@ function buildRegistrationWriteData({
     city: normalizeRequiredText(city, 'city', 120),
     state: normalizeRequiredText(state, 'state', 2).toUpperCase(),
     postalCode: normalizeRequiredText(postalCode, 'postalCode', 16),
-    complement: normalizeOptionalText(complement, 'complement', 120)
+    complement: normalizeOptionalText(complement, 'complement', 120),
   };
 }
 
@@ -403,12 +403,16 @@ export function normalizeUpdateRegistrationInput(input, currentRegistration) {
   const data = {};
 
   if (hasOwn(input, 'registrationNumber')) {
-    const normalizedNumber = normalizeRequiredText(input.registrationNumber, 'registrationNumber', 80);
+    const normalizedNumber = normalizeRequiredText(
+      input.registrationNumber,
+      'registrationNumber',
+      80
+    );
     const canonical = normalizeRegistrationCanonical(normalizedNumber);
     if (!canonical) {
       throw new HttpError(422, 'registrationNumber is invalid', {
         code: 'VALIDATION_ERROR',
-        field: 'registrationNumber'
+        field: 'registrationNumber',
       });
     }
 
@@ -446,7 +450,7 @@ export function normalizeUpdateRegistrationInput(input, currentRegistration) {
 
   return {
     reasonText: normalizeOptionalReasonText(input.reasonText),
-    data
+    data,
   };
 }
 
@@ -455,13 +459,13 @@ export function normalizeListClientsInput(input) {
     page: readPageQuery(input.page, 1),
     limit: readLimitQuery(input.limit, {
       fallback: CLIENT_LIST_LIMIT_DEFAULT,
-      max: CLIENT_LIST_LIMIT_MAX
+      max: CLIENT_LIST_LIMIT_MAX,
     }),
     search: normalizeOptionalSearch(input.search),
     status: input.status ? normalizeClientStatus(input.status) : null,
     personType: input.personType ? normalizeClientPersonType(input.personType) : null,
     isBuyer: normalizeOptionalBooleanQuery(input.isBuyer, 'isBuyer'),
-    isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller')
+    isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller'),
   };
 }
 
@@ -470,14 +474,14 @@ export function normalizeLookupClientsInput(input) {
   if (!search || search.length < 2) {
     throw new HttpError(422, 'search must have at least 2 characters', {
       code: 'VALIDATION_ERROR',
-      field: 'search'
+      field: 'search',
     });
   }
 
   return {
     search,
     kind: normalizeLookupKind(input.kind),
-    limit: CLIENT_LOOKUP_LIMIT
+    limit: CLIENT_LOOKUP_LIMIT,
   };
 }
 
@@ -486,14 +490,14 @@ export function normalizeAuditListInput(input) {
     page: readPageQuery(input.page, 1),
     limit: readLimitQuery(input.limit, {
       fallback: CLIENT_AUDIT_LIMIT_DEFAULT,
-      max: CLIENT_AUDIT_LIMIT_MAX
-    })
+      max: CLIENT_AUDIT_LIMIT_MAX,
+    }),
   };
 }
 
 export function normalizeStatusReasonInput(input) {
   return {
-    reasonText: normalizeReasonText(input.reasonText)
+    reasonText: normalizeReasonText(input.reasonText),
   };
 }
 
@@ -537,7 +541,7 @@ export function toClientSummary(client, options = {}) {
     primaryCity: options.primaryCity ?? null,
     primaryState: options.primaryState ?? null,
     createdAt: toIsoString(client.createdAt),
-    updatedAt: toIsoString(client.updatedAt)
+    updatedAt: toIsoString(client.updatedAt),
   };
 }
 
@@ -555,7 +559,7 @@ export function toClientRegistrationSummary(registration) {
     postalCode: registration.postalCode,
     complement: registration.complement ?? null,
     createdAt: toIsoString(registration.createdAt),
-    updatedAt: toIsoString(registration.updatedAt)
+    updatedAt: toIsoString(registration.updatedAt),
   };
 }
 
@@ -570,7 +574,7 @@ export function toClientAuditEventResponse(event) {
       ? {
           id: event.actorUser.id,
           fullName: event.actorUser.fullName,
-          username: event.actorUser.username
+          username: event.actorUser.username,
         }
       : null,
     targetClient: event.targetClient
@@ -579,7 +583,7 @@ export function toClientAuditEventResponse(event) {
           code: event.targetClient.code,
           displayName: buildClientDisplayName(event.targetClient),
           status: event.targetClient.status,
-          personType: event.targetClient.personType
+          personType: event.targetClient.personType,
         }
       : null,
     targetRegistration: event.targetRegistration
@@ -587,13 +591,13 @@ export function toClientAuditEventResponse(event) {
           id: event.targetRegistration.id,
           registrationNumber: event.targetRegistration.registrationNumber,
           registrationType: event.targetRegistration.registrationType,
-          status: event.targetRegistration.status
+          status: event.targetRegistration.status,
         }
       : null,
     metadata: {
       ip: event.metadataIp ?? null,
-      userAgent: event.metadataUserAgent ?? null
-    }
+      userAgent: event.metadataUserAgent ?? null,
+    },
   };
 }
 
@@ -602,7 +606,7 @@ export function buildClientAuditPayload(before, after) {
   return {
     before: diff.before,
     after: diff.after,
-    diff
+    diff,
   };
 }
 
@@ -620,7 +624,7 @@ export function buildClientAuditState(client) {
     phone: client.phone ?? null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
-    status: client.status
+    status: client.status,
   };
 }
 
@@ -634,7 +638,7 @@ export function buildRegistrationAuditState(registration) {
     city: registration.city,
     state: registration.state,
     postalCode: registration.postalCode,
-    complement: registration.complement ?? null
+    complement: registration.complement ?? null,
   };
 }
 
@@ -650,7 +654,7 @@ export function buildClientListPage(total, page, limit) {
     total,
     totalPages,
     hasPrev: safePage > 1,
-    hasNext: safePage < totalPages
+    hasNext: safePage < totalPages,
   };
 }
 
@@ -664,5 +668,5 @@ export {
   normalizeReasonText,
   normalizeBooleanLike,
   readPageQuery,
-  readLimitQuery
+  readLimitQuery,
 };

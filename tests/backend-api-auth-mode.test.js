@@ -6,18 +6,29 @@ import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 function createMinimalApi(options = {}) {
   const queryService = {
     async listSamples() {
-      return { items: [], page: { total: 0, totalPages: 1, page: 1, limit: 30, offset: 0, hasPrev: false, hasNext: false } };
+      return {
+        items: [],
+        page: {
+          total: 0,
+          totalPages: 1,
+          page: 1,
+          limit: 30,
+          offset: 0,
+          hasPrev: false,
+          hasNext: false,
+        },
+      };
     },
     async getDashboardPending() {
       return { pending: [] };
-    }
+    },
   };
 
   return createBackendApiV1({
     commandService: {},
     queryService,
     reportService: null,
-    ...options
+    ...options,
   });
 }
 
@@ -26,15 +37,15 @@ test('missing bearer token is rejected', async () => {
     authService: {
       async authenticateAuthorizationHeader() {
         throw new Error('should not be called');
-      }
-    }
+      },
+    },
   });
 
   const result = await api.listSamples({
     headers: {},
     params: {},
     query: {},
-    body: {}
+    body: {},
   });
 
   assert.equal(result.status, 401);
@@ -54,19 +65,19 @@ test('bearer auth works for protected routes', async () => {
           actorUserId: '00000000-0000-0000-0000-000000000001',
           role: 'ADMIN',
           username: 'admin',
-          sessionId: '00000000-0000-0000-0000-000000000010'
+          sessionId: '00000000-0000-0000-0000-000000000010',
         };
-      }
-    }
+      },
+    },
   });
 
   const result = await api.listSamples({
     headers: {
-      authorization: 'Bearer token'
+      authorization: 'Bearer token',
     },
     params: {},
     query: {},
-    body: {}
+    body: {},
   });
 
   assert.equal(result.status, 200);
@@ -87,19 +98,19 @@ test('session cookie works for protected routes', async () => {
           role: 'ADMIN',
           username: 'admin',
           sessionId: '00000000-0000-0000-0000-000000000010',
-          sessionExpiresAt: new Date(Date.now() + 60_000).toISOString()
+          sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
         };
-      }
-    }
+      },
+    },
   });
 
   const result = await api.listSamples({
     headers: {
-      cookie: 'rastreio_session=cookie-token'
+      cookie: 'rastreio_session=cookie-token',
     },
     params: {},
     query: {},
-    body: {}
+    body: {},
   });
 
   assert.equal(result.status, 200);

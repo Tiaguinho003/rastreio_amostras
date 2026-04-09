@@ -29,15 +29,15 @@ Valores fixos em px quebram a proporcionalidade entre telas diferentes. Use semp
 
 ### 2. Unidades recomendadas por contexto
 
-| Contexto | Unidades | Exemplo |
-|----------|----------|---------|
-| Font size | `clamp(rem, vw, rem)` | `clamp(0.9rem, 3.5vw, 1.2rem)` |
-| Padding/margin horizontal | `clamp(rem, vw, rem)` | `clamp(0.8rem, 4vw, 1.5rem)` |
-| Padding/margin vertical | `clamp(rem, dvh, rem)` ou `dvh` | `clamp(1rem, 3dvh, 1.8rem)` |
-| Gap | `clamp()` ou `vw`/`dvh` | `gap: clamp(0.6rem, 2.5vw, 1rem)` |
-| Largura de componentes | `min()`, `%`, `vw` | `width: min(100%, 28rem)` |
-| Altura de secoes | `dvh`, `%` | `min-height: 35dvh` |
-| Icones e imagens | `clamp()` | `width: clamp(1.2rem, 5vw, 1.8rem)` |
+| Contexto                  | Unidades                        | Exemplo                             |
+| ------------------------- | ------------------------------- | ----------------------------------- |
+| Font size                 | `clamp(rem, vw, rem)`           | `clamp(0.9rem, 3.5vw, 1.2rem)`      |
+| Padding/margin horizontal | `clamp(rem, vw, rem)`           | `clamp(0.8rem, 4vw, 1.5rem)`        |
+| Padding/margin vertical   | `clamp(rem, dvh, rem)` ou `dvh` | `clamp(1rem, 3dvh, 1.8rem)`         |
+| Gap                       | `clamp()` ou `vw`/`dvh`         | `gap: clamp(0.6rem, 2.5vw, 1rem)`   |
+| Largura de componentes    | `min()`, `%`, `vw`              | `width: min(100%, 28rem)`           |
+| Altura de secoes          | `dvh`, `%`                      | `min-height: 35dvh`                 |
+| Icones e imagens          | `clamp()`                       | `width: clamp(1.2rem, 5vw, 1.8rem)` |
 
 ### 3. Layout com Flexbox e Grid
 

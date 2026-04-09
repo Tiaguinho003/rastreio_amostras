@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
@@ -17,7 +26,10 @@ function clientDocument(client: ClientSummary | null) {
   if (!client) {
     return null;
   }
-  return formatClientDocument(client.document ?? client.cpf ?? client.cnpj ?? null, client.personType);
+  return formatClientDocument(
+    client.document ?? client.cpf ?? client.cnpj ?? null,
+    client.personType
+  );
 }
 
 function clientDisplayName(client: ClientSummary | null) {
@@ -42,19 +54,39 @@ function clientRoleSummary(client: ClientSummary | null) {
 
 type ClientChipFilter = 'all' | 'buyer' | 'seller';
 
-const CLIENT_CHIP_DEFINITIONS: ReadonlyArray<{ id: ClientChipFilter; label: string; color: string | null }> = [
+const CLIENT_CHIP_DEFINITIONS: ReadonlyArray<{
+  id: ClientChipFilter;
+  label: string;
+  color: string | null;
+}> = [
   { id: 'all', label: 'Todos', color: null },
   { id: 'buyer', label: 'Comprador', color: '#2980B9' },
   { id: 'seller', label: 'Vendedor', color: '#27AE60' },
 ];
 
 // brand-green / brand-green-soft / brand-green-deep (paleta Safras)
-const AVATAR_COLORS = ['#1f5d43', '#2f6b4a', '#173c30', '#0D47A1', '#1565C0', '#4E342E', '#5D4037', '#6D4C41', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#00838F', '#E65100'];
+const AVATAR_COLORS = [
+  '#1f5d43',
+  '#2f6b4a',
+  '#173c30',
+  '#0D47A1',
+  '#1565C0',
+  '#4E342E',
+  '#5D4037',
+  '#6D4C41',
+  '#AD1457',
+  '#C62828',
+  '#6A1B9A',
+  '#4527A0',
+  '#00695C',
+  '#00838F',
+  '#E65100',
+];
 
 function hashName(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
-    hash = ((hash << 5) - hash) + name.charCodeAt(i);
+    hash = (hash << 5) - hash + name.charCodeAt(i);
     hash |= 0;
   }
   return Math.abs(hash);
@@ -65,7 +97,13 @@ function getAvatarColor(name: string): string {
 }
 
 function getClientInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 }
 
 function formatClientCardSummary(client: ClientSummary) {
@@ -113,7 +151,14 @@ interface ClientsListState {
 
 type ClientsListAction =
   | { type: 'fetch' }
-  | { type: 'success'; items: ClientSummary[]; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean }
+  | {
+      type: 'success';
+      items: ClientSummary[];
+      total: number;
+      totalPages: number;
+      hasPrev: boolean;
+      hasNext: boolean;
+    }
   | { type: 'error'; message: string }
   | { type: 'setPage'; page: number }
   | { type: 'selectClient'; id: string | null }
@@ -137,7 +182,7 @@ const CLIENTS_INITIAL: ClientsListState = {
   registrations: [],
   detailOpen: false,
   detailLoading: false,
-  detailError: null
+  detailError: null,
 };
 
 function clientsListReducer(state: ClientsListState, action: ClientsListAction): ClientsListState {
@@ -153,7 +198,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         hasPrev: action.hasPrev,
         hasNext: action.hasNext,
         loading: false,
-        error: null
+        error: null,
       };
     case 'error':
       return { ...state, loading: false, error: action.message };
@@ -168,7 +213,13 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
     case 'fetchDetail':
       return { ...state, detailLoading: true, detailError: null };
     case 'detailSuccess':
-      return { ...state, detailLoading: false, detail: action.client, registrations: action.registrations, detailError: null };
+      return {
+        ...state,
+        detailLoading: false,
+        detail: action.client,
+        registrations: action.registrations,
+        detailError: null,
+      };
     case 'detailError':
       return { ...state, detailLoading: false, detailError: action.message };
     default:
@@ -212,13 +263,14 @@ function ClientsPage() {
   }, [clientsState.items]);
 
   const displayClients = useMemo(() => {
-    const filtered = activeClientChip === 'all'
-      ? clientsState.items
-      : clientsState.items.filter((c) => {
-          if (activeClientChip === 'buyer') return c.isBuyer;
-          if (activeClientChip === 'seller') return c.isSeller;
-          return true;
-        });
+    const filtered =
+      activeClientChip === 'all'
+        ? clientsState.items
+        : clientsState.items.filter((c) => {
+            if (activeClientChip === 'buyer') return c.isBuyer;
+            if (activeClientChip === 'seller') return c.isSeller;
+            return true;
+          });
     return [...filtered].sort((a, b) => {
       const na = clientDisplayName(a).toLowerCase();
       const nb = clientDisplayName(b).toLowerCase();
@@ -266,17 +318,28 @@ function ClientsPage() {
     let active = true;
     dispatchClients({ type: 'fetch' });
 
-    listClients(session, {
-      search: appliedClientSearch || undefined,
-      page: clientsState.currentPage,
-      limit: CLIENT_PAGE_LIMIT
-    }, { signal: abortController.signal })
+    listClients(
+      session,
+      {
+        search: appliedClientSearch || undefined,
+        page: clientsState.currentPage,
+        limit: CLIENT_PAGE_LIMIT,
+      },
+      { signal: abortController.signal }
+    )
       .then((response) => {
         if (!active) {
           return;
         }
 
-        dispatchClients({ type: 'success', items: response.items, total: response.page.total, totalPages: response.page.totalPages, hasPrev: response.page.hasPrev, hasNext: response.page.hasNext });
+        dispatchClients({
+          type: 'success',
+          items: response.items,
+          total: response.page.total,
+          totalPages: response.page.totalPages,
+          hasPrev: response.page.hasPrev,
+          hasNext: response.page.hasNext,
+        });
       })
       .catch((cause) => {
         if (!active) {
@@ -287,7 +350,10 @@ function ClientsPage() {
           return;
         }
 
-        dispatchClients({ type: 'error', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes' });
+        dispatchClients({
+          type: 'error',
+          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes',
+        });
       });
 
     return () => {
@@ -312,7 +378,11 @@ function ClientsPage() {
           return;
         }
 
-        dispatchClients({ type: 'detailSuccess', client: response.client, registrations: response.registrations });
+        dispatchClients({
+          type: 'detailSuccess',
+          client: response.client,
+          registrations: response.registrations,
+        });
       })
       .catch((cause) => {
         if (!active) {
@@ -323,7 +393,11 @@ function ClientsPage() {
           return;
         }
 
-        dispatchClients({ type: 'detailError', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente' });
+        dispatchClients({
+          type: 'detailError',
+          message:
+            cause instanceof ApiError ? cause.message : 'Falha ao carregar detalhes do cliente',
+        });
       });
 
     return () => {
@@ -389,7 +463,10 @@ function ClientsPage() {
     dispatchClients({ type: 'closeDetail' });
   }
 
-  async function refreshClientsList(nextSearch = appliedClientSearch, nextPage = clientsState.currentPage) {
+  async function refreshClientsList(
+    nextSearch = appliedClientSearch,
+    nextPage = clientsState.currentPage
+  ) {
     if (!session) {
       return;
     }
@@ -400,7 +477,7 @@ function ClientsPage() {
       const response = await listClients(session, {
         search: nextSearch || undefined,
         page: nextPage,
-        limit: CLIENT_PAGE_LIMIT
+        limit: CLIENT_PAGE_LIMIT,
       });
 
       dispatchClients({
@@ -409,12 +486,12 @@ function ClientsPage() {
         total: response.page.total,
         totalPages: response.page.totalPages,
         hasPrev: response.page.hasPrev,
-        hasNext: response.page.hasNext
+        hasNext: response.page.hasNext,
       });
     } catch (cause) {
       dispatchClients({
         type: 'error',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes'
+        message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes',
       });
     }
   }
@@ -426,11 +503,17 @@ function ClientsPage() {
   const selectedClientDocument = clientDocument(clientsState.detail);
   const selectedClientRoles = [
     clientsState.detail?.isSeller ? 'Proprietario/Vendedor' : null,
-    clientsState.detail?.isBuyer ? 'Comprador' : null
+    clientsState.detail?.isBuyer ? 'Comprador' : null,
   ].filter((value): value is string => Boolean(value));
 
   const userFullName = session.user.fullName ?? session.user.username;
-  const userAvatarInitials = userFullName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const userAvatarInitials = userFullName
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
@@ -438,12 +521,19 @@ function ClientsPage() {
         {/* Header */}
         <header className="clients-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </Link>
           <div className="clients-v2-header-center">
             <h2 className="nsv2-title">Clientes</h2>
           </div>
-          <button type="button" className="nsv2-avatar" aria-label="Abrir menu de perfil" onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}>
+          <button
+            type="button"
+            className="nsv2-avatar"
+            aria-label="Abrir menu de perfil"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
+          >
             <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
           </button>
         </header>
@@ -451,8 +541,14 @@ function ClientsPage() {
         {/* Search bar — in green area, dashboard style */}
         <div className="hero-search-wrap">
           <form className="hero-search-bar" role="search" onSubmit={handleClientSearchSubmit}>
-            <svg className="hero-search-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" /><path d="m16.2 16.2 4.1 4.1" />
+            <svg
+              className="hero-search-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.2 16.2 4.1 4.1" />
             </svg>
             <input
               className="hero-search-input"
@@ -477,12 +573,32 @@ function ClientsPage() {
                   key={chip.id}
                   type="button"
                   className={`spv2-chip${isActive ? ' is-active' : ''}`}
-                  style={isActive && chip.color ? { background: `${chip.color}14`, borderColor: chip.color } : undefined}
+                  style={
+                    isActive && chip.color
+                      ? { background: `${chip.color}14`, borderColor: chip.color }
+                      : undefined
+                  }
                   onClick={() => setActiveClientChip(chip.id)}
                 >
-                  {chip.color ? <span className="spv2-chip-dot" style={{ background: chip.color }} /> : null}
-                  <span className="spv2-chip-label" style={isActive && chip.color ? { color: chip.color } : undefined}>{chip.label}</span>
-                  <span className="spv2-chip-count" style={isActive && chip.color ? { background: `${chip.color}1A`, color: chip.color } : undefined}>{count}</span>
+                  {chip.color ? (
+                    <span className="spv2-chip-dot" style={{ background: chip.color }} />
+                  ) : null}
+                  <span
+                    className="spv2-chip-label"
+                    style={isActive && chip.color ? { color: chip.color } : undefined}
+                  >
+                    {chip.label}
+                  </span>
+                  <span
+                    className="spv2-chip-count"
+                    style={
+                      isActive && chip.color
+                        ? { background: `${chip.color}1A`, color: chip.color }
+                        : undefined
+                    }
+                  >
+                    {count}
+                  </span>
                 </button>
               );
             })}
@@ -492,7 +608,11 @@ function ClientsPage() {
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{displayClients.length} clientes</span>
             <button type="button" className="spv2-sort-btn" onClick={() => setSortAZ((v) => !v)}>
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h6" /></svg>
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M4 6h16" />
+                <path d="M4 12h10" />
+                <path d="M4 18h6" />
+              </svg>
               <span>{sortAZ ? 'A–Z' : 'Z–A'}</span>
             </button>
           </div>
@@ -507,8 +627,20 @@ function ClientsPage() {
           ) : displayClients.length === 0 ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
-                <svg className="spv2-empty-icon" viewBox="0 0 24 24" aria-hidden="true" style={{ width: 36 }}>
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="#ddd" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  className="spv2-empty-icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  style={{ width: 36 }}
+                >
+                  <path
+                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                    fill="none"
+                    stroke="#ddd"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                   <circle cx="12" cy="7" r="4" fill="none" stroke="#ddd" strokeWidth="1.6" />
                 </svg>
                 <p className="spv2-empty-text">Nenhum cliente encontrado</p>
@@ -529,21 +661,39 @@ function ClientsPage() {
                     style={{ animationDelay: `${i * 0.04}s` }}
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
-                    <span className="cv2-card-avatar" style={{ background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc)`, boxShadow: `0 2px 8px ${avatarColor}4D` }}>
+                    <span
+                      className="cv2-card-avatar"
+                      style={{
+                        background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc)`,
+                        boxShadow: `0 2px 8px ${avatarColor}4D`,
+                      }}
+                    >
                       <span>{initials}</span>
                     </span>
                     <div className="cv2-card-content">
                       <div className="cv2-card-top">
                         <span className="cv2-card-name">{name}</span>
-                        <span className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}>{client.personType}</span>
+                        <span
+                          className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
+                        >
+                          {client.personType}
+                        </span>
                       </div>
                       <div className="cv2-card-bottom">
-                        {client.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}
-                        {client.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}
-                        {!client.isBuyer && !client.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}
+                        {client.isBuyer ? (
+                          <span className="cv2-card-role is-buyer">Comprador</span>
+                        ) : null}
+                        {client.isSeller ? (
+                          <span className="cv2-card-role is-seller">Vendedor</span>
+                        ) : null}
+                        {!client.isBuyer && !client.isSeller ? (
+                          <span className="cv2-card-role is-none">Sem papel</span>
+                        ) : null}
                       </div>
                     </div>
-                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
                   </button>
                 );
               })}
@@ -552,20 +702,48 @@ function ClientsPage() {
 
           {/* Pagination */}
           <footer className="spv2-footer">
-            <button type="button" className="spv2-page-btn" disabled={!clientsState.hasPrev || clientsState.loading} onClick={() => dispatchClients({ type: 'setPage', page: clientsState.currentPage - 1 })}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+            <button
+              type="button"
+              className="spv2-page-btn"
+              disabled={!clientsState.hasPrev || clientsState.loading}
+              onClick={() =>
+                dispatchClients({ type: 'setPage', page: clientsState.currentPage - 1 })
+              }
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m14.5 6-6 6 6 6" />
+              </svg>
             </button>
-            <span className="spv2-page-info"><strong>{clientsState.currentPage}</strong> / {clientsState.totalPages}</span>
-            <button type="button" className="spv2-page-btn" disabled={!clientsState.hasNext || clientsState.loading} onClick={() => dispatchClients({ type: 'setPage', page: clientsState.currentPage + 1 })}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+            <span className="spv2-page-info">
+              <strong>{clientsState.currentPage}</strong> / {clientsState.totalPages}
+            </span>
+            <button
+              type="button"
+              className="spv2-page-btn"
+              disabled={!clientsState.hasNext || clientsState.loading}
+              onClick={() =>
+                dispatchClients({ type: 'setPage', page: clientsState.currentPage + 1 })
+              }
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m9.5 6 6 6-6 6" />
+              </svg>
             </button>
           </footer>
         </section>
       </section>
 
       {/* FAB - Add client */}
-      <button type="button" className="cv2-fab" aria-label="Cadastrar novo cliente" onClick={() => setClientQuickCreateOpen(true)}>
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+      <button
+        type="button"
+        className="cv2-fab"
+        aria-label="Cadastrar novo cliente"
+        onClick={() => setClientQuickCreateOpen(true)}
+      >
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
       </button>
 
       {/* Client detail modal */}
@@ -580,16 +758,23 @@ function ClientsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header">
-              {clientsState.detail ? (() => {
-                const detailName = clientDisplayName(clientsState.detail!);
-                const detailColor = getAvatarColor(detailName);
-                const detailInitials = getClientInitials(detailName);
-                return (
-                  <span className="cdm-header-avatar" style={{ background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)` }}>
-                    <span>{detailInitials}</span>
-                  </span>
-                );
-              })() : null}
+              {clientsState.detail
+                ? (() => {
+                    const detailName = clientDisplayName(clientsState.detail!);
+                    const detailColor = getAvatarColor(detailName);
+                    const detailInitials = getClientInitials(detailName);
+                    return (
+                      <span
+                        className="cdm-header-avatar"
+                        style={{
+                          background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)`,
+                        }}
+                      >
+                        <span>{detailInitials}</span>
+                      </span>
+                    );
+                  })()
+                : null}
               <div className="cdm-header-copy">
                 <h3 id="records-client-detail-title" className="cdm-header-name">
                   {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
@@ -597,7 +782,9 @@ function ClientsPage() {
                 {clientsState.detail ? (
                   <div className="cdm-header-meta">
                     <span className="cdm-header-code">Cod. {clientsState.detail.code}</span>
-                    <span className={`cdm-header-status ${clientsState.detail.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}>
+                    <span
+                      className={`cdm-header-status ${clientsState.detail.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
+                    >
                       {clientStatusLabel(clientsState.detail.status)}
                     </span>
                   </div>
@@ -610,7 +797,10 @@ function ClientsPage() {
                 onClick={closeClientDetail}
                 aria-label="Fechar"
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
 
@@ -624,24 +814,40 @@ function ClientsPage() {
                   <div className="cdm-info-row">
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Documento</span>
-                      <span className="cdm-info-value">{selectedClientDocument ?? 'Nao informado'}</span>
+                      <span className="cdm-info-value">
+                        {selectedClientDocument ?? 'Nao informado'}
+                      </span>
                     </div>
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Telefone</span>
-                      <span className="cdm-info-value">{formatPhone(clientsState.detail.phone) ?? 'Nao informado'}</span>
+                      <span className="cdm-info-value">
+                        {formatPhone(clientsState.detail.phone) ?? 'Nao informado'}
+                      </span>
                     </div>
                   </div>
                   <div className="cdm-info-row">
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Tipo</span>
-                      <span className={`cdm-type-badge ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}>{clientsState.detail.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}</span>
+                      <span
+                        className={`cdm-type-badge ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
+                      >
+                        {clientsState.detail.personType === 'PF'
+                          ? 'Pessoa Fisica'
+                          : 'Pessoa Juridica'}
+                      </span>
                     </div>
                     <div className="cdm-info-item">
                       <span className="cdm-info-label">Papel</span>
                       <div className="cdm-roles">
-                        {clientsState.detail.isBuyer ? <span className="cv2-card-role is-buyer">Comprador</span> : null}
-                        {clientsState.detail.isSeller ? <span className="cv2-card-role is-seller">Vendedor</span> : null}
-                        {!clientsState.detail.isBuyer && !clientsState.detail.isSeller ? <span className="cv2-card-role is-none">Sem papel</span> : null}
+                        {clientsState.detail.isBuyer ? (
+                          <span className="cv2-card-role is-buyer">Comprador</span>
+                        ) : null}
+                        {clientsState.detail.isSeller ? (
+                          <span className="cv2-card-role is-seller">Vendedor</span>
+                        ) : null}
+                        {!clientsState.detail.isBuyer && !clientsState.detail.isSeller ? (
+                          <span className="cv2-card-role is-none">Sem papel</span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -650,7 +856,8 @@ function ClientsPage() {
                 <Link href={`/clients/${clientsState.detail.id}`} className="cdm-manage-link">
                   Gerenciar cliente
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
                   </svg>
                 </Link>
               </>

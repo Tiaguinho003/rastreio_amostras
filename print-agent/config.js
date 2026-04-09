@@ -22,7 +22,10 @@ function parseEnvFile(filePath) {
     if (eqIndex < 1) continue;
     const key = trimmed.slice(0, eqIndex).trim();
     let value = trimmed.slice(eqIndex + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     vars[key] = value;
@@ -44,7 +47,10 @@ export function loadConfig() {
   const vars = parseEnvFile(envPath);
 
   return Object.freeze({
-    backendUrl: (vars.BACKEND_URL || 'https://rastreio-prod-app-r4au5o2iea-rj.a.run.app').replace(/\/$/, ''),
+    backendUrl: (vars.BACKEND_URL || 'https://rastreio-prod-app-r4au5o2iea-rj.a.run.app').replace(
+      /\/$/,
+      ''
+    ),
     agentUsername: required(vars, 'AGENT_USERNAME'),
     agentPassword: required(vars, 'AGENT_PASSWORD'),
     printerName: required(vars, 'PRINTER_NAME'),

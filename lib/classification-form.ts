@@ -108,7 +108,7 @@ export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   fundo1Peneira: '',
   fundo1Percent: '',
   fundo2Peneira: '',
-  fundo2Percent: ''
+  fundo2Percent: '',
 };
 
 // --- All fields (fallback for detail page / historical data) ---
@@ -124,7 +124,7 @@ export const ALL_SIEVE_FIELDS: NumericField[] = [
   { key: 'peneiraP13', label: 'P.13 (%)' },
   { key: 'peneiraP12', label: 'P.12 (%)' },
   { key: 'peneiraP11', label: 'P.11 (%)' },
-  { key: 'peneiraP10', label: 'P.10 (%)' }
+  { key: 'peneiraP10', label: 'P.10 (%)' },
 ];
 
 export const ALL_NUMERIC_FIELDS: NumericField[] = [
@@ -134,7 +134,7 @@ export const ALL_NUMERIC_FIELDS: NumericField[] = [
   { key: 'ap', label: 'AP (%)' },
   { key: 'gpi', label: 'GPI' },
   { key: 'defeito', label: 'Defeito' },
-  ...ALL_SIEVE_FIELDS
+  ...ALL_SIEVE_FIELDS,
 ];
 
 // Backward-compatible aliases
@@ -161,26 +161,38 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       { key: 'peneiraP16', label: 'P.16 (%)' },
       { key: 'peneiraP15', label: 'P.15 (%)' },
       { key: 'peneiraP14', label: 'P.14 (%)' },
-      { key: 'peneiraMk', label: 'MK (%)' }
+      { key: 'peneiraMk', label: 'MK (%)' },
     ],
     defectFields: [
       { key: 'broca', label: 'Broca' },
       { key: 'pva', label: 'PVA' },
       { key: 'imp', label: 'Impureza' },
-      { key: 'defeito', label: 'Defeito' }
+      { key: 'defeito', label: 'Defeito' },
     ],
     hasFundo2: false,
     hasDefeito: true,
     sieveKeys: ['p19', 'p18', 'p17', 'p16', 'p15', 'p14', 'mk'],
     extractionFieldMap: {
-      padrao: 'padrao', catacao: 'catacao', aspecto: 'aspecto', bebida: 'bebida',
-      safra: 'safra', broca: 'broca', pva: 'pva', impureza: 'imp',
-      p19: 'peneiraP19', p18: 'peneiraP18', p17: 'peneiraP17', p16: 'peneiraP16',
-      p15: 'peneiraP15', p14: 'peneiraP14', mk: 'peneiraMk',
+      padrao: 'padrao',
+      catacao: 'catacao',
+      aspecto: 'aspecto',
+      bebida: 'bebida',
+      safra: 'safra',
+      broca: 'broca',
+      pva: 'pva',
+      impureza: 'imp',
+      p19: 'peneiraP19',
+      p18: 'peneiraP18',
+      p17: 'peneiraP17',
+      p16: 'peneiraP16',
+      p15: 'peneiraP15',
+      p14: 'peneiraP14',
+      mk: 'peneiraMk',
       defeito: 'defeito',
-      fundo1_peneira: 'fundo1Peneira', fundo1_percentual: 'fundo1Percent',
-      observacoes: 'observacoes'
-    }
+      fundo1_peneira: 'fundo1Peneira',
+      fundo1_percentual: 'fundo1Percent',
+      observacoes: 'observacoes',
+    },
   },
   LOW_CAFF: {
     sieveFields: [
@@ -189,7 +201,7 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       { key: 'peneiraP13', label: 'P.13 (%)' },
       { key: 'peneiraP12', label: 'P.12 (%)' },
       { key: 'peneiraP11', label: 'P.11 (%)' },
-      { key: 'peneiraP10', label: 'P.10 (%)' }
+      { key: 'peneiraP10', label: 'P.10 (%)' },
     ],
     defectFields: [
       { key: 'broca', label: 'Broca' },
@@ -197,47 +209,72 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       { key: 'imp', label: 'Impureza' },
       { key: 'ap', label: 'AP (%)' },
       { key: 'gpi', label: 'GPI' },
-      { key: 'defeito', label: 'Defeito' }
+      { key: 'defeito', label: 'Defeito' },
     ],
     hasFundo2: true,
     hasDefeito: true,
     sieveKeys: ['p15', 'p14', 'p13', 'p12', 'p11', 'p10'],
     extractionFieldMap: {
-      padrao: 'padrao', catacao: 'catacao', aspecto: 'aspecto', bebida: 'bebida',
-      safra: 'safra', broca: 'broca', pva: 'pva', impureza: 'imp',
-      p15: 'peneiraP15', p14: 'peneiraP14', p13: 'peneiraP13',
-      p12: 'peneiraP12', p11: 'peneiraP11', p10: 'peneiraP10',
-      ap: 'ap', gpi: 'gpi', defeito: 'defeito',
-      fundo1_peneira: 'fundo1Peneira', fundo1_percentual: 'fundo1Percent',
-      fundo2_peneira: 'fundo2Peneira', fundo2_percentual: 'fundo2Percent',
-      observacoes: 'observacoes'
-    }
+      padrao: 'padrao',
+      catacao: 'catacao',
+      aspecto: 'aspecto',
+      bebida: 'bebida',
+      safra: 'safra',
+      broca: 'broca',
+      pva: 'pva',
+      impureza: 'imp',
+      p15: 'peneiraP15',
+      p14: 'peneiraP14',
+      p13: 'peneiraP13',
+      p12: 'peneiraP12',
+      p11: 'peneiraP11',
+      p10: 'peneiraP10',
+      ap: 'ap',
+      gpi: 'gpi',
+      defeito: 'defeito',
+      fundo1_peneira: 'fundo1Peneira',
+      fundo1_percentual: 'fundo1Percent',
+      fundo2_peneira: 'fundo2Peneira',
+      fundo2_percentual: 'fundo2Percent',
+      observacoes: 'observacoes',
+    },
   },
   BICA: {
     sieveFields: [
       { key: 'peneiraP17', label: 'P.17 (%)' },
-      { key: 'peneiraMk', label: 'MK (%)' }
+      { key: 'peneiraMk', label: 'MK (%)' },
     ],
     defectFields: [
       { key: 'broca', label: 'Broca' },
       { key: 'pva', label: 'PVA' },
-      { key: 'imp', label: 'Impureza' }
+      { key: 'imp', label: 'Impureza' },
     ],
     hasFundo2: true,
     hasDefeito: false,
     sieveKeys: ['p17', 'mk'],
     extractionFieldMap: {
-      padrao: 'padrao', catacao: 'catacao', aspecto: 'aspecto', bebida: 'bebida',
-      safra: 'safra', broca: 'broca', pva: 'pva', impureza: 'imp',
-      p17: 'peneiraP17', mk: 'peneiraMk',
-      fundo1_peneira: 'fundo1Peneira', fundo1_percentual: 'fundo1Percent',
-      fundo2_peneira: 'fundo2Peneira', fundo2_percentual: 'fundo2Percent',
-      observacoes: 'observacoes'
-    }
-  }
+      padrao: 'padrao',
+      catacao: 'catacao',
+      aspecto: 'aspecto',
+      bebida: 'bebida',
+      safra: 'safra',
+      broca: 'broca',
+      pva: 'pva',
+      impureza: 'imp',
+      p17: 'peneiraP17',
+      mk: 'peneiraMk',
+      fundo1_peneira: 'fundo1Peneira',
+      fundo1_percentual: 'fundo1Percent',
+      fundo2_peneira: 'fundo2Peneira',
+      fundo2_percentual: 'fundo2Percent',
+      observacoes: 'observacoes',
+    },
+  },
 };
 
-export function getTypeConfig(classificationType: ClassificationType | null | undefined): ClassificationTypeConfig | null {
+export function getTypeConfig(
+  classificationType: ClassificationType | null | undefined
+): ClassificationTypeConfig | null {
   if (!classificationType) return null;
   return TYPE_CONFIGS[classificationType] ?? null;
 }
@@ -286,12 +323,32 @@ export function validateClassificationForm(
   return null;
 }
 
-const ALL_SIEVE_KEYS = ['p19', 'p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10'] as const;
+const ALL_SIEVE_KEYS = [
+  'p19',
+  'p18',
+  'p17',
+  'p16',
+  'mk',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p11',
+  'p10',
+] as const;
 
 const SIEVE_FORM_KEY_TO_PAYLOAD: Record<string, string> = {
-  peneiraP19: 'p19', peneiraP18: 'p18', peneiraP17: 'p17', peneiraP16: 'p16',
-  peneiraMk: 'mk', peneiraP15: 'p15', peneiraP14: 'p14', peneiraP13: 'p13',
-  peneiraP12: 'p12', peneiraP11: 'p11', peneiraP10: 'p10'
+  peneiraP19: 'p19',
+  peneiraP18: 'p18',
+  peneiraP17: 'p17',
+  peneiraP16: 'p16',
+  peneiraMk: 'mk',
+  peneiraP15: 'p15',
+  peneiraP14: 'p14',
+  peneiraP13: 'p13',
+  peneiraP12: 'p12',
+  peneiraP11: 'p11',
+  peneiraP10: 'p10',
 };
 
 export function buildClassificationDataPayload(
@@ -338,12 +395,13 @@ export function buildClassificationDataPayload(
     broca: form.broca.trim() || null,
     pva: form.pva.trim() || null,
     imp: form.imp.trim() || null,
-    ap: (!config || config.defectFields.some((f) => f.key === 'ap')) ? (form.ap.trim() || null) : null,
-    gpi: (!config || config.defectFields.some((f) => f.key === 'gpi')) ? (form.gpi.trim() || null) : null,
+    ap: !config || config.defectFields.some((f) => f.key === 'ap') ? form.ap.trim() || null : null,
+    gpi:
+      !config || config.defectFields.some((f) => f.key === 'gpi') ? form.gpi.trim() || null : null,
     classificador: form.classificador.trim() || null,
-    peneirasPercentuais: hasSieve ? sieve as Partial<ClassificationSievePayload> : null,
-    defeito: (!config || config.hasDefeito) ? (form.defeito.trim() || null) : null,
-    observacoes: form.observacoes.trim() || null
+    peneirasPercentuais: hasSieve ? (sieve as Partial<ClassificationSievePayload>) : null,
+    defeito: !config || config.hasDefeito ? form.defeito.trim() || null : null,
+    observacoes: form.observacoes.trim() || null,
   };
 
   if (options.includeAutomaticDate) {
@@ -353,7 +411,9 @@ export function buildClassificationDataPayload(
   return payload;
 }
 
-export function buildTechnicalFromClassificationData(data: ClassificationDataPayload): ClassificationTechnicalPayload | undefined {
+export function buildTechnicalFromClassificationData(
+  data: ClassificationDataPayload
+): ClassificationTechnicalPayload | undefined {
   const technical: ClassificationTechnicalPayload = {};
 
   if (data.defeito !== null && data.defeito !== undefined) {
@@ -371,15 +431,33 @@ export function buildTechnicalFromClassificationData(data: ClassificationDataPay
 
 // Universal fallback map (superset of all types)
 const UNIVERSAL_EXTRACTION_MAP: Record<string, keyof ClassificationFormState> = {
-  padrao: 'padrao', catacao: 'catacao', aspecto: 'aspecto', bebida: 'bebida',
-  safra: 'safra', broca: 'broca', pva: 'pva', impureza: 'imp',
-  p19: 'peneiraP19', p18: 'peneiraP18', p17: 'peneiraP17', p16: 'peneiraP16',
-  mk: 'peneiraMk', p15: 'peneiraP15', p14: 'peneiraP14', p13: 'peneiraP13',
-  p12: 'peneiraP12', p11: 'peneiraP11', p10: 'peneiraP10',
-  fundo1_peneira: 'fundo1Peneira', fundo1_percentual: 'fundo1Percent',
-  fundo2_peneira: 'fundo2Peneira', fundo2_percentual: 'fundo2Percent',
-  defeito: 'defeito', ap: 'ap', gpi: 'gpi',
-  observacoes: 'observacoes'
+  padrao: 'padrao',
+  catacao: 'catacao',
+  aspecto: 'aspecto',
+  bebida: 'bebida',
+  safra: 'safra',
+  broca: 'broca',
+  pva: 'pva',
+  impureza: 'imp',
+  p19: 'peneiraP19',
+  p18: 'peneiraP18',
+  p17: 'peneiraP17',
+  p16: 'peneiraP16',
+  mk: 'peneiraMk',
+  p15: 'peneiraP15',
+  p14: 'peneiraP14',
+  p13: 'peneiraP13',
+  p12: 'peneiraP12',
+  p11: 'peneiraP11',
+  p10: 'peneiraP10',
+  fundo1_peneira: 'fundo1Peneira',
+  fundo1_percentual: 'fundo1Percent',
+  fundo2_peneira: 'fundo2Peneira',
+  fundo2_percentual: 'fundo2Percent',
+  defeito: 'defeito',
+  ap: 'ap',
+  gpi: 'gpi',
+  observacoes: 'observacoes',
 };
 
 export function mapExtractionToForm(

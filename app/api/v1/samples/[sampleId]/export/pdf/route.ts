@@ -9,7 +9,10 @@ type ExportPdfBody = {
   buffer: Buffer;
 };
 
-export async function POST(request: NextRequest, context: { params: Promise<{ sampleId: string }> }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ sampleId: string }> }
+) {
   const params = await context.params;
   const body = await readJsonBody(request);
 
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
     headers: Object.fromEntries(request.headers.entries()),
     params: { sampleId: params.sampleId },
     query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-    body
+    body,
   });
 
   if (result.status !== 200) {
@@ -26,9 +29,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
   }
 
   const payload = result.body as ExportPdfBody;
-  const pdfBytes = Buffer.isBuffer(payload.buffer) ? payload.buffer : Buffer.from(payload.buffer ?? []);
+  const pdfBytes = Buffer.isBuffer(payload.buffer)
+    ? payload.buffer
+    : Buffer.from(payload.buffer ?? []);
   const responseBody = new Uint8Array(pdfBytes);
-  const safeFileName = typeof payload.fileName === 'string' && payload.fileName.trim() ? payload.fileName : 'laudo.pdf';
+  const safeFileName =
+    typeof payload.fileName === 'string' && payload.fileName.trim()
+      ? payload.fileName
+      : 'laudo.pdf';
   const contentType =
     typeof payload.contentType === 'string' && payload.contentType.trim()
       ? payload.contentType
@@ -40,7 +48,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sa
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="${safeFileName}"`,
       'Content-Length': String(pdfBytes.byteLength),
-      'Cache-Control': 'no-store'
-    }
+      'Cache-Control': 'no-store',
+    },
   });
 }

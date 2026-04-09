@@ -44,7 +44,7 @@ function normalizeUser(user, { allowPlaintextPasswords }) {
     password: !hasPasswordHash && hasPlaintextPassword ? password : null,
     passwordHash: hasPasswordHash ? passwordHash : null,
     role,
-    displayName
+    displayName,
   };
 }
 
@@ -99,7 +99,9 @@ export class LocalAuthService {
     }
 
     this.allowPlaintextPasswords = Boolean(allowPlaintextPasswords);
-    this.users = users.map((user) => normalizeUser(user, { allowPlaintextPasswords: this.allowPlaintextPasswords }));
+    this.users = users.map((user) =>
+      normalizeUser(user, { allowPlaintextPasswords: this.allowPlaintextPasswords })
+    );
     this.userByUsername = new Map(this.users.map((user) => [user.username, user]));
     this.secret = secret;
   }
@@ -120,7 +122,7 @@ export class LocalAuthService {
         userId: user.id,
         sessionId,
         role: user.role,
-        username: user.username
+        username: user.username,
       },
       { secret: this.secret }
     );
@@ -134,8 +136,8 @@ export class LocalAuthService {
         id: user.id,
         username: user.username,
         role: user.role,
-        displayName: user.displayName
-      }
+        displayName: user.displayName,
+      },
     };
   }
 
@@ -148,7 +150,7 @@ export class LocalAuthService {
       actorUserId: claims.userId,
       role: claims.role,
       username: claims.username,
-      sessionId: claims.sessionId
+      sessionId: claims.sessionId,
     };
   }
 }

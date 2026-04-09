@@ -20,7 +20,10 @@ export function resolveMaxUploadSizeBytes(rawValue = process.env.MAX_UPLOAD_SIZE
   return parsed;
 }
 
-export function assertAcceptedUploadSize(sizeBytes, { limitBytes = resolveMaxUploadSizeBytes(), fieldLabel = 'Uploaded image' } = {}) {
+export function assertAcceptedUploadSize(
+  sizeBytes,
+  { limitBytes = resolveMaxUploadSizeBytes(), fieldLabel = 'Uploaded image' } = {}
+) {
   if (!Number.isInteger(sizeBytes) || sizeBytes < 0) {
     throw new HttpError(422, `${fieldLabel} size is invalid`);
   }
@@ -29,8 +32,12 @@ export function assertAcceptedUploadSize(sizeBytes, { limitBytes = resolveMaxUpl
     return;
   }
 
-  throw new HttpError(413, `${fieldLabel} exceeds the maximum upload size of ${formatUploadLimit(limitBytes)}`, {
-    maxUploadSizeBytes: limitBytes,
-    receivedSizeBytes: sizeBytes
-  });
+  throw new HttpError(
+    413,
+    `${fieldLabel} exceeds the maximum upload size of ${formatUploadLimit(limitBytes)}`,
+    {
+      maxUploadSizeBytes: limitBytes,
+      receivedSizeBytes: sizeBytes,
+    }
+  );
 }

@@ -62,7 +62,9 @@ async function reportSuccess(config, job) {
       }
 
       if (res.status === 409) {
-        log.warn(`[${lotId}] Conflito de versao (tentativa ${attempt}/${maxAttempts}). Buscando versao atual...`);
+        log.warn(
+          `[${lotId}] Conflito de versao (tentativa ${attempt}/${maxAttempts}). Buscando versao atual...`
+        );
         const freshVersion = await fetchCurrentSampleVersion(config, job.sampleId);
         if (freshVersion !== null && freshVersion !== currentVersion) {
           currentVersion = freshVersion;
@@ -79,11 +81,17 @@ async function reportSuccess(config, job) {
     } catch (err) {
       if (attempt < maxAttempts) {
         const delay = 2000 * attempt;
-        log.warn(`[${lotId}] Falha ao reportar sucesso (${attempt}/${maxAttempts}): ${err.message}. Retry em ${delay}ms...`);
+        log.warn(
+          `[${lotId}] Falha ao reportar sucesso (${attempt}/${maxAttempts}): ${err.message}. Retry em ${delay}ms...`
+        );
         await sleep(delay);
       } else {
-        log.error(`[${lotId}] ATENCAO: Etiqueta foi impressa mas o backend NAO confirmou apos ${maxAttempts} tentativas.`);
-        log.error(`[${lotId}] O job sera ignorado ate o proximo reinicio do agente. Verifique a conexao.`);
+        log.error(
+          `[${lotId}] ATENCAO: Etiqueta foi impressa mas o backend NAO confirmou apos ${maxAttempts} tentativas.`
+        );
+        log.error(
+          `[${lotId}] O job sera ignorado ate o proximo reinicio do agente. Verifique a conexao.`
+        );
       }
     }
   }
@@ -101,11 +109,14 @@ async function reportFailure(config, job, errorMessage) {
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/print/failed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(
+        `${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/print/failed`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify(body),
+        }
+      );
 
       if (res.ok || res.status === 409) return;
 
@@ -115,7 +126,9 @@ async function reportFailure(config, job, errorMessage) {
       if (attempt < maxAttempts) {
         await sleep(2000);
       } else {
-        log.warn(`[${lotId}] Nao foi possivel reportar falha ao backend. O job sera retentado na proxima poll.`);
+        log.warn(
+          `[${lotId}] Nao foi possivel reportar falha ao backend. O job sera retentado na proxima poll.`
+        );
       }
     }
   }
@@ -153,7 +166,9 @@ async function processJob(config, job) {
       lastError = err;
       if (attempt < maxRetries) {
         const delayMs = config.printRetryDelayMs * Math.pow(2, attempt - 1);
-        log.warn(`[${lotId}] Tentativa ${attempt}/${maxRetries} falhou: ${err.message}. Retry em ${delayMs}ms...`);
+        log.warn(
+          `[${lotId}] Tentativa ${attempt}/${maxRetries} falhou: ${err.message}. Retry em ${delayMs}ms...`
+        );
         await sleep(delayMs);
       }
     }

@@ -14,7 +14,7 @@ export class EventValidator {
     }
 
     throw new HttpError(422, 'Event payload does not match contract schema', {
-      ajvErrors: this.validateFn.errors ?? []
+      ajvErrors: this.validateFn.errors ?? [],
     });
   }
 }

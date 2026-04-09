@@ -4,7 +4,7 @@ export const USER_ROLES = {
   ADMIN: 'ADMIN',
   CLASSIFIER: 'CLASSIFIER',
   REGISTRATION: 'REGISTRATION',
-  COMMERCIAL: 'COMMERCIAL'
+  COMMERCIAL: 'COMMERCIAL',
 };
 
 export function assertRoleAllowed(role, allowedRoles, actionLabel) {

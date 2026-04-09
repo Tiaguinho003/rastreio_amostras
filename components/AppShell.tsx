@@ -34,21 +34,46 @@ const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
   { href: '/samples/new', label: 'Novo Registro', icon: 'new-sample' as NavIcon },
   { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon },
-  { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon }
+  { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon },
 ] as const;
 
 const ADMIN_NAV_ITEM = {
   href: '/users',
   label: 'Usuarios',
-  icon: 'users' as NavIcon
+  icon: 'users' as NavIcon,
 } as const;
 
 const MOBILE_NAV_ITEMS = [
-  { href: '/dashboard', mobileLabel: 'Inicio', icon: 'dashboard' as NavIcon, emphasis: 'default' as const },
-  { href: '/samples/new', mobileLabel: 'Novo', icon: 'new-sample' as NavIcon, emphasis: 'default' as const },
-  { href: '/camera', mobileLabel: 'Camera', icon: 'camera' as NavIcon, emphasis: 'primary' as const },
-  { href: '/samples', mobileLabel: 'Amostras', icon: 'samples' as NavIcon, emphasis: 'default' as const },
-  { href: '/clients', mobileLabel: 'Clientes', icon: 'clients' as NavIcon, emphasis: 'default' as const }
+  {
+    href: '/dashboard',
+    mobileLabel: 'Inicio',
+    icon: 'dashboard' as NavIcon,
+    emphasis: 'default' as const,
+  },
+  {
+    href: '/samples/new',
+    mobileLabel: 'Novo',
+    icon: 'new-sample' as NavIcon,
+    emphasis: 'default' as const,
+  },
+  {
+    href: '/camera',
+    mobileLabel: 'Camera',
+    icon: 'camera' as NavIcon,
+    emphasis: 'primary' as const,
+  },
+  {
+    href: '/samples',
+    mobileLabel: 'Amostras',
+    icon: 'samples' as NavIcon,
+    emphasis: 'default' as const,
+  },
+  {
+    href: '/clients',
+    mobileLabel: 'Clientes',
+    icon: 'clients' as NavIcon,
+    emphasis: 'default' as const,
+  },
 ] as const;
 
 function isMainNavItemActive(pathname: string, href: string) {
@@ -156,7 +181,7 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
   if (pathname === '/camera') {
     return {
       title: 'Leitor QR',
-      subtitle: 'Escaneie o QR code da etiqueta para localizar a amostra.'
+      subtitle: 'Escaneie o QR code da etiqueta para localizar a amostra.',
     };
   }
 
@@ -188,7 +213,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
   const isSettingsPage = pathname === '/settings';
-  const isLayeredRoute = isDashboard || isNewSample || isSamplesList || isClientsList || isSampleDetail || isClientDetail || isUsersPage || isSettingsPage;
+  const isLayeredRoute =
+    isDashboard ||
+    isNewSample ||
+    isSamplesList ||
+    isClientsList ||
+    isSampleDetail ||
+    isClientDetail ||
+    isUsersPage ||
+    isSettingsPage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -199,7 +232,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
   const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
-  const showPasswordDecisionModal = session.user.initialPasswordDecision === 'PENDING' || passwordModalStep === 'change';
+  const showPasswordDecisionModal =
+    session.user.initialPasswordDecision === 'PENDING' || passwordModalStep === 'change';
   const passwordModalTrapRef = useFocusTrap(showPasswordDecisionModal);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -208,7 +242,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  const desktopNavItems = isAdmin(session.user.role) ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM] : DESKTOP_NAV_ITEMS;
+  const desktopNavItems = isAdmin(session.user.role)
+    ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM]
+    : DESKTOP_NAV_ITEMS;
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
 
@@ -259,7 +295,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
   useEffect(() => {
     if (!showPasswordDecisionModal) return;
-    const block = (e: KeyboardEvent) => { if (e.key === 'Escape') e.preventDefault(); };
+    const block = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') e.preventDefault();
+    };
     document.addEventListener('keydown', block);
     document.body.style.overflow = 'hidden';
     return () => {
@@ -397,14 +435,26 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                   </div>
 
                   {isAdmin(session.user.role) ? (
-                    <Link href="/users" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                    <Link
+                      href="/users"
+                      className="topbar-profile-link"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
                       Usuarios
                     </Link>
                   ) : null}
-                  <Link href="/clients" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                  <Link
+                    href="/clients"
+                    className="topbar-profile-link"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
                     Clientes
                   </Link>
-                  <Link href="/settings" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                  <Link
+                    href="/settings"
+                    className="topbar-profile-link"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
                     Meu perfil
                   </Link>
                   <button
@@ -424,7 +474,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         </div>
       </header>
 
-      <main className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}${isNewSample ? ' is-new-sample-route' : ''}`}>
+      <main
+        className={`app-shell-main${isCameraRoute ? ' is-camera-route' : ''}${isLayeredRoute ? ' is-dashboard-route' : ''}${isNewSample ? ' is-new-sample-route' : ''}`}
+      >
         {mobileRouteMeta && !isCameraRoute ? (
           <section className="app-shell-mobile-route-header">
             <div className="app-shell-mobile-route-copy">
@@ -443,9 +495,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           </section>
         ) : null}
 
-        <div className="app-shell-page-content">
-          {children}
-        </div>
+        <div className="app-shell-page-content">{children}</div>
       </main>
 
       <ProfileBottomSheet
@@ -481,23 +531,39 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
       {showPasswordDecisionModal ? (
         <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
-          <section ref={passwordModalTrapRef} className="app-modal app-modal-password-decision" role="dialog" aria-modal="true">
+          <section
+            ref={passwordModalTrapRef}
+            className="app-modal app-modal-password-decision"
+            role="dialog"
+            aria-modal="true"
+          >
             {passwordModalStep === 'decision' ? (
               <>
                 <header className="app-modal-header">
                   <div className="app-modal-title-wrap">
                     <h3 className="app-modal-title">Senha inicial</h3>
                     <p className="app-modal-description">
-                      Sua conta esta usando a senha definida pelo administrador. Voce pode mante-la ou escolher uma nova senha agora.
+                      Sua conta esta usando a senha definida pelo administrador. Voce pode mante-la
+                      ou escolher uma nova senha agora.
                     </p>
                   </div>
                 </header>
                 {decisionError ? <p className="app-modal-error">{decisionError}</p> : null}
                 <div className="app-modal-actions">
-                  <button type="button" className="app-modal-secondary" onClick={handleKeepPassword} disabled={decisionLoading}>
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={handleKeepPassword}
+                    disabled={decisionLoading}
+                  >
                     {decisionLoading ? 'Salvando...' : 'Manter senha'}
                   </button>
-                  <button type="button" className="app-modal-submit" onClick={handleChooseChangePassword} disabled={decisionLoading}>
+                  <button
+                    type="button"
+                    className="app-modal-submit"
+                    onClick={handleChooseChangePassword}
+                    disabled={decisionLoading}
+                  >
                     Alterar senha
                   </button>
                 </div>
@@ -513,7 +579,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                   </div>
                 </header>
                 <div className="app-modal-content">
-                  <form className="app-modal-password-form" onSubmit={(e) => { e.preventDefault(); void handleSubmitNewPassword(); }}>
+                  <form
+                    className="app-modal-password-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void handleSubmitNewPassword();
+                    }}
+                  >
                     <div className="app-modal-password-field">
                       <span className="app-modal-password-label">Nova senha</span>
                       <div className="app-modal-password-input-wrap">
@@ -525,8 +597,38 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                           autoComplete="new-password"
                           placeholder="Minimo de 8 caracteres"
                         />
-                        <button type="button" className="app-modal-password-toggle" onClick={() => setShowNewPassword((v) => !v)} tabIndex={-1} aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}>
-                          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: '#aaa', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>{showNewPassword ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></> : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>}</svg>
+                        <button
+                          type="button"
+                          className="app-modal-password-toggle"
+                          onClick={() => setShowNewPassword((v) => !v)}
+                          tabIndex={-1}
+                          aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            style={{
+                              width: 16,
+                              height: 16,
+                              fill: 'none',
+                              stroke: '#aaa',
+                              strokeWidth: 1.6,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                            }}
+                          >
+                            {showNewPassword ? (
+                              <>
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                <line x1="1" y1="1" x2="23" y2="23" />
+                              </>
+                            ) : (
+                              <>
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </>
+                            )}
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -541,16 +643,53 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                           autoComplete="new-password"
                           placeholder="Repita a nova senha"
                         />
-                        <button type="button" className="app-modal-password-toggle" onClick={() => setShowConfirmPassword((v) => !v)} tabIndex={-1} aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}>
-                          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: 'none', stroke: '#aaa', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>{showConfirmPassword ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></> : <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>}</svg>
+                        <button
+                          type="button"
+                          className="app-modal-password-toggle"
+                          onClick={() => setShowConfirmPassword((v) => !v)}
+                          tabIndex={-1}
+                          aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            style={{
+                              width: 16,
+                              height: 16,
+                              fill: 'none',
+                              stroke: '#aaa',
+                              strokeWidth: 1.6,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                            }}
+                          >
+                            {showConfirmPassword ? (
+                              <>
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                <line x1="1" y1="1" x2="23" y2="23" />
+                              </>
+                            ) : (
+                              <>
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </>
+                            )}
+                          </svg>
                         </button>
                       </div>
                     </div>
-                    {passwordChangeError ? <p className="app-modal-error">{passwordChangeError}</p> : null}
+                    {passwordChangeError ? (
+                      <p className="app-modal-error">{passwordChangeError}</p>
+                    ) : null}
                   </form>
                 </div>
                 <div className="app-modal-actions">
-                  <button type="button" className="app-modal-submit" onClick={() => void handleSubmitNewPassword()} disabled={passwordChangeLoading || newPassword.length < 8}>
+                  <button
+                    type="button"
+                    className="app-modal-submit"
+                    onClick={() => void handleSubmitNewPassword()}
+                    disabled={passwordChangeLoading || newPassword.length < 8}
+                  >
                     {passwordChangeLoading ? 'Salvando...' : 'Salvar nova senha'}
                   </button>
                 </div>

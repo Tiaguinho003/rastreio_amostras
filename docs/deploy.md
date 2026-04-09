@@ -37,6 +37,7 @@ gcloud config configurations list
 ```
 
 Trocar entre configs sem persistir:
+
 ```bash
 gcloud --configuration=empresa <comando>
 # OU
@@ -51,6 +52,7 @@ gcloud --configuration=empresa auth print-access-token
 ```
 
 Se expirado:
+
 ```bash
 gcloud --configuration=<conf> auth login
 ```
@@ -58,6 +60,7 @@ gcloud --configuration=<conf> auth login
 ### Working tree limpo
 
 O `build-image.sh` recusa rodar se houver mudanças não commitadas. Antes de buildar:
+
 ```bash
 git status
 # nothing to commit, working tree clean
@@ -84,6 +87,7 @@ git push origin main
 ```
 
 **O que acontece:**
+
 1. GitHub recebe o push
 2. Cloud Build trigger `rastreio-hml-cloud-run` (ID `23e4ad65-b17c-4925-939d-7fc0d1b9ebc6`) detecta o push em `main`
 3. Roda `cloudbuild.homolog.yaml`:
@@ -94,6 +98,7 @@ git push origin main
 4. Hml fica disponível em https://rastreio-hml-app-yvcijqvsca-rj.a.run.app
 
 **Acompanhar o build:**
+
 ```bash
 gcloud --configuration=default builds list --limit=1 \
   --format='value(id,status,substitutions.SHORT_SHA)'
@@ -152,6 +157,7 @@ scripts/gcp/parity-check.sh
 ```
 
 Output esperado quando ok:
+
 ```
 ================================================================
   PARITY CHECK -- homolog vs producao
@@ -170,11 +176,13 @@ Output esperado quando ok:
 ```
 
 Exit codes:
+
 - `0` — paridade total
 - `1` — divergência (tags diferentes ou tráfego pinned)
 - `2` — erro de gcloud (auth, config, region)
 
 Útil em scripts de cron/CI:
+
 ```bash
 if ! scripts/gcp/parity-check.sh > /dev/null; then
   echo "ALERTA: prod e hml estão divergentes"
@@ -199,6 +207,7 @@ e rebuildar prod com SHA correto. Detalhes em `feedback_no_deploy_without_commit
 (memória do Claude Code).
 
 **Bypass excepcional** (recovery, build de WIP pra teste):
+
 ```bash
 ALLOW_DIRTY=true scripts/gcp/build-image.sh cloud-production
 ```
@@ -211,6 +220,7 @@ editar o arquivo, e usar tags descritivas em vez de SHA é uma porta de entrada
 pra deploys sem rastreabilidade).
 
 **Bypass excepcional:**
+
 ```bash
 SHORT_SHA=$(git rev-parse --short HEAD)
 sed "s/^# GCLOUD_IMAGE_TAG.*$/GCLOUD_IMAGE_TAG=${SHORT_SHA}-recovery/" \
@@ -229,12 +239,14 @@ ficam `Retired` sem nunca servir tráfego.
 usuário não percebeu por dias.
 
 **Como detectar:**
+
 ```bash
 scripts/gcp/parity-check.sh
 # Ele avisa se latestRevision != True
 ```
 
 **Como desfazer:**
+
 ```bash
 gcloud --configuration=<conf> run services update-traffic <svc> \
   --region=southamerica-east1 \
@@ -255,6 +267,7 @@ gcloud --configuration=<conf> run services update-traffic <svc> \
 untracked não-ignorados pelo `.gitignore`.
 
 **Fix:**
+
 ```bash
 git status        # ver o que está sujo
 git add ... && git commit -m "..."   # commitar
@@ -263,6 +276,7 @@ git stash         # se quiser deixar pra depois
 ```
 
 **Bypass excepcional** (recovery, build de WIP pra teste):
+
 ```bash
 ALLOW_DIRTY=true scripts/gcp/build-image.sh cloud-production
 ```
@@ -274,6 +288,7 @@ ALLOW_DIRTY=true scripts/gcp/build-image.sh cloud-production
 
 **Causa 2**: tráfego pinned em revision antiga.
 **Fix:**
+
 ```bash
 gcloud --configuration=<conf> run services describe <svc> \
   --region=southamerica-east1 --format='yaml(spec.traffic)'
@@ -287,6 +302,7 @@ gcloud --configuration=<conf> run services update-traffic <svc> \
 **Causa:** branch errada ou trigger desabilitado.
 
 **Fix:**
+
 ```bash
 # Listar triggers
 gcloud --configuration=default builds triggers list
@@ -306,6 +322,7 @@ com a nova imagem) mas **não os executa** automaticamente. Em prod, executar
 migrações é decisão consciente.
 
 **Para executar migrate em prod (idempotente):**
+
 ```bash
 gcloud --configuration=empresa run jobs execute rastreio-prod-migrate \
   --region=southamerica-east1 \
@@ -338,6 +355,7 @@ gcloud --configuration=empresa run jobs execute rastreio-prod-migrate \
 ### Env files (NÃO versionados)
 
 Cada máquina precisa ter cópias locais:
+
 - `.env.cloud-homolog`
 - `.env.cloud-homolog.ops`
 - `.env.cloud-production`
@@ -363,6 +381,7 @@ Se faltarem, peça pro Flavio.
 ### Backup tags
 
 Após qualquer recovery, criar tag de backup pra poder voltar:
+
 ```bash
 git tag backup-recovery-main-$(date +%Y%m%d-%H%M)
 ```

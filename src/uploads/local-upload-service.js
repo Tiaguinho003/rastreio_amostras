@@ -6,7 +6,7 @@ import { HttpError } from '../contracts/errors.js';
 import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './upload-policy.js';
 
 const ATTACHMENT_KIND_TO_FOLDER = {
-  CLASSIFICATION_PHOTO: 'classification'
+  CLASSIFICATION_PHOTO: 'classification',
 };
 
 function sanitizeFileName(fileName) {
@@ -43,12 +43,17 @@ export class LocalUploadService {
 
     assertAcceptedUploadSize(buffer.length, {
       limitBytes: this.maxUploadSizeBytes,
-      fieldLabel: 'Uploaded image'
+      fieldLabel: 'Uploaded image',
     });
 
     const attachmentId = randomUUID();
     const safeName = sanitizeFileName(originalFileName);
-    const relativePath = path.join('samples', sampleId, ATTACHMENT_KIND_TO_FOLDER[kind], `${attachmentId}-${safeName}`);
+    const relativePath = path.join(
+      'samples',
+      sampleId,
+      ATTACHMENT_KIND_TO_FOLDER[kind],
+      `${attachmentId}-${safeName}`
+    );
     const absolutePath = path.join(this.baseDir, relativePath);
 
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -62,7 +67,7 @@ export class LocalUploadService {
       fileName: safeName,
       mimeType,
       sizeBytes: buffer.length,
-      checksumSha256
+      checksumSha256,
     };
   }
 

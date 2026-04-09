@@ -21,7 +21,7 @@ export function ProfileBottomSheet({ session, open, onClose, onLogout }: Profile
   const dragState = useRef<{ startY: number; currentY: number; dragging: boolean }>({
     startY: 0,
     currentY: 0,
-    dragging: false
+    dragging: false,
   });
   const [dragOffset, setDragOffset] = useState(0);
   const [visible, setVisible] = useState(false);
@@ -170,7 +170,6 @@ export function ProfileBottomSheet({ session, open, onClose, onLogout }: Profile
             </span>
             <span>Meu perfil</span>
           </Link>
-
         </nav>
 
         <div className="profile-sheet-divider" />

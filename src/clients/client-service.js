@@ -25,7 +25,7 @@ import {
   readPageQuery,
   toClientAuditEventResponse,
   toClientRegistrationSummary,
-  toClientSummary
+  toClientSummary,
 } from './client-support.js';
 
 const CLIENT_SUMMARY_SELECT = {
@@ -45,21 +45,21 @@ const CLIENT_SUMMARY_SELECT = {
   updatedAt: true,
   registrations: {
     where: {
-      status: CLIENT_REGISTRATION_STATUSES.ACTIVE
+      status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
     },
     select: {
       id: true,
       status: true,
       city: true,
-      state: true
+      state: true,
     },
-    orderBy: { createdAt: 'asc' }
+    orderBy: { createdAt: 'asc' },
   },
   _count: {
     select: {
-      registrations: true
-    }
-  }
+      registrations: true,
+    },
+  },
 };
 
 const CLIENT_DETAIL_SELECT = {
@@ -78,8 +78,8 @@ const CLIENT_DETAIL_SELECT = {
   createdAt: true,
   updatedAt: true,
   registrations: {
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
-  }
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+  },
 };
 
 const REGISTRATION_SELECT = {
@@ -95,7 +95,7 @@ const REGISTRATION_SELECT = {
   postalCode: true,
   complement: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 };
 
 function buildClientWhereFromSearch(search) {
@@ -112,7 +112,7 @@ function buildClientWhereFromSearch(search) {
     { tradeName: { contains: search, mode: 'insensitive' } },
     { cpf: { contains: search } },
     { cnpj: { contains: search } },
-    { documentCanonical: { contains: digits.length > 0 ? digits : search.toLowerCase() } }
+    { documentCanonical: { contains: digits.length > 0 ? digits : search.toLowerCase() } },
   ];
 
   if (Number.isInteger(numericSearch) && String(numericSearch) === search.trim()) {
@@ -142,7 +142,9 @@ function parseExactCodeSearch(search) {
 
 function mapClientRow(row) {
   const activeRegistrations = Array.isArray(row.registrations)
-    ? row.registrations.filter((registration) => registration.status === CLIENT_REGISTRATION_STATUSES.ACTIVE)
+    ? row.registrations.filter(
+        (registration) => registration.status === CLIENT_REGISTRATION_STATUSES.ACTIVE
+      )
     : [];
   const activeRegistrationCount = activeRegistrations.length;
   const registrationCount =
@@ -157,7 +159,7 @@ function mapClientRow(row) {
     activeRegistrationCount,
     registrationCount,
     primaryCity: primaryRegistration?.city ?? null,
-    primaryState: primaryRegistration?.state ?? null
+    primaryState: primaryRegistration?.state ?? null,
   });
 }
 
@@ -174,11 +176,11 @@ export class ClientService {
 
     const existingUser = await tx.user.findUnique({
       where: {
-        id: actorUserId
+        id: actorUserId,
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     return existingUser?.id ?? null;
@@ -203,15 +205,15 @@ export class ClientService {
         requestId: auditContext.requestId,
         correlationId: auditContext.correlationId,
         metadataIp: auditContext.metadataIp,
-        metadataUserAgent: auditContext.metadataUserAgent
-      }
+        metadataUserAgent: auditContext.metadataUserAgent,
+      },
     });
   }
 
   async resolveOwnerBinding({ ownerClientId, ownerRegistrationId = null }) {
     if (typeof ownerClientId !== 'string' || ownerClientId.length === 0) {
       throw new HttpError(422, 'ownerClientId is required for structured owner binding', {
-        code: 'OWNER_CLIENT_REQUIRED'
+        code: 'OWNER_CLIENT_REQUIRED',
       });
     }
 
@@ -229,28 +231,28 @@ export class ClientService {
         phone: true,
         isBuyer: true,
         isSeller: true,
-        status: true
-      }
+        status: true,
+      },
     });
 
     if (!client) {
       throw new HttpError(422, 'ownerClientId does not reference an existing client', {
         code: 'OWNER_CLIENT_NOT_FOUND',
-        field: 'ownerClientId'
+        field: 'ownerClientId',
       });
     }
 
     if (client.status !== CLIENT_STATUSES.ACTIVE) {
       throw new HttpError(422, 'ownerClientId must reference an active client', {
         code: 'OWNER_CLIENT_INACTIVE',
-        field: 'ownerClientId'
+        field: 'ownerClientId',
       });
     }
 
     if (!client.isSeller) {
       throw new HttpError(422, 'ownerClientId must reference a seller client', {
         code: 'OWNER_CLIENT_NOT_SELLER',
-        field: 'ownerClientId'
+        field: 'ownerClientId',
       });
     }
 
@@ -259,7 +261,7 @@ export class ClientService {
       registration = await this.prisma.clientRegistration.findFirst({
         where: {
           id: ownerRegistrationId,
-          clientId: client.id
+          clientId: client.id,
         },
         select: {
           id: true,
@@ -272,21 +274,21 @@ export class ClientService {
           city: true,
           state: true,
           postalCode: true,
-          complement: true
-        }
+          complement: true,
+        },
       });
 
       if (!registration) {
         throw new HttpError(422, 'ownerRegistrationId must belong to ownerClientId', {
           code: 'OWNER_REGISTRATION_MISMATCH',
-          field: 'ownerRegistrationId'
+          field: 'ownerRegistrationId',
         });
       }
 
       if (registration.status !== CLIENT_REGISTRATION_STATUSES.ACTIVE) {
         throw new HttpError(422, 'ownerRegistrationId must reference an active registration', {
           code: 'OWNER_REGISTRATION_INACTIVE',
-          field: 'ownerRegistrationId'
+          field: 'ownerRegistrationId',
         });
       }
     }
@@ -296,14 +298,14 @@ export class ClientService {
       ownerRegistrationId: registration?.id ?? null,
       displayName: buildClientDisplayName(client),
       ownerClient: toClientSummary(client),
-      ownerRegistration: registration ? toClientRegistrationSummary(registration) : null
+      ownerRegistration: registration ? toClientRegistrationSummary(registration) : null,
     };
   }
 
   async resolveBuyerBinding({ buyerClientId, buyerRegistrationId = null }) {
     if (typeof buyerClientId !== 'string' || buyerClientId.length === 0) {
       throw new HttpError(422, 'buyerClientId is required for sale movement', {
-        code: 'BUYER_CLIENT_REQUIRED'
+        code: 'BUYER_CLIENT_REQUIRED',
       });
     }
 
@@ -321,28 +323,28 @@ export class ClientService {
         phone: true,
         isBuyer: true,
         isSeller: true,
-        status: true
-      }
+        status: true,
+      },
     });
 
     if (!client) {
       throw new HttpError(422, 'buyerClientId does not reference an existing client', {
         code: 'BUYER_CLIENT_NOT_FOUND',
-        field: 'buyerClientId'
+        field: 'buyerClientId',
       });
     }
 
     if (client.status !== CLIENT_STATUSES.ACTIVE) {
       throw new HttpError(422, 'buyerClientId must reference an active client', {
         code: 'BUYER_CLIENT_INACTIVE',
-        field: 'buyerClientId'
+        field: 'buyerClientId',
       });
     }
 
     if (!client.isBuyer) {
       throw new HttpError(422, 'buyerClientId must reference a buyer client', {
         code: 'BUYER_CLIENT_NOT_BUYER',
-        field: 'buyerClientId'
+        field: 'buyerClientId',
       });
     }
 
@@ -351,7 +353,7 @@ export class ClientService {
       registration = await this.prisma.clientRegistration.findFirst({
         where: {
           id: buyerRegistrationId,
-          clientId: client.id
+          clientId: client.id,
         },
         select: {
           id: true,
@@ -364,21 +366,21 @@ export class ClientService {
           city: true,
           state: true,
           postalCode: true,
-          complement: true
-        }
+          complement: true,
+        },
       });
 
       if (!registration) {
         throw new HttpError(422, 'buyerRegistrationId must belong to buyerClientId', {
           code: 'BUYER_REGISTRATION_MISMATCH',
-          field: 'buyerRegistrationId'
+          field: 'buyerRegistrationId',
         });
       }
 
       if (registration.status !== CLIENT_REGISTRATION_STATUSES.ACTIVE) {
         throw new HttpError(422, 'buyerRegistrationId must reference an active registration', {
           code: 'BUYER_REGISTRATION_INACTIVE',
-          field: 'buyerRegistrationId'
+          field: 'buyerRegistrationId',
         });
       }
     }
@@ -387,14 +389,14 @@ export class ClientService {
       buyerClientId: client.id,
       buyerRegistrationId: registration?.id ?? null,
       buyerClient: toClientSummary(client),
-      buyerRegistration: registration ? toClientRegistrationSummary(registration) : null
+      buyerRegistration: registration ? toClientRegistrationSummary(registration) : null,
     };
   }
 
   async resolveRecipientClient(recipientClientId) {
     if (typeof recipientClientId !== 'string' || recipientClientId.length === 0) {
       throw new HttpError(422, 'recipientClientId is required', {
-        code: 'RECIPIENT_CLIENT_REQUIRED'
+        code: 'RECIPIENT_CLIENT_REQUIRED',
       });
     }
 
@@ -412,21 +414,21 @@ export class ClientService {
         phone: true,
         isBuyer: true,
         isSeller: true,
-        status: true
-      }
+        status: true,
+      },
     });
 
     if (!client) {
       throw new HttpError(422, 'recipientClientId does not reference an existing client', {
         code: 'RECIPIENT_CLIENT_NOT_FOUND',
-        field: 'recipientClientId'
+        field: 'recipientClientId',
       });
     }
 
     if (client.status !== CLIENT_STATUSES.ACTIVE) {
       throw new HttpError(422, 'recipientClientId must reference an active client', {
         code: 'RECIPIENT_CLIENT_INACTIVE',
-        field: 'recipientClientId'
+        field: 'recipientClientId',
       });
     }
 
@@ -436,12 +438,12 @@ export class ClientService {
   async requireClientById(tx, clientId) {
     const client = await tx.client.findUnique({
       where: { id: clientId },
-      select: CLIENT_DETAIL_SELECT
+      select: CLIENT_DETAIL_SELECT,
     });
 
     if (!client) {
       throw new HttpError(404, 'Client not found', {
-        code: 'CLIENT_NOT_FOUND'
+        code: 'CLIENT_NOT_FOUND',
       });
     }
 
@@ -466,13 +468,13 @@ export class ClientService {
         isSeller: true,
         status: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     if (!client) {
       throw new HttpError(404, 'Client not found', {
-        code: 'CLIENT_NOT_FOUND'
+        code: 'CLIENT_NOT_FOUND',
       });
     }
 
@@ -483,14 +485,14 @@ export class ClientService {
     const registration = await tx.clientRegistration.findFirst({
       where: {
         id: registrationId,
-        clientId
+        clientId,
       },
-      select: REGISTRATION_SELECT
+      select: REGISTRATION_SELECT,
     });
 
     if (!registration) {
       throw new HttpError(404, 'Client registration not found', {
-        code: 'CLIENT_REGISTRATION_NOT_FOUND'
+        code: 'CLIENT_REGISTRATION_NOT_FOUND',
       });
     }
 
@@ -504,43 +506,47 @@ export class ClientService {
         ...(excludeClientId
           ? {
               id: {
-                not: excludeClientId
-              }
+                not: excludeClientId,
+              },
             }
-          : {})
+          : {}),
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     if (existing) {
       throw new HttpError(409, 'Document already exists for another client', {
-        code: 'CLIENT_DOCUMENT_ALREADY_EXISTS'
+        code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
       });
     }
   }
 
-  async assertRegistrationAvailable(tx, registrationNumberCanonical, { excludeRegistrationId = null } = {}) {
+  async assertRegistrationAvailable(
+    tx,
+    registrationNumberCanonical,
+    { excludeRegistrationId = null } = {}
+  ) {
     const existing = await tx.clientRegistration.findFirst({
       where: {
         registrationNumberCanonical,
         ...(excludeRegistrationId
           ? {
               id: {
-                not: excludeRegistrationId
-              }
+                not: excludeRegistrationId,
+              },
             }
-          : {})
+          : {}),
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     if (existing) {
       throw new HttpError(409, 'Registration number already exists', {
-        code: 'CLIENT_REGISTRATION_ALREADY_EXISTS'
+        code: 'CLIENT_REGISTRATION_ALREADY_EXISTS',
       });
     }
   }
@@ -548,21 +554,22 @@ export class ClientService {
   async listClients(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list clients');
 
-    const { page, limit, search, status, personType, isBuyer, isSeller } = normalizeListClientsInput(input);
+    const { page, limit, search, status, personType, isBuyer, isSeller } =
+      normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
     const baseWhere = {
       ...(status ? { status } : {}),
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
-      ...(isSeller === null ? {} : { isSeller })
+      ...(isSeller === null ? {} : { isSeller }),
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);
     if (exactCodeSearch !== null) {
       const exactCodeWhere = {
         ...baseWhere,
-        code: exactCodeSearch
+        code: exactCodeSearch,
       };
 
       const [items, total] = await this.prisma.$transaction([
@@ -571,22 +578,22 @@ export class ClientService {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           skip,
           take: limit,
-          select: CLIENT_SUMMARY_SELECT
+          select: CLIENT_SUMMARY_SELECT,
         }),
-        this.prisma.client.count({ where: exactCodeWhere })
+        this.prisma.client.count({ where: exactCodeWhere }),
       ]);
 
       if (total > 0) {
         return {
           items: items.map((item) => mapClientRow(item)),
-          page: buildClientListPage(total, page, limit)
+          page: buildClientListPage(total, page, limit),
         };
       }
     }
 
     const where = {
       ...baseWhere,
-      ...(buildClientWhereFromSearch(search) ?? {})
+      ...(buildClientWhereFromSearch(search) ?? {}),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -595,14 +602,14 @@ export class ClientService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
-        select: CLIENT_SUMMARY_SELECT
+        select: CLIENT_SUMMARY_SELECT,
       }),
-      this.prisma.client.count({ where })
+      this.prisma.client.count({ where }),
     ]);
 
     return {
       items: items.map((item) => mapClientRow(item)),
-      page: buildClientListPage(total, page, limit)
+      page: buildClientListPage(total, page, limit),
     };
   }
 
@@ -617,18 +624,18 @@ export class ClientService {
         : kind === CLIENT_LOOKUP_KINDS.BUYER
           ? { isBuyer: true }
           : {}),
-      ...(buildClientWhereFromSearch(search) ?? {})
+      ...(buildClientWhereFromSearch(search) ?? {}),
     };
 
     const items = await this.prisma.client.findMany({
       where,
       orderBy: [{ code: 'asc' }, { id: 'asc' }],
       take: limit,
-      select: CLIENT_SUMMARY_SELECT
+      select: CLIENT_SUMMARY_SELECT,
     });
 
     return {
-      items: items.map((item) => mapClientRow(item))
+      items: items.map((item) => mapClientRow(item)),
     };
   }
 
@@ -639,7 +646,9 @@ export class ClientService {
       const client = await this.requireClientById(tx, clientId);
       return {
         client: mapClientRow(client),
-        registrations: client.registrations.map((registration) => toClientRegistrationSummary(registration))
+        registrations: client.registrations.map((registration) =>
+          toClientRegistrationSummary(registration)
+        ),
       };
     });
   }
@@ -656,9 +665,9 @@ export class ClientService {
       const created = await tx.client.create({
         data: {
           id: randomUUID(),
-          ...normalized
+          ...normalized,
         },
-        select: CLIENT_SUMMARY_SELECT
+        select: CLIENT_SUMMARY_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -666,12 +675,12 @@ export class ClientService {
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_CREATED,
         payload: {
-          after: buildClientAuditState(created)
-        }
+          after: buildClientAuditState(created),
+        },
       });
 
       return {
-        client: mapClientRow(created)
+        client: mapClientRow(created),
       };
     });
   }
@@ -685,7 +694,7 @@ export class ClientService {
 
       if (!normalized.data.documentCanonical.startsWith('no-doc-')) {
         await this.assertDocumentAvailable(tx, normalized.data.documentCanonical, {
-          excludeClientId: current.id
+          excludeClientId: current.id,
         });
       }
 
@@ -694,8 +703,8 @@ export class ClientService {
         ...before,
         ...buildClientAuditState({
           ...current,
-          ...normalized.data
-        })
+          ...normalized.data,
+        }),
       };
       const auditPayload = buildClientAuditPayload(before, afterCandidate);
       if (Object.keys(auditPayload.diff.after).length === 0) {
@@ -705,7 +714,7 @@ export class ClientService {
       const updated = await tx.client.update({
         where: { id: current.id },
         data: normalized.data,
-        select: CLIENT_SUMMARY_SELECT
+        select: CLIENT_SUMMARY_SELECT,
       });
 
       const beforeDisplayName = buildClientDisplayName(current);
@@ -724,11 +733,11 @@ export class ClientService {
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
         reasonText: normalized.reasonText,
-        payload: auditPayload
+        payload: auditPayload,
       });
 
       return {
-        client: mapClientRow(updated)
+        client: mapClientRow(updated),
       };
     });
   }
@@ -736,14 +745,14 @@ export class ClientService {
   async countClientUsage(tx, clientId) {
     const [ownedSamples, activeMovements, activeRegistrations] = await Promise.all([
       tx.sample.count({
-        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } }
+        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
       }),
       tx.sampleMovement.count({
-        where: { buyerClientId: clientId, status: 'ACTIVE' }
+        where: { buyerClientId: clientId, status: 'ACTIVE' },
       }),
       tx.clientRegistration.count({
-        where: { clientId, status: 'ACTIVE' }
-      })
+        where: { clientId, status: 'ACTIVE' },
+      }),
     ]);
 
     return { ownedSamples, activeMovements, activeRegistrations };
@@ -752,11 +761,11 @@ export class ClientService {
   async countRegistrationUsage(tx, registrationId) {
     const [linkedSamples, linkedMovements] = await Promise.all([
       tx.sample.count({
-        where: { ownerRegistrationId: registrationId, status: { not: 'INVALIDATED' } }
+        where: { ownerRegistrationId: registrationId, status: { not: 'INVALIDATED' } },
       }),
       tx.sampleMovement.count({
-        where: { buyerRegistrationId: registrationId, status: 'ACTIVE' }
-      })
+        where: { buyerRegistrationId: registrationId, status: 'ACTIVE' },
+      }),
     ]);
 
     return { linkedSamples, linkedMovements };
@@ -770,7 +779,7 @@ export class ClientService {
 
     return {
       client: { id: client.id, displayName: buildClientDisplayName(client), status: client.status },
-      usage
+      usage,
     };
   }
 
@@ -784,7 +793,7 @@ export class ClientService {
 
     const where = {
       ownerClientId: clientId,
-      status: { not: 'INVALIDATED' }
+      status: { not: 'INVALIDATED' },
     };
 
     // -- search by lot number --
@@ -804,15 +813,16 @@ export class ClientService {
             OR: [
               { fullName: { contains: buyer, mode: 'insensitive' } },
               { legalName: { contains: buyer, mode: 'insensitive' } },
-              { tradeName: { contains: buyer, mode: 'insensitive' } }
-            ]
-          }
-        }
+              { tradeName: { contains: buyer, mode: 'insensitive' } },
+            ],
+          },
+        },
       };
     }
 
     // -- commercial status --
-    const commercialStatus = typeof input?.commercialStatus === 'string' ? input.commercialStatus.trim() : '';
+    const commercialStatus =
+      typeof input?.commercialStatus === 'string' ? input.commercialStatus.trim() : '';
     if (commercialStatus) {
       where.commercialStatus = commercialStatus;
     }
@@ -824,8 +834,10 @@ export class ClientService {
     }
 
     // -- sacks range --
-    const sacksMin = input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
-    const sacksMax = input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
+    const sacksMin =
+      input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
+    const sacksMax =
+      input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
     if (sacksMin != null && !Number.isNaN(sacksMin)) {
       where.declaredSacks = { ...(where.declaredSacks ?? {}), gte: sacksMin };
     }
@@ -878,13 +890,13 @@ export class ClientService {
           soldSacks: true,
           lostSacks: true,
           createdAt: true,
-          updatedAt: true
+          updatedAt: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: offset,
-        take: limit
+        take: limit,
       }),
-      this.prisma.sample.count({ where })
+      this.prisma.sample.count({ where }),
     ]);
 
     return {
@@ -899,9 +911,9 @@ export class ClientService {
         soldSacks: item.soldSacks ?? 0,
         lostSacks: item.lostSacks ?? 0,
         createdAt: item.createdAt?.toISOString() ?? null,
-        updatedAt: item.updatedAt?.toISOString() ?? null
+        updatedAt: item.updatedAt?.toISOString() ?? null,
       })),
-      page: buildClientListPage(total, page, limit)
+      page: buildClientListPage(total, page, limit),
     };
   }
 
@@ -916,24 +928,32 @@ export class ClientService {
     const where = {
       buyerClientId: clientId,
       movementType: 'SALE',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     };
 
     // -- search by lot number (via sample relation) --
     const search = typeof input?.search === 'string' ? input.search.trim() : '';
     if (search) {
-      where.sample = { ...(where.sample ?? {}), internalLotNumber: { contains: search, mode: 'insensitive' } };
+      where.sample = {
+        ...(where.sample ?? {}),
+        internalLotNumber: { contains: search, mode: 'insensitive' },
+      };
     }
 
     // -- owner filter (via sample relation) --
     const owner = typeof input?.owner === 'string' ? input.owner.trim() : '';
     if (owner) {
-      where.sample = { ...(where.sample ?? {}), declaredOwner: { contains: owner, mode: 'insensitive' } };
+      where.sample = {
+        ...(where.sample ?? {}),
+        declaredOwner: { contains: owner, mode: 'insensitive' },
+      };
     }
 
     // -- sacks range --
-    const sacksMin = input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
-    const sacksMax = input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
+    const sacksMin =
+      input?.sacksMin != null && input.sacksMin !== '' ? Number(input.sacksMin) : null;
+    const sacksMax =
+      input?.sacksMax != null && input.sacksMax !== '' ? Number(input.sacksMax) : null;
     if (sacksMin != null && !Number.isNaN(sacksMin)) {
       where.quantitySacks = { ...(where.quantitySacks ?? {}), gte: sacksMin };
     }
@@ -984,15 +1004,15 @@ export class ClientService {
           sample: {
             select: {
               internalLotNumber: true,
-              declaredOwner: true
-            }
-          }
+              declaredOwner: true,
+            },
+          },
         },
         orderBy: [{ movementDate: 'desc' }, { id: 'desc' }],
         skip: offset,
-        take: limit
+        take: limit,
       }),
-      this.prisma.sampleMovement.count({ where })
+      this.prisma.sampleMovement.count({ where }),
     ]);
 
     return {
@@ -1003,9 +1023,9 @@ export class ClientService {
         ownerName: item.sample?.declaredOwner ?? null,
         quantitySacks: item.quantitySacks,
         movementDate: item.movementDate?.toISOString()?.split('T')[0] ?? null,
-        createdAt: item.createdAt?.toISOString() ?? null
+        createdAt: item.createdAt?.toISOString() ?? null,
       })),
-      page: buildClientListPage(total, page, limit)
+      page: buildClientListPage(total, page, limit),
     };
   }
 
@@ -1013,39 +1033,35 @@ export class ClientService {
     assertAuthenticatedActor(actorContext, 'get client commercial summary');
     await this.requireClientById(this.prisma, clientId);
 
-    const [
-      registeredSamples,
-      sampleAggregation,
-      totalPurchases,
-      purchaseAggregation
-    ] = await this.prisma.$transaction([
-      this.prisma.sample.count({
-        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } }
-      }),
-      this.prisma.sample.aggregate({
-        where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
-        _sum: { declaredSacks: true, soldSacks: true, lostSacks: true }
-      }),
-      this.prisma.sampleMovement.count({
-        where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' }
-      }),
-      this.prisma.sampleMovement.aggregate({
-        where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' },
-        _sum: { quantitySacks: true }
-      })
-    ]);
+    const [registeredSamples, sampleAggregation, totalPurchases, purchaseAggregation] =
+      await this.prisma.$transaction([
+        this.prisma.sample.count({
+          where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
+        }),
+        this.prisma.sample.aggregate({
+          where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
+          _sum: { declaredSacks: true, soldSacks: true, lostSacks: true },
+        }),
+        this.prisma.sampleMovement.count({
+          where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' },
+        }),
+        this.prisma.sampleMovement.aggregate({
+          where: { buyerClientId: clientId, movementType: 'SALE', status: 'ACTIVE' },
+          _sum: { quantitySacks: true },
+        }),
+      ]);
 
     return {
       seller: {
         registeredSamples,
         totalSacks: sampleAggregation._sum.declaredSacks ?? 0,
         soldSacks: sampleAggregation._sum.soldSacks ?? 0,
-        lostSacks: sampleAggregation._sum.lostSacks ?? 0
+        lostSacks: sampleAggregation._sum.lostSacks ?? 0,
       },
       buyer: {
         totalPurchases,
-        purchasedSacks: purchaseAggregation._sum.quantitySacks ?? 0
-      }
+        purchasedSacks: purchaseAggregation._sum.quantitySacks ?? 0,
+      },
     };
   }
 
@@ -1064,9 +1080,9 @@ export class ClientService {
       const updated = await tx.client.update({
         where: { id: current.id },
         data: {
-          status: CLIENT_STATUSES.INACTIVE
+          status: CLIENT_STATUSES.INACTIVE,
         },
-        select: CLIENT_SUMMARY_SELECT
+        select: CLIENT_SUMMARY_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1076,18 +1092,18 @@ export class ClientService {
         reasonText,
         payload: {
           before: {
-            status: current.status
+            status: current.status,
           },
           after: {
-            status: updated.status
+            status: updated.status,
           },
-          impact: usage
-        }
+          impact: usage,
+        },
       });
 
       return {
         client: mapClientRow(updated),
-        impact: usage
+        impact: usage,
       };
     });
   }
@@ -1105,9 +1121,9 @@ export class ClientService {
       const updated = await tx.client.update({
         where: { id: current.id },
         data: {
-          status: CLIENT_STATUSES.ACTIVE
+          status: CLIENT_STATUSES.ACTIVE,
         },
-        select: CLIENT_SUMMARY_SELECT
+        select: CLIENT_SUMMARY_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1117,16 +1133,16 @@ export class ClientService {
         reasonText,
         payload: {
           before: {
-            status: current.status
+            status: current.status,
           },
           after: {
-            status: updated.status
-          }
-        }
+            status: updated.status,
+          },
+        },
       });
 
       return {
-        client: mapClientRow(updated)
+        client: mapClientRow(updated),
       };
     });
   }
@@ -1141,7 +1157,7 @@ export class ClientService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.clientAuditEvent.findMany({
         where: {
-          targetClientId: clientId
+          targetClientId: clientId,
         },
         orderBy: [{ createdAt: 'desc' }, { eventId: 'desc' }],
         skip,
@@ -1151,8 +1167,8 @@ export class ClientService {
             select: {
               id: true,
               fullName: true,
-              username: true
-            }
+              username: true,
+            },
           },
           targetClient: {
             select: {
@@ -1161,29 +1177,29 @@ export class ClientService {
               personType: true,
               fullName: true,
               legalName: true,
-              status: true
-            }
+              status: true,
+            },
           },
           targetRegistration: {
             select: {
               id: true,
               registrationNumber: true,
               registrationType: true,
-              status: true
-            }
-          }
-        }
+              status: true,
+            },
+          },
+        },
       }),
       this.prisma.clientAuditEvent.count({
         where: {
-          targetClientId: clientId
-        }
-      })
+          targetClientId: clientId,
+        },
+      }),
     ]);
 
     return {
       items: items.map((item) => toClientAuditEventResponse(item)),
-      page: buildClientListPage(total, page, limit)
+      page: buildClientListPage(total, page, limit),
     };
   }
 
@@ -1199,9 +1215,9 @@ export class ClientService {
         data: {
           id: randomUUID(),
           clientId: client.id,
-          ...normalized
+          ...normalized,
         },
-        select: REGISTRATION_SELECT
+        select: REGISTRATION_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1210,17 +1226,17 @@ export class ClientService {
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_CREATED,
         payload: {
-          after: buildRegistrationAuditState(created)
-        }
+          after: buildRegistrationAuditState(created),
+        },
       });
 
       return {
         client: {
           id: client.id,
           code: client.code,
-          displayName: buildClientDisplayName(client)
+          displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(created)
+        registration: toClientRegistrationSummary(created),
       };
     });
   }
@@ -1235,14 +1251,14 @@ export class ClientService {
 
       if (normalized.data.registrationNumberCanonical) {
         await this.assertRegistrationAvailable(tx, normalized.data.registrationNumberCanonical, {
-          excludeRegistrationId: current.id
+          excludeRegistrationId: current.id,
         });
       }
 
       const before = buildRegistrationAuditState(current);
       const afterCandidate = buildRegistrationAuditState({
         ...current,
-        ...normalized.data
+        ...normalized.data,
       });
       const auditPayload = buildClientAuditPayload(before, afterCandidate);
       if (Object.keys(auditPayload.diff.after).length === 0) {
@@ -1252,7 +1268,7 @@ export class ClientService {
       const updated = await tx.clientRegistration.update({
         where: { id: current.id },
         data: normalized.data,
-        select: REGISTRATION_SELECT
+        select: REGISTRATION_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1261,16 +1277,16 @@ export class ClientService {
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_UPDATED,
         reasonText: normalized.reasonText,
-        payload: auditPayload
+        payload: auditPayload,
       });
 
       return {
         client: {
           id: client.id,
           code: client.code,
-          displayName: buildClientDisplayName(client)
+          displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(updated)
+        registration: toClientRegistrationSummary(updated),
       };
     });
   }
@@ -1291,9 +1307,9 @@ export class ClientService {
       const updated = await tx.clientRegistration.update({
         where: { id: current.id },
         data: {
-          status: CLIENT_REGISTRATION_STATUSES.INACTIVE
+          status: CLIENT_REGISTRATION_STATUSES.INACTIVE,
         },
-        select: REGISTRATION_SELECT
+        select: REGISTRATION_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1304,23 +1320,23 @@ export class ClientService {
         reasonText,
         payload: {
           before: {
-            status: current.status
+            status: current.status,
           },
           after: {
-            status: updated.status
+            status: updated.status,
           },
-          impact: usage
-        }
+          impact: usage,
+        },
       });
 
       return {
         client: {
           id: client.id,
           code: client.code,
-          displayName: buildClientDisplayName(client)
+          displayName: buildClientDisplayName(client),
         },
         registration: toClientRegistrationSummary(updated),
-        impact: usage
+        impact: usage,
       };
     });
   }
@@ -1339,9 +1355,9 @@ export class ClientService {
       const updated = await tx.clientRegistration.update({
         where: { id: current.id },
         data: {
-          status: CLIENT_REGISTRATION_STATUSES.ACTIVE
+          status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
         },
-        select: REGISTRATION_SELECT
+        select: REGISTRATION_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1352,21 +1368,21 @@ export class ClientService {
         reasonText,
         payload: {
           before: {
-            status: current.status
+            status: current.status,
           },
           after: {
-            status: updated.status
-          }
-        }
+            status: updated.status,
+          },
+        },
       });
 
       return {
         client: {
           id: client.id,
           code: client.code,
-          displayName: buildClientDisplayName(client)
+          displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(updated)
+        registration: toClientRegistrationSummary(updated),
       };
     });
   }

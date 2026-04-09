@@ -14,7 +14,7 @@ import {
   confirmClassificationFromCamera,
   resolveSampleByLot,
   resolveSampleByQr,
-  getSampleDetail
+  getSampleDetail,
 } from '../../lib/api-client';
 import { compressImage } from '../../lib/compress-image';
 import {
@@ -23,9 +23,14 @@ import {
   mapExtractionToForm,
   validateClassificationForm,
   buildClassificationDataPayload,
-  getTypeConfig
+  getTypeConfig,
 } from '../../lib/classification-form';
-import type { ClassificationType, ExtractAndPrepareResponse, ResolveSampleByLotResponse, ResolveSampleByQrResponse } from '../../lib/types';
+import type {
+  ClassificationType,
+  ExtractAndPrepareResponse,
+  ResolveSampleByLotResponse,
+  ResolveSampleByQrResponse,
+} from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -84,7 +89,7 @@ function ClassificationConfirmModal({
   onConfirm,
   onCancel,
   submitting,
-  classificationType
+  classificationType,
 }: {
   mode: 'no-context' | 'with-context';
   lotNumber: string;
@@ -104,7 +109,7 @@ function ClassificationConfirmModal({
     { key: 'catacao', label: 'Catacao' },
     { key: 'aspecto', label: 'Aspecto' },
     { key: 'bebida', label: 'Bebida' },
-    { key: 'safra', label: 'Safra' }
+    { key: 'safra', label: 'Safra' },
   ];
 
   const sieveFields = config?.sieveFields ?? [
@@ -115,7 +120,7 @@ function ClassificationConfirmModal({
     { key: 'peneiraP15' as const, label: 'P.15' },
     { key: 'peneiraP14' as const, label: 'P.14' },
     { key: 'peneiraP13' as const, label: 'P.13' },
-    { key: 'peneiraP10' as const, label: 'P.10' }
+    { key: 'peneiraP10' as const, label: 'P.10' },
   ];
 
   const defectFields = config?.defectFields ?? [
@@ -124,7 +129,7 @@ function ClassificationConfirmModal({
     { key: 'imp' as const, label: 'Impureza' },
     { key: 'defeito' as const, label: 'Defeito' },
     { key: 'ap' as const, label: 'AP' },
-    { key: 'gpi' as const, label: 'GPI' }
+    { key: 'gpi' as const, label: 'GPI' },
   ];
 
   const hasFundo2 = config?.hasFundo2 ?? true;
@@ -161,18 +166,36 @@ function ClassificationConfirmModal({
         aria-label="Confirmar classificacao"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cam-cf-handle"><span /></div>
+        <div className="cam-cf-handle">
+          <span />
+        </div>
 
         <header className="cam-cf-header">
           <h3 className="cam-cf-title">{typeLabel}</h3>
           <button type="button" className="cam-cf-close" onClick={onCancel} aria-label="Fechar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </header>
 
         <div className="cam-cf-lot-bar">
-          <svg className="cam-cf-lot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          <svg
+            className="cam-cf-lot-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
           {mode === 'no-context' ? (
             <input
@@ -190,23 +213,30 @@ function ClassificationConfirmModal({
 
         <div className="cam-cf-body">
           <div className="cam-cf-section" style={{ '--sc': '#2f6b4a' } as React.CSSProperties}>
-            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Geral</div>
-            <div className="cam-cf-grid cam-cf-grid-2">
-              {textFields.map(f => renderField(f))}
+            <div className="cam-cf-section-title">
+              <span className="cam-cf-dot" />
+              Geral
             </div>
+            <div className="cam-cf-grid cam-cf-grid-2">{textFields.map((f) => renderField(f))}</div>
           </div>
 
           {sieveFields.length > 0 && (
             <div className="cam-cf-section" style={{ '--sc': '#2980B9' } as React.CSSProperties}>
-              <div className="cam-cf-section-title"><span className="cam-cf-dot" />Peneiras <span className="cam-cf-section-unit">%</span></div>
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Peneiras <span className="cam-cf-section-unit">%</span>
+              </div>
               <div className="cam-cf-grid cam-cf-grid-4">
-                {sieveFields.map(f => renderField(f, 'decimal'))}
+                {sieveFields.map((f) => renderField(f, 'decimal'))}
               </div>
             </div>
           )}
 
           <div className="cam-cf-section" style={{ '--sc': '#D4A017' } as React.CSSProperties}>
-            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Fundos</div>
+            <div className="cam-cf-section-title">
+              <span className="cam-cf-dot" />
+              Fundos
+            </div>
             <div className="cam-cf-grid cam-cf-grid-4">
               {renderField({ key: 'fundo1Peneira', label: 'FD1 Pen.' })}
               {renderField({ key: 'fundo1Percent', label: 'FD1 %' }, 'decimal')}
@@ -217,15 +247,21 @@ function ClassificationConfirmModal({
 
           {defectFields.length > 0 && (
             <div className="cam-cf-section" style={{ '--sc': '#C0392B' } as React.CSSProperties}>
-              <div className="cam-cf-section-title"><span className="cam-cf-dot" />Defeitos e analises</div>
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Defeitos e analises
+              </div>
               <div className="cam-cf-grid cam-cf-grid-4">
-                {defectFields.map(f => renderField(f, 'decimal'))}
+                {defectFields.map((f) => renderField(f, 'decimal'))}
               </div>
             </div>
           )}
 
           <div className="cam-cf-section" style={{ '--sc': '#7D3C98' } as React.CSSProperties}>
-            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Observacoes</div>
+            <div className="cam-cf-section-title">
+              <span className="cam-cf-dot" />
+              Observacoes
+            </div>
             <textarea
               className="cam-cf-input cam-cf-textarea"
               value={form.observacoes}
@@ -238,10 +274,20 @@ function ClassificationConfirmModal({
         </div>
 
         <div className="cam-cf-actions">
-          <button type="button" className="cam-cf-btn-cancel" onClick={onCancel} disabled={submitting}>
+          <button
+            type="button"
+            className="cam-cf-btn-cancel"
+            onClick={onCancel}
+            disabled={submitting}
+          >
             Cancelar
           </button>
-          <button type="button" className="cam-cf-btn-confirm" onClick={onConfirm} disabled={submitting}>
+          <button
+            type="button"
+            className="cam-cf-btn-confirm"
+            onClick={onConfirm}
+            disabled={submitting}
+          >
             {submitting ? 'Salvando...' : 'Confirmar'}
           </button>
         </div>
@@ -276,7 +322,9 @@ function CameraPageContent() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // QR Scanner state
-  const [cameraStatus, setCameraStatus] = useState<'idle' | 'starting' | 'scanning' | 'permission-denied' | 'unsupported'>('idle');
+  const [cameraStatus, setCameraStatus] = useState<
+    'idle' | 'starting' | 'scanning' | 'permission-denied' | 'unsupported'
+  >('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
 
@@ -289,7 +337,8 @@ function CameraPageContent() {
   const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
   const [extractionResult, setExtractionResult] = useState<ExtractAndPrepareResponse | null>(null);
-  const [classificationForm, setClassificationForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
+  const [classificationForm, setClassificationForm] =
+    useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [confirmedSampleId, setConfirmedSampleId] = useState<string | null>(null);
 
@@ -305,7 +354,9 @@ function CameraPageContent() {
   const [editableLot, setEditableLot] = useState('');
 
   // Resolve result (Flow A)
-  const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(null);
+  const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(
+    null
+  );
 
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
@@ -314,7 +365,9 @@ function CameraPageContent() {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -325,13 +378,17 @@ function CameraPageContent() {
   useEffect(() => {
     if (!contextSampleId || !session) return;
     let cancelled = false;
-    getSampleDetail(session, contextSampleId).then((detail) => {
-      if (!cancelled && detail?.sample) {
-        setContextSampleLot(detail.sample.internalLotNumber ?? null);
-        setContextSampleStatus(detail.sample.status);
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    getSampleDetail(session, contextSampleId)
+      .then((detail) => {
+        if (!cancelled && detail?.sample) {
+          setContextSampleLot(detail.sample.internalLotNumber ?? null);
+          setContextSampleStatus(detail.sample.status);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [contextSampleId, session]);
 
   // Cleanup captured photo URL
@@ -353,7 +410,12 @@ function CameraPageContent() {
       event.preventDefault();
       if (resultModalOpen) {
         setResultModalOpen(false);
-      } else if (flowState === 'preview' || flowState === 'error' || flowState === 'not-found' || flowState === 'lot-mismatch') {
+      } else if (
+        flowState === 'preview' ||
+        flowState === 'error' ||
+        flowState === 'not-found' ||
+        flowState === 'lot-mismatch'
+      ) {
         resetClassificationFlow();
       } else if (flowState === 'confirming' || flowState === 'overwrite-confirm') {
         resetClassificationFlow();
@@ -381,7 +443,9 @@ function CameraPageContent() {
     clearRestartTimeout();
     if (scannerRef.current) {
       scannerRef.current.stop();
-      setCameraStatus((current) => (current === 'unsupported' || current === 'permission-denied' ? current : 'idle'));
+      setCameraStatus((current) =>
+        current === 'unsupported' || current === 'permission-denied' ? current : 'idle'
+      );
     }
   }, [clearRestartTimeout]);
 
@@ -419,7 +483,12 @@ function CameraPageContent() {
 
       const previousScan = handledScanRef.current;
       const now = Date.now();
-      if (previousScan && previousScan.value === normalizedValue && now - previousScan.at < REPEATED_SCAN_WINDOW_MS) return;
+      if (
+        previousScan &&
+        previousScan.value === normalizedValue &&
+        now - previousScan.at < REPEATED_SCAN_WINDOW_MS
+      )
+        return;
 
       handledScanRef.current = { value: normalizedValue, at: now };
       resolvingScanRef.current = true;
@@ -471,7 +540,9 @@ function CameraPageContent() {
       if (!scannerRef.current) {
         scannerRef.current = new QrScanner(
           videoRef.current,
-          (decoded) => { void handleDecodedQr(decoded.data); },
+          (decoded) => {
+            void handleDecodedQr(decoded.data);
+          },
           {
             preferredCamera: 'environment',
             maxScansPerSecond: 12,
@@ -479,7 +550,7 @@ function CameraPageContent() {
             highlightCodeOutline: true,
             overlay: overlayRef.current ?? undefined,
             returnDetailedScanResult: true,
-            onDecodeError: () => {}
+            onDecodeError: () => {},
           }
         );
       }
@@ -501,21 +572,34 @@ function CameraPageContent() {
     }
   }, [clearRestartTimeout, handleDecodedQr, scannerBlocked]);
 
-  useEffect(() => { restartScannerRef.current = ensureScannerStarted; }, [ensureScannerStarted]);
+  useEffect(() => {
+    restartScannerRef.current = ensureScannerStarted;
+  }, [ensureScannerStarted]);
 
   useEffect(() => {
     if (loading || !session) return;
-    if (scannerBlocked) { stopScanner(); return; }
+    if (scannerBlocked) {
+      stopScanner();
+      return;
+    }
     void ensureScannerStarted();
-    return () => { stopScanner(); };
+    return () => {
+      stopScanner();
+    };
   }, [ensureScannerStarted, loading, scannerBlocked, session, stopScanner]);
 
-  useEffect(() => { return () => { destroyScanner(); }; }, [destroyScanner]);
+  useEffect(() => {
+    return () => {
+      destroyScanner();
+    };
+  }, [destroyScanner]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   // --- Classification flow functions ---
@@ -599,17 +683,21 @@ function CameraPageContent() {
 
       // Step 2: Brief visual confirmation
       setFlowState('detected');
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
       if (!mountedRef.current) return;
 
       // Step 3: Extract from cropped form
       setFlowState('extracting');
-      const result = await extractFromDetectedForm(session, detection.photoToken, classificationType);
+      const result = await extractFromDetectedForm(
+        session,
+        detection.photoToken,
+        classificationType
+      );
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
       const extracted = mapExtractionToForm(result.extractedFields, classificationType);
-      setClassificationForm(prev => ({ ...prev, ...extracted }));
+      setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
     } catch (error) {
@@ -634,7 +722,7 @@ function CameraPageContent() {
 
       setExtractionResult(result);
       const extracted = mapExtractionToForm(result.extractedFields, classificationType);
-      setClassificationForm(prev => ({ ...prev, ...extracted }));
+      setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
     } catch (error) {
@@ -645,7 +733,7 @@ function CameraPageContent() {
   }
 
   function updateFormField(key: keyof ClassificationFormState, value: string) {
-    setClassificationForm(prev => ({ ...prev, [key]: value }));
+    setClassificationForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function saveClassification(sampleId: string) {
@@ -655,13 +743,16 @@ function CameraPageContent() {
     setFlowError(null);
 
     try {
-      const classificationData = buildClassificationDataPayload(classificationForm, { includeAutomaticDate: true, classificationType });
+      const classificationData = buildClassificationDataPayload(classificationForm, {
+        includeAutomaticDate: true,
+        classificationType,
+      });
 
       await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
         photoToken: extractionResult.photoToken,
-        classificationType
+        classificationType,
       });
 
       if (!mountedRef.current) return;
@@ -685,7 +776,12 @@ function CameraPageContent() {
 
     if (hasContext && contextSampleId) {
       // Flow B: validate status and lot match
-      if (contextSampleStatus && contextSampleStatus !== 'QR_PRINTED' && contextSampleStatus !== 'CLASSIFICATION_IN_PROGRESS' && contextSampleStatus !== 'CLASSIFIED') {
+      if (
+        contextSampleStatus &&
+        contextSampleStatus !== 'QR_PRINTED' &&
+        contextSampleStatus !== 'CLASSIFICATION_IN_PROGRESS' &&
+        contextSampleStatus !== 'CLASSIFIED'
+      ) {
         setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
         return;
       }
@@ -722,7 +818,11 @@ function CameraPageContent() {
 
         setResolvedSample(resolved.sample);
 
-        if (resolved.sample.status !== 'QR_PRINTED' && resolved.sample.status !== 'CLASSIFICATION_IN_PROGRESS' && resolved.sample.status !== 'CLASSIFIED') {
+        if (
+          resolved.sample.status !== 'QR_PRINTED' &&
+          resolved.sample.status !== 'CLASSIFICATION_IN_PROGRESS' &&
+          resolved.sample.status !== 'CLASSIFIED'
+        ) {
           setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
           setFlowState('confirming');
           return;
@@ -787,14 +887,24 @@ function CameraPageContent() {
             <video
               ref={videoRef}
               className="camera-hub-video"
-              autoPlay muted playsInline
-              style={flowState === 'preview' || flowState === 'success' ? { visibility: 'hidden' } : undefined}
+              autoPlay
+              muted
+              playsInline
+              style={
+                flowState === 'preview' || flowState === 'success'
+                  ? { visibility: 'hidden' }
+                  : undefined
+              }
             />
             <div
               ref={overlayRef}
               className="camera-hub-overlay"
               aria-hidden="true"
-              style={flowState === 'preview' || flowState === 'success' ? { visibility: 'hidden' } : undefined}
+              style={
+                flowState === 'preview' || flowState === 'success'
+                  ? { visibility: 'hidden' }
+                  : undefined
+              }
             />
 
             {/* Photo preview */}
@@ -804,14 +914,21 @@ function CameraPageContent() {
 
             {/* Top header */}
             <div className="camera-hub-headline">
-              <button type="button" className="camera-hub-back-btn" onClick={() => {
-                if (flowState !== 'idle') {
-                  resetClassificationFlow();
-                } else {
-                  router.back();
-                }
-              }} aria-label="Voltar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+              <button
+                type="button"
+                className="camera-hub-back-btn"
+                onClick={() => {
+                  if (flowState !== 'idle') {
+                    resetClassificationFlow();
+                  } else {
+                    router.back();
+                  }
+                }}
+                aria-label="Voltar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
               </button>
 
               {showStatusText && cameraError && flowState === 'idle' ? (
@@ -877,10 +994,18 @@ function CameraPageContent() {
               {/* Preview actions */}
               {flowState === 'preview' ? (
                 <div className="camera-hub-preview-actions">
-                  <button type="button" className="camera-hub-preview-btn-retake" onClick={resetClassificationFlow}>
+                  <button
+                    type="button"
+                    className="camera-hub-preview-btn-retake"
+                    onClick={resetClassificationFlow}
+                  >
                     Tirar outra
                   </button>
-                  <button type="button" className="camera-hub-preview-btn-send" onClick={() => setFlowState('selecting-type')}>
+                  <button
+                    type="button"
+                    className="camera-hub-preview-btn-send"
+                    onClick={() => setFlowState('selecting-type')}
+                  >
                     Enviar
                   </button>
                 </div>
@@ -906,7 +1031,11 @@ function CameraPageContent() {
                         </button>
                       ))}
                     </div>
-                    <button type="button" className="cam-type-cancel" onClick={() => setFlowState('preview')}>
+                    <button
+                      type="button"
+                      className="cam-type-cancel"
+                      onClick={() => setFlowState('preview')}
+                    >
                       Cancelar
                     </button>
                   </div>
@@ -925,7 +1054,9 @@ function CameraPageContent() {
               {flowState === 'detected' ? (
                 <div className="camera-hub-extracting">
                   <div className="camera-hub-success-icon" style={{ width: 32, height: 32 }}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
                   <span className="camera-hub-extracting-label">Ficha identificada!</span>
                 </div>
@@ -934,13 +1065,34 @@ function CameraPageContent() {
               {/* Detection failed */}
               {flowState === 'detect-failed' ? (
                 <div className="camera-hub-extracting" style={{ gap: 12 }}>
-                  <span className="camera-hub-extracting-label">Nao foi possivel encontrar a ficha automaticamente.</span>
-                  <span className="camera-hub-extracting-label" style={{ fontSize: '0.8em', opacity: 0.7 }}>Tente fotografar com a ficha mais visivel, ou continue para extrair da foto completa.</span>
+                  <span className="camera-hub-extracting-label">
+                    Nao foi possivel encontrar a ficha automaticamente.
+                  </span>
+                  <span
+                    className="camera-hub-extracting-label"
+                    style={{ fontSize: '0.8em', opacity: 0.7 }}
+                  >
+                    Tente fotografar com a ficha mais visivel, ou continue para extrair da foto
+                    completa.
+                  </span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" className="camera-hub-btn camera-hub-btn-secondary" onClick={() => { setFlowState('idle'); setCapturedPhoto(null); setCapturedPhotoUrl(null); setDetectedPhotoToken(null); }}>
+                    <button
+                      type="button"
+                      className="camera-hub-btn camera-hub-btn-secondary"
+                      onClick={() => {
+                        setFlowState('idle');
+                        setCapturedPhoto(null);
+                        setCapturedPhotoUrl(null);
+                        setDetectedPhotoToken(null);
+                      }}
+                    >
                       Fotografar novamente
                     </button>
-                    <button type="button" className="camera-hub-btn camera-hub-btn-primary" onClick={() => void handleContinueWithoutCrop()}>
+                    <button
+                      type="button"
+                      className="camera-hub-btn camera-hub-btn-primary"
+                      onClick={() => void handleContinueWithoutCrop()}
+                    >
                       Continuar assim
                     </button>
                   </div>
@@ -951,7 +1103,9 @@ function CameraPageContent() {
               {flowState === 'extracting' ? (
                 <div className="camera-hub-extracting">
                   <div className="camera-hub-extracting-spinner" />
-                  <span className="camera-hub-extracting-label">Extraindo dados da classificacao...</span>
+                  <span className="camera-hub-extracting-label">
+                    Extraindo dados da classificacao...
+                  </span>
                 </div>
               ) : null}
 
@@ -967,16 +1121,26 @@ function CameraPageContent() {
               {flowState === 'success' ? (
                 <div className="camera-hub-success">
                   <div className="camera-hub-success-icon">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
                   <p className="camera-hub-success-text">Classificacao salva!</p>
                   <div className="camera-hub-success-actions">
-                    <button type="button" className="camera-hub-success-btn-exit" onClick={() => router.push('/dashboard')}>
+                    <button
+                      type="button"
+                      className="camera-hub-success-btn-exit"
+                      onClick={() => router.push('/dashboard')}
+                    >
                       Sair
                     </button>
-                    <button type="button" className="camera-hub-success-btn-details" onClick={() => {
-                      if (confirmedSampleId) router.push(`/samples/${confirmedSampleId}`);
-                    }}>
+                    <button
+                      type="button"
+                      className="camera-hub-success-btn-details"
+                      onClick={() => {
+                        if (confirmedSampleId) router.push(`/samples/${confirmedSampleId}`);
+                      }}
+                    >
                       Ver detalhes
                     </button>
                   </div>
@@ -1023,7 +1187,11 @@ function CameraPageContent() {
               <button type="button" className="cam-already-btn-no" onClick={() => router.back()}>
                 Cancelar
               </button>
-              <button type="button" className="cam-already-btn-yes" onClick={resetClassificationFlow}>
+              <button
+                type="button"
+                className="cam-already-btn-yes"
+                onClick={resetClassificationFlow}
+              >
                 Tentar novamente
               </button>
             </div>
@@ -1036,13 +1204,22 @@ function CameraPageContent() {
         <div className="app-modal-backdrop" onClick={() => setFlowState('confirming')}>
           <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
             <p className="cam-already-text">
-              A amostra <strong>{resolvedSample.internalLotNumber}</strong> ja possui classificacao. Deseja sobrescrever?
+              A amostra <strong>{resolvedSample.internalLotNumber}</strong> ja possui classificacao.
+              Deseja sobrescrever?
             </p>
             <div className="cam-already-actions">
-              <button type="button" className="cam-already-btn-no" onClick={() => setFlowState('confirming')}>
+              <button
+                type="button"
+                className="cam-already-btn-no"
+                onClick={() => setFlowState('confirming')}
+              >
                 Nao
               </button>
-              <button type="button" className="cam-already-btn-yes" onClick={() => void handleConfirmOverwrite()}>
+              <button
+                type="button"
+                className="cam-already-btn-yes"
+                onClick={() => void handleConfirmOverwrite()}
+              >
                 Sim, sobrescrever
               </button>
             </div>
@@ -1058,10 +1235,18 @@ function CameraPageContent() {
               Nenhuma amostra encontrada com o lote <strong>{editableLot}</strong>.
             </p>
             <div className="cam-already-actions">
-              <button type="button" className="cam-already-btn-no" onClick={() => router.push('/dashboard')}>
+              <button
+                type="button"
+                className="cam-already-btn-no"
+                onClick={() => router.push('/dashboard')}
+              >
                 Sair
               </button>
-              <button type="button" className="cam-already-btn-yes" onClick={() => router.push('/samples/new')}>
+              <button
+                type="button"
+                className="cam-already-btn-yes"
+                onClick={() => router.push('/samples/new')}
+              >
                 Cadastrar nova amostra
               </button>
             </div>
@@ -1073,7 +1258,9 @@ function CameraPageContent() {
       {(flowState === 'confirming' || flowState === 'submitting') && extractionResult ? (
         <>
           {flowError ? (
-            <div className="cam-confirm-error" role="alert">{flowError}</div>
+            <div className="cam-confirm-error" role="alert">
+              {flowError}
+            </div>
           ) : null}
           <ClassificationConfirmModal
             mode={hasContext ? 'with-context' : 'no-context'}

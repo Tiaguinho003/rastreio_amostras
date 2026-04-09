@@ -2,9 +2,18 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 
-import { ApiError, requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from '../lib/api-client';
+import {
+  ApiError,
+  requestPasswordReset,
+  resetPasswordWithCode,
+  verifyPasswordResetCode,
+} from '../lib/api-client';
 import { useFocusTrap } from '../lib/use-focus-trap';
-import { forgotPasswordRequestSchema, forgotPasswordResetSchema, forgotPasswordVerifyCodeSchema } from '../lib/form-schemas';
+import {
+  forgotPasswordRequestSchema,
+  forgotPasswordResetSchema,
+  forgotPasswordVerifyCodeSchema,
+} from '../lib/form-schemas';
 
 const OTP_LENGTH = 6;
 
@@ -28,7 +37,9 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
 
   const [step, setStep] = useState<ForgotPasswordStep>('request');
   const [email, setEmail] = useState('');
-  const [otpDigits, setOtpDigits] = useState<string[]>(() => Array.from({ length: OTP_LENGTH }, () => ''));
+  const [otpDigits, setOtpDigits] = useState<string[]>(() =>
+    Array.from({ length: OTP_LENGTH }, () => '')
+  );
   const [verifiedCode, setVerifiedCode] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -110,7 +121,10 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
   }
 
   function updateOtpDigits(startIndex: number, rawValue: string) {
-    const digits = rawValue.replace(/\D/g, '').slice(0, OTP_LENGTH - startIndex).split('');
+    const digits = rawValue
+      .replace(/\D/g, '')
+      .slice(0, OTP_LENGTH - startIndex)
+      .split('');
 
     if (digits.length === 0) {
       setOtpDigits((current) => {
@@ -278,7 +292,7 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
     const parsed = forgotPasswordResetSchema.safeParse({
       email,
       code: verifiedCode ?? '',
-      password
+      password,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Dados invalidos');
@@ -337,7 +351,11 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
         <header className="login-modal-header">
           <div className="login-modal-title-wrap">
             <h2 id={titleId} className="login-modal-title">
-              {step === 'request' ? 'Recuperar senha' : step === 'verifyCode' ? 'Validar codigo' : 'Nova senha'}
+              {step === 'request'
+                ? 'Recuperar senha'
+                : step === 'verifyCode'
+                  ? 'Validar codigo'
+                  : 'Nova senha'}
             </h2>
             <p id={descriptionId} className="login-modal-description">
               {step === 'request'
@@ -361,7 +379,13 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
 
         <form
           className="login-modal-form"
-          onSubmit={step === 'request' ? handleRequest : step === 'verifyCode' ? handleVerifySubmit : handleReset}
+          onSubmit={
+            step === 'request'
+              ? handleRequest
+              : step === 'verifyCode'
+                ? handleVerifySubmit
+                : handleReset
+          }
         >
           <div className="login-modal-stage">
             {step === 'request' ? (
@@ -473,7 +497,9 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
 
           <div className="login-modal-feedback" aria-live="polite">
             {error ? <p className="error login-modal-feedback-text">{error}</p> : null}
-            {!error && message ? <p className="success login-modal-feedback-text">{message}</p> : null}
+            {!error && message ? (
+              <p className="success login-modal-feedback-text">{message}</p>
+            ) : null}
           </div>
 
           <div className="login-modal-submit-slot">

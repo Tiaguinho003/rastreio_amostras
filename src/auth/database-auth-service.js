@@ -5,14 +5,14 @@ import { USER_AUDIT_EVENT_TYPES, USER_STATUSES, toIsoString } from '../users/use
 function parseBearerToken(headerValue) {
   if (typeof headerValue !== 'string') {
     throw new HttpError(401, 'Authorization header is required', {
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
   }
 
   const [scheme, token] = headerValue.trim().split(/\s+/, 2);
   if (scheme !== 'Bearer' || !token) {
     throw new HttpError(401, 'Authorization must use Bearer token', {
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
   }
 
@@ -27,9 +27,13 @@ export class DatabaseAuthService {
   }
 
   async login({ username, password }, requestContext = {}) {
-    if (typeof username !== 'string' || username.trim().length === 0 || typeof password !== 'string') {
+    if (
+      typeof username !== 'string' ||
+      username.trim().length === 0 ||
+      typeof password !== 'string'
+    ) {
       throw new HttpError(422, 'username and password are required', {
-        code: 'VALIDATION_ERROR'
+        code: 'VALIDATION_ERROR',
       });
     }
 
@@ -37,7 +41,11 @@ export class DatabaseAuthService {
 
     return this.prisma.$transaction(async (tx) => {
       const refreshedUser = await this.userService.resetLoginFailures(tx, user.id);
-      const { sessionId, expiresAt } = await this.userService.createSession(tx, refreshedUser, requestContext);
+      const { sessionId, expiresAt } = await this.userService.createSession(
+        tx,
+        refreshedUser,
+        requestContext
+      );
       await this.userService.registerLoginSuccess(tx, refreshedUser, requestContext);
 
       const { token } = issueAccessToken(
@@ -45,7 +53,7 @@ export class DatabaseAuthService {
           userId: refreshedUser.id,
           sessionId,
           role: refreshedUser.role,
-          username: refreshedUser.username
+          username: refreshedUser.username,
         },
         { secret: this.secret }
       );
@@ -55,7 +63,7 @@ export class DatabaseAuthService {
         tokenType: 'Bearer',
         expiresAt: expiresAt.toISOString(),
         sessionId,
-        user: this.userService.toSessionUser(refreshedUser)
+        user: this.userService.toSessionUser(refreshedUser),
       };
     });
   }
@@ -64,13 +72,13 @@ export class DatabaseAuthService {
     const token = parseBearerToken(authorizationHeader);
     const claims = verifyAccessToken(token, {
       secret: this.secret,
-      allowExpired: true
+      allowExpired: true,
     });
     const session = await this.userService.hydrateSession(claims.sessionId);
 
     if (!session) {
       throw new HttpError(401, 'Sessao encerrada. Faca login novamente.', {
-        code: 'SESSION_REVOKED'
+        code: 'SESSION_REVOKED',
       });
     }
 
@@ -78,19 +86,19 @@ export class DatabaseAuthService {
       const currentSession = await tx.userSession.findUnique({
         where: { id: session.id },
         include: {
-          user: true
-        }
+          user: true,
+        },
       });
 
       if (!currentSession || currentSession.revokedAt) {
         throw new HttpError(401, 'Sessao encerrada. Faca login novamente.', {
-          code: 'SESSION_REVOKED'
+          code: 'SESSION_REVOKED',
         });
       }
 
       if (currentSession.user.status !== USER_STATUSES.ACTIVE) {
         throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-          code: 'ACCOUNT_INACTIVE'
+          code: 'ACCOUNT_INACTIVE',
         });
       }
 
@@ -101,8 +109,8 @@ export class DatabaseAuthService {
       await tx.userSession.update({
         where: { id: currentSession.id },
         data: {
-          lastSeenAt: new Date()
-        }
+          lastSeenAt: new Date(),
+        },
       });
 
       return {
@@ -111,7 +119,7 @@ export class DatabaseAuthService {
         role: currentSession.user.role,
         username: currentSession.user.username,
         sessionId: currentSession.id,
-        sessionExpiresAt: toIsoString(currentSession.expiresAt)
+        sessionExpiresAt: toIsoString(currentSession.expiresAt),
       };
     });
   }
@@ -140,8 +148,8 @@ export class DatabaseAuthService {
         requestId: actorContext.requestId ?? payload.requestId ?? 'anonymous',
         correlationId: actorContext.correlationId ?? null,
         metadataIp: actorContext.ip ?? null,
-        metadataUserAgent: actorContext.userAgent ?? null
-      }
+        metadataUserAgent: actorContext.userAgent ?? null,
+      },
     });
   }
 }

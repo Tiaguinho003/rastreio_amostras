@@ -7,7 +7,7 @@ function isSecureRequest(request: NextRequest) {
   return shouldUseSecureSessionCookie({
     configuredValue: process.env.SESSION_COOKIE_SECURE,
     forwardedProto: request.headers.get('x-forwarded-proto'),
-    requestProtocol: request.nextUrl.protocol
+    requestProtocol: request.nextUrl.protocol,
   });
 }
 
@@ -19,7 +19,7 @@ export function buildSessionCookie(token: string, expiresAt: string, request: Ne
     sameSite: 'lax' as const,
     secure: isSecureRequest(request),
     path: '/',
-    expires: new Date(expiresAt)
+    expires: new Date(expiresAt),
   };
 }
 
@@ -32,6 +32,6 @@ export function buildClearedSessionCookie(request: NextRequest) {
     secure: isSecureRequest(request),
     path: '/',
     expires: new Date(0),
-    maxAge: 0
+    maxAge: 0,
   };
 }

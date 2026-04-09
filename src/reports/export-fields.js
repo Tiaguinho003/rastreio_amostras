@@ -21,7 +21,7 @@ export const SAMPLE_EXPORT_FIELDS = [
   'peneirasPercentuais',
   'technicalType',
   'technicalScreen',
-  'technicalDensity'
+  'technicalDensity',
 ];
 
 export const SAMPLE_EXPORT_TYPES = ['COMPLETO', 'COMPRADOR_PARCIAL'];
@@ -47,19 +47,31 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   peneirasPercentuais: 'Peneiras percentuais',
   technicalType: 'Tipo tecnico',
   technicalScreen: 'Peneira tecnica',
-  technicalDensity: 'Densidade tecnica'
+  technicalDensity: 'Densidade tecnica',
 };
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
 const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
-const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p10', 'mk9', 'mk10', 'mk11'];
+const PENEIRA_KEYS = [
+  'p18',
+  'p17',
+  'p16',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p10',
+  'mk9',
+  'mk10',
+  'mk11',
+];
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set(['originLot', 'classificationOriginLot']);
 const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)
 );
 const SAMPLE_EXPORT_FIELDS_BY_TYPE = {
   COMPLETO: [...SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT],
-  COMPRADOR_PARCIAL: SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT.filter((field) => field !== 'owner')
+  COMPRADOR_PARCIAL: SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT.filter((field) => field !== 'owner'),
 };
 
 function isRecord(value) {
@@ -86,7 +98,7 @@ function formatNumber(value) {
   }
 
   return new Intl.NumberFormat('pt-BR', {
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(parsed);
 }
 
@@ -124,8 +136,12 @@ function formatSieve(value) {
 
 function buildFieldValueMap(detail) {
   const sample = detail.sample;
-  const classificationData = isRecord(sample.latestClassification?.data) ? sample.latestClassification.data : {};
-  const technical = isRecord(sample.latestClassification?.technical) ? sample.latestClassification.technical : {};
+  const classificationData = isRecord(sample.latestClassification?.data)
+    ? sample.latestClassification.data
+    : {};
+  const technical = isRecord(sample.latestClassification?.technical)
+    ? sample.latestClassification.technical
+    : {};
 
   return {
     internalLotNumber: sample.internalLotNumber,
@@ -148,7 +164,7 @@ function buildFieldValueMap(detail) {
     peneirasPercentuais: formatSieve(classificationData.peneirasPercentuais),
     technicalType: technical.type,
     technicalScreen: technical.screen,
-    technicalDensity: technical.density
+    technicalDensity: technical.density,
   };
 }
 
@@ -240,7 +256,7 @@ export function buildSelectedExportFieldEntries(detail, selectedFields, options 
     entries.push({
       id: field,
       label,
-      value: printableValue
+      value: printableValue,
     });
   }
 

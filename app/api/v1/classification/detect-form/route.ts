@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       body: {
         fileBuffer,
         mimeType,
-        originalFileName
-      }
+        originalFileName,
+      },
     });
   } catch (error) {
     return toNextResponse(toHttpErrorResponse(error));

@@ -51,7 +51,10 @@ class LocalOutboxEmailService {
 
   async sendMail({ to, subject, text, html }) {
     await fs.mkdir(this.outboxDir, { recursive: true });
-    const filePath = path.join(this.outboxDir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.json`);
+    const filePath = path.join(
+      this.outboxDir,
+      `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.json`
+    );
     await fs.writeFile(
       filePath,
       JSON.stringify(
@@ -61,7 +64,7 @@ class LocalOutboxEmailService {
           subject,
           text,
           html: html ?? null,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         },
         null,
         2
@@ -85,7 +88,7 @@ class SmtpEmailService {
       to,
       subject,
       text,
-      html: html ?? undefined
+      html: html ?? undefined,
     });
 
     return { id: info.messageId ?? null };
@@ -117,12 +120,12 @@ function createSmtpService() {
     host,
     port,
     secure,
-    auth: user || pass ? { user, pass } : undefined
+    auth: user || pass ? { user, pass } : undefined,
   });
 
   return new SmtpEmailService({
     from,
-    transport
+    transport,
   });
 }
 
@@ -161,8 +164,11 @@ export class AppEmailService {
     const html = renderEmailHtml({
       subject,
       greeting,
-      bodyLines: [`Sua conta no sistema foi criada com o usuario ${username}.`, 'Ao entrar, voce podera manter ou alterar essa senha.'],
-      highlight: { label: 'Senha inicial', value: password }
+      bodyLines: [
+        `Sua conta no sistema foi criada com o usuario ${username}.`,
+        'Ao entrar, voce podera manter ou alterar essa senha.',
+      ],
+      highlight: { label: 'Senha inicial', value: password },
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -175,7 +181,7 @@ export class AppEmailService {
       subject,
       greeting,
       bodyLines: [`Sua senha foi redefinida por um administrador. Seu usuario e ${username}.`],
-      highlight: { label: 'Nova senha', value: password }
+      highlight: { label: 'Nova senha', value: password },
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -188,7 +194,7 @@ export class AppEmailService {
       subject,
       greeting,
       bodyLines: ['Use o codigo abaixo para redefinir sua senha. Ele expira em 15 minutos.'],
-      highlight: { label: 'Codigo', value: code }
+      highlight: { label: 'Codigo', value: code },
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -200,7 +206,7 @@ export class AppEmailService {
     const html = renderEmailHtml({
       subject,
       greeting,
-      bodyLines: ['Sua conta foi reativada e o acesso ao sistema esta disponivel novamente.']
+      bodyLines: ['Sua conta foi reativada e o acesso ao sistema esta disponivel novamente.'],
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -212,7 +218,7 @@ export class AppEmailService {
     const html = renderEmailHtml({
       subject,
       greeting,
-      bodyLines: ['Sua conta foi inativada. Para mais informacoes, fale com um administrador.']
+      bodyLines: ['Sua conta foi inativada. Para mais informacoes, fale com um administrador.'],
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -225,7 +231,7 @@ export class AppEmailService {
       subject,
       greeting,
       bodyLines: ['Recebemos uma alteracao de senha na sua conta.'],
-      footerNote: 'Se nao foi voce, fale com um administrador imediatamente.'
+      footerNote: 'Se nao foi voce, fale com um administrador imediatamente.',
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -238,7 +244,7 @@ export class AppEmailService {
       subject,
       greeting,
       bodyLines: ['Seu nome de usuario foi alterado.'],
-      highlight: { label: 'Novo usuario', value: username }
+      highlight: { label: 'Novo usuario', value: username },
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -251,7 +257,7 @@ export class AppEmailService {
       subject,
       greeting,
       bodyLines: [`Foi solicitada a troca do email da sua conta para: ${newEmail}`],
-      footerNote: 'Se essa alteracao nao foi esperada, fale com um administrador.'
+      footerNote: 'Se essa alteracao nao foi esperada, fale com um administrador.',
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }
@@ -263,8 +269,10 @@ export class AppEmailService {
     const html = renderEmailHtml({
       subject,
       greeting,
-      bodyLines: [`Use o codigo abaixo para confirmar o novo email ${newEmail}. Ele expira em 15 minutos.`],
-      highlight: { label: 'Codigo', value: code }
+      bodyLines: [
+        `Use o codigo abaixo para confirmar o novo email ${newEmail}. Ele expira em 15 minutos.`,
+      ],
+      highlight: { label: 'Codigo', value: code },
     });
     return this.delegate.sendMail({ to, subject, text, html });
   }

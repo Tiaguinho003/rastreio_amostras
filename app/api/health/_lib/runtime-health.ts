@@ -17,7 +17,7 @@ type CheckResult = {
 
 function buildNoStoreHeaders() {
   return {
-    'Cache-Control': 'no-store'
+    'Cache-Control': 'no-store',
   };
 }
 
@@ -57,7 +57,12 @@ function validateRuntimeConfig(): CheckResult {
   readRequiredConfig('AUTH_SECRET', missing);
 
   const configuredTransport = process.env.EMAIL_TRANSPORT?.trim().toLowerCase();
-  const transport = configuredTransport && configuredTransport.length > 0 ? configuredTransport : process.env.NODE_ENV === 'production' ? 'smtp' : 'outbox';
+  const transport =
+    configuredTransport && configuredTransport.length > 0
+      ? configuredTransport
+      : process.env.NODE_ENV === 'production'
+        ? 'smtp'
+        : 'outbox';
   let sessionCookieSecureMode: string | null = null;
   let maxUploadSizeBytes: number | null = null;
 
@@ -91,8 +96,8 @@ function validateRuntimeConfig(): CheckResult {
           uploadsDir: resolveUploadsDir(),
           emailOutboxDir: resolveEmailOutboxDir(),
           sessionCookieSecureMode,
-          maxUploadSizeBytes
-        }
+          maxUploadSizeBytes,
+        },
       }
     : {
         status: 'error',
@@ -103,8 +108,8 @@ function validateRuntimeConfig(): CheckResult {
           uploadsDir: resolveUploadsDir(),
           emailOutboxDir: resolveEmailOutboxDir(),
           sessionCookieSecureMode,
-          maxUploadSizeBytes
-        }
+          maxUploadSizeBytes,
+        },
       };
 }
 
@@ -113,7 +118,7 @@ async function validateDatabase(): Promise<CheckResult> {
   await prisma.$queryRawUnsafe('SELECT 1');
 
   return {
-    status: 'ok'
+    status: 'ok',
   };
 }
 
@@ -125,19 +130,21 @@ async function validateUploads(): Promise<CheckResult> {
   return {
     status: 'ok',
     details: {
-      path: uploadsDir
-    }
+      path: uploadsDir,
+    },
   };
 }
 
 async function validateEmailOutbox(): Promise<CheckResult> {
-  const transport = process.env.EMAIL_TRANSPORT?.trim().toLowerCase() || (process.env.NODE_ENV === 'production' ? 'smtp' : 'outbox');
+  const transport =
+    process.env.EMAIL_TRANSPORT?.trim().toLowerCase() ||
+    (process.env.NODE_ENV === 'production' ? 'smtp' : 'outbox');
   if (transport !== 'outbox') {
     return {
       status: 'ok',
       details: {
-        mode: transport
-      }
+        mode: transport,
+      },
     };
   }
 
@@ -149,8 +156,8 @@ async function validateEmailOutbox(): Promise<CheckResult> {
     status: 'ok',
     details: {
       path: outboxDir,
-      mode: transport
-    }
+      mode: transport,
+    },
   };
 }
 
@@ -158,11 +165,11 @@ export function createLivenessResponse() {
   return NextResponse.json(
     {
       status: 'ok',
-      timestamp: nowIso()
+      timestamp: nowIso(),
     },
     {
       status: 200,
-      headers: buildNoStoreHeaders()
+      headers: buildNoStoreHeaders(),
     }
   );
 }
@@ -181,8 +188,8 @@ export async function createReadinessResponse() {
       database = {
         status: 'error',
         details: {
-          message: error instanceof Error ? error.message : 'Database readiness check failed'
-        }
+          message: error instanceof Error ? error.message : 'Database readiness check failed',
+        },
       };
     }
 
@@ -193,8 +200,8 @@ export async function createReadinessResponse() {
         status: 'error',
         details: {
           message: error instanceof Error ? error.message : 'Uploads readiness check failed',
-          path: resolveUploadsDir()
-        }
+          path: resolveUploadsDir(),
+        },
       };
     }
 
@@ -205,13 +212,17 @@ export async function createReadinessResponse() {
         status: 'error',
         details: {
           message: error instanceof Error ? error.message : 'Email outbox readiness check failed',
-          path: resolveEmailOutboxDir()
-        }
+          path: resolveEmailOutboxDir(),
+        },
       };
     }
   }
 
-  const overallStatus = [config.status, database.status, uploads.status, emailOutbox.status].every((item) => item === 'ok') ? 'ok' : 'error';
+  const overallStatus = [config.status, database.status, uploads.status, emailOutbox.status].every(
+    (item) => item === 'ok'
+  )
+    ? 'ok'
+    : 'error';
 
   return NextResponse.json(
     {
@@ -221,12 +232,12 @@ export async function createReadinessResponse() {
         config,
         database,
         uploads,
-        emailOutbox
-      }
+        emailOutbox,
+      },
     },
     {
       status: overallStatus === 'ok' ? 200 : 503,
-      headers: buildNoStoreHeaders()
+      headers: buildNoStoreHeaders(),
     }
   );
 }

@@ -15,9 +15,9 @@ test('login issues bearer token and authenticateAuthorizationHeader returns acto
         id: '00000000-0000-0000-0000-000000000001',
         username: 'admin',
         passwordHash: hash,
-        role: 'ADMIN'
-      }
-    ]
+        role: 'ADMIN',
+      },
+    ],
   });
 
   const login = authService.login({ username: 'admin', password: 'admin123' });
@@ -39,9 +39,9 @@ test('invalid password returns 401', () => {
         id: '00000000-0000-0000-0000-000000000001',
         username: 'admin',
         passwordHash: hash,
-        role: 'ADMIN'
-      }
-    ]
+        role: 'ADMIN',
+      },
+    ],
   });
 
   assert.throws(
@@ -60,9 +60,9 @@ test('plaintext password is rejected when allowPlaintextPasswords is false', () 
             id: '00000000-0000-0000-0000-000000000001',
             username: 'admin',
             password: 'admin123',
-            role: 'ADMIN'
-          }
-        ]
+            role: 'ADMIN',
+          },
+        ],
       }),
     (error) => error instanceof Error && error.message.includes('passwordHash')
   );
@@ -77,9 +77,9 @@ test('plaintext password login works only when allowPlaintextPasswords is true',
         id: '00000000-0000-0000-0000-000000000001',
         username: 'admin',
         password: 'admin123',
-        role: 'ADMIN'
-      }
-    ]
+        role: 'ADMIN',
+      },
+    ],
   });
 
   const login = authService.login({ username: 'admin', password: 'admin123' });

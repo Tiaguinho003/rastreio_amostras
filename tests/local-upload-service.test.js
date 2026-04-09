@@ -5,12 +5,18 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { LocalUploadService } from '../src/uploads/local-upload-service.js';
-import { DEFAULT_MAX_UPLOAD_SIZE_BYTES, resolveMaxUploadSizeBytes } from '../src/uploads/upload-policy.js';
+import {
+  DEFAULT_MAX_UPLOAD_SIZE_BYTES,
+  resolveMaxUploadSizeBytes,
+} from '../src/uploads/upload-policy.js';
 
 test('resolveMaxUploadSizeBytes defaults to 8 MiB and rejects invalid values', () => {
   assert.equal(resolveMaxUploadSizeBytes(undefined), DEFAULT_MAX_UPLOAD_SIZE_BYTES);
   assert.equal(resolveMaxUploadSizeBytes('8388608'), 8 * 1024 * 1024);
-  assert.throws(() => resolveMaxUploadSizeBytes('0'), /MAX_UPLOAD_SIZE_BYTES must be a positive integer/);
+  assert.throws(
+    () => resolveMaxUploadSizeBytes('0'),
+    /MAX_UPLOAD_SIZE_BYTES must be a positive integer/
+  );
 });
 
 test('LocalUploadService saves files below the configured limit', async () => {
@@ -23,7 +29,7 @@ test('LocalUploadService saves files below the configured limit', async () => {
       kind: 'CLASSIFICATION_PHOTO',
       buffer: Buffer.from('small-image'),
       mimeType: 'image/jpeg',
-      originalFileName: 'small.jpg'
+      originalFileName: 'small.jpg',
     });
 
     assert.equal(saved.sizeBytes, Buffer.byteLength('small-image'));
@@ -48,7 +54,7 @@ test('LocalUploadService rejects files above the configured limit before writing
         kind: 'CLASSIFICATION_PHOTO',
         buffer: Buffer.from('too-large-image'),
         mimeType: 'image/jpeg',
-        originalFileName: 'large.jpg'
+        originalFileName: 'large.jpg',
       }),
       (error) => {
         assert.equal(error?.status, 413);

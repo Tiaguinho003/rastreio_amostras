@@ -33,7 +33,7 @@ if (!databaseUrl || !databaseReachable) {
     role: 'CLASSIFIER',
     source: 'web',
     ip: '127.0.0.1',
-    userAgent: 'node-test'
+    userAgent: 'node-test',
   };
 
   const actorAdmin = {
@@ -42,7 +42,7 @@ if (!databaseUrl || !databaseReachable) {
     role: 'ADMIN',
     source: 'web',
     ip: '127.0.0.1',
-    userAgent: 'node-test'
+    userAgent: 'node-test',
   };
 
   let uploadDir;
@@ -67,7 +67,7 @@ if (!databaseUrl || !databaseReachable) {
         cnpj: overrides.cnpj ?? suffix,
         phone: overrides.phone ?? '35 99999-0000',
         isBuyer: overrides.isBuyer ?? true,
-        isSeller: overrides.isSeller ?? true
+        isSeller: overrides.isSeller ?? true,
       },
       actorClassifier
     );
@@ -82,7 +82,7 @@ if (!databaseUrl || !databaseReachable) {
   async function moveSampleToRegistrationConfirmed(sampleId) {
     const ownerClient = await createSellerClient({
       legalName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`,
-      tradeName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`
+      tradeName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`,
     });
 
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
@@ -91,7 +91,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -105,9 +105,9 @@ if (!databaseUrl || !databaseReachable) {
           owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
-          originLot: `ORIG-${sampleId.slice(0, 8)}`
+          originLot: `ORIG-${sampleId.slice(0, 8)}`,
         },
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -122,7 +122,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 3,
         attemptNumber: 1,
         printerId: 'printer-main',
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -137,7 +137,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 4,
         printAction: 'PRINT',
         attemptNumber: 1,
-        printerId: 'printer-main'
+        printerId: 'printer-main',
       },
       actorClassifier
     );
@@ -151,7 +151,7 @@ if (!databaseUrl || !databaseReachable) {
       eventService,
       queryService,
       uploadService,
-      clientService
+      clientService,
     });
   });
 
@@ -170,14 +170,14 @@ if (!databaseUrl || !databaseReachable) {
     const sampleId = randomUUID();
     const ownerClient = await createSellerClient({
       legalName: 'Fazenda Sem Foto',
-      tradeName: 'Fazenda Sem Foto'
+      tradeName: 'Fazenda Sem Foto',
     });
 
     await commandService.receiveSample(
       {
         sampleId,
         receivedChannel: 'in_person',
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -186,7 +186,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -200,9 +200,9 @@ if (!databaseUrl || !databaseReachable) {
           owner: ownerClient.client.displayName,
           sacks: 7,
           harvest: '25/26',
-          originLot: 'ORIG-NO-PHOTO'
+          originLot: 'ORIG-NO-PHOTO',
         },
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -215,14 +215,14 @@ if (!databaseUrl || !databaseReachable) {
     const sampleId = randomUUID();
     const ownerClient = await createSellerClient({
       legalName: 'Fazenda Teste',
-      tradeName: 'Fazenda Teste'
+      tradeName: 'Fazenda Teste',
     });
 
     const received = await commandService.receiveSample(
       {
         sampleId,
         receivedChannel: 'in_person',
-        notes: 'chegou no balcao'
+        notes: 'chegou no balcao',
       },
       actorClassifier
     );
@@ -232,7 +232,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -247,9 +247,9 @@ if (!databaseUrl || !databaseReachable) {
           owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
-          originLot: 'ORIG-999'
+          originLot: 'ORIG-999',
         },
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -261,7 +261,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 3,
         attemptNumber: 1,
         printerId: 'printer-main',
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -273,7 +273,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 4,
         printAction: 'PRINT',
         attemptNumber: 1,
-        printerId: 'printer-main'
+        printerId: 'printer-main',
       },
       actorClassifier
     );
@@ -284,7 +284,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -295,7 +295,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         fileBuffer: Buffer.from('fake-classification-photo'),
         mimeType: 'image/jpeg',
-        originalFileName: 'classificacao.jpg'
+        originalFileName: 'classificacao.jpg',
       },
       actorClassifier
     );
@@ -307,9 +307,9 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 6,
         snapshotPartial: {
           padrao: 'PADRAO-1',
-          bebida: 'DURA'
+          bebida: 'DURA',
         },
-        completionPercent: 45
+        completionPercent: 45,
       },
       actorClassifier
     );
@@ -326,17 +326,17 @@ if (!databaseUrl || !databaseReachable) {
           defeito: '9',
           bebida: 'DURA',
           aspecto: 'verde',
-          observacoes: 'ok'
+          observacoes: 'ok',
         },
         technical: {
           type: 'BICA CORRIDA',
           screen: '16',
           defectsCount: 9,
           density: 702,
-          notes: 'ok'
+          notes: 'ok',
         },
         consumptionGrams: null,
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -356,7 +356,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const printJobs = await prisma.printJob.findMany({
       where: { sampleId },
-      orderBy: [{ printAction: 'asc' }, { attemptNumber: 'asc' }]
+      orderBy: [{ printAction: 'asc' }, { attemptNumber: 'asc' }],
     });
     assert.equal(printJobs.length, 1);
     assert.equal(printJobs[0].status, 'SUCCESS');
@@ -380,7 +380,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: inProgressSampleId,
         receivedChannel: 'in_person',
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -389,14 +389,16 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: inProgressSampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.pendingCounts.REGISTRATION_IN_PROGRESS, 1);
-    const oldestStatusBySampleId = new Map(dashboard.oldestPending.map((sample) => [sample.id, sample.status]));
+    const oldestStatusBySampleId = new Map(
+      dashboard.oldestPending.map((sample) => [sample.id, sample.status])
+    );
     assert.equal(oldestStatusBySampleId.get(inProgressSampleId), 'REGISTRATION_IN_PROGRESS');
   });
 
@@ -409,7 +411,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -421,9 +423,9 @@ if (!databaseUrl || !databaseReachable) {
             sampleId,
             expectedVersion: 6,
             classificationData: {
-              padrao: 'SEM-FOTO'
+              padrao: 'SEM-FOTO',
             },
-            idempotencyKey: randomUUID()
+            idempotencyKey: randomUUID(),
           },
           actorClassifier
         ),
@@ -443,7 +445,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -453,7 +455,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         fileBuffer: Buffer.from('classification-photo-v1'),
         mimeType: 'image/jpeg',
-        originalFileName: 'classificacao-v1.jpg'
+        originalFileName: 'classificacao-v1.jpg',
       },
       actorClassifier
     );
@@ -463,7 +465,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         fileBuffer: Buffer.from('classification-photo-v2'),
         mimeType: 'image/jpeg',
-        originalFileName: 'classificacao-v2.jpg'
+        originalFileName: 'classificacao-v2.jpg',
       },
       actorClassifier
     );
@@ -473,7 +475,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.notEqual(first.photo.attachmentId, second.photo.attachmentId);
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
-    const classificationPhotos = detail.attachments.filter((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO');
+    const classificationPhotos = detail.attachments.filter(
+      (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
+    );
     assert.equal(classificationPhotos.length, 1);
     assert.equal(classificationPhotos[0].id, second.photo.attachmentId);
   });
@@ -487,7 +491,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -498,9 +502,9 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 6,
         snapshotPartial: {
           padrao: 'PADRAO-BASE',
-          bebida: 'DURA'
+          bebida: 'DURA',
         },
-        completionPercent: 35
+        completionPercent: 35,
       },
       actorClassifier
     );
@@ -510,9 +514,9 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 7,
         snapshotPartial: {
-          aspecto: 'BOM'
+          aspecto: 'BOM',
         },
-        completionPercent: 60
+        completionPercent: 60,
       },
       actorClassifier
     );
@@ -538,7 +542,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: inProgressSampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -554,7 +558,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(dashboard.classificationInProgress.counts.CLASSIFICATION_IN_PROGRESS, 1);
     assert.equal(dashboard.classificationInProgress.total, 1);
 
-    const statusBySampleId = new Map(dashboard.classificationPending.items.map((sample) => [sample.id, sample.status]));
+    const statusBySampleId = new Map(
+      dashboard.classificationPending.items.map((sample) => [sample.id, sample.status])
+    );
     assert.equal(statusBySampleId.get(readySampleId), 'QR_PRINTED');
     assert.equal(statusBySampleId.get(inProgressSampleId), 'CLASSIFICATION_IN_PROGRESS');
   });
@@ -570,7 +576,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(dashboard.printPending.counts.QR_PENDING_PRINT, 1);
     assert.equal(dashboard.printPending.total, 2);
 
-    const statusBySampleId = new Map(dashboard.printPending.items.map((sample) => [sample.id, sample.status]));
+    const statusBySampleId = new Map(
+      dashboard.printPending.items.map((sample) => [sample.id, sample.status])
+    );
     assert.equal(statusBySampleId.get(registrationConfirmedSampleId), 'REGISTRATION_CONFIRMED');
     assert.equal(statusBySampleId.get(qrPendingSampleId), 'QR_PENDING_PRINT');
   });
@@ -586,7 +594,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: onlyReceivedSampleId,
         receivedChannel: 'in_person',
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -595,7 +603,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: registrationInProgressSampleId,
         receivedChannel: 'in_person',
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -604,7 +612,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId: registrationInProgressSampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -625,14 +633,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(latestIds.includes(onlyReceivedSampleId), false);
     assert.equal(latestIds.includes(registrationInProgressSampleId), false);
 
-    const latestStatusBySampleId = new Map(dashboard.latestRegistrations.items.map((sample) => [sample.id, sample.status]));
-    assert.equal(latestStatusBySampleId.get(registrationConfirmedSampleId), 'REGISTRATION_CONFIRMED');
+    const latestStatusBySampleId = new Map(
+      dashboard.latestRegistrations.items.map((sample) => [sample.id, sample.status])
+    );
+    assert.equal(
+      latestStatusBySampleId.get(registrationConfirmedSampleId),
+      'REGISTRATION_CONFIRMED'
+    );
     assert.equal(latestStatusBySampleId.get(qrPendingSampleId), 'QR_PENDING_PRINT');
     assert.equal(latestStatusBySampleId.get(qrPrintedSampleId), 'QR_PRINTED');
 
     for (let index = 1; index < dashboard.latestRegistrations.items.length; index += 1) {
-      const previousCreatedAt = new Date(dashboard.latestRegistrations.items[index - 1].createdAt).getTime();
-      const currentCreatedAt = new Date(dashboard.latestRegistrations.items[index].createdAt).getTime();
+      const previousCreatedAt = new Date(
+        dashboard.latestRegistrations.items[index - 1].createdAt
+      ).getTime();
+      const currentCreatedAt = new Date(
+        dashboard.latestRegistrations.items[index].createdAt
+      ).getTime();
       assert.ok(previousCreatedAt >= currentCreatedAt);
     }
   });
@@ -681,7 +698,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 1,
         reasonCode: 'OTHER',
-        reasonText: 'erro de recepcao'
+        reasonText: 'erro de recepcao',
       },
       actorClassifier
     );
@@ -695,7 +712,7 @@ if (!databaseUrl || !databaseReachable) {
             sampleId,
             expectedVersion: 2,
             reasonCode: 'OTHER',
-            reasonText: 'segunda tentativa'
+            reasonText: 'segunda tentativa',
           },
           actorAdmin
         ),

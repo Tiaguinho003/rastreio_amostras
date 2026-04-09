@@ -17,14 +17,14 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icon-safras.png',
         sizes: '224x224',
         type: 'image/png',
-        purpose: 'any'
+        purpose: 'any',
       },
       {
         src: '/icon-safras.png',
         sizes: '224x224',
         type: 'image/png',
-        purpose: 'maskable'
-      }
-    ]
+        purpose: 'maskable',
+      },
+    ],
   };
 }

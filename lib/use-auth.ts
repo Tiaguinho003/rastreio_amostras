@@ -45,15 +45,17 @@ export function mergeUserIntoSession(
           ? u.pendingEmailChange && typeof u.pendingEmailChange === 'object'
             ? (u.pendingEmailChange as typeof cur.pendingEmailChange)
             : null
-          : cur.pendingEmailChange
-    }
+          : cur.pendingEmailChange,
+    },
   };
 }
 
 export function useAuthState() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failureReason, setFailureReason] = useState<'session-expired' | 'session-ended' | null>(null);
+  const [failureReason, setFailureReason] = useState<'session-expired' | 'session-ended' | null>(
+    null
+  );
 
   useEffect(() => {
     let active = true;
@@ -102,7 +104,7 @@ export function useAuthState() {
     failureReason,
     replaceSession(nextSession: SessionData | null) {
       setSession(nextSession);
-    }
+    },
   };
 }
 
@@ -116,7 +118,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const {
     allowedRoles = null,
     unauthenticatedRedirectTo = '/login',
-    unauthorizedRedirectTo = '/dashboard'
+    unauthorizedRedirectTo = '/dashboard',
   } = options;
 
   const router = useRouter();
@@ -139,14 +141,26 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     }
 
     if (!session) {
-      router.replace(failureReason ? `${unauthenticatedRedirectTo}?reason=${failureReason}` : unauthenticatedRedirectTo);
+      router.replace(
+        failureReason
+          ? `${unauthenticatedRedirectTo}?reason=${failureReason}`
+          : unauthenticatedRedirectTo
+      );
       return;
     }
 
     if (!isAuthorized) {
       router.replace(unauthorizedRedirectTo);
     }
-  }, [failureReason, isAuthorized, loading, router, session, unauthenticatedRedirectTo, unauthorizedRedirectTo]);
+  }, [
+    failureReason,
+    isAuthorized,
+    loading,
+    router,
+    session,
+    unauthenticatedRedirectTo,
+    unauthorizedRedirectTo,
+  ]);
 
   const logout = useCallback(async () => {
     try {
@@ -165,7 +179,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       loading,
       logout,
       isAuthorized,
-      setSession: replaceSession
+      setSession: replaceSession,
     }),
     [isAuthorized, loading, logout, replaceSession, session]
   );

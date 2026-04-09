@@ -12,23 +12,27 @@ Este documento define a linguagem visual do app. Toda pagina e componente DEVE s
 Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transparente + Sheet Bege**:
 
 ### Fundo Verde (app-shell)
+
 - O verde vem do `app-shell-main.is-dashboard-route`: `linear-gradient(180deg, #1f5d43 0%, #14372a 100%)`
 - O topo DEVE ser `#1f5d43` (mesma cor do `theme-color` e da status bar)
 - Toda pagina que usa este padrao deve ser adicionada como `isLayeredRoute` no AppShell
 
 ### Header da Pagina
+
 - **background: transparent** — NUNCA usar gradiente proprio no header. O header herda o verde do app-shell
 - `align-items: flex-end` para posicionar conteudo na base da area verde, proximo ao sheet bege
 - `padding-top` inclui `env(safe-area-inset-top)` + espacamento generoso para criar a area verde visivel
 - Conteudo especifico da pagina (titulo, botao voltar, avatar, etc)
 
 ### Sheet de Conteudo (area bege)
+
 - Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`
 - `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
 - `padding-bottom` respeita tabbar: `calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance))`
 - O sheet ocupa o restante da tela com `flex: 1`
 
 ### Paginas sem header verde
+
 - Paginas como settings, detalhes de amostra podem usar header mais compacto
 - Manter a cor de fundo quente `#fdf9ec` como base, nunca branco puro frio (#fff) como background de pagina
 - Excecao: areas de formulario/cards internos podem usar `#ffffff`
@@ -36,50 +40,55 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 ## 2. Paleta de Cores
 
 ### Marca (verdes — paleta Safras)
+
 Todos os verdes do app vivem na paleta Safras, expostos como tokens CSS no `:root` de `app/globals.css`. **Sempre preferir o token** ao hex literal.
 
-| Uso | Token | Hex |
-|-----|-------|-----|
-| Status bar / base | `--brand-green` | `#1f5d43` |
-| Gradiente login inicio | `--brand-green-deep` | `#173c30` |
-| Gradiente login meio | `--brand-green-strong`, `--brand-green` | `#24553a`, `#1f5d43` |
-| Gradiente login fim | `--brand-green-soft` | `#2f6b4a` |
-| Acento interativo (foco, links) | `--brand-green-soft` | `#2f6b4a` |
-| Avatar fundo | — | `#2a6b45` |
+| Uso                             | Token                                   | Hex                  |
+| ------------------------------- | --------------------------------------- | -------------------- |
+| Status bar / base               | `--brand-green`                         | `#1f5d43`            |
+| Gradiente login inicio          | `--brand-green-deep`                    | `#173c30`            |
+| Gradiente login meio            | `--brand-green-strong`, `--brand-green` | `#24553a`, `#1f5d43` |
+| Gradiente login fim             | `--brand-green-soft`                    | `#2f6b4a`            |
+| Acento interativo (foco, links) | `--brand-green-soft`                    | `#2f6b4a`            |
+| Avatar fundo                    | —                                       | `#2a6b45`            |
 
 ### Superficies
-| Uso | Cor |
-|-----|-----|
-| Fundo pagina (quente) | `#fdf9ec` → `#f4f0e7` |
-| Fundo card | `linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%)` |
-| Fundo campo repouso | `#f8f6f2` |
-| Fundo campo focado | `#ffffff` |
-| Divider / separador | `#d9d3be` |
-| Skeleton loading | `#e8e3d5`, `#e0dbd0` |
+
+| Uso                   | Cor                                                 |
+| --------------------- | --------------------------------------------------- |
+| Fundo pagina (quente) | `#fdf9ec` → `#f4f0e7`                               |
+| Fundo card            | `linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%)` |
+| Fundo campo repouso   | `#f8f6f2`                                           |
+| Fundo campo focado    | `#ffffff`                                           |
+| Divider / separador   | `#d9d3be`                                           |
+| Skeleton loading      | `#e8e3d5`, `#e0dbd0`                                |
 
 ### Texto
-| Uso | Cor |
-|-----|-----|
-| Primario | `#1a1a1a` |
-| Secundario | `#555` |
-| Terciario / muted | `#999` |
-| Sobre verde (titulo) | `#ffffff` |
+
+| Uso                     | Cor                                               |
+| ----------------------- | ------------------------------------------------- |
+| Primario                | `#1a1a1a`                                         |
+| Secundario              | `#555`                                            |
+| Terciario / muted       | `#999`                                            |
+| Sobre verde (titulo)    | `#ffffff`                                         |
 | Sobre verde (subtitulo) | `rgba(255,255,255,0.5)` a `rgba(255,255,255,0.7)` |
-| Placeholder | `rgba(0,0,0,0.18)` |
+| Placeholder             | `rgba(0,0,0,0.18)`                                |
 
 ### Status (pendencias, alertas)
-| Status | Cor | Uso |
-|--------|-----|-----|
-| Impressao pendente | `#C0392B` | Cards, badges, alertas |
-| Classificacao pendente | `#D4A017` | Cards, badges |
-| Em andamento | `#2980B9` | Cards, badges |
-| Disponivel / sucesso | `#27AE60` | Barras, indicadores |
-| Alerta (> 15 dias) | `#E67E22` | Barras de distribuicao |
-| Erro em campo | `#c45c5c` | Placeholder de erro (nunca vermelho saturado) |
+
+| Status                 | Cor       | Uso                                           |
+| ---------------------- | --------- | --------------------------------------------- |
+| Impressao pendente     | `#C0392B` | Cards, badges, alertas                        |
+| Classificacao pendente | `#D4A017` | Cards, badges                                 |
+| Em andamento           | `#2980B9` | Cards, badges                                 |
+| Disponivel / sucesso   | `#27AE60` | Barras, indicadores                           |
+| Alerta (> 15 dias)     | `#E67E22` | Barras de distribuicao                        |
+| Erro em campo          | `#c45c5c` | Placeholder de erro (nunca vermelho saturado) |
 
 ## 3. Cards
 
 ### Estilo base de card
+
 ```
 background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
 border-top: 1px solid rgba(255, 255, 255, 0.9);
@@ -92,28 +101,33 @@ box-shadow:
 ```
 
 ### Linha lateral de status
+
 - Usar `::before` com `position: absolute`, `left: 0`, `top: 20%`, `bottom: 20%`
 - `width: 3px`, `border-radius: 0 3px 3px 0`
 - Cor corresponde ao status do item
 
 ### Interacao
+
 - `:active` usa `transform: scale(0.95)` + sombra reduzida
 - Nunca mudar cor de fundo ao clicar
 - `-webkit-tap-highlight-color: transparent`
 
 ### Skeleton loading
+
 - Formato identico ao card final, com blocos em `#e8e3d5` e `#e0dbd0`
 - Sem animacao de shimmer (manter estatico)
 
 ## 4. Icones
 
 ### Padrao SVG
+
 - Todos os icones sao SVG inline com `viewBox="0 0 24 24"`
 - `fill: none`, `stroke: currentColor` (cor herdada do pai)
 - `stroke-width: 1.6` a `1.8`, `stroke-linecap: round`, `stroke-linejoin: round`
 - Tamanho controlado pelo container pai com `clamp()`
 
 ### Icones em caixas (icon-wrap)
+
 - Container com `border-radius: clamp(10px, 3vw, 14px)`
 - Fundo em gradiente sutil da cor do status: `linear-gradient(135deg, cor 15% opacidade, cor 8% opacidade)`
 - Borda `1.5px solid` na cor do status com 25% opacidade
@@ -122,6 +136,7 @@ box-shadow:
 ## 5. Badges (contadores)
 
 ### Badge Pill
+
 - Circulo com `border-radius: 50%`, tamanho `clamp(22px, 6.5vw, 26px)`
 - Fundo na cor solida do status, texto branco `font-weight: 700`
 - `border: 2px solid` na cor do background da superficie pai (para criar separacao visual)
@@ -132,21 +147,25 @@ box-shadow:
 ## 6. Campos de Input
 
 ### Estrutura
+
 - Container flex com icone a esquerda + input + acao opcional a direita
 - `border-radius: clamp(12px, 3.5vw, 14px)`
 - `padding: clamp(12px, 3.5vw, 14px) clamp(14px, 4vw, 16px)`
 
 ### Estados
-| Estado | Fundo | Borda | Extras |
-|--------|-------|-------|--------|
-| Repouso | `#f8f6f2` | `1.5px solid rgba(0,0,0,0.06)` | — |
-| Focado | `#ffffff` | `1.5px solid var(--brand-green-soft)` | `box-shadow: 0 0 0 3px rgba(47,107,74,0.08)` |
-| Erro | `#f8f6f2` | `1.5px solid rgba(196,92,92,0.4)` | Placeholder em `#c45c5c` |
+
+| Estado  | Fundo     | Borda                                 | Extras                                       |
+| ------- | --------- | ------------------------------------- | -------------------------------------------- |
+| Repouso | `#f8f6f2` | `1.5px solid rgba(0,0,0,0.06)`        | —                                            |
+| Focado  | `#ffffff` | `1.5px solid var(--brand-green-soft)` | `box-shadow: 0 0 0 3px rgba(47,107,74,0.08)` |
+| Erro    | `#f8f6f2` | `1.5px solid rgba(196,92,92,0.4)`     | Placeholder em `#c45c5c`                     |
 
 ### Transicao
+
 - `transition: background 0.25s, border-color 0.25s, box-shadow 0.25s`
 
 ### Icone do campo
+
 - Tamanho: `clamp(18px, 5vw, 20px)`
 - `stroke: #888`, `stroke-width: 1.6`
 - `margin-right: clamp(10px, 3vw, 12px)`
@@ -154,6 +173,7 @@ box-shadow:
 ## 7. Botoes
 
 ### Botao Primario (acao principal)
+
 ```
 background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 color: #ffffff;
@@ -162,17 +182,20 @@ padding: clamp(14px, 4vw, 16px);
 font-weight: 600;
 box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 ```
+
 - Full-width quando e a acao principal da pagina
 - Reforcar `background` em TODOS os estados (:hover, :focus, :focus-visible, :active, :disabled)
 - `:active` = `scale(0.96)` + sombra reduzida
 - `:disabled` = `opacity: 0.65`
 
 ### Botao Secundario (acoes menores)
+
 - `background: transparent` ou `rgba(cor, 0.08)`
 - Texto na cor da acao
 - `:active` = `scale(0.95)` ou `opacity: 0.7`
 
 ### Regras universais de botao
+
 - NUNCA ficar verde ao clicar (ja definido na skill responsive)
 - Sempre `-webkit-tap-highlight-color: transparent`
 - Sempre `outline: none` ou outline neutro
@@ -180,6 +203,7 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 ## 8. Modais e Bottom Sheets
 
 ### Bottom Sheet (padrao mobile)
+
 - Sobe de baixo com `transform: translateY(100%)` → `translateY(0)`
 - `transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1)`
 - Overlay: `rgba(0,0,0,0.45)`, fecha ao clicar
@@ -191,26 +215,29 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 - Escape fecha, scroll interno com `-webkit-overflow-scrolling: touch`
 
 ### Animacao de entrada
+
 - Montar no DOM → esperar 2 frames (`requestAnimationFrame` duplo) → aplicar classe `is-open`
 - Isso garante que o browser renderize o estado inicial antes de animar
 
 ## 9. Tipografia de Secao
 
 ### Hierarquia
-| Elemento | Tamanho | Peso | Cor |
-|----------|---------|------|-----|
-| Titulo de pagina (sobre verde) | `clamp(1.8rem, 7.5vw, 2.5rem)` | 700 | `#ffffff` |
-| Saudacao/label (sobre verde) | `clamp(1.1rem, 4.5vw, 1.35rem)` | 400 | `rgba(255,255,255,0.7)` |
-| Cargo/meta (sobre verde) | `clamp(0.72rem, 3vw, 0.82rem)` | 400 | `rgba(255,255,255,0.5)` |
-| Titulo de secao (sobre bege) | `clamp(18px, 5vw, 20px)` | 700 | `#1a1a1a` |
-| Subtitulo | `clamp(12px, 3.2vw, 13px)` | 400 | `#999` |
-| Label uppercase | `clamp(9px, 2.6vw, 10px)` | 600 | com opacidade, `letter-spacing: 0.8-1px`, `text-transform: uppercase` |
-| Corpo de card | `clamp(11px, 3vw, 12px)` | 400-500 | `#555` |
-| Valor numerico destaque | `clamp(36px, 11vw, 44px)` | 700 | cor do contexto |
+
+| Elemento                       | Tamanho                         | Peso    | Cor                                                                   |
+| ------------------------------ | ------------------------------- | ------- | --------------------------------------------------------------------- |
+| Titulo de pagina (sobre verde) | `clamp(1.8rem, 7.5vw, 2.5rem)`  | 700     | `#ffffff`                                                             |
+| Saudacao/label (sobre verde)   | `clamp(1.1rem, 4.5vw, 1.35rem)` | 400     | `rgba(255,255,255,0.7)`                                               |
+| Cargo/meta (sobre verde)       | `clamp(0.72rem, 3vw, 0.82rem)`  | 400     | `rgba(255,255,255,0.5)`                                               |
+| Titulo de secao (sobre bege)   | `clamp(18px, 5vw, 20px)`        | 700     | `#1a1a1a`                                                             |
+| Subtitulo                      | `clamp(12px, 3.2vw, 13px)`      | 400     | `#999`                                                                |
+| Label uppercase                | `clamp(9px, 2.6vw, 10px)`       | 600     | com opacidade, `letter-spacing: 0.8-1px`, `text-transform: uppercase` |
+| Corpo de card                  | `clamp(11px, 3vw, 12px)`        | 400-500 | `#555`                                                                |
+| Valor numerico destaque        | `clamp(36px, 11vw, 44px)`       | 700     | cor do contexto                                                       |
 
 ## 10. Elementos Decorativos
 
 ### Graos de cafe (SVG)
+
 - Usados como textura sutil em headers verdes
 - Elipse com fenda curva central (sulco do grao):
   ```svg
@@ -224,6 +251,7 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 - Quantidade: 6-10 por header, nunca exagerado
 
 ### Indicadores de legenda (dots)
+
 - `width/height: clamp(8px, 2.5vw, 10px)`, `border-radius: 50%`
 - Animacao pulse: `scale(1) → scale(1.2) opacity(0.7) → scale(1)`, `2s ease-in-out infinite`
 

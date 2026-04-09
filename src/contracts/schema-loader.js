@@ -29,7 +29,7 @@ export function createAjvEventValidator({ cwd = process.cwd() } = {}) {
     strict: true,
     allErrors: true,
     allowUnionTypes: true,
-    discriminator: false
+    discriminator: false,
   });
   addFormats(ajv);
 
@@ -49,6 +49,6 @@ export function createAjvEventValidator({ cwd = process.cwd() } = {}) {
   return {
     ajv,
     validate,
-    schemaFiles
+    schemaFiles,
   };
 }

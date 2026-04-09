@@ -115,7 +115,10 @@ export function formatPhone(value: string | null | undefined) {
   return maskPhoneInput(digits);
 }
 
-export function formatClientDocument(value: string | null | undefined, personType?: ClientPersonType | null) {
+export function formatClientDocument(
+  value: string | null | undefined,
+  personType?: ClientPersonType | null
+) {
   const digits = onlyDigits(value);
 
   if (!digits) {

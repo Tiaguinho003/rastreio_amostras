@@ -32,7 +32,7 @@ export function normalizeActorContext(actorContext) {
     correlationId: actorContext?.correlationId ?? null,
     causationId: actorContext?.causationId ?? null,
     ip: actorContext?.ip ?? null,
-    userAgent: actorContext?.userAgent ?? null
+    userAgent: actorContext?.userAgent ?? null,
   };
 }
 
@@ -47,7 +47,7 @@ export function buildEventEnvelope({
   schemaVersion = 1,
   idempotencyScope = null,
   idempotencyKey = null,
-  occurredAt = new Date().toISOString()
+  occurredAt = new Date().toISOString(),
 }) {
   if (!MODULE_TYPES.includes(module)) {
     throw new HttpError(422, `Invalid module ${module}`);
@@ -73,8 +73,8 @@ export function buildEventEnvelope({
     metadata: {
       module,
       ip: actor.ip,
-      userAgent: actor.userAgent
-    }
+      userAgent: actor.userAgent,
+    },
   };
 
   if (idempotencyScope && idempotencyKey) {

@@ -21,9 +21,11 @@ export function ClientRegistrationSelect({
   disabled = false,
   placeholder = 'Sem inscricao vinculada',
   activeOnly = true,
-  compact = false
+  compact = false,
 }: ClientRegistrationSelectProps) {
-  const items = activeOnly ? registrations.filter((item) => item.status === 'ACTIVE') : registrations;
+  const items = activeOnly
+    ? registrations.filter((item) => item.status === 'ACTIVE')
+    : registrations;
 
   return (
     <label className={`client-registration-select${compact ? ' is-compact' : ''}`}>
@@ -33,10 +35,13 @@ export function ClientRegistrationSelect({
         disabled={disabled || items.length === 0}
         onChange={(event) => onChange(event.target.value || null)}
       >
-        <option value="">{items.length === 0 ? 'Nenhuma inscricao disponivel' : placeholder}</option>
+        <option value="">
+          {items.length === 0 ? 'Nenhuma inscricao disponivel' : placeholder}
+        </option>
         {items.map((registration) => (
           <option key={registration.id} value={registration.id}>
-            {registration.registrationNumber} · {registration.registrationType} · {registration.city}/{registration.state}
+            {registration.registrationNumber} · {registration.registrationType} ·{' '}
+            {registration.city}/{registration.state}
           </option>
         ))}
       </select>

@@ -25,7 +25,7 @@ export function SampleLookupResultModal({
   onPrimaryAction,
   onDetails,
   onClose,
-  detailsLabel = 'Mais informacoes'
+  detailsLabel = 'Mais informacoes',
 }: SampleLookupResultModalProps) {
   const titleId = useId();
   const focusTrapRef = useFocusTrap(true);
@@ -45,10 +45,18 @@ export function SampleLookupResultModal({
             <h3 id={titleId} className="app-modal-title">
               {title}
             </h3>
-            <p className="app-modal-description">Confira os dados principais antes de abrir os detalhes.</p>
+            <p className="app-modal-description">
+              Confira os dados principais antes de abrir os detalhes.
+            </p>
           </div>
 
-          <button type="button" className="app-modal-close" onClick={onClose} aria-label="Fechar modal" autoFocus>
+          <button
+            type="button"
+            className="app-modal-close"
+            onClick={onClose}
+            aria-label="Fechar modal"
+            autoFocus
+          >
             <span aria-hidden="true">×</span>
           </button>
         </header>

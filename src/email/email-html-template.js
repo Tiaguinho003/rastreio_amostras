@@ -22,7 +22,10 @@ function escapeHtml(text) {
  */
 export function renderEmailHtml({ subject, greeting, bodyLines = [], highlight, footerNote }) {
   const paragraphs = bodyLines
-    .map((line) => `<p style="margin:0 0 12px;color:#444444;font-size:15px;line-height:1.6;">${escapeHtml(line)}</p>`)
+    .map(
+      (line) =>
+        `<p style="margin:0 0 12px;color:#444444;font-size:15px;line-height:1.6;">${escapeHtml(line)}</p>`
+    )
     .join('\n              ');
 
   const highlightBlock = highlight

@@ -22,7 +22,7 @@ import {
   lossCancelledEvent,
   reportExportedEvent,
   commercialStatusUpdatedEvent,
-  sampleInvalidatedEvent
+  sampleInvalidatedEvent,
 } from './helpers/event-builders.js';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -60,12 +60,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(received.statusCode, 201);
     assert.equal(received.event.sequenceNumber, 1);
 
-    const started = await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+    const started = await service.appendEvent(registrationStartedEvent(sampleId), {
+      expectedVersion: 1,
+    });
     assert.equal(started.statusCode, 201);
     assert.equal(started.event.sequenceNumber, 2);
 
     const confirmed = await service.appendEvent(registrationConfirmedEvent(sampleId), {
-      expectedVersion: 2
+      expectedVersion: 2,
     });
     assert.equal(confirmed.statusCode, 201);
     assert.equal(confirmed.event.sequenceNumber, 3);
@@ -90,14 +92,14 @@ if (!databaseUrl || !databaseReachable) {
 
     const first = await service.appendEvent(
       registrationConfirmedEvent(sampleId, {
-        idempotencyKey
+        idempotencyKey,
       }),
       { expectedVersion: 2 }
     );
 
     const second = await service.appendEvent(
       registrationConfirmedEvent(sampleId, {
-        idempotencyKey
+        idempotencyKey,
       }),
       { expectedVersion: 999 }
     );
@@ -125,8 +127,8 @@ if (!databaseUrl || !databaseReachable) {
         documentCanonical: '03936815000175',
         isBuyer: true,
         isSeller: true,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
 
     await prisma.clientRegistration.create({
@@ -141,8 +143,8 @@ if (!databaseUrl || !databaseReachable) {
         district: 'Rezende',
         city: 'Varginha',
         state: 'MG',
-        postalCode: '37062-447'
-      }
+        postalCode: '37062-447',
+      },
     });
 
     await service.appendEvent(sampleReceivedEvent(sampleId));
@@ -156,9 +158,9 @@ if (!databaseUrl || !databaseReachable) {
             owner: 'Atlantica Exportacao e Importacao S/A',
             sacks: 10,
             harvest: '24/25',
-            originLot: 'LOTE-ORIGEM-001'
-          }
-        }
+            originLot: 'LOTE-ORIGEM-001',
+          },
+        },
       }),
       { expectedVersion: 2 }
     );
@@ -181,8 +183,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           printAction: 'PRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       }),
       { expectedVersion: 3 }
     );
@@ -192,8 +194,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           printAction: 'PRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       }),
       { expectedVersion: 999 }
     );
@@ -218,8 +220,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           printAction: 'PRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       }),
       { expectedVersion: 3 }
     );
@@ -230,8 +232,8 @@ if (!databaseUrl || !databaseReachable) {
           printAction: 'PRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
-          error: 'paper jam'
-        }
+          error: 'paper jam',
+        },
       })
     );
 
@@ -240,9 +242,9 @@ if (!databaseUrl || !databaseReachable) {
         sampleId_printAction_attemptNumber: {
           sampleId,
           printAction: 'PRINT',
-          attemptNumber: 1
-        }
-      }
+          attemptNumber: 1,
+        },
+      },
     });
 
     assert.ok(printJob);
@@ -277,7 +279,7 @@ if (!databaseUrl || !databaseReachable) {
       () =>
         service.appendEvent(registrationStartedEvent(sampleId), {
           expectedVersion: 1,
-          simulateFailureAfterSampleMutation: true
+          simulateFailureAfterSampleMutation: true,
         }),
       (error) => error instanceof HttpError && error.status === 500
     );
@@ -314,7 +316,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const events = await prisma.sampleEvent.findMany({
       where: { sampleId },
-      orderBy: { sequenceNumber: 'asc' }
+      orderBy: { sequenceNumber: 'asc' },
     });
     assert.equal(events.length, 2);
     assert.equal(events[1].eventType, 'SAMPLE_INVALIDATED');
@@ -338,9 +340,9 @@ if (!databaseUrl || !databaseReachable) {
           storagePath: `samples/${sampleId}/classification/foto.jpg`,
           fileName: 'foto.jpg',
           mimeType: 'image/jpeg',
-          sizeBytes: 1024
+          sizeBytes: 1024,
         },
-        module: 'classification'
+        module: 'classification',
       })
     );
 
@@ -351,7 +353,7 @@ if (!databaseUrl || !databaseReachable) {
         fromStatus: 'QR_PRINTED',
         toStatus: 'CLASSIFICATION_IN_PROGRESS',
         payload: {},
-        module: 'classification'
+        module: 'classification',
       }),
       { expectedVersion: 5 }
     );
@@ -365,9 +367,9 @@ if (!databaseUrl || !databaseReachable) {
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
         payload: {
-          classificationPhotoId
+          classificationPhotoId,
         },
-        module: 'classification'
+        module: 'classification',
       }),
       { expectedVersion: 6 }
     );
@@ -382,8 +384,8 @@ if (!databaseUrl || !databaseReachable) {
           classificationPhotoId,
           templateVersion: 'v1',
           sizeBytes: 4096,
-          checksumSha256: 'b'.repeat(64)
-        }
+          checksumSha256: 'b'.repeat(64),
+        },
       })
     );
 
@@ -409,8 +411,8 @@ if (!databaseUrl || !databaseReachable) {
           printAction: 'REPRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
-          reasonText: 'etiqueta danificada'
-        }
+          reasonText: 'etiqueta danificada',
+        },
       })
     );
 
@@ -423,8 +425,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           printAction: 'REPRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -448,8 +450,8 @@ if (!databaseUrl || !databaseReachable) {
           printAction: 'REPRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
-          reasonText: 'nova tentativa antes da confirmacao'
-        }
+          reasonText: 'nova tentativa antes da confirmacao',
+        },
       })
     );
 
@@ -463,8 +465,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           printAction: 'REPRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       }),
       { expectedVersion: beforeReprint.version }
     );
@@ -487,8 +489,8 @@ if (!databaseUrl || !databaseReachable) {
         payload: {
           fromCommercialStatus: 'OPEN',
           toCommercialStatus: 'SOLD',
-          reasonText: 'fechamento comercial'
-        }
+          reasonText: 'fechamento comercial',
+        },
       }),
       { expectedVersion: 1 }
     );
@@ -517,8 +519,8 @@ if (!databaseUrl || !databaseReachable) {
         documentCanonical: '10101010000110',
         isBuyer: true,
         isSeller: false,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
 
     await prisma.client.create({
@@ -531,8 +533,8 @@ if (!databaseUrl || !databaseReachable) {
         documentCanonical: '20202020000120',
         isBuyer: true,
         isSeller: false,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
 
     await service.appendEvent(sampleReceivedEvent(sampleId));
@@ -547,7 +549,7 @@ if (!databaseUrl || !databaseReachable) {
         fromStatus: 'QR_PRINTED',
         toStatus: 'CLASSIFICATION_IN_PROGRESS',
         payload: {},
-        module: 'classification'
+        module: 'classification',
       }),
       { expectedVersion: 5 }
     );
@@ -560,8 +562,8 @@ if (!databaseUrl || !databaseReachable) {
           fileName: 'foto.png',
           mimeType: 'image/png',
           sizeBytes: 1024,
-          checksumSha256: null
-        }
+          checksumSha256: null,
+        },
       })
     );
     await service.appendEvent(
@@ -571,11 +573,11 @@ if (!databaseUrl || !databaseReachable) {
         fromStatus: 'CLASSIFICATION_IN_PROGRESS',
         toStatus: 'CLASSIFIED',
         payload: {
-          classificationPhotoId
+          classificationPhotoId,
         },
         module: 'classification',
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       }),
       { expectedVersion: 6 }
     );
@@ -586,14 +588,14 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId,
           buyerClientSnapshot: {
             id: buyerClientId,
-            displayName: 'Comprador Inicial LTDA'
-          }
-        }
+            displayName: 'Comprador Inicial LTDA',
+          },
+        },
       }),
       { expectedVersion: 7 }
     );
     const saleMovement = await prisma.sampleMovement.findUnique({
-      where: { id: saleCreated.event.payload.movementId }
+      where: { id: saleCreated.event.payload.movementId },
     });
     assert.equal(saleMovement.movementType, 'SALE');
     assert.equal(saleMovement.quantitySacks, 5);
@@ -616,10 +618,10 @@ if (!databaseUrl || !databaseReachable) {
             lossReasonText: null,
             buyerClientSnapshot: {
               id: buyerClientId,
-              displayName: 'Comprador Inicial LTDA'
+              displayName: 'Comprador Inicial LTDA',
             },
             buyerRegistrationSnapshot: null,
-            status: 'ACTIVE'
+            status: 'ACTIVE',
           },
           after: {
             movementType: 'SALE',
@@ -631,18 +633,18 @@ if (!databaseUrl || !databaseReachable) {
             lossReasonText: null,
             buyerClientSnapshot: {
               id: updatedBuyerClientId,
-              displayName: 'Comprador Atualizado LTDA'
+              displayName: 'Comprador Atualizado LTDA',
             },
             buyerRegistrationSnapshot: null,
-            status: 'ACTIVE'
-          }
-        }
+            status: 'ACTIVE',
+          },
+        },
       }),
       { expectedVersion: 8 }
     );
 
     const updatedSaleMovement = await prisma.sampleMovement.findUnique({
-      where: { id: saleCreated.event.payload.movementId }
+      where: { id: saleCreated.event.payload.movementId },
     });
     assert.equal(updatedSaleMovement.quantitySacks, 6);
 
@@ -652,8 +654,8 @@ if (!databaseUrl || !databaseReachable) {
           soldSacks: 6,
           lostSacks: 3,
           availableSacks: 1,
-          commercialStatus: 'PARTIALLY_SOLD'
-        }
+          commercialStatus: 'PARTIALLY_SOLD',
+        },
       }),
       { expectedVersion: 9 }
     );
@@ -664,14 +666,14 @@ if (!databaseUrl || !databaseReachable) {
     await service.appendEvent(
       lossCancelledEvent(sampleId, {
         payload: {
-          movementId: lossCreated.event.payload.movementId
-        }
+          movementId: lossCreated.event.payload.movementId,
+        },
       }),
       { expectedVersion: 10 }
     );
 
     const cancelledLossMovement = await prisma.sampleMovement.findUnique({
-      where: { id: lossCreated.event.payload.movementId }
+      where: { id: lossCreated.event.payload.movementId },
     });
     assert.equal(cancelledLossMovement.status, 'CANCELLED');
 

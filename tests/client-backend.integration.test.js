@@ -26,7 +26,7 @@ if (!databaseUrl || !databaseReachable) {
     role: 'CLASSIFIER',
     source: 'web',
     ip: '127.0.0.1',
-    userAgent: 'node-test'
+    userAgent: 'node-test',
   };
 
   function buildInput({ headers = authHeaders, params = {}, query = {}, body = {} } = {}) {
@@ -34,7 +34,7 @@ if (!databaseUrl || !databaseReachable) {
       headers,
       params,
       query,
-      body
+      body,
     };
   }
 
@@ -54,8 +54,8 @@ if (!databaseUrl || !databaseReachable) {
           phone: '35 99911-8089',
           isBuyer: false,
           isSeller: true,
-          ...overrides
-        }
+          ...overrides,
+        },
       })
     );
   }
@@ -71,8 +71,8 @@ if (!databaseUrl || !databaseReachable) {
           phone: '35 3222-0495',
           isBuyer: true,
           isSeller: true,
-          ...overrides
-        }
+          ...overrides,
+        },
       })
     );
   }
@@ -89,16 +89,16 @@ if (!databaseUrl || !databaseReachable) {
           username: 'client-test',
           password: 'client123',
           role: actor.role,
-          displayName: 'Cliente Teste'
-        }
-      ]
+          displayName: 'Cliente Teste',
+        },
+      ],
     });
 
     authHeaders = {
       authorization: `Bearer ${authService.login({ username: 'client-test', password: 'client123' }).accessToken}`,
       'x-forwarded-for': actor.ip,
       'user-agent': actor.userAgent,
-      'x-source': actor.source
+      'x-source': actor.source,
     };
 
     api = createBackendApiV1({
@@ -107,13 +107,24 @@ if (!databaseUrl || !databaseReachable) {
       commandService: {},
       queryService: {
         async listSamples() {
-          return { items: [], page: { total: 0, totalPages: 1, page: 1, limit: 30, offset: 0, hasPrev: false, hasNext: false } };
+          return {
+            items: [],
+            page: {
+              total: 0,
+              totalPages: 1,
+              page: 1,
+              limit: 30,
+              offset: 0,
+              hasPrev: false,
+              hasNext: false,
+            },
+          };
         },
         async getDashboardPending() {
           return { pending: [] };
-        }
+        },
       },
-      reportService: null
+      reportService: null,
     });
   });
 
@@ -130,7 +141,7 @@ if (!databaseUrl || !databaseReachable) {
       headers: {},
       params: {},
       query: {},
-      body: {}
+      body: {},
     });
 
     assert.equal(result.status, 401);
@@ -155,8 +166,8 @@ if (!databaseUrl || !databaseReachable) {
     const byName = await api.listClients(
       buildInput({
         query: {
-          search: 'Atlantica'
-        }
+          search: 'Atlantica',
+        },
       })
     );
 
@@ -167,8 +178,8 @@ if (!databaseUrl || !databaseReachable) {
     const byDocument = await api.listClients(
       buildInput({
         query: {
-          search: '01617970832'
-        }
+          search: '01617970832',
+        },
       })
     );
 
@@ -179,8 +190,8 @@ if (!databaseUrl || !databaseReachable) {
     const byCode = await api.listClients(
       buildInput({
         query: {
-          search: String(pf.body.client.code)
-        }
+          search: String(pf.body.client.code),
+        },
       })
     );
 
@@ -193,7 +204,7 @@ if (!databaseUrl || !databaseReachable) {
     for (let index = 0; index < 31; index += 1) {
       const created = await createPfClient({
         fullName: `Cliente limite ${index + 1}`,
-        cpf: String(70000000000 + index)
+        cpf: String(70000000000 + index),
       });
 
       assert.equal(created.status, 201);
@@ -203,8 +214,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           page: '1',
-          limit: '30'
-        }
+          limit: '30',
+        },
       })
     );
 
@@ -217,8 +228,8 @@ if (!databaseUrl || !databaseReachable) {
     const aboveMax = await api.listClients(
       buildInput({
         query: {
-          limit: '31'
-        }
+          limit: '31',
+        },
       })
     );
 
@@ -233,15 +244,15 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Export Ltda',
       cnpj: '26.543.626/0001-38',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
 
     const ownerLookup = await api.lookupClients(
       buildInput({
         query: {
           search: 'Francisco',
-          kind: 'owner'
-        }
+          kind: 'owner',
+        },
       })
     );
 
@@ -253,8 +264,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           search: 'Comprador',
-          kind: 'buyer'
-        }
+          kind: 'buyer',
+        },
       })
     );
 
@@ -265,7 +276,7 @@ if (!databaseUrl || !databaseReachable) {
     await api.inactivateClient(
       buildInput({
         params: { clientId: buyerOnly.body.client.id },
-        body: { reasonText: 'suspenso' }
+        body: { reasonText: 'suspenso' },
       })
     );
 
@@ -273,8 +284,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           search: 'Comprador',
-          kind: 'buyer'
-        }
+          kind: 'buyer',
+        },
       })
     );
 
@@ -295,8 +306,8 @@ if (!databaseUrl || !databaseReachable) {
           cnpj: '26.543.626/0001-38',
           isBuyer: true,
           isSeller: true,
-          reasonText: 'corrigir cadastro'
-        }
+          reasonText: 'corrigir cadastro',
+        },
       })
     );
 
@@ -307,7 +318,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await api.getClient(
       buildInput({
-        params: { clientId: created.body.client.id }
+        params: { clientId: created.body.client.id },
       })
     );
 
@@ -316,7 +327,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const audit = await api.listClientAuditEvents(
       buildInput({
-        params: { clientId: created.body.client.id }
+        params: { clientId: created.body.client.id },
       })
     );
 
@@ -339,8 +350,8 @@ if (!databaseUrl || !databaseReachable) {
           city: 'Sao Sebastiao do Paraiso',
           state: 'MG',
           postalCode: '37950-078',
-          complement: null
-        }
+          complement: null,
+        },
       })
     );
 
@@ -351,12 +362,12 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: {
           clientId: created.body.client.id,
-          registrationId: registration.body.registration.id
+          registrationId: registration.body.registration.id,
         },
         body: {
           district: 'Centro',
-          reasonText: 'ajuste endereco'
-        }
+          reasonText: 'ajuste endereco',
+        },
       })
     );
 
@@ -365,19 +376,19 @@ if (!databaseUrl || !databaseReachable) {
 
     const otherClient = await createPfClient({
       fullName: 'Outro Cliente',
-      cpf: '123.456.789-09'
+      cpf: '123.456.789-09',
     });
 
     const wrongOwner = await api.updateClientRegistration(
       buildInput({
         params: {
           clientId: otherClient.body.client.id,
-          registrationId: registration.body.registration.id
+          registrationId: registration.body.registration.id,
         },
         body: {
           district: 'Bairro X',
-          reasonText: 'nao deveria achar'
-        }
+          reasonText: 'nao deveria achar',
+        },
       })
     );
 
@@ -397,8 +408,8 @@ if (!databaseUrl || !databaseReachable) {
           city: 'Varginha',
           state: 'MG',
           postalCode: '37062-447',
-          complement: null
-        }
+          complement: null,
+        },
       })
     );
 
@@ -406,17 +417,17 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: {
           clientId: created.body.client.id,
-          registrationId: registration.body.registration.id
+          registrationId: registration.body.registration.id,
         },
         body: {
-          reasonText: 'teste'
-        }
+          reasonText: 'teste',
+        },
       })
     );
 
     const detail = await api.getClient(
       buildInput({
-        params: { clientId: created.body.client.id }
+        params: { clientId: created.body.client.id },
       })
     );
 
@@ -426,7 +437,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const audit = await api.listClientAuditEvents(
       buildInput({
-        params: { clientId: created.body.client.id }
+        params: { clientId: created.body.client.id },
       })
     );
 
@@ -447,14 +458,14 @@ if (!databaseUrl || !databaseReachable) {
 
     const duplicateClient = await createPjClient({
       legalName: 'Duplicado Ltda',
-      tradeName: 'Duplicado Ltda'
+      tradeName: 'Duplicado Ltda',
     });
 
     assert.equal(duplicateClient.status, 409);
 
     const created = await createPfClient({
       fullName: 'Produtor Unico',
-      cpf: '999.888.777-66'
+      cpf: '999.888.777-66',
     });
 
     const firstRegistration = await api.createClientRegistration(
@@ -468,8 +479,8 @@ if (!databaseUrl || !databaseReachable) {
           city: 'Capitolio',
           state: 'MG',
           postalCode: '37930-000',
-          complement: null
-        }
+          complement: null,
+        },
       })
     );
 
@@ -478,7 +489,7 @@ if (!databaseUrl || !databaseReachable) {
     const otherClient = await createPjClient({
       legalName: 'Atlantica Dois S/A',
       tradeName: 'Atlantica Dois S/A',
-      cnpj: '11.222.333/0001-44'
+      cnpj: '11.222.333/0001-44',
     });
 
     const duplicateRegistration = await api.createClientRegistration(
@@ -492,8 +503,8 @@ if (!databaseUrl || !databaseReachable) {
           city: 'Varginha',
           state: 'MG',
           postalCode: '37000-000',
-          complement: null
-        }
+          complement: null,
+        },
       })
     );
 

@@ -22,8 +22,8 @@ export async function GET(
     const attachment = await prisma.sampleAttachment.findFirst({
       where: {
         id: params.attachmentId,
-        sampleId: params.sampleId
-      }
+        sampleId: params.sampleId,
+      },
     });
 
     if (!attachment || !attachment.storagePath) {
@@ -43,8 +43,8 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': mimeType,
-        'Cache-Control': 'private, max-age=3600, immutable'
-      }
+        'Cache-Control': 'private, max-age=3600, immutable',
+      },
     });
   } catch {
     return NextResponse.json({ error: { message: 'Failed to read attachment' } }, { status: 500 });

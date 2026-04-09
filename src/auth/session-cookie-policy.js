@@ -49,7 +49,7 @@ function isHttpsLikeValue(value) {
 export function shouldUseSecureSessionCookie({
   configuredValue = process.env.SESSION_COOKIE_SECURE,
   forwardedProto = null,
-  requestProtocol = null
+  requestProtocol = null,
 } = {}) {
   const secureMode = resolveSessionCookieSecureMode(configuredValue);
 

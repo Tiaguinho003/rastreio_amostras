@@ -10,7 +10,7 @@ import type {
   ClientSummary,
   SampleMovement,
   SampleMovementType,
-  SessionData
+  SessionData,
 } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ClientRegistrationSelect } from '../clients/ClientRegistrationSelect';
@@ -65,7 +65,7 @@ function toClientSummary(client: SampleMovement['buyerClient']): ClientSummary |
     primaryCity: null,
     primaryState: null,
     createdAt: null,
-    updatedAt: null
+    updatedAt: null,
   };
 }
 
@@ -88,13 +88,19 @@ export function SampleMovementModal({
   availableSacks = 0,
   stampType = null,
   onClose,
-  onSubmit
+  onSubmit,
 }: SampleMovementModalProps) {
   const focusTrapRef = useFocusTrap(open);
-  const [movementType, setMovementType] = useState<SampleMovementType>(movement?.movementType ?? initialMovementType);
-  const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(toClientSummary(movement?.buyerClient ?? null));
+  const [movementType, setMovementType] = useState<SampleMovementType>(
+    movement?.movementType ?? initialMovementType
+  );
+  const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(
+    toClientSummary(movement?.buyerClient ?? null)
+  );
   const [buyerRegistrations, setBuyerRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [buyerRegistrationId, setBuyerRegistrationId] = useState<string | null>(movement?.buyerRegistrationId ?? null);
+  const [buyerRegistrationId, setBuyerRegistrationId] = useState<string | null>(
+    movement?.buyerRegistrationId ?? null
+  );
   const [quantitySacks, setQuantitySacks] = useState(String(movement?.quantitySacks ?? ''));
   const [movementDate, setMovementDate] = useState(movement?.movementDate ?? todayAsInputDate());
   const [notes, setNotes] = useState(movement?.notes ?? '');
@@ -104,9 +110,8 @@ export function SampleMovementModal({
   const [error, setError] = useState<string | null>(null);
 
   const showBuyerFields = movementType === 'SALE';
-  const effectiveLimit = mode === 'edit' && movement
-    ? availableSacks + movement.quantitySacks
-    : availableSacks;
+  const effectiveLimit =
+    mode === 'edit' && movement ? availableSacks + movement.quantitySacks : availableSacks;
 
   useEffect(() => {
     if (!open) {
@@ -143,7 +148,9 @@ export function SampleMovementModal({
           return;
         }
 
-        const activeRegistrations = response.registrations.filter((registration) => registration.status === 'ACTIVE');
+        const activeRegistrations = response.registrations.filter(
+          (registration) => registration.status === 'ACTIVE'
+        );
         setBuyerRegistrations(activeRegistrations);
       })
       .catch((cause) => {
@@ -153,7 +160,9 @@ export function SampleMovementModal({
 
         setBuyerRegistrations([]);
         setBuyerRegistrationId(null);
-        setError(cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do comprador');
+        setError(
+          cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do comprador'
+        );
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -167,7 +176,8 @@ export function SampleMovementModal({
   }, [buyerClient, movementType, open, session]);
 
   const parsedQuantity = Number(quantitySacks);
-  const isQuantityValid = Number.isInteger(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= effectiveLimit;
+  const isQuantityValid =
+    Number.isInteger(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= effectiveLimit;
   const isQuantityOverLimit = Number.isInteger(parsedQuantity) && parsedQuantity > effectiveLimit;
 
   const submitDisabled = useMemo(() => {
@@ -184,7 +194,15 @@ export function SampleMovementModal({
     }
 
     return false;
-  }, [buyerClient, isQuantityValid, mode, movementDate, quantitySacks, reasonText, showBuyerFields]);
+  }, [
+    buyerClient,
+    isQuantityValid,
+    mode,
+    movementDate,
+    quantitySacks,
+    reasonText,
+    showBuyerFields,
+  ]);
 
   if (!open) {
     return null;
@@ -195,7 +213,9 @@ export function SampleMovementModal({
 
     if (!isQuantityValid) {
       if (isQuantityOverLimit) {
-        setError(`Maximo de ${effectiveLimit} ${effectiveLimit === 1 ? 'saca disponivel' : 'sacas disponiveis'}.`);
+        setError(
+          `Maximo de ${effectiveLimit} ${effectiveLimit === 1 ? 'saca disponivel' : 'sacas disponiveis'}.`
+        );
       } else {
         setError('Quantidade de sacas deve ser um numero inteiro maior que zero.');
       }
@@ -215,13 +235,13 @@ export function SampleMovementModal({
     setError(null);
     await onSubmit({
       movementType,
-      buyerClientId: showBuyerFields ? buyerClient?.id ?? null : null,
+      buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
       buyerRegistrationId: showBuyerFields ? buyerRegistrationId : null,
       quantitySacks: parsedQuantity,
       movementDate,
       notes: notes.trim() ? notes.trim() : null,
       lossReasonText: showBuyerFields ? null : lossReasonText.trim(),
-      reasonText: mode === 'edit' ? reasonText.trim() : null
+      reasonText: mode === 'edit' ? reasonText.trim() : null,
     });
   }
 
@@ -236,13 +256,26 @@ export function SampleMovementModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="cdm-header" style={{ gap: '10px' }}>
-          <h3 id="sample-movement-modal-title" className="cdm-header-name" style={{ flex: 1 }}>{title}</h3>
-          <button type="button" className="cdm-close" onClick={onClose} disabled={saving} aria-label="Fechar">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          <h3 id="sample-movement-modal-title" className="cdm-header-name" style={{ flex: 1 }}>
+            {title}
+          </h3>
+          <button
+            type="button"
+            className="cdm-close"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Fechar"
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
           </button>
         </div>
 
-        {error ? <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p> : null}
+        {error ? (
+          <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p>
+        ) : null}
 
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
@@ -254,61 +287,157 @@ export function SampleMovementModal({
                 selectedClient={buyerClient}
                 disabled={saving}
                 compact
-                onSelectClient={(client) => { setBuyerClient(client); setBuyerRegistrationId(null); setError(null); }}
+                onSelectClient={(client) => {
+                  setBuyerClient(client);
+                  setBuyerRegistrationId(null);
+                  setError(null);
+                }}
                 emptyMessage="Nenhum comprador encontrado."
               />
             </div>
           ) : (
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Motivo da perda</span>
-              <input className="sdv-edit-input" value={lossReasonText} disabled={saving} onChange={(event) => setLossReasonText(event.target.value)} placeholder="Descreva a origem da perda" />
+              <input
+                className="sdv-edit-input"
+                value={lossReasonText}
+                disabled={saving}
+                onChange={(event) => setLossReasonText(event.target.value)}
+                placeholder="Descreva a origem da perda"
+              />
             </label>
           )}
 
           <div className="sdv-edit-row">
             <div className="sdv-edit-field">
-              <span className="sdv-edit-label">Sacas <span style={{ fontWeight: 400, color: '#999' }}>({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})</span></span>
+              <span className="sdv-edit-label">
+                Sacas{' '}
+                <span style={{ fontWeight: 400, color: '#999' }}>
+                  ({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})
+                </span>
+              </span>
               <div style={{ display: 'flex', gap: '6px' }}>
-                <input className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`} value={quantitySacks} inputMode="numeric" disabled={saving} onChange={(event) => { setQuantitySacks(event.target.value.replace(/[^0-9]/g, '')); setError(null); }} style={{ flex: 1 }} />
+                <input
+                  className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`}
+                  value={quantitySacks}
+                  inputMode="numeric"
+                  disabled={saving}
+                  onChange={(event) => {
+                    setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
+                    setError(null);
+                  }}
+                  style={{ flex: 1 }}
+                />
                 {effectiveLimit > 0 ? (
-                  <button type="button" className="sdv-mov-all-btn" disabled={saving} onClick={() => setQuantitySacks(String(effectiveLimit))}>Todas</button>
+                  <button
+                    type="button"
+                    className="sdv-mov-all-btn"
+                    disabled={saving}
+                    onClick={() => setQuantitySacks(String(effectiveLimit))}
+                  >
+                    Todas
+                  </button>
                 ) : null}
               </div>
             </div>
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Data</span>
-              <input className="sdv-edit-input" type="date" value={movementDate} disabled={saving} onChange={(event) => setMovementDate(event.target.value)} />
+              <input
+                className="sdv-edit-input"
+                type="date"
+                value={movementDate}
+                disabled={saving}
+                onChange={(event) => setMovementDate(event.target.value)}
+              />
             </label>
           </div>
 
           <label className="sdv-edit-field">
             <span className="sdv-edit-label">Observacoes (opcional)</span>
-            <input className="sdv-edit-input" value={notes} disabled={saving} onChange={(event) => setNotes(event.target.value)} placeholder="Observacoes adicionais" />
+            <input
+              className="sdv-edit-input"
+              value={notes}
+              disabled={saving}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Observacoes adicionais"
+            />
           </label>
 
           {mode === 'edit' ? (
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Motivo da edicao</span>
-              <input className="sdv-edit-input" value={reasonText} disabled={saving} onChange={(event) => setReasonText(event.target.value)} placeholder="Obrigatorio" />
+              <input
+                className="sdv-edit-input"
+                value={reasonText}
+                disabled={saving}
+                onChange={(event) => setReasonText(event.target.value)}
+                placeholder="Obrigatorio"
+              />
             </label>
           ) : null}
 
           <div className="sdv-edit-actions" style={{ marginTop: 'clamp(4px, 1vw, 6px)' }}>
-            <button type="submit" className="cdm-manage-link" disabled={saving || submitDisabled} style={{ opacity: (saving || submitDisabled) ? 0.5 : 1 }}>
+            <button
+              type="submit"
+              className="cdm-manage-link"
+              disabled={saving || submitDisabled}
+              style={{ opacity: saving || submitDisabled ? 0.5 : 1 }}
+            >
               {saving ? 'Salvando...' : mode === 'create' ? 'Registrar' : 'Salvar'}
             </button>
           </div>
         </form>
 
         {stampType ? (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(253,249,236,0.92)', borderRadius: '20px', zIndex: 10 }}>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(253,249,236,0.92)',
+              borderRadius: '20px',
+              zIndex: 10,
+            }}
+          >
             <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: stampType === 'SALE' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${stampType === 'SALE' ? '#BBF7D0' : '#FECACA'}`, display: 'inline-grid', placeItems: 'center', marginBottom: 8 }}>
-                <svg viewBox="0 0 24 24" style={{ width: 22, height: 22, fill: 'none', stroke: stampType === 'SALE' ? '#27AE60' : '#C0392B', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: stampType === 'SALE' ? '#F0FDF4' : '#FEF2F2',
+                  border: `1px solid ${stampType === 'SALE' ? '#BBF7D0' : '#FECACA'}`,
+                  display: 'inline-grid',
+                  placeItems: 'center',
+                  marginBottom: 8,
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    fill: 'none',
+                    stroke: stampType === 'SALE' ? '#27AE60' : '#C0392B',
+                    strokeWidth: 2,
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round',
+                  }}
+                >
                   <path d="m5 12.5 4.3 4.2L19 7" />
                 </svg>
               </div>
-              <p style={{ margin: 0, fontSize: 'clamp(14px, 3.8vw, 15px)', fontWeight: 700, color: '#1a1a1a' }}>{stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}</p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 'clamp(14px, 3.8vw, 15px)',
+                  fontWeight: 700,
+                  color: '#1a1a1a',
+                }}
+              >
+                {stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}
+              </p>
             </div>
           </div>
         ) : null}

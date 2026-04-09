@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
@@ -17,17 +26,24 @@ const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
 const STATUS_FILTER_OPTIONS = [
   { value: 'PRINT_PENDING', label: 'Impressao pendente' },
   { value: 'CLASSIFICATION_PENDING', label: 'Classificacao pendente' },
-  { value: 'CLASSIFIED', label: 'Classificada' }
+  { value: 'CLASSIFIED', label: 'Classificada' },
 ] as const;
 const COMMERCIAL_FILTER_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [
   { value: 'OPEN', label: 'Em aberto' },
   { value: 'PARTIALLY_SOLD', label: 'Venda parcial' },
   { value: 'SOLD', label: 'Vendido' },
-  { value: 'LOST', label: 'Perdido' }
+  { value: 'LOST', label: 'Perdido' },
 ];
 type PeriodMode = 'exact' | 'month' | 'year';
 type StatusGroupFilter = '' | (typeof STATUS_FILTER_OPTIONS)[number]['value'];
-type FilterSectionId = 'owner' | 'buyer' | 'status' | 'commercialStatus' | 'harvest' | 'sacks' | 'period';
+type FilterSectionId =
+  | 'owner'
+  | 'buyer'
+  | 'status'
+  | 'commercialStatus'
+  | 'harvest'
+  | 'sacks'
+  | 'period';
 
 interface HiddenFilters {
   owner: string;
@@ -50,7 +66,7 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   sacksMin: '',
   sacksMax: '',
   periodMode: 'exact',
-  periodValue: ''
+  periodValue: '',
 };
 
 const AGING_BANDS = ['over30', 'from15to30', 'under15'] as const;
@@ -58,10 +74,18 @@ type AgingBand = (typeof AGING_BANDS)[number];
 const AGING_LABELS: Record<AgingBand, string> = {
   over30: 'Mais de 30 dias',
   from15to30: 'Entre 15 e 30 dias',
-  under15: 'Ate 15 dias'
+  under15: 'Ate 15 dias',
 };
 
-const FILTER_SECTION_ORDER: FilterSectionId[] = ['owner', 'buyer', 'status', 'commercialStatus', 'harvest', 'sacks', 'period'];
+const FILTER_SECTION_ORDER: FilterSectionId[] = [
+  'owner',
+  'buyer',
+  'status',
+  'commercialStatus',
+  'harvest',
+  'sacks',
+  'period',
+];
 
 function renderSampleValue(value: string | number | null) {
   if (value === null || value === '') {
@@ -95,21 +119,31 @@ function getStatusThemeClass(status: string): string {
 
 function getCommercialLabel(status: string): string {
   switch (status) {
-    case 'OPEN': return 'Em aberto';
-    case 'PARTIALLY_SOLD': return 'Venda parcial';
-    case 'SOLD': return 'Vendido';
-    case 'LOST': return 'Perdido';
-    default: return '';
+    case 'OPEN':
+      return 'Em aberto';
+    case 'PARTIALLY_SOLD':
+      return 'Venda parcial';
+    case 'SOLD':
+      return 'Vendido';
+    case 'LOST':
+      return 'Perdido';
+    default:
+      return '';
   }
 }
 
 function getCommercialStatusTheme(status: string): string {
   switch (status) {
-    case 'OPEN': return 'is-commercial-open';
-    case 'PARTIALLY_SOLD': return 'is-commercial-partial';
-    case 'SOLD': return 'is-commercial-sold';
-    case 'LOST': return 'is-commercial-lost';
-    default: return '';
+    case 'OPEN':
+      return 'is-commercial-open';
+    case 'PARTIALLY_SOLD':
+      return 'is-commercial-partial';
+    case 'SOLD':
+      return 'is-commercial-sold';
+    case 'LOST':
+      return 'is-commercial-lost';
+    default:
+      return '';
   }
 }
 
@@ -124,31 +158,41 @@ function formatSampleCardMeta(sample: SampleSnapshot) {
   return `Criada ${formatDate(sample.createdAt)} | Atual. ${formatDate(sample.updatedAt)}`;
 }
 
-
 function getCardStatusColor(status: string): string {
   switch (status) {
     case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT': return '#C0392B';
-    case 'QR_PRINTED': return '#E67E22';
-    case 'CLASSIFICATION_IN_PROGRESS': return '#2980B9';
-    case 'CLASSIFIED': return '#27AE60';
-    case 'INVALIDATED': return '#C0392B';
-    default: return '#999';
+    case 'QR_PENDING_PRINT':
+      return '#C0392B';
+    case 'QR_PRINTED':
+      return '#E67E22';
+    case 'CLASSIFICATION_IN_PROGRESS':
+      return '#2980B9';
+    case 'CLASSIFIED':
+      return '#27AE60';
+    case 'INVALIDATED':
+      return '#C0392B';
+    default:
+      return '#999';
   }
 }
 
 function getCardStatusLabel(status: string): string {
   switch (status) {
     case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT': return 'Em aberto';
-    case 'QR_PRINTED': return 'Impressa';
-    case 'CLASSIFICATION_IN_PROGRESS': return 'Classificando';
-    case 'CLASSIFIED': return 'Finalizada';
-    case 'INVALIDATED': return 'Invalidada';
-    default: return '';
+    case 'QR_PENDING_PRINT':
+      return 'Em aberto';
+    case 'QR_PRINTED':
+      return 'Impressa';
+    case 'CLASSIFICATION_IN_PROGRESS':
+      return 'Classificando';
+    case 'CLASSIFIED':
+      return 'Finalizada';
+    case 'INVALIDATED':
+      return 'Invalidada';
+    default:
+      return '';
   }
 }
-
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
@@ -173,7 +217,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     sacksMin: filters.sacksMin.trim(),
     sacksMax: filters.sacksMax.trim(),
     periodMode: filters.periodMode,
-    periodValue: filters.periodValue.trim()
+    periodValue: filters.periodValue.trim(),
   };
 }
 
@@ -251,7 +295,9 @@ function getStatusGroupLabel(value: StatusGroupFilter) {
 }
 
 function getCommercialStatusLabel(value: '' | CommercialStatus) {
-  return COMMERCIAL_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Qualquer status';
+  return (
+    COMMERCIAL_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Qualquer status'
+  );
 }
 
 function formatPeriodSummary(filters: HiddenFilters) {
@@ -349,7 +395,9 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
 }
 
 function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
-  return FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'owner';
+  return (
+    FILTER_SECTION_ORDER.find((sectionId) => hasFilterSectionValue(sectionId, filters)) ?? 'owner'
+  );
 }
 
 /* ── Samples list reducer ── */
@@ -367,7 +415,14 @@ interface SamplesListState {
 
 type SamplesListAction =
   | { type: 'fetch' }
-  | { type: 'success'; items: SampleSnapshot[]; total: number; totalPages: number; hasPrev: boolean; hasNext: boolean }
+  | {
+      type: 'success';
+      items: SampleSnapshot[];
+      total: number;
+      totalPages: number;
+      hasPrev: boolean;
+      hasNext: boolean;
+    }
   | { type: 'error'; message: string }
   | { type: 'setPage'; page: number };
 
@@ -379,7 +434,7 @@ const SAMPLES_INITIAL: SamplesListState = {
   hasPrev: false,
   hasNext: false,
   loading: true,
-  error: null
+  error: null,
 };
 
 function samplesListReducer(state: SamplesListState, action: SamplesListAction): SamplesListState {
@@ -395,7 +450,7 @@ function samplesListReducer(state: SamplesListState, action: SamplesListAction):
         hasPrev: action.hasPrev,
         hasNext: action.hasNext,
         loading: false,
-        error: null
+        error: null,
       };
     case 'error':
       return { ...state, loading: false, error: action.message };
@@ -423,11 +478,13 @@ function SamplesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
-  const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
+  const [appliedHiddenFilters, setAppliedHiddenFilters] =
+    useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const agingParam = searchParams.get('aging');
-  const activeAging: AgingBand | null = agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
+  const activeAging: AgingBand | null =
+    agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
   const [sortNewest, setSortNewest] = useState(true);
@@ -436,18 +493,67 @@ function SamplesPage() {
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterSectionRefs = useRef<Partial<Record<FilterSectionId, HTMLElement | null>>>({});
-  const hasDraftHiddenFilters = useMemo(() => hasAnyHiddenFilter(draftHiddenFilters), [draftHiddenFilters]);
-  const hasAppliedHiddenFilters = useMemo(() => hasAnyHiddenFilter(appliedHiddenFilters), [appliedHiddenFilters]);
-  const activeHiddenFiltersCount = useMemo(() => countActiveHiddenFilters(appliedHiddenFilters), [appliedHiddenFilters]);
-  const filterSections = useMemo<Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }>>(() => [
-    { id: 'owner', label: 'Proprietario', summary: getFilterSectionSummary('owner', draftHiddenFilters), active: hasFilterSectionValue('owner', draftHiddenFilters) },
-    { id: 'buyer', label: 'Comprador', summary: getFilterSectionSummary('buyer', draftHiddenFilters), active: hasFilterSectionValue('buyer', draftHiddenFilters) },
-    { id: 'status', label: 'Status', summary: getFilterSectionSummary('status', draftHiddenFilters), active: hasFilterSectionValue('status', draftHiddenFilters) },
-    { id: 'commercialStatus', label: 'Status comercial', summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters), active: hasFilterSectionValue('commercialStatus', draftHiddenFilters) },
-    { id: 'harvest', label: 'Safra', summary: getFilterSectionSummary('harvest', draftHiddenFilters), active: hasFilterSectionValue('harvest', draftHiddenFilters) },
-    { id: 'sacks', label: 'Sacas', summary: getFilterSectionSummary('sacks', draftHiddenFilters), active: hasFilterSectionValue('sacks', draftHiddenFilters) },
-    { id: 'period', label: 'Periodo', summary: getFilterSectionSummary('period', draftHiddenFilters), active: hasFilterSectionValue('period', draftHiddenFilters) }
-  ], [draftHiddenFilters]);
+  const hasDraftHiddenFilters = useMemo(
+    () => hasAnyHiddenFilter(draftHiddenFilters),
+    [draftHiddenFilters]
+  );
+  const hasAppliedHiddenFilters = useMemo(
+    () => hasAnyHiddenFilter(appliedHiddenFilters),
+    [appliedHiddenFilters]
+  );
+  const activeHiddenFiltersCount = useMemo(
+    () => countActiveHiddenFilters(appliedHiddenFilters),
+    [appliedHiddenFilters]
+  );
+  const filterSections = useMemo<
+    Array<{ id: FilterSectionId; label: string; summary: string; active: boolean }>
+  >(
+    () => [
+      {
+        id: 'owner',
+        label: 'Proprietario',
+        summary: getFilterSectionSummary('owner', draftHiddenFilters),
+        active: hasFilterSectionValue('owner', draftHiddenFilters),
+      },
+      {
+        id: 'buyer',
+        label: 'Comprador',
+        summary: getFilterSectionSummary('buyer', draftHiddenFilters),
+        active: hasFilterSectionValue('buyer', draftHiddenFilters),
+      },
+      {
+        id: 'status',
+        label: 'Status',
+        summary: getFilterSectionSummary('status', draftHiddenFilters),
+        active: hasFilterSectionValue('status', draftHiddenFilters),
+      },
+      {
+        id: 'commercialStatus',
+        label: 'Status comercial',
+        summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters),
+        active: hasFilterSectionValue('commercialStatus', draftHiddenFilters),
+      },
+      {
+        id: 'harvest',
+        label: 'Safra',
+        summary: getFilterSectionSummary('harvest', draftHiddenFilters),
+        active: hasFilterSectionValue('harvest', draftHiddenFilters),
+      },
+      {
+        id: 'sacks',
+        label: 'Sacas',
+        summary: getFilterSectionSummary('sacks', draftHiddenFilters),
+        active: hasFilterSectionValue('sacks', draftHiddenFilters),
+      },
+      {
+        id: 'period',
+        label: 'Periodo',
+        summary: getFilterSectionSummary('period', draftHiddenFilters),
+        active: hasFilterSectionValue('period', draftHiddenFilters),
+      },
+    ],
+    [draftHiddenFilters]
+  );
 
   const displayItems = useMemo(() => {
     return [...samplesState.items].sort((a, b) => {
@@ -505,7 +611,7 @@ function SamplesPage() {
       if (currentSection.isConnected) {
         currentSection.scrollIntoView({
           block: 'start',
-          inline: 'nearest'
+          inline: 'nearest',
         });
       }
     }, 0);
@@ -536,10 +642,10 @@ function SamplesPage() {
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters),
-        classifiedAging: activeAging || undefined
+        classifiedAging: activeAging || undefined,
       },
       {
-        signal: abortController.signal
+        signal: abortController.signal,
       }
     )
       .then((response) => {
@@ -547,7 +653,14 @@ function SamplesPage() {
           return;
         }
 
-        dispatchSamples({ type: 'success', items: response.items, total: response.page.total, totalPages: response.page.totalPages, hasPrev: response.page.hasPrev, hasNext: response.page.hasNext });
+        dispatchSamples({
+          type: 'success',
+          items: response.items,
+          total: response.page.total,
+          totalPages: response.page.totalPages,
+          hasPrev: response.page.hasPrev,
+          hasNext: response.page.hasNext,
+        });
       })
       .catch((cause) => {
         if (!active) {
@@ -558,7 +671,10 @@ function SamplesPage() {
           return;
         }
 
-        dispatchSamples({ type: 'error', message: cause instanceof ApiError ? cause.message : 'Falha ao carregar registros' });
+        dispatchSamples({
+          type: 'error',
+          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar registros',
+        });
       });
 
     return () => {
@@ -633,7 +749,9 @@ function SamplesPage() {
           <input
             className="samples-filter-field-input"
             value={draftHiddenFilters.owner}
-            onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, owner: event.target.value }))}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({ ...c, owner: event.target.value }))
+            }
             placeholder="Nome do proprietario"
             autoComplete="off"
             spellCheck={false}
@@ -645,7 +763,9 @@ function SamplesPage() {
           <input
             className="samples-filter-field-input"
             value={draftHiddenFilters.buyer}
-            onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, buyer: event.target.value }))}
+            onChange={(event) =>
+              setDraftHiddenFilters((c) => ({ ...c, buyer: event.target.value }))
+            }
             placeholder="Nome, documento ou codigo"
             autoComplete="off"
             spellCheck={false}
@@ -660,7 +780,12 @@ function SamplesPage() {
                 key={option.value}
                 type="button"
                 className={`samples-filter-chip${draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''}`}
-                onClick={() => setDraftHiddenFilters((c) => ({ ...c, commercialStatus: c.commercialStatus === option.value ? '' : option.value }))}
+                onClick={() =>
+                  setDraftHiddenFilters((c) => ({
+                    ...c,
+                    commercialStatus: c.commercialStatus === option.value ? '' : option.value,
+                  }))
+                }
               >
                 {option.label}
               </button>
@@ -676,7 +801,12 @@ function SamplesPage() {
                 key={option}
                 type="button"
                 className={`samples-filter-chip${draftHiddenFilters.harvest === option ? ' is-selected' : ''}`}
-                onClick={() => setDraftHiddenFilters((c) => ({ ...c, harvest: c.harvest === option ? '' : option }))}
+                onClick={() =>
+                  setDraftHiddenFilters((c) => ({
+                    ...c,
+                    harvest: c.harvest === option ? '' : option,
+                  }))
+                }
               >
                 {option}
               </button>
@@ -694,7 +824,12 @@ function SamplesPage() {
               step="1"
               inputMode="numeric"
               value={draftHiddenFilters.sacksMin}
-              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, sacksMin: event.target.value.replace(/\D+/g, '') }))}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({
+                  ...c,
+                  sacksMin: event.target.value.replace(/\D+/g, ''),
+                }))
+              }
               placeholder="De"
             />
             <input
@@ -704,7 +839,12 @@ function SamplesPage() {
               step="1"
               inputMode="numeric"
               value={draftHiddenFilters.sacksMax}
-              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, sacksMax: event.target.value.replace(/\D+/g, '') }))}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({
+                  ...c,
+                  sacksMax: event.target.value.replace(/\D+/g, ''),
+                }))
+              }
               placeholder="Ate"
             />
           </div>
@@ -716,7 +856,13 @@ function SamplesPage() {
             <select
               className="samples-filter-field-input"
               value={draftHiddenFilters.periodMode}
-              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, periodMode: event.target.value as PeriodMode, periodValue: '' }))}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({
+                  ...c,
+                  periodMode: event.target.value as PeriodMode,
+                  periodValue: '',
+                }))
+              }
             >
               <option value="exact">Data</option>
               <option value="month">Mes</option>
@@ -726,7 +872,12 @@ function SamplesPage() {
               className="samples-filter-field-input"
               type={getPeriodInputType(draftHiddenFilters.periodMode)}
               value={draftHiddenFilters.periodValue}
-              onChange={(event) => setDraftHiddenFilters((c) => ({ ...c, periodValue: normalizePeriodValueForMode(c.periodMode, event.target.value) }))}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({
+                  ...c,
+                  periodValue: normalizePeriodValueForMode(c.periodMode, event.target.value),
+                }))
+              }
               placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
               inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
               min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
@@ -740,14 +891,22 @@ function SamplesPage() {
   }
 
   const fullName = session.user.fullName ?? session.user.username;
-  const avatarInitials = fullName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const avatarInitials = fullName
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="samples-page-v2">
         <header className="samples-page-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </Link>
           <div className="samples-page-v2-header-center">
             <h2 className="nsv2-title">Amostras</h2>
@@ -765,8 +924,14 @@ function SamplesPage() {
         {/* Search bar — in green area, dashboard style */}
         <div className="hero-search-wrap">
           <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
-            <svg className="hero-search-icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" /><path d="m16.2 16.2 4.1 4.1" />
+            <svg
+              className="hero-search-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.2 16.2 4.1 4.1" />
             </svg>
             <input
               className="hero-search-input"
@@ -781,14 +946,21 @@ function SamplesPage() {
               className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
               aria-label="Filtros avancados"
               onClick={(event) => {
-                if (filtersOpen) { closeFilters(); return; }
+                if (filtersOpen) {
+                  closeFilters();
+                  return;
+                }
                 openFilters(event.currentTarget);
               }}
             >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" />
+                <path d="M4 6h16" />
+                <path d="M7 12h10" />
+                <path d="M10 18h4" />
               </svg>
-              {activeHiddenFiltersCount > 0 ? <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span> : null}
+              {activeHiddenFiltersCount > 0 ? (
+                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
+              ) : null}
             </button>
           </form>
         </div>
@@ -799,8 +971,16 @@ function SamplesPage() {
               <span className="spv2-aging-banner-text">
                 {AGING_LABELS[activeAging]} — classificadas, em aberto
               </span>
-              <button type="button" className="spv2-aging-banner-clear" onClick={clearAging} aria-label="Limpar filtro">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <button
+                type="button"
+                className="spv2-aging-banner-clear"
+                onClick={clearAging}
+                aria-label="Limpar filtro"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
           ) : null}
@@ -808,9 +988,15 @@ function SamplesPage() {
           {/* Section 2: Count + Sort */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{displayItems.length} registros</span>
-            <button type="button" className="spv2-sort-btn" onClick={() => setSortNewest((v) => !v)}>
+            <button
+              type="button"
+              className="spv2-sort-btn"
+              onClick={() => setSortNewest((v) => !v)}
+            >
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h6" />
+                <path d="M4 6h16" />
+                <path d="M4 12h10" />
+                <path d="M4 18h6" />
               </svg>
               <span>{sortNewest ? 'Recentes' : 'Antigos'}</span>
             </button>
@@ -828,7 +1014,13 @@ function SamplesPage() {
               <div className="spv2-empty">
                 <svg className="spv2-empty-icon" viewBox="0 0 40 56" aria-hidden="true">
                   <ellipse cx="20" cy="28" rx="17" ry="25" fill="#ddd" />
-                  <path d="M20 5c-3.5 8-4.2 16-1 23s3.5 15 1 23" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="2" strokeLinecap="round" />
+                  <path
+                    d="M20 5c-3.5 8-4.2 16-1 23s3.5 15 1 23"
+                    fill="none"
+                    stroke="rgba(0,0,0,0.1)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 <p className="spv2-empty-text">Nenhuma amostra encontrada</p>
                 <p className="spv2-empty-sub">Tente outro filtro ou termo de busca</p>
@@ -849,19 +1041,37 @@ function SamplesPage() {
                     <span className="spv2-card-bar" style={{ background: statusColor }} />
                     <div className="spv2-card-content">
                       <div className="spv2-card-top">
-                        <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
-                        <span className="spv2-card-badge" style={{ color: statusColor, background: `${statusColor}14`, borderColor: `${statusColor}33` }}>{statusLabel}</span>
+                        <span className="spv2-card-code">
+                          {sample.internalLotNumber ?? sample.id}
+                        </span>
+                        <span
+                          className="spv2-card-badge"
+                          style={{
+                            color: statusColor,
+                            background: `${statusColor}14`,
+                            borderColor: `${statusColor}33`,
+                          }}
+                        >
+                          {statusLabel}
+                        </span>
                       </div>
                       <div className="spv2-card-bottom">
-                        <span className="spv2-card-owner">{sample.declared.owner || 'Nao informado'}</span>
+                        <span className="spv2-card-owner">
+                          {sample.declared.owner || 'Nao informado'}
+                        </span>
                         <span className="spv2-card-sep" />
                         <span className="spv2-card-detail">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="2" y="7" width="20" height="14" rx="2" />
+                            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+                          </svg>
                           {sample.declared.sacks ?? '—'} sacas
                         </span>
                       </div>
                     </div>
-                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
                   </Link>
                 );
               })}
@@ -870,12 +1080,32 @@ function SamplesPage() {
 
           {/* Pagination */}
           <footer className="spv2-footer">
-            <button type="button" className="spv2-page-btn" disabled={!paginationHasPrev || paginationBusy} onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 })}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+            <button
+              type="button"
+              className="spv2-page-btn"
+              disabled={!paginationHasPrev || paginationBusy}
+              onClick={() =>
+                dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 })
+              }
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m14.5 6-6 6 6 6" />
+              </svg>
             </button>
-            <span className="spv2-page-info"><strong>{currentVisiblePage}</strong> / {currentVisibleTotalPages}</span>
-            <button type="button" className="spv2-page-btn" disabled={!paginationHasNext || paginationBusy} onClick={() => dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 })}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+            <span className="spv2-page-info">
+              <strong>{currentVisiblePage}</strong> / {currentVisibleTotalPages}
+            </span>
+            <button
+              type="button"
+              className="spv2-page-btn"
+              disabled={!paginationHasNext || paginationBusy}
+              onClick={() =>
+                dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 })
+              }
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m9.5 6 6 6-6 6" />
+              </svg>
             </button>
           </footer>
         </section>
@@ -910,9 +1140,7 @@ function SamplesPage() {
             </header>
 
             <form className="samples-filter-modal-form" onSubmit={handleApplyFilters}>
-              <div className="samples-filter-modal-content">
-                {renderFilterFields()}
-              </div>
+              <div className="samples-filter-modal-content">{renderFilterFields()}</div>
 
               <div className="app-modal-actions samples-filter-modal-actions">
                 <button
@@ -931,7 +1159,6 @@ function SamplesPage() {
           </section>
         </div>
       ) : null}
-
     </AppShell>
   );
 }

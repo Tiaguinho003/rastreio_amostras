@@ -16,8 +16,8 @@ const mockJob = {
     declared: {
       owner: 'Fazenda São João',
       sacks: 25,
-    }
-  }
+    },
+  },
 };
 
 console.log(`Impressora: ${config.printerName}`);

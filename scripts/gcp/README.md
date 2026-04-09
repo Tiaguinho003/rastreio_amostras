@@ -18,9 +18,9 @@ O parametro `[cloud-env]` define o ambiente. Padrao: `cloud-homolog`.
 
 ## Ambientes
 
-| Ambiente | Env files | Projeto GCP |
-|----------|-----------|-------------|
-| `cloud-homolog` | `.env.cloud-homolog` + `.env.cloud-homolog.ops` | `rastreio-amostras` |
+| Ambiente           | Env files                                             | Projeto GCP            |
+| ------------------ | ----------------------------------------------------- | ---------------------- |
+| `cloud-homolog`    | `.env.cloud-homolog` + `.env.cloud-homolog.ops`       | `rastreio-amostras`    |
 | `cloud-production` | `.env.cloud-production` + `.env.cloud-production.ops` | `safras-amostras-prod` |
 
 ## Exemplos

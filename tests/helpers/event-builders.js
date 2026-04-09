@@ -16,7 +16,7 @@ export function buildEvent({
   schemaVersion = 1,
   module = 'registration',
   idempotencyScope,
-  idempotencyKey
+  idempotencyKey,
 }) {
   const event = {
     eventId: randomUUID(),
@@ -36,8 +36,8 @@ export function buildEvent({
     metadata: {
       module,
       ip: null,
-      userAgent: null
-    }
+      userAgent: null,
+    },
   };
 
   if (idempotencyScope && idempotencyKey) {
@@ -56,9 +56,9 @@ export function sampleReceivedEvent(sampleId) {
     toStatus: 'PHYSICAL_RECEIVED',
     payload: {
       receivedChannel: 'in_person',
-      notes: null
+      notes: null,
     },
-    module: 'registration'
+    module: 'registration',
   });
 }
 
@@ -69,9 +69,9 @@ export function registrationStartedEvent(sampleId) {
     fromStatus: 'PHYSICAL_RECEIVED',
     toStatus: 'REGISTRATION_IN_PROGRESS',
     payload: {
-      notes: null
+      notes: null,
     },
-    module: 'registration'
+    module: 'registration',
   });
 }
 
@@ -90,12 +90,12 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
         owner: 'Produtor XPTO',
         sacks: 10,
         harvest: '24/25',
-        originLot: 'LOTE-ORIGEM-001'
+        originLot: 'LOTE-ORIGEM-001',
       },
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'registration',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -109,14 +109,15 @@ export function photoAddedEvent(sampleId, overrides = {}) {
     payload: {
       attachmentId: payload.attachmentId ?? 'attachment-1',
       kind: payload.kind ?? 'CLASSIFICATION_PHOTO',
-      storagePath: payload.storagePath ?? `samples/${sampleId}/classification/attachment-1-foto.jpg`,
+      storagePath:
+        payload.storagePath ?? `samples/${sampleId}/classification/attachment-1-foto.jpg`,
       fileName: payload.fileName ?? 'foto.jpg',
       mimeType: payload.mimeType ?? 'image/jpeg',
       sizeBytes: payload.sizeBytes ?? 1024,
-      checksumSha256: payload.checksumSha256 ?? null
+      checksumSha256: payload.checksumSha256 ?? null,
     },
     module: 'classification',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -131,10 +132,10 @@ export function qrPrintRequestedEvent(sampleId, overrides = {}) {
     payload: {
       printAction: 'PRINT',
       attemptNumber: 1,
-      printerId: null
+      printerId: null,
     },
     module: 'print',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -148,10 +149,10 @@ export function sampleInvalidatedEvent(sampleId, fromStatus = 'PHYSICAL_RECEIVED
     idempotencyKey: randomUUID(),
     payload: {
       reasonCode: 'OTHER',
-      reasonText: 'manual invalidation'
+      reasonText: 'manual invalidation',
     },
     module: 'registration',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -165,10 +166,10 @@ export function qrPrintFailedEvent(sampleId, overrides = {}) {
       printAction: 'PRINT',
       attemptNumber: 1,
       printerId: null,
-      error: 'printer offline'
+      error: 'printer offline',
     },
     module: 'print',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -181,10 +182,10 @@ export function qrPrintedEvent(sampleId, overrides = {}) {
     payload: {
       printAction: 'PRINT',
       attemptNumber: 1,
-      printerId: null
+      printerId: null,
     },
     module: 'print',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -200,10 +201,10 @@ export function qrReprintRequestedEvent(sampleId, overrides = {}) {
       printAction: 'REPRINT',
       attemptNumber: 1,
       printerId: null,
-      reasonText: null
+      reasonText: null,
     },
     module: 'print',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -225,10 +226,10 @@ export function reportExportedEvent(sampleId, overrides = {}) {
       templateVersion: 'v1',
       sizeBytes: 2048,
       checksumSha256: 'a'.repeat(64),
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'classification',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -246,10 +247,10 @@ export function commercialStatusUpdatedEvent(sampleId, overrides = {}) {
       fromCommercialStatus: 'OPEN',
       toCommercialStatus: 'SOLD',
       reasonText: 'fechamento comercial',
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'commercial',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -273,17 +274,17 @@ export function saleCreatedEvent(sampleId, overrides = {}) {
       notes: 'venda parcial',
       buyerClientSnapshot: {
         id: randomUUID(),
-        displayName: 'Comprador XPTO'
+        displayName: 'Comprador XPTO',
       },
       buyerRegistrationSnapshot: null,
       soldSacks: 5,
       lostSacks: 0,
       availableSacks: 5,
       commercialStatus: 'PARTIALLY_SOLD',
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'commercial',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -308,10 +309,10 @@ export function lossRecordedEvent(sampleId, overrides = {}) {
       lostSacks: 3,
       availableSacks: 7,
       commercialStatus: 'OPEN',
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'commercial',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -336,7 +337,7 @@ export function saleUpdatedEvent(sampleId, overrides = {}) {
         lossReasonText: null,
         buyerClientSnapshot: { id: randomUUID(), displayName: 'Comprador XPTO' },
         buyerRegistrationSnapshot: null,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
       after: {
         movementType: 'SALE',
@@ -348,17 +349,17 @@ export function saleUpdatedEvent(sampleId, overrides = {}) {
         lossReasonText: null,
         buyerClientSnapshot: { id: randomUUID(), displayName: 'Comprador Atualizado' },
         buyerRegistrationSnapshot: null,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       },
       reasonText: 'ajuste comercial',
       soldSacks: 6,
       lostSacks: 0,
       availableSacks: 4,
       commercialStatus: 'PARTIALLY_SOLD',
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'commercial',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -379,10 +380,10 @@ export function lossCancelledEvent(sampleId, overrides = {}) {
       lostSacks: 0,
       availableSacks: 10,
       commercialStatus: 'OPEN',
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'commercial',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -418,22 +419,22 @@ export function classificationExtractionCompletedEvent(sampleId, overrides = {})
         pau: '0',
         ap: '1',
         gpi: '0',
-        umidade: '11,5'
+        umidade: '11,5',
       },
       crossValidation: {
         hasMismatches: false,
         details: [
           { field: 'lote', extracted: 'A-5444', registered: 'A-5444', match: true },
-          { field: 'sacas', extracted: '50', registered: '50', match: true }
-        ]
+          { field: 'sacas', extracted: '50', registered: '50', match: true },
+        ],
       },
       model: 'gpt-4o',
       photoAttachmentId: randomUUID(),
       processingTimeMs: 1234,
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'classification',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }
 
@@ -448,9 +449,9 @@ export function classificationExtractionFailedEvent(sampleId, overrides = {}) {
       errorCode: 'OPENAI_ERROR',
       errorMessage: 'API request failed',
       photoAttachmentId: randomUUID(),
-      ...payloadOverrides
+      ...payloadOverrides,
     },
     module: 'classification',
-    ...eventOverrides
+    ...eventOverrides,
   });
 }

@@ -7,7 +7,7 @@ import {
   normalizeCreateRegistrationInput,
   normalizeLookupClientsInput,
   normalizeRegistrationCanonical,
-  normalizeUpdateClientInput
+  normalizeUpdateClientInput,
 } from '../src/clients/client-support.js';
 
 test('normalizeRegistrationCanonical removes formatting and lowercases content', () => {
@@ -19,7 +19,7 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
   assert.equal(
     buildClientDisplayName({
       personType: 'PF',
-      fullName: 'Francisco Sales'
+      fullName: 'Francisco Sales',
     }),
     'Francisco Sales'
   );
@@ -27,7 +27,7 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
   assert.equal(
     buildClientDisplayName({
       personType: 'PJ',
-      legalName: 'Atlantica Exportacao e Importacao S/A'
+      legalName: 'Atlantica Exportacao e Importacao S/A',
     }),
     'Atlantica Exportacao e Importacao S/A'
   );
@@ -40,7 +40,7 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
     cpf: '016.179.708-32',
     phone: '35 99999-0000',
     isBuyer: false,
-    isSeller: true
+    isSeller: true,
   });
 
   assert.equal(normalized.personType, 'PF');
@@ -61,7 +61,7 @@ test('normalizeCreateClientInput rejects invalid phone lengths', () => {
         cpf: '016.179.708-32',
         phone: '(35)999-000',
         isBuyer: false,
-        isSeller: true
+        isSeller: true,
       }),
     /phone is invalid/
   );
@@ -76,7 +76,7 @@ test('normalizeUpdateClientInput supports switching from PF to PJ', () => {
       cnpj: '26.543.626/0001-38',
       isBuyer: true,
       isSeller: true,
-      reasonText: 'corrigir cadastro'
+      reasonText: 'corrigir cadastro',
     },
     {
       personType: 'PF',
@@ -87,7 +87,7 @@ test('normalizeUpdateClientInput supports switching from PF to PJ', () => {
       cnpj: null,
       phone: null,
       isBuyer: false,
-      isSeller: true
+      isSeller: true,
     }
   );
 
@@ -107,7 +107,7 @@ test('normalizeCreateClientInput accepts payload when both buyer and seller are 
     cnpj: '03.936.815/0001-75',
     phone: '(35) 99999-0000',
     isBuyer: false,
-    isSeller: false
+    isSeller: false,
   });
   assert.equal(result.isBuyer, false);
   assert.equal(result.isSeller, false);
@@ -122,7 +122,7 @@ test('normalizeCreateRegistrationInput validates required address fields', () =>
     city: 'Sao Sebastiao do Paraiso',
     state: 'mg',
     postalCode: '37950-078',
-    complement: ''
+    complement: '',
   });
 
   assert.equal(normalized.registrationNumberCanonical, '0028640150010');
@@ -134,7 +134,7 @@ test('normalizeLookupClientsInput enforces minimum search length and fixed limit
   const normalized = normalizeLookupClientsInput({
     search: 'atl',
     kind: 'buyer',
-    limit: 999
+    limit: 999,
   });
 
   assert.equal(normalized.search, 'atl');
@@ -145,7 +145,7 @@ test('normalizeLookupClientsInput enforces minimum search length and fixed limit
     () =>
       normalizeLookupClientsInput({
         search: 'a',
-        kind: 'owner'
+        kind: 'owner',
       }),
     /search must have at least 2 characters/
   );

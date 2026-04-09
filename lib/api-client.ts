@@ -32,7 +32,7 @@ import type {
   UserMutationResponse,
   UserPasswordMutationResponse,
   UserResponse,
-  UsersListResponse
+  UsersListResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -91,21 +91,29 @@ async function request<TResponse>(
       body: finalBody,
       cache: 'no-store',
       credentials: 'same-origin',
-      signal
+      signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
 
-    throw new ApiError(0, 'Sem conexao com o servidor. Verifique sua internet e tente novamente.', null);
+    throw new ApiError(
+      0,
+      'Sem conexao com o servidor. Verifique sua internet e tente novamente.',
+      null
+    );
   }
 
   const payload = await parseJsonSafe(response);
 
   if (!response.ok) {
     const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
-    throw new ApiError(response.status, maybeError?.message ?? 'Erro ao processar a solicitacao.', maybeError?.details ?? null);
+    throw new ApiError(
+      response.status,
+      maybeError?.message ?? 'Erro ao processar a solicitacao.',
+      maybeError?.details ?? null
+    );
   }
 
   if (response.status !== 204 && Object.keys(payload).length === 0) {
@@ -140,48 +148,48 @@ function parseFileNameFromContentDisposition(value: string | null): string | nul
 export function login(username: string, password: string) {
   return request<SessionData>('/auth/login', {
     method: 'POST',
-    body: { username, password }
+    body: { username, password },
   });
 }
 
 export function getCurrentSession() {
   return request<SessionData>('/auth/session', {
-    method: 'GET'
+    method: 'GET',
   });
 }
 
 export function logout(session?: SessionData | null) {
   return request<{ ok: boolean }>('/auth/logout', {
     method: 'POST',
-    session: session ?? null
+    session: session ?? null,
   });
 }
 
 export function requestPasswordReset(email: string) {
   return request<PasswordResetRequestResponse>('/auth/forgot-password/request', {
     method: 'POST',
-    body: { email }
+    body: { email },
   });
 }
 
 export function verifyPasswordResetCode(email: string, code: string) {
   return request<PasswordResetCodeVerificationResponse>('/auth/forgot-password/verify-code', {
     method: 'POST',
-    body: { email, code }
+    body: { email, code },
   });
 }
 
 export function resetPasswordWithCode(email: string, code: string, password: string) {
   return request<UserResponse>('/auth/forgot-password/reset', {
     method: 'POST',
-    body: { email, code, password }
+    body: { email, code, password },
   });
 }
 
 export function getCurrentUser(session: SessionData) {
   return request<UserResponse>('/users/me', {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -196,7 +204,7 @@ export function updateCurrentUserProfile(
   return request<UserMutationResponse>('/users/me/profile', {
     method: 'PATCH',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -204,7 +212,7 @@ export function changeCurrentUserPassword(session: SessionData, password: string
   return request<UserMutationResponse>('/users/me/password', {
     method: 'POST',
     session,
-    body: { password }
+    body: { password },
   });
 }
 
@@ -212,14 +220,14 @@ export function requestCurrentUserEmailChange(session: SessionData, email: strin
   return request<UserResponse>('/users/me/email/request-change', {
     method: 'POST',
     session,
-    body: { email }
+    body: { email },
   });
 }
 
 export function resendCurrentUserEmailChangeCode(session: SessionData) {
   return request<UserResponse>('/users/me/email/resend', {
     method: 'POST',
-    session
+    session,
   });
 }
 
@@ -227,7 +235,7 @@ export function confirmCurrentUserEmailChange(session: SessionData, code: string
   return request<UserResponse>('/users/me/email/confirm-change', {
     method: 'POST',
     session,
-    body: { code }
+    body: { code },
   });
 }
 
@@ -235,7 +243,7 @@ export function recordInitialPasswordDecision(session: SessionData, decision: 'K
   return request<UserResponse>('/users/me/initial-password-decision', {
     method: 'POST',
     session,
-    body: { decision }
+    body: { decision },
   });
 }
 
@@ -258,7 +266,7 @@ export function listUsers(
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<UsersListResponse>(`/users${suffix}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -288,7 +296,7 @@ export function listClients(
   return request<ClientsListResponse>(`/clients${suffix}`, {
     method: 'GET',
     session,
-    signal: options.signal
+    signal: options.signal,
   });
 }
 
@@ -305,15 +313,19 @@ export function lookupClients(
 
   return request<ClientLookupResponse>(`/clients/lookup?${params.toString()}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
-export function getClient(session: SessionData, clientId: string, options: { signal?: AbortSignal } = {}) {
+export function getClient(
+  session: SessionData,
+  clientId: string,
+  options: { signal?: AbortSignal } = {}
+) {
   return request<ClientDetailResponse>(`/clients/${clientId}`, {
     method: 'GET',
     session,
-    signal: options.signal
+    signal: options.signal,
   });
 }
 
@@ -334,7 +346,7 @@ export function createClient(
   return request<ClientResponse>('/clients', {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -357,7 +369,7 @@ export function updateClient(
   return request<ClientResponse>(`/clients/${clientId}`, {
     method: 'PATCH',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -397,7 +409,10 @@ export function listClientSamples(
   if (query?.periodMode) params.set('periodMode', query.periodMode);
   if (query?.periodValue) params.set('periodValue', query.periodValue);
   const qs = params.toString();
-  return request<ClientSamplesListResponse>(`/clients/${clientId}/samples${qs ? `?${qs}` : ''}`, { session, signal: options?.signal });
+  return request<ClientSamplesListResponse>(`/clients/${clientId}/samples${qs ? `?${qs}` : ''}`, {
+    session,
+    signal: options?.signal,
+  });
 }
 
 export function listClientPurchases(
@@ -425,7 +440,10 @@ export function listClientPurchases(
   if (query?.periodMode) params.set('periodMode', query.periodMode);
   if (query?.periodValue) params.set('periodValue', query.periodValue);
   const qs = params.toString();
-  return request<ClientPurchasesListResponse>(`/clients/${clientId}/purchases${qs ? `?${qs}` : ''}`, { session, signal: options?.signal });
+  return request<ClientPurchasesListResponse>(
+    `/clients/${clientId}/purchases${qs ? `?${qs}` : ''}`,
+    { session, signal: options?.signal }
+  );
 }
 
 export function getClientCommercialSummary(
@@ -433,14 +451,17 @@ export function getClientCommercialSummary(
   clientId: string,
   options?: { signal?: AbortSignal }
 ) {
-  return request<ClientCommercialSummaryResponse>(`/clients/${clientId}/commercial-summary`, { session, signal: options?.signal });
+  return request<ClientCommercialSummaryResponse>(`/clients/${clientId}/commercial-summary`, {
+    session,
+    signal: options?.signal,
+  });
 }
 
 export function inactivateClient(session: SessionData, clientId: string, reasonText: string) {
   return request<ClientResponse>(`/clients/${clientId}/inactivate`, {
     method: 'POST',
     session,
-    body: { reasonText }
+    body: { reasonText },
   });
 }
 
@@ -448,7 +469,7 @@ export function reactivateClient(session: SessionData, clientId: string, reasonT
   return request<ClientResponse>(`/clients/${clientId}/reactivate`, {
     method: 'POST',
     session,
-    body: { reasonText }
+    body: { reasonText },
   });
 }
 
@@ -469,7 +490,7 @@ export function listClientAuditEvents(
   return request<ClientAuditListResponse>(`/clients/${clientId}/audit${suffix}`, {
     method: 'GET',
     session,
-    signal: options.signal
+    signal: options.signal,
   });
 }
 
@@ -490,7 +511,7 @@ export function createClientRegistration(
   return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations`, {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -510,11 +531,14 @@ export function updateClientRegistration(
     reasonText: string;
   }
 ) {
-  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}`, {
-    method: 'PATCH',
-    session,
-    body: data
-  });
+  return request<ClientRegistrationMutationResponse>(
+    `/clients/${clientId}/registrations/${registrationId}`,
+    {
+      method: 'PATCH',
+      session,
+      body: data,
+    }
+  );
 }
 
 export function inactivateClientRegistration(
@@ -523,11 +547,14 @@ export function inactivateClientRegistration(
   registrationId: string,
   reasonText: string
 ) {
-  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}/inactivate`, {
-    method: 'POST',
-    session,
-    body: { reasonText }
-  });
+  return request<ClientRegistrationMutationResponse>(
+    `/clients/${clientId}/registrations/${registrationId}/inactivate`,
+    {
+      method: 'POST',
+      session,
+      body: { reasonText },
+    }
+  );
 }
 
 export function reactivateClientRegistration(
@@ -536,17 +563,20 @@ export function reactivateClientRegistration(
   registrationId: string,
   reasonText: string
 ) {
-  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations/${registrationId}/reactivate`, {
-    method: 'POST',
-    session,
-    body: { reasonText }
-  });
+  return request<ClientRegistrationMutationResponse>(
+    `/clients/${clientId}/registrations/${registrationId}/reactivate`,
+    {
+      method: 'POST',
+      session,
+      body: { reasonText },
+    }
+  );
 }
 
 export function getUser(session: SessionData, userId: string) {
   return request<UserResponse>(`/users/${userId}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -564,7 +594,7 @@ export function createUser(
   return request<UserPasswordMutationResponse>('/users', {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -582,7 +612,7 @@ export function updateUser(
   return request<UserMutationResponse>(`/users/${userId}`, {
     method: 'PATCH',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -590,21 +620,21 @@ export function inactivateUser(session: SessionData, userId: string, reasonText:
   return request<UserResponse>(`/users/${userId}/inactivate`, {
     method: 'POST',
     session,
-    body: { reasonText }
+    body: { reasonText },
   });
 }
 
 export function reactivateUser(session: SessionData, userId: string) {
   return request<UserResponse>(`/users/${userId}/reactivate`, {
     method: 'POST',
-    session
+    session,
   });
 }
 
 export function unlockUser(session: SessionData, userId: string) {
   return request<UserResponse>(`/users/${userId}/unlock`, {
     method: 'POST',
-    session
+    session,
   });
 }
 
@@ -612,7 +642,7 @@ export function resetUserPassword(session: SessionData, userId: string, password
   return request<UserPasswordMutationResponse>(`/users/${userId}/password/reset`, {
     method: 'POST',
     session,
-    body: { password }
+    body: { password },
   });
 }
 
@@ -629,25 +659,28 @@ export function listUserAuditEvents(
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<UserAuditListResponse>(`/users/audit${suffix}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
 export function getDashboardPending(session: SessionData) {
   return request<DashboardPendingResponse>('/dashboard/pending', {
     method: 'GET',
-    session
+    session,
   });
 }
 
 export function getDashboardSalesAvailability(session: SessionData) {
   return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
     method: 'GET',
-    session
+    session,
   });
 }
 
-export function getPendingPrintJobs(session: SessionData, options: { limit?: number; sampleId?: string } = {}) {
+export function getPendingPrintJobs(
+  session: SessionData,
+  options: { limit?: number; sampleId?: string } = {}
+) {
   const params = new URLSearchParams();
   if (typeof options.limit === 'number') {
     params.set('limit', String(options.limit));
@@ -658,7 +691,7 @@ export function getPendingPrintJobs(session: SessionData, options: { limit?: num
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<PendingPrintQueueResponse>(`/print-queue/pending${suffix}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -708,18 +741,22 @@ export function listSamples(
   return request<ListSamplesResponse>(`/samples${suffix}`, {
     method: 'GET',
     session,
-    signal: options.signal
+    signal: options.signal,
   });
 }
 
 export function receiveSample(
   session: SessionData,
-  data: { sampleId?: string; receivedChannel: 'in_person' | 'courier' | 'driver' | 'other'; notes?: string | null }
+  data: {
+    sampleId?: string;
+    receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
+    notes?: string | null;
+  }
 ) {
   return request<CommandResponse>('/samples/receive', {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -753,19 +790,24 @@ export function createSampleAndPreparePrint(
       location: data.location ?? null,
       receivedChannel: data.receivedChannel ?? 'in_person',
       notes: data.notes ?? null,
-      printerId: data.printerId ?? null
-    }
+      printerId: data.printerId ?? null,
+    },
   });
 }
 
-export function startRegistration(session: SessionData, sampleId: string, expectedVersion: number, notes?: string | null) {
+export function startRegistration(
+  session: SessionData,
+  sampleId: string,
+  expectedVersion: number,
+  notes?: string | null
+) {
   return request<CommandResponse>(`/samples/${sampleId}/registration/start`, {
     method: 'POST',
     session,
     body: {
       expectedVersion,
-      notes: notes ?? null
-    }
+      notes: notes ?? null,
+    },
   });
 }
 
@@ -784,7 +826,7 @@ export function getSampleDetail(
   return request<SampleDetailResponse>(`/samples/${sampleId}${suffix}`, {
     method: 'GET',
     session,
-    signal: query.signal
+    signal: query.signal,
   });
 }
 
@@ -800,21 +842,25 @@ export async function exportSamplePdf(
   const response = await fetch(`${API_BASE}/samples/${sampleId}/export/pdf`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       exportType: data.exportType,
       destination: data.destination ?? null,
-      recipientClientId: data.recipientClientId ?? null
+      recipientClientId: data.recipientClientId ?? null,
     }),
     cache: 'no-store',
-    credentials: 'same-origin'
+    credentials: 'same-origin',
   });
 
   if (!response.ok) {
     const payload = await parseJsonSafe(response);
     const maybeError = payload.error as { message?: string; details?: unknown } | undefined;
-    throw new ApiError(response.status, maybeError?.message ?? 'Erro ao processar a solicitacao.', maybeError?.details ?? null);
+    throw new ApiError(
+      response.status,
+      maybeError?.message ?? 'Erro ao processar a solicitacao.',
+      maybeError?.details ?? null
+    );
   }
 
   const blob = await response.blob();
@@ -824,7 +870,7 @@ export async function exportSamplePdf(
 
   return {
     blob,
-    fileName
+    fileName,
   };
 }
 
@@ -841,8 +887,8 @@ export function recordPhysicalSampleSent(
     session,
     body: {
       recipientClientId: data.recipientClientId,
-      sentDate: data.sentDate
-    }
+      sentDate: data.sentDate,
+    },
   });
 }
 
@@ -852,7 +898,7 @@ export function resolveSampleByQr(session: SessionData, qrContent: string) {
 
   return request<ResolveSampleByQrResponse>(`/samples/resolve?${params.toString()}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -872,14 +918,19 @@ export function uploadSamplePhoto(
   return request<CommandResponse>(`/samples/${sampleId}/photos`, {
     method: 'POST',
     session,
-    formData
+    formData,
   });
 }
 
-export function uploadClassificationPhoto(session: SessionData, sampleId: string, file: File, replaceExisting = true) {
+export function uploadClassificationPhoto(
+  session: SessionData,
+  sampleId: string,
+  file: File,
+  replaceExisting = true
+) {
   return uploadSamplePhoto(session, sampleId, file, {
     kind: 'CLASSIFICATION_PHOTO',
-    replaceExisting
+    replaceExisting,
   });
 }
 
@@ -889,7 +940,7 @@ export function detectClassificationForm(session: SessionData, file: File) {
   return request<DetectFormResponse>('/classification/detect-form', {
     method: 'POST',
     session,
-    formData
+    formData,
   });
 }
 
@@ -899,17 +950,21 @@ export function extractAndPrepareClassification(session: SessionData, file: File
   return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
     method: 'POST',
     session,
-    formData
+    formData,
   });
 }
 
-export function extractFromDetectedForm(session: SessionData, photoToken: string, classificationType?: string | null) {
+export function extractFromDetectedForm(
+  session: SessionData,
+  photoToken: string,
+  classificationType?: string | null
+) {
   const body: Record<string, JsonValue> = { photoToken };
   if (classificationType) body.classificationType = classificationType;
   return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -925,15 +980,18 @@ export function confirmClassificationFromCamera(
   return request<CommandResponse>('/classification/confirm', {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
 export function resolveSampleByLot(session: SessionData, lotNumber: string) {
-  return request<ResolveSampleByLotResponse>(`/classification/resolve-lot?lot=${encodeURIComponent(lotNumber)}`, {
-    method: 'GET',
-    session
-  });
+  return request<ResolveSampleByLotResponse>(
+    `/classification/resolve-lot?lot=${encodeURIComponent(lotNumber)}`,
+    {
+      method: 'GET',
+      session,
+    }
+  );
 }
 
 export function confirmRegistration(
@@ -959,8 +1017,8 @@ export function confirmRegistration(
       expectedVersion: data.expectedVersion,
       ownerClientId: data.ownerClientId ?? null,
       ownerRegistrationId: data.ownerRegistrationId ?? null,
-      declared: data.declared
-    }
+      declared: data.declared,
+    },
   });
 }
 
@@ -975,7 +1033,7 @@ export function requestQrPrint(
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    printerId: data.printerId ?? null
+    printerId: data.printerId ?? null,
   };
 
   if (typeof data.attemptNumber === 'number') {
@@ -985,7 +1043,7 @@ export function requestQrPrint(
   return request<CommandResponse>(`/samples/${sampleId}/qr/print/request`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1015,7 +1073,7 @@ export function requestQrReprint(
   return request<CommandResponse>(`/samples/${sampleId}/qr/reprint/request`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1036,8 +1094,8 @@ export function recordQrPrintFailed(
       printAction: data.printAction ?? 'PRINT',
       attemptNumber: data.attemptNumber,
       printerId: data.printerId ?? null,
-      error: data.error
-    }
+      error: data.error,
+    },
   });
 }
 
@@ -1058,8 +1116,8 @@ export function recordQrPrinted(
       expectedVersion: data.expectedVersion,
       printAction: data.printAction ?? 'PRINT',
       attemptNumber: data.attemptNumber,
-      printerId: data.printerId ?? null
-    }
+      printerId: data.printerId ?? null,
+    },
   });
 }
 
@@ -1078,8 +1136,8 @@ export function startClassification(
     body: {
       expectedVersion: data.expectedVersion,
       classificationId: data.classificationId ?? null,
-      notes: data.notes ?? null
-    }
+      notes: data.notes ?? null,
+    },
   });
 }
 
@@ -1094,7 +1152,7 @@ export function saveClassificationPartial(
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    snapshotPartial: data.snapshotPartial
+    snapshotPartial: data.snapshotPartial,
   };
 
   if (data.completionPercent !== undefined) {
@@ -1104,7 +1162,7 @@ export function saveClassificationPartial(
   return request<CommandResponse>(`/samples/${sampleId}/classification/partial`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1160,7 +1218,7 @@ export function completeClassification(
   }
 ) {
   const body: { [key: string]: JsonValue } = {
-    expectedVersion: data.expectedVersion
+    expectedVersion: data.expectedVersion,
   };
 
   if (data.technical) {
@@ -1194,7 +1252,7 @@ export function completeClassification(
   return request<CommandResponse>(`/samples/${sampleId}/classification/complete`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1211,7 +1269,7 @@ export function updateRegistration(
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    after: data.after
+    after: data.after,
   };
 
   if (data.reasonCode) {
@@ -1229,7 +1287,7 @@ export function updateRegistration(
   return request<CommandResponse>(`/samples/${sampleId}/registration/update`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1246,7 +1304,7 @@ export function updateClassification(
 ) {
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
-    after: data.after
+    after: data.after,
   };
 
   if (data.reasonCode) {
@@ -1262,7 +1320,7 @@ export function updateClassification(
   return request<CommandResponse>(`/samples/${sampleId}/classification/update`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1283,8 +1341,8 @@ export function revertSampleUpdate(
       expectedVersion: data.expectedVersion,
       targetEventId: data.targetEventId,
       reasonCode: data.reasonCode,
-      reasonText: data.reasonText
-    }
+      reasonText: data.reasonText,
+    },
   });
 }
 
@@ -1301,7 +1359,7 @@ export function invalidateSample(
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
     reasonCode: data.reasonCode,
-    reasonText: data.reasonText
+    reasonText: data.reasonText,
   };
 
   if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
@@ -1311,7 +1369,7 @@ export function invalidateSample(
   return request<CommandResponse>(`/samples/${sampleId}/invalidate`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1328,7 +1386,7 @@ export function updateCommercialStatus(
   const body: { [key: string]: JsonValue } = {
     expectedVersion: data.expectedVersion,
     toCommercialStatus: data.toCommercialStatus,
-    reasonText: data.reasonText
+    reasonText: data.reasonText,
   };
 
   if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
@@ -1338,7 +1396,7 @@ export function updateCommercialStatus(
   return request<CommandResponse>(`/samples/${sampleId}/commercial-status`, {
     method: 'POST',
     session,
-    body
+    body,
   });
 }
 
@@ -1354,7 +1412,7 @@ export function listSampleMovements(
 
   return request<SampleMovementsResponse>(`/samples/${sampleId}/movements${suffix}`, {
     method: 'GET',
-    session
+    session,
   });
 }
 
@@ -1375,7 +1433,7 @@ export function createSampleMovement(
   return request<CommandResponse>(`/samples/${sampleId}/movements`, {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -1392,7 +1450,7 @@ export function updateSampleMovement(
   return request<CommandResponse>(`/samples/${sampleId}/movements/${movementId}`, {
     method: 'PATCH',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -1408,7 +1466,7 @@ export function cancelSampleMovement(
   return request<CommandResponse>(`/samples/${sampleId}/movements/${movementId}/cancel`, {
     method: 'POST',
     session,
-    body: data
+    body: data,
   });
 }
 
@@ -1419,11 +1477,12 @@ export function listSampleEvents(
 ) {
   const params = new URLSearchParams();
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
-  if (typeof query.afterSequence === 'number') params.set('afterSequence', String(query.afterSequence));
+  if (typeof query.afterSequence === 'number')
+    params.set('afterSequence', String(query.afterSequence));
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<SampleEventsResponse>(`/samples/${sampleId}/events${suffix}`, {
     method: 'GET',
-    session
+    session,
   });
 }

@@ -6,13 +6,13 @@ import { USER_ROLES } from '../auth/roles.js';
 
 export const USER_STATUSES = {
   ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE'
+  INACTIVE: 'INACTIVE',
 };
 
 export const INITIAL_PASSWORD_DECISIONS = {
   PENDING: 'PENDING',
   KEPT: 'KEPT',
-  CHANGED: 'CHANGED'
+  CHANGED: 'CHANGED',
 };
 
 export const USER_SESSION_END_REASONS = {
@@ -23,7 +23,7 @@ export const USER_SESSION_END_REASONS = {
   USERNAME_CHANGED: 'USERNAME_CHANGED',
   ROLE_CHANGED: 'ROLE_CHANGED',
   INACTIVATED: 'INACTIVATED',
-  REVOKED: 'REVOKED'
+  REVOKED: 'REVOKED',
 };
 
 export const USER_AUDIT_EVENT_TYPES = {
@@ -43,7 +43,7 @@ export const USER_AUDIT_EVENT_TYPES = {
   PASSWORD_RESET_COMPLETED: 'PASSWORD_RESET_COMPLETED',
   EMAIL_CHANGE_REQUESTED: 'EMAIL_CHANGE_REQUESTED',
   EMAIL_CHANGE_CONFIRMED: 'EMAIL_CHANGE_CONFIRMED',
-  INITIAL_PASSWORD_DECISION_RECORDED: 'INITIAL_PASSWORD_DECISION_RECORDED'
+  INITIAL_PASSWORD_DECISION_RECORDED: 'INITIAL_PASSWORD_DECISION_RECORDED',
 };
 
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -70,7 +70,7 @@ export function normalizeRequiredText(value, fieldName, maxLength = null) {
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -78,14 +78,14 @@ export function normalizeRequiredText(value, fieldName, maxLength = null) {
   if (!normalized) {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
   if (maxLength !== null && normalized.length > maxLength) {
     throw new HttpError(422, `${fieldName} must have at most ${maxLength} characters`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -100,7 +100,7 @@ export function normalizeOptionalText(value, fieldName, maxLength = null) {
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} must be a string`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -112,7 +112,7 @@ export function normalizeOptionalText(value, fieldName, maxLength = null) {
   if (maxLength !== null && normalized.length > maxLength) {
     throw new HttpError(422, `${fieldName} must have at most ${maxLength} characters`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -130,7 +130,7 @@ export function normalizeEmail(value, fieldName = 'email') {
   if (!pattern.test(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -145,14 +145,14 @@ export function normalizePassword(value, fieldName = 'password') {
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
   if (value.length < 8) {
     throw new HttpError(422, `${fieldName} must have at least 8 characters`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -163,7 +163,7 @@ export function normalizeRole(value, fieldName = 'role') {
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -171,7 +171,7 @@ export function normalizeRole(value, fieldName = 'role') {
   if (!Object.values(USER_ROLES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -182,7 +182,7 @@ export function normalizeUserStatus(value, fieldName = 'status') {
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -190,7 +190,7 @@ export function normalizeUserStatus(value, fieldName = 'status') {
   if (!Object.values(USER_STATUSES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -201,7 +201,7 @@ export function normalizeInitialPasswordDecision(value, fieldName = 'decision') 
   if (typeof value !== 'string') {
     throw new HttpError(422, `${fieldName} is required`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -209,7 +209,7 @@ export function normalizeInitialPasswordDecision(value, fieldName = 'decision') 
   if (!Object.values(INITIAL_PASSWORD_DECISIONS).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -273,7 +273,7 @@ export function buildRequestTiming(now = nowUtc()) {
     now,
     expiresAt: addMilliseconds(now, REQUEST_CODE_TTL_MS),
     resendAvailableAt: addMilliseconds(now, REQUEST_CODE_RESEND_MS),
-    retryAvailableAt: now
+    retryAvailableAt: now,
   };
 }
 
@@ -297,7 +297,7 @@ export function toUserSummary(user, options = {}) {
     isLocked: isLocked(user),
     createdAt: toIsoString(user.createdAt),
     updatedAt: toIsoString(user.updatedAt),
-    pendingEmailChange
+    pendingEmailChange,
   };
 }
 
@@ -310,7 +310,7 @@ export function toSessionUser(user) {
     displayName: user.fullName,
     role: user.role,
     status: user.status,
-    initialPasswordDecision: user.initialPasswordDecision
+    initialPasswordDecision: user.initialPasswordDecision,
   };
 }
 
@@ -327,20 +327,20 @@ export function buildDiff(before, after) {
 
   return {
     before: beforeValues,
-    after: afterValues
+    after: afterValues,
   };
 }
 
 export function assertAdminActor(actorContext, actionLabel) {
   if (!actorContext?.actorUserId) {
     throw new HttpError(401, `${actionLabel} requires authenticated user`, {
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
   }
 
   if (actorContext.role !== USER_ROLES.ADMIN) {
     throw new HttpError(403, `Only administrators can ${actionLabel}`, {
-      code: 'FORBIDDEN'
+      code: 'FORBIDDEN',
     });
   }
 
@@ -350,7 +350,7 @@ export function assertAdminActor(actorContext, actionLabel) {
 export function assertAuthenticatedActor(actorContext, actionLabel) {
   if (!actorContext?.actorUserId) {
     throw new HttpError(401, `${actionLabel} requires authenticated user`, {
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
   }
 
@@ -363,7 +363,7 @@ export function buildAuditContext(actorContext = {}) {
     requestId: actorContext.requestId ?? randomUUID(),
     correlationId: actorContext.correlationId ?? null,
     metadataIp: actorContext.ip ?? null,
-    metadataUserAgent: actorContext.userAgent ?? null
+    metadataUserAgent: actorContext.userAgent ?? null,
   };
 }
 
@@ -376,7 +376,7 @@ export function readPageQuery(value, fallback = 1) {
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new HttpError(422, 'page must be an integer greater than or equal to 1', {
       code: 'VALIDATION_ERROR',
-      field: 'page'
+      field: 'page',
     });
   }
 
@@ -392,7 +392,7 @@ export function readLimitQuery(value, { fallback, max }) {
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > max) {
     throw new HttpError(422, `limit must be an integer between 1 and ${max}`, {
       code: 'VALIDATION_ERROR',
-      field: 'limit'
+      field: 'limit',
     });
   }
 

@@ -4,7 +4,7 @@ function sourceToDb(source) {
   const map = {
     web: 'WEB',
     api: 'API',
-    worker: 'WORKER'
+    worker: 'WORKER',
   };
   return map[source];
 }
@@ -13,7 +13,7 @@ function sourceFromDb(source) {
   const map = {
     WEB: 'web',
     API: 'api',
-    WORKER: 'worker'
+    WORKER: 'worker',
   };
   return map[source];
 }
@@ -23,7 +23,7 @@ function moduleToDb(moduleName) {
     registration: 'REGISTRATION',
     classification: 'CLASSIFICATION',
     print: 'PRINT',
-    commercial: 'COMMERCIAL'
+    commercial: 'COMMERCIAL',
   };
   return map[moduleName];
 }
@@ -33,7 +33,7 @@ function moduleFromDb(moduleName) {
     REGISTRATION: 'registration',
     CLASSIFICATION: 'classification',
     PRINT: 'print',
-    COMMERCIAL: 'commercial'
+    COMMERCIAL: 'commercial',
   };
   return map[moduleName];
 }
@@ -64,8 +64,8 @@ function mapDbEventToDomain(event) {
     metadata: {
       module: moduleFromDb(event.metadataModule),
       ip: event.metadataIp,
-      userAgent: event.metadataUserAgent
-    }
+      userAgent: event.metadataUserAgent,
+    },
   };
 }
 
@@ -83,7 +83,7 @@ export class PrismaEventStore {
 
   async findEventById(eventId) {
     const event = await this.prisma.sampleEvent.findUnique({
-      where: { eventId }
+      where: { eventId },
     });
 
     return mapDbEventToDomain(event);
@@ -94,9 +94,9 @@ export class PrismaEventStore {
       where: {
         sampleId,
         idempotencyScope,
-        idempotencyKey
+        idempotencyKey,
       },
-      orderBy: { sequenceNumber: 'desc' }
+      orderBy: { sequenceNumber: 'desc' },
     });
 
     return mapDbEventToDomain(event);
@@ -140,7 +140,7 @@ class PrismaEventStoreTx {
     }
 
     return this.tx.sample.findUnique({
-      where: { id: sampleId }
+      where: { id: sampleId },
     });
   }
 
@@ -149,9 +149,9 @@ class PrismaEventStoreTx {
       where: {
         sampleId,
         idempotencyScope,
-        idempotencyKey
+        idempotencyKey,
       },
-      orderBy: { sequenceNumber: 'desc' }
+      orderBy: { sequenceNumber: 'desc' },
     });
   }
 
@@ -172,7 +172,7 @@ class PrismaEventStoreTx {
     }
 
     return this.tx.sampleEvent.findUnique({
-      where: { eventId: rows[0].event_id }
+      where: { eventId: rows[0].event_id },
     });
   }
 
@@ -184,9 +184,9 @@ class PrismaEventStoreTx {
     const result = await this.tx.sample.updateMany({
       where: {
         id: sampleId,
-        version: expectedVersion
+        version: expectedVersion,
       },
-      data
+      data,
     });
 
     if (result.count === 0) {
@@ -199,7 +199,7 @@ class PrismaEventStoreTx {
   async updateSample(sampleId, data) {
     return this.tx.sample.update({
       where: { id: sampleId },
-      data
+      data,
     });
   }
 
@@ -218,13 +218,13 @@ class PrismaEventStoreTx {
     const existing = await this.tx.sampleAttachment.findFirst({
       where: {
         sampleId: event.sampleId,
-        kind
-      }
+        kind,
+      },
     });
 
     if (existing) {
       await this.tx.sampleAttachment.delete({
-        where: { id: existing.id }
+        where: { id: existing.id },
       });
     }
 
@@ -236,8 +236,8 @@ class PrismaEventStoreTx {
         storagePath,
         mimeType: payload.mimeType ?? null,
         sizeBytes: payload.sizeBytes ?? null,
-        checksumSha256: payload.checksumSha256 ?? null
-      }
+        checksumSha256: payload.checksumSha256 ?? null,
+      },
     });
   }
 
@@ -252,8 +252,8 @@ class PrismaEventStoreTx {
         printerId: event.payload.printerId ?? null,
         error: null,
         requestedEventId,
-        resultEventId: null
-      }
+        resultEventId: null,
+      },
     });
   }
 
@@ -261,8 +261,8 @@ class PrismaEventStoreTx {
     return this.tx.sampleMovement.findFirst({
       where: {
         id: movementId,
-        sampleId
-      }
+        sampleId,
+      },
     });
   }
 
@@ -283,8 +283,8 @@ class PrismaEventStoreTx {
         buyerClientSnapshot: payload.buyerClientSnapshot ?? null,
         buyerRegistrationSnapshot: payload.buyerRegistrationSnapshot ?? null,
         version: 1,
-        cancelledAt: null
-      }
+        cancelledAt: null,
+      },
     });
   }
 
@@ -299,27 +299,39 @@ class PrismaEventStoreTx {
     }
 
     const data = {
-      ...(Object.prototype.hasOwnProperty.call(after, 'movementType') ? { movementType: after.movementType } : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientId') ? { buyerClientId: after.buyerClientId ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'movementType')
+        ? { movementType: after.movementType }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientId')
+        ? { buyerClientId: after.buyerClientId ?? null }
+        : {}),
       ...(Object.prototype.hasOwnProperty.call(after, 'buyerRegistrationId')
         ? { buyerRegistrationId: after.buyerRegistrationId ?? null }
         : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'quantitySacks') ? { quantitySacks: after.quantitySacks } : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'movementDate') ? { movementDate: new Date(after.movementDate) } : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'notes') ? { notes: after.notes ?? null } : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'lossReasonText') ? { reasonText: after.lossReasonText ?? null } : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'quantitySacks')
+        ? { quantitySacks: after.quantitySacks }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'movementDate')
+        ? { movementDate: new Date(after.movementDate) }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'notes')
+        ? { notes: after.notes ?? null }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(after, 'lossReasonText')
+        ? { reasonText: after.lossReasonText ?? null }
+        : {}),
       ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientSnapshot')
         ? { buyerClientSnapshot: after.buyerClientSnapshot ?? null }
         : {}),
       ...(Object.prototype.hasOwnProperty.call(after, 'buyerRegistrationSnapshot')
         ? { buyerRegistrationSnapshot: after.buyerRegistrationSnapshot ?? null }
         : {}),
-      version: { increment: 1 }
+      version: { increment: 1 },
     };
 
     return this.tx.sampleMovement.update({
       where: { id: movementId },
-      data
+      data,
     });
   }
 
@@ -335,8 +347,8 @@ class PrismaEventStoreTx {
       data: {
         status: 'CANCELLED',
         cancelledAt: new Date(event.occurredAt),
-        version: { increment: 1 }
-      }
+        version: { increment: 1 },
+      },
     });
   }
 
@@ -347,14 +359,14 @@ class PrismaEventStoreTx {
         sampleId: event.sampleId,
         printAction: event.payload.printAction,
         attemptNumber: event.payload.attemptNumber,
-        resultEventId: null
+        resultEventId: null,
       },
       data: {
         status,
         printerId: event.payload.printerId ?? null,
         error: event.eventType === 'QR_PRINT_FAILED' ? event.payload.error : null,
-        resultEventId
-      }
+        resultEventId,
+      },
     });
 
     if (updateResult.count === 0) {
@@ -366,9 +378,9 @@ class PrismaEventStoreTx {
         sampleId_printAction_attemptNumber: {
           sampleId: event.sampleId,
           printAction: event.payload.printAction,
-          attemptNumber: event.payload.attemptNumber
-        }
-      }
+          attemptNumber: event.payload.attemptNumber,
+        },
+      },
     });
   }
 
@@ -394,8 +406,8 @@ class PrismaEventStoreTx {
         toStatus: event.toStatus,
         metadataModule: moduleToDb(event.metadata.module),
         metadataIp: event.metadata.ip,
-        metadataUserAgent: event.metadata.userAgent
-      }
+        metadataUserAgent: event.metadata.userAgent,
+      },
     });
   }
 

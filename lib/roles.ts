@@ -4,7 +4,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: 'Administrador',
   CLASSIFIER: 'Classificador',
   REGISTRATION: 'Registro',
-  COMMERCIAL: 'Comercial'
+  COMMERCIAL: 'Comercial',
 };
 
 export function getRoleLabel(role: UserRole): string {

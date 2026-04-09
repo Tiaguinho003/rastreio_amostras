@@ -15,7 +15,9 @@ function readHeader(headers, key) {
   }
 
   const lowerKey = key.toLowerCase();
-  const normalized = Object.entries(headers).find(([candidate]) => candidate.toLowerCase() === lowerKey);
+  const normalized = Object.entries(headers).find(
+    ([candidate]) => candidate.toLowerCase() === lowerKey
+  );
   return normalized?.[1];
 }
 
@@ -30,7 +32,7 @@ function buildRequestContext(input) {
     correlationId: readHeader(headers, 'x-correlation-id') ?? null,
     userAgent: readHeader(headers, 'user-agent') ?? null,
     ip: readHeader(headers, 'x-forwarded-for') ?? null,
-    source: String(readHeader(headers, 'x-source') ?? 'web').toLowerCase()
+    source: String(readHeader(headers, 'x-source') ?? 'web').toLowerCase(),
   };
 }
 
@@ -42,16 +44,17 @@ async function resolveActorContext(input, authService) {
   const requestContext = buildRequestContext(input);
   const headers = input?.headers ?? {};
   const cookieToken = readSessionTokenFromCookieHeader(readHeader(headers, 'cookie'));
-  const authorization = readHeader(headers, 'authorization') ?? (cookieToken ? `Bearer ${cookieToken}` : null);
+  const authorization =
+    readHeader(headers, 'authorization') ?? (cookieToken ? `Bearer ${cookieToken}` : null);
   if (!authorization) {
     throw new HttpError(401, 'Authentication required', {
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
   }
 
   return {
     ...(await authService.authenticateAuthorizationHeader(authorization, requestContext)),
-    ...requestContext
+    ...requestContext,
   };
 }
 
@@ -104,7 +107,7 @@ export function createBackendApiV1({
   clientService = null,
   commandService,
   queryService,
-  reportService = null
+  reportService = null,
 }) {
   return {
     health: () =>
@@ -112,8 +115,8 @@ export function createBackendApiV1({
         status: 200,
         body: {
           status: 'ok',
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       })),
 
     login: (input) =>
@@ -126,14 +129,14 @@ export function createBackendApiV1({
         const result = await authService.login(
           {
             username: body.username,
-            password: body.password
+            password: body.password,
           },
           buildRequestContext(input)
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -160,9 +163,9 @@ export function createBackendApiV1({
               role: currentUser.user.role,
               status: currentUser.user.status,
               initialPasswordDecision: currentUser.user.initialPasswordDecision,
-              pendingEmailChange: currentUser.user.pendingEmailChange
-            }
-          }
+              pendingEmailChange: currentUser.user.pendingEmailChange,
+            },
+          },
         };
       }),
 
@@ -190,7 +193,7 @@ export function createBackendApiV1({
             originLot: body.originLot,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
-            printerId: body.printerId ?? null
+            printerId: body.printerId ?? null,
           },
           actor
         );
@@ -207,7 +210,7 @@ export function createBackendApiV1({
           {
             sampleId,
             notes: body.notes ?? null,
-            expectedVersion: body.expectedVersion
+            expectedVersion: body.expectedVersion,
           },
           actor
         );
@@ -235,7 +238,7 @@ export function createBackendApiV1({
             fileBuffer,
             mimeType: body.mimeType ?? null,
             originalFileName: body.originalFileName ?? null,
-            replaceExisting: body.replaceExisting
+            replaceExisting: body.replaceExisting,
           },
           actor
         );
@@ -257,7 +260,7 @@ export function createBackendApiV1({
             declared: body.declared,
             ownerClientId: body.ownerClientId,
             ownerRegistrationId: body.ownerRegistrationId,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -277,7 +280,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -297,7 +300,7 @@ export function createBackendApiV1({
             attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
             reasonText: body.reasonText ?? null,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -317,7 +320,7 @@ export function createBackendApiV1({
             printAction: body.printAction ?? 'PRINT',
             attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
-            error: body.error
+            error: body.error,
           },
           actor
         );
@@ -337,7 +340,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             printAction: body.printAction ?? 'PRINT',
             attemptNumber: body.attemptNumber,
-            printerId: body.printerId ?? null
+            printerId: body.printerId ?? null,
           },
           actor
         );
@@ -356,7 +359,7 @@ export function createBackendApiV1({
             sampleId,
             expectedVersion: body.expectedVersion,
             classificationId: body.classificationId ?? null,
-            notes: body.notes ?? null
+            notes: body.notes ?? null,
           },
           actor
         );
@@ -377,7 +380,7 @@ export function createBackendApiV1({
             snapshotPartial: body.snapshotPartial,
             ...(Object.prototype.hasOwnProperty.call(body, 'completionPercent')
               ? { completionPercent: body.completionPercent }
-              : {})
+              : {}),
           },
           actor
         );
@@ -401,7 +404,7 @@ export function createBackendApiV1({
             consumptionGrams: body.consumptionGrams ?? null,
             classifierUserId: body.classifierUserId,
             classifierName: body.classifierName,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -422,7 +425,7 @@ export function createBackendApiV1({
             before: body.before,
             after: body.after,
             reasonCode: body.reasonCode,
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
@@ -443,7 +446,7 @@ export function createBackendApiV1({
             before: body.before,
             after: body.after,
             reasonCode: body.reasonCode,
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
@@ -463,7 +466,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             targetEventId: body.targetEventId,
             reasonCode: body.reasonCode,
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
@@ -483,7 +486,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             reasonCode: body.reasonCode,
             reasonText: body.reasonText,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -503,7 +506,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             toCommercialStatus: body.toCommercialStatus,
             reasonText: body.reasonText,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
           },
           actor
         );
@@ -533,12 +536,12 @@ export function createBackendApiV1({
           createdDate: readOptionalQueryString(query.createdDate),
           createdMonth: readOptionalQueryString(query.createdMonth),
           createdYear: readOptionalQueryString(query.createdYear),
-          classifiedAging: readOptionalQueryString(query.classifiedAging)
+          classifiedAging: readOptionalQueryString(query.classifiedAging),
         });
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -549,12 +552,12 @@ export function createBackendApiV1({
         const query = input?.query ?? {};
 
         const result = await queryService.getSampleDetail(sampleId, {
-          eventLimit: readPositiveInteger(query.eventLimit, 200, 'eventLimit')
+          eventLimit: readPositiveInteger(query.eventLimit, 200, 'eventLimit'),
         });
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -573,7 +576,7 @@ export function createBackendApiV1({
             sampleId,
             exportType: body.exportType,
             destination: body.destination,
-            recipientClientId: body.recipientClientId
+            recipientClientId: body.recipientClientId,
           },
           actor
         );
@@ -589,8 +592,8 @@ export function createBackendApiV1({
             destination: exported.destination,
             selectedFields: exported.selectedFields,
             auditEvent: exported.auditEvent,
-            buffer: exported.buffer
-          }
+            buffer: exported.buffer,
+          },
         };
       }),
 
@@ -604,14 +607,14 @@ export function createBackendApiV1({
           {
             sampleId,
             recipientClientId: body.recipientClientId,
-            sentDate: body.sentDate
+            sentDate: body.sentDate,
           },
           actor
         );
 
         return {
           status: 201,
-          body: { event: result.event }
+          body: { event: result.event },
         };
       }),
 
@@ -643,11 +646,11 @@ export function createBackendApiV1({
                 owner: sample.declared.owner,
                 sacks: sample.declared.sacks,
                 harvest: sample.declared.harvest,
-                originLot: sample.declared.originLot
-              }
+                originLot: sample.declared.originLot,
+              },
             },
-            redirectPath: `/samples/${sample.id}?focus=classification&source=qr`
-          }
+            redirectPath: `/samples/${sample.id}?focus=classification&source=qr`,
+          },
         };
       }),
 
@@ -680,10 +683,10 @@ export function createBackendApiV1({
                 owner: result.sample.declared.owner,
                 sacks: result.sample.declared.sacks,
                 harvest: result.sample.declared.harvest,
-                originLot: result.sample.declared.originLot
-              }
-            }
-          }
+                originLot: result.sample.declared.originLot,
+              },
+            },
+          },
         };
       }),
 
@@ -696,15 +699,17 @@ export function createBackendApiV1({
         const events = await queryService.listSampleEvents(sampleId, {
           limit: readPositiveInteger(query.limit, 200, 'limit'),
           afterSequence:
-            query.afterSequence === undefined ? null : readPositiveInteger(query.afterSequence, 0, 'afterSequence')
+            query.afterSequence === undefined
+              ? null
+              : readPositiveInteger(query.afterSequence, 0, 'afterSequence'),
         });
 
         return {
           status: 200,
           body: {
             sampleId,
-            events
-          }
+            events,
+          },
         };
       }),
 
@@ -716,15 +721,15 @@ export function createBackendApiV1({
 
         const movements = await queryService.listSampleMovements(sampleId, {
           movementType: readOptionalQueryString(query.movementType),
-          status: readOptionalQueryString(query.status)
+          status: readOptionalQueryString(query.status),
         });
 
         return {
           status: 200,
           body: {
             sampleId,
-            movements
-          }
+            movements,
+          },
         };
       }),
 
@@ -744,14 +749,14 @@ export function createBackendApiV1({
             quantitySacks: body.quantitySacks,
             movementDate: body.movementDate,
             notes: body.notes ?? null,
-            lossReasonText: body.lossReasonText
+            lossReasonText: body.lossReasonText,
           },
           actor
         );
 
         return {
           status: result.statusCode,
-          body: result
+          body: result,
         };
       }),
 
@@ -771,14 +776,14 @@ export function createBackendApiV1({
             movementId,
             expectedVersion: body.expectedVersion,
             after: body.after ?? body.changes ?? {},
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: result.statusCode,
-          body: result
+          body: result,
         };
       }),
 
@@ -797,14 +802,14 @@ export function createBackendApiV1({
             sampleId,
             movementId,
             expectedVersion: body.expectedVersion,
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: result.statusCode,
-          body: result
+          body: result,
         };
       }),
 
@@ -814,7 +819,7 @@ export function createBackendApiV1({
         const dashboard = await queryService.getDashboardPending();
         return {
           status: 200,
-          body: dashboard
+          body: dashboard,
         };
       }),
 
@@ -824,7 +829,7 @@ export function createBackendApiV1({
         const result = await queryService.getDashboardSalesAvailability();
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -834,11 +839,11 @@ export function createBackendApiV1({
         const query = input?.query ?? {};
         const result = await queryService.listPendingPrintJobs({
           limit: query.limit,
-          sampleId: query.sampleId ?? null
+          sampleId: query.sampleId ?? null,
         });
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -858,14 +863,14 @@ export function createBackendApiV1({
             status: query.status,
             personType: query.personType,
             isBuyer: query.isBuyer,
-            isSeller: query.isSeller
+            isSeller: query.isSeller,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -880,14 +885,14 @@ export function createBackendApiV1({
         const result = await clientService.lookupClients(
           {
             search: query.search,
-            kind: query.kind
+            kind: query.kind,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -906,7 +911,7 @@ export function createBackendApiV1({
         const result = await clientService.getClient(clientId, actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -928,14 +933,14 @@ export function createBackendApiV1({
             cnpj: body.cnpj,
             phone: body.phone,
             isBuyer: body.isBuyer,
-            isSeller: body.isSeller
+            isSeller: body.isSeller,
           },
           actor
         );
 
         return {
           status: 201,
-          body: result
+          body: result,
         };
       }),
 
@@ -964,15 +969,11 @@ export function createBackendApiV1({
         assignIfDefined(updatePayload, 'isSeller', body.isSeller);
         assignIfDefined(updatePayload, 'reasonText', body.reasonText);
 
-        const result = await clientService.updateClient(
-          clientId,
-          updatePayload,
-          actor
-        );
+        const result = await clientService.updateClient(clientId, updatePayload, actor);
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -992,7 +993,7 @@ export function createBackendApiV1({
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1008,22 +1009,26 @@ export function createBackendApiV1({
           throw new HttpError(422, 'clientId path param is required');
         }
 
-        const result = await clientService.listClientSamples(clientId, {
-          page: input?.query?.page,
-          limit: input?.query?.limit,
-          search: input?.query?.search,
-          buyer: input?.query?.buyer,
-          commercialStatus: input?.query?.commercialStatus,
-          harvest: input?.query?.harvest,
-          sacksMin: input?.query?.sacksMin,
-          sacksMax: input?.query?.sacksMax,
-          periodMode: input?.query?.periodMode,
-          periodValue: input?.query?.periodValue
-        }, actor);
+        const result = await clientService.listClientSamples(
+          clientId,
+          {
+            page: input?.query?.page,
+            limit: input?.query?.limit,
+            search: input?.query?.search,
+            buyer: input?.query?.buyer,
+            commercialStatus: input?.query?.commercialStatus,
+            harvest: input?.query?.harvest,
+            sacksMin: input?.query?.sacksMin,
+            sacksMax: input?.query?.sacksMax,
+            periodMode: input?.query?.periodMode,
+            periodValue: input?.query?.periodValue,
+          },
+          actor
+        );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1039,20 +1044,24 @@ export function createBackendApiV1({
           throw new HttpError(422, 'clientId path param is required');
         }
 
-        const result = await clientService.listClientPurchases(clientId, {
-          page: input?.query?.page,
-          limit: input?.query?.limit,
-          search: input?.query?.search,
-          owner: input?.query?.owner,
-          sacksMin: input?.query?.sacksMin,
-          sacksMax: input?.query?.sacksMax,
-          periodMode: input?.query?.periodMode,
-          periodValue: input?.query?.periodValue
-        }, actor);
+        const result = await clientService.listClientPurchases(
+          clientId,
+          {
+            page: input?.query?.page,
+            limit: input?.query?.limit,
+            search: input?.query?.search,
+            owner: input?.query?.owner,
+            sacksMin: input?.query?.sacksMin,
+            sacksMax: input?.query?.sacksMax,
+            periodMode: input?.query?.periodMode,
+            periodValue: input?.query?.periodValue,
+          },
+          actor
+        );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1072,7 +1081,7 @@ export function createBackendApiV1({
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1092,14 +1101,14 @@ export function createBackendApiV1({
         const result = await clientService.inactivateClient(
           clientId,
           {
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1119,14 +1128,14 @@ export function createBackendApiV1({
         const result = await clientService.reactivateClient(
           clientId,
           {
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1146,14 +1155,14 @@ export function createBackendApiV1({
           clientId,
           {
             page: query.page,
-            limit: query.limit
+            limit: query.limit,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1180,14 +1189,14 @@ export function createBackendApiV1({
             city: body.city,
             state: body.state,
             postalCode: body.postalCode,
-            complement: body.complement
+            complement: body.complement,
           },
           actor
         );
 
         return {
           status: 201,
-          body: result
+          body: result,
         };
       }),
 
@@ -1227,7 +1236,7 @@ export function createBackendApiV1({
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1252,14 +1261,14 @@ export function createBackendApiV1({
           clientId,
           registrationId,
           {
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1284,14 +1293,14 @@ export function createBackendApiV1({
           clientId,
           registrationId,
           {
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
 
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1305,7 +1314,7 @@ export function createBackendApiV1({
         const result = await authService.logout(actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1318,13 +1327,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await authService.recordSessionExpired(
           {
-            sessionId: body.sessionId
+            sessionId: body.sessionId,
           },
           buildRequestContext(input)
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1338,7 +1347,7 @@ export function createBackendApiV1({
         const result = await userService.getMe(actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1354,13 +1363,13 @@ export function createBackendApiV1({
           {
             fullName: body.fullName,
             username: body.username,
-            phone: body.phone
+            phone: body.phone,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1374,13 +1383,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await userService.changeOwnPassword(
           {
-            password: body.password
+            password: body.password,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1394,13 +1403,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await userService.requestOwnEmailChange(
           {
-            email: body.email
+            email: body.email,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1414,7 +1423,7 @@ export function createBackendApiV1({
         const result = await userService.resendOwnEmailChangeCode(actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1428,13 +1437,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await userService.confirmOwnEmailChange(
           {
-            code: body.code
+            code: body.code,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1448,13 +1457,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await userService.recordInitialPasswordDecision(
           {
-            decision: body.decision
+            decision: body.decision,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1467,13 +1476,13 @@ export function createBackendApiV1({
         const body = readRequestBody(input);
         const result = await userService.requestPasswordReset(
           {
-            email: body.email
+            email: body.email,
           },
           buildRequestContext(input)
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1487,13 +1496,13 @@ export function createBackendApiV1({
         const result = await userService.verifyPasswordResetCode(
           {
             email: body.email,
-            code: body.code
+            code: body.code,
           },
           buildRequestContext(input)
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1508,13 +1517,13 @@ export function createBackendApiV1({
           {
             email: body.email,
             code: body.code,
-            password: body.password
+            password: body.password,
           },
           buildRequestContext(input)
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1532,13 +1541,13 @@ export function createBackendApiV1({
             limit: query.limit,
             search: query.search,
             role: query.role,
-            status: query.status
+            status: query.status,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1557,7 +1566,7 @@ export function createBackendApiV1({
         const result = await userService.getUser(userId, actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1576,13 +1585,13 @@ export function createBackendApiV1({
             email: body.email,
             phone: body.phone,
             password: body.password,
-            role: body.role
+            role: body.role,
           },
           actor
         );
         return {
           status: 201,
-          body: result
+          body: result,
         };
       }),
 
@@ -1606,13 +1615,13 @@ export function createBackendApiV1({
             username: body.username,
             email: body.email,
             phone: body.phone,
-            role: body.role
+            role: body.role,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1632,13 +1641,13 @@ export function createBackendApiV1({
         const result = await userService.inactivateUser(
           userId,
           {
-            reasonText: body.reasonText
+            reasonText: body.reasonText,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1657,7 +1666,7 @@ export function createBackendApiV1({
         const result = await userService.reactivateUser(userId, actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1676,7 +1685,7 @@ export function createBackendApiV1({
         const result = await userService.unlockUser(userId, actor);
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1696,13 +1705,13 @@ export function createBackendApiV1({
         const result = await userService.resetUserPassword(
           userId,
           {
-            password: body.password
+            password: body.password,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1717,13 +1726,13 @@ export function createBackendApiV1({
         const result = await userService.listAuditEvents(
           {
             page: query.page,
-            limit: query.limit
+            limit: query.limit,
           },
           actor
         );
         return {
           status: 200,
-          body: result
+          body: result,
         };
       }),
 
@@ -1734,7 +1743,7 @@ export function createBackendApiV1({
 
         const result = await commandService.detectClassificationForm(
           {
-            fileBuffer: Buffer.isBuffer(body.fileBuffer) ? body.fileBuffer : null
+            fileBuffer: Buffer.isBuffer(body.fileBuffer) ? body.fileBuffer : null,
           },
           actor
         );
@@ -1760,7 +1769,7 @@ export function createBackendApiV1({
             photoToken: typeof body.photoToken === 'string' ? body.photoToken : null,
             mimeType: body.mimeType ?? null,
             originalFileName: body.originalFileName ?? null,
-            classificationType: body.classificationType ?? null
+            classificationType: body.classificationType ?? null,
           },
           actor
         );
@@ -1779,12 +1788,12 @@ export function createBackendApiV1({
             classificationData: body.classificationData,
             photoToken: body.photoToken,
             idempotencyKey: body.idempotencyKey,
-            classificationType: body.classificationType ?? null
+            classificationType: body.classificationType ?? null,
           },
           actor
         );
 
         return { status: result.statusCode, body: result };
-      })
+      }),
   };
 }

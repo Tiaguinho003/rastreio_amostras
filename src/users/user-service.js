@@ -43,7 +43,7 @@ import {
   toIsoString,
   toSessionUser,
   toUserSummary,
-  verifyPassword
+  verifyPassword,
 } from './user-support.js';
 
 const USER_SELECT = {
@@ -62,7 +62,7 @@ const USER_SELECT = {
   lockedUntil: true,
   lastLoginAt: true,
   createdAt: true,
-  updatedAt: true
+  updatedAt: true,
 };
 
 function buildPage(total, page, limit) {
@@ -76,7 +76,7 @@ function buildPage(total, page, limit) {
     total,
     totalPages,
     hasPrev: safePage > 1,
-    hasNext: safePage < totalPages
+    hasNext: safePage < totalPages,
   };
 }
 
@@ -99,7 +99,7 @@ function normalizePasswordResetCode(value, fieldName = 'code') {
   if (!/^\d{6}$/.test(normalized)) {
     throw new HttpError(422, 'Codigo invalido', {
       code: 'INVALID_CODE',
-      field: fieldName
+      field: fieldName,
     });
   }
 
@@ -125,8 +125,8 @@ export class UserService {
         requestId: auditContext.requestId,
         correlationId: auditContext.correlationId,
         metadataIp: auditContext.metadataIp,
-        metadataUserAgent: auditContext.metadataUserAgent
-      }
+        metadataUserAgent: auditContext.metadataUserAgent,
+      },
     });
   }
 
@@ -134,12 +134,12 @@ export class UserService {
     await tx.userSession.updateMany({
       where: {
         userId,
-        revokedAt: null
+        revokedAt: null,
       },
       data: {
         revokedAt: nowUtc(),
-        endReason
-      }
+        endReason,
+      },
     });
   }
 
@@ -151,12 +151,12 @@ export class UserService {
     await tx.userSession.updateMany({
       where: {
         id: sessionId,
-        revokedAt: null
+        revokedAt: null,
       },
       data: {
         revokedAt: nowUtc(),
-        endReason
-      }
+        endReason,
+      },
     });
   }
 
@@ -165,13 +165,13 @@ export class UserService {
       where: {
         userId,
         invalidatedAt: null,
-        consumedAt: null
+        consumedAt: null,
       },
       data: {
         invalidatedAt: now,
         retryAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS),
-        resendAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS)
-      }
+        resendAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS),
+      },
     });
   }
 
@@ -181,27 +181,27 @@ export class UserService {
 
     const user = await tx.user.findFirst({
       where: {
-        emailCanonical
+        emailCanonical,
       },
-      select: USER_SELECT
+      select: USER_SELECT,
     });
 
     if (!user) {
       throw new HttpError(404, 'Email nao encontrado. Revise o email informado.', {
-        code: 'EMAIL_NOT_FOUND'
+        code: 'EMAIL_NOT_FOUND',
       });
     }
 
     if (user.status === USER_STATUSES.INACTIVE) {
       throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-        code: 'ACCOUNT_INACTIVE'
+        code: 'ACCOUNT_INACTIVE',
       });
     }
 
     if (isLocked(user, now)) {
       throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
         code: 'ACCOUNT_LOCKED',
-        lockedUntil: toIsoString(user.lockedUntil)
+        lockedUntil: toIsoString(user.lockedUntil),
       });
     }
 
@@ -211,17 +211,17 @@ export class UserService {
         invalidatedAt: null,
         consumedAt: null,
         expiresAt: {
-          gt: now
-        }
+          gt: now,
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     if (!request) {
       throw new HttpError(404, 'Nao existe pedido valido de recuperacao para esse email', {
-        code: 'PASSWORD_RESET_REQUEST_INVALID'
+        code: 'PASSWORD_RESET_REQUEST_INVALID',
       });
     }
 
@@ -229,7 +229,7 @@ export class UserService {
       email,
       emailCanonical,
       user,
-      request
+      request,
     };
   }
 
@@ -240,7 +240,7 @@ export class UserService {
 
     const failedAttempts = request.failedAttempts + 1;
     const data = {
-      failedAttempts
+      failedAttempts,
     };
 
     if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
@@ -251,17 +251,17 @@ export class UserService {
 
     await tx.passwordResetRequest.update({
       where: { id: request.id },
-      data
+      data,
     });
 
     if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
       throw new HttpError(429, 'Pedido invalidado. Solicite novamente em 5 minutos.', {
-        code: 'PASSWORD_RESET_REQUEST_LOCKED'
+        code: 'PASSWORD_RESET_REQUEST_LOCKED',
       });
     }
 
     throw new HttpError(422, 'Codigo invalido', {
-      code: 'INVALID_CODE'
+      code: 'INVALID_CODE',
     });
   }
 
@@ -270,14 +270,14 @@ export class UserService {
       where: {
         userId,
         invalidatedAt: null,
-        consumedAt: null
+        consumedAt: null,
       },
       data: {
         invalidatedAt: now,
         reservationKey: null,
         retryAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS),
-        resendAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS)
-      }
+        resendAvailableAt: addMilliseconds(now, REQUEST_RETRY_MS),
+      },
     });
   }
 
@@ -288,13 +288,13 @@ export class UserService {
         invalidatedAt: null,
         consumedAt: null,
         expiresAt: {
-          lte: now
-        }
+          lte: now,
+        },
       },
       data: {
         invalidatedAt: now,
-        reservationKey: null
-      }
+        reservationKey: null,
+      },
     });
   }
 
@@ -305,15 +305,15 @@ export class UserService {
         invalidatedAt: null,
         consumedAt: null,
         expiresAt: {
-          gt: now
+          gt: now,
         },
         reservationKey: {
-          not: null
-        }
+          not: null,
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     if (!request) {
@@ -323,19 +323,19 @@ export class UserService {
     return {
       requestId: request.id,
       newEmail: request.newEmail,
-      expiresAt: toIsoString(request.expiresAt)
+      expiresAt: toIsoString(request.expiresAt),
     };
   }
 
   async requireUserById(tx, userId) {
     const user = await tx.user.findUnique({
       where: { id: userId },
-      select: USER_SELECT
+      select: USER_SELECT,
     });
 
     if (!user) {
       throw new HttpError(404, 'Usuario nao encontrado', {
-        code: 'USER_NOT_FOUND'
+        code: 'USER_NOT_FOUND',
       });
     }
 
@@ -351,19 +351,19 @@ export class UserService {
         ...(excludeUserId
           ? {
               id: {
-                not: excludeUserId
-              }
+                not: excludeUserId,
+              },
             }
-          : {})
+          : {}),
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     if (existingUser) {
       throw new HttpError(409, 'Email ja esta em uso', {
-        code: 'EMAIL_ALREADY_IN_USE'
+        code: 'EMAIL_ALREADY_IN_USE',
       });
     }
 
@@ -373,24 +373,24 @@ export class UserService {
         invalidatedAt: null,
         consumedAt: null,
         expiresAt: {
-          gt: nowUtc()
+          gt: nowUtc(),
         },
         ...(excludeUserId
           ? {
               userId: {
-                not: excludeUserId
-              }
+                not: excludeUserId,
+              },
             }
-          : {})
+          : {}),
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     if (reserved) {
       throw new HttpError(409, 'Email ja esta em uso', {
-        code: 'EMAIL_ALREADY_IN_USE'
+        code: 'EMAIL_ALREADY_IN_USE',
       });
     }
   }
@@ -403,19 +403,19 @@ export class UserService {
         ...(excludeUserId
           ? {
               id: {
-                not: excludeUserId
-              }
+                not: excludeUserId,
+              },
             }
-          : {})
+          : {}),
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     if (existingUser) {
       throw new HttpError(409, 'Usuario ja esta em uso', {
-        code: 'USERNAME_ALREADY_IN_USE'
+        code: 'USERNAME_ALREADY_IN_USE',
       });
     }
   }
@@ -428,15 +428,19 @@ export class UserService {
         ...(excludeUserId
           ? {
               id: {
-                not: excludeUserId
-              }
+                not: excludeUserId,
+              },
             }
-          : {})
-      }
+          : {}),
+      },
     });
   }
 
-  async assertAdminInvariant(tx, targetUser, { nextRole = null, nextStatus = null, actorUserId = null } = {}) {
+  async assertAdminInvariant(
+    tx,
+    targetUser,
+    { nextRole = null, nextStatus = null, actorUserId = null } = {}
+  ) {
     const role = nextRole ?? targetUser.role;
     const status = nextStatus ?? targetUser.status;
     const isAdmin = targetUser.role === USER_ROLES.ADMIN;
@@ -445,7 +449,7 @@ export class UserService {
 
     if (targetUser.id === actorUserId && (!remainsAdmin || !remainsActive)) {
       throw new HttpError(409, 'O administrador nao pode remover o proprio acesso administrativo', {
-        code: 'LAST_ADMIN_REQUIRED'
+        code: 'LAST_ADMIN_REQUIRED',
       });
     }
 
@@ -453,7 +457,7 @@ export class UserService {
       const otherActiveAdmins = await this.countActiveAdmins(tx, { excludeUserId: targetUser.id });
       if (otherActiveAdmins === 0) {
         throw new HttpError(409, 'Nao e permitido deixar o sistema sem administrador ativo', {
-          code: 'LAST_ADMIN_REQUIRED'
+          code: 'LAST_ADMIN_REQUIRED',
         });
       }
     }
@@ -466,7 +470,7 @@ export class UserService {
       const user = await this.requireUserById(tx, actor.actorUserId);
       const pendingEmailChange = await this.getPendingEmailChange(tx, actor.actorUserId);
       return {
-        user: toUserSummary(user, { pendingEmailChange })
+        user: toUserSummary(user, { pendingEmailChange }),
       };
     });
   }
@@ -476,11 +480,13 @@ export class UserService {
     const page = readPageQuery(input.page, 1);
     const limit = readLimitQuery(input.limit, {
       fallback: USER_LIST_LIMIT_DEFAULT,
-      max: USER_LIST_LIMIT_MAX
+      max: USER_LIST_LIMIT_MAX,
     });
     const search = normalizeOptionalText(input.search, 'search', 200);
     const role = input.role ? normalizeRole(input.role, 'role') : null;
-    const status = input.status ? normalizeOptionalText(input.status, 'status', 20)?.toUpperCase() : null;
+    const status = input.status
+      ? normalizeOptionalText(input.status, 'status', 20)?.toUpperCase()
+      : null;
     const skip = (page - 1) * limit;
 
     const where = {
@@ -491,10 +497,10 @@ export class UserService {
             OR: [
               { fullName: { contains: search, mode: 'insensitive' } },
               { username: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } }
-            ]
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
           }
-        : {})
+        : {}),
     };
 
     const [items, total, pendingRequests] = await this.prisma.$transaction([
@@ -503,7 +509,7 @@ export class UserService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
-        select: USER_SELECT
+        select: USER_SELECT,
       }),
       this.prisma.user.count({ where }),
       this.prisma.emailChangeRequest.findMany({
@@ -511,18 +517,18 @@ export class UserService {
           invalidatedAt: null,
           consumedAt: null,
           expiresAt: {
-            gt: nowUtc()
+            gt: nowUtc(),
           },
           reservationKey: {
-            not: null
-          }
+            not: null,
+          },
         },
         select: {
           userId: true,
           newEmail: true,
-          expiresAt: true
-        }
-      })
+          expiresAt: true,
+        },
+      }),
     ]);
 
     const pendingMap = new Map(
@@ -531,14 +537,16 @@ export class UserService {
         {
           requestId: null,
           newEmail: request.newEmail,
-          expiresAt: toIsoString(request.expiresAt)
-        }
+          expiresAt: toIsoString(request.expiresAt),
+        },
       ])
     );
 
     return {
-      items: items.map((item) => toUserSummary(item, { pendingEmailChange: pendingMap.get(item.id) ?? null })),
-      page: buildPage(total, page, limit)
+      items: items.map((item) =>
+        toUserSummary(item, { pendingEmailChange: pendingMap.get(item.id) ?? null })
+      ),
+      page: buildPage(total, page, limit),
     };
   }
 
@@ -549,7 +557,7 @@ export class UserService {
       const user = await this.requireUserById(tx, userId);
       const pendingEmailChange = await this.getPendingEmailChange(tx, userId);
       return {
-        user: toUserSummary(user, { pendingEmailChange })
+        user: toUserSummary(user, { pendingEmailChange }),
       };
     });
   }
@@ -583,16 +591,16 @@ export class UserService {
           status: USER_STATUSES.ACTIVE,
           initialPasswordDecision: INITIAL_PASSWORD_DECISIONS.PENDING,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.emailService.sendUserCreated({
         to: created.email,
         fullName: created.fullName,
         username: created.username,
-        password
+        password,
       });
 
       await this.recordAuditEvent(tx, {
@@ -606,14 +614,14 @@ export class UserService {
             email: created.email,
             phone: created.phone,
             role: created.role,
-            status: created.status
-          }
-        }
+            status: created.status,
+          },
+        },
       });
 
       return {
         user: toUserSummary(created),
-        generatedPassword: password
+        generatedPassword: password,
       };
     });
   }
@@ -627,7 +635,7 @@ export class UserService {
       const user = await this.requireUserById(tx, userId);
       if (user.status !== USER_STATUSES.ACTIVE) {
         throw new HttpError(409, 'Usuario inativo deve ser reativado antes da edicao', {
-          code: 'USER_INACTIVE'
+          code: 'USER_INACTIVE',
         });
       }
 
@@ -636,7 +644,7 @@ export class UserService {
         fullName: user.fullName,
         username: user.username,
         phone: user.phone,
-        role: user.role
+        role: user.role,
       };
       let usernameChanged = false;
       let roleChanged = false;
@@ -669,7 +677,7 @@ export class UserService {
         const role = normalizeRole(input.role);
         await this.assertAdminInvariant(tx, user, {
           nextRole: role,
-          actorUserId: actor.actorUserId
+          actorUserId: actor.actorUserId,
         });
         if (role !== user.role) {
           updateData.role = role;
@@ -697,20 +705,20 @@ export class UserService {
               expiresAt: timing.expiresAt,
               resendAvailableAt: timing.resendAvailableAt,
               retryAvailableAt: timing.retryAvailableAt,
-              createdAt: now
-            }
+              createdAt: now,
+            },
           });
 
           await this.emailService.sendEmailChangeOldEmailNotice({
             to: user.email,
             fullName: user.fullName,
-            newEmail: email
+            newEmail: email,
           });
           await this.emailService.sendEmailChangeCode({
             to: email,
             fullName: user.fullName,
             code,
-            newEmail: email
+            newEmail: email,
           });
 
           await this.recordAuditEvent(tx, {
@@ -719,18 +727,18 @@ export class UserService {
             eventType: USER_AUDIT_EVENT_TYPES.EMAIL_CHANGE_REQUESTED,
             payload: {
               before: {
-                email: user.email
+                email: user.email,
               },
               after: {
-                email
-              }
-            }
+                email,
+              },
+            },
           });
 
           emailChangeResult = {
             requestId: request.id,
             newEmail: request.newEmail,
-            expiresAt: toIsoString(request.expiresAt)
+            expiresAt: toIsoString(request.expiresAt),
           };
         }
       }
@@ -740,7 +748,7 @@ export class UserService {
         updatedUser = await tx.user.update({
           where: { id: user.id },
           data: updateData,
-          select: USER_SELECT
+          select: USER_SELECT,
         });
 
         const diff = buildDiff(
@@ -748,7 +756,7 @@ export class UserService {
             fullName: user.fullName,
             username: user.username,
             phone: user.phone,
-            role: user.role
+            role: user.role,
           },
           afterSnapshot
         );
@@ -757,18 +765,24 @@ export class UserService {
           await this.recordAuditEvent(tx, {
             targetUserId: updatedUser.id,
             actorContext: actor,
-            eventType: roleChanged ? USER_AUDIT_EVENT_TYPES.USER_ROLE_CHANGED : USER_AUDIT_EVENT_TYPES.USER_UPDATED,
-            payload: diff
+            eventType: roleChanged
+              ? USER_AUDIT_EVENT_TYPES.USER_ROLE_CHANGED
+              : USER_AUDIT_EVENT_TYPES.USER_UPDATED,
+            payload: diff,
           });
         }
       }
 
       if (usernameChanged) {
-        await this.revokeUserSessions(tx, updatedUser.id, USER_SESSION_END_REASONS.USERNAME_CHANGED);
+        await this.revokeUserSessions(
+          tx,
+          updatedUser.id,
+          USER_SESSION_END_REASONS.USERNAME_CHANGED
+        );
         await this.emailService.sendUsernameChangedNotice({
           to: updatedUser.email,
           fullName: updatedUser.fullName,
-          username: updatedUser.username
+          username: updatedUser.username,
         });
       }
 
@@ -776,10 +790,11 @@ export class UserService {
         await this.revokeUserSessions(tx, updatedUser.id, USER_SESSION_END_REASONS.ROLE_CHANGED);
       }
 
-      const pendingEmailChange = emailChangeResult ?? (await this.getPendingEmailChange(tx, updatedUser.id, now));
+      const pendingEmailChange =
+        emailChangeResult ?? (await this.getPendingEmailChange(tx, updatedUser.id, now));
       return {
         user: toUserSummary(updatedUser, { pendingEmailChange }),
-        sessionRevoked: usernameChanged || roleChanged
+        sessionRevoked: usernameChanged || roleChanged,
       };
     });
   }
@@ -793,15 +808,15 @@ export class UserService {
       const user = await this.requireUserById(tx, userId);
       await this.assertAdminInvariant(tx, user, {
         nextStatus: USER_STATUSES.INACTIVE,
-        actorUserId: actor.actorUserId
+        actorUserId: actor.actorUserId,
       });
 
       const updated = await tx.user.update({
         where: { id: user.id },
         data: {
-          status: USER_STATUSES.INACTIVE
+          status: USER_STATUSES.INACTIVE,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.revokeUserSessions(tx, user.id, USER_SESSION_END_REASONS.INACTIVATED);
@@ -809,7 +824,7 @@ export class UserService {
       await this.invalidateEmailChangeRequests(tx, user.id, now);
       await this.emailService.sendUserInactivated({
         to: updated.email,
-        fullName: updated.fullName
+        fullName: updated.fullName,
       });
 
       await this.recordAuditEvent(tx, {
@@ -819,16 +834,16 @@ export class UserService {
         reasonText,
         payload: {
           before: {
-            status: user.status
+            status: user.status,
           },
           after: {
-            status: updated.status
-          }
-        }
+            status: updated.status,
+          },
+        },
       });
 
       return {
-        user: toUserSummary(updated)
+        user: toUserSummary(updated),
       };
     });
   }
@@ -841,14 +856,14 @@ export class UserService {
       const updated = await tx.user.update({
         where: { id: user.id },
         data: {
-          status: USER_STATUSES.ACTIVE
+          status: USER_STATUSES.ACTIVE,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.emailService.sendUserReactivated({
         to: updated.email,
-        fullName: updated.fullName
+        fullName: updated.fullName,
       });
       await this.recordAuditEvent(tx, {
         targetUserId: updated.id,
@@ -856,16 +871,16 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.USER_REACTIVATED,
         payload: {
           before: {
-            status: user.status
+            status: user.status,
           },
           after: {
-            status: updated.status
-          }
-        }
+            status: updated.status,
+          },
+        },
       });
 
       return {
-        user: toUserSummary(updated)
+        user: toUserSummary(updated),
       };
     });
   }
@@ -879,9 +894,9 @@ export class UserService {
         where: { id: user.id },
         data: {
           failedLoginAttempts: 0,
-          lockedUntil: null
+          lockedUntil: null,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -891,17 +906,17 @@ export class UserService {
         payload: {
           before: {
             failedLoginAttempts: user.failedLoginAttempts,
-            lockedUntil: toIsoString(user.lockedUntil)
+            lockedUntil: toIsoString(user.lockedUntil),
           },
           after: {
             failedLoginAttempts: updated.failedLoginAttempts,
-            lockedUntil: toIsoString(updated.lockedUntil)
-          }
-        }
+            lockedUntil: toIsoString(updated.lockedUntil),
+          },
+        },
       });
 
       return {
-        user: toUserSummary(updated)
+        user: toUserSummary(updated),
       };
     });
   }
@@ -916,9 +931,9 @@ export class UserService {
       const updated = await tx.user.update({
         where: { id: user.id },
         data: {
-          passwordHash
+          passwordHash,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.revokeUserSessions(tx, updated.id, USER_SESSION_END_REASONS.PASSWORD_RESET);
@@ -926,18 +941,18 @@ export class UserService {
         to: updated.email,
         fullName: updated.fullName,
         username: updated.username,
-        password
+        password,
       });
       await this.recordAuditEvent(tx, {
         targetUserId: updated.id,
         actorContext: actor,
         eventType: USER_AUDIT_EVENT_TYPES.PASSWORD_RESET_BY_ADMIN,
-        payload: {}
+        payload: {},
       });
 
       return {
         user: toUserSummary(updated),
-        generatedPassword: password
+        generatedPassword: password,
       };
     });
   }
@@ -951,7 +966,7 @@ export class UserService {
       const user = await this.requireUserById(tx, actor.actorUserId);
       if (user.status !== USER_STATUSES.ACTIVE) {
         throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-          code: 'ACCOUNT_INACTIVE'
+          code: 'ACCOUNT_INACTIVE',
         });
       }
 
@@ -959,7 +974,7 @@ export class UserService {
       const afterSnapshot = {
         fullName: user.fullName,
         username: user.username,
-        phone: user.phone
+        phone: user.phone,
       };
       let usernameChanged = false;
 
@@ -991,7 +1006,7 @@ export class UserService {
         updated = await tx.user.update({
           where: { id: user.id },
           data: updateData,
-          select: USER_SELECT
+          select: USER_SELECT,
         });
 
         await this.recordAuditEvent(tx, {
@@ -1003,10 +1018,10 @@ export class UserService {
             {
               fullName: user.fullName,
               username: user.username,
-              phone: user.phone
+              phone: user.phone,
             },
             afterSnapshot
-          )
+          ),
         });
       }
 
@@ -1015,14 +1030,14 @@ export class UserService {
         await this.emailService.sendUsernameChangedNotice({
           to: updated.email,
           fullName: updated.fullName,
-          username: updated.username
+          username: updated.username,
         });
       }
 
       const pendingEmailChange = await this.getPendingEmailChange(tx, updated.id, now);
       return {
         user: toUserSummary(updated, { pendingEmailChange }),
-        sessionRevoked: usernameChanged
+        sessionRevoked: usernameChanged,
       };
     });
   }
@@ -1035,7 +1050,7 @@ export class UserService {
     return this.prisma.$transaction(async (tx) => {
       const user = await this.requireUserById(tx, actor.actorUserId);
       const updateData = {
-        passwordHash
+        passwordHash,
       };
 
       if (user.initialPasswordDecision === INITIAL_PASSWORD_DECISIONS.PENDING) {
@@ -1045,25 +1060,25 @@ export class UserService {
       const updated = await tx.user.update({
         where: { id: user.id },
         data: updateData,
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.revokeUserSessions(tx, updated.id, USER_SESSION_END_REASONS.PASSWORD_CHANGED);
       await this.emailService.sendPasswordChangedNotice({
         to: updated.email,
-        fullName: updated.fullName
+        fullName: updated.fullName,
       });
       await this.recordAuditEvent(tx, {
         targetUserId: updated.id,
         actorContext: actor,
         actorUserId: updated.id,
         eventType: USER_AUDIT_EVENT_TYPES.PASSWORD_CHANGED,
-        payload: {}
+        payload: {},
       });
 
       return {
         user: toUserSummary(updated),
-        sessionRevoked: true
+        sessionRevoked: true,
       };
     });
   }
@@ -1078,7 +1093,7 @@ export class UserService {
       if (normalizeCanonical(newEmail) === user.emailCanonical) {
         const pendingEmailChange = await this.getPendingEmailChange(tx, user.id, now);
         return {
-          user: toUserSummary(user, { pendingEmailChange })
+          user: toUserSummary(user, { pendingEmailChange }),
         };
       }
 
@@ -1098,20 +1113,20 @@ export class UserService {
           expiresAt: timing.expiresAt,
           resendAvailableAt: timing.resendAvailableAt,
           retryAvailableAt: timing.retryAvailableAt,
-          createdAt: now
-        }
+          createdAt: now,
+        },
       });
 
       await this.emailService.sendEmailChangeOldEmailNotice({
         to: user.email,
         fullName: user.fullName,
-        newEmail
+        newEmail,
       });
       await this.emailService.sendEmailChangeCode({
         to: newEmail,
         fullName: user.fullName,
         code,
-        newEmail
+        newEmail,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1121,12 +1136,12 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.EMAIL_CHANGE_REQUESTED,
         payload: {
           before: {
-            email: user.email
+            email: user.email,
           },
           after: {
-            email: newEmail
-          }
-        }
+            email: newEmail,
+          },
+        },
       });
 
       const refreshedUser = await this.requireUserById(tx, user.id);
@@ -1135,9 +1150,9 @@ export class UserService {
           pendingEmailChange: {
             requestId: request.id,
             newEmail: request.newEmail,
-            expiresAt: toIsoString(request.expiresAt)
-          }
-        })
+            expiresAt: toIsoString(request.expiresAt),
+          },
+        }),
       };
     });
   }
@@ -1155,27 +1170,27 @@ export class UserService {
           invalidatedAt: null,
           consumedAt: null,
           expiresAt: {
-            gt: now
+            gt: now,
           },
           reservationKey: {
-            not: null
-          }
+            not: null,
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (!request) {
         throw new HttpError(404, 'Nao existe troca de email pendente', {
-          code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND'
+          code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND',
         });
       }
 
       if (new Date(request.resendAvailableAt).getTime() > now.getTime()) {
         throw new HttpError(429, 'Aguarde 1 minuto para reenviar o codigo', {
           code: 'EMAIL_CHANGE_RESEND_NOT_AVAILABLE',
-          resendAvailableAt: toIsoString(request.resendAvailableAt)
+          resendAvailableAt: toIsoString(request.resendAvailableAt),
         });
       }
 
@@ -1189,15 +1204,15 @@ export class UserService {
           expiresAt,
           resendAvailableAt,
           retryAvailableAt: now,
-          failedAttempts: 0
-        }
+          failedAttempts: 0,
+        },
       });
 
       await this.emailService.sendEmailChangeCode({
         to: updatedRequest.newEmail,
         fullName: user.fullName,
         code,
-        newEmail: updatedRequest.newEmail
+        newEmail: updatedRequest.newEmail,
       });
 
       const refreshedUser = await this.requireUserById(tx, user.id);
@@ -1206,9 +1221,9 @@ export class UserService {
           pendingEmailChange: {
             requestId: updatedRequest.id,
             newEmail: updatedRequest.newEmail,
-            expiresAt: toIsoString(updatedRequest.expiresAt)
-          }
-        })
+            expiresAt: toIsoString(updatedRequest.expiresAt),
+          },
+        }),
       };
     });
   }
@@ -1227,27 +1242,27 @@ export class UserService {
           invalidatedAt: null,
           consumedAt: null,
           expiresAt: {
-            gt: now
+            gt: now,
           },
           reservationKey: {
-            not: null
-          }
+            not: null,
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (!request) {
         throw new HttpError(404, 'Nao existe troca de email pendente', {
-          code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND'
+          code: 'EMAIL_CHANGE_REQUEST_NOT_FOUND',
         });
       }
 
       if (request.codeHash !== hashCode(code)) {
         const failedAttempts = request.failedAttempts + 1;
         const data = {
-          failedAttempts
+          failedAttempts,
         };
 
         if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
@@ -1258,17 +1273,17 @@ export class UserService {
 
         await tx.emailChangeRequest.update({
           where: { id: request.id },
-          data
+          data,
         });
 
         if (failedAttempts >= REQUEST_MAX_ATTEMPTS) {
           throw new HttpError(429, 'Pedido invalidado. Solicite novamente em 5 minutos.', {
-            code: 'EMAIL_CHANGE_REQUEST_LOCKED'
+            code: 'EMAIL_CHANGE_REQUEST_LOCKED',
           });
         }
 
         throw new HttpError(422, 'Codigo invalido', {
-          code: 'INVALID_CODE'
+          code: 'INVALID_CODE',
         });
       }
 
@@ -1276,17 +1291,17 @@ export class UserService {
         where: { id: user.id },
         data: {
           email: request.newEmail,
-          emailCanonical: request.newEmailCanonical
+          emailCanonical: request.newEmailCanonical,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await tx.emailChangeRequest.update({
         where: { id: request.id },
         data: {
           consumedAt: now,
-          reservationKey: null
-        }
+          reservationKey: null,
+        },
       });
 
       await this.recordAuditEvent(tx, {
@@ -1296,16 +1311,16 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.EMAIL_CHANGE_CONFIRMED,
         payload: {
           before: {
-            email: user.email
+            email: user.email,
           },
           after: {
-            email: updatedUser.email
-          }
-        }
+            email: updatedUser.email,
+          },
+        },
       });
 
       return {
-        user: toUserSummary(updatedUser)
+        user: toUserSummary(updatedUser),
       };
     });
   }
@@ -1318,16 +1333,16 @@ export class UserService {
       const user = await this.requireUserById(tx, actor.actorUserId);
       if (user.initialPasswordDecision !== INITIAL_PASSWORD_DECISIONS.PENDING) {
         return {
-          user: toUserSummary(user)
+          user: toUserSummary(user),
         };
       }
 
       const updated = await tx.user.update({
         where: { id: user.id },
         data: {
-          initialPasswordDecision: decision
+          initialPasswordDecision: decision,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1337,13 +1352,13 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.INITIAL_PASSWORD_DECISION_RECORDED,
         payload: {
           after: {
-            decision
-          }
-        }
+            decision,
+          },
+        },
       });
 
       return {
-        user: toUserSummary(updated)
+        user: toUserSummary(updated),
       };
     });
   }
@@ -1357,16 +1372,16 @@ export class UserService {
       resetRequest: {
         requestId: randomUUID(),
         expiresAt: toIsoString(genericTiming.expiresAt),
-        resendAvailableAt: toIsoString(genericTiming.resendAvailableAt)
-      }
+        resendAvailableAt: toIsoString(genericTiming.resendAvailableAt),
+      },
     };
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findFirst({
         where: {
-          emailCanonical
+          emailCanonical,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       if (!user) {
@@ -1383,16 +1398,16 @@ export class UserService {
 
       const latest = await tx.passwordResetRequest.findFirst({
         where: {
-          userId: user.id
+          userId: user.id,
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       if (latest && new Date(latest.retryAvailableAt).getTime() > now.getTime()) {
         throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
-          code: 'PASSWORD_RESET_RATE_LIMITED'
+          code: 'PASSWORD_RESET_RATE_LIMITED',
         });
       }
 
@@ -1404,7 +1419,7 @@ export class UserService {
         new Date(latest.resendAvailableAt).getTime() > now.getTime()
       ) {
         throw new HttpError(429, 'Aguarde alguns minutos para solicitar um novo codigo', {
-          code: 'PASSWORD_RESET_RATE_LIMITED'
+          code: 'PASSWORD_RESET_RATE_LIMITED',
         });
       }
 
@@ -1420,14 +1435,14 @@ export class UserService {
           expiresAt: timing.expiresAt,
           resendAvailableAt: timing.resendAvailableAt,
           retryAvailableAt: timing.retryAvailableAt,
-          createdAt: now
-        }
+          createdAt: now,
+        },
       });
 
       await this.emailService.sendPasswordResetCode({
         to: user.email,
         fullName: user.fullName,
-        code
+        code,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1436,16 +1451,16 @@ export class UserService {
         actorUserId: user.id,
         eventType: USER_AUDIT_EVENT_TYPES.PASSWORD_RESET_REQUESTED,
         payload: {
-          email: maskEmailForPayload(user.email)
-        }
+          email: maskEmailForPayload(user.email),
+        },
       });
 
       return {
         resetRequest: {
           requestId: created.id,
           expiresAt: toIsoString(created.expiresAt),
-          resendAvailableAt: toIsoString(created.resendAvailableAt)
-        }
+          resendAvailableAt: toIsoString(created.resendAvailableAt),
+        },
       };
     });
   }
@@ -1460,8 +1475,8 @@ export class UserService {
 
       return {
         verification: {
-          verified: true
-        }
+          verified: true,
+        },
       };
     });
   }
@@ -1481,16 +1496,16 @@ export class UserService {
         data: {
           passwordHash,
           failedLoginAttempts: 0,
-          lockedUntil: null
+          lockedUntil: null,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       await tx.passwordResetRequest.update({
         where: { id: request.id },
         data: {
-          consumedAt: now
-        }
+          consumedAt: now,
+        },
       });
 
       await this.revokeUserSessions(tx, updated.id, USER_SESSION_END_REASONS.PASSWORD_RESET);
@@ -1499,12 +1514,12 @@ export class UserService {
         actorContext,
         actorUserId: updated.id,
         eventType: USER_AUDIT_EVENT_TYPES.PASSWORD_RESET_COMPLETED,
-        payload: {}
+        payload: {},
       });
 
       return {
         user: toUserSummary(updated),
-        sessionRevoked: true
+        sessionRevoked: true,
       };
     });
   }
@@ -1514,7 +1529,7 @@ export class UserService {
     const page = readPageQuery(input.page, 1);
     const limit = readLimitQuery(input.limit, {
       fallback: USER_AUDIT_LIMIT_DEFAULT,
-      max: USER_AUDIT_LIMIT_MAX
+      max: USER_AUDIT_LIMIT_MAX,
     });
     const skip = (page - 1) * limit;
 
@@ -1528,19 +1543,19 @@ export class UserService {
             select: {
               id: true,
               fullName: true,
-              username: true
-            }
+              username: true,
+            },
           },
           targetUser: {
             select: {
               id: true,
               fullName: true,
-              username: true
-            }
-          }
-        }
+              username: true,
+            },
+          },
+        },
       }),
-      this.prisma.userAuditEvent.count()
+      this.prisma.userAuditEvent.count(),
     ]);
 
     return {
@@ -1554,22 +1569,22 @@ export class UserService {
           ? {
               id: item.actorUser.id,
               fullName: item.actorUser.fullName,
-              username: item.actorUser.username
+              username: item.actorUser.username,
             }
           : null,
         targetUser: item.targetUser
           ? {
               id: item.targetUser.id,
               fullName: item.targetUser.fullName,
-              username: item.targetUser.username
+              username: item.targetUser.username,
             }
           : null,
         metadata: {
           ip: item.metadataIp,
-          userAgent: item.metadataUserAgent
-        }
+          userAgent: item.metadataUserAgent,
+        },
       })),
-      page: buildPage(total, page, limit)
+      page: buildPage(total, page, limit),
     };
   }
 
@@ -1580,9 +1595,9 @@ export class UserService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findFirst({
         where: {
-          usernameCanonical: normalizedUsername
+          usernameCanonical: normalizedUsername,
         },
-        select: USER_SELECT
+        select: USER_SELECT,
       });
 
       if (!user) {
@@ -1592,12 +1607,12 @@ export class UserService {
           eventType: USER_AUDIT_EVENT_TYPES.LOGIN_FAILED,
           payload: {
             submittedUsername: username,
-            failureCode: 'USERNAME_NOT_FOUND'
-          }
+            failureCode: 'USERNAME_NOT_FOUND',
+          },
         });
 
         throw new HttpError(401, 'Usuario ou senha invalidos', {
-          code: 'INVALID_CREDENTIALS'
+          code: 'INVALID_CREDENTIALS',
         });
       }
 
@@ -1608,12 +1623,12 @@ export class UserService {
           eventType: USER_AUDIT_EVENT_TYPES.LOGIN_FAILED,
           payload: {
             submittedUsername: username,
-            failureCode: 'ACCOUNT_INACTIVE'
-          }
+            failureCode: 'ACCOUNT_INACTIVE',
+          },
         });
 
         throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-          code: 'ACCOUNT_INACTIVE'
+          code: 'ACCOUNT_INACTIVE',
         });
       }
 
@@ -1624,19 +1639,19 @@ export class UserService {
           eventType: USER_AUDIT_EVENT_TYPES.LOGIN_FAILED,
           payload: {
             submittedUsername: username,
-            failureCode: 'ACCOUNT_LOCKED'
-          }
+            failureCode: 'ACCOUNT_LOCKED',
+          },
         });
 
         throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
           code: 'ACCOUNT_LOCKED',
-          lockedUntil: toIsoString(user.lockedUntil)
+          lockedUntil: toIsoString(user.lockedUntil),
         });
       }
 
       const failedLoginAttempts = user.failedLoginAttempts + 1;
       const data = {
-        failedLoginAttempts
+        failedLoginAttempts,
       };
       if (failedLoginAttempts >= LOGIN_MAX_ATTEMPTS) {
         data.lockedUntil = addMilliseconds(now, LOGIN_LOCKOUT_MS);
@@ -1644,7 +1659,7 @@ export class UserService {
 
       await tx.user.update({
         where: { id: user.id },
-        data
+        data,
       });
 
       await this.recordAuditEvent(tx, {
@@ -1655,19 +1670,19 @@ export class UserService {
           submittedUsername: username,
           failureCode: 'INVALID_PASSWORD',
           failedLoginAttempts,
-          lockedUntil: toIsoString(data.lockedUntil ?? null)
-        }
+          lockedUntil: toIsoString(data.lockedUntil ?? null),
+        },
       });
 
       if (data.lockedUntil) {
         throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
           code: 'ACCOUNT_LOCKED',
-          lockedUntil: toIsoString(data.lockedUntil)
+          lockedUntil: toIsoString(data.lockedUntil),
         });
       }
 
       throw new HttpError(401, 'Usuario ou senha invalidos', {
-        code: 'INVALID_CREDENTIALS'
+        code: 'INVALID_CREDENTIALS',
       });
     });
   }
@@ -1678,9 +1693,9 @@ export class UserService {
       data: {
         failedLoginAttempts: 0,
         lockedUntil: null,
-        lastLoginAt: nowUtc()
+        lastLoginAt: nowUtc(),
       },
-      select: USER_SELECT
+      select: USER_SELECT,
     });
   }
 
@@ -1688,9 +1703,9 @@ export class UserService {
     const normalizedUsername = normalizeCanonical(normalizeUsername(username));
     const user = await this.prisma.user.findFirst({
       where: {
-        usernameCanonical: normalizedUsername
+        usernameCanonical: normalizedUsername,
       },
-      select: USER_SELECT
+      select: USER_SELECT,
     });
 
     if (!user) {
@@ -1704,11 +1719,11 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.LOGIN_FAILED,
         payload: {
           submittedUsername: username,
-          failureCode: 'ACCOUNT_INACTIVE'
-        }
+          failureCode: 'ACCOUNT_INACTIVE',
+        },
       });
       throw new HttpError(403, 'Conta inativa. Fale com o administrador.', {
-        code: 'ACCOUNT_INACTIVE'
+        code: 'ACCOUNT_INACTIVE',
       });
     }
 
@@ -1719,12 +1734,12 @@ export class UserService {
         eventType: USER_AUDIT_EVENT_TYPES.LOGIN_FAILED,
         payload: {
           submittedUsername: username,
-          failureCode: 'ACCOUNT_LOCKED'
-        }
+          failureCode: 'ACCOUNT_LOCKED',
+        },
       });
       throw new HttpError(423, 'Conta temporariamente bloqueada. Aguarde 5 minutos.', {
         code: 'ACCOUNT_LOCKED',
-        lockedUntil: toIsoString(user.lockedUntil)
+        lockedUntil: toIsoString(user.lockedUntil),
       });
     }
 
@@ -1745,13 +1760,13 @@ export class UserService {
         userId: user.id,
         expiresAt,
         createdIp: actorContext?.ip ?? null,
-        createdUserAgent: actorContext?.userAgent ?? null
-      }
+        createdUserAgent: actorContext?.userAgent ?? null,
+      },
     });
 
     return {
       sessionId,
-      expiresAt
+      expiresAt,
     };
   }
 
@@ -1761,7 +1776,7 @@ export class UserService {
       actorContext,
       actorUserId: user.id,
       eventType: USER_AUDIT_EVENT_TYPES.LOGIN_SUCCEEDED,
-      payload: {}
+      payload: {},
     });
   }
 
@@ -1774,9 +1789,9 @@ export class UserService {
         where: { id: sessionId },
         include: {
           user: {
-            select: USER_SELECT
-          }
-        }
+            select: USER_SELECT,
+          },
+        },
       });
 
       if (!session || session.userId !== actor.actorUserId) {
@@ -1786,12 +1801,12 @@ export class UserService {
       await tx.userSession.updateMany({
         where: {
           id: session.id,
-          revokedAt: null
+          revokedAt: null,
         },
         data: {
           revokedAt: now,
-          endReason: USER_SESSION_END_REASONS.LOGOUT
-        }
+          endReason: USER_SESSION_END_REASONS.LOGOUT,
+        },
       });
 
       await this.recordAuditEvent(tx, {
@@ -1799,7 +1814,7 @@ export class UserService {
         actorContext: actor,
         actorUserId: session.userId,
         eventType: USER_AUDIT_EVENT_TYPES.LOGOUT,
-        payload: {}
+        payload: {},
       });
 
       return { ok: true };
@@ -1815,9 +1830,9 @@ export class UserService {
         where: { id: sessionId },
         include: {
           user: {
-            select: USER_SELECT
-          }
-        }
+            select: USER_SELECT,
+          },
+        },
       });
 
       if (!session) {
@@ -1836,8 +1851,8 @@ export class UserService {
         where: { id: session.id },
         data: {
           revokedAt: now,
-          endReason: USER_SESSION_END_REASONS.EXPIRED
-        }
+          endReason: USER_SESSION_END_REASONS.EXPIRED,
+        },
       });
 
       await this.recordAuditEvent(tx, {
@@ -1845,7 +1860,7 @@ export class UserService {
         actorContext,
         actorUserId: session.userId,
         eventType: USER_AUDIT_EVENT_TYPES.SESSION_EXPIRED,
-        payload: {}
+        payload: {},
       });
 
       return { ok: true };
@@ -1857,9 +1872,9 @@ export class UserService {
       where: { id: sessionId },
       include: {
         user: {
-          select: USER_SELECT
-        }
-      }
+          select: USER_SELECT,
+        },
+      },
     });
 
     if (!session) {
@@ -1877,20 +1892,20 @@ export class UserService {
           where: { id: session.id },
           data: {
             revokedAt: now,
-            endReason: USER_SESSION_END_REASONS.EXPIRED
-          }
+            endReason: USER_SESSION_END_REASONS.EXPIRED,
+          },
         });
         await this.recordAuditEvent(tx, {
           targetUserId: session.userId,
           actorContext,
           actorUserId: session.userId,
           eventType: USER_AUDIT_EVENT_TYPES.SESSION_EXPIRED,
-          payload: {}
+          payload: {},
         });
       }
 
       throw new HttpError(401, 'Sessao expirada', {
-        code: 'SESSION_EXPIRED'
+        code: 'SESSION_EXPIRED',
       });
     }
   }

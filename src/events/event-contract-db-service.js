@@ -19,7 +19,7 @@ const MUTATING_EVENT_TYPES = new Set([
   'LOSS_UPDATED',
   'LOSS_CANCELLED',
   'COMMERCIAL_STATUS_UPDATED',
-  'CLASSIFICATION_UPDATED'
+  'CLASSIFICATION_UPDATED',
 ]);
 
 const PRINT_ATTEMPT_EVENTS = new Set(['QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED']);
@@ -75,10 +75,22 @@ const CLASSIFICATION_DATA_KEYS = [
   'observacoes',
   'classificadorUserId',
   'consumoGramas',
-  'versaoClassificacao'
+  'versaoClassificacao',
 ];
 
-const SIEVE_PERCENT_KEYS = ['p19', 'p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10'];
+const SIEVE_PERCENT_KEYS = [
+  'p19',
+  'p18',
+  'p17',
+  'p16',
+  'mk',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p11',
+  'p10',
+];
 
 function applyClassificationDataPatch(target, source) {
   if (!isObject(source)) {
@@ -103,7 +115,9 @@ function applyClassificationDataPatch(target, source) {
       return;
     }
 
-    const existingSieve = isObject(target.peneirasPercentuais) ? { ...target.peneirasPercentuais } : {};
+    const existingSieve = isObject(target.peneirasPercentuais)
+      ? { ...target.peneirasPercentuais }
+      : {};
     for (const key of SIEVE_PERCENT_KEYS) {
       if (hasOwn(rawSieve, key)) {
         existingSieve[key] = rawSieve[key];
@@ -163,13 +177,20 @@ function mergeClassificationData(currentData, fromPayload) {
   return Object.keys(merged).length > 0 ? merged : null;
 }
 
-function buildClassificationProjectionPatch({ currentSample, fromPayload, incrementVersionWhenMissing }) {
+function buildClassificationProjectionPatch({
+  currentSample,
+  fromPayload,
+  incrementVersionWhenMissing,
+}) {
   if (!isObject(fromPayload)) {
     return {};
   }
 
   const patch = {};
-  const mergedClassificationData = mergeClassificationData(currentSample.latestClassificationData, fromPayload);
+  const mergedClassificationData = mergeClassificationData(
+    currentSample.latestClassificationData,
+    fromPayload
+  );
   patch.latestClassificationData = mergedClassificationData;
 
   const technical = isObject(fromPayload.technical) ? fromPayload.technical : null;
@@ -178,7 +199,9 @@ function buildClassificationProjectionPatch({ currentSample, fromPayload, increm
     patch.latestClassificationVersion = fromPayload.classificationVersion;
   } else if (incrementVersionWhenMissing) {
     patch.latestClassificationVersion =
-      currentSample.latestClassificationVersion === null ? 1 : currentSample.latestClassificationVersion + 1;
+      currentSample.latestClassificationVersion === null
+        ? 1
+        : currentSample.latestClassificationVersion + 1;
   }
 
   if (technical && hasOwn(technical, 'type')) {
@@ -193,7 +216,12 @@ function buildClassificationProjectionPatch({ currentSample, fromPayload, increm
 
   if (mergedClassificationData && hasOwn(mergedClassificationData, 'defeito')) {
     const defeitoRaw = mergedClassificationData.defeito;
-    const defeitoParsed = typeof defeitoRaw === 'string' ? parseInt(defeitoRaw, 10) : (typeof defeitoRaw === 'number' ? defeitoRaw : NaN);
+    const defeitoParsed =
+      typeof defeitoRaw === 'string'
+        ? parseInt(defeitoRaw, 10)
+        : typeof defeitoRaw === 'number'
+          ? defeitoRaw
+          : NaN;
     patch.latestDefectsCount = Number.isFinite(defeitoParsed) ? Math.round(defeitoParsed) : null;
   } else if (technical && hasOwn(technical, 'defectsCount')) {
     patch.latestDefectsCount = technical.defectsCount;
@@ -214,13 +242,13 @@ function buildSampleCreateData(event) {
     status: event.toStatus,
     commercialStatus: 'OPEN',
     version: 1,
-    lastEventSequence: event.sequenceNumber
+    lastEventSequence: event.sequenceNumber,
   };
 }
 
 function buildSampleUpdateData(currentSample, event, mutatesSample) {
   const updateData = {
-    lastEventSequence: event.sequenceNumber
+    lastEventSequence: event.sequenceNumber,
   };
 
   if (event.toStatus !== null) {
@@ -236,14 +264,15 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
       updateData.ownerRegistrationId = hasOwn(event.payload, 'ownerRegistrationId')
-        ? event.payload.ownerRegistrationId ?? null
+        ? (event.payload.ownerRegistrationId ?? null)
         : null;
     }
     updateData.declaredOwner = event.payload.declared.owner;
     updateData.declaredSacks = event.payload.declared.sacks;
     updateData.declaredHarvest = event.payload.declared.harvest;
     updateData.declaredOriginLot = event.payload.declared.originLot;
-    if (hasOwn(event.payload.declared, 'location')) updateData.declaredLocation = event.payload.declared.location;
+    if (hasOwn(event.payload.declared, 'location'))
+      updateData.declaredLocation = event.payload.declared.location;
   }
 
   if (event.eventType === 'REGISTRATION_UPDATED') {
@@ -251,7 +280,8 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const declaredAfter = after.declared ?? {};
 
     if (hasOwn(after, 'ownerClientId')) updateData.ownerClientId = after.ownerClientId;
-    if (hasOwn(after, 'ownerRegistrationId')) updateData.ownerRegistrationId = after.ownerRegistrationId;
+    if (hasOwn(after, 'ownerRegistrationId'))
+      updateData.ownerRegistrationId = after.ownerRegistrationId;
 
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;
     if (hasOwn(after, 'sacks')) updateData.declaredSacks = after.sacks;
@@ -286,7 +316,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
       buildClassificationProjectionPatch({
         currentSample,
         fromPayload: event.payload,
-        incrementVersionWhenMissing: true
+        incrementVersionWhenMissing: true,
       })
     );
     updateData.classificationDraftData = null;
@@ -303,7 +333,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
       buildClassificationProjectionPatch({
         currentSample,
         fromPayload: event.payload.after,
-        incrementVersionWhenMissing: false
+        incrementVersionWhenMissing: false,
       })
     );
     if (hasOwn(event.payload, 'classificationType')) {
@@ -361,7 +391,7 @@ export class EventContractDbService {
             return {
               statusCode: 200,
               idempotent: true,
-              event: tx.mapEvent(existingByIdempotency)
+              event: tx.mapEvent(existingByIdempotency),
             };
           }
         }
@@ -377,7 +407,7 @@ export class EventContractDbService {
             return {
               statusCode: 200,
               idempotent: true,
-              event: tx.mapEvent(existingByAttempt)
+              event: tx.mapEvent(existingByAttempt),
             };
           }
         }
@@ -388,7 +418,10 @@ export class EventContractDbService {
         }
 
         if (sample?.status === 'INVALIDATED') {
-          throw new HttpError(409, `Sample ${eventDraft.sampleId} is INVALIDATED and cannot receive new events`);
+          throw new HttpError(
+            409,
+            `Sample ${eventDraft.sampleId} is INVALIDATED and cannot receive new events`
+          );
         }
 
         if (sample && eventDraft.eventType === 'SAMPLE_RECEIVED') {
@@ -398,7 +431,7 @@ export class EventContractDbService {
         const sequenceNumber = (sample?.lastEventSequence ?? 0) + 1;
         const event = {
           ...eventDraft,
-          sequenceNumber
+          sequenceNumber,
         };
 
         this.validator.validate(event);
@@ -406,7 +439,12 @@ export class EventContractDbService {
         const hasStatusTransition = event.fromStatus !== null || event.toStatus !== null;
         const mutatesSample = isMutatingEvent(event);
 
-        if (sample && hasStatusTransition && event.fromStatus !== null && sample.status !== event.fromStatus) {
+        if (
+          sample &&
+          hasStatusTransition &&
+          event.fromStatus !== null &&
+          sample.status !== event.fromStatus
+        ) {
           throw new HttpError(
             409,
             `Invalid status transition. current=${sample.status} fromStatus=${event.fromStatus}`
@@ -432,7 +470,11 @@ export class EventContractDbService {
           const updateData = buildSampleUpdateData(sample, event, mutatesSample);
 
           if (mutatesSample) {
-            persistedSample = await tx.updateSampleByVersion(sample.id, expectedVersion, updateData);
+            persistedSample = await tx.updateSampleByVersion(
+              sample.id,
+              expectedVersion,
+              updateData
+            );
             if (!persistedSample) {
               throw new HttpError(409, 'Version conflict while updating sample');
             }
@@ -487,7 +529,7 @@ export class EventContractDbService {
           statusCode: 201,
           idempotent: false,
           sample: persistedSample,
-          event: tx.mapEvent(eventRecord)
+          event: tx.mapEvent(eventRecord),
         };
       });
     } catch (error) {
@@ -508,7 +550,7 @@ export class EventContractDbService {
             return {
               statusCode: 200,
               idempotent: true,
-              event: existingByIdempotency
+              event: existingByIdempotency,
             };
           }
         }
@@ -524,7 +566,7 @@ export class EventContractDbService {
             return {
               statusCode: 200,
               idempotent: true,
-              event: existingByAttempt
+              event: existingByAttempt,
             };
           }
         }

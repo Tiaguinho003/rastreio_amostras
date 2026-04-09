@@ -50,7 +50,7 @@ if (!databaseUrl || !databaseReachable) {
     role: 'CLASSIFIER',
     source: 'web',
     ip: '127.0.0.1',
-    userAgent: 'node-test'
+    userAgent: 'node-test',
   };
 
   const actorAdmin = {
@@ -59,15 +59,20 @@ if (!databaseUrl || !databaseReachable) {
     role: 'ADMIN',
     source: 'web',
     ip: '127.0.0.1',
-    userAgent: 'node-test'
+    userAgent: 'node-test',
   };
 
-  function buildInput({ headers = classifierAuthHeaders, params = {}, query = {}, body = {} } = {}) {
+  function buildInput({
+    headers = classifierAuthHeaders,
+    params = {},
+    query = {},
+    body = {},
+  } = {}) {
     return {
       headers,
       params,
       query,
-      body
+      body,
     };
   }
 
@@ -76,7 +81,7 @@ if (!databaseUrl || !databaseReachable) {
       timeZone: 'America/Sao_Paulo',
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
     }).formatToParts(date);
 
     const year = parts.find((part) => part.type === 'year')?.value;
@@ -112,7 +117,7 @@ if (!databaseUrl || !databaseReachable) {
         cnpj: overrides.cnpj ?? suffix,
         phone: overrides.phone ?? '35 3531-4046',
         isBuyer: overrides.isBuyer ?? true,
-        isSeller: overrides.isSeller ?? true
+        isSeller: overrides.isSeller ?? true,
       },
       actorClassifier
     );
@@ -124,14 +129,15 @@ if (!databaseUrl || !databaseReachable) {
     return clientService.createRegistration(
       clientId,
       {
-        registrationNumber: overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
+        registrationNumber:
+          overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
         registrationType: overrides.registrationType ?? 'estadual',
         addressLine: overrides.addressLine ?? 'Av. Oliveira Rezende, 1397',
         district: overrides.district ?? 'JD Bernadete',
         city: overrides.city ?? 'Sao Sebastiao do Paraiso',
         state: overrides.state ?? 'MG',
         postalCode: overrides.postalCode ?? '37950-078',
-        complement: overrides.complement ?? null
+        complement: overrides.complement ?? null,
       },
       actorClassifier
     );
@@ -140,7 +146,7 @@ if (!databaseUrl || !databaseReachable) {
   async function moveSampleToRegistrationConfirmed(sampleId) {
     const ownerClient = await createSellerClient({
       legalName: `Proprietario ${sampleId.slice(0, 8)} LTDA`,
-      tradeName: `Proprietario ${sampleId.slice(0, 8)} LTDA`
+      tradeName: `Proprietario ${sampleId.slice(0, 8)} LTDA`,
     });
 
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
@@ -149,7 +155,7 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -163,9 +169,9 @@ if (!databaseUrl || !databaseReachable) {
           owner: ownerClient.client.displayName,
           sacks: 11,
           harvest: '25/26',
-          originLot: 'ORIG-001'
+          originLot: 'ORIG-001',
         },
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -180,12 +186,14 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 1,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
 
-    const sampleLotNumber = await queryService.getNextInternalLotNumber(new Date().getUTCFullYear());
+    const sampleLotNumber = await queryService.getNextInternalLotNumber(
+      new Date().getUTCFullYear()
+    );
 
     const event = buildEventEnvelope({
       eventType: 'REGISTRATION_CONFIRMED',
@@ -196,7 +204,7 @@ if (!databaseUrl || !databaseReachable) {
           owner: 'Fazenda Teste',
           sacks: 11,
           harvest: '25/26',
-          originLot: 'ORIG-001'
+          originLot: 'ORIG-001',
         },
       },
       fromStatus: 'REGISTRATION_IN_PROGRESS',
@@ -204,7 +212,7 @@ if (!databaseUrl || !databaseReachable) {
       module: 'registration',
       actorContext: actorClassifier,
       idempotencyScope: 'REGISTRATION_CONFIRM',
-      idempotencyKey: randomUUID()
+      idempotencyKey: randomUUID(),
     });
 
     await eventService.appendEvent(event, { expectedVersion: 2 });
@@ -219,7 +227,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 3,
         attemptNumber: 1,
         printerId: 'printer-main',
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -230,7 +238,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 4,
         printAction: 'PRINT',
         attemptNumber: 1,
-        printerId: 'printer-main'
+        printerId: 'printer-main',
       },
       actorClassifier
     );
@@ -244,7 +252,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         classificationId: null,
-        notes: null
+        notes: null,
       },
       actorClassifier
     );
@@ -254,7 +262,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         fileBuffer: tinyPngBuffer,
         mimeType: 'image/png',
-        originalFileName: 'classificacao.png'
+        originalFileName: 'classificacao.png',
       },
       actorClassifier
     );
@@ -264,9 +272,9 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 6,
         classificationData: {
-          padrao: 'PADRAO-A'
+          padrao: 'PADRAO-A',
         },
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -282,7 +290,7 @@ if (!databaseUrl || !databaseReachable) {
       eventService,
       queryService,
       uploadService,
-      clientService
+      clientService,
     });
     authService = new LocalAuthService({
       secret: 'super-secret-for-backend-api-missing-tests',
@@ -293,36 +301,36 @@ if (!databaseUrl || !databaseReachable) {
           username: 'admin-test',
           password: 'admin123',
           role: actorAdmin.role,
-          displayName: 'Admin Teste'
+          displayName: 'Admin Teste',
         },
         {
           id: actorClassifier.actorUserId,
           username: 'classifier-test',
           password: 'classifier123',
           role: actorClassifier.role,
-          displayName: 'Classificador Teste'
-        }
-      ]
+          displayName: 'Classificador Teste',
+        },
+      ],
     });
 
     adminAuthHeaders = {
       authorization: `Bearer ${authService.login({ username: 'admin-test', password: 'admin123' }).accessToken}`,
       'x-forwarded-for': actorAdmin.ip,
       'user-agent': actorAdmin.userAgent,
-      'x-source': actorAdmin.source
+      'x-source': actorAdmin.source,
     };
 
     classifierAuthHeaders = {
       authorization: `Bearer ${authService.login({ username: 'classifier-test', password: 'classifier123' }).accessToken}`,
       'x-forwarded-for': actorClassifier.ip,
       'user-agent': actorClassifier.userAgent,
-      'x-source': actorClassifier.source
+      'x-source': actorClassifier.source,
     };
 
     reportService = new SamplePdfReportService({
       queryService,
       commandService,
-      uploadsBaseDir: uploadDir
+      uploadsBaseDir: uploadDir,
     });
 
     api = createBackendApiV1({
@@ -330,7 +338,7 @@ if (!databaseUrl || !databaseReachable) {
       clientService,
       commandService,
       queryService,
-      reportService
+      reportService,
     });
   });
 
@@ -358,8 +366,8 @@ if (!databaseUrl || !databaseReachable) {
           attemptNumber: 2,
           printerId: 'printer-main',
           reasonText: 'etiqueta perdida',
-          idempotencyKey
-        }
+          idempotencyKey,
+        },
       })
     );
 
@@ -373,8 +381,8 @@ if (!databaseUrl || !databaseReachable) {
           attemptNumber: 2,
           printerId: 'printer-main',
           reasonText: 'etiqueta perdida',
-          idempotencyKey
-        }
+          idempotencyKey,
+        },
       })
     );
 
@@ -387,7 +395,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         expectedVersion: 5,
         reasonCode: 'OTHER',
-        reasonText: 'teste de bloqueio'
+        reasonText: 'teste de bloqueio',
       },
       actorAdmin
     );
@@ -397,8 +405,8 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         body: {
           attemptNumber: 3,
-          reasonText: 'nova tentativa'
-        }
+          reasonText: 'nova tentativa',
+        },
       })
     );
 
@@ -413,8 +421,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -428,8 +436,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -448,8 +456,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
     assert.equal(requested.status, 201);
@@ -461,8 +469,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           printAction: 'REPRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -486,7 +494,7 @@ if (!databaseUrl || !databaseReachable) {
         expectedVersion: 3,
         attemptNumber: 1,
         printerId: 'printer-main',
-        idempotencyKey: randomUUID()
+        idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
@@ -496,8 +504,8 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         body: {
           printerId: 'printer-main',
-          reasonText: 'nova tentativa antes da confirmacao'
-        }
+          reasonText: 'nova tentativa antes da confirmacao',
+        },
       })
     );
 
@@ -515,8 +523,8 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: before.version,
           printAction: 'REPRINT',
           attemptNumber: 1,
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -541,8 +549,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
     assert.equal(requested.status, 201);
@@ -554,8 +562,8 @@ if (!databaseUrl || !databaseReachable) {
           printAction: 'REPRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
-          error: 'sem papel'
-        }
+          error: 'sem papel',
+        },
       })
     );
 
@@ -578,8 +586,8 @@ if (!databaseUrl || !databaseReachable) {
           originLot: 'ORIG-SEM-FOTO',
           receivedChannel: 'in_person',
           notes: 'criacao sem foto',
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -588,7 +596,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const ownerClient = await createSellerClient({
       legalName: 'Fazenda Nova Era',
-      tradeName: 'Fazenda Nova Era'
+      tradeName: 'Fazenda Nova Era',
     });
 
     const created = await api.createSampleAndPreparePrint(
@@ -601,8 +609,8 @@ if (!databaseUrl || !databaseReachable) {
           originLot: 'ORIG-SEM-FOTO',
           receivedChannel: 'in_person',
           notes: 'criacao sem foto',
-          printerId: 'printer-main'
-        }
+          printerId: 'printer-main',
+        },
       })
     );
 
@@ -610,7 +618,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(created.body.sample.status, 'QR_PENDING_PRINT');
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(created.body.qr.value, created.body.sample.internalLotNumber ?? created.body.sample.id);
+    assert.equal(
+      created.body.qr.value,
+      created.body.sample.internalLotNumber ?? created.body.sample.id
+    );
     assert.equal(created.body.print?.printAction, 'PRINT');
     assert.equal(created.body.print?.attemptNumber, 1);
     assert.equal(created.body.print?.status, 'PENDING');
@@ -627,14 +638,14 @@ if (!databaseUrl || !databaseReachable) {
     const ownerClient = await createSellerClient({
       legalName: 'Atlantica Exportacao e Importacao S/A',
       tradeName: 'Atlantica Exportacao e Importacao S/A',
-      cnpj: '03.936.815/0001-75'
+      cnpj: '03.936.815/0001-75',
     });
     const ownerRegistration = await createClientRegistration(ownerClient.client.id, {
       registrationNumber: '3940945840042',
       addressLine: 'Av. Princesa do Sul, 1885',
       district: 'Rezende',
       city: 'Varginha',
-      postalCode: '37062-447'
+      postalCode: '37062-447',
     });
 
     const created = await api.createSampleAndPreparePrint(
@@ -647,8 +658,8 @@ if (!databaseUrl || !databaseReachable) {
           sacks: 12,
           harvest: '25/26',
           originLot: 'ORIG-OWNER-LINKED',
-          receivedChannel: 'in_person'
-        }
+          receivedChannel: 'in_person',
+        },
       })
     );
 
@@ -662,9 +673,14 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.ownerRegistrationId, ownerRegistration.registration.id);
     assert.equal(detail.sample.declared.owner, ownerClient.client.displayName);
 
-    const registrationConfirmed = detail.events.find((event) => event.eventType === 'REGISTRATION_CONFIRMED');
+    const registrationConfirmed = detail.events.find(
+      (event) => event.eventType === 'REGISTRATION_CONFIRMED'
+    );
     assert.equal(registrationConfirmed?.payload?.ownerClientId, ownerClient.client.id);
-    assert.equal(registrationConfirmed?.payload?.ownerRegistrationId, ownerRegistration.registration.id);
+    assert.equal(
+      registrationConfirmed?.payload?.ownerRegistrationId,
+      ownerRegistration.registration.id
+    );
   });
 
   test('POST /registration/update can attach structured owner to a legacy sample and clear previous registration on owner change', async () => {
@@ -681,11 +697,11 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 3,
           after: {
             ownerClientId: firstOwner.client.id,
-            ownerRegistrationId: firstRegistration.registration.id
+            ownerRegistrationId: firstRegistration.registration.id,
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'vincular cliente'
-        }
+          reasonText: 'vincular cliente',
+        },
       })
     );
 
@@ -700,7 +716,7 @@ if (!databaseUrl || !databaseReachable) {
     const secondOwner = await createSellerClient({
       legalName: 'Cliente Segundo Proprietario LTDA',
       tradeName: 'Cliente Segundo Proprietario LTDA',
-      cnpj: '11.222.333/0001-44'
+      cnpj: '11.222.333/0001-44',
     });
 
     const switched = await api.updateRegistration(
@@ -709,11 +725,11 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: attachedSample.version,
           after: {
-            ownerClientId: secondOwner.client.id
+            ownerClientId: secondOwner.client.id,
           },
           reasonCode: 'TYPO',
-          reasonText: 'trocar cliente'
-        }
+          reasonText: 'trocar cliente',
+        },
       })
     );
 
@@ -730,13 +746,13 @@ if (!databaseUrl || !databaseReachable) {
     const inactiveOwner = await createSellerClient({
       legalName: 'Cliente Inativo LTDA',
       tradeName: 'Cliente Inativo LTDA',
-      cnpj: '55.666.777/0001-88'
+      cnpj: '55.666.777/0001-88',
     });
 
     await clientService.inactivateClient(
       inactiveOwner.client.id,
       {
-        reasonText: 'bloqueado'
+        reasonText: 'bloqueado',
       },
       actorAdmin
     );
@@ -748,8 +764,8 @@ if (!databaseUrl || !databaseReachable) {
           ownerClientId: inactiveOwner.client.id,
           sacks: 10,
           harvest: '25/26',
-          originLot: 'ORIG-INACTIVE'
-        }
+          originLot: 'ORIG-INACTIVE',
+        },
       })
     );
 
@@ -760,7 +776,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Apenas LTDA',
       cnpj: '88.777.666/0001-55',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
 
     const buyerOnlyResult = await api.createSampleAndPreparePrint(
@@ -770,8 +786,8 @@ if (!databaseUrl || !databaseReachable) {
           ownerClientId: buyerOnlyOwner.client.id,
           sacks: 10,
           harvest: '25/26',
-          originLot: 'ORIG-NOT-SELLER'
-        }
+          originLot: 'ORIG-NOT-SELLER',
+        },
       })
     );
 
@@ -780,15 +796,15 @@ if (!databaseUrl || !databaseReachable) {
     const ownerA = await createSellerClient({
       legalName: 'Proprietario A LTDA',
       tradeName: 'Proprietario A LTDA',
-      cnpj: '12.123.123/0001-12'
+      cnpj: '12.123.123/0001-12',
     });
     const ownerB = await createSellerClient({
       legalName: 'Proprietario B LTDA',
       tradeName: 'Proprietario B LTDA',
-      cnpj: '13.123.123/0001-13'
+      cnpj: '13.123.123/0001-13',
     });
     const ownerBRegistration = await createClientRegistration(ownerB.client.id, {
-      registrationNumber: '998877665544'
+      registrationNumber: '998877665544',
     });
 
     const mismatchedRegistration = await api.createSampleAndPreparePrint(
@@ -799,8 +815,8 @@ if (!databaseUrl || !databaseReachable) {
           ownerRegistrationId: ownerBRegistration.registration.id,
           sacks: 10,
           harvest: '25/26',
-          originLot: 'ORIG-MISMATCH'
-        }
+          originLot: 'ORIG-MISMATCH',
+        },
       })
     );
 
@@ -811,7 +827,7 @@ if (!databaseUrl || !databaseReachable) {
     const ownerClient = await createSellerClient({
       legalName: 'Cliente Original LTDA',
       tradeName: 'Cliente Original LTDA',
-      cnpj: '99.888.777/0001-66'
+      cnpj: '99.888.777/0001-66',
     });
 
     const created = await api.createSampleAndPreparePrint(
@@ -821,8 +837,8 @@ if (!databaseUrl || !databaseReachable) {
           ownerClientId: ownerClient.client.id,
           sacks: 15,
           harvest: '25/26',
-          originLot: 'ORIG-SYNC-OWNER'
-        }
+          originLot: 'ORIG-SYNC-OWNER',
+        },
       })
     );
 
@@ -837,7 +853,7 @@ if (!databaseUrl || !databaseReachable) {
         tradeName: 'Cliente Renomeado LTDA',
         isBuyer: true,
         isSeller: true,
-        reasonText: 'renomear cliente'
+        reasonText: 'renomear cliente',
       },
       actorAdmin
     );
@@ -854,11 +870,11 @@ if (!databaseUrl || !databaseReachable) {
     const clientDraftId = randomUUID();
     const firstOwner = await createSellerClient({
       legalName: 'Fazenda Idempotente',
-      tradeName: 'Fazenda Idempotente'
+      tradeName: 'Fazenda Idempotente',
     });
     const secondOwner = await createSellerClient({
       legalName: 'Outro Proprietario Idempotente',
-      tradeName: 'Outro Proprietario Idempotente'
+      tradeName: 'Outro Proprietario Idempotente',
     });
 
     const first = await api.createSampleAndPreparePrint(
@@ -869,8 +885,8 @@ if (!databaseUrl || !databaseReachable) {
           sacks: 20,
           harvest: '25/26',
           originLot: 'ORIG-001',
-          receivedChannel: 'courier'
-        }
+          receivedChannel: 'courier',
+        },
       })
     );
 
@@ -882,8 +898,8 @@ if (!databaseUrl || !databaseReachable) {
           sacks: 99,
           harvest: '99/00',
           originLot: 'ORIG-999',
-          receivedChannel: 'driver'
-        }
+          receivedChannel: 'driver',
+        },
       })
     );
 
@@ -912,7 +928,7 @@ if (!databaseUrl || !databaseReachable) {
       if (!ownerClientId) {
         const ownerClient = await createSellerClient({
           legalName: ownerName,
-          tradeName: ownerName
+          tradeName: ownerName,
         });
         ownerClientId = ownerClient.client.id;
         ownerClientIds.set(ownerName, ownerClientId);
@@ -926,8 +942,8 @@ if (!databaseUrl || !databaseReachable) {
             sacks: 5 + index,
             harvest: index === 10 ? targetHarvest : '25/26',
             originLot: `ORIG-${String(index + 1).padStart(3, '0')}`,
-            receivedChannel: 'courier'
-          }
+            receivedChannel: 'courier',
+          },
         })
       );
 
@@ -942,8 +958,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           limit: '30',
-          page: '1'
-        }
+          page: '1',
+        },
       })
     );
 
@@ -959,8 +975,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           limit: '30',
-          page: '2'
-        }
+          page: '2',
+        },
       })
     );
 
@@ -979,8 +995,8 @@ if (!databaseUrl || !databaseReachable) {
           lot: targetInternalLotNumber,
           owner: targetOwner.toLowerCase(),
           harvest: targetHarvest,
-          createdDate: dateInSaoPaulo
-        }
+          createdDate: dateInSaoPaulo,
+        },
       })
     );
 
@@ -995,8 +1011,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           owner: targetOwner.toLowerCase(),
-          createdMonth: monthInSaoPaulo
-        }
+          createdMonth: monthInSaoPaulo,
+        },
       })
     );
 
@@ -1008,8 +1024,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           owner: targetOwner,
-          createdYear: yearInSaoPaulo
-        }
+          createdYear: yearInSaoPaulo,
+        },
       })
     );
 
@@ -1020,8 +1036,8 @@ if (!databaseUrl || !databaseReachable) {
     const searchByLot = await api.listSamples(
       buildInput({
         query: {
-          search: targetInternalLotNumber
-        }
+          search: targetInternalLotNumber,
+        },
       })
     );
 
@@ -1032,8 +1048,8 @@ if (!databaseUrl || !databaseReachable) {
     const searchByOwner = await api.listSamples(
       buildInput({
         query: {
-          search: targetOwner
-        }
+          search: targetOwner,
+        },
       })
     );
 
@@ -1044,8 +1060,8 @@ if (!databaseUrl || !databaseReachable) {
     const ownerPartial = await api.listSamples(
       buildInput({
         query: {
-          owner: 'Fazenda Filtro'
-        }
+          owner: 'Fazenda Filtro',
+        },
       })
     );
 
@@ -1056,7 +1072,7 @@ if (!databaseUrl || !databaseReachable) {
   test('GET /samples supports statusGroup filter options', async () => {
     const printPendingOwner = await createSellerClient({
       legalName: 'Fazenda Print Pendente',
-      tradeName: 'Fazenda Print Pendente'
+      tradeName: 'Fazenda Print Pendente',
     });
 
     const printPending = await api.createSampleAndPreparePrint(
@@ -1067,8 +1083,8 @@ if (!databaseUrl || !databaseReachable) {
           sacks: 20,
           harvest: '25/26',
           originLot: 'ORIG-PRINT',
-          receivedChannel: 'courier'
-        }
+          receivedChannel: 'courier',
+        },
       })
     );
     assert.equal(printPending.status, 201);
@@ -1084,8 +1100,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 5,
           classificationId: null,
-          notes: null
-        }
+          notes: null,
+        },
       })
     );
     assert.equal(started.status, 201);
@@ -1096,8 +1112,8 @@ if (!databaseUrl || !databaseReachable) {
     const printPendingFiltered = await api.listSamples(
       buildInput({
         query: {
-          statusGroup: 'PRINT_PENDING'
-        }
+          statusGroup: 'PRINT_PENDING',
+        },
       })
     );
     assert.equal(printPendingFiltered.status, 200);
@@ -1109,20 +1125,22 @@ if (!databaseUrl || !databaseReachable) {
     const classificationPendingFiltered = await api.listSamples(
       buildInput({
         query: {
-          statusGroup: 'CLASSIFICATION_PENDING'
-        }
+          statusGroup: 'CLASSIFICATION_PENDING',
+        },
       })
     );
     assert.equal(classificationPendingFiltered.status, 200);
     assert.equal(classificationPendingFiltered.body.page.total, 2);
-    const pendingStatuses = classificationPendingFiltered.body.items.map((item) => item.status).sort();
+    const pendingStatuses = classificationPendingFiltered.body.items
+      .map((item) => item.status)
+      .sort();
     assert.deepEqual(pendingStatuses, ['CLASSIFICATION_IN_PROGRESS', 'QR_PRINTED']);
 
     const classifiedFiltered = await api.listSamples(
       buildInput({
         query: {
-          statusGroup: 'CLASSIFIED'
-        }
+          statusGroup: 'CLASSIFIED',
+        },
       })
     );
     assert.equal(classifiedFiltered.status, 200);
@@ -1138,7 +1156,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Comercial LTDA',
       cnpj: '77.777.777/0001-77',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
     await commandService.createSampleMovement(
       {
@@ -1148,7 +1166,7 @@ if (!databaseUrl || !databaseReachable) {
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
         movementDate: '2026-03-19',
-        notes: 'lote completo'
+        notes: 'lote completo',
       },
       actorClassifier
     );
@@ -1160,7 +1178,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId: lostSampleId,
         expectedVersion: 7,
         toCommercialStatus: 'LOST',
-        reasonText: 'extravio'
+        reasonText: 'extravio',
       },
       actorClassifier
     );
@@ -1175,7 +1193,7 @@ if (!databaseUrl || !databaseReachable) {
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
         movementDate: '2026-03-19',
-        notes: 'venda parcial'
+        notes: 'venda parcial',
       },
       actorClassifier
     );
@@ -1186,8 +1204,8 @@ if (!databaseUrl || !databaseReachable) {
     const soldFiltered = await api.listSamples(
       buildInput({
         query: {
-          commercialStatus: 'SOLD'
-        }
+          commercialStatus: 'SOLD',
+        },
       })
     );
     assert.equal(soldFiltered.status, 200);
@@ -1197,8 +1215,8 @@ if (!databaseUrl || !databaseReachable) {
     const partialFiltered = await api.listSamples(
       buildInput({
         query: {
-          commercialStatus: 'PARTIALLY_SOLD'
-        }
+          commercialStatus: 'PARTIALLY_SOLD',
+        },
       })
     );
     assert.equal(partialFiltered.status, 200);
@@ -1208,8 +1226,8 @@ if (!databaseUrl || !databaseReachable) {
     const lostFiltered = await api.listSamples(
       buildInput({
         query: {
-          commercialStatus: 'LOST'
-        }
+          commercialStatus: 'LOST',
+        },
       })
     );
     assert.equal(lostFiltered.status, 200);
@@ -1219,8 +1237,8 @@ if (!databaseUrl || !databaseReachable) {
     const openFiltered = await api.listSamples(
       buildInput({
         query: {
-          commercialStatus: 'OPEN'
-        }
+          commercialStatus: 'OPEN',
+        },
       })
     );
     assert.equal(openFiltered.status, 200);
@@ -1232,8 +1250,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidDate = await api.listSamples(
       buildInput({
         query: {
-          createdDate: '2026-99-99'
-        }
+          createdDate: '2026-99-99',
+        },
       })
     );
 
@@ -1242,8 +1260,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidMonth = await api.listSamples(
       buildInput({
         query: {
-          createdMonth: '2026-13'
-        }
+          createdMonth: '2026-13',
+        },
       })
     );
 
@@ -1252,8 +1270,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidYear = await api.listSamples(
       buildInput({
         query: {
-          createdYear: '26'
-        }
+          createdYear: '26',
+        },
       })
     );
 
@@ -1263,8 +1281,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         query: {
           createdDate: '2026-03-05',
-          createdMonth: '2026-03'
-        }
+          createdMonth: '2026-03',
+        },
       })
     );
 
@@ -1273,8 +1291,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidStatusGroup = await api.listSamples(
       buildInput({
         query: {
-          statusGroup: 'UNKNOWN_STATUS'
-        }
+          statusGroup: 'UNKNOWN_STATUS',
+        },
       })
     );
 
@@ -1283,8 +1301,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidCommercialStatus = await api.listSamples(
       buildInput({
         query: {
-          commercialStatus: 'UNKNOWN_COMMERCIAL_STATUS'
-        }
+          commercialStatus: 'UNKNOWN_COMMERCIAL_STATUS',
+        },
       })
     );
 
@@ -1293,8 +1311,8 @@ if (!databaseUrl || !databaseReachable) {
     const invalidPage = await api.listSamples(
       buildInput({
         query: {
-          page: '0'
-        }
+          page: '0',
+        },
       })
     );
 
@@ -1311,8 +1329,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 5,
           classificationId: null,
-          notes: null
-        }
+          notes: null,
+        },
       })
     );
     assert.equal(started.status, 201);
@@ -1325,8 +1343,8 @@ if (!databaseUrl || !databaseReachable) {
           fileBuffer: Buffer.from('classification-photo-through-api'),
           mimeType: 'image/jpeg',
           originalFileName: 'classificacao-api.jpg',
-          replaceExisting: true
-        }
+          replaceExisting: true,
+        },
       })
     );
 
@@ -1335,7 +1353,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(uploaded.body.event.payload.kind, 'CLASSIFICATION_PHOTO');
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 30 });
-    const classificationPhotos = detail.attachments.filter((attachment) => attachment.kind === 'CLASSIFICATION_PHOTO');
+    const classificationPhotos = detail.attachments.filter(
+      (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
+    );
     assert.equal(classificationPhotos.length, 1);
   });
 
@@ -1348,8 +1368,8 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         body: {
           exportType: 'COMPLETO',
-          destination: 'Comprador XPTO'
-        }
+          destination: 'Comprador XPTO',
+        },
       })
     );
 
@@ -1388,8 +1408,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          exportType: 'COMPRADOR_PARCIAL'
-        }
+          exportType: 'COMPRADOR_PARCIAL',
+        },
       })
     );
 
@@ -1418,8 +1438,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          exportType: 'COMPLETO'
-        }
+          exportType: 'COMPLETO',
+        },
       })
     );
 
@@ -1438,8 +1458,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          exportType: 'PARCIAL_X'
-        }
+          exportType: 'PARCIAL_X',
+        },
       })
     );
 
@@ -1456,8 +1476,8 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         body: {
           exportType: 'COMPLETO',
-          destination: 42
-        }
+          destination: 42,
+        },
       })
     );
 
@@ -1476,17 +1496,17 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 3,
           before: {
             declared: {
-              owner: 'Fazenda Teste'
-            }
+              owner: 'Fazenda Teste',
+            },
           },
           after: {
             declared: {
-              owner: 'Fazenda Corrigida'
-            }
+              owner: 'Fazenda Corrigida',
+            },
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'correcao de cadastro'
-        }
+          reasonText: 'correcao de cadastro',
+        },
       })
     );
 
@@ -1504,17 +1524,17 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 3,
           before: {
             declared: {
-              owner: 'Fazenda Corrigida'
-            }
+              owner: 'Fazenda Corrigida',
+            },
           },
           after: {
             declared: {
-              owner: 'Outro Nome'
-            }
+              owner: 'Outro Nome',
+            },
           },
           reasonCode: 'TYPO',
-          reasonText: 'digitacao'
-        }
+          reasonText: 'digitacao',
+        },
       })
     );
 
@@ -1532,18 +1552,18 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 7,
           before: {
             classificationData: {
-              padrao: 'PADRAO-A'
-            }
+              padrao: 'PADRAO-A',
+            },
           },
           after: {
             classificationData: {
               padrao: 'PADRAO-B',
-              bebida: 'DURA'
-            }
+              bebida: 'DURA',
+            },
           },
           reasonCode: 'TYPO',
-          reasonText: 'ajuste pos classificacao'
-        }
+          reasonText: 'ajuste pos classificacao',
+        },
       })
     );
 
@@ -1569,12 +1589,12 @@ if (!databaseUrl || !databaseReachable) {
           after: {
             declared: {
               owner: 'Fazenda Teste',
-              sacks: 12
-            }
+              sacks: 12,
+            },
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'ajuste de sacas'
-        }
+          reasonText: 'ajuste de sacas',
+        },
       })
     );
 
@@ -1582,13 +1602,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.body.event.eventType, 'REGISTRATION_UPDATED');
     assert.deepEqual(updated.body.event.payload.before, {
       declared: {
-        sacks: 11
-      }
+        sacks: 11,
+      },
     });
     assert.deepEqual(updated.body.event.payload.after, {
       declared: {
-        sacks: 12
-      }
+        sacks: 12,
+      },
     });
 
     const blocked = await api.updateRegistration(
@@ -1599,12 +1619,12 @@ if (!databaseUrl || !databaseReachable) {
           after: {
             id: 'forbidden-id',
             declared: {
-              owner: 'Fazenda X'
-            }
+              owner: 'Fazenda X',
+            },
           },
           reasonCode: 'TYPO',
-          reasonText: 'tentativa invalida'
-        }
+          reasonText: 'tentativa invalida',
+        },
       })
     );
 
@@ -1622,12 +1642,12 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 1,
           after: {
             classificationData: {
-              padrao: 'PADRAO-INICIAL'
-            }
+              padrao: 'PADRAO-INICIAL',
+            },
           },
           reasonCode: 'MISSING_INFO',
-          reasonText: 'ajuste inicial'
-        }
+          reasonText: 'ajuste inicial',
+        },
       })
     );
 
@@ -1644,12 +1664,12 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 2,
           after: {
             classificationData: {
-              padrao: 'PADRAO-2'
-            }
+              padrao: 'PADRAO-2',
+            },
           },
           reasonCode: 'OTHER',
-          reasonText: 'um dois tres quatro cinco seis sete oito nove dez onze'
-        }
+          reasonText: 'um dois tres quatro cinco seis sete oito nove dez onze',
+        },
       })
     );
 
@@ -1667,12 +1687,12 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 7,
           after: {
             classificationData: {
-              padrao: 'PADRAO-REVERSIVEL'
-            }
+              padrao: 'PADRAO-REVERSIVEL',
+            },
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'ajuste temporario'
-        }
+          reasonText: 'ajuste temporario',
+        },
       })
     );
 
@@ -1686,8 +1706,8 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 8,
           targetEventId: changed.body.event.eventId,
           reasonCode: 'DATA_FIX',
-          reasonText: 'reverter ajuste'
-        }
+          reasonText: 'reverter ajuste',
+        },
       })
     );
 
@@ -1709,8 +1729,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 7,
           toCommercialStatus: 'SOLD',
-          reasonText: 'negocio fechado'
-        }
+          reasonText: 'negocio fechado',
+        },
       })
     );
 
@@ -1722,8 +1742,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 7,
           toCommercialStatus: 'LOST',
-          reasonText: 'extravio total'
-        }
+          reasonText: 'extravio total',
+        },
       })
     );
 
@@ -1738,8 +1758,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 8,
           toCommercialStatus: 'LOST',
-          reasonText: 'segunda tentativa'
-        }
+          reasonText: 'segunda tentativa',
+        },
       })
     );
 
@@ -1752,7 +1772,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Parcial LTDA',
       cnpj: '66.555.444/0001-33',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
     const partialSale = await api.createSampleMovement(
       buildInput({
@@ -1763,8 +1783,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: buyer.client.id,
           quantitySacks: 4,
           movementDate: '2026-03-19',
-          notes: 'parcial'
-        }
+          notes: 'parcial',
+        },
       })
     );
 
@@ -1776,8 +1796,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: partialSale.body.sample.version,
           toCommercialStatus: 'LOST',
-          reasonText: 'restante perdido'
-        }
+          reasonText: 'restante perdido',
+        },
       })
     );
 
@@ -1797,8 +1817,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 5,
           toCommercialStatus: 'LOST',
-          reasonText: 'deveria falhar'
-        }
+          reasonText: 'deveria falhar',
+        },
       })
     );
 
@@ -1814,14 +1834,14 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador A LTDA',
       cnpj: '22.333.444/0001-55',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
     const buyerB = await createSellerClient({
       legalName: 'Comprador B LTDA',
       tradeName: 'Comprador B LTDA',
       cnpj: '33.444.555/0001-66',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
 
     const createdSale = await api.createSampleMovement(
@@ -1833,8 +1853,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: buyerA.client.id,
           quantitySacks: 5,
           movementDate: '2026-03-19',
-          notes: 'venda inicial'
-        }
+          notes: 'venda inicial',
+        },
       })
     );
 
@@ -1849,17 +1869,17 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: {
           sampleId,
-          movementId: createdSale.body.event.payload.movementId
+          movementId: createdSale.body.event.payload.movementId,
         },
         body: {
           expectedVersion: createdSale.body.sample.version,
           after: {
             buyerClientId: buyerB.client.id,
             quantitySacks: 6,
-            notes: 'venda revisada'
+            notes: 'venda revisada',
           },
-          reasonText: 'ajuste comercial'
-        }
+          reasonText: 'ajuste comercial',
+        },
       })
     );
 
@@ -1877,8 +1897,8 @@ if (!databaseUrl || !databaseReachable) {
           movementType: 'LOSS',
           quantitySacks: 2,
           movementDate: '2026-03-20',
-          lossReasonText: 'quebra de lote'
-        }
+          lossReasonText: 'quebra de lote',
+        },
       })
     );
 
@@ -1889,24 +1909,27 @@ if (!databaseUrl || !databaseReachable) {
 
     const movements = await api.listSampleMovements(
       buildInput({
-        params: { sampleId }
+        params: { sampleId },
       })
     );
 
     assert.equal(movements.status, 200);
     assert.equal(movements.body.movements.length, 2);
-    assert.equal(movements.body.movements[0].createdAt >= movements.body.movements[1].createdAt, true);
+    assert.equal(
+      movements.body.movements[0].createdAt >= movements.body.movements[1].createdAt,
+      true
+    );
 
     const cancelledLoss = await api.cancelSampleMovement(
       buildInput({
         params: {
           sampleId,
-          movementId: createdLoss.body.event.payload.movementId
+          movementId: createdLoss.body.event.payload.movementId,
         },
         body: {
           expectedVersion: createdLoss.body.sample.version,
-          reasonText: 'cancelar perda'
-        }
+          reasonText: 'cancelar perda',
+        },
       })
     );
 
@@ -1925,12 +1948,12 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Inativo LTDA',
       cnpj: '44.555.666/0001-77',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
     await clientService.inactivateClient(
       inactiveBuyer.client.id,
       {
-        reasonText: 'inativado'
+        reasonText: 'inativado',
       },
       actorAdmin
     );
@@ -1944,8 +1967,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: inactiveBuyer.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
-          notes: 'deve falhar'
-        }
+          notes: 'deve falhar',
+        },
       })
     );
     assert.equal(inactiveBuyerResult.status, 422);
@@ -1955,7 +1978,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Vendedor Somente LTDA',
       cnpj: '55.666.777/0001-88',
       isBuyer: false,
-      isSeller: true
+      isSeller: true,
     });
 
     const nonBuyerResult = await api.createSampleMovement(
@@ -1967,8 +1990,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: sellerOnlyClient.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
-          notes: 'deve falhar'
-        }
+          notes: 'deve falhar',
+        },
       })
     );
     assert.equal(nonBuyerResult.status, 422);
@@ -1980,7 +2003,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Valido LTDA',
       cnpj: '66.777.888/0001-99',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
 
     const blockedByStatus = await api.createSampleMovement(
@@ -1992,8 +2015,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: validBuyer.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
-          notes: 'deve falhar'
-        }
+          notes: 'deve falhar',
+        },
       })
     );
     assert.equal(blockedByStatus.status, 409);
@@ -2011,8 +2034,8 @@ if (!databaseUrl || !databaseReachable) {
           movementType: 'LOSS',
           quantitySacks: 2,
           movementDate: '2026-03-19',
-          lossReasonText: 'quebra parcial'
-        }
+          lossReasonText: 'quebra parcial',
+        },
       })
     );
 
@@ -2033,7 +2056,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Comprador Registro LTDA',
       cnpj: '77.888.999/0001-00',
       isBuyer: true,
-      isSeller: false
+      isSeller: false,
     });
 
     const createdSale = await api.createSampleMovement(
@@ -2045,8 +2068,8 @@ if (!databaseUrl || !databaseReachable) {
           buyerClientId: buyer.client.id,
           quantitySacks: 5,
           movementDate: '2026-03-19',
-          notes: 'venda parcial'
-        }
+          notes: 'venda parcial',
+        },
       })
     );
 
@@ -2057,12 +2080,12 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: createdSale.body.sample.version,
           after: {
             declared: {
-              sacks: 5
-            }
+              sacks: 5,
+            },
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'ajuste de volume'
-        }
+          reasonText: 'ajuste de volume',
+        },
       })
     );
 
@@ -2079,12 +2102,12 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: reducedSample.version,
           after: {
             declared: {
-              sacks: 4
-            }
+              sacks: 4,
+            },
           },
           reasonCode: 'DATA_FIX',
-          reasonText: 'deve falhar'
-        }
+          reasonText: 'deve falhar',
+        },
       })
     );
 
@@ -2102,8 +2125,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 1,
           reasonCode: 'OTHER',
-          reasonText: 'classificador nao pode'
-        }
+          reasonText: 'classificador nao pode',
+        },
       })
     );
 
@@ -2117,8 +2140,8 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           expectedVersion: 2,
           reasonCode: 'CANCELLED',
-          reasonText: 'cancelamento administrativo'
-        }
+          reasonText: 'cancelamento administrativo',
+        },
       })
     );
 
@@ -2133,8 +2156,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         query: {
-          limit: '2'
-        }
+          limit: '2',
+        },
       })
     );
 
@@ -2150,8 +2173,8 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         query: {
           afterSequence: '2',
-          limit: '10'
-        }
+          limit: '10',
+        },
       })
     );
 
@@ -2166,8 +2189,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         query: {
-          limit: 'abc'
-        }
+          limit: 'abc',
+        },
       })
     );
 
@@ -2177,8 +2200,8 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         query: {
-          afterSequence: '-1'
-        }
+          afterSequence: '-1',
+        },
       })
     );
 

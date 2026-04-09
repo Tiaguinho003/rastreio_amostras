@@ -23,7 +23,9 @@ function assertAuthSecretForProduction() {
       throw new Error('AUTH_SECRET is required and must contain at least 16 characters');
     }
 
-    throw new Error('AUTH_SECRET is required and must contain at least 16 characters in production');
+    throw new Error(
+      'AUTH_SECRET is required and must contain at least 16 characters in production'
+    );
   }
 
   return secret;
@@ -39,10 +41,10 @@ export function createBackendApiV1FromEnv() {
   const emailService = createAppEmailServiceFromEnv();
   const userService = new UserService({
     prisma,
-    emailService
+    emailService,
   });
   const clientService = new ClientService({
-    prisma
+    prisma,
   });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
@@ -58,17 +60,17 @@ export function createBackendApiV1FromEnv() {
     uploadService,
     clientService,
     extractionService,
-    formDetectionService
+    formDetectionService,
   });
   const reportService = new SamplePdfReportService({
     queryService,
     commandService,
-    uploadsBaseDir: uploadService.baseDir
+    uploadsBaseDir: uploadService.baseDir,
   });
   const authService = new DatabaseAuthService({
     prisma,
     secret,
-    userService
+    userService,
   });
 
   return createBackendApiV1({
@@ -77,6 +79,6 @@ export function createBackendApiV1FromEnv() {
     clientService,
     commandService,
     queryService,
-    reportService
+    reportService,
   });
 }

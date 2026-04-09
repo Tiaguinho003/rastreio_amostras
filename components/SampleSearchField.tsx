@@ -37,7 +37,7 @@ export function SampleSearchField({
   className,
   compact = false,
   placeholder = 'Buscar amostra',
-  submitLabel = 'Buscar'
+  submitLabel = 'Buscar',
 }: SampleSearchFieldProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -160,17 +160,18 @@ export function SampleSearchField({
     }
   }
 
-  const classes = [
-    'sample-search',
-    compact ? 'sample-search-compact' : '',
-    className ?? ''
-  ]
+  const classes = ['sample-search', compact ? 'sample-search-compact' : '', className ?? '']
     .filter(Boolean)
     .join(' ');
 
   return (
     <>
-      <form className={classes} onSubmit={handleSubmit} role="search" aria-label="Buscar amostra por numero">
+      <form
+        className={classes}
+        onSubmit={handleSubmit}
+        role="search"
+        aria-label="Buscar amostra por numero"
+      >
         <label className={`sample-search-field ${error ? 'has-error' : ''}`}>
           <input
             ref={inputRef}
@@ -182,7 +183,12 @@ export function SampleSearchField({
             aria-label="Numero da amostra"
             disabled={submitting}
           />
-          <button type="submit" className="sample-search-icon-button" disabled={submitting} aria-label="Buscar">
+          <button
+            type="submit"
+            className="sample-search-icon-button"
+            disabled={submitting}
+            aria-label="Buscar"
+          >
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="m16.2 16.2 4.1 4.1" />

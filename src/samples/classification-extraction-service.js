@@ -350,7 +350,7 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
 const USER_PROMPTS = {
   BICA: BICA_USER_PROMPT,
   PREPARADO: PREPARADO_USER_PROMPT,
-  LOW_CAFF: LOW_CAFF_USER_PROMPT
+  LOW_CAFF: LOW_CAFF_USER_PROMPT,
 };
 
 // ============================================================
@@ -359,36 +359,109 @@ const USER_PROMPTS = {
 
 const KNOWN_LABELS = new Set([
   // ---- Field labels from SAFRAS classification forms (all types) ----
-  'broca', 'pva', 'impureza', 'imp', 'defeitos', 'defeito', 'umidade',
-  'padrao', 'padrão', 'catacao', 'catação', 'aspecto', 'bebida',
-  'p19', 'p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk',
-  'fundo', 'fundo1', 'fundo2', 'fundos', 'peneira', 'percentual',
-  'fundo pen', 'fundo pen.', 'fundo %', 'pen.', 'pen',
-  'pau', 'ap', 'gpi', 'lote', 'sacas', 'safra', 'data',
-  'observações', 'observacoes',
-  'aproveitamento', 'ap %',
+  'broca',
+  'pva',
+  'impureza',
+  'imp',
+  'defeitos',
+  'defeito',
+  'umidade',
+  'padrao',
+  'padrão',
+  'catacao',
+  'catação',
+  'aspecto',
+  'bebida',
+  'p19',
+  'p18',
+  'p17',
+  'p16',
+  'p15',
+  'p14',
+  'p13',
+  'p12',
+  'p11',
+  'p10',
+  'mk',
+  'fundo',
+  'fundo1',
+  'fundo2',
+  'fundos',
+  'peneira',
+  'percentual',
+  'fundo pen',
+  'fundo pen.',
+  'fundo %',
+  'pen.',
+  'pen',
+  'pau',
+  'ap',
+  'gpi',
+  'lote',
+  'sacas',
+  'safra',
+  'data',
+  'observações',
+  'observacoes',
+  'aproveitamento',
+  'ap %',
 
   // ---- Punctuated labels (as printed on cards) ----
-  'p.19', 'p.18', 'p.17', 'p.16', 'p.15', 'p.14', 'p.13', 'p.12', 'p.11', 'p.10',
-  'p.19 %', 'p.18 %', 'p.17 %', 'p.16 %', 'p.15 %', 'p.14 %', 'p.13 %', 'p.12 %', 'p.11 %', 'p.10 %',
-  'mk %', 'umid.', 'umid. %',
+  'p.19',
+  'p.18',
+  'p.17',
+  'p.16',
+  'p.15',
+  'p.14',
+  'p.13',
+  'p.12',
+  'p.11',
+  'p.10',
+  'p.19 %',
+  'p.18 %',
+  'p.17 %',
+  'p.16 %',
+  'p.15 %',
+  'p.14 %',
+  'p.13 %',
+  'p.12 %',
+  'p.11 %',
+  'p.10 %',
+  'mk %',
+  'umid.',
+  'umid. %',
 
   // ---- Type names printed on cards ----
-  'bica', 'preparado', 'low caff',
+  'bica',
+  'preparado',
+  'low caff',
 
   // ---- Form identifiers ----
-  'classificador', 'safras', '& negocios', 'safras & negocios',
+  'classificador',
+  'safras',
+  '& negocios',
+  'safras & negocios',
 
   // ---- JSON schema placeholders (model might echo these) ----
-  'string ou null', 'null', 'string', 'numero manuscrito ou null',
-  'valor manuscrito ou null', 'numero ou null',
-  'codigo manuscrito ou null', 'codigo manuscrito do cabecalho ou null',
-  'texto manuscrito ou null', 'identificador manuscrito ou null',
+  'string ou null',
+  'null',
+  'string',
+  'numero manuscrito ou null',
+  'valor manuscrito ou null',
+  'numero ou null',
+  'codigo manuscrito ou null',
+  'codigo manuscrito do cabecalho ou null',
+  'texto manuscrito ou null',
+  'identificador manuscrito ou null',
   'texto manuscrito completo ou null',
 
   // ---- External reference tables that may appear in photo ----
-  'green coffee', 'volcafe', 'grade of imperfections',
-  'schedule of imperfections', 'classificação de café', 'classification'
+  'green coffee',
+  'volcafe',
+  'grade of imperfections',
+  'schedule of imperfections',
+  'classificação de café',
+  'classification',
 ]);
 
 // ============================================================
@@ -439,7 +512,7 @@ function normalizeClassificacaoBica(raw) {
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
     fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
     fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
-    observacoes: toStringOrNull(raw.observacoes)
+    observacoes: toStringOrNull(raw.observacoes),
   };
 }
 
@@ -463,7 +536,7 @@ function normalizeClassificacaoPreparado(raw) {
     defeito: toNumericOrNull(raw.defeito),
     fundo1_peneira: rejectIfLabel(toStringOrNull(raw.fundo1_peneira)),
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
-    observacoes: toStringOrNull(raw.observacoes)
+    observacoes: toStringOrNull(raw.observacoes),
   };
 }
 
@@ -490,14 +563,14 @@ function normalizeClassificacaoLowCaff(raw) {
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
     fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
     fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
-    observacoes: toStringOrNull(raw.observacoes)
+    observacoes: toStringOrNull(raw.observacoes),
   };
 }
 
 const NORMALIZERS = {
   BICA: normalizeClassificacaoBica,
   PREPARADO: normalizeClassificacaoPreparado,
-  LOW_CAFF: normalizeClassificacaoLowCaff
+  LOW_CAFF: normalizeClassificacaoLowCaff,
 };
 
 // ============================================================
@@ -509,7 +582,7 @@ function normalizeIdentificacao(raw) {
     lote: toStringOrNull(raw.lote),
     sacas: toStringOrNull(raw.sacas ?? null),
     safra: toStringOrNull(raw.safra ?? null),
-    data: toStringOrNull(raw.data ?? null)
+    data: toStringOrNull(raw.data ?? null),
   };
 }
 
@@ -525,7 +598,9 @@ export class ClassificationExtractionService {
   async extractClassificationFromPhoto(absoluteImagePath, classificationType) {
     const userPrompt = USER_PROMPTS[classificationType];
     if (!userPrompt) {
-      const error = new Error(`Tipo de classificacao nao suportado para extracao: ${classificationType}`);
+      const error = new Error(
+        `Tipo de classificacao nao suportado para extracao: ${classificationType}`
+      );
       error.code = 'UNSUPPORTED_TYPE';
       throw error;
     }
@@ -555,15 +630,15 @@ export class ClassificationExtractionService {
                   type: 'image_url',
                   image_url: {
                     url: `data:${mimeType};base64,${base64Image}`,
-                    detail: 'high'
-                  }
-                }
-              ]
-            }
+                    detail: 'high',
+                  },
+                },
+              ],
+            },
           ],
           response_format: { type: 'json_object' },
           max_tokens: 1500,
-          temperature: 0
+          temperature: 0,
         },
         { signal: controller.signal }
       );
@@ -595,7 +670,7 @@ export class ClassificationExtractionService {
       return {
         classificacao: normalizer(parsed.classificacao),
         identificacao: normalizeIdentificacao(parsed.identificacao),
-        processingTimeMs
+        processingTimeMs,
       };
     } catch (err) {
       if (err.code === 'PARSE_ERROR' || err.code === 'UNSUPPORTED_TYPE') throw err;

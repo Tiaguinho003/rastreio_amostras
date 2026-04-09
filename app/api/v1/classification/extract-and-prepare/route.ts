@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
       return executeBackend('extractAndPrepareClassification', request, {
         body: {
           photoToken: body.photoToken,
-          classificationType: body.classificationType
-        }
+          classificationType: body.classificationType,
+        },
       });
     }
 
@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       body: {
         fileBuffer,
         mimeType,
-        originalFileName
-      }
+        originalFileName,
+      },
     });
   } catch (error) {
     return toNextResponse(toHttpErrorResponse(error));

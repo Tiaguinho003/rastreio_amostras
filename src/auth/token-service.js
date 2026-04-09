@@ -5,7 +5,7 @@ import { HttpError } from '../contracts/errors.js';
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
 const HEADER = {
   alg: 'HS256',
-  typ: 'JWT'
+  typ: 'JWT',
 };
 
 function base64UrlEncode(input) {
@@ -91,7 +91,7 @@ function decodeVerifiedToken(token, options) {
   return {
     payload,
     expired: payload.exp <= nowSeconds,
-    ttlSeconds
+    ttlSeconds,
   };
 }
 
@@ -107,7 +107,7 @@ export function issueAccessToken(claims, options) {
     role: claims.role,
     username: claims.username,
     iat: issuedAt,
-    exp: expiresAt
+    exp: expiresAt,
   };
 
   const encodedHeader = base64UrlEncode(JSON.stringify(HEADER));
@@ -117,7 +117,7 @@ export function issueAccessToken(claims, options) {
 
   return {
     token: `${unsigned}.${signature}`,
-    expiresAt: new Date(expiresAt * 1000).toISOString()
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
   };
 }
 
@@ -136,6 +136,6 @@ export function verifyAccessToken(token, options) {
     username: payload.username,
     issuedAt: payload.iat,
     expiresAt: payload.exp,
-    expired
+    expired,
   };
 }

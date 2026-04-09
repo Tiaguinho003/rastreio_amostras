@@ -21,7 +21,7 @@ export class InMemoryEventStore {
       eventsBySample: cloneMapWithValues(this.eventsBySample),
       idempotencyIndex: new Map(this.idempotencyIndex),
       printAttemptIndex: new Map(this.printAttemptIndex),
-      eventsById: cloneMapWithValues(this.eventsById)
+      eventsById: cloneMapWithValues(this.eventsById),
     };
   }
 

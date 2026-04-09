@@ -7,14 +7,14 @@ import {
   ApiError,
   cancelSampleMovement,
   createSampleMovement,
-  updateSampleMovement
+  updateSampleMovement,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   SampleMovement,
   SampleMovementType,
   SampleSnapshot,
-  SessionData
+  SessionData,
 } from '../../lib/types';
 import { SampleCommercialSummaryCard } from './SampleCommercialSummaryCard';
 import { SampleMovementModal } from './SampleMovementModal';
@@ -51,7 +51,7 @@ export function SampleMovementsPanel({
   sampleId,
   sample,
   movements,
-  onRefresh
+  onRefresh,
 }: SampleMovementsPanelProps) {
   const [createType, setCreateType] = useState<SampleMovementType>('SALE');
   const [createOpen, setCreateOpen] = useState(false);
@@ -85,7 +85,7 @@ export function SampleMovementsPanel({
   const sold = sample.soldSacks ?? 0;
   const lost = sample.lostSacks ?? 0;
   const available = sample.availableSacks ?? 0;
-  const totalDeclared = sample.declared?.sacks ?? (sold + lost + available);
+  const totalDeclared = sample.declared?.sacks ?? sold + lost + available;
   const total = totalDeclared || 1;
   const soldPct = (sold / total) * 100;
   const lostPct = (lost / total) * 100;
@@ -95,13 +95,13 @@ export function SampleMovementsPanel({
     OPEN: 'Disponivel',
     PARTIALLY_SOLD: 'Parcial',
     SOLD: 'Vendido',
-    LOST: 'Perdido'
+    LOST: 'Perdido',
   };
   const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }> = {
     OPEN: { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' },
     PARTIALLY_SOLD: { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' },
     SOLD: { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' },
-    LOST: { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA' }
+    LOST: { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA' },
   };
   const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponivel';
   const commercialStyle = STATUS_STYLE[sample.commercialStatus] ?? STATUS_STYLE.OPEN;
@@ -112,31 +112,58 @@ export function SampleMovementsPanel({
       <div className="sdv-card">
         <div className="sdv-card-header">
           <span className="sdv-card-title">Resumo comercial</span>
-          <span className="sdv-com-status" style={{ color: commercialStyle.color, background: commercialStyle.bg, borderColor: commercialStyle.border }}>{commercialLabel}</span>
+          <span
+            className="sdv-com-status"
+            style={{
+              color: commercialStyle.color,
+              background: commercialStyle.bg,
+              borderColor: commercialStyle.border,
+            }}
+          >
+            {commercialLabel}
+          </span>
         </div>
         <div className="sdv-com-bar">
-          <div className="sdv-com-bar-seg is-sold" style={{ width: `${soldPct}%`, animationDelay: '0s' }} />
-          <div className="sdv-com-bar-seg is-lost" style={{ width: `${lostPct}%`, animationDelay: '0.1s' }} />
-          <div className="sdv-com-bar-seg is-avail" style={{ width: `${availPct}%`, animationDelay: '0.2s' }} />
+          <div
+            className="sdv-com-bar-seg is-sold"
+            style={{ width: `${soldPct}%`, animationDelay: '0s' }}
+          />
+          <div
+            className="sdv-com-bar-seg is-lost"
+            style={{ width: `${lostPct}%`, animationDelay: '0.1s' }}
+          />
+          <div
+            className="sdv-com-bar-seg is-avail"
+            style={{ width: `${availPct}%`, animationDelay: '0.2s' }}
+          />
         </div>
         <div className="sdv-com-minis">
           <div className="sdv-com-mini is-sold">
             <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
               <span>Vendidas</span>
             </div>
             <span className="sdv-com-mini-value">{sold}</span>
           </div>
           <div className="sdv-com-mini is-lost">
             <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="m5 12 7 7 7-7" />
+              </svg>
               <span>Perdidas</span>
             </div>
             <span className="sdv-com-mini-value">{lost}</span>
           </div>
           <div className="sdv-com-mini is-avail">
             <div className="sdv-com-mini-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="7" width="20" height="14" rx="2" />
+                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+              </svg>
               <span>Disponiveis</span>
             </div>
             <span className="sdv-com-mini-value">{available}</span>
@@ -151,7 +178,9 @@ export function SampleMovementsPanel({
           <span className="sdv-com-count">{sortedMovements.length} registros</span>
         </div>
 
-        {error ? <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p> : null}
+        {error ? (
+          <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p>
+        ) : null}
 
         {hasMovements ? (
           <div className="sdv-com-movements">
@@ -160,33 +189,81 @@ export function SampleMovementsPanel({
               const isSale = movement.movementType === 'SALE';
               const buyerLabel = getMovementBuyerLabel(movement);
               return (
-                <div key={movement.id} className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`} style={{ animationDelay: `${i * 0.05}s` }}>
+                <div
+                  key={movement.id}
+                  className={`sdv-com-mov${isCancelled ? ' is-cancelled' : ''}`}
+                  style={{ animationDelay: `${i * 0.05}s` }}
+                >
                   <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
                     {isSale ? (
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 19V5" />
+                        <path d="m5 12 7-7 7 7" />
+                      </svg>
                     ) : (
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 5v14" />
+                        <path d="m5 12 7 7 7-7" />
+                      </svg>
                     )}
                   </div>
                   <div className="sdv-com-mov-content">
                     <div className="sdv-com-mov-top">
                       <span className="sdv-com-mov-qty">{movement.quantitySacks} sacas</span>
-                      <span className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}>{isSale ? 'Venda' : 'Perda'}</span>
-                      {isCancelled ? <span className="sdv-com-mov-badge is-cancelled">Cancelada</span> : null}
+                      <span className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}>
+                        {isSale ? 'Venda' : 'Perda'}
+                      </span>
+                      {isCancelled ? (
+                        <span className="sdv-com-mov-badge is-cancelled">Cancelada</span>
+                      ) : null}
                     </div>
                     <div className="sdv-com-mov-bottom">
                       <span>{formatMovementDate(movement.movementDate)}</span>
-                      {buyerLabel ? (<><span className="sdv-com-mov-sep" /><span>→ {buyerLabel}</span></>) : null}
-                      {!isSale && movement.lossReasonText ? (<><span className="sdv-com-mov-sep" /><span style={{ color: '#C0392B' }}>{movement.lossReasonText}</span></>) : null}
+                      {buyerLabel ? (
+                        <>
+                          <span className="sdv-com-mov-sep" />
+                          <span>→ {buyerLabel}</span>
+                        </>
+                      ) : null}
+                      {!isSale && movement.lossReasonText ? (
+                        <>
+                          <span className="sdv-com-mov-sep" />
+                          <span style={{ color: '#C0392B' }}>{movement.lossReasonText}</span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                   {!isCancelled ? (
                     <div className="sdv-com-mov-actions">
-                      <button type="button" className="sdv-com-mov-act" onClick={() => { setEditMovement(movement); clearFeedback(); }} disabled={saving}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg>
+                      <button
+                        type="button"
+                        className="sdv-com-mov-act"
+                        onClick={() => {
+                          setEditMovement(movement);
+                          clearFeedback();
+                        }}
+                        disabled={saving}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                        </svg>
                       </button>
-                      <button type="button" className="sdv-com-mov-act is-danger" onClick={() => { setCancelMovement(movement); setCancelReasonText(''); clearFeedback(); }} disabled={saving}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                      <button
+                        type="button"
+                        className="sdv-com-mov-act is-danger"
+                        onClick={() => {
+                          setCancelMovement(movement);
+                          setCancelReasonText('');
+                          clearFeedback();
+                        }}
+                        disabled={saving}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4h8v2" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                        </svg>
                       </button>
                     </div>
                   ) : null}
@@ -196,7 +273,10 @@ export function SampleMovementsPanel({
           </div>
         ) : (
           <div className="sdv-com-empty">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" /></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="7" width="20" height="14" rx="2" />
+              <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+            </svg>
             <span>Nenhuma movimentacao registrada</span>
           </div>
         )}
@@ -204,12 +284,36 @@ export function SampleMovementsPanel({
 
       {/* Action buttons */}
       <div className="sdv-com-actions">
-        <button type="button" className="sdv-com-action-loss" disabled={sample.status !== 'CLASSIFIED' || available <= 0} onClick={() => { setCreateType('LOSS'); setCreateOpen(true); clearFeedback(); }}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
+        <button
+          type="button"
+          className="sdv-com-action-loss"
+          disabled={sample.status !== 'CLASSIFIED' || available <= 0}
+          onClick={() => {
+            setCreateType('LOSS');
+            setCreateOpen(true);
+            clearFeedback();
+          }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14" />
+            <path d="m5 12 7 7 7-7" />
+          </svg>
           Perda
         </button>
-        <button type="button" className="sdv-com-action-sale" disabled={sample.status !== 'CLASSIFIED' || available <= 0} onClick={() => { setCreateType('SALE'); setCreateOpen(true); clearFeedback(); }}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+        <button
+          type="button"
+          className="sdv-com-action-sale"
+          disabled={sample.status !== 'CLASSIFIED' || available <= 0}
+          onClick={() => {
+            setCreateType('SALE');
+            setCreateOpen(true);
+            clearFeedback();
+          }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 19V5" />
+            <path d="m5 12 7-7 7 7" />
+          </svg>
           Venda
         </button>
       </div>
@@ -242,7 +346,7 @@ export function SampleMovementsPanel({
               quantitySacks: data.quantitySacks,
               movementDate: data.movementDate,
               notes: data.notes,
-              lossReasonText: data.lossReasonText
+              lossReasonText: data.lossReasonText,
             });
 
             setStampType(data.movementType);
@@ -287,7 +391,7 @@ export function SampleMovementsPanel({
             const after: Record<string, string | number | null> = {
               quantitySacks: data.quantitySacks,
               movementDate: data.movementDate,
-              notes: data.notes
+              notes: data.notes,
             };
 
             if (editMovement.movementType === 'SALE') {
@@ -300,7 +404,7 @@ export function SampleMovementsPanel({
             await updateSampleMovement(session, sampleId, editMovement.id, {
               expectedVersion: sample.version,
               after,
-              reasonText: data.reasonText ?? ''
+              reasonText: data.reasonText ?? '',
             });
 
             setEditMovement(null);
@@ -313,63 +417,91 @@ export function SampleMovementsPanel({
         }}
       />
 
-      {cancelMovement ? createPortal(
-        <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
-          <section
-            ref={cancelTrapRef}
-            className="cdm-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>Cancelar movimentacao</h3>
-              <button type="button" className="cdm-close" onClick={() => setCancelMovement(null)} disabled={saving} aria-label="Fechar">
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-              </button>
-            </div>
-
-            <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#999' }}>Informe o motivo para manter a auditoria consistente.</p>
-
-            <div className="sdv-edit-fields">
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Motivo do cancelamento</span>
-                <input className="sdv-edit-input" value={cancelReasonText} disabled={saving} onChange={(event) => setCancelReasonText(event.target.value)} placeholder="Descreva o motivo" />
-              </label>
-            </div>
-
-            <div className="sdv-edit-actions">
-              <button
-                type="button"
-                className="cdm-manage-link"
-                style={{ background: 'linear-gradient(135deg, #C0392B, #E74C3C)', opacity: (saving || cancelReasonText.trim().length === 0) ? 0.5 : 1 }}
-                disabled={saving || cancelReasonText.trim().length === 0}
-                onClick={async () => {
-                  if (!cancelMovement) return;
-                  setSaving(true);
-                  clearFeedback();
-                  try {
-                    await cancelSampleMovement(session, sampleId, cancelMovement.id, {
-                      expectedVersion: sample.version,
-                      reasonText: cancelReasonText.trim()
-                    });
-                    setCancelMovement(null);
-                    setCancelReasonText('');
-                    await onRefresh();
-                  } catch (cause) {
-                    setError(cause instanceof ApiError ? cause.message : 'Falha ao cancelar movimentacao');
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
+      {cancelMovement
+        ? createPortal(
+            <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
+              <section
+                ref={cancelTrapRef}
+                className="cdm-modal"
+                role="dialog"
+                aria-modal="true"
+                onClick={(event) => event.stopPropagation()}
               >
-                {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
-              </button>
-            </div>
-          </section>
-        </div>,
-        document.body
-      ) : null}
+                <div className="cdm-header" style={{ gap: '10px' }}>
+                  <h3 className="cdm-header-name" style={{ flex: 1 }}>
+                    Cancelar movimentacao
+                  </h3>
+                  <button
+                    type="button"
+                    className="cdm-close"
+                    onClick={() => setCancelMovement(null)}
+                    disabled={saving}
+                    aria-label="Fechar"
+                  >
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#999' }}>
+                  Informe o motivo para manter a auditoria consistente.
+                </p>
+
+                <div className="sdv-edit-fields">
+                  <label className="sdv-edit-field">
+                    <span className="sdv-edit-label">Motivo do cancelamento</span>
+                    <input
+                      className="sdv-edit-input"
+                      value={cancelReasonText}
+                      disabled={saving}
+                      onChange={(event) => setCancelReasonText(event.target.value)}
+                      placeholder="Descreva o motivo"
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-actions">
+                  <button
+                    type="button"
+                    className="cdm-manage-link"
+                    style={{
+                      background: 'linear-gradient(135deg, #C0392B, #E74C3C)',
+                      opacity: saving || cancelReasonText.trim().length === 0 ? 0.5 : 1,
+                    }}
+                    disabled={saving || cancelReasonText.trim().length === 0}
+                    onClick={async () => {
+                      if (!cancelMovement) return;
+                      setSaving(true);
+                      clearFeedback();
+                      try {
+                        await cancelSampleMovement(session, sampleId, cancelMovement.id, {
+                          expectedVersion: sample.version,
+                          reasonText: cancelReasonText.trim(),
+                        });
+                        setCancelMovement(null);
+                        setCancelReasonText('');
+                        await onRefresh();
+                      } catch (cause) {
+                        setError(
+                          cause instanceof ApiError
+                            ? cause.message
+                            : 'Falha ao cancelar movimentacao'
+                        );
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </section>
   );
 }

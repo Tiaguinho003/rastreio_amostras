@@ -14,9 +14,7 @@ function getCommercialStatusTone(status: CommercialStatus): string {
   return 'lost';
 }
 
-export function SampleCommercialSummaryCard({
-  sample
-}: SampleCommercialSummaryCardProps) {
+export function SampleCommercialSummaryCard({ sample }: SampleCommercialSummaryCardProps) {
   const availableSacks = sample.availableSacks ?? 0;
   const tone = getCommercialStatusTone(sample.commercialStatus);
 
