@@ -48,7 +48,8 @@ const CLIENT_CHIP_DEFINITIONS: ReadonlyArray<{ id: ClientChipFilter; label: stri
   { id: 'seller', label: 'Vendedor', color: '#27AE60' },
 ];
 
-const AVATAR_COLORS = ['#1B5E20', '#2E7D32', '#388E3C', '#0D47A1', '#1565C0', '#4E342E', '#5D4037', '#6D4C41', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#00838F', '#E65100'];
+// brand-green / brand-green-soft / brand-green-deep (paleta Safras)
+const AVATAR_COLORS = ['#1f5d43', '#2f6b4a', '#173c30', '#0D47A1', '#1565C0', '#4E342E', '#5D4037', '#6D4C41', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#00838F', '#E65100'];
 
 function hashName(name: string): number {
   let hash = 0;

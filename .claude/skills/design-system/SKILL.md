@@ -35,15 +35,17 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 
 ## 2. Paleta de Cores
 
-### Marca (verdes)
-| Uso | Cor | Onde |
-|-----|-----|------|
-| Status bar / base | `#1f5d43` | Topo de toda pagina, `theme-color` |
-| Gradiente header inicio | `#1f5d43` | Primeiro ponto do gradiente |
-| Gradiente header meio | `#1B5E20`, `#2E7D32` | Pontos intermediarios |
-| Gradiente header fim | `#388E3C` | Ultimo ponto (mais claro) |
-| Acento interativo | `#2E7D32` | Borda de campo focado, links |
-| Avatar fundo | `#2a6b45` | Circulo de iniciais do usuario |
+### Marca (verdes — paleta Safras)
+Todos os verdes do app vivem na paleta Safras, expostos como tokens CSS no `:root` de `app/globals.css`. **Sempre preferir o token** ao hex literal.
+
+| Uso | Token | Hex |
+|-----|-------|-----|
+| Status bar / base | `--brand-green` | `#1f5d43` |
+| Gradiente login inicio | `--brand-green-deep` | `#173c30` |
+| Gradiente login meio | `--brand-green-strong`, `--brand-green` | `#24553a`, `#1f5d43` |
+| Gradiente login fim | `--brand-green-soft` | `#2f6b4a` |
+| Acento interativo (foco, links) | `--brand-green-soft` | `#2f6b4a` |
+| Avatar fundo | — | `#2a6b45` |
 
 ### Superficies
 | Uso | Cor |
@@ -138,7 +140,7 @@ box-shadow:
 | Estado | Fundo | Borda | Extras |
 |--------|-------|-------|--------|
 | Repouso | `#f8f6f2` | `1.5px solid rgba(0,0,0,0.06)` | — |
-| Focado | `#ffffff` | `1.5px solid #2E7D32` | `box-shadow: 0 0 0 3px rgba(46,125,50,0.08)` |
+| Focado | `#ffffff` | `1.5px solid var(--brand-green-soft)` | `box-shadow: 0 0 0 3px rgba(47,107,74,0.08)` |
 | Erro | `#f8f6f2` | `1.5px solid rgba(196,92,92,0.4)` | Placeholder em `#c45c5c` |
 
 ### Transicao
@@ -153,12 +155,12 @@ box-shadow:
 
 ### Botao Primario (acao principal)
 ```
-background: linear-gradient(135deg, #1B5E20, #2E7D32);
+background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 color: #ffffff;
 border-radius: clamp(12px, 3.5vw, 14px);
 padding: clamp(14px, 4vw, 16px);
 font-weight: 600;
-box-shadow: 0 4px 24px rgba(27, 94, 32, 0.3);
+box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 ```
 - Full-width quando e a acao principal da pagina
 - Reforcar `background` em TODOS os estados (:hover, :focus, :focus-visible, :active, :disabled)

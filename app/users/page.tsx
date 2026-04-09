@@ -31,7 +31,8 @@ function userStatusThemeClass(status: UserStatus) {
   return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
 }
 
-const AVATAR_COLORS = ['#1B5E20', '#2E7D32', '#0D47A1', '#1565C0', '#4E342E', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#E65100'];
+// brand-green / brand-green-soft (paleta Safras)
+const AVATAR_COLORS = ['#1f5d43', '#2f6b4a', '#0D47A1', '#1565C0', '#4E342E', '#AD1457', '#C62828', '#6A1B9A', '#4527A0', '#00695C', '#E65100'];
 
 function hashStr(s: string): number {
   let h = 0;

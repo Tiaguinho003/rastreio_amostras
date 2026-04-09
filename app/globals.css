@@ -1,20 +1,142 @@
 :root {
-  --bg: #efebe4;
-  --surface: #fefcf9;
-  --ink: #24392f;
-  --muted: #66756b;
-  --line: #ddd7cc;
-  --accent: #2f6b4a;
-  --accent-strong: #24553a;
-  --danger: #b83232;
-  --mobile-edge-fill-base: linear-gradient(180deg, #1f5d43 0%, #173c30 100%);
+  /* ══════════════════════════════════════════════════════════════
+     BRAND — paleta Safras (fonte única de verdes)
+     ══════════════════════════════════════════════════════════════ */
+  --brand-green: #1f5d43;           /* verde marca (topbar start, theme) */
+  --brand-green-deep: #173c30;      /* verde profundo (topbar end) */
+  --brand-green-ink: #24392f;       /* tinta escura */
+  --brand-green-soft: #2f6b4a;      /* accent médio */
+  --brand-green-strong: #24553a;    /* accent escuro */
+  --brand-cream: #efebe4;           /* fundo creme */
+  --brand-cream-soft: #fefcf9;      /* superfície */
+  --brand-cream-line: #ddd7cc;      /* linha/divisor */
+  --brand-muted: #66756b;           /* texto muted */
+
+  /* ══════════════════════════════════════════════════════════════
+     COLOR — tokens semânticos
+     ══════════════════════════════════════════════════════════════ */
+  --color-bg: var(--brand-cream);
+  --color-surface: var(--brand-cream-soft);
+  --color-ink: var(--brand-green-ink);
+  --color-muted: var(--brand-muted);
+  --color-line: var(--brand-cream-line);
+  --color-accent: var(--brand-green-soft);
+  --color-accent-strong: var(--brand-green-strong);
+
+  --color-success: #2f6b4a;
+  --color-warning: #c57d0c;
+  --color-info: #1e5f8f;
+  --color-danger: #b83232;
+
+  /* ══════════════════════════════════════════════════════════════
+     TYPOGRAPHY — Plus Jakarta Sans via next/font
+     ══════════════════════════════════════════════════════════════ */
+  --font-sans: var(--font-sans, 'Plus Jakarta Sans'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.8125rem;    /* 13px */
+  --font-size-base: 0.875rem;   /* 14px */
+  --font-size-md: 0.9375rem;    /* 15px */
+  --font-size-lg: 1.0625rem;    /* 17px */
+  --font-size-xl: 1.25rem;      /* 20px */
+  --font-size-2xl: 1.5rem;      /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
+  --font-size-4xl: 2.25rem;     /* 36px */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
+
+  /* ══════════════════════════════════════════════════════════════
+     SPACING — escala 8pt grid
+     ══════════════════════════════════════════════════════════════ */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /* ══════════════════════════════════════════════════════════════
+     RADIUS — escala de arredondamentos
+     ══════════════════════════════════════════════════════════════ */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* ══════════════════════════════════════════════════════════════
+     SHADOW — 5 níveis de elevação (base ink)
+     ══════════════════════════════════════════════════════════════ */
+  --shadow-xs: 0 1px 2px rgba(36, 57, 47, 0.06);
+  --shadow-sm: 0 2px 6px rgba(36, 57, 47, 0.08);
+  --shadow-md: 0 6px 16px rgba(36, 57, 47, 0.10);
+  --shadow-lg: 0 12px 32px rgba(36, 57, 47, 0.14);
+  --shadow-xl: 0 20px 48px rgba(36, 57, 47, 0.18);
+
+  /* ══════════════════════════════════════════════════════════════
+     MOTION — durações e easings
+     ══════════════════════════════════════════════════════════════ */
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-slower: 480ms;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ══════════════════════════════════════════════════════════════
+     Z-INDEX — pilha de camadas
+     ══════════════════════════════════════════════════════════════ */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 410;
+  --z-popover: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+
+  /* ══════════════════════════════════════════════════════════════
+     LEGACY ALIASES — compatibilidade com as 17k linhas já escritas.
+     Não remover. Apontam para os novos tokens.
+     ══════════════════════════════════════════════════════════════ */
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --ink: var(--color-ink);
+  --muted: var(--color-muted);
+  --line: var(--color-line);
+  --accent: var(--color-accent);
+  --accent-strong: var(--color-accent-strong);
+  --danger: var(--color-danger);
+
+  --mobile-edge-fill-base: linear-gradient(180deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
   --mobile-page-bg-base:
     radial-gradient(circle at 10% 8%, #f8f4eb 0%, rgba(248, 244, 235, 0) 42%),
     linear-gradient(180deg, #f4f1ea 0%, var(--bg) 58%, #e9e5dd 100%);
   --mobile-edge-fill: var(--mobile-edge-fill-base);
   --mobile-page-bg: var(--mobile-page-bg-base);
-  --topbar-bg-start: #1f5d43;
-  --topbar-bg-end: #173c30;
+
+  --topbar-bg-start: var(--brand-green);
+  --topbar-bg-end: var(--brand-green-deep);
   --topbar-ink: #f4f7f2;
   --topbar-line: rgba(255, 255, 255, 0.14);
 }
@@ -40,7 +162,7 @@ body {
 body {
   position: relative;
   margin: 0;
-  font-family: 'Trebuchet MS', 'Segoe UI', 'Noto Sans', sans-serif;
+  font-family: var(--font-sans);
   background: var(--mobile-page-bg-base);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
@@ -113,7 +235,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: calc(env(safe-area-inset-top) + clamp(72px, 22vw, 92px)) clamp(24px, 8vw, 32px) clamp(68px, 22vw, 88px);
-  background: linear-gradient(160deg, #1f5d43 0%, #1B5E20 40%, #2E7D32 80%, #388E3C 100%);
+  background: linear-gradient(160deg, var(--brand-green-deep) 0%, var(--brand-green-strong) 40%, var(--brand-green) 80%, var(--brand-green-soft) 100%);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -282,7 +404,7 @@ body {
 
 .login-field:focus-within {
   background: #ffffff;
-  border-color: #2E7D32;
+  border-color: var(--brand-green-soft);
   box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.08);
 }
 
@@ -373,7 +495,7 @@ body {
   padding: clamp(4px, 1vw, 6px) 0;
   border: 0;
   background: transparent;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
   font-size: clamp(12px, 3.2vw, 13px);
   font-weight: 500;
   font-family: inherit;
@@ -396,7 +518,7 @@ body {
   padding: clamp(14px, 4vw, 16px);
   border: 0;
   border-radius: clamp(12px, 3.5vw, 14px);
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   font-size: clamp(14px, 3.8vw, 15px);
   font-weight: 600;
@@ -411,7 +533,7 @@ body {
 .login-submit-btn:hover,
 .login-submit-btn:focus,
 .login-submit-btn:focus-visible {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   outline: none;
 }
@@ -419,13 +541,13 @@ body {
 .login-submit-btn:active:not(:disabled) {
   transform: scale(0.96);
   box-shadow: 0 1px 8px rgba(27, 94, 32, 0.15);
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
 .login-submit-btn:disabled {
   opacity: 0.65;
   cursor: wait;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
 .login-submit-arrow {
@@ -4413,7 +4535,7 @@ button:disabled {
 }
 
 .hero-search-filter-btn.has-filters svg {
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
 }
 
 .hero-search-filter-badge {
@@ -4489,7 +4611,7 @@ button:disabled {
   flex: 1;
   font-size: clamp(11px, 3.2vw, 13px);
   font-weight: 600;
-  color: #1B5E20;
+  color: var(--brand-green);
   line-height: 1.3;
 }
 
@@ -4502,7 +4624,7 @@ button:disabled {
   border: none;
   border-radius: 50%;
   background: rgba(30, 70, 32, 0.1);
-  color: #1B5E20;
+  color: var(--brand-green);
   cursor: pointer;
   flex-shrink: 0;
   padding: 0;
@@ -4619,7 +4741,7 @@ button:disabled {
   width: 15px;
   height: 15px;
   fill: none;
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -4628,7 +4750,7 @@ button:disabled {
 .spv2-sort-btn span {
   font-size: clamp(12px, 3.5vw, 14px);
   font-weight: 600;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 /* ── spv2: card list ── */
@@ -5030,7 +5152,7 @@ button:disabled {
   height: clamp(46px, 13vw, 52px);
   border-radius: clamp(14px, 4vw, 16px);
   border: 0;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   box-shadow: 0 4px 20px rgba(27, 94, 32, 0.4);
   display: inline-grid;
   place-items: center;
@@ -5223,8 +5345,8 @@ button:disabled {
 }
 
 .sdv-tab.is-active {
-  color: #1B5E20;
-  border-bottom-color: #2E7D32;
+  color: var(--brand-green);
+  border-bottom-color: var(--brand-green-soft);
 }
 
 .sdv-tab svg {
@@ -5308,7 +5430,7 @@ button:disabled {
   width: clamp(18px, 5vw, 20px);
   height: clamp(18px, 5vw, 20px);
   fill: none;
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -5514,14 +5636,14 @@ button:disabled {
 }
 
 .sdv-qr-btn.is-primary {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   box-shadow: 0 2px 10px rgba(27, 94, 32, 0.25);
 }
 
 .sdv-qr-btn.is-secondary {
   background: #ffffff;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
   border: 1.5px solid rgba(46, 125, 50, 0.15);
 }
 
@@ -5676,7 +5798,7 @@ button:disabled {
   width: clamp(12px, 3.2vw, 13px);
   height: clamp(12px, 3.2vw, 13px);
   fill: none;
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -5685,7 +5807,7 @@ button:disabled {
 .sdv-edit-btn span {
   font-size: clamp(10px, 2.8vw, 11px);
   font-weight: 600;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 /* Edit modal fields */
@@ -5732,7 +5854,7 @@ button:disabled {
 
 .sdv-edit-input:focus {
   background: #ffffff;
-  border-color: #2E7D32;
+  border-color: var(--brand-green-soft);
 }
 
 .sdv-edit-sep {
@@ -5862,7 +5984,7 @@ button:disabled {
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -5871,7 +5993,7 @@ button:disabled {
 .sdv-cls-photo-empty-title {
   font-size: clamp(12px, 3.2vw, 13px);
   font-weight: 600;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 .sdv-cls-photo-empty-sub {
@@ -5943,7 +6065,7 @@ button:disabled {
 }
 
 .sdv-photo-confirm-btn.is-save {
-  background: #2E7D32;
+  background: var(--brand-green-soft);
   color: #ffffff;
 }
 
@@ -5985,7 +6107,7 @@ button:disabled {
   padding: clamp(12px, 3vw, 14px);
   border-radius: 13px;
   border: 0;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   font-size: clamp(13px, 3.5vw, 14px);
   font-weight: 600;
@@ -6369,7 +6491,7 @@ button:disabled {
 
 .sdv-com-action-sale {
   flex: 1.3;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   border: 0;
   color: #ffffff;
   box-shadow: 0 4px 20px rgba(27, 94, 32, 0.3);
@@ -6392,7 +6514,7 @@ button:disabled {
   border-radius: clamp(8px, 2.2vw, 10px);
   border: 1.5px solid rgba(46, 125, 50, 0.2);
   background: rgba(46, 125, 50, 0.06);
-  color: #2E7D32;
+  color: var(--brand-green-soft);
   font-size: clamp(11px, 3vw, 12px);
   font-weight: 600;
   font-family: inherit;
@@ -6604,7 +6726,7 @@ button:disabled {
   font-size: 14px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   text-decoration: none;
   box-shadow: 0 4px 16px rgba(27, 94, 32, 0.3);
   -webkit-tap-highlight-color: transparent;
@@ -14200,7 +14322,7 @@ button:disabled {
 }
 
 .sales-card-hero {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   padding: clamp(18px, 5.5vw, 22px) clamp(16px, 5vw, 20px);
   display: flex;
   align-items: flex-start;
@@ -14631,7 +14753,7 @@ button:disabled {
   width: 55%;
   height: 55%;
   fill: none;
-  stroke: #2E7D32;
+  stroke: var(--brand-green-soft);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -14688,7 +14810,7 @@ button:disabled {
 }
 
 .nsv2-s1-step.is-active .nsv2-s1-step-num {
-  background: #2E7D32;
+  background: var(--brand-green-soft);
   color: #ffffff;
 }
 
@@ -14699,7 +14821,7 @@ button:disabled {
 }
 
 .nsv2-s1-step.is-active .nsv2-s1-step-label {
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 /* Action buttons */
@@ -14720,7 +14842,7 @@ button:disabled {
   padding: clamp(13px, 3.8vw, 15px);
   border: 0;
   border-radius: clamp(12px, 3.5vw, 14px);
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   font-size: clamp(13px, 3.5vw, 14px);
   font-weight: 600;
@@ -14733,7 +14855,7 @@ button:disabled {
 
 .nsv2-s1-btn-primary:hover,
 .nsv2-s1-btn-primary:focus {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   outline: none;
 }
 
@@ -14778,7 +14900,7 @@ button:disabled {
 .nsv2-s1-btn-secondary {
   background: #ffffff;
   border: 1.5px solid rgba(46, 125, 50, 0.15);
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 .nsv2-s1-btn-tertiary {
@@ -14959,7 +15081,7 @@ button:disabled {
 }
 
 .nsv2-photo-btn-confirm {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   box-shadow: 0 4px 16px rgba(27, 94, 32, 0.4);
 }
 
@@ -15103,7 +15225,7 @@ button:disabled {
 .nsv2-no-photo-add {
   font-size: clamp(11px, 3vw, 12px);
   font-weight: 600;
-  color: #2E7D32;
+  color: var(--brand-green-soft);
 }
 
 /* ── Form Card ── */
@@ -15204,7 +15326,7 @@ button:disabled {
 
 .nsv2-field-input:focus {
   background: #ffffff;
-  border-color: #2E7D32;
+  border-color: var(--brand-green-soft);
   box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.07);
 }
 
@@ -15256,7 +15378,7 @@ button:disabled {
   padding: clamp(10px, 3vw, 12px);
   border: 0;
   border-radius: clamp(11px, 3.2vw, 13px);
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   font-size: clamp(13px, 3.5vw, 14px);
   font-weight: 600;
@@ -15270,20 +15392,20 @@ button:disabled {
 .nsv2-submit-btn:hover,
 .nsv2-submit-btn:focus,
 .nsv2-submit-btn:focus-visible {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   outline: none;
 }
 
 .nsv2-submit-btn:active:not(:disabled) {
   transform: scale(0.97);
   box-shadow: 0 2px 10px rgba(27, 94, 32, 0.2);
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
 .nsv2-submit-btn:disabled {
   opacity: 0.65;
   cursor: wait;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
 /* ── Photo Fullscreen ── */
@@ -16295,7 +16417,7 @@ button:disabled {
 
   /* Identidade: card verde escuro com destaque */
   .sdv-identity-card {
-    background: linear-gradient(135deg, #1B5E20, #2E7D32);
+    background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 18px;
     padding: 1.5rem 1.75rem;
@@ -16405,7 +16527,7 @@ button:disabled {
 
   .sdv-tab:hover {
     background: rgba(46, 125, 50, 0.06);
-    color: #2E7D32;
+    color: var(--brand-green-soft);
   }
 
   /* Content: fundo verde para destacar cards brancos */
@@ -16526,7 +16648,7 @@ button:disabled {
     bottom: 12%;
     width: 4px;
     border-radius: 0 3px 3px 0;
-    background: linear-gradient(180deg, #2E7D32, #1B5E20);
+    background: linear-gradient(180deg, var(--brand-green-soft), var(--brand-green));
   }
 
   /* ── Comercial: modais e info maiores ── */
@@ -16830,7 +16952,7 @@ button:disabled {
      ══════════════════════════════════════════ */
 
   .login-page {
-    background: linear-gradient(160deg, #1f5d43 0%, #1B5E20 40%, #2E7D32 80%, #388E3C 100%);
+    background: linear-gradient(160deg, var(--brand-green-deep) 0%, var(--brand-green-strong) 40%, var(--brand-green) 80%, var(--brand-green-soft) 100%);
     justify-content: center;
     align-items: center;
   }

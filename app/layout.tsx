@@ -1,9 +1,18 @@
 import type { Metadata, Viewport } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 
 import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { SplashScreen } from '../components/SplashScreen';
 import './globals.css';
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-sans',
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Noto Sans', 'sans-serif']
+});
 
 const metadataBase =
   typeof process.env.APP_BASE_URL === 'string' && process.env.APP_BASE_URL.trim().length > 0
@@ -40,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={plusJakarta.variable}>
       <body>
         <PwaRegistration />
         <SplashScreen />

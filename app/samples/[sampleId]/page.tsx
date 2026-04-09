@@ -1864,7 +1864,7 @@ export default function SampleDetailPage() {
                               <div key={evt.eventId} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px, 3vw, 12px)', padding: 'clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 14px)', background: '#F8FAFC', borderRadius: 'clamp(10px, 3vw, 12px)', fontSize: 'clamp(13px, 3.5vw, 14px)' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'clamp(36px, 10vw, 42px)', height: 'clamp(36px, 10vw, 42px)', borderRadius: '50%', background: isPhysical ? '#E8F5E9' : '#E3F2FD', flexShrink: 0 }}>
                                   {isPhysical ? (
-                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#2E7D32', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#2f6b4a' /* brand-green-soft */, fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="m22 2-7 20-4-9-9-4 20-7z" /><path d="M22 2 11 13" /></svg>
                                   ) : (
                                     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ stroke: '#1565C0', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}><path d="M7 4.8h7l3 3V19.2H7z" /><path d="M14 4.8v3h3" /><path d="M9 12h6" /><path d="M9 15h6" /></svg>
                                   )}
