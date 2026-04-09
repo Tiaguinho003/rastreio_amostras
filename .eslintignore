@@ -1,0 +1,12 @@
+node_modules
+.next
+.next/types
+dist
+coverage
+build
+out
+*.min.js
+.certs
+prisma/migrations
+public
+docs/assets
