@@ -29,9 +29,9 @@
   --color-danger: #b83232;
 
   /* ══════════════════════════════════════════════════════════════
-     TYPOGRAPHY — Sora via next/font
+     TYPOGRAPHY — Poppins via next/font
      ══════════════════════════════════════════════════════════════ */
-  --font-sans: var(--font-sans, 'Sora'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+  --font-sans: var(--font-sans, 'Poppins'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
 
   --font-size-xs: 0.75rem;      /* 12px */
   --font-size-sm: 0.8125rem;    /* 13px */

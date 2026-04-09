@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import { Sora } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 
 import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { SplashScreen } from '../components/SplashScreen';
 import './globals.css';
 
-const sora = Sora({
+const poppins = Poppins({
   subsets: ['latin', 'latin-ext'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
@@ -49,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={sora.variable}>
+    <html lang="pt-BR" className={poppins.variable}>
       <body>
         <PwaRegistration />
         <SplashScreen />
