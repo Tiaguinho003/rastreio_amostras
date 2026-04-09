@@ -29,9 +29,9 @@
   --color-danger: #b83232;
 
   /* ══════════════════════════════════════════════════════════════
-     TYPOGRAPHY — Plus Jakarta Sans via next/font
+     TYPOGRAPHY — Sora via next/font
      ══════════════════════════════════════════════════════════════ */
-  --font-sans: var(--font-sans, 'Plus Jakarta Sans'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+  --font-sans: var(--font-sans, 'Sora'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
 
   --font-size-xs: 0.75rem;      /* 12px */
   --font-size-sm: 0.8125rem;    /* 13px */
