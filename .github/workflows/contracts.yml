@@ -46,6 +46,12 @@ jobs:
       - name: Validate schemas
         run: npm run validate:schemas
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Type check
         run: npm run typecheck
 
