@@ -29,3 +29,10 @@ rootCA.pem
 
 # MCP config (local)
 .mcp.json
+
+# Cache local de outras ferramentas
+.codex
+
+# Anotacoes pessoais (nao versionar)
+Opções para pausar.txt
+notes-*.md
