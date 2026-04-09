@@ -909,6 +909,8 @@ function CameraPageContent() {
 
             {/* Photo preview */}
             {flowState === 'preview' && capturedPhotoUrl ? (
+              // next/image nao se aplica: src e blob URL local com dimensoes dinamicas
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={capturedPhotoUrl} className="camera-hub-preview-img" alt="Foto capturada" />
             ) : null}
 

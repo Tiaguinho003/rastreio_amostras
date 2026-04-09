@@ -2363,6 +2363,8 @@ export default function SampleDetailPage() {
                           </div>
                           <div className="sdv-cls-block-summary">
                             {classPhotoUrl ? (
+                              // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={classPhotoUrl}
                                 alt="Foto da classificacao"
@@ -3258,6 +3260,8 @@ export default function SampleDetailPage() {
           style={{ background: 'rgba(0,0,0,0.92)' }}
           onClick={() => setClassificationPhotoPreviewOpen(false)}
         >
+          {/* next/image nao se aplica: foto fullscreen com dimensoes via viewport units */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={classificationSavedPhotoUrl}
             alt="Foto da classificacao"
