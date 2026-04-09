@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <development|internal-production>" >&2
+  echo "Usage: $0 <development>" >&2
   exit 1
 fi
 
@@ -16,11 +16,6 @@ COMPOSE_FILE_PATH="$(canonical_compose_file "${ENVIRONMENT}")"
 
 print_runtime_context "${ENVIRONMENT}" "${COMPOSE_FILE_PATH}" "${ENV_FILE_PATH}"
 
-if [[ "${ENVIRONMENT}" == "development" ]]; then
-  source_local_env "${ENV_FILE_PATH}"
-  cd "${PROJECT_DIR}"
-  npm run prisma:migrate:deploy
-  exit 0
-fi
-
-run_compose "${ENVIRONMENT}" "${ENV_FILE_PATH}" run --rm app npm run prisma:migrate:deploy
+source_local_env "${ENV_FILE_PATH}"
+cd "${PROJECT_DIR}"
+npm run prisma:migrate:deploy

@@ -13,8 +13,6 @@ data/email-outbox
 .env.development.ops
 .env.cloud-homolog
 .env.cloud-homolog.ops
-.env.internal-production
-.env.internal-production.ops
 .env.cloud-production
 .env.cloud-production.ops
 .env.prod

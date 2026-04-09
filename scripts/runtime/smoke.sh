@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <development|internal-production>" >&2
+  echo "Usage: $0 <development>" >&2
   exit 1
 fi
 
@@ -20,4 +20,4 @@ echo "[runtime] ops env file: ${OPS_ENV_FILE_PATH}"
 load_runtime_environment_context "${ENVIRONMENT}"
 
 cd "${PROJECT_DIR}"
-"${PROJECT_DIR}/scripts/ops/smoke-test.sh"
+"${PROJECT_DIR}/scripts/lib/smoke-test.sh"

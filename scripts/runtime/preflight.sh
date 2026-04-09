@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <development|internal-production>" >&2
+  echo "Usage: $0 <development>" >&2
   exit 1
 fi
 
@@ -116,51 +116,13 @@ echo "=== Compose Env ==="
 source_local_env "${COMPOSE_ENV_FILE}"
 derive_runtime_defaults "${ENVIRONMENT}"
 
-if [[ "${ENVIRONMENT}" == "development" ]]; then
-  check_var DATABASE_URL
-  check_var AUTH_SECRET
-  check_bootstrap_or_legacy_local_auth
-  check_var UPLOADS_DIR
-  check_optional_positive_integer_var MAX_UPLOAD_SIZE_BYTES
-  check_var BACKUP_ROOT
-  check_var API_BASE_URL
-  check_session_cookie_secure_setting
-else
-  check_var APP_PORT
-  check_var APP_BASE_URL
-  check_var INTERNAL_PRODUCTION_DB_HOST
-  check_var INTERNAL_PRODUCTION_DB_PORT
-  check_var POSTGRES_USER
-  check_var POSTGRES_PASSWORD
-  check_var POSTGRES_DB
-  check_var POSTGRES_DATA_DIR
-  check_var UPLOADS_HOST_DIR
-  check_var EMAIL_OUTBOX_HOST_DIR
-  check_optional_positive_integer_var MAX_UPLOAD_SIZE_BYTES
-  check_var BACKUP_ROOT
-  check_var AUTH_SECRET
-  check_var BOOTSTRAP_ADMIN_FULL_NAME
-  check_var BOOTSTRAP_ADMIN_USERNAME
-  check_var BOOTSTRAP_ADMIN_EMAIL
-  check_var BOOTSTRAP_ADMIN_PASSWORD
-  check_var EMAIL_TRANSPORT
-  check_session_cookie_secure_setting
-
-  case "${EMAIL_TRANSPORT:-}" in
-    smtp)
-      check_var SMTP_HOST
-      check_var SMTP_PORT
-      check_var SMTP_FROM
-      ;;
-    outbox)
-      echo "[OK] EMAIL_TRANSPORT uses local outbox"
-      ;;
-    *)
-      echo "[FAIL] EMAIL_TRANSPORT must be smtp or outbox"
-      FAILURES=$((FAILURES + 1))
-      ;;
-  esac
-fi
+check_var DATABASE_URL
+check_var AUTH_SECRET
+check_bootstrap_or_legacy_local_auth
+check_var UPLOADS_DIR
+check_optional_positive_integer_var MAX_UPLOAD_SIZE_BYTES
+check_var API_BASE_URL
+check_session_cookie_secure_setting
 
 echo
 echo "=== Compose Validation ==="
@@ -182,22 +144,8 @@ if [[ -n "${OPS_ENV_FILE_PATH}" ]]; then
     derive_runtime_defaults "${ENVIRONMENT}"
   fi
 
-  if [[ "${ENVIRONMENT}" == "internal-production" ]]; then
-    check_var API_BASE_URL
-    check_var SMOKE_USERNAME
-    check_var SMOKE_PASSWORD
-    check_var UPLOADS_DIR
-    check_var BACKUP_ROOT
-
-    if [[ -z "${DATABASE_URL:-}" ]]; then
-      warn_line "DATABASE_URL not set in ops env; host-side backup/restore remains pending for later phases."
-    else
-      echo "[OK] env set: DATABASE_URL"
-    fi
-  else
-    check_optional_var SMOKE_USERNAME
-    check_optional_var SMOKE_PASSWORD
-  fi
+  check_optional_var SMOKE_USERNAME
+  check_optional_var SMOKE_PASSWORD
 else
   warn_line "No dedicated ops env file found. Smoke/backup separation still depends on local operator setup."
 fi

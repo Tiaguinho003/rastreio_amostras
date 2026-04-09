@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <development|internal-production> <docker-compose-args...>" >&2
+  echo "Usage: $0 <development> <docker-compose-args...>" >&2
   exit 1
 fi
 

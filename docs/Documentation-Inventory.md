@@ -16,7 +16,6 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `docs/Operacao-e-Runtime.md` | canonico | criado | concentra modelo operacional, ambientes, envs, scripts e operacao |
 | `docs/API-e-Contratos.md` | canonico | criado | concentra rotas, eventos, contratos e validacao |
 | `docs/Documentation-Inventory.md` | canonico | criado | registra a consolidacao desta revisao |
-| `docs/Checklist-Servidor-OnPrem.md` | historico util | mantido e atualizado | continua util como checklist de host para `internal-production` |
 | `docs/Teste-Mobile-Camera-Local.md` | historico util | mantido e atualizado | continua util para validacao de camera em ambiente local |
 | `docs/schemas/events/v1/*` | suporte tecnico | mantido | continua sendo artefato executavel do contrato de eventos |
 | `compose/README.md` | suporte tecnico | mantido e reduzido | agora apenas aponta para o fluxo canonico |
@@ -53,14 +52,14 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `package.json` | atualizado | metadata agora descreve o sistema como aplicacao fullstack e nao apenas validacao de contratos |
 | `app/` | revisado | fluxo funcional consolidado em dashboard, camera, amostras, usuarios e configuracoes |
 | `prisma/schema.prisma` | revisado | regras de dados, eventos, sessoes e auditoria refletidas na documentacao canonica |
-| `compose/` | revisado | `development` e `internal-production` confirmados como unicos ambientes oficiais |
+| `compose/` | revisado | `development` confirmado como unico ambiente local oficial; `cloud-homolog` e `cloud-production` operam por Cloud Run sem Compose |
 | `env/examples/` | revisado | exemplos canonicos confirmados por ambiente |
-| `scripts/runtime/` | revisado | wrappers oficiais confirmados para compose, migrate, seed, preflight, smoke e backup |
+| `scripts/runtime/` | revisado | wrappers oficiais confirmados para compose, migrate, seed, preflight e smoke |
 
 ## Decisoes consolidadas nesta revisao
 
 1. O sistema deixou de ser descrito como repositorio de contratos. A descricao oficial agora e a de uma aplicacao fullstack operacional.
-2. Os ambientes oficiais sao apenas `development` e `internal-production`. `homolog` e publicacao publica saem da trilha canonica.
+2. Os ambientes oficiais sao `development` (local), `cloud-homolog` (Cloud Run de homologacao) e `cloud-production` (Cloud Run de producao). `internal-production` e qualquer aparato on-premise foram descontinuados.
 3. O registro da amostra e manual. Nao ha foto no fluxo de registro.
 4. A conclusao da classificacao exige foto de classificacao. Sem essa foto a amostra nao pode sair de `CLASSIFICATION_IN_PROGRESS`.
 5. O status comercial e uma dimensao separada e so pode mudar quando a amostra esta `CLASSIFIED`.

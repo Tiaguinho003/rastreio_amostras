@@ -16,4 +16,4 @@ if [[ "${API_BASE_URL:-}" == "https://placeholder.invalid" || "${APP_BASE_URL:-}
 fi
 
 cd "${PROJECT_DIR}"
-"${PROJECT_DIR}/scripts/ops/smoke-test.sh"
+"${PROJECT_DIR}/scripts/lib/smoke-test.sh"

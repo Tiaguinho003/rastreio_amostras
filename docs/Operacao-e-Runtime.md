@@ -2,8 +2,8 @@
 
 Status: Ativo  
 Escopo: ambientes oficiais, modelo operacional, envs, compose, scripts e operacao basica  
-Ultima revisao: 2026-03-16  
-Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/Homologacao-Google-Cloud.md`, `docs/Checklist-Servidor-OnPrem.md`
+Ultima revisao: 2026-04-09  
+Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/Homologacao-Google-Cloud.md`
 
 ## Modelo operacional oficial
 
@@ -16,8 +16,8 @@ O projeto deve ser entendido em tres camadas:
 Regra consolidada:
 
 1. o sistema e unico e mora no repositorio;
-2. os perfis oficiais sao `development`, `cloud-homolog` e `internal-production`;
-3. um host piloto local e um servidor definitivo sao instalacoes diferentes do mesmo perfil `internal-production`.
+2. os perfis oficiais sao `development` e `cloud-homolog`;
+3. `cloud-production` e uma instalacao do mesmo aparato cloud, com configuracoes proprias em `.env.cloud-production*` e deploy via `scripts/gcp/`.
 
 ## Ambientes oficiais
 
@@ -52,22 +52,6 @@ Arquivos canonicos:
 5. `docs/Homologacao-Google-Cloud.md`
 6. `scripts/gcp/README.md`
 
-### `internal-production`
-
-Uso:
-
-1. operacao interna real;
-2. piloto local persistente;
-3. servidor definitivo.
-
-Arquivos canonicos:
-
-1. `env/examples/internal-production.env.example`
-2. `env/examples/internal-production.ops.env.example`
-3. `.env.internal-production`
-4. `.env.internal-production.ops`
-5. `compose/internal-production.yml`
-
 ## Fluxo canonico de development
 
 1. copiar env:
@@ -100,52 +84,6 @@ npm run dev
 ```bash
 scripts/runtime/preflight.sh development
 scripts/runtime/smoke.sh development
-```
-
-6. rodar backup quando necessario:
-
-```bash
-scripts/runtime/backup.sh development
-```
-
-## Fluxo canonico de internal-production
-
-1. copiar envs:
-
-```bash
-cp env/examples/internal-production.env.example .env.internal-production
-cp env/examples/internal-production.ops.env.example .env.internal-production.ops
-```
-
-2. validar ambiente:
-
-```bash
-scripts/runtime/preflight.sh internal-production
-```
-
-3. subir stack:
-
-```bash
-scripts/runtime/compose.sh internal-production up -d --build
-```
-
-4. aplicar migrations e seed inicial:
-
-```bash
-scripts/runtime/migrate.sh internal-production
-scripts/runtime/seed.sh internal-production
-```
-
-5. validar aplicacao:
-
-```bash
-scripts/runtime/smoke.sh internal-production
-```
-
-6. executar backup operacional:
-
-```bash
-scripts/runtime/backup.sh internal-production
 ```
 
 ## Fluxo canonico de cloud-homolog
@@ -191,7 +129,7 @@ scripts/gcp/smoke.sh
 ## Scripts canonicos
 
 1. `scripts/runtime/compose.sh`
-   Wrapper oficial do Docker Compose por ambiente.
+   Wrapper oficial do Docker Compose para `development`.
 2. `scripts/runtime/migrate.sh`
    Aplica `prisma migrate deploy`.
 3. `scripts/runtime/seed.sh`
@@ -199,19 +137,21 @@ scripts/gcp/smoke.sh
 4. `scripts/runtime/preflight.sh`
    Valida comandos, envs e consistencia minima.
 5. `scripts/runtime/smoke.sh`
-   Executa smoke test operacional.
-6. `scripts/runtime/backup.sh`
-   Executa ciclo canonico de backup.
-7. `scripts/gcp/preflight.sh`
+   Executa smoke test operacional contra `development`.
+6. `scripts/gcp/preflight.sh`
    Valida envs, auth e recursos basicos da homologacao Google Cloud.
-8. `scripts/gcp/build-image.sh`
+7. `scripts/gcp/build-image.sh`
    Publica a imagem no Artifact Registry via Cloud Build.
-9. `scripts/gcp/deploy-cloud-homolog.sh`
+8. `scripts/gcp/deploy-cloud-homolog.sh`
    Implanta o servico Cloud Run e os jobs de migration/seed.
-10. `scripts/gcp/execute-job.sh`
-    Executa os jobs `migrate` e `seed`.
-11. `scripts/gcp/smoke.sh`
+9. `scripts/gcp/execute-job.sh`
+   Executa os jobs `migrate` e `seed`.
+10. `scripts/gcp/smoke.sh`
     Executa smoke test HTTP contra a URL de homologacao.
+11. `scripts/lib/smoke-test.sh`
+    Implementacao compartilhada do smoke test HTTP (chamada por `scripts/runtime/smoke.sh` e `scripts/gcp/smoke.sh`).
+12. `scripts/db/verify-phases-1-4.sh`
+    Sanity check de schema do banco (tabelas, colunas, migrations e enums).
 
 ## Variaveis importantes
 
@@ -248,18 +188,9 @@ scripts/gcp/smoke.sh
 7. `EMAIL_OUTBOX_DIR`
 8. `EMAIL_OUTBOX_FROM`
 
-### Storage e backup
+### Storage
 
-1. `UPLOADS_DIR` ou `UPLOADS_HOST_DIR`
-2. `BACKUP_ROOT`
-3. `POSTGRES_DATA_DIR`
-4. `EMAIL_OUTBOX_HOST_DIR`
-
-### Ops env de `internal-production`
-
-1. `SMOKE_USERNAME`
-2. `SMOKE_PASSWORD`
-3. `API_BASE_URL`
+1. `UPLOADS_DIR`
 
 ### Ops env de `cloud-homolog`
 
@@ -300,8 +231,7 @@ Em `cloud-homolog`, o valor canonico e `auto`.
 
 1. `development` usa `outbox` por padrao.
 2. `cloud-homolog` usa `outbox` por padrao.
-3. `internal-production` usa `smtp` por padrao.
-4. `internal-production` aceita `outbox` apenas como fallback operacional temporario.
+3. `cloud-production` usa `smtp` por padrao.
 
 ### Uploads
 
@@ -326,32 +256,9 @@ Regras:
 
 1. `preflight` valida envs e o contexto operacional do ambiente, incluindo `docker compose config` quando aplicavel;
 2. `smoke` depende do ops env do ambiente;
-3. `internal-production` publica o banco apenas em `127.0.0.1:${INTERNAL_PRODUCTION_DB_PORT}`;
-4. `cloud-homolog` deve validar `database`, `uploads` e `emailOutbox` no readiness;
-5. logs e backups devem ficar fora do repositorio.
+3. `cloud-homolog` e `cloud-production` devem validar `database`, `uploads` e `emailOutbox` no readiness.
 
 ## Backup e restore
 
-1. O backup canonico e `scripts/runtime/backup.sh`.
-2. Em `internal-production`, o modo padrao de banco e `compose-db`, sem depender de `pg_dump` no host.
-3. Uploads, banco, outbox e backups devem viver em paths persistentes fora do repositorio.
-4. O repositorio nao possui wrapper canonico dedicado para restore nesta data.
-5. Quando houver necessidade de restore, o procedimento deve ser executado manualmente pelo operador com base nos artefatos gerados pelo ciclo de backup.
-6. Em `cloud-homolog`, o backup do banco deve usar os mecanismos gerenciados do `Cloud SQL`, nao os wrappers locais.
-
-## Artefatos legados e compatibilidade
-
-Os arquivos abaixo continuam no repositorio por compatibilidade, mas nao sao o caminho oficial:
-
-1. `docker-compose.yml`
-2. `docker-compose.prod.yml`
-3. `.env.example`
-4. `.env.prod.example`
-5. `.env.homolog.example`
-6. `ops/compose/docker-compose.homolog.override.example.yml`
-7. `ops/nginx/rastreio.public.conf.example`
-
-Regra:
-
-1. legado pode ajudar migracoes locais;
-2. legado nao pode redefinir o fluxo canonico.
+1. Em `cloud-homolog` e `cloud-production`, o backup do banco usa os mecanismos gerenciados do `Cloud SQL` (snapshots automaticos + point-in-time recovery), nao ha wrapper local.
+2. `development` nao possui backup automatico — em caso de necessidade, usar `pg_dump` manual.

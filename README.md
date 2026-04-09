@@ -83,7 +83,7 @@ scripts/runtime/smoke.sh development
 
 ## Observacoes importantes
 
-- Os ambientes canonicos sao `development`, `cloud-homolog` e `internal-production`.
+- Os ambientes canonicos sao `development` (local), `cloud-homolog` (Cloud Run de homologacao) e `cloud-production` (Cloud Run de producao).
 - O fluxo de registro atual e manual; OCR automatico permanece fora do escopo implementado.
 - A trilha de auditoria das amostras e append-only por `SampleEvent`.
 - O repositorio ainda preserva alguns artefatos legados de compatibilidade, mas a autoridade documental agora esta concentrada nos arquivos acima.

@@ -4,9 +4,8 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 runtime_usage_environment() {
   cat >&2 <<'EOF'
-Ambiente invalido. Use um dos ambientes canonicos:
+Ambiente invalido. Use o ambiente canonico:
   - development
-  - internal-production
 EOF
 }
 
@@ -14,7 +13,7 @@ resolve_runtime_environment() {
   local environment="${1:-}"
 
   case "${environment}" in
-    development|internal-production)
+    development)
       printf '%s\n' "${environment}"
       ;;
     *)
@@ -36,9 +35,6 @@ canonical_compose_env_file() {
     development)
       printf '%s/.env.development\n' "${PROJECT_DIR}"
       ;;
-    internal-production)
-      printf '%s/.env.internal-production\n' "${PROJECT_DIR}"
-      ;;
   esac
 }
 
@@ -49,9 +45,6 @@ legacy_compose_env_fallback() {
     development)
       printf '%s/.env\n' "${PROJECT_DIR}"
       ;;
-    internal-production)
-      printf '%s/.env.prod\n' "${PROJECT_DIR}"
-      ;;
   esac
 }
 
@@ -61,9 +54,6 @@ canonical_ops_env_file() {
   case "${environment}" in
     development)
       printf '%s/.env.development.ops\n' "${PROJECT_DIR}"
-      ;;
-    internal-production)
-      printf '%s/.env.internal-production.ops\n' "${PROJECT_DIR}"
       ;;
   esac
 }
@@ -194,9 +184,6 @@ default_api_base_url() {
     development)
       printf 'http://127.0.0.1:%s\n' "${DEVELOPMENT_APP_PORT:-3000}"
       ;;
-    internal-production)
-      printf 'http://127.0.0.1:%s\n' "${APP_PORT:-3001}"
-      ;;
   esac
 }
 
@@ -208,36 +195,6 @@ derive_runtime_defaults() {
       if [[ -z "${API_BASE_URL:-}" ]]; then
         export API_BASE_URL
         API_BASE_URL="$(default_api_base_url "${environment}")"
-      fi
-
-      if [[ -z "${BACKUP_ROOT:-}" ]]; then
-        export BACKUP_ROOT="${PROJECT_DIR}/.runtime/development/backups"
-      fi
-      ;;
-    internal-production)
-      if [[ -z "${INTERNAL_PRODUCTION_DB_HOST:-}" ]]; then
-        export INTERNAL_PRODUCTION_DB_HOST="127.0.0.1"
-      fi
-
-      if [[ -z "${INTERNAL_PRODUCTION_DB_PORT:-}" ]]; then
-        export INTERNAL_PRODUCTION_DB_PORT="55433"
-      fi
-
-      if [[ -z "${UPLOADS_DIR:-}" && -n "${UPLOADS_HOST_DIR:-}" ]]; then
-        export UPLOADS_DIR="${UPLOADS_HOST_DIR}"
-      fi
-
-      if [[ -z "${EMAIL_OUTBOX_DIR:-}" && -n "${EMAIL_OUTBOX_HOST_DIR:-}" ]]; then
-        export EMAIL_OUTBOX_DIR="${EMAIL_OUTBOX_HOST_DIR}"
-      fi
-
-      if [[ -z "${API_BASE_URL:-}" ]]; then
-        export API_BASE_URL
-        API_BASE_URL="$(default_api_base_url "${environment}")"
-      fi
-
-      if [[ -z "${DATABASE_URL:-}" && -n "${POSTGRES_USER:-}" && -n "${POSTGRES_PASSWORD:-}" && -n "${POSTGRES_DB:-}" ]]; then
-        export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${INTERNAL_PRODUCTION_DB_HOST}:${INTERNAL_PRODUCTION_DB_PORT}/${POSTGRES_DB}?schema=public"
       fi
       ;;
   esac
