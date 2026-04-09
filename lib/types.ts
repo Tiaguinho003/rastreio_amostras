@@ -34,29 +34,6 @@ export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 export type SampleMovementType = 'SALE' | 'LOSS';
 export type SampleMovementStatus = 'ACTIVE' | 'CANCELLED';
 
-export type SampleExportField =
-  | 'internalLotNumber'
-  | 'owner'
-  | 'sacks'
-  | 'harvest'
-  | 'originLot'
-  | 'classificationDate'
-  | 'padrao'
-  | 'catacao'
-  | 'aspecto'
-  | 'bebida'
-  | 'broca'
-  | 'pva'
-  | 'imp'
-  | 'defeito'
-  | 'classificador'
-  | 'observacoes'
-  | 'classificationOriginLot'
-  | 'peneirasPercentuais'
-  | 'technicalType'
-  | 'technicalScreen'
-  | 'technicalDensity';
-
 export type SampleExportType = 'COMPLETO' | 'COMPRADOR_PARCIAL';
 
 export interface SessionUser {
@@ -455,7 +432,7 @@ export interface SampleEvent {
   fromStatus: SampleStatus | null;
   toStatus: SampleStatus | null;
   metadata: {
-    module: 'registration' | 'classification' | 'print' | 'commercial' | 'ocr';
+    module: 'registration' | 'classification' | 'print' | 'commercial';
     ip: string | null;
     userAgent: string | null;
   };

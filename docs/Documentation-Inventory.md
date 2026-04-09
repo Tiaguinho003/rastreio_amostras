@@ -16,7 +16,6 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `docs/Operacao-e-Runtime.md` | canonico | criado | concentra modelo operacional, ambientes, envs, scripts e operacao |
 | `docs/API-e-Contratos.md` | canonico | criado | concentra rotas, eventos, contratos e validacao |
 | `docs/Documentation-Inventory.md` | canonico | criado | registra a consolidacao desta revisao |
-| `docs/Teste-Mobile-Camera-Local.md` | historico util | mantido e atualizado | continua util para validacao de camera em ambiente local |
 | `docs/schemas/events/v1/*` | suporte tecnico | mantido | continua sendo artefato executavel do contrato de eventos |
 | `compose/README.md` | suporte tecnico | mantido e reduzido | agora apenas aponta para o fluxo canonico |
 | `env/examples/README.md` | suporte tecnico | mantido e reduzido | agora apenas aponta para o fluxo canonico |

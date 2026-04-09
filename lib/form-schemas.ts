@@ -26,11 +26,6 @@ export const forgotPasswordResetSchema = z.object({
   password: z.string().min(8, 'Nova senha deve ter pelo menos 8 caracteres')
 });
 
-export const receiveSampleSchema = z.object({
-  receivedChannel: z.enum(['in_person', 'courier', 'driver', 'other']),
-  notes: z.string().max(500).optional().nullable()
-});
-
 export const registrationFormSchema = z.object({
   owner: z.string().min(1, 'Proprietario e obrigatorio'),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
@@ -69,10 +64,6 @@ export const emailChangeConfirmSchema = z.object({
 
 export const changePasswordSchema = z.object({
   password: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres')
-});
-
-export const qrFailSchema = z.object({
-  error: z.string().trim().optional().default('')
 });
 
 export const invalidateSampleSchema = z.object({

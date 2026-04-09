@@ -29,10 +29,14 @@
       "minLength": 1
     },
     "warehouseId": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "deprecated": true,
+      "description": "Legacy field from removed warehouses module (migration 20260406220000_remove_warehouses). Preserved as optional in this schema to keep backwards compatibility with REGISTRATION_CONFIRMED events emitted before that migration. New events MUST NOT include this field. Safe to remove from schema once confirmed that 0 events in cloud-production carry it (Cloud SQL access via execute-sql or proxy required to verify; investigation deferred)."
     },
     "declaredWarehouse": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "deprecated": true,
+      "description": "Legacy field from removed warehouses module. Preserved as optional for backwards compatibility with pre-2026-04-06 events. New events MUST NOT include this field. Same removal criteria as warehouseId."
     }
   },
   "required": ["sampleLotNumber", "declared"],
