@@ -30,6 +30,9 @@ rootCA.pem
 # MCP config (local)
 .mcp.json
 
+# Claude Code local settings (pode conter credenciais locais)
+.claude/settings.local.json
+
 # Cache local de outras ferramentas
 .codex
 
