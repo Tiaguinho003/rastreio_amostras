@@ -86,6 +86,8 @@ export function SampleSearchField({
     }
 
     const previousOverflow = document.body.style.overflow;
+    // snapshot da ref no momento do effect: evita acessar .current no cleanup
+    const inputEl = inputRef.current;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
@@ -103,7 +105,7 @@ export function SampleSearchField({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
       window.setTimeout(() => {
-        inputRef.current?.focus();
+        inputEl?.focus();
       }, 0);
     };
   }, [resultModalOpen]);

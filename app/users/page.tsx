@@ -334,6 +334,8 @@ export default function UsersPage() {
     return () => {
       active = false;
     };
+    // modal.loading e lido como guard mas nao deve disparar reload (loading e setado pelo proprio effect)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.mode, modal.user?.id, session]);
 
   // --- Modal focus & scroll lock ---
@@ -358,6 +360,8 @@ export default function UsersPage() {
       document.removeEventListener('keydown', onKeyDown);
       window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
     };
+    // closeModal e funcao local nao memoizada; reage so a abertura/saving do modal
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal.mode, modal.saving]);
 
   if (loading || !session) return null;

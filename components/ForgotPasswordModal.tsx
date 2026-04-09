@@ -187,6 +187,8 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
       document.body.style.paddingRight = previousPaddingRight;
       document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
     };
+    // resetState e funcao local nao memoizada; effect deve disparar so quando 'open' muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -234,6 +236,8 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
+    // handleClose e funcao local nao memoizada; effect reage so a busy/open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, open]);
 
   useEffect(() => {
@@ -248,6 +252,8 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
     lastOtpValidationRef.current = otpValue;
 
     void verifyOtpCode(otpValue);
+    // verifyOtpCode e funcao local nao memoizada; effect dispara quando o codigo digitado completa
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, email, otpValue, step]);
 
   useEffect(() => {

@@ -428,6 +428,8 @@ function CameraPageContent() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
     };
+    // resetClassificationFlow e funcao local nao memoizada; effect reage so a flow/modal state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultModalOpen, flowState]);
 
   // --- Scanner functions ---

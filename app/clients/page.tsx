@@ -413,6 +413,8 @@ function ClientsPage() {
     }
 
     const previousOverflow = document.body.style.overflow;
+    // snapshot da ref no momento do effect: evita acessar .current no cleanup
+    const scrollContainerEl = clientsScrollRef.current;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
@@ -437,7 +439,7 @@ function ClientsPage() {
         if (lastClientTriggerRef.current && document.body.contains(lastClientTriggerRef.current)) {
           lastClientTriggerRef.current.focus();
         } else {
-          clientsScrollRef.current?.focus();
+          scrollContainerEl?.focus();
         }
       }, 0);
     };

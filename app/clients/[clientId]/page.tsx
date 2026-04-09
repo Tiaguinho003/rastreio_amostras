@@ -388,7 +388,6 @@ export default function ClientDetailPage() {
   }
 
   /* ---- lazy‑load commercial data ---- */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (clientSection !== 'COMMERCIAL' || commercialFetchedRef.current || !client) return;
     commercialFetchedRef.current = true;
@@ -400,9 +399,10 @@ export default function ClientDetailPage() {
       setCommercialSubTab('PURCHASE');
       void fetchBuyerPurchases(1);
     }
+    // fetch* sao funcoes locais nao memoizadas; effect deve disparar so quando section/client mudam
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientSection, client]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (clientSection !== 'COMMERCIAL' || !commercialFetchedRef.current || !client) return;
     if (
@@ -421,6 +421,8 @@ export default function ClientDetailPage() {
     ) {
       void fetchBuyerPurchases(1);
     }
+    // intencionalmente reage so a mudancas de subtab; demais valores sao snapshot do momento
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commercialSubTab]);
 
   /* ---- sale search debounce ---- */
@@ -444,7 +446,6 @@ export default function ClientDetailPage() {
   }, [saleSearch, clientSection, commercialSubTab, saleAppliedSearch]);
 
   /* ---- re-fetch when applied search/filters change ---- */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (
       clientSection !== 'COMMERCIAL' ||
@@ -453,6 +454,8 @@ export default function ClientDetailPage() {
     )
       return;
     void fetchOwnerSamples(1);
+    // dispara so quando filtros aplicados mudam; section/subTab funcionam como guard
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleAppliedSearch, saleAppliedFilters]);
 
   /* ---- purchase search debounce ---- */
@@ -477,7 +480,6 @@ export default function ClientDetailPage() {
   }, [purchaseSearch, clientSection, commercialSubTab, purchaseAppliedSearch]);
 
   /* ---- re-fetch when applied purchase search/filters change ---- */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (
       clientSection !== 'COMMERCIAL' ||
@@ -486,6 +488,8 @@ export default function ClientDetailPage() {
     )
       return;
     void fetchBuyerPurchases(1);
+    // dispara so quando filtros aplicados mudam; section/subTab funcionam como guard
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purchaseAppliedSearch, purchaseAppliedFilters]);
 
   function formatDate(value: string | null): string {

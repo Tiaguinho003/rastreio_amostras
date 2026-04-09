@@ -595,6 +595,8 @@ function SamplesPage() {
         lastFilterTriggerRef.current?.focus();
       }, 0);
     };
+    // closeFilters e funcao local nao memoizada; effect deve disparar so quando filtersOpen muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen]);
 
   useEffect(() => {
