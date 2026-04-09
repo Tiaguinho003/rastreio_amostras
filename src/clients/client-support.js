@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { HttpError } from '../contracts/errors.js';
 import {
   assertAuthenticatedActor,
@@ -144,7 +145,12 @@ function normalizeOptionalSearch(value, fieldName = 'search', maxLength = 200) {
 }
 
 function normalizeCpf(value, fieldName = 'cpf') {
-  const normalized = normalizeDigits(normalizeRequiredText(value, fieldName, 32));
+  const text = normalizeOptionalText(value, fieldName, 32);
+  if (!text) {
+    return null;
+  }
+
+  const normalized = normalizeDigits(text);
   if (normalized.length !== 11) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
@@ -156,7 +162,12 @@ function normalizeCpf(value, fieldName = 'cpf') {
 }
 
 function normalizeCnpj(value, fieldName = 'cnpj') {
-  const normalized = normalizeDigits(normalizeRequiredText(value, fieldName, 32));
+  const text = normalizeOptionalText(value, fieldName, 32);
+  if (!text) {
+    return null;
+  }
+
+  const normalized = normalizeDigits(text);
   if (normalized.length !== 14) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
@@ -222,18 +233,9 @@ function normalizeLookupKind(value, fieldName = 'kind') {
 }
 
 function normalizeClientFlags({ isBuyer, isSeller }) {
-  const normalizedBuyer = normalizeRequiredBoolean(isBuyer, 'isBuyer');
-  const normalizedSeller = normalizeRequiredBoolean(isSeller, 'isSeller');
-  if (!normalizedBuyer && !normalizedSeller) {
-    throw new HttpError(422, 'At least one of isBuyer or isSeller must be true', {
-      code: 'VALIDATION_ERROR',
-      field: 'isBuyer'
-    });
-  }
-
   return {
-    isBuyer: normalizedBuyer,
-    isSeller: normalizedSeller
+    isBuyer: typeof isBuyer === 'boolean' ? isBuyer : false,
+    isSeller: typeof isSeller === 'boolean' ? isSeller : false
   };
 }
 
@@ -280,7 +282,7 @@ function buildClientWriteData({
       tradeName: null,
       cpf: normalizedCpf,
       cnpj: null,
-      documentCanonical: normalizedCpf,
+      documentCanonical: normalizedCpf ?? `no-doc-${randomUUID()}`,
       phone: normalizeClientPhone(phone),
       ...flags
     };
@@ -297,7 +299,7 @@ function buildClientWriteData({
     tradeName: normalizedTradeName,
     cpf: null,
     cnpj: normalizedCnpj,
-    documentCanonical: normalizedCnpj,
+    documentCanonical: normalizedCnpj ?? `no-doc-${randomUUID()}`,
     phone: normalizeClientPhone(phone),
     ...flags
   };
@@ -306,6 +308,14 @@ function buildClientWriteData({
 export function normalizeCreateClientInput(input) {
   assertProtectedClientFieldsAbsent(input);
   const personType = normalizeClientPersonType(input.personType);
+  const normalizedPhone = normalizeClientPhone(input.phone);
+  if (!normalizedPhone) {
+    throw new HttpError(422, 'phone is required', {
+      code: 'VALIDATION_ERROR',
+      field: 'phone'
+    });
+  }
+
   return buildClientWriteData({
     personType,
     fullName: input.fullName,

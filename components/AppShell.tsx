@@ -397,14 +397,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                   </div>
 
                   {isAdmin(session.user.role) ? (
-                    <>
-                      <Link href="/warehouses" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
-                        Armazens
-                      </Link>
-                      <Link href="/users" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
-                        Usuarios
-                      </Link>
-                    </>
+                    <Link href="/users" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
+                      Usuarios
+                    </Link>
                   ) : null}
                   <Link href="/clients" className="topbar-profile-link" onClick={() => setProfileMenuOpen(false)}>
                     Clientes

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
@@ -13,7 +14,7 @@ const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO'
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.CLASSIFICATION]: ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED']
+  [PHOTO_KINDS.CLASSIFICATION]: ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED']
 };
 const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
@@ -48,33 +49,28 @@ const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
   'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED'
 ];
-const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot'];
+const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
 const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'padrao',
   'catacao',
   'aspecto',
   'bebida',
+  'safra',
   'broca',
   'pva',
   'imp',
-  'pau',
   'ap',
   'gpi',
   'classificador',
   'defeito',
-  'umidade',
-  'aspectoCor',
-  'observacoes',
-  'loteOrigem'
+  'observacoes'
 ];
-const CLASSIFICATION_SIEVE_FIELDS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10', 'fundos'];
+const CLASSIFICATION_SIEVE_FIELDS = ['p19', 'p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'fundos'];
 const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'type',
   'screen',
   'defectsCount',
-  'moisture',
   'density',
-  'colorAspect',
   'notes'
 ];
 const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
@@ -217,12 +213,10 @@ function resolveCommercialStatusFromTotals({ declaredSacks, soldSacks, lostSacks
     return 'OPEN';
   }
 
-  if (soldSacks === 0 && lostSacks === declaredSacks) {
-    return 'LOST';
-  }
+  const available = declaredSacks - soldSacks - lostSacks;
 
-  if (soldSacks === declaredSacks && lostSacks === 0) {
-    return 'SOLD';
+  if (available <= 0) {
+    return soldSacks > 0 ? 'SOLD' : 'LOST';
   }
 
   if (soldSacks > 0) {
@@ -450,19 +444,27 @@ function valuesEqual(left, right) {
 }
 
 function normalizeRegistrationFieldValue(fieldName, value) {
-  if (fieldName === 'owner' || fieldName === 'harvest' || fieldName === 'originLot') {
+  if (fieldName === 'owner' || fieldName === 'harvest') {
     return normalizeRequiredText(value, fieldName);
+  }
+
+  if (fieldName === 'originLot') {
+    return normalizeOptionalText(value, fieldName, 100);
   }
 
   if (fieldName === 'sacks') {
     return normalizeSacks(value);
   }
 
+  if (fieldName === 'location') {
+    return normalizeOptionalText(value, 'location', 30);
+  }
+
   throw new HttpError(422, `registration field ${fieldName} is not editable`);
 }
 
 function parseRegistrationUpdatePatch(after) {
-  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId', 'warehouseId', 'warehouseName']);
+  const allowedTopLevel = new Set([...REGISTRATION_EDITABLE_FIELDS, 'declared', 'ownerClientId', 'ownerRegistrationId']);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
   const declared = hasOwn(after, 'declared') ? after.declared : undefined;
@@ -495,22 +497,10 @@ function parseRegistrationUpdatePatch(after) {
     patch.ownerRegistrationId = normalizeNullableUuid(after.ownerRegistrationId, 'after.ownerRegistrationId');
   }
 
-  if (hasOwn(after, 'warehouseId')) {
-    patch.hasWarehouseId = true;
-    patch.warehouseId = normalizeNullableUuid(after.warehouseId, 'after.warehouseId');
-  }
-
-  if (hasOwn(after, 'warehouseName')) {
-    patch.hasWarehouseName = true;
-    patch.warehouseName = typeof after.warehouseName === 'string' ? after.warehouseName.trim() : null;
-  }
-
   if (
     Object.keys(patch.declared).length === 0 &&
     patch.hasOwnerClientId !== true &&
-    patch.hasOwnerRegistrationId !== true &&
-    patch.hasWarehouseId !== true &&
-    patch.hasWarehouseName !== true
+    patch.hasOwnerRegistrationId !== true
   ) {
     throw new HttpError(422, 'after must include at least one editable registration field');
   }
@@ -553,13 +543,9 @@ function parseClassificationSievePatch(value) {
 }
 
 function normalizeClassificationDataFieldValue(fieldName, value) {
-  if (fieldName === 'broca' || fieldName === 'pva' || fieldName === 'imp' || fieldName === 'pau' || fieldName === 'defeito') {
+  if (fieldName === 'broca' || fieldName === 'pva' || fieldName === 'imp' || fieldName === 'defeito') {
     if (value === null || value === undefined) return null;
     return typeof value === 'string' ? value.trim() || null : String(value);
-  }
-
-  if (fieldName === 'umidade') {
-    return normalizeNullableNumber(value, 'after.classificationData.umidade');
   }
 
   return normalizeNullableText(value, `after.classificationData.${fieldName}`);
@@ -570,7 +556,7 @@ function normalizeClassificationTechnicalFieldValue(fieldName, value) {
     return normalizeNullableNumber(value, 'after.technical.defectsCount', { integer: true, min: 0 });
   }
 
-  if (fieldName === 'moisture' || fieldName === 'density') {
+  if (fieldName === 'density') {
     return normalizeNullableNumber(value, `after.technical.${fieldName}`);
   }
 
@@ -763,35 +749,6 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
     if (!valuesEqual(currentOwnerValue, nextOwnerDisplayName)) {
       beforeDeclared.owner = currentOwnerValue;
       afterDeclared.owner = nextOwnerDisplayName;
-    }
-  }
-
-  const hasWarehousePatch = parsedPatch.hasWarehouseId === true || parsedPatch.hasWarehouseName === true;
-  if (hasWarehousePatch) {
-    const currentWarehouseId = sample.warehouseId ?? null;
-    const currentDeclaredWarehouse = hasOwn(currentDeclared, 'warehouse') ? currentDeclared.warehouse : null;
-    const resolvedWarehouse = parsedPatch.resolvedWarehouseBinding;
-
-    if (resolvedWarehouse) {
-      if (!valuesEqual(currentWarehouseId, resolvedWarehouse.warehouseId)) {
-        before.warehouseId = currentWarehouseId;
-        after.warehouseId = resolvedWarehouse.warehouseId;
-      }
-      if (!valuesEqual(currentDeclaredWarehouse, resolvedWarehouse.warehouseName)) {
-        beforeDeclared.warehouse = currentDeclaredWarehouse;
-        afterDeclared.warehouse = resolvedWarehouse.warehouseName;
-      }
-    } else if (parsedPatch.hasWarehouseId === true && parsedPatch.warehouseId === null) {
-      if (currentWarehouseId !== null) {
-        before.warehouseId = currentWarehouseId;
-        after.warehouseId = null;
-      }
-      if (currentDeclaredWarehouse !== null) {
-        before.declaredWarehouse = currentDeclaredWarehouse;
-        after.declaredWarehouse = null;
-        beforeDeclared.warehouse = currentDeclaredWarehouse;
-        afterDeclared.warehouse = null;
-      }
     }
   }
 
@@ -1179,7 +1136,8 @@ function normalizeDeclaredFields(declared, options = {}) {
     owner,
     sacks: declared.sacks,
     harvest: declared.harvest,
-    originLot: declared.originLot
+    originLot: declared.originLot,
+    location: normalizeOptionalText(declared.location, 'location', 30)
   };
 }
 
@@ -1193,33 +1151,14 @@ function isInternalLotNumberUniqueConflict(error) {
   return message.includes('internal_lot_number') || message.includes('uq_sample_internal_lot');
 }
 
-async function resolveWarehouseForWrite({ warehouseName, warehouseId, warehouseService, actorContext }) {
-  if (warehouseId !== undefined && warehouseId !== null) {
-    if (!warehouseService) {
-      throw new Error('warehouseService is required for warehouse ID resolution');
-    }
-    return warehouseService.resolveWarehouseById(warehouseId);
-  }
-
-  const trimmed = typeof warehouseName === 'string' ? warehouseName.trim() : '';
-  if (trimmed.length > 0) {
-    if (!warehouseService) {
-      throw new Error('warehouseService is required for warehouse resolution');
-    }
-    return warehouseService.resolveOrCreateWarehouse(trimmed, actorContext);
-  }
-
-  return null;
-}
-
 export class SampleCommandService {
-  constructor({ eventService, queryService, uploadService = null, clientService = null, warehouseService = null, extractionService = null }) {
+  constructor({ eventService, queryService, uploadService = null, clientService = null, extractionService = null, formDetectionService = null }) {
     this.eventService = eventService;
     this.queryService = queryService;
     this.uploadService = uploadService;
     this.clientService = clientService;
-    this.warehouseService = warehouseService;
     this.extractionService = extractionService;
+    this.formDetectionService = formDetectionService;
   }
 
   async receiveSample(input, actorContext) {
@@ -1253,19 +1192,14 @@ export class SampleCommandService {
       clientService: this.clientService,
       mode: 'create'
     });
-    const warehouseBinding = await resolveWarehouseForWrite({
-      warehouseName: input.warehouseName ?? null,
-      warehouseId: normalizeNullableUuid(input.warehouseId, 'warehouseId'),
-      warehouseService: this.warehouseService,
-      actorContext
-    });
     const declared = {
       owner:
         ownerBinding?.displayName ??
         normalizeRequiredText(input.owner, 'owner'),
       sacks: normalizeSacks(input.sacks),
       harvest: normalizeRequiredText(input.harvest, 'harvest'),
-      originLot: normalizeRequiredText(input.originLot, 'originLot')
+      originLot: normalizeOptionalText(input.originLot, 'originLot', 100),
+      location: normalizeOptionalText(input.location, 'location', 30)
     };
     const receivedChannel = normalizeReceivedChannel(input.receivedChannel ?? 'in_person');
     const notes = normalizeOptionalText(input.notes, 'notes', 500);
@@ -1333,8 +1267,6 @@ export class SampleCommandService {
               declared,
               ownerClientId: ownerBinding?.ownerClientId ?? null,
               ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
-              warehouseId: warehouseBinding?.warehouseId ?? null,
-              declaredWarehouse: warehouseBinding?.warehouseName ?? null,
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`
             },
             actor
@@ -1490,12 +1422,12 @@ export class SampleCommandService {
       if (this.extractionService && this.uploadService && !input.skipExtraction) {
         try {
           const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
-          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath);
+          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath, sample.classificationType ?? null);
           const crossValidation = crossValidateExtraction(raw.identificacao, sample);
           extraction = {
             extractedFields: raw.classificacao,
             crossValidation,
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o',
             photoAttachmentId: saved.attachmentId,
             processingTimeMs: raw.processingTimeMs
           };
@@ -1587,9 +1519,7 @@ export class SampleCommandService {
           sampleLotNumber,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null,
-          warehouseId: input.warehouseId ?? null,
-          declaredWarehouse: input.declaredWarehouse ?? null
+          ownerRegistrationId: ownerBinding?.ownerRegistrationId ?? null
         },
         fromStatus: 'REGISTRATION_IN_PROGRESS',
         toStatus: 'REGISTRATION_CONFIRMED',
@@ -1708,6 +1638,23 @@ export class SampleCommandService {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR printed');
     const printAction = normalizePrintAction(input.printAction ?? 'PRINT');
     const sample = await this.queryService.requireSample(input.sampleId);
+
+    // If the sample already advanced past QR_PENDING_PRINT, the print was
+    // already accounted for.  Mark any orphaned PENDING print job as SUCCESS
+    // and return 200 so the print agent stops retrying.
+    if (printAction === 'PRINT' && sample.status !== 'QR_PENDING_PRINT') {
+      await this.queryService.prisma.printJob.updateMany({
+        where: {
+          sampleId: sample.id,
+          printAction: printAction,
+          attemptNumber: input.attemptNumber ?? 1,
+          status: 'PENDING'
+        },
+        data: { status: 'SUCCESS', updatedAt: new Date() }
+      });
+      return { statusCode: 200, idempotent: true, message: 'Sample already advanced past print phase' };
+    }
+
     const mutatesSample = printAction === 'PRINT' || (printAction === 'REPRINT' && sample.status === 'QR_PENDING_PRINT');
 
     if (mutatesSample) {
@@ -1746,7 +1693,7 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED'], 'start classification');
+    assertSampleStatus(sample, ['QR_PRINTED'], 'start classification');
 
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_STARTED',
@@ -1769,7 +1716,7 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['CLASSIFICATION_IN_PROGRESS'], 'save classification partial');
+    assertSampleStatus(sample, ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'save classification partial');
 
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_SAVED_PARTIAL',
@@ -1792,7 +1739,7 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'complete classification');
+    assertSampleStatus(sample, ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'], 'complete classification');
     const classificationPhoto = await this.queryService.findAttachmentByKind(sample.id, PHOTO_KINDS.CLASSIFICATION);
     if (!classificationPhoto) {
       throw new HttpError(409, 'Foto de classificacao e obrigatoria para completar');
@@ -1831,6 +1778,10 @@ export class SampleCommandService {
 
     if (typeof input.classifierName === 'string' || input.classifierName === null) {
       payload.classifierName = input.classifierName;
+    }
+
+    if (input.classificationType) {
+      payload.classificationType = input.classificationType;
     }
 
     const event = buildEventEnvelope({
@@ -1875,18 +1826,9 @@ export class SampleCommandService {
       clientService: this.clientService,
       mode: 'update'
     });
-    const warehouseBinding = (parsedPatch.hasWarehouseId === true || parsedPatch.hasWarehouseName === true)
-      ? await resolveWarehouseForWrite({
-          warehouseName: parsedPatch.warehouseName ?? null,
-          warehouseId: parsedPatch.warehouseId ?? null,
-          warehouseService: this.warehouseService,
-          actorContext: actor
-        })
-      : undefined;
     const effectivePatch = {
       ...parsedPatch,
-      resolvedOwnerBinding: ownerBinding,
-      resolvedWarehouseBinding: warehouseBinding
+      resolvedOwnerBinding: ownerBinding
     };
     const updatePayload = buildRegistrationUpdatePayload(sample, effectivePatch);
     if (!updatePayload) {
@@ -1899,6 +1841,13 @@ export class SampleCommandService {
         : null;
     if (typeof nextDeclaredSacks === 'number') {
       const currentCommercial = readCurrentCommercialSummary(sample);
+      const usedSacks = currentCommercial.soldSacks + currentCommercial.lostSacks;
+      if (nextDeclaredSacks < usedSacks) {
+        const parts = [];
+        if (currentCommercial.soldSacks > 0) parts.push(`${currentCommercial.soldSacks} vendida${currentCommercial.soldSacks === 1 ? '' : 's'}`);
+        if (currentCommercial.lostSacks > 0) parts.push(`${currentCommercial.lostSacks} perdida${currentCommercial.lostSacks === 1 ? '' : 's'}`);
+        throw new HttpError(409, `Nao e possivel reduzir para ${nextDeclaredSacks} sacas. Ja existem ${parts.join(' e ')} registradas. O minimo permitido e ${usedSacks}.`);
+      }
       const projection = buildCommercialProjection({
         declaredSacks: nextDeclaredSacks,
         soldSacks: currentCommercial.soldSacks,
@@ -1956,15 +1905,20 @@ export class SampleCommandService {
       throw new HttpError(409, 'No classification changes detected');
     }
 
+    const updateEventPayload = {
+      before: updatePayload.before,
+      after: updatePayload.after,
+      reasonCode,
+      reasonText
+    };
+    if (input.classificationType) {
+      updateEventPayload.classificationType = input.classificationType;
+    }
+
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_UPDATED',
       sampleId: sample.id,
-      payload: {
-        before: updatePayload.before,
-        after: updatePayload.after,
-        reasonCode,
-        reasonText
-      },
+      payload: updateEventPayload,
       fromStatus: null,
       toStatus: null,
       module: 'classification',
@@ -2430,6 +2384,11 @@ export class SampleCommandService {
       throw new HttpError(409, `Sample ${sample.id} is already INVALIDATED`);
     }
 
+    const { soldSacks, lostSacks } = readCurrentCommercialSummary(sample);
+    if (soldSacks > 0 || lostSacks > 0) {
+      throw new HttpError(409, 'Nao e possivel invalidar uma amostra com movimentacoes comerciais ativas. Cancele as movimentacoes antes de invalidar.');
+    }
+
     const event = buildEventEnvelope({
       eventType: 'SAMPLE_INVALIDATED',
       sampleId: sample.id,
@@ -2448,6 +2407,47 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
   }
 
+  async detectClassificationForm(input, actorContext) {
+    requireUserActor(actorContext, USER_ACTION_ROLES, 'detect classification form');
+
+    if (!this.uploadService) {
+      throw new HttpError(503, 'Servico de upload nao configurado');
+    }
+
+    const { fileBuffer } = input;
+    if (!Buffer.isBuffer(fileBuffer) || fileBuffer.length === 0) {
+      throw new HttpError(422, 'fileBuffer is required');
+    }
+
+    const photoToken = randomUUID();
+    const tempDir = path.join(this.uploadService.baseDir, '_temp');
+    const tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
+
+    await fs.promises.mkdir(tempDir, { recursive: true });
+    await fs.promises.writeFile(tempPath, fileBuffer);
+
+    let detected = false;
+
+    if (this.formDetectionService) {
+      try {
+        const result = await this.formDetectionService.detectAndCrop(fileBuffer);
+        if (result.detected && result.croppedBuffer) {
+          const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
+          await fs.promises.writeFile(croppedPath, result.croppedBuffer);
+          detected = true;
+        }
+      } catch {
+        // Detection failed — continue without crop
+      }
+    }
+
+    return {
+      statusCode: 200,
+      photoToken,
+      detected
+    };
+  }
+
   async extractAndPrepareClassification(input, actorContext) {
     requireUserActor(actorContext, USER_ACTION_ROLES, 'extract and prepare classification');
 
@@ -2457,31 +2457,78 @@ export class SampleCommandService {
     if (!this.uploadService) {
       throw new HttpError(503, 'Servico de upload nao configurado');
     }
-    if (!input.fileBuffer || !Buffer.isBuffer(input.fileBuffer)) {
-      throw new HttpError(422, 'Foto e obrigatoria');
+
+    const tempDir = path.join(this.uploadService.baseDir, '_temp');
+    let photoToken;
+    let tempPath;
+    let extractionPath;
+    let formDetected = false;
+    let createdTempFile = false;
+
+    if (typeof input.photoToken === 'string' && input.photoToken.length > 0) {
+      // Mode 2: photoToken from detect-form (file already saved)
+      photoToken = input.photoToken;
+      tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
+      const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
+
+      try {
+        await fs.promises.access(croppedPath);
+        extractionPath = croppedPath;
+        formDetected = true;
+      } catch {
+        extractionPath = tempPath;
+      }
+
+      try {
+        await fs.promises.access(extractionPath);
+      } catch {
+        throw new HttpError(404, 'Foto temporaria nao encontrada. Tente novamente.');
+      }
+    } else if (Buffer.isBuffer(input.fileBuffer) && input.fileBuffer.length > 0) {
+      // Mode 1: direct file upload (legacy)
+      photoToken = randomUUID();
+      tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
+      await fs.promises.mkdir(tempDir, { recursive: true });
+      await fs.promises.writeFile(tempPath, input.fileBuffer);
+      createdTempFile = true;
+
+      // Try auto-crop inline
+      if (this.formDetectionService) {
+        try {
+          const detection = await this.formDetectionService.detectAndCrop(input.fileBuffer);
+          if (detection.detected && detection.croppedBuffer) {
+            const croppedPath = path.join(tempDir, `temp-${photoToken}-cropped.jpg`);
+            await fs.promises.writeFile(croppedPath, detection.croppedBuffer);
+            extractionPath = croppedPath;
+            formDetected = true;
+          }
+        } catch {
+          // Detection failed — use original
+        }
+      }
+
+      if (!extractionPath) {
+        extractionPath = tempPath;
+      }
+    } else {
+      throw new HttpError(422, 'Foto ou photoToken e obrigatorio');
     }
 
-    const photoToken = randomUUID();
-    const tempFileName = `temp-${photoToken}.jpg`;
-    const tempDir = path.join(this.uploadService.baseDir, '_temp');
-    const fs = await import('node:fs/promises');
-    await fs.mkdir(tempDir, { recursive: true });
-    const tempPath = path.join(tempDir, tempFileName);
-
-    await fs.writeFile(tempPath, input.fileBuffer);
-
     try {
-      const raw = await this.extractionService.extractClassificationFromPhoto(tempPath);
+      const raw = await this.extractionService.extractClassificationFromPhoto(extractionPath, input.classificationType);
 
       return {
         statusCode: 200,
         extractedFields: raw.classificacao,
         identification: raw.identificacao,
         photoToken,
+        formDetected,
         processingTimeMs: raw.processingTimeMs
       };
     } catch (err) {
-      await fs.rm(tempPath, { force: true }).catch(() => {});
+      if (createdTempFile) {
+        await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+      }
       throw err;
     }
   }
@@ -2497,19 +2544,18 @@ export class SampleCommandService {
     }
 
     const sample = await this.queryService.requireSample(sampleId);
-    const classifiableStatuses = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'];
+    const classifiableStatuses = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
     assertSampleStatus(sample, classifiableStatuses, 'confirm classification from camera');
 
     // Read photo from temp
     if (!this.uploadService) {
       throw new HttpError(503, 'Servico de upload nao configurado');
     }
-    const fs = await import('node:fs/promises');
     const tempDir = path.join(this.uploadService.baseDir, '_temp');
     const tempPath = path.join(tempDir, `temp-${input.photoToken}.jpg`);
     let fileBuffer;
     try {
-      fileBuffer = await fs.readFile(tempPath);
+      fileBuffer = await fs.promises.readFile(tempPath);
     } catch {
       throw new HttpError(404, 'Foto temporaria nao encontrada. Tire a foto novamente.');
     }
@@ -2539,13 +2585,6 @@ export class SampleCommandService {
       const parsed = parseInt(classificationData.defeito, 10);
       if (Number.isFinite(parsed)) { technical.defectsCount = Math.round(parsed); }
     }
-    if (classificationData.umidade !== null && classificationData.umidade !== undefined) {
-      const moisture = typeof classificationData.umidade === 'number'
-        ? classificationData.umidade
-        : Number(String(classificationData.umidade).replace(',', '.'));
-      if (Number.isFinite(moisture)) { technical.moisture = moisture; }
-    }
-
     // Re-read sample after photo upload (version changed)
     const current = await this.queryService.requireSample(sampleId);
     let result;
@@ -2576,7 +2615,8 @@ export class SampleCommandService {
         expectedVersion: current.version,
         after: parsedPatch,
         reasonCode: 'DATA_FIX',
-        reasonText: 'Reclassificacao via foto'
+        reasonText: 'Reclassificacao via foto',
+        classificationType: input.classificationType ?? null
       }, actorContext);
     } else {
       // New classification
@@ -2586,12 +2626,15 @@ export class SampleCommandService {
         classificationData,
         technical: Object.keys(technical).length > 0 ? technical : undefined,
         classifierName,
-        idempotencyKey: input.idempotencyKey
+        idempotencyKey: input.idempotencyKey,
+        classificationType: input.classificationType ?? null
       }, actorContext);
     }
 
-    // Cleanup temp file (best-effort)
-    await fs.rm(tempPath, { force: true }).catch(() => {});
+    // Cleanup temp files (best-effort)
+    await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+    const croppedTempPath = tempPath.replace('.jpg', '-cropped.jpg');
+    await fs.promises.rm(croppedTempPath, { force: true }).catch(() => {});
 
     return result;
   }

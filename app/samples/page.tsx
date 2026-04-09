@@ -415,7 +415,7 @@ export default function SamplesPageWrapper() {
 }
 
 function SamplesPage() {
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -743,7 +743,7 @@ function SamplesPage() {
   const avatarInitials = fullName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="samples-page-v2">
         <header className="samples-page-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">

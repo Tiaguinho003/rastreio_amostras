@@ -3,6 +3,7 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE';
 export type InitialPasswordDecision = 'PENDING' | 'KEPT' | 'CHANGED';
 export type UpdateReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'CANCELLED' | 'OTHER';
+export type ClassificationType = 'PREPARADO' | 'LOW_CAFF' | 'BICA';
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientRegistrationStatus = 'ACTIVE' | 'INACTIVE';
@@ -48,7 +49,6 @@ export type SampleExportField =
   | 'pva'
   | 'imp'
   | 'defeito'
-  | 'umidade'
   | 'classificador'
   | 'observacoes'
   | 'classificationOriginLot'
@@ -197,23 +197,6 @@ export interface ClientRegistrationSummary {
   complement: string | null;
   createdAt: string | null;
   updatedAt: string | null;
-}
-
-export type WarehouseStatus = 'ACTIVE' | 'INACTIVE';
-
-export interface WarehouseSummary {
-  id: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  status: WarehouseStatus;
-  sampleCount?: number | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
-
-export interface WarehouseLookupResponse {
-  items: WarehouseSummary[];
 }
 
 export interface ClientResponse {
@@ -378,19 +361,19 @@ export interface PasswordResetCodeVerificationResponse {
 export interface SampleSnapshot {
   id: string;
   internalLotNumber: string | null;
+  classificationType: ClassificationType | null;
   status: SampleStatus;
   commercialStatus: CommercialStatus;
   version: number;
   lastEventSequence: number;
   ownerClientId?: string | null;
   ownerRegistrationId?: string | null;
-  warehouseId?: string | null;
   declared: {
     owner: string | null;
     sacks: number | null;
     harvest: string | null;
     originLot: string | null;
-    warehouse?: string | null;
+    location: string | null;
   };
   ownerClient?: {
     id: string;
@@ -420,13 +403,6 @@ export interface SampleSnapshot {
     postalCode: string;
     complement: string | null;
   } | null;
-  warehouse?: {
-    id: string;
-    name: string;
-    address: string | null;
-    phone: string | null;
-    status: WarehouseStatus;
-  } | null;
   soldSacks?: number;
   lostSacks?: number;
   availableSacks?: number | null;
@@ -437,9 +413,7 @@ export interface SampleSnapshot {
       type: string | null;
       screen: string | null;
       defectsCount: number | null;
-      moisture: number | null;
       density: number | null;
-      colorAspect: string | null;
       notes: string | null;
     };
   };
@@ -649,6 +623,12 @@ export interface CommandResponse<TSample = unknown> {
   extraction?: ExtractionResult | null;
 }
 
+export interface DetectFormResponse {
+  statusCode: number;
+  photoToken: string;
+  detected: boolean;
+}
+
 export interface ExtractAndPrepareResponse {
   statusCode: number;
   extractedFields: Record<string, string | null>;
@@ -659,6 +639,7 @@ export interface ExtractAndPrepareResponse {
     data: string | null;
   };
   photoToken: string;
+  formDetected?: boolean;
   processingTimeMs: number;
 }
 
@@ -667,6 +648,7 @@ export interface ResolveSampleByLotResponse {
   sample?: {
     id: string;
     internalLotNumber: string | null;
+    classificationType: ClassificationType | null;
     status: string;
     version: number;
     declared: {

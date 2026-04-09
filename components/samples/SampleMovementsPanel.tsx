@@ -90,12 +90,21 @@ export function SampleMovementsPanel({
   const soldPct = (sold / total) * 100;
   const lostPct = (lost / total) * 100;
   const availPct = Math.max(0, 100 - soldPct - lostPct);
-  const commercialLabel = sold > 0 && available === 0 ? 'Vendido' : sold > 0 ? 'Parcial' : 'Disponivel';
-  const commercialStyle = commercialLabel === 'Vendido'
-    ? { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' }
-    : commercialLabel === 'Parcial'
-      ? { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' }
-      : { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' };
+
+  const STATUS_LABEL: Record<string, string> = {
+    OPEN: 'Disponivel',
+    PARTIALLY_SOLD: 'Parcial',
+    SOLD: 'Vendido',
+    LOST: 'Perdido'
+  };
+  const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+    OPEN: { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' },
+    PARTIALLY_SOLD: { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' },
+    SOLD: { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' },
+    LOST: { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA' }
+  };
+  const commercialLabel = STATUS_LABEL[sample.commercialStatus] ?? 'Disponivel';
+  const commercialStyle = STATUS_STYLE[sample.commercialStatus] ?? STATUS_STYLE.OPEN;
 
   return (
     <section className="sdv-commercial">
@@ -195,11 +204,11 @@ export function SampleMovementsPanel({
 
       {/* Action buttons */}
       <div className="sdv-com-actions">
-        <button type="button" className="sdv-com-action-loss" disabled={sample.status !== 'CLASSIFIED'} onClick={() => { setCreateType('LOSS'); setCreateOpen(true); clearFeedback(); }}>
+        <button type="button" className="sdv-com-action-loss" disabled={sample.status !== 'CLASSIFIED' || available <= 0} onClick={() => { setCreateType('LOSS'); setCreateOpen(true); clearFeedback(); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="m5 12 7 7 7-7" /></svg>
           Perda
         </button>
-        <button type="button" className="sdv-com-action-sale" disabled={sample.status !== 'CLASSIFIED'} onClick={() => { setCreateType('SALE'); setCreateOpen(true); clearFeedback(); }}>
+        <button type="button" className="sdv-com-action-sale" disabled={sample.status !== 'CLASSIFIED' || available <= 0} onClick={() => { setCreateType('SALE'); setCreateOpen(true); clearFeedback(); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
           Venda
         </button>
@@ -259,6 +268,7 @@ export function SampleMovementsPanel({
         saving={saving}
         title={editMovement?.movementType === 'SALE' ? 'Editar venda' : 'Editar perda'}
         movement={editMovement}
+        availableSacks={available}
         onClose={() => {
           if (!saving) {
             setEditMovement(null);

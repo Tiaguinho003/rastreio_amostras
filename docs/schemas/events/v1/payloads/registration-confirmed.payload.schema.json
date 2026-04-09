@@ -14,9 +14,10 @@
         "owner": { "type": "string", "minLength": 1 },
         "sacks": { "type": "integer", "minimum": 1 },
         "harvest": { "type": "string", "minLength": 1 },
-        "originLot": { "type": "string", "minLength": 1 }
+        "originLot": { "type": ["string", "null"] },
+        "location": { "type": ["string", "null"] }
       },
-      "required": ["owner", "sacks", "harvest", "originLot"],
+      "required": ["owner", "sacks", "harvest"],
       "additionalProperties": false
     },
     "ownerClientId": {

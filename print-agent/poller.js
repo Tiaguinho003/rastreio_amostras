@@ -25,14 +25,22 @@ async function fetchPendingJobs(config) {
   return res.json();
 }
 
+async function fetchCurrentSampleVersion(config, sampleId) {
+  try {
+    const res = await fetch(`${config.backendUrl}/api/v1/samples/${sampleId}`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.sample?.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function reportSuccess(config, job) {
   const lotId = job.sample.internalLotNumber || job.sampleId.slice(0, 8);
-  const body = {
-    printAction: job.printAction,
-    attemptNumber: job.attemptNumber,
-    printerId: config.printerId,
-    expectedVersion: job.sample.version,
-  };
+  let currentVersion = job.sample.version;
 
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -40,7 +48,12 @@ async function reportSuccess(config, job) {
       const res = await fetch(`${config.backendUrl}/api/v1/samples/${job.sampleId}/qr/printed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          printAction: job.printAction,
+          attemptNumber: job.attemptNumber,
+          printerId: config.printerId,
+          expectedVersion: currentVersion,
+        }),
       });
 
       if (res.ok) {
@@ -49,8 +62,15 @@ async function reportSuccess(config, job) {
       }
 
       if (res.status === 409) {
-        log.warn(`[${lotId}] Report ignorado (conflito de versao). Job ja processado pelo backend.`);
-        printedJobIds.delete(job.jobId);
+        log.warn(`[${lotId}] Conflito de versao (tentativa ${attempt}/${maxAttempts}). Buscando versao atual...`);
+        const freshVersion = await fetchCurrentSampleVersion(config, job.sampleId);
+        if (freshVersion !== null && freshVersion !== currentVersion) {
+          currentVersion = freshVersion;
+          log.info(`[${lotId}] Versao atualizada para ${currentVersion}. Retentando report...`);
+          continue;
+        }
+        // Versão não mudou ou não conseguiu buscar — manter no cache para não reimprimir
+        log.warn(`[${lotId}] Nao foi possivel resolver conflito de versao. Job mantido no cache.`);
         return;
       }
 

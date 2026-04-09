@@ -100,18 +100,17 @@ test('normalizeUpdateClientInput supports switching from PF to PJ', () => {
   assert.equal(result.data.cpf, null);
 });
 
-test('normalizeCreateClientInput rejects payload when both buyer and seller are false', () => {
-  assert.throws(
-    () =>
-      normalizeCreateClientInput({
-        personType: 'PJ',
-        legalName: 'Atlantica',
-        cnpj: '03.936.815/0001-75',
-        isBuyer: false,
-        isSeller: false
-      }),
-    /At least one of isBuyer or isSeller must be true/
-  );
+test('normalizeCreateClientInput accepts payload when both buyer and seller are false', () => {
+  const result = normalizeCreateClientInput({
+    personType: 'PJ',
+    legalName: 'Atlantica',
+    cnpj: '03.936.815/0001-75',
+    phone: '(35) 99999-0000',
+    isBuyer: false,
+    isSeller: false
+  });
+  assert.equal(result.isBuyer, false);
+  assert.equal(result.isSeller, false);
 });
 
 test('normalizeCreateRegistrationInput validates required address fields', () => {

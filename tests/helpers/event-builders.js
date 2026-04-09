@@ -427,7 +427,7 @@ export function classificationExtractionCompletedEvent(sampleId, overrides = {})
           { field: 'sacas', extracted: '50', registered: '50', match: true }
         ]
       },
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       photoAttachmentId: randomUUID(),
       processingTimeMs: 1234,
       ...payloadOverrides

@@ -12,7 +12,7 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { DashboardPendingResponse, DashboardSalesAvailabilityResponse, SampleSnapshot } from '../../lib/types';
 
-type OperationPanel = 'print_pending' | 'classification_pending' | 'classification_in_progress' | null;
+type OperationPanel = 'print_pending' | 'classification_pending' | null;
 type OperationPanelKey = Exclude<OperationPanel, null>;
 
 interface OperationModalData {
@@ -81,24 +81,13 @@ function buildOperationModalData(
     };
   }
 
-  if (activePanel === 'classification_pending') {
-    return {
-      modalId: 'dashboard-operation-modal-classification-pending',
-      title: 'Classificacoes pendentes',
-      emptyMessage: 'Nenhuma amostra com classificacao pendente.',
-      total: data.classificationPending.total,
-      items: data.classificationPending.items,
-      themeClass: 'is-status-classification-pending'
-    };
-  }
-
   return {
-    modalId: 'dashboard-operation-modal-classification-in-progress',
-    title: 'Classificacoes em andamento',
-    emptyMessage: 'Nenhuma amostra com classificacao em andamento.',
-    total: data.classificationInProgress.total,
-    items: data.classificationInProgress.items,
-    themeClass: 'is-status-classification-progress'
+    modalId: 'dashboard-operation-modal-classification-pending',
+    title: 'Aguardando classificacao',
+    emptyMessage: 'Nenhuma amostra aguardando classificacao.',
+    total: data.classificationPending.total + (data.classificationInProgress?.total ?? 0),
+    items: [...data.classificationPending.items, ...(data.classificationInProgress?.items ?? [])],
+    themeClass: 'is-status-classification-pending'
   };
 }
 
@@ -108,9 +97,8 @@ function getStatusThemeClass(status: string): string {
     case 'QR_PENDING_PRINT':
       return 'is-status-print-pending';
     case 'QR_PRINTED':
-      return 'is-status-classification-pending';
     case 'CLASSIFICATION_IN_PROGRESS':
-      return 'is-status-classification-progress';
+      return 'is-status-classification-pending';
     case 'CLASSIFIED':
       return 'is-status-success';
     case 'INVALIDATED':
@@ -151,7 +139,7 @@ function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
 }
 
 export default function DashboardPage() {
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
   const [data, setData] = useState<DashboardPendingResponse | null>(null);
   const [salesData, setSalesData] = useState<DashboardSalesAvailabilityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -264,7 +252,7 @@ export default function DashboardPage() {
   const initials = getInitials(fullName);
 
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="dashboard-page">
         <section className="dashboard-hero">
           <div className="dashboard-hero-header">
@@ -330,33 +318,11 @@ export default function DashboardPage() {
                       <path d="m20 8.2-8.6 8.6a2.2 2.2 0 0 1-3.1 0L5.2 13.7a2.2 2.2 0 0 1 0-3.1L13.8 2 20 8.2Z" />
                       <circle cx="14.6" cy="6.1" r="1" />
                     </svg>
-                    {data.classificationPending.total > 0 ? (
-                      <span className="dashboard-operation-badge">{data.classificationPending.total}</span>
+                    {(data.classificationPending.total + (data.classificationInProgress?.total ?? 0)) > 0 ? (
+                      <span className="dashboard-operation-badge">{data.classificationPending.total + (data.classificationInProgress?.total ?? 0)}</span>
                     ) : null}
                   </span>
                   <span className="dashboard-operation-label">Classificação</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="dashboard-operation-card dashboard-op-progress"
-                  onClick={(event) => openOperationPanel('classification_in_progress', event.currentTarget)}
-                  aria-expanded={activeOperationPanel === 'classification_in_progress'}
-                  aria-controls="dashboard-operation-modal-classification-in-progress"
-                  aria-haspopup="dialog"
-                >
-                  <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M20 7v4h-4" />
-                      <path d="M4 17v-4h4" />
-                      <path d="M18.3 11A7 7 0 0 0 6 8.7" />
-                      <path d="M5.7 13A7 7 0 0 0 18 15.3" />
-                    </svg>
-                    {data.classificationInProgress.total > 0 ? (
-                      <span className="dashboard-operation-badge">{data.classificationInProgress.total}</span>
-                    ) : null}
-                  </span>
-                  <span className="dashboard-operation-label">Classificando</span>
                 </button>
               </div>
             ) : (

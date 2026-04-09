@@ -649,7 +649,9 @@ export class ClientService {
     const normalized = normalizeCreateClientInput(input);
 
     return this.prisma.$transaction(async (tx) => {
-      await this.assertDocumentAvailable(tx, normalized.documentCanonical);
+      if (!normalized.documentCanonical.startsWith('no-doc-')) {
+        await this.assertDocumentAvailable(tx, normalized.documentCanonical);
+      }
 
       const created = await tx.client.create({
         data: {
@@ -681,9 +683,11 @@ export class ClientService {
       const current = await this.requireClientForUpdate(tx, clientId);
       const normalized = normalizeUpdateClientInput(input, current);
 
-      await this.assertDocumentAvailable(tx, normalized.data.documentCanonical, {
-        excludeClientId: current.id
-      });
+      if (!normalized.data.documentCanonical.startsWith('no-doc-')) {
+        await this.assertDocumentAvailable(tx, normalized.data.documentCanonical, {
+          excludeClientId: current.id
+        });
+      }
 
       const before = buildClientAuditState(current);
       const afterCandidate = {

@@ -102,7 +102,6 @@ export function createBackendApiV1({
   authService = null,
   userService = null,
   clientService = null,
-  warehouseService = null,
   commandService,
   queryService,
   reportService = null
@@ -191,9 +190,7 @@ export function createBackendApiV1({
             originLot: body.originLot,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
-            printerId: body.printerId ?? null,
-            warehouseName: body.warehouseName ?? null,
-            warehouseId: body.warehouseId ?? null
+            printerId: body.printerId ?? null
           },
           actor
         );
@@ -1730,219 +1727,19 @@ export function createBackendApiV1({
         };
       }),
 
-    // ── Warehouses ──────────────────────────────────────────────────
-
-    listWarehouses: (input) =>
+    detectClassificationForm: (input) =>
       executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const query = input?.query ?? {};
-        const result = await warehouseService.listWarehouses(
-          {
-            page: query.page,
-            limit: query.limit,
-            search: query.search,
-            status: query.status
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    lookupWarehouses: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const query = input?.query ?? {};
-        const result = await warehouseService.lookupWarehouses(
-          {
-            search: query.search
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    getWarehouse: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const result = await warehouseService.getWarehouse(warehouseId, actor);
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    createWarehouse: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
-        const result = await warehouseService.createWarehouse(
+
+        const result = await commandService.detectClassificationForm(
           {
-            name: body.name,
-            address: body.address,
-            phone: body.phone
+            fileBuffer: Buffer.isBuffer(body.fileBuffer) ? body.fileBuffer : null
           },
           actor
         );
 
-        return {
-          status: 201,
-          body: result
-        };
-      }),
-
-    updateWarehouse: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const body = readRequestBody(input);
-        const result = await warehouseService.updateWarehouse(
-          warehouseId,
-          body,
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    getWarehouseImpact: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const result = await warehouseService.getWarehouseImpact(warehouseId, actor);
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    inactivateWarehouse: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const body = readRequestBody(input);
-        const result = await warehouseService.inactivateWarehouse(
-          warehouseId,
-          {
-            reasonText: body.reasonText
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    reactivateWarehouse: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const body = readRequestBody(input);
-        const result = await warehouseService.reactivateWarehouse(
-          warehouseId,
-          {
-            reasonText: body.reasonText
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
-      }),
-
-    listWarehouseAuditEvents: (input) =>
-      executeApiForInput(input, async () => {
-        if (!warehouseService) {
-          throw new HttpError(501, 'Warehouse service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const warehouseId = input?.params?.warehouseId;
-        if (typeof warehouseId !== 'string' || warehouseId.length === 0) {
-          throw new HttpError(422, 'warehouseId path param is required');
-        }
-
-        const query = input?.query ?? {};
-        const result = await warehouseService.listAuditEvents(
-          warehouseId,
-          {
-            page: query.page,
-            limit: query.limit
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result
-        };
+        return { status: result.statusCode, body: result };
       }),
 
     extractAndPrepareClassification: (input) =>
@@ -1960,8 +1757,10 @@ export function createBackendApiV1({
         const result = await commandService.extractAndPrepareClassification(
           {
             fileBuffer,
+            photoToken: typeof body.photoToken === 'string' ? body.photoToken : null,
             mimeType: body.mimeType ?? null,
-            originalFileName: body.originalFileName ?? null
+            originalFileName: body.originalFileName ?? null,
+            classificationType: body.classificationType ?? null
           },
           actor
         );
@@ -1979,7 +1778,8 @@ export function createBackendApiV1({
             sampleId: body.sampleId,
             classificationData: body.classificationData,
             photoToken: body.photoToken,
-            idempotencyKey: body.idempotencyKey
+            idempotencyKey: body.idempotencyKey,
+            classificationType: body.classificationType ?? null
           },
           actor
         );

@@ -19,6 +19,10 @@
     },
     "reasonCode": {
       "$ref": "../base/shared-defs.schema.json#/$defs/updateReasonCode"
+    },
+    "classificationType": {
+      "type": ["string", "null"],
+      "enum": ["PREPARADO", "LOW_CAFF", "BICA", null]
     }
   },
   "required": ["before", "after", "reasonText", "reasonCode"],

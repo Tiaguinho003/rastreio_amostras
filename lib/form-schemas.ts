@@ -35,14 +35,16 @@ export const registrationFormSchema = z.object({
   owner: z.string().min(1, 'Proprietario e obrigatorio'),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
   harvest: z.string().min(1, 'Safra e obrigatoria'),
-  originLot: z.string().min(1, 'Lote de origem e obrigatorio')
+  originLot: z.string().trim().max(100, 'Lote de origem deve ter no maximo 100 caracteres').optional().nullable(),
+  location: z.string().trim().max(30, 'Local deve ter no maximo 30 caracteres').optional().nullable()
 });
 
 export const createSampleDraftSchema = z.object({
   owner: z.string().trim().min(1, 'Proprietario e obrigatorio'),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
   harvest: z.string().trim().min(1, 'Safra e obrigatoria'),
-  originLot: z.string().trim().min(1, 'Lote de origem e obrigatorio'),
+  originLot: z.string().trim().max(100, 'Lote de origem deve ter no maximo 100 caracteres').optional().nullable(),
+  location: z.string().trim().max(30, 'Local deve ter no maximo 30 caracteres').optional().nullable(),
   receivedChannel: z.enum(['in_person', 'courier', 'driver', 'other']).default('in_person'),
   notes: z.string().trim().max(500).optional().nullable(),
   printerId: z.string().trim().max(120).optional().nullable()

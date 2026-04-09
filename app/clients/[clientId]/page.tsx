@@ -114,7 +114,7 @@ function getCommercialStatusClass(status: string): string {
 
 export default function ClientDetailPage() {
   /* ---- auth & params ---- */
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
   const params = useParams<{ clientId: string }>();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
 
@@ -494,10 +494,17 @@ export default function ClientDetailPage() {
   /* ================================================================ */
 
   const canSaveClient = useMemo(() => {
-    if (!editClientForm.isBuyer && !editClientForm.isSeller) return false;
-    if (editClientForm.personType === 'PF')
-      return editClientForm.fullName.trim().length > 0 && editClientForm.cpf.trim().length > 0;
-    return editClientForm.legalName.trim().length > 0 && editClientForm.cnpj.trim().length > 0;
+    const nameOk = editClientForm.personType === 'PF'
+      ? editClientForm.fullName.trim().length > 0
+      : editClientForm.legalName.trim().length > 0;
+    const phoneDigits = editClientForm.phone.replace(/\D/g, '').length;
+    const phoneOk = phoneDigits === 10 || phoneDigits === 11;
+    const cpfDigits = editClientForm.cpf.replace(/\D/g, '').length;
+    const cnpjDigits = editClientForm.cnpj.replace(/\D/g, '').length;
+    const docOk = editClientForm.personType === 'PF'
+      ? cpfDigits === 0 || cpfDigits === 11
+      : cnpjDigits === 0 || cnpjDigits === 14;
+    return nameOk && phoneOk && docOk;
   }, [editClientForm]);
 
   const canSaveReg = useMemo(
@@ -762,7 +769,7 @@ export default function ClientDetailPage() {
   const sessionInitials = sessionFullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
         {loadingPage ? <div className="sdv-loading">Carregando cliente...</div> : null}
 

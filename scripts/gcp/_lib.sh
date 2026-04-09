@@ -122,6 +122,10 @@ runtime_secret_mappings_csv() {
     csv="${csv},SMTP_PASS=${GCLOUD_SECRET_SMTP_PASS}:latest"
   fi
 
+  if [[ -n "${GCLOUD_SECRET_OPENAI_API_KEY:-}" ]]; then
+    csv="${csv},OPENAI_API_KEY=${GCLOUD_SECRET_OPENAI_API_KEY}:latest"
+  fi
+
   printf '%s' "${csv}"
 }
 

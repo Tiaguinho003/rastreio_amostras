@@ -7,12 +7,10 @@ const PENDING_STATUSES = [
   'CLASSIFICATION_IN_PROGRESS'
 ];
 const PRINT_PENDING_STATUSES = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT'];
-const CLASSIFICATION_PENDING_STATUSES = ['QR_PRINTED'];
-const CLASSIFICATION_IN_PROGRESS_STATUSES = ['CLASSIFICATION_IN_PROGRESS'];
+const CLASSIFICATION_PENDING_STATUSES = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'];
 const SAMPLE_STATUS_FILTER_GROUPS = {
   PRINT_PENDING: PRINT_PENDING_STATUSES,
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
-  CLASSIFICATION_IN_PROGRESS: CLASSIFICATION_IN_PROGRESS_STATUSES,
   CLASSIFIED: ['CLASSIFIED']
 };
 const LATEST_REGISTRATION_STATUSES = [
@@ -65,18 +63,7 @@ const SAMPLE_OWNER_INCLUDE = {
     }
   }
 };
-const SAMPLE_WAREHOUSE_INCLUDE = {
-  warehouse: {
-    select: {
-      id: true,
-      name: true,
-      address: true,
-      phone: true,
-      status: true
-    }
-  }
-};
-const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE, ...SAMPLE_WAREHOUSE_INCLUDE };
+const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
   buyerClient: {
     select: {
@@ -644,7 +631,8 @@ function mapDashboardSample(row) {
     declared: {
       owner: row.declaredOwner,
       sacks: row.declaredSacks,
-      harvest: row.declaredHarvest
+      harvest: row.declaredHarvest,
+      location: row.declaredLocation ?? null
     },
     createdAt: row.createdAt.toISOString()
   };
@@ -665,12 +653,13 @@ function mapPendingPrintJob(row) {
       status: sample.status,
       version: sample.version,
       qrValue: sample.internalLotNumber ?? sample.id,
+      registeredAt: sample.createdAt.toISOString(),
       declared: {
         owner: sample.declaredOwner ?? null,
         sacks: sample.declaredSacks ?? null,
         harvest: sample.declaredHarvest ?? null,
         originLot: sample.declaredOriginLot ?? null,
-        warehouse: sample.declaredWarehouse ?? null
+        location: sample.declaredLocation ?? null
       }
     }
   };
@@ -686,13 +675,13 @@ function mapSample(row) {
   return {
     id: row.id,
     internalLotNumber: row.internalLotNumber,
+    classificationType: row.classificationType ?? null,
     status: row.status,
     commercialStatus: row.commercialStatus,
     version: row.version,
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
     ownerRegistrationId: row.ownerRegistrationId ?? null,
-    warehouseId: row.warehouseId ?? null,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:
@@ -704,17 +693,10 @@ function mapSample(row) {
       sacks: row.declaredSacks,
       harvest: row.declaredHarvest,
       originLot: row.declaredOriginLot,
-      warehouse: row.declaredWarehouse ?? null
+      location: row.declaredLocation ?? null
     },
     ownerClient: mapOwnerClient(row.ownerClient),
     ownerRegistration: mapOwnerRegistration(row.ownerRegistration),
-    warehouse: row.warehouse ? {
-      id: row.warehouse.id,
-      name: row.warehouse.name,
-      address: row.warehouse.address ?? null,
-      phone: row.warehouse.phone ?? null,
-      status: row.warehouse.status
-    } : null,
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,
@@ -722,7 +704,7 @@ function mapSample(row) {
         type: row.latestType,
         screen: row.latestScreen,
         defectsCount: row.latestDefectsCount,
-        moisture: toNumberOrNull(row.latestMoisture),
+        moisture: null,
         density: toNumberOrNull(row.latestDensity),
         colorAspect: row.latestColorAspect,
         notes: row.latestNotes
@@ -862,7 +844,12 @@ export class SampleQueryService {
 
   async listPendingPrintJobs(options = {}) {
     const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
-    const where = { status: 'PENDING' };
+    const where = {
+      status: 'PENDING',
+      // Only return jobs for samples still awaiting print — if the sample
+      // already advanced past QR_PENDING_PRINT the job is stale.
+      sample: { status: 'QR_PENDING_PRINT' }
+    };
 
     if (options.sampleId) {
       where.sampleId = options.sampleId;
@@ -879,11 +866,11 @@ export class SampleQueryService {
             internalLotNumber: true,
             status: true,
             version: true,
+            createdAt: true,
             declaredOwner: true,
             declaredSacks: true,
             declaredHarvest: true,
-            declaredOriginLot: true,
-            declaredWarehouse: true
+            declaredOriginLot: true
           }
         }
       }
@@ -1311,8 +1298,7 @@ export class SampleQueryService {
       ...new Set([
         ...PENDING_STATUSES,
         ...PRINT_PENDING_STATUSES,
-        ...CLASSIFICATION_PENDING_STATUSES,
-        ...CLASSIFICATION_IN_PROGRESS_STATUSES
+        ...CLASSIFICATION_PENDING_STATUSES
       ])
     ];
 
@@ -1321,7 +1307,6 @@ export class SampleQueryService {
       agedPending,
       printPendingRows,
       classificationPendingRows,
-      classificationInProgressRows,
       latestRegistrationRows,
       latestRegistrationTotal,
       todayReceivedRows
@@ -1352,14 +1337,6 @@ export class SampleQueryService {
       this.prisma.sample.findMany({
         where: {
           status: { in: CLASSIFICATION_PENDING_STATUSES }
-        },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: CLASSIFICATION_IN_PROGRESS_STATUSES }
         },
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
@@ -1422,8 +1399,6 @@ export class SampleQueryService {
     const printPendingTotal = sumStatuses(PRINT_PENDING_STATUSES);
     const classificationPendingCounts = pickCounts(CLASSIFICATION_PENDING_STATUSES);
     const classificationPendingTotal = sumStatuses(CLASSIFICATION_PENDING_STATUSES);
-    const classificationInProgressCounts = pickCounts(CLASSIFICATION_IN_PROGRESS_STATUSES);
-    const classificationInProgressTotal = sumStatuses(CLASSIFICATION_IN_PROGRESS_STATUSES);
     const todayReceivedTotal = toIntegerOrZero(todayReceivedRows?.[0]?.total);
 
     return {
@@ -1442,9 +1417,9 @@ export class SampleQueryService {
         items: classificationPendingRows.map(mapDashboardSample)
       },
       classificationInProgress: {
-        counts: classificationInProgressCounts,
-        total: classificationInProgressTotal,
-        items: classificationInProgressRows.map(mapDashboardSample)
+        counts: { CLASSIFICATION_IN_PROGRESS: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0 },
+        total: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
+        items: []
       },
       latestRegistrations: {
         total: latestRegistrationTotal,

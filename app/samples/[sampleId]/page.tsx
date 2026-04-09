@@ -9,7 +9,6 @@ import { ClientLookupField } from '../../../components/clients/ClientLookupField
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
-import { WarehouseLookupField } from '../../../components/warehouses/WarehouseLookupField';
 import {
   ApiError,
   completeClassification,
@@ -44,8 +43,7 @@ import type {
   SampleExportType,
   UpdateReasonCode,
   SampleStatus,
-  SessionUser,
-  WarehouseSummary
+  SessionUser
 } from '../../../lib/types';
 import {
   type ClassificationFormState,
@@ -56,12 +54,14 @@ import {
   EMPTY_CLASSIFICATION_FORM,
   SIEVE_FIELDS,
   NUMERIC_FIELDS,
+  ALL_SIEVE_FIELDS,
   parseNumberInput,
   getTodayDateInput,
   validateClassificationForm,
   buildClassificationDataPayload,
   buildTechnicalFromClassificationData,
-  mapExtractionToForm
+  mapExtractionToForm,
+  getTypeConfig
 } from '../../../lib/classification-form';
 
 
@@ -69,7 +69,7 @@ type LabelModalStep = 'review' | 'completed';
 type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
 
-const CLASSIFICATION_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
+const CLASSIFICATION_STATUSES: SampleStatus[] = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
@@ -159,7 +159,7 @@ function formatDateInputLabel(value: string): string {
 function buildClassificationFormState(detail: SampleDetailResponse, user: SessionUser): ClassificationFormState {
   const latestData = isRecord(detail.sample.latestClassification.data) ? detail.sample.latestClassification.data : {};
   const draftData =
-    detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' && isRecord(detail.sample.classificationDraft.snapshot)
+    (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') && isRecord(detail.sample.classificationDraft.snapshot)
       ? detail.sample.classificationDraft.snapshot
       : {};
   const mergedData = { ...latestData, ...draftData };
@@ -181,9 +181,9 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     imp: toText(mergedData.imp),
     classificador: toText(mergedData.classificador) || fallbackClassifier,
     defeito: toText(mergedData.defeito),
-    umidade: toText(mergedData.umidade),
     observacoes: toText(mergedData.observacoes),
-    loteOrigem: toText(mergedData.loteOrigem) || toText(detail.sample.declared.originLot),
+    safra: toText(mergedData.safra),
+    peneiraP19: toText(mergedSieve.p19),
     peneiraP18: toText(mergedSieve.p18),
     peneiraP17: toText(mergedSieve.p17),
     peneiraP16: toText(mergedSieve.p16),
@@ -191,12 +191,13 @@ function buildClassificationFormState(detail: SampleDetailResponse, user: Sessio
     peneiraP15: toText(mergedSieve.p15),
     peneiraP14: toText(mergedSieve.p14),
     peneiraP13: toText(mergedSieve.p13),
+    peneiraP12: toText(mergedSieve.p12),
+    peneiraP11: toText(mergedSieve.p11),
     peneiraP10: toText(mergedSieve.p10),
     fundo1Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.peneira ?? ''; })(),
     fundo1Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[0]?.percentual != null ? String(f[0].percentual) : ''; })(),
     fundo2Peneira: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.peneira ?? ''; })(),
     fundo2Percent: (() => { const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : []; return f[1]?.percentual != null ? String(f[1].percentual) : ''; })(),
-    pau: toText(mergedData.pau),
     ap: toText(mergedData.ap),
     gpi: toText(mergedData.gpi)
   };
@@ -413,7 +414,7 @@ function mapSampleOwnerClientToSummary(client: SampleDetailResponse['sample']['o
 }
 
 export default function SampleDetailPage() {
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();
@@ -463,8 +464,7 @@ export default function SampleDetailPage() {
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseSummary | null>(null);
-  const [warehouseText, setWarehouseText] = useState('');
+  const [location, setLocation] = useState('');
   const [confirming, setConfirming] = useState(false);
 
   const [printerId, setPrinterId] = useState('printer-main');
@@ -490,6 +490,12 @@ export default function SampleDetailPage() {
   const [registrationEditReasonCode, setRegistrationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
   const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
   const [registrationEditReasonModalOpen, setRegistrationEditReasonModalOpen] = useState(false);
+  const [classificationDetailOpen, setClassificationDetailOpen] = useState(false);
+  const [classificationDetailEditing, setClassificationDetailEditing] = useState(false);
+  const [classificationDetailSaving, setClassificationDetailSaving] = useState(false);
+  const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
+  const [classificationDetailForm, setClassificationDetailForm] = useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
+  const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] = useState<UpdateReasonCode>('OTHER');
@@ -514,6 +520,7 @@ export default function SampleDetailPage() {
   const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
+  const hasActiveMovements = Boolean(detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0));
 
   const fetchDetail = useCallback(
     async ({ showLoading = false, eventLimit = DETAIL_EVENT_PREVIEW_LIMIT } = {}) => {
@@ -550,8 +557,7 @@ export default function SampleDetailPage() {
           setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
           setHarvest(response.sample.declared.harvest ?? '');
           setOriginLot(response.sample.declared.originLot ?? '');
-          setSelectedWarehouse(response.sample.warehouse ? { id: response.sample.warehouse.id, name: response.sample.warehouse.name, address: response.sample.warehouse.address, phone: response.sample.warehouse.phone, status: response.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
-          setWarehouseText(response.sample.declared?.warehouse ?? '');
+          setLocation(response.sample.declared.location ?? '');
         }
 
         if (!classificationEditModeRef.current) {
@@ -721,9 +727,10 @@ export default function SampleDetailPage() {
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationShowsWorkspace = Boolean(
     detail &&
-      (detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
+      (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' || detail.sample.status === 'CLASSIFIED')
   );
   const classificationPhotoEditingAllowed =
+    detail?.sample.status === 'QR_PRINTED' ||
     detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
     (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
   const classificationFieldsReadOnly = detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
@@ -879,7 +886,7 @@ export default function SampleDetailPage() {
 
   if (!sampleId) {
       return (
-        <AppShell session={session} onLogout={logout}>
+        <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
           <p className="error">sampleId invalido na rota.</p>
         </AppShell>
       );
@@ -1090,7 +1097,8 @@ export default function SampleDetailPage() {
       owner: selectedOwnerClient.displayName ?? owner,
       sacks,
       harvest,
-      originLot
+      originLot,
+      location: location.trim() ? location : null
     });
 
     if (!parsed.success) {
@@ -1280,17 +1288,17 @@ export default function SampleDetailPage() {
   }
 
   async function handleSaveClassificationPartial() {
-    if (!session || !detail || detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS') {
+    if (!session || !detail || (detail.sample.status !== 'QR_PRINTED' && detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')) {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm);
+    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm);
+    const classificationData = buildClassificationDataPayload(classificationForm, { classificationType: detail?.sample.classificationType });
 
     setClassificationSaving(true);
     setClassificationNotice(null);
@@ -1320,7 +1328,7 @@ export default function SampleDetailPage() {
 
 
   async function handleCompleteClassification() {
-    if (!session || !detail || detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS') {
+    if (!session || !detail || (detail.sample.status !== 'QR_PRINTED' && detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')) {
       return;
     }
 
@@ -1334,14 +1342,15 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm);
+    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
     }
 
     const classificationData = buildClassificationDataPayload(classificationForm, {
-      includeAutomaticDate: true
+      includeAutomaticDate: true,
+      classificationType: detail?.sample.classificationType
     });
     const technical = buildTechnicalFromClassificationData(classificationData);
 
@@ -1379,8 +1388,7 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
-    setSelectedWarehouse(detail.sample.warehouse ? { id: detail.sample.warehouse.id, name: detail.sample.warehouse.name, address: detail.sample.warehouse.address, phone: detail.sample.warehouse.phone, status: detail.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
-    setWarehouseText(detail.sample.declared?.warehouse ?? '');
+    setLocation(detail.sample.declared.location ?? '');
     registrationEditModeRef.current = true;
     setRegistrationEditMode(true);
     setGeneralNotice(null);
@@ -1399,8 +1407,7 @@ export default function SampleDetailPage() {
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
-    setSelectedWarehouse(detail.sample.warehouse ? { id: detail.sample.warehouse.id, name: detail.sample.warehouse.name, address: detail.sample.warehouse.address, phone: detail.sample.warehouse.phone, status: detail.sample.warehouse.status, createdAt: null, updatedAt: null } : null);
-    setWarehouseText(detail.sample.declared?.warehouse ?? '');
+    setLocation(detail.sample.declared.location ?? '');
     registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
@@ -1423,7 +1430,8 @@ export default function SampleDetailPage() {
       owner: selectedOwnerClient.displayName ?? owner,
       sacks,
       harvest,
-      originLot
+      originLot,
+      location: location.trim() ? location : null
     });
     if (!parsedForm.success) {
       setRegistrationModalNotice({ kind: 'error', text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos' });
@@ -1448,21 +1456,6 @@ export default function SampleDetailPage() {
         ownerClientId: selectedOwnerClient.id,
         ownerRegistrationId: selectedOwnerRegistrationId
       };
-
-      const currentWarehouseId = detail.sample.warehouseId ?? null;
-      const nextWarehouseId = selectedWarehouse?.id ?? null;
-      const nextWarehouseName = warehouseText.trim() || null;
-      const currentWarehouseName = detail.sample.declared?.warehouse ?? null;
-
-      if (nextWarehouseId !== currentWarehouseId || nextWarehouseName !== currentWarehouseName) {
-        if (nextWarehouseId) {
-          afterPayload.warehouseId = nextWarehouseId;
-        } else if (nextWarehouseName) {
-          afterPayload.warehouseName = nextWarehouseName;
-        } else {
-          afterPayload.warehouseId = null;
-        }
-      }
 
       await updateRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
@@ -1514,12 +1507,66 @@ export default function SampleDetailPage() {
     setClassificationEditMode(false);
   }
 
+  function openClassificationDetail() {
+    if (!detail || !session) return;
+    setClassificationDetailForm(buildClassificationFormState(detail, session.user));
+    setClassificationDetailEditing(false);
+    setClassificationDetailSaved(false);
+    setClassificationDetailOpen(true);
+  }
+
+  function closeClassificationDetail() {
+    setClassificationDetailOpen(false);
+    setClassificationDetailEditing(false);
+    setClassificationDetailSaving(false);
+    setClassificationDetailSaved(false);
+  }
+
+  function updateClassificationDetailField(key: keyof ClassificationFormState, value: string) {
+    setClassificationDetailForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function saveClassificationDetail() {
+    if (!session || !detail || detail.sample.status === 'INVALIDATED') return;
+
+    const validationError = validateClassificationForm(classificationDetailForm, detail?.sample.classificationType);
+    if (validationError) return;
+
+    setClassificationDetailSaving(true);
+    try {
+      const classificationData = buildClassificationDataPayload(classificationDetailForm, { classificationType: detail?.sample.classificationType });
+      const technical = buildTechnicalFromClassificationData(classificationData);
+
+      await updateClassification(session, sampleId, {
+        expectedVersion: detail.sample.version,
+        after: {
+          classificationData,
+          ...(technical ? { technical } : {})
+        },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Edicao rapida'
+      });
+
+      setClassificationDetailSaved(true);
+      setClassificationDetailEditing(false);
+      await syncDetailState({ refreshHistory: true });
+
+      setTimeout(() => {
+        setClassificationDetailSaved(false);
+      }, 2000);
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setClassificationDetailSaving(false);
+    }
+  }
+
   function handleRequestClassificationUpdate() {
     if (!detail || detail.sample.status === 'INVALIDATED') {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm);
+    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
@@ -1534,7 +1581,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(classificationForm);
+    const validationError = validateClassificationForm(classificationForm, detail?.sample.classificationType);
     if (validationError) {
       setClassificationModalNotice({ kind: 'error', text: validationError });
       return;
@@ -1549,7 +1596,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm);
+    const classificationData = buildClassificationDataPayload(classificationForm, { classificationType: detail?.sample.classificationType });
     const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationUpdating(true);
@@ -1707,7 +1754,7 @@ export default function SampleDetailPage() {
   const sdvStatus = detail ? getSdvStatusColor(detail.sample.status) : null;
 
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
         {loadingDetail ? <div className="sdv-loading">Carregando amostra...</div> : null}
 
@@ -1831,12 +1878,13 @@ export default function SampleDetailPage() {
                           <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.originLot)}</span>
                         </div>
                         <div className="sdv-info-item">
+                          <span className="sdv-info-label">Local</span>
+                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared.location)}</span>
+                        </div>
+                        <div className="sdv-info-sep" />
+                        <div className="sdv-info-item">
                           <span className="sdv-info-label">Recebido em</span>
                           <span className="sdv-info-value">{formatTimestamp(detail.sample.createdAt)}</span>
-                        </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Armazem</span>
-                          <span className="sdv-info-value">{buildReadableValue(detail.sample.declared?.warehouse)}</span>
                         </div>
                       </div>
                       {canEditRegistrationStatus(detail.sample.status) ? (
@@ -1904,6 +1952,9 @@ export default function SampleDetailPage() {
                         <div className="sdv-card sdv-cls-block">
                           <div className="sdv-card-header">
                             <span className="sdv-card-title">Classificacao</span>
+                            <button type="button" className="sdv-cls-expand-btn" onClick={openClassificationDetail} aria-label="Ver classificacao completa">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            </button>
                           </div>
                           <div className="sdv-cls-block-summary">
                             {classPhotoUrl ? (
@@ -1994,9 +2045,21 @@ export default function SampleDetailPage() {
                 void handleInvalidateSample();
               }}
             >
+              {hasActiveMovements ? (
+                <div style={{ padding: 'clamp(10px, 3vw, 14px)', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <svg viewBox="0 0 24 24" style={{ width: 20, minWidth: 20, height: 20, fill: 'none', stroke: '#C0392B', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4" /><path d="M12 17h.01" />
+                  </svg>
+                  <div style={{ fontSize: 'clamp(11px, 3vw, 12.5px)', color: '#7f1d1d', lineHeight: 1.45 }}>
+                    <strong style={{ display: 'block', marginBottom: 2 }}>Esta amostra possui movimentacoes comerciais</strong>
+                    Cancele todas as vendas e perdas registradas antes de invalidar. Isso garante a consistencia do historico de compras dos clientes.
+                  </div>
+                </div>
+              ) : null}
+
               <label className="app-modal-field">
                 <span className="app-modal-label">Motivo da invalidacao</span>
-                <select className="app-modal-input" value={invalidateReasonCode} onChange={(event) => setInvalidateReasonCode(event.target.value as InvalidateReasonCode)}>
+                <select className="app-modal-input" value={invalidateReasonCode} disabled={invalidating || hasActiveMovements} onChange={(event) => setInvalidateReasonCode(event.target.value as InvalidateReasonCode)}>
                   {INVALIDATE_REASON_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -2013,7 +2076,7 @@ export default function SampleDetailPage() {
                   value={invalidateReasonText}
                   onChange={(event) => setInvalidateReasonText(event.target.value)}
                   placeholder="Descreva o motivo da invalidacao"
-                  disabled={invalidating}
+                  disabled={invalidating || hasActiveMovements}
                 />
               </label>
 
@@ -2032,7 +2095,7 @@ export default function SampleDetailPage() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="danger sample-detail-invalidate-submit" disabled={invalidating}>
+                <button type="submit" className="danger sample-detail-invalidate-submit" disabled={invalidating || hasActiveMovements}>
                   {invalidating ? 'Invalidando...' : 'Invalidar'}
                 </button>
               </div>
@@ -2063,9 +2126,6 @@ export default function SampleDetailPage() {
               </p>
               <p>
                 <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
-              </p>
-              <p>
-                <strong>Armazem:</strong> {buildReadableValue(detail.sample.declared?.warehouse)}
               </p>
             </div>
           </article>
@@ -2128,9 +2188,6 @@ export default function SampleDetailPage() {
                   </p>
                   <p>
                     <strong>Lote origem:</strong> {buildReadableValue(detail.sample.declared.originLot)}
-              </p>
-              <p>
-                <strong>Armazem:</strong> {buildReadableValue(detail.sample.declared?.warehouse)}
                   </p>
                 </div>
               </article>
@@ -2254,26 +2311,16 @@ export default function SampleDetailPage() {
                   <input className="sdv-edit-input" value={harvest} onChange={(event) => setHarvest(event.target.value)} disabled={registrationUpdating} />
                 </label>
               </div>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Lote de origem</span>
-                <input className="sdv-edit-input" value={originLot} onChange={(event) => setOriginLot(event.target.value)} disabled={registrationUpdating} />
-              </label>
-              <div className="sdv-edit-field">
-                <WarehouseLookupField
-                  session={session}
-                  label="Armazem"
-                  selectedWarehouse={selectedWarehouse}
-                  onSelectWarehouse={(w) => {
-                    setSelectedWarehouse(w);
-                    setWarehouseText(w?.name ?? '');
-                  }}
-                  onTextChange={setWarehouseText}
-                  disabled={registrationUpdating}
-                  compact
-                  placeholder="Busque ou digite o armazem"
-                />
+              <div className="sdv-edit-row">
+                <label className="sdv-edit-field">
+                  <span className="sdv-edit-label">Lote de origem</span>
+                  <input className="sdv-edit-input" value={originLot} onChange={(event) => setOriginLot(event.target.value)} disabled={registrationUpdating} />
+                </label>
+                <label className="sdv-edit-field">
+                  <span className="sdv-edit-label">Local</span>
+                  <input className="sdv-edit-input" value={location} onChange={(event) => setLocation(event.target.value)} maxLength={30} placeholder="Ex: BM, Patos" disabled={registrationUpdating} />
+                </label>
               </div>
-
               <div className="sdv-edit-sep" />
 
               <label className="sdv-edit-field">
@@ -2301,6 +2348,152 @@ export default function SampleDetailPage() {
           </section>
         </div>
       ) : null}
+
+      {/* Classification detail modal */}
+      {classificationDetailOpen && detail?.sample.latestClassification?.data ? (() => {
+        const f = classificationDetailForm;
+        const editing = classificationDetailEditing;
+        const saving = classificationDetailSaving;
+        const saved = classificationDetailSaved;
+        const canEdit = detail.sample.status === 'CLASSIFIED';
+        const renderVal = (key: keyof ClassificationFormState, label: string, inputMode: 'text' | 'decimal' = 'text') => (
+          <div className="cld-field" key={key}>
+            <span className="cld-field-label">{label}</span>
+            {editing ? (
+              <input
+                type="text"
+                inputMode={inputMode}
+                className="cld-field-input"
+                value={f[key]}
+                onChange={(e) => updateClassificationDetailField(key, e.target.value)}
+                disabled={saving}
+                placeholder="\u2014"
+              />
+            ) : (
+              <span className="cld-field-value">{f[key] || '\u2014'}</span>
+            )}
+          </div>
+        );
+        return (
+          <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
+            <section
+              ref={classificationDetailTrapRef}
+              className="cld-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Classificacao completa"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="cld-handle"><span /></div>
+
+              <header className="cld-header">
+                <h3 className="cld-title">Classificacao{detail.sample.classificationType ? ` \u2014 ${detail.sample.classificationType === 'LOW_CAFF' ? 'LOW CAFF' : detail.sample.classificationType}` : ''}</h3>
+                <div className="cld-header-actions">
+                  {canEdit && !editing ? (
+                    <button type="button" className="cld-edit-btn" onClick={() => setClassificationDetailEditing(true)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                      Editar
+                    </button>
+                  ) : null}
+                  <button type="button" className="cld-close-btn" onClick={closeClassificationDetail} aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </header>
+
+              {(() => {
+                const typeConfig = getTypeConfig(detail.sample.classificationType);
+                const sieveList = typeConfig?.sieveFields ?? ALL_SIEVE_FIELDS;
+                const defectList = typeConfig?.defectFields ?? [
+                  { key: 'broca' as const, label: 'Broca' },
+                  { key: 'pva' as const, label: 'PVA' },
+                  { key: 'imp' as const, label: 'Impureza' },
+                  { key: 'defeito' as const, label: 'Defeito' },
+                  { key: 'ap' as const, label: 'AP' },
+                  { key: 'gpi' as const, label: 'GPI' }
+                ];
+                const showFundo2 = typeConfig?.hasFundo2 !== false;
+                return (
+                  <div className={`cld-body${saved ? ' is-saved' : ''}`}>
+                    <div className="cld-section" style={{ '--sc': '#2f6b4a' } as React.CSSProperties}>
+                      <div className="cld-section-title"><span className="cld-dot" />Geral</div>
+                      <div className="cld-grid cld-grid-2">
+                        {renderVal('padrao', 'Padrao')}
+                        {renderVal('catacao', 'Catacao')}
+                        {renderVal('aspecto', 'Aspecto')}
+                        {renderVal('bebida', 'Bebida')}
+                        {renderVal('safra', 'Safra')}
+                      </div>
+                    </div>
+
+                    {sieveList.length > 0 && (
+                      <div className="cld-section" style={{ '--sc': '#2980B9' } as React.CSSProperties}>
+                        <div className="cld-section-title"><span className="cld-dot" />Peneiras <span className="cld-section-unit">%</span></div>
+                        <div className="cld-grid cld-grid-4">
+                          {sieveList.map(sf => renderVal(sf.key, sf.label, 'decimal'))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="cld-section" style={{ '--sc': '#D4A017' } as React.CSSProperties}>
+                      <div className="cld-section-title"><span className="cld-dot" />Fundos</div>
+                      <div className="cld-grid cld-grid-4">
+                        {renderVal('fundo1Peneira', 'FD1 Pen.')}
+                        {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
+                        {showFundo2 && renderVal('fundo2Peneira', 'FD2 Pen.')}
+                        {showFundo2 && renderVal('fundo2Percent', 'FD2 %', 'decimal')}
+                      </div>
+                    </div>
+
+                    {defectList.length > 0 && (
+                      <div className="cld-section" style={{ '--sc': '#C0392B' } as React.CSSProperties}>
+                        <div className="cld-section-title"><span className="cld-dot" />Defeitos e analises</div>
+                        <div className="cld-grid cld-grid-4">
+                          {defectList.map(df => renderVal(df.key, df.label, 'decimal'))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="cld-section" style={{ '--sc': '#7D3C98' } as React.CSSProperties}>
+                      <div className="cld-section-title"><span className="cld-dot" />Observacoes</div>
+                      {editing ? (
+                        <textarea
+                          className="cld-field-input cld-textarea"
+                          value={f.observacoes}
+                          onChange={(e) => updateClassificationDetailField('observacoes', e.target.value)}
+                          disabled={saving}
+                          placeholder="\u2014"
+                          rows={3}
+                        />
+                      ) : (
+                        <span className="cld-field-value cld-obs-value">{f.observacoes || '\u2014'}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="cld-actions" style={!editing ? { visibility: 'hidden' } : undefined}>
+                <button type="button" className="cld-btn-cancel" onClick={() => {
+                  if (detail && session) setClassificationDetailForm(buildClassificationFormState(detail, session.user));
+                  setClassificationDetailEditing(false);
+                }} disabled={saving} tabIndex={editing ? 0 : -1}>
+                  Cancelar
+                </button>
+                <button type="button" className="cld-btn-save" onClick={() => void saveClassificationDetail()} disabled={saving} tabIndex={editing ? 0 : -1}>
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+
+              {saved ? (
+                <div className="cld-saved-overlay" aria-live="polite">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#27AE60" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
+              ) : null}
+            </section>
+          </div>
+        );
+      })() : null}
 
       {classificationEditReasonModalOpen ? (
         <div

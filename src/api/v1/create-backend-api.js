@@ -8,8 +8,8 @@ import { SampleQueryService } from '../../samples/sample-query-service.js';
 import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-upload-service.js';
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
-import { WarehouseService } from '../../warehouses/warehouse-service.js';
 import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
+import { FormDetectionService } from '../../samples/form-detection-service.js';
 import { createBackendApiV1 } from './backend-api.js';
 
 function isProductionEnv() {
@@ -44,9 +44,6 @@ export function createBackendApiV1FromEnv() {
   const clientService = new ClientService({
     prisma
   });
-  const warehouseService = new WarehouseService({
-    prisma
-  });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
     ? new ClassificationExtractionService({ apiKey: openaiApiKey })
@@ -54,13 +51,14 @@ export function createBackendApiV1FromEnv() {
   if (!extractionService) {
     console.warn('[extraction] OPENAI_API_KEY not configured — classification extraction disabled');
   }
+  const formDetectionService = new FormDetectionService();
   const commandService = new SampleCommandService({
     eventService,
     queryService,
     uploadService,
     clientService,
-    warehouseService,
-    extractionService
+    extractionService,
+    formDetectionService
   });
   const reportService = new SamplePdfReportService({
     queryService,
@@ -77,7 +75,6 @@ export function createBackendApiV1FromEnv() {
     authService,
     userService,
     clientService,
-    warehouseService,
     commandService,
     queryService,
     reportService

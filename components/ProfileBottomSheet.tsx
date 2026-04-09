@@ -148,28 +148,17 @@ export function ProfileBottomSheet({ session, open, onClose, onLogout }: Profile
 
         <nav className="profile-sheet-menu">
           {isAdmin(session.user.role) ? (
-            <>
-              <Link href="/warehouses" className="profile-sheet-menu-item" onClick={closeWithAnimation}>
-                <span className="profile-sheet-menu-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M3 21V8l9-5 9 5v13" />
-                    <path d="M9 21v-6h6v6" />
-                  </svg>
-                </span>
-                <span>Armazens</span>
-              </Link>
-              <Link href="/users" className="profile-sheet-menu-item" onClick={closeWithAnimation}>
-                <span className="profile-sheet-menu-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <circle cx="9" cy="7.5" r="3" />
-                    <path d="M3 19.5a6 6 0 0 1 12 0" />
-                    <circle cx="17.5" cy="8.5" r="2.2" />
-                    <path d="M15.5 19.5a4.5 4.5 0 0 1 5.5-4.4" />
-                  </svg>
-                </span>
-                <span>Usuarios</span>
-              </Link>
-            </>
+            <Link href="/users" className="profile-sheet-menu-item" onClick={closeWithAnimation}>
+              <span className="profile-sheet-menu-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <circle cx="9" cy="7.5" r="3" />
+                  <path d="M3 19.5a6 6 0 0 1 12 0" />
+                  <circle cx="17.5" cy="8.5" r="2.2" />
+                  <path d="M15.5 19.5a4.5 4.5 0 0 1 5.5-4.4" />
+                </svg>
+              </span>
+              <span>Usuarios</span>
+            </Link>
           ) : null}
 
           <Link href="/settings" className="profile-sheet-menu-item" onClick={closeWithAnimation}>

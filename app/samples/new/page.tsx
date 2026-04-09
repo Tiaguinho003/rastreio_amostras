@@ -9,7 +9,6 @@ import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
-import { WarehouseLookupField } from '../../../components/warehouses/WarehouseLookupField';
 import {
   ApiError,
   createSampleAndPreparePrint,
@@ -21,8 +20,7 @@ import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import type {
   ClientRegistrationSummary,
   ClientSummary,
-  CreateSampleAndPreparePrintResponse,
-  WarehouseSummary
+  CreateSampleAndPreparePrintResponse
 } from '../../../lib/types';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
@@ -72,7 +70,7 @@ function buildHarvestPresets(): readonly string[] {
 const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
 
-type RequiredFieldName = 'owner' | 'sacks' | 'harvest' | 'originLot';
+type RequiredFieldName = 'owner' | 'sacks' | 'harvest';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 type LabelModalStep = 'review' | 'completed';
 
@@ -83,19 +81,17 @@ interface PendingDraftPayload {
   ownerRegistrationId: string | null;
   sacks: number;
   harvest: string;
-  originLot: string;
+  originLot: string | null;
+  location: string | null;
   receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
   notes: string | null;
   printerId: string | null;
-  warehouseName: string | null;
-  warehouseId: string | null;
 }
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
   sacks: null,
-  harvest: null,
-  originLot: null
+  harvest: null
 };
 
 function hasRequiredFieldErrors(fieldErrors: RequiredFieldErrors) {
@@ -106,8 +102,7 @@ function getMissingRequiredFieldErrors(values: Record<RequiredFieldName, string>
   return {
     owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
     sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
-    harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
-    originLot: values.originLot.trim() ? null : REQUIRED_FIELD_MESSAGE
+    harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE
   };
 }
 
@@ -116,7 +111,7 @@ function getSchemaFieldErrors(issues: Array<{ path: PropertyKey[]; message: stri
 
   for (const issue of issues) {
     const path = issue.path[0];
-    if (path !== 'owner' && path !== 'sacks' && path !== 'harvest' && path !== 'originLot') {
+    if (path !== 'owner' && path !== 'sacks' && path !== 'harvest') {
       continue;
     }
 
@@ -135,7 +130,7 @@ function buildModalTitle(step: LabelModalStep) {
 }
 
 function NewSamplePageContent() {
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
   const router = useRouter();
 
   const [clientDraftId, setClientDraftId] = useState(loadOrCreateDraftId);
@@ -146,11 +141,10 @@ function NewSamplePageContent() {
   const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseSummary | null>(null);
-  const [warehouseText, setWarehouseText] = useState('');
   const [sacks, setSacks] = useState('');
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
+  const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
 
@@ -390,9 +384,7 @@ function NewSamplePageContent() {
           ? ownerInputRef.current
           : field === 'sacks'
             ? sacksInputRef.current
-            : field === 'harvest'
-              ? harvestInputRef.current
-              : originLotInputRef.current;
+            : harvestInputRef.current;
 
       target?.focus();
       target?.scrollIntoView({ block: 'nearest' });
@@ -401,7 +393,7 @@ function NewSamplePageContent() {
   }
 
   function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
-    const firstInvalidField = (['owner', 'sacks', 'harvest', 'originLot'] as const).find((field) => Boolean(fieldErrors[field]));
+    const firstInvalidField = (['owner', 'sacks', 'harvest'] as const).find((field) => Boolean(fieldErrors[field]));
     if (!firstInvalidField) {
       return;
     }
@@ -421,6 +413,7 @@ function NewSamplePageContent() {
     setSacks('');
     setHarvest('');
     setOriginLot('');
+    setLocation('');
     setNotes('');
     setHarvestOptionsOpen(false);
     setPendingDraft(null);
@@ -502,8 +495,7 @@ function NewSamplePageContent() {
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({
       owner,
       sacks,
-      harvest,
-      originLot
+      harvest
     });
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
@@ -516,7 +508,8 @@ function NewSamplePageContent() {
       owner,
       sacks,
       harvest,
-      originLot,
+      originLot: originLot.trim() ? originLot : null,
+      location: location.trim() ? location : null,
       notes: notes.trim() ? notes : null
     });
 
@@ -540,12 +533,11 @@ function NewSamplePageContent() {
       ownerRegistrationId: selectedOwnerRegistrationId ?? null,
       sacks: parsed.data.sacks,
       harvest: parsed.data.harvest,
-      originLot: parsed.data.originLot,
+      originLot: parsed.data.originLot ?? null,
+      location: parsed.data.location ?? null,
       receivedChannel: parsed.data.receivedChannel,
       notes: parsed.data.notes ?? null,
-      printerId: null,
-      warehouseName: warehouseText.trim() || null,
-      warehouseId: selectedWarehouse?.id ?? null
+      printerId: null
     });
 
     setLabelModalStep('review');
@@ -570,11 +562,10 @@ function NewSamplePageContent() {
         sacks: pendingDraft.sacks,
         harvest: pendingDraft.harvest,
         originLot: pendingDraft.originLot,
+        location: pendingDraft.location,
         receivedChannel: pendingDraft.receivedChannel,
         notes: pendingDraft.notes,
-        printerId: pendingDraft.printerId,
-        warehouseName: pendingDraft.warehouseName,
-        warehouseId: pendingDraft.warehouseId
+        printerId: pendingDraft.printerId
       });
 
       clearPersistedDraftId();
@@ -604,10 +595,10 @@ function NewSamplePageContent() {
   const previewSacks = pendingDraft?.sacks ?? printableSample?.declared.sacks ?? null;
   const previewHarvest = pendingDraft?.harvest ?? printableSample?.declared.harvest ?? null;
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
-  const previewWarehouse = pendingDraft?.warehouseName ?? printableSample?.declared?.warehouse ?? null;
+  const previewLocation = pendingDraft?.location ?? printableSample?.declared.location ?? null;
   const previewInternalLot = printableSample?.internalLotNumber ?? null;
   function hasUnsavedData() {
-    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || notes.trim());
+    return Boolean(owner.trim() || sacks.trim() || harvest.trim() || originLot.trim() || location.trim() || notes.trim());
   }
 
 
@@ -617,7 +608,7 @@ function NewSamplePageContent() {
     return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase();
   })();
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="nsv2-page is-details-step">
 
         {/* ── Header ── */}
@@ -689,22 +680,6 @@ function NewSamplePageContent() {
                     ) : null}
                   </div>
 
-                  <div className="nsv2-grid-full">
-                    <WarehouseLookupField
-                      session={session}
-                      label="Armazem"
-                      selectedWarehouse={selectedWarehouse}
-                      onSelectWarehouse={(w) => {
-                        setSelectedWarehouse(w);
-                        setWarehouseText(w?.name ?? '');
-                        setError(null);
-                      }}
-                      onTextChange={setWarehouseText}
-                      disabled={submitting}
-                      placeholder="Busque ou digite o nome do armazem"
-                    />
-                  </div>
-
                   <div className="nsv2-grid-half">
                     <label className="nsv2-field">
                       <span className="nsv2-field-label">Sacas<span className="nsv2-required-star"> *</span></span>
@@ -764,22 +739,33 @@ function NewSamplePageContent() {
 
                   <div className="nsv2-grid-half">
                     <label className="nsv2-field">
-                      <span className="nsv2-field-label">Lote de origem<span className="nsv2-required-star"> *</span></span>
+                      <span className="nsv2-field-label">Lote de origem</span>
                       <input
                         ref={originLotInputRef}
                         value={originLot}
-                        className={`nsv2-field-input ${requiredFieldErrors.originLot ? 'has-error' : ''}`}
-                        aria-invalid={Boolean(requiredFieldErrors.originLot)}
+                        className="nsv2-field-input"
                         onChange={(event) => {
                           setOriginLot(event.target.value);
-                          clearRequiredFieldError('originLot');
                         }}
-                        placeholder={requiredFieldErrors.originLot ? requiredFieldErrors.originLot : 'Codigo do lote'}
+                        placeholder="Codigo do lote"
                       />
                     </label>
                   </div>
 
                   <div className="nsv2-grid-half">
+                    <label className="nsv2-field">
+                      <span className="nsv2-field-label">Local</span>
+                      <input
+                        value={location}
+                        className="nsv2-field-input"
+                        onChange={(event) => setLocation(event.target.value)}
+                        placeholder="Ex: BM, Patos"
+                        maxLength={30}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="nsv2-grid-full">
                     <label className="nsv2-field">
                       <span className="nsv2-field-label">Observacoes</span>
                       <input
@@ -884,9 +870,11 @@ function NewSamplePageContent() {
                   <p>
                     <strong>Lote origem:</strong> {previewValue(previewOriginLot)}
                   </p>
-                  <p>
-                    <strong>Armazem:</strong> {previewValue(previewWarehouse)}
-                  </p>
+                  {previewLocation ? (
+                    <p>
+                      <strong>Local:</strong> {previewValue(previewLocation)}
+                    </p>
+                  ) : null}
                 </div>
                 {labelModalStep === 'completed' ? (
                   <div className="new-sample-modal-check-fx">

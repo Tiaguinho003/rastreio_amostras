@@ -12,6 +12,10 @@
       "type": "integer",
       "minimum": 1
     },
+    "classificationType": {
+      "type": ["string", "null"],
+      "enum": ["PREPARADO", "LOW_CAFF", "BICA", null]
+    },
     "classificationData": {
       "type": "object",
       "properties": {
@@ -31,6 +35,9 @@
         "bebida": {
           "type": ["string", "null"]
         },
+        "safra": {
+          "type": ["string", "null"]
+        },
         "broca": {
           "type": ["string", "null"]
         },
@@ -38,9 +45,6 @@
           "type": ["string", "null"]
         },
         "imp": {
-          "type": ["string", "null"]
-        },
-        "pau": {
           "type": ["string", "null"]
         },
         "ap": {
@@ -55,17 +59,16 @@
         "peneirasPercentuais": {
           "type": ["object", "null"],
           "properties": {
+            "p19": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p18": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p17": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p16": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "mk": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "mk9": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "mk10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "mk11": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p15": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p14": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p13": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p12": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "p11": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "fundos": {
               "type": ["array", "null"],
@@ -85,18 +88,7 @@
         "defeito": {
           "type": ["string", "null"]
         },
-        "umidade": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100
-        },
-        "aspectoCor": {
-          "type": ["string", "null"]
-        },
         "observacoes": {
-          "type": ["string", "null"]
-        },
-        "loteOrigem": {
           "type": ["string", "null"]
         }
       },
@@ -117,17 +109,9 @@
           "type": "integer",
           "minimum": 0
         },
-        "moisture": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        },
         "density": {
           "type": ["number", "null"],
           "minimum": 0
-        },
-        "colorAspect": {
-          "type": ["string", "null"]
         },
         "notes": {
           "type": ["string", "null"]

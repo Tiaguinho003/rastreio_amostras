@@ -185,7 +185,7 @@ export default function ClientsPageWrapper() {
 }
 
 function ClientsPage() {
-  const { session, loading, logout } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth();
 
   const [clientsState, dispatchClients] = useReducer(clientsListReducer, CLIENTS_INITIAL);
   const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
@@ -433,7 +433,7 @@ function ClientsPage() {
   const userAvatarInitials = userFullName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   return (
-    <AppShell session={session} onLogout={logout}>
+    <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="clients-page-v2">
         {/* Header */}
         <header className="clients-v2-header">

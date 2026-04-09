@@ -104,6 +104,9 @@ export function SampleMovementModal({
   const [error, setError] = useState<string | null>(null);
 
   const showBuyerFields = movementType === 'SALE';
+  const effectiveLimit = mode === 'edit' && movement
+    ? availableSacks + movement.quantitySacks
+    : availableSacks;
 
   useEffect(() => {
     if (!open) {
@@ -163,8 +166,12 @@ export function SampleMovementModal({
     };
   }, [buyerClient, movementType, open, session]);
 
+  const parsedQuantity = Number(quantitySacks);
+  const isQuantityValid = Number.isInteger(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= effectiveLimit;
+  const isQuantityOverLimit = Number.isInteger(parsedQuantity) && parsedQuantity > effectiveLimit;
+
   const submitDisabled = useMemo(() => {
-    if (!quantitySacks.trim() || !movementDate) {
+    if (!quantitySacks.trim() || !movementDate || !isQuantityValid) {
       return true;
     }
 
@@ -177,7 +184,7 @@ export function SampleMovementModal({
     }
 
     return false;
-  }, [buyerClient, mode, movementDate, quantitySacks, reasonText, showBuyerFields]);
+  }, [buyerClient, isQuantityValid, mode, movementDate, quantitySacks, reasonText, showBuyerFields]);
 
   if (!open) {
     return null;
@@ -186,9 +193,12 @@ export function SampleMovementModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const parsedQuantity = Number(quantitySacks);
-    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      setError('Quantidade de sacas deve ser um numero inteiro maior que zero.');
+    if (!isQuantityValid) {
+      if (isQuantityOverLimit) {
+        setError(`Maximo de ${effectiveLimit} ${effectiveLimit === 1 ? 'saca disponivel' : 'sacas disponiveis'}.`);
+      } else {
+        setError('Quantidade de sacas deve ser um numero inteiro maior que zero.');
+      }
       return;
     }
 
@@ -257,11 +267,11 @@ export function SampleMovementModal({
 
           <div className="sdv-edit-row">
             <div className="sdv-edit-field">
-              <span className="sdv-edit-label">Sacas</span>
+              <span className="sdv-edit-label">Sacas <span style={{ fontWeight: 400, color: '#999' }}>({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})</span></span>
               <div style={{ display: 'flex', gap: '6px' }}>
-                <input className="sdv-edit-input" value={quantitySacks} inputMode="numeric" disabled={saving} onChange={(event) => setQuantitySacks(event.target.value)} style={{ flex: 1 }} />
-                {availableSacks > 0 ? (
-                  <button type="button" className="sdv-mov-all-btn" disabled={saving} onClick={() => setQuantitySacks(String(availableSacks))}>Todas</button>
+                <input className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`} value={quantitySacks} inputMode="numeric" disabled={saving} onChange={(event) => { setQuantitySacks(event.target.value.replace(/[^0-9]/g, '')); setError(null); }} style={{ flex: 1 }} />
+                {effectiveLimit > 0 ? (
+                  <button type="button" className="sdv-mov-all-btn" disabled={saving} onClick={() => setQuantitySacks(String(effectiveLimit))}>Todas</button>
                 ) : null}
               </div>
             </div>

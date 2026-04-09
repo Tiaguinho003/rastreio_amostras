@@ -10,7 +10,7 @@
         "eventType": { "const": "CLASSIFICATION_COMPLETED" },
         "schemaVersion": { "const": 1 },
         "payload": { "$ref": "../payloads/classification-completed.payload.schema.json" },
-        "fromStatus": { "const": "CLASSIFICATION_IN_PROGRESS" },
+        "fromStatus": { "enum": ["REGISTRATION_CONFIRMED", "QR_PENDING_PRINT", "QR_PRINTED", "CLASSIFICATION_IN_PROGRESS"] },
         "toStatus": { "const": "CLASSIFIED" },
         "idempotencyScope": { "const": "CLASSIFICATION_COMPLETE" },
         "idempotencyKey": { "type": "string", "minLength": 1 }

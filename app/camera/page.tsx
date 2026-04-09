@@ -8,7 +8,9 @@ import { SampleLookupResultModal } from '../../components/SampleLookupResultModa
 import {
   ApiError,
   type JsonValue,
+  detectClassificationForm,
   extractAndPrepareClassification,
+  extractFromDetectedForm,
   confirmClassificationFromCamera,
   resolveSampleByLot,
   resolveSampleByQr,
@@ -20,9 +22,10 @@ import {
   EMPTY_CLASSIFICATION_FORM,
   mapExtractionToForm,
   validateClassificationForm,
-  buildClassificationDataPayload
+  buildClassificationDataPayload,
+  getTypeConfig
 } from '../../lib/classification-form';
-import type { ExtractAndPrepareResponse, ResolveSampleByLotResponse, ResolveSampleByQrResponse } from '../../lib/types';
+import type { ClassificationType, ExtractAndPrepareResponse, ResolveSampleByLotResponse, ResolveSampleByQrResponse } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
@@ -32,6 +35,10 @@ type QrScannerInstance = InstanceType<QrScannerClass>;
 type ClassificationFlowState =
   | 'idle'
   | 'preview'
+  | 'selecting-type'
+  | 'detecting'
+  | 'detected'
+  | 'detect-failed'
   | 'extracting'
   | 'error'
   | 'confirming'
@@ -76,7 +83,8 @@ function ClassificationConfirmModal({
   onFormChange,
   onConfirm,
   onCancel,
-  submitting
+  submitting,
+  classificationType
 }: {
   mode: 'no-context' | 'with-context';
   lotNumber: string;
@@ -86,162 +94,154 @@ function ClassificationConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
   submitting: boolean;
+  classificationType: ClassificationType | null;
 }) {
   const trapRef = useFocusTrap(true);
+  const config = getTypeConfig(classificationType);
 
   const textFields: Array<{ key: keyof ClassificationFormState; label: string }> = [
     { key: 'padrao', label: 'Padrao' },
     { key: 'catacao', label: 'Catacao' },
     { key: 'aspecto', label: 'Aspecto' },
-    { key: 'bebida', label: 'Bebida' }
+    { key: 'bebida', label: 'Bebida' },
+    { key: 'safra', label: 'Safra' }
   ];
 
-  const defectFields: Array<{ key: keyof ClassificationFormState; label: string }> = [
-    { key: 'defeito', label: 'Defeitos' },
-    { key: 'broca', label: 'Broca' },
-    { key: 'pva', label: 'PVA' },
-    { key: 'imp', label: 'Impureza' },
-    { key: 'pau', label: 'Pau' },
-    { key: 'ap', label: 'AP' },
-    { key: 'gpi', label: 'GPI' },
-    { key: 'umidade', label: 'Umidade %' }
+  const sieveFields = config?.sieveFields ?? [
+    { key: 'peneiraP18' as const, label: 'P.18' },
+    { key: 'peneiraP17' as const, label: 'P.17' },
+    { key: 'peneiraP16' as const, label: 'P.16' },
+    { key: 'peneiraMk' as const, label: 'MK' },
+    { key: 'peneiraP15' as const, label: 'P.15' },
+    { key: 'peneiraP14' as const, label: 'P.14' },
+    { key: 'peneiraP13' as const, label: 'P.13' },
+    { key: 'peneiraP10' as const, label: 'P.10' }
   ];
 
-  const sieveFields: Array<{ key: keyof ClassificationFormState; label: string }> = [
-    { key: 'peneiraP18', label: 'P.18 %' },
-    { key: 'peneiraP17', label: 'P.17 %' },
-    { key: 'peneiraP16', label: 'P.16 %' },
-    { key: 'peneiraMk', label: 'MK %' },
-    { key: 'peneiraP15', label: 'P.15 %' },
-    { key: 'peneiraP14', label: 'P.14 %' },
-    { key: 'peneiraP13', label: 'P.13 %' },
-    { key: 'peneiraP10', label: 'P.10 %' }
+  const defectFields = config?.defectFields ?? [
+    { key: 'broca' as const, label: 'Broca' },
+    { key: 'pva' as const, label: 'PVA' },
+    { key: 'imp' as const, label: 'Impureza' },
+    { key: 'defeito' as const, label: 'Defeito' },
+    { key: 'ap' as const, label: 'AP' },
+    { key: 'gpi' as const, label: 'GPI' }
   ];
 
-  const fundoFields: Array<{ key: keyof ClassificationFormState; label: string }> = [
-    { key: 'fundo1Peneira', label: 'FD1 Pen.' },
-    { key: 'fundo1Percent', label: 'FD1 %' },
-    { key: 'fundo2Peneira', label: 'FD2 Pen.' },
-    { key: 'fundo2Percent', label: 'FD2 %' }
-  ];
+  const hasFundo2 = config?.hasFundo2 ?? true;
+  const typeLabel = classificationType ?? 'Classificacao';
+
+  const renderField = (
+    f: { key: keyof ClassificationFormState; label: string },
+    inputMode: 'text' | 'decimal' = 'text'
+  ) => {
+    const filled = !!form[f.key];
+    return (
+      <label key={f.key} className={`cam-cf-field${filled ? ' is-filled' : ''}`}>
+        <span className="cam-cf-field-label">{f.label}</span>
+        <input
+          type="text"
+          inputMode={inputMode}
+          className="cam-cf-input"
+          value={form[f.key]}
+          onChange={(e) => onFormChange(f.key, e.target.value)}
+          disabled={submitting}
+          placeholder="\u2014"
+        />
+      </label>
+    );
+  };
 
   return (
     <div className="app-modal-backdrop" onClick={onCancel}>
       <section
         ref={trapRef}
-        className="app-modal cam-confirm-modal"
+        className="cam-cf-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Confirmar classificacao"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="cam-confirm-header">
-          <h3 className="cam-confirm-title">Confirmar classificacao</h3>
-          <button type="button" className="app-modal-close" onClick={onCancel} aria-label="Cancelar">
-            <span aria-hidden="true">&times;</span>
+        <div className="cam-cf-handle"><span /></div>
+
+        <header className="cam-cf-header">
+          <h3 className="cam-cf-title">{typeLabel}</h3>
+          <button type="button" className="cam-cf-close" onClick={onCancel} aria-label="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </header>
 
-        <div className="cam-confirm-sample-info">
+        <div className="cam-cf-lot-bar">
+          <svg className="cam-cf-lot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
           {mode === 'no-context' ? (
-            <label className="cam-confirm-lot-field">
-              <span className="cam-confirm-field-label"><strong>Lote</strong></span>
-              <input
-                type="text"
-                className="cam-confirm-input cam-confirm-lot-input"
-                value={lotNumber}
-                onChange={(e) => onLotNumberChange?.(e.target.value)}
-                disabled={submitting}
-                placeholder="Numero do lote"
-              />
-            </label>
+            <input
+              type="text"
+              className="cam-cf-lot-input"
+              value={lotNumber}
+              onChange={(e) => onLotNumberChange?.(e.target.value)}
+              disabled={submitting}
+              placeholder="Numero do lote"
+            />
           ) : (
-            <span><strong>Lote:</strong> {lotNumber || '\u2014'}</span>
+            <span className="cam-cf-lot-value">{lotNumber || '\u2014'}</span>
           )}
         </div>
 
-        <div className="cam-confirm-body">
-          <fieldset className="cam-confirm-section">
-            <legend>Geral</legend>
-            <div className="cam-confirm-grid cam-confirm-grid-2">
-              {textFields.map(f => (
-                <label key={f.key} className="cam-confirm-field">
-                  <span className="cam-confirm-field-label">{f.label}</span>
-                  <input
-                    type="text"
-                    className="cam-confirm-input"
-                    value={form[f.key]}
-                    onChange={(e) => onFormChange(f.key, e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-              ))}
+        <div className="cam-cf-body">
+          <div className="cam-cf-section" style={{ '--sc': '#2f6b4a' } as React.CSSProperties}>
+            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Geral</div>
+            <div className="cam-cf-grid cam-cf-grid-2">
+              {textFields.map(f => renderField(f))}
             </div>
-          </fieldset>
+          </div>
 
-          <fieldset className="cam-confirm-section">
-            <legend>Peneiras %</legend>
-            <div className="cam-confirm-grid cam-confirm-grid-4">
-              {sieveFields.map(f => (
-                <label key={f.key} className="cam-confirm-field">
-                  <span className="cam-confirm-field-label">{f.label}</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="cam-confirm-input"
-                    value={form[f.key]}
-                    onChange={(e) => onFormChange(f.key, e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-              ))}
+          {sieveFields.length > 0 && (
+            <div className="cam-cf-section" style={{ '--sc': '#2980B9' } as React.CSSProperties}>
+              <div className="cam-cf-section-title"><span className="cam-cf-dot" />Peneiras <span className="cam-cf-section-unit">%</span></div>
+              <div className="cam-cf-grid cam-cf-grid-4">
+                {sieveFields.map(f => renderField(f, 'decimal'))}
+              </div>
             </div>
-          </fieldset>
+          )}
 
-          <fieldset className="cam-confirm-section">
-            <legend>Fundos</legend>
-            <div className="cam-confirm-grid cam-confirm-grid-4">
-              {fundoFields.map(f => (
-                <label key={f.key} className="cam-confirm-field">
-                  <span className="cam-confirm-field-label">{f.label}</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="cam-confirm-input"
-                    value={form[f.key]}
-                    onChange={(e) => onFormChange(f.key, e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-              ))}
+          <div className="cam-cf-section" style={{ '--sc': '#D4A017' } as React.CSSProperties}>
+            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Fundos</div>
+            <div className="cam-cf-grid cam-cf-grid-4">
+              {renderField({ key: 'fundo1Peneira', label: 'FD1 Pen.' })}
+              {renderField({ key: 'fundo1Percent', label: 'FD1 %' }, 'decimal')}
+              {hasFundo2 && renderField({ key: 'fundo2Peneira', label: 'FD2 Pen.' })}
+              {hasFundo2 && renderField({ key: 'fundo2Percent', label: 'FD2 %' }, 'decimal')}
             </div>
-          </fieldset>
+          </div>
 
-          <fieldset className="cam-confirm-section">
-            <legend>Defeitos e analises</legend>
-            <div className="cam-confirm-grid cam-confirm-grid-4">
-              {defectFields.map(f => (
-                <label key={f.key} className="cam-confirm-field">
-                  <span className="cam-confirm-field-label">{f.label}</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="cam-confirm-input"
-                    value={form[f.key]}
-                    onChange={(e) => onFormChange(f.key, e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-              ))}
+          {defectFields.length > 0 && (
+            <div className="cam-cf-section" style={{ '--sc': '#C0392B' } as React.CSSProperties}>
+              <div className="cam-cf-section-title"><span className="cam-cf-dot" />Defeitos e analises</div>
+              <div className="cam-cf-grid cam-cf-grid-4">
+                {defectFields.map(f => renderField(f, 'decimal'))}
+              </div>
             </div>
-          </fieldset>
+          )}
+
+          <div className="cam-cf-section" style={{ '--sc': '#7D3C98' } as React.CSSProperties}>
+            <div className="cam-cf-section-title"><span className="cam-cf-dot" />Observacoes</div>
+            <textarea
+              className="cam-cf-input cam-cf-textarea"
+              value={form.observacoes}
+              onChange={(e) => onFormChange('observacoes', e.target.value)}
+              disabled={submitting}
+              placeholder="Pau, AP, umidade, ou qualquer observacao..."
+              rows={3}
+            />
+          </div>
         </div>
 
-        <div className="cam-confirm-actions">
-          <button type="button" className="cam-confirm-btn-cancel" onClick={onCancel} disabled={submitting}>
+        <div className="cam-cf-actions">
+          <button type="button" className="cam-cf-btn-cancel" onClick={onCancel} disabled={submitting}>
             Cancelar
           </button>
-          <button type="button" className="cam-confirm-btn-confirm" onClick={onConfirm} disabled={submitting}>
+          <button type="button" className="cam-cf-btn-confirm" onClick={onConfirm} disabled={submitting}>
             {submitting ? 'Salvando...' : 'Confirmar'}
           </button>
         </div>
@@ -272,8 +272,8 @@ function CameraPageContent() {
   const handledScanRef = useRef<{ value: string; at: number } | null>(null);
   const resolvingScanRef = useRef(false);
   const mountedRef = useRef(false);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // QR Scanner state
   const [cameraStatus, setCameraStatus] = useState<'idle' | 'starting' | 'scanning' | 'permission-denied' | 'unsupported'>('idle');
@@ -295,6 +295,11 @@ function CameraPageContent() {
 
   // Context sample (Flow B)
   const [contextSampleLot, setContextSampleLot] = useState<string | null>(null);
+  const [contextSampleStatus, setContextSampleStatus] = useState<string | null>(null);
+  const [detectedPhotoToken, setDetectedPhotoToken] = useState<string | null>(null);
+
+  // Classification type selection
+  const [classificationType, setClassificationType] = useState<ClassificationType | null>(null);
 
   // Lot editing (Flow A)
   const [editableLot, setEditableLot] = useState('');
@@ -323,6 +328,7 @@ function CameraPageContent() {
     getSampleDetail(session, contextSampleId).then((detail) => {
       if (!cancelled && detail?.sample) {
         setContextSampleLot(detail.sample.internalLotNumber ?? null);
+        setContextSampleStatus(detail.sample.status);
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -523,16 +529,37 @@ function CameraPageContent() {
     }
     setExtractionResult(null);
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
+    setClassificationType(null);
     setFlowError(null);
     setConfirmedSampleId(null);
     setEditableLot('');
     setResolvedSample(null);
-    if (photoInputRef.current) {
-      photoInputRef.current.value = '';
-    }
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
+  }
+
+  function captureFromVideoStream() {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+
+    const canvas = canvasRef.current ?? document.createElement('canvas');
+    canvasRef.current = canvas;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `classificacao-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handlePhotoSelected(file);
+      },
+      'image/jpeg',
+      0.92
+    );
   }
 
   function handlePhotoSelected(file: File | null) {
@@ -554,17 +581,59 @@ function CameraPageContent() {
   async function handleSendPhoto() {
     if (!session || !capturedPhoto) return;
 
+    setFlowState('detecting');
+    setFlowError(null);
+
+    try {
+      const compressed = await compressImage(capturedPhoto);
+
+      // Step 1: Detect form (fast, < 1s)
+      const detection = await detectClassificationForm(session, compressed);
+      if (!mountedRef.current) return;
+
+      if (!detection.detected) {
+        setDetectedPhotoToken(detection.photoToken);
+        setFlowState('detect-failed');
+        return;
+      }
+
+      // Step 2: Brief visual confirmation
+      setFlowState('detected');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      if (!mountedRef.current) return;
+
+      // Step 3: Extract from cropped form
+      setFlowState('extracting');
+      const result = await extractFromDetectedForm(session, detection.photoToken, classificationType);
+      if (!mountedRef.current) return;
+
+      setExtractionResult(result);
+      const extracted = mapExtractionToForm(result.extractedFields, classificationType);
+      setClassificationForm(prev => ({ ...prev, ...extracted }));
+      setEditableLot(result.identification.lote ?? '');
+      setFlowState('confirming');
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setFlowError(readErrorMessage(error, 'Falha na extracao. Tente novamente.'));
+      setFlowState('error');
+    }
+  }
+
+  async function handleContinueWithoutCrop() {
+    if (!session || !capturedPhoto) return;
+
     setFlowState('extracting');
     setFlowError(null);
 
     try {
       const compressed = await compressImage(capturedPhoto);
-      const result = await extractAndPrepareClassification(session, compressed);
-
+      const result = detectedPhotoToken
+        ? await extractFromDetectedForm(session, detectedPhotoToken, classificationType)
+        : await extractAndPrepareClassification(session, compressed);
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
-      const extracted = mapExtractionToForm(result.extractedFields);
+      const extracted = mapExtractionToForm(result.extractedFields, classificationType);
       setClassificationForm(prev => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
@@ -586,12 +655,13 @@ function CameraPageContent() {
     setFlowError(null);
 
     try {
-      const classificationData = buildClassificationDataPayload(classificationForm, { includeAutomaticDate: true });
+      const classificationData = buildClassificationDataPayload(classificationForm, { includeAutomaticDate: true, classificationType });
 
       await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
-        photoToken: extractionResult.photoToken
+        photoToken: extractionResult.photoToken,
+        classificationType
       });
 
       if (!mountedRef.current) return;
@@ -607,14 +677,19 @@ function CameraPageContent() {
   async function handleConfirmClassification() {
     if (!session || !extractionResult) return;
 
-    const validationError = validateClassificationForm(classificationForm);
+    const validationError = validateClassificationForm(classificationForm, classificationType);
     if (validationError) {
       setFlowError(validationError);
       return;
     }
 
     if (hasContext && contextSampleId) {
-      // Flow B: validate lot match
+      // Flow B: validate status and lot match
+      if (contextSampleStatus && contextSampleStatus !== 'QR_PRINTED' && contextSampleStatus !== 'CLASSIFICATION_IN_PROGRESS' && contextSampleStatus !== 'CLASSIFIED') {
+        setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
+        return;
+      }
+
       const extractedLot = normalizeLot(extractionResult.identification.lote);
       const sampleLot = normalizeLot(contextSampleLot);
 
@@ -646,6 +721,12 @@ function CameraPageContent() {
         }
 
         setResolvedSample(resolved.sample);
+
+        if (resolved.sample.status !== 'QR_PRINTED' && resolved.sample.status !== 'CLASSIFICATION_IN_PROGRESS' && resolved.sample.status !== 'CLASSIFIED') {
+          setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
+          setFlowState('confirming');
+          return;
+        }
 
         if (resolved.sample.status === 'CLASSIFIED') {
           setFlowState('overwrite-confirm');
@@ -702,13 +783,19 @@ function CameraPageContent() {
       <section className="camera-hub-page">
         <section className="camera-hub-panel">
           <div className="camera-hub-stage">
-            {/* Camera feed — hidden during preview/success */}
-            {flowState !== 'preview' && flowState !== 'success' ? (
-              <>
-                <video ref={videoRef} className="camera-hub-video" autoPlay muted playsInline />
-                <div ref={overlayRef} className="camera-hub-overlay" aria-hidden="true" />
-              </>
-            ) : null}
+            {/* Camera feed — always mounted to preserve scanner reference, hidden visually when not needed */}
+            <video
+              ref={videoRef}
+              className="camera-hub-video"
+              autoPlay muted playsInline
+              style={flowState === 'preview' || flowState === 'success' ? { visibility: 'hidden' } : undefined}
+            />
+            <div
+              ref={overlayRef}
+              className="camera-hub-overlay"
+              aria-hidden="true"
+              style={flowState === 'preview' || flowState === 'success' ? { visibility: 'hidden' } : undefined}
+            />
 
             {/* Photo preview */}
             {flowState === 'preview' && capturedPhotoUrl ? (
@@ -727,37 +814,37 @@ function CameraPageContent() {
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
               </button>
 
-              {/* Gallery button */}
-              {flowState === 'idle' && cameraStatus === 'scanning' ? (
-                <>
-                  <input
-                    ref={galleryInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handlePhotoSelected(e.target.files?.[0] ?? null)}
-                  />
-                  <button
-                    type="button"
-                    className="camera-hub-gallery-btn"
-                    onClick={() => galleryInputRef.current?.click()}
-                    aria-label="Selecionar da galeria"
-                  >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <path d="m21 15-5-5L5 21" />
-                    </svg>
-                  </button>
-                </>
-              ) : null}
-
               {showStatusText && cameraError && flowState === 'idle' ? (
                 <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
                   {cameraError}
                 </p>
               ) : null}
             </div>
+
+            {/* Gallery button — positioned relative to stage, not headline */}
+            {flowState === 'idle' && cameraStatus === 'scanning' ? (
+              <>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handlePhotoSelected(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className="camera-hub-gallery-btn"
+                  onClick={() => galleryInputRef.current?.click()}
+                  aria-label="Selecionar da galeria"
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="m21 15-5-5L5 21" />
+                  </svg>
+                </button>
+              </>
+            ) : null}
 
             {/* Bottom area */}
             <div className="camera-hub-bottom-area">
@@ -773,21 +860,13 @@ function CameraPageContent() {
                 </div>
               ) : null}
 
-              {/* Capture button */}
+              {/* Capture button — captures directly from video stream */}
               {flowState === 'idle' && cameraStatus === 'scanning' ? (
                 <div className="camera-hub-capture-area">
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    style={{ display: 'none' }}
-                    onChange={(e) => handlePhotoSelected(e.target.files?.[0] ?? null)}
-                  />
                   <button
                     type="button"
                     className="camera-hub-capture-btn"
-                    onClick={() => photoInputRef.current?.click()}
+                    onClick={captureFromVideoStream}
                     aria-label="Tirar foto para classificacao"
                   >
                     <span className="camera-hub-capture-btn-inner" />
@@ -801,9 +880,70 @@ function CameraPageContent() {
                   <button type="button" className="camera-hub-preview-btn-retake" onClick={resetClassificationFlow}>
                     Tirar outra
                   </button>
-                  <button type="button" className="camera-hub-preview-btn-send" onClick={() => void handleSendPhoto()}>
+                  <button type="button" className="camera-hub-preview-btn-send" onClick={() => setFlowState('selecting-type')}>
                     Enviar
                   </button>
+                </div>
+              ) : null}
+
+              {/* Type selection */}
+              {flowState === 'selecting-type' ? (
+                <div className="cam-type-overlay">
+                  <div className="cam-type-card">
+                    <h3 className="cam-type-title">Qual o tipo do cafe?</h3>
+                    <div className="cam-type-options">
+                      {(['PREPARADO', 'LOW_CAFF', 'BICA'] as ClassificationType[]).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className="cam-type-btn"
+                          onClick={() => {
+                            setClassificationType(type);
+                            void handleSendPhoto();
+                          }}
+                        >
+                          {type === 'LOW_CAFF' ? 'LOW CAFF' : type}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="cam-type-cancel" onClick={() => setFlowState('preview')}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Detecting form */}
+              {flowState === 'detecting' ? (
+                <div className="camera-hub-extracting">
+                  <div className="camera-hub-extracting-spinner" />
+                  <span className="camera-hub-extracting-label">Procurando ficha na foto...</span>
+                </div>
+              ) : null}
+
+              {/* Form detected */}
+              {flowState === 'detected' ? (
+                <div className="camera-hub-extracting">
+                  <div className="camera-hub-success-icon" style={{ width: 32, height: 32 }}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <span className="camera-hub-extracting-label">Ficha identificada!</span>
+                </div>
+              ) : null}
+
+              {/* Detection failed */}
+              {flowState === 'detect-failed' ? (
+                <div className="camera-hub-extracting" style={{ gap: 12 }}>
+                  <span className="camera-hub-extracting-label">Nao foi possivel encontrar a ficha automaticamente.</span>
+                  <span className="camera-hub-extracting-label" style={{ fontSize: '0.8em', opacity: 0.7 }}>Tente fotografar com a ficha mais visivel, ou continue para extrair da foto completa.</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" className="camera-hub-btn camera-hub-btn-secondary" onClick={() => { setFlowState('idle'); setCapturedPhoto(null); setCapturedPhotoUrl(null); setDetectedPhotoToken(null); }}>
+                      Fotografar novamente
+                    </button>
+                    <button type="button" className="camera-hub-btn camera-hub-btn-primary" onClick={() => void handleContinueWithoutCrop()}>
+                      Continuar assim
+                    </button>
+                  </div>
                 </div>
               ) : null}
 
@@ -811,7 +951,7 @@ function CameraPageContent() {
               {flowState === 'extracting' ? (
                 <div className="camera-hub-extracting">
                   <div className="camera-hub-extracting-spinner" />
-                  <span className="camera-hub-extracting-label">Extraindo dados da ficha...</span>
+                  <span className="camera-hub-extracting-label">Extraindo dados da classificacao...</span>
                 </div>
               ) : null}
 
@@ -944,6 +1084,7 @@ function CameraPageContent() {
             onConfirm={() => void handleConfirmClassification()}
             onCancel={resetClassificationFlow}
             submitting={flowState === 'submitting'}
+            classificationType={classificationType}
           />
         </>
       ) : null}

@@ -1,5 +1,5 @@
 const DEFAULT_MAX_DIMENSION = 1920;
-const DEFAULT_QUALITY = 0.8;
+const DEFAULT_QUALITY = 0.88;
 const COMPRESSION_THRESHOLD_BYTES = 1024 * 1024; // 1 MB
 
 interface CompressImageOptions {

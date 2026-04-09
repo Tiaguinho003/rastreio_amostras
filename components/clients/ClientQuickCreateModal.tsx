@@ -93,20 +93,17 @@ export function ClientQuickCreateModal({
   }, [form.cpf, form.cnpj, form.personType]);
 
   const expectedDocumentDigits = form.personType === 'PF' ? 11 : 14;
-  const isDocumentLengthValid = documentDigitCount === 0 || documentDigitCount === expectedDocumentDigits;
   const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
 
+  const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
+  const isNameFilled = nameValue.trim().length > 0;
+  const isPhoneFilled = form.phone.replace(/\D/g, '').length > 0;
+  const isPhoneValid = form.phone.replace(/\D/g, '').length === 0 || [10, 11].includes(form.phone.replace(/\D/g, '').length);
+  const isDocumentValid = documentDigitCount === 0 || isDocumentComplete;
+
   const canSubmit = useMemo(() => {
-    if (!form.isBuyer && !form.isSeller) {
-      return false;
-    }
-
-    if (form.personType === 'PF') {
-      return form.fullName.trim().length > 0 && isDocumentComplete;
-    }
-
-    return form.legalName.trim().length > 0 && isDocumentComplete;
-  }, [form, isDocumentComplete]);
+    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid;
+  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid]);
 
   if (!open) {
     return null;
@@ -114,19 +111,16 @@ export function ClientQuickCreateModal({
 
   const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
-  const displayNameValue = form.personType === 'PF' ? form.fullName : form.tradeName;
-  const legalNameDisabled = form.personType === 'PF';
 
   const showFieldErrors = submitted && !canSubmit;
-  const isDocumentEmpty = documentValue.trim().length === 0;
-  const isDocumentInvalid = !isDocumentEmpty && !isDocumentLengthValid;
-  const hasDocumentError = showFieldErrors && (isDocumentEmpty || isDocumentInvalid);
+  const isDocumentInvalid = documentDigitCount > 0 && !isDocumentComplete;
+  const hasDocumentError = showFieldErrors && isDocumentInvalid;
   const documentHint = isDocumentInvalid
     ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
     : null;
-  const isNameEmpty = displayNameValue.trim().length === 0;
-  const isLegalNameEmpty = form.personType === 'PJ' && form.legalName.trim().length === 0;
-  const isRoleMissing = !form.isBuyer && !form.isSeller;
+  const hasNameError = showFieldErrors && !isNameFilled;
+  const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
+  const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
 
   function handleCloseAndReset() {
     if (saving) {
@@ -163,9 +157,9 @@ export function ClientQuickCreateModal({
         fullName: form.personType === 'PF' ? form.fullName : undefined,
         legalName: form.personType === 'PJ' ? form.legalName : undefined,
         tradeName: form.personType === 'PJ' ? form.tradeName || null : undefined,
-        cpf: form.personType === 'PF' ? form.cpf : undefined,
-        cnpj: form.personType === 'PJ' ? form.cnpj : undefined,
-        phone: form.phone || null,
+        cpf: form.personType === 'PF' ? (form.cpf || null) : undefined,
+        cnpj: form.personType === 'PJ' ? (form.cnpj || null) : undefined,
+        phone: form.phone,
         isBuyer: form.isBuyer,
         isSeller: form.isSeller
       });
@@ -245,12 +239,12 @@ export function ClientQuickCreateModal({
                   </select>
                 </label>
 
-                <label className={`client-quick-create-field${hasDocumentError || isDocumentInvalid ? ' is-field-error' : ''}`}>
+                <label className={`client-quick-create-field${isDocumentInvalid ? ' is-field-error' : ''}`}>
                   {documentLabel}
                   <input
                     value={documentValue}
                     disabled={saving}
-                    className={hasDocumentError ? 'cqc-input-error' : undefined}
+                    className={isDocumentInvalid ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -258,42 +252,43 @@ export function ClientQuickCreateModal({
                         cnpj: current.personType === 'PJ' ? maskDocumentInput(event.target.value, 'PJ') : current.cnpj
                       }))
                     }
-                    placeholder={hasDocumentError ? (documentHint ?? 'Obrigatorio') : ''}
+                    placeholder={isDocumentInvalid ? (documentHint ?? '') : ''}
                   />
                 </label>
               </div>
 
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className={`client-quick-create-field${showFieldErrors && isNameEmpty ? ' is-field-error' : ''}`}>
-                  {form.personType === 'PF' ? 'Nome completo' : 'Nome fantasia'}
+                <label className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}>
+                  {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
                   <input
-                    value={displayNameValue}
+                    value={nameValue}
                     disabled={saving}
-                    className={showFieldErrors && isNameEmpty ? 'cqc-input-error' : undefined}
+                    className={hasNameError ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
                         fullName: current.personType === 'PF' ? event.target.value : current.fullName,
-                        tradeName: current.personType === 'PJ' ? event.target.value : current.tradeName
+                        legalName: current.personType === 'PJ' ? event.target.value : current.legalName
                       }))
                     }
-                    placeholder={showFieldErrors && isNameEmpty ? 'Obrigatorio' : ''}
+                    placeholder={hasNameError ? 'Obrigatorio' : ''}
                   />
                 </label>
               </div>
 
-              <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className={`client-quick-create-field${legalNameDisabled ? ' client-quick-create-field-disabled' : ''}${showFieldErrors && isLegalNameEmpty ? ' is-field-error' : ''}`}>
-                  Razao social
-                  <input
-                    value={form.legalName}
-                    disabled={saving || legalNameDisabled}
-                    className={showFieldErrors && isLegalNameEmpty ? 'cqc-input-error' : undefined}
-                    onChange={(event) => setForm((current) => ({ ...current, legalName: event.target.value }))}
-                    placeholder={legalNameDisabled ? 'Nao se aplica para pessoa fisica' : (showFieldErrors && isLegalNameEmpty ? 'Obrigatorio' : '')}
-                  />
-                </label>
-              </div>
+              {form.personType === 'PJ' ? (
+                <div className="client-quick-create-grid client-quick-create-grid-single">
+                  <label className="client-quick-create-field">
+                    Nome fantasia
+                    <input
+                      value={form.tradeName}
+                      disabled={saving}
+                      onChange={(event) => setForm((current) => ({ ...current, tradeName: event.target.value }))}
+                      placeholder=""
+                    />
+                  </label>
+                </div>
+              ) : null}
             </section>
 
             <section className="client-quick-create-group" aria-labelledby="client-quick-create-group-contato">
@@ -301,13 +296,14 @@ export function ClientQuickCreateModal({
                 Contato
               </p>
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className="client-quick-create-field">
+                <label className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}>
                   Telefone
                   <input
                     value={form.phone}
                     disabled={saving}
+                    className={hasPhoneError ? 'cqc-input-error' : undefined}
                     onChange={(event) => setForm((current) => ({ ...current, phone: maskPhoneInput(event.target.value) }))}
-                    placeholder=""
+                    placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
                   />
                 </label>
               </div>
@@ -317,7 +313,7 @@ export function ClientQuickCreateModal({
               <p id="client-quick-create-group-papeis" className="client-quick-create-group-title">
                 Papel operacional
               </p>
-              <div className={`client-modal-flags client-quick-create-flags${showFieldErrors && isRoleMissing ? ' is-field-error' : ''}`}>
+              <div className="client-modal-flags client-quick-create-flags">
                 <label className="client-modal-flag client-quick-create-flag">
                   <input
                     type="checkbox"

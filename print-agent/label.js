@@ -34,15 +34,48 @@ function sanitize(text, maxLen) {
   return clean;
 }
 
+function formatDate(isoDate) {
+  if (!isoDate) return '---';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '---';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 export function buildLabel(job) {
   const qrValue = sanitize(job.sample.qrValue || job.sample.id, 100);
-  const lotNumber = sanitize(job.sample.internalLotNumber || job.sample.id, 12);
-  const owner = sanitize(job.sample.declared?.owner, 28);
+  const lotNumber = sanitize(job.sample.internalLotNumber || job.sample.id, 7);
   const sacks = job.sample.declared?.sacks != null ? String(job.sample.declared.sacks) : '---';
+  const harvest = sanitize(job.sample.declared?.harvest || '---', 10);
+  const date = formatDate(job.sample.registeredAt);
+
+  // --- Layout constants ---
+  const RX = 250;   // right column start x
+  const RW = 540;   // right column width
+  const F3W = 16;   // font "3" char width
+  const GAP = 10;   // gap between text and separator bars
+
+  // Info row: dynamically centered in right column
+  const sw = sacks.length * F3W;
+  const hw = harvest.length * F3W;
+  const dw = date.length * F3W;
+  const infoW = sw + GAP + 2 + GAP + hw + GAP + 2 + GAP + dw;
+  const ix = RX + Math.floor((RW - infoW) / 2);
+  const b1x = ix + sw + GAP;
+  const hx = b1x + 2 + GAP;
+  const b2x = hx + hw + GAP;
+  const dx = b2x + 2 + GAP;
+
+  // Lot number: font "4" at 3x5 (72x160 per char), centered
+  const lotCharW = 72;
+  const lotW = lotNumber.length * lotCharW;
+  const lotX = RX + Math.floor((RW - lotW) / 2);
 
   const parts = [];
 
-  // Header commands
+  // Header + logo bitmap (top-left)
   const header = [
     'SET RIBBON ON',
     'DENSITY 10',
@@ -51,36 +84,34 @@ export function buildLabel(job) {
     'DIRECTION 1',
     'CLS',
     '',
-    // QR Code — left side
-    `QRCODE 20,30,L,6,A,0,M2,"${qrValue}"`,
-    '',
-    // Vertical separator line
-    'BAR 245,10,2,260',
-    '',
-    // Lot number — large
-    `TEXT 265,25,"4",0,2,2,"${lotNumber}"`,
-    '',
-    // Horizontal separator
-    'BAR 265,95,380,2',
-    '',
-    // Owner
-    `TEXT 265,112,"3",0,1,1,"${owner}"`,
-    '',
-    // Sacks
-    `TEXT 265,148,"2",0,1,1,"Sacas: ${sacks}"`,
-    '',
-    // Logo bitmap command — bottom right (data follows as binary)
-    `BITMAP 590,202,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,
+    `BITMAP 10,5,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,
   ].join('\r\n');
-
   parts.push(Buffer.from(header, 'ascii'));
-
-  // Logo binary data
   parts.push(LOGO_DATA);
 
-  // Footer commands
-  const footer = '\r\nPRINT 1,1\r\n';
-  parts.push(Buffer.from(footer, 'ascii'));
+  // Body commands
+  const body = [
+    '',
+    // QR Code — left side, below logo
+    `QRCODE 42,88,L,7,A,0,M2,"${qrValue}"`,
+    '',
+    // Info row — sacas | safra | data
+    `TEXT ${ix},21,"3",0,1,1,"${sacks}"`,
+    `BAR ${b1x},18,2,30`,
+    `TEXT ${hx},21,"3",0,1,1,"${harvest}"`,
+    `BAR ${b2x},18,2,30`,
+    `TEXT ${dx},21,"3",0,1,1,"${date}"`,
+    '',
+    // Horizontal separator
+    `BAR ${RX},58,${RW},2`,
+    '',
+    // Lot number — large, dominant
+    `TEXT ${lotX},87,"4",0,3,5,"${lotNumber}"`,
+    '',
+    'PRINT 1,1',
+    '',
+  ].join('\r\n');
+  parts.push(Buffer.from(body, 'ascii'));
 
   return Buffer.concat(parts);
 }

@@ -64,24 +64,21 @@ const CLASSIFICATION_DATA_KEYS = [
   'catacao',
   'aspecto',
   'bebida',
+  'safra',
   'broca',
   'pva',
   'imp',
-  'pau',
   'ap',
   'gpi',
   'classificador',
   'defeito',
-  'umidade',
-  'aspectoCor',
   'observacoes',
-  'loteOrigem',
   'classificadorUserId',
   'consumoGramas',
   'versaoClassificacao'
 ];
 
-const SIEVE_PERCENT_KEYS = ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p10'];
+const SIEVE_PERCENT_KEYS = ['p19', 'p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10'];
 
 function applyClassificationDataPatch(target, source) {
   if (!isObject(source)) {
@@ -130,12 +127,6 @@ function applyLegacyTechnicalPatch(target, source) {
   const technical = source.technical;
   if (hasOwn(technical, 'defectsCount')) {
     target.defeito = technical.defectsCount;
-  }
-  if (hasOwn(technical, 'moisture')) {
-    target.umidade = technical.moisture;
-  }
-  if (hasOwn(technical, 'colorAspect')) {
-    target.aspectoCor = technical.colorAspect;
   }
   if (hasOwn(technical, 'notes')) {
     target.observacoes = technical.notes;
@@ -208,18 +199,6 @@ function buildClassificationProjectionPatch({ currentSample, fromPayload, increm
     patch.latestDefectsCount = technical.defectsCount;
   }
 
-  if (mergedClassificationData && hasOwn(mergedClassificationData, 'umidade')) {
-    patch.latestMoisture = mergedClassificationData.umidade;
-  } else if (technical && hasOwn(technical, 'moisture')) {
-    patch.latestMoisture = technical.moisture;
-  }
-
-  if (mergedClassificationData && hasOwn(mergedClassificationData, 'aspectoCor')) {
-    patch.latestColorAspect = mergedClassificationData.aspectoCor;
-  } else if (technical && hasOwn(technical, 'colorAspect')) {
-    patch.latestColorAspect = technical.colorAspect;
-  }
-
   if (mergedClassificationData && hasOwn(mergedClassificationData, 'observacoes')) {
     patch.latestNotes = mergedClassificationData.observacoes;
   } else if (technical && hasOwn(technical, 'notes')) {
@@ -264,12 +243,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.declaredSacks = event.payload.declared.sacks;
     updateData.declaredHarvest = event.payload.declared.harvest;
     updateData.declaredOriginLot = event.payload.declared.originLot;
-    if (hasOwn(event.payload, 'warehouseId')) {
-      updateData.warehouseId = event.payload.warehouseId ?? null;
-    }
-    if (hasOwn(event.payload, 'declaredWarehouse')) {
-      updateData.declaredWarehouse = event.payload.declaredWarehouse ?? null;
-    }
+    if (hasOwn(event.payload.declared, 'location')) updateData.declaredLocation = event.payload.declared.location;
   }
 
   if (event.eventType === 'REGISTRATION_UPDATED') {
@@ -283,15 +257,13 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(after, 'sacks')) updateData.declaredSacks = after.sacks;
     if (hasOwn(after, 'harvest')) updateData.declaredHarvest = after.harvest;
     if (hasOwn(after, 'originLot')) updateData.declaredOriginLot = after.originLot;
+    if (hasOwn(after, 'location')) updateData.declaredLocation = after.location;
 
     if (hasOwn(declaredAfter, 'owner')) updateData.declaredOwner = declaredAfter.owner;
     if (hasOwn(declaredAfter, 'sacks')) updateData.declaredSacks = declaredAfter.sacks;
     if (hasOwn(declaredAfter, 'harvest')) updateData.declaredHarvest = declaredAfter.harvest;
     if (hasOwn(declaredAfter, 'originLot')) updateData.declaredOriginLot = declaredAfter.originLot;
-
-    if (hasOwn(after, 'warehouseId')) updateData.warehouseId = after.warehouseId;
-    if (hasOwn(after, 'declaredWarehouse')) updateData.declaredWarehouse = after.declaredWarehouse;
-    if (hasOwn(declaredAfter, 'warehouse')) updateData.declaredWarehouse = declaredAfter.warehouse;
+    if (hasOwn(declaredAfter, 'location')) updateData.declaredLocation = declaredAfter.location;
 
     if (hasOwn(after, 'soldSacks')) updateData.soldSacks = after.soldSacks;
     if (hasOwn(after, 'lostSacks')) updateData.lostSacks = after.lostSacks;
@@ -320,6 +292,9 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.classificationDraftData = null;
     updateData.classificationDraftCompletionPercent = null;
     updateData.classifiedAt = event.occurredAt;
+    if (hasOwn(event.payload, 'classificationType')) {
+      updateData.classificationType = event.payload.classificationType;
+    }
   }
 
   if (event.eventType === 'CLASSIFICATION_UPDATED') {
@@ -331,6 +306,9 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
         incrementVersionWhenMissing: false
       })
     );
+    if (hasOwn(event.payload, 'classificationType')) {
+      updateData.classificationType = event.payload.classificationType;
+    }
   }
 
   if (event.eventType === 'COMMERCIAL_STATUS_UPDATED') {
