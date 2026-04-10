@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
+import { issueAccessToken, verifyAccessToken } from '../src/auth/token-service.js';
 import { HttpError } from '../src/contracts/errors.js';
 
 const hash = bcrypt.hashSync('admin123', 10);
@@ -84,4 +85,48 @@ test('plaintext password login works only when allowPlaintextPasswords is true',
 
   const login = authService.login({ username: 'admin', password: 'admin123' });
   assert.equal(login.user.username, 'admin');
+});
+
+test('login with nonexistent username returns 401', () => {
+  const authService = new LocalAuthService({
+    secret: 'super-secret-for-local-tests',
+    users: [
+      {
+        id: '00000000-0000-0000-0000-000000000001',
+        username: 'admin',
+        passwordHash: hash,
+        role: 'ADMIN',
+      },
+    ],
+  });
+
+  assert.throws(
+    () => authService.login({ username: 'nonexistent', password: 'any' }),
+    (error) => error instanceof HttpError && error.status === 401
+  );
+});
+
+test('expired token is rejected by verifyAccessToken', () => {
+  const secret = 'super-secret-for-local-tests';
+  const now = Date.now();
+
+  const { token } = issueAccessToken(
+    {
+      userId: '00000000-0000-0000-0000-000000000001',
+      sessionId: '00000000-0000-0000-0000-000000000010',
+      role: 'ADMIN',
+      username: 'admin',
+    },
+    { secret, ttlSeconds: 1, nowMs: now }
+  );
+
+  assert.throws(
+    () => verifyAccessToken(token, { secret, nowMs: now + 10_000 }),
+    (error) => {
+      assert.equal(error instanceof HttpError, true);
+      assert.equal(error.status, 401);
+      assert.match(error.message, /expired/i);
+      return true;
+    }
+  );
 });
