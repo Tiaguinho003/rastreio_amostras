@@ -27,6 +27,26 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(), geolocation=(), interest-cohort=()',
           },
+          ...(process.env.NODE_ENV === 'production'
+            ? [
+                {
+                  key: 'Content-Security-Policy',
+                  value: [
+                    "default-src 'self'",
+                    "script-src 'self'",
+                    "style-src 'self' 'unsafe-inline'",
+                    "img-src 'self' data: blob:",
+                    "font-src 'self'",
+                    "connect-src 'self'",
+                    "media-src 'self' blob:",
+                    "worker-src 'self' blob:",
+                    "frame-ancestors 'none'",
+                    "base-uri 'self'",
+                    "form-action 'self'",
+                  ].join('; '),
+                },
+              ]
+            : []),
         ],
       },
       {
