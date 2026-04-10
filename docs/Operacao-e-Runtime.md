@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: ambientes oficiais, modelo operacional, envs, compose, scripts e operacao basica  
-Ultima revisao: 2026-04-09  
+Ultima revisao: 2026-04-10  
 Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/Homologacao-Google-Cloud.md`
 
 ## Modelo operacional oficial
@@ -16,8 +16,8 @@ O projeto deve ser entendido em tres camadas:
 Regra consolidada:
 
 1. o sistema e unico e mora no repositorio;
-2. os perfis oficiais sao `development` e `cloud-homolog`;
-3. `cloud-production` e uma instalacao do mesmo aparato cloud, com configuracoes proprias em `.env.cloud-production*` e deploy via `scripts/gcp/`.
+2. os perfis oficiais sao `development`, `cloud-homolog` e `cloud-production`;
+3. cada perfil cloud possui configuracoes proprias em `.env.cloud-*` e deploy via `scripts/gcp/`.
 
 ## Ambientes oficiais
 
@@ -51,6 +51,21 @@ Arquivos canonicos:
 4. `.env.cloud-homolog.ops`
 5. `docs/Homologacao-Google-Cloud.md`
 6. `scripts/gcp/README.md`
+
+### `cloud-production`
+
+Uso:
+
+1. producao real com dados de clientes;
+2. deploy manual via `scripts/gcp/` (nao automatico por push);
+3. migration job executado manualmente (decisao consciente).
+
+Arquivos canonicos:
+
+1. `env/examples/cloud-production.ops.env.example`
+2. `.env.cloud-production`
+3. `.env.cloud-production.ops`
+4. `docs/Deploy-e-Cloud-Build.md`
 
 ## Fluxo canonico de development
 
@@ -152,6 +167,10 @@ scripts/gcp/smoke.sh
     Implementacao compartilhada do smoke test HTTP (chamada por `scripts/runtime/smoke.sh` e `scripts/gcp/smoke.sh`).
 12. `scripts/db/verify-phases-1-4.sh`
     Sanity check de schema do banco (tabelas, colunas, migrations e enums).
+13. `scripts/gcp/deploy-cloud.sh`
+    Deploy generico de producao (Cloud Run service + jobs).
+14. `scripts/gcp/parity-check.sh`
+    Compara configuracao de hml vs prod (imagem, envs, secrets).
 
 ## Variaveis importantes
 
