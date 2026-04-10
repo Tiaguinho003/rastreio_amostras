@@ -520,3 +520,41 @@ test('classification extraction failed is accepted and does not mutate sample', 
   assert.equal(after.status, before.status);
   assert.equal(after.version, before.version);
 });
+
+test('registration confirmed rejects payload with removed warehouseId field', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+
+  const withWarehouse = registrationConfirmedEvent(sampleId, {
+    payload: {
+      warehouseId: 'warehouse-xyz',
+    },
+  });
+
+  assert.throws(
+    () => service.appendEvent(withWarehouse, { expectedVersion: 2 }),
+    (error) => error instanceof HttpError && error.status === 422
+  );
+});
+
+test('registration confirmed rejects payload with removed declaredWarehouse field', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+
+  const withDeclaredWarehouse = registrationConfirmedEvent(sampleId, {
+    payload: {
+      declaredWarehouse: 'algum-armazem',
+    },
+  });
+
+  assert.throws(
+    () => service.appendEvent(withDeclaredWarehouse, { expectedVersion: 2 }),
+    (error) => error instanceof HttpError && error.status === 422
+  );
+});
