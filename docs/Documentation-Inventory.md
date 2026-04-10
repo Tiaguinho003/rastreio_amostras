@@ -45,6 +45,9 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `docs/assets/Documento — Rastreio Interno de Amostras.pdf` | historico util      | mantido                                               | arquivo de apoio sem autoridade textual sobre os docs canonicos                                 |
 | `docs/Deploy-e-Cloud-Build.md`                             | canonico            | criado                                                | guia operacional pos-incidente (2026-04-07), concentra fluxo de deploy hml/prod via Cloud Build |
 | `docs/Passe-6A-Relatorio-Testes-Cobertura.md`              | relatorio reorg     | criado                                                | baseline de cobertura e auditoria de testes (Passe 6A, 2026-04-10)                              |
+| `SECURITY.md` (raiz)                                       | canonico            | criado                                                | convencao GitHub para security reports (Passe 7D+8)                                             |
+| `docs/SECURITY.md`                                         | canonico            | criado                                                | politica de seguranca e runbook de resposta a incidente (Passe 7D+8)                            |
+| `docs/SECURITY-threat-model.md`                            | canonico            | criado                                                | threat model completo das 9 categorias de seguranca (Passe 7D+8)                                |
 
 ## Pontos de entrada revisados
 
@@ -68,3 +71,4 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 7. As operacoes do dominio de amostras aceitam qualquer usuario autenticado no backend atual. Os papeis `CLASSIFIER`, `REGISTRATION` e `COMMERCIAL` funcionam hoje mais como marcacao organizacional do que como barreira tecnica por modulo.
 8. Os testes existentes no repositorio sao unitarios, de contrato e de integracao. Nao existe suite E2E implementada hoje.
 9. A reorganizacao 2026-04 (passes 1-9) gera relatorios read-only em `docs/Passe-*`. Estes nao sao documentos canonicos — sao snapshots de auditoria que informam os passes seguintes.
+10. A postura de seguranca do projeto esta documentada em tres camadas: politica (`docs/SECURITY.md`), threat model (`docs/SECURITY-threat-model.md`) e audit snapshot (`docs/SECURITY-audit.md`). A LGPD e debito documentado.
