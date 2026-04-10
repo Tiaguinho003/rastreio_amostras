@@ -558,3 +558,23 @@ test('registration confirmed rejects payload with removed declaredWarehouse fiel
     (error) => error instanceof HttpError && error.status === 422
   );
 });
+
+test('illegal status transition is rejected with 409', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+
+  assert.throws(
+    () =>
+      service.appendEvent(registrationConfirmedEvent(sampleId), {
+        expectedVersion: 1,
+      }),
+    (error) => {
+      assert.equal(error instanceof HttpError, true);
+      assert.equal(error.status, 409);
+      assert.match(error.message, /Invalid status transition/);
+      return true;
+    }
+  );
+});
