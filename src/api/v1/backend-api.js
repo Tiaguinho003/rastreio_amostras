@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../../contracts/errors.js';
 import { readSessionTokenFromCookieHeader } from '../../auth/session-cookie.js';
+import { createRateLimiter } from '../../auth/rate-limiter.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
+
+const loginRateLimiter = createRateLimiter({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
+  maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 10,
+});
 
 function readHeader(headers, key) {
   if (!headers || typeof headers !== 'object') {
@@ -124,6 +130,9 @@ export function createBackendApiV1({
         if (!authService) {
           throw new HttpError(501, 'Auth service is not configured');
         }
+
+        const ip = readHeader(input?.headers ?? {}, 'x-forwarded-for') ?? null;
+        loginRateLimiter.check(ip);
 
         const body = readRequestBody(input);
         const result = await authService.login(
