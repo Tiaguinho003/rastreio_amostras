@@ -49,5 +49,5 @@ description: Use this skill when writing, running, or debugging tests. Covers te
 
 ## Contagem atual
 
-- 101 testes (35 unit + 66 integration)
-- Todos verdes em CI (GitHub Actions, PostgreSQL 16)
+- Rodar `npm run test` para contagem atualizada. Testes divididos em contracts, unit e integration.
+- Todos verdes em CI (GitHub Actions, PostgreSQL via Docker)
