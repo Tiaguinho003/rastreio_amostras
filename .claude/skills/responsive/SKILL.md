@@ -20,8 +20,10 @@ Valores fixos em px quebram a proporcionalidade entre telas diferentes. Use semp
   - Exemplo: `gap: 2dvh`
 - **Larguras**: `%`, `vw`, `min()`, `clamp()` - nunca `width: 350px`
   - Exemplo: `width: min(90vw, 24rem)`
-- **Alturas de containers**: `dvh`, `%`, `min()` - nunca `height: 600px`
-  - Exemplo: `height: 100dvh`, `min-height: 45dvh`
+- **Alturas de containers**: `svh`/`dvh`, `%`, `min()` - nunca `height: 600px`
+  - Shells PWA (app-shell, edge-shell): usar `100svh` — nunca encolhe no iOS standalone
+  - Conteudo dinamico: `dvh` quando precisa reagir a mudancas de viewport
+  - Exemplo: `min-height: 100svh`, `height: 45dvh`
 - **Border-radius**: `clamp()` para raios grandes
   - Exemplo: `border-radius: clamp(14px, 4vw, 20px)`
 
@@ -29,15 +31,15 @@ Valores fixos em px quebram a proporcionalidade entre telas diferentes. Use semp
 
 ### 2. Unidades recomendadas por contexto
 
-| Contexto                  | Unidades                        | Exemplo                             |
-| ------------------------- | ------------------------------- | ----------------------------------- |
-| Font size                 | `clamp(rem, vw, rem)`           | `clamp(0.9rem, 3.5vw, 1.2rem)`      |
-| Padding/margin horizontal | `clamp(rem, vw, rem)`           | `clamp(0.8rem, 4vw, 1.5rem)`        |
-| Padding/margin vertical   | `clamp(rem, dvh, rem)` ou `dvh` | `clamp(1rem, 3dvh, 1.8rem)`         |
-| Gap                       | `clamp()` ou `vw`/`dvh`         | `gap: clamp(0.6rem, 2.5vw, 1rem)`   |
-| Largura de componentes    | `min()`, `%`, `vw`              | `width: min(100%, 28rem)`           |
-| Altura de secoes          | `dvh`, `%`                      | `min-height: 35dvh`                 |
-| Icones e imagens          | `clamp()`                       | `width: clamp(1.2rem, 5vw, 1.8rem)` |
+| Contexto                  | Unidades                        | Exemplo                                          |
+| ------------------------- | ------------------------------- | ------------------------------------------------ |
+| Font size                 | `clamp(rem, vw, rem)`           | `clamp(0.9rem, 3.5vw, 1.2rem)`                   |
+| Padding/margin horizontal | `clamp(rem, vw, rem)`           | `clamp(0.8rem, 4vw, 1.5rem)`                     |
+| Padding/margin vertical   | `clamp(rem, dvh, rem)` ou `dvh` | `clamp(1rem, 3dvh, 1.8rem)`                      |
+| Gap                       | `clamp()` ou `vw`/`dvh`         | `gap: clamp(0.6rem, 2.5vw, 1rem)`                |
+| Largura de componentes    | `min()`, `%`, `vw`              | `width: min(100%, 28rem)`                        |
+| Altura de secoes          | `svh`/`dvh`, `%`                | `min-height: 100svh` (shell), `35dvh` (conteudo) |
+| Icones e imagens          | `clamp()`                       | `width: clamp(1.2rem, 5vw, 1.8rem)`              |
 
 ### 3. Layout com Flexbox e Grid
 
