@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: indice oficial, ordem de leitura e fronteira de autoridade da documentacao  
-Ultima revisao: 2026-03-16  
+Ultima revisao: 2026-04-10  
 Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 
 ## Leitura recomendada
@@ -27,6 +27,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Funcao: registra o destino dos documentos antigos e as decisoes de consolidacao feitas nesta revisao.
 6. `docs/Homologacao-Google-Cloud.md`
    Funcao: runbook oficial de homologacao no Google Cloud com Cloud Run, Cloud SQL, Cloud Storage e Cloud Run Jobs.
+7. `docs/deploy.md`
+   Funcao: guia operacional de deploy para hml e producao (pos-incidente 2026-04-07). Complementa `Homologacao-Google-Cloud.md` que cobre a topologia; este cobre o fluxo dia-a-dia.
 
 ## Documentos de suporte
 
@@ -38,6 +40,15 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: localizar os wrappers operacionais da homologacao Google Cloud.
 4. `docs/Conferencia-Fases-1a4.md`
    Uso: checklist oficial de conferencia das fases 1 a 4 com banco, contratos, backend e regressao.
+5. `docs/Clientes-e-Movimentacoes-Especificacao.md`
+   Uso: especificacao funcional/tecnica de clientes, proprietarios, movimentacoes comerciais e auditoria. Status: Planejado.
+
+## Relatorios da reorganizacao
+
+1. `docs/Passe-6A-Relatorio-Testes-Cobertura.md`
+   Baseline de cobertura, inventario de testes, gaps criticos identificados (2026-04-10). Read-only, gerado pelo Passe 6A.
+
+Relatorios de passes futuros (7A Security, etc.) serao adicionados nesta secao.
 
 ## Regras de manutencao
 
@@ -46,3 +57,4 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 3. Backlog, fase, handoff e runbook transitario nao substituem documentacao canonica.
 4. Historico textual so permanece quando agrega rastreabilidade real; o restante fica confiado ao Git.
 5. Arquivos em `compose/`, `env/examples/` e `scripts/runtime/` usam `README.md` locais apenas como ponteiro para o fluxo canonico.
+6. Todo arquivo `.md` adicionado a `docs/` deve ser listado neste indice no mesmo commit ou no commit seguinte. Arquivos nao listados sao considerados orfaos.
