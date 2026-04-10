@@ -31,6 +31,10 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Funcao: guia operacional de deploy para hml e producao (pos-incidente 2026-04-07). Complementa `Homologacao-Google-Cloud.md` que cobre a topologia; este cobre o fluxo dia-a-dia.
 8. `docs/SECURITY-audit.md`
    Funcao: audit de seguranca — cobre 9 categorias, status por item (OK/GAP/RISCO), debitos documentados. Atualizado ao final do Passe 7B+7C.
+9. `docs/SECURITY.md`
+   Funcao: politica de seguranca, principios, autenticacao, autorizacao e runbook de resposta a incidente.
+10. `docs/SECURITY-threat-model.md`
+    Funcao: threat model completo das 9 categorias com ameacas, mitigacoes, status e risco residual.
 
 ## Documentos de suporte
 
