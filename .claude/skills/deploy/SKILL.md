@@ -5,10 +5,10 @@ description: Use this skill when deploying, troubleshooting deploys, or working 
 
 ## Ambientes
 
-| Ambiente   | Projeto GCP          | Config gcloud | Cloud Run service  |
-| ---------- | -------------------- | ------------- | ------------------ |
-| homolog    | rastreio-amostras    | default       | rastreio-hml-app   |
-| production | safras-amostras-prod | empresa       | rastreio-prod-app  |
+| Ambiente   | Projeto GCP          | Config gcloud | Cloud Run service |
+| ---------- | -------------------- | ------------- | ----------------- |
+| homolog    | rastreio-amostras    | default       | rastreio-hml-app  |
+| production | safras-amostras-prod | empresa       | rastreio-prod-app |
 
 ## Deploy para homolog (automatico)
 
