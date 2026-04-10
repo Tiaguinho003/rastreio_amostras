@@ -1340,7 +1340,7 @@ if (!databaseUrl || !databaseReachable) {
         params: { sampleId },
         body: {
           kind: 'CLASSIFICATION_PHOTO',
-          fileBuffer: Buffer.from('classification-photo-through-api'),
+          fileBuffer: tinyPngBuffer,
           mimeType: 'image/jpeg',
           originalFileName: 'classificacao-api.jpg',
           replaceExisting: true,

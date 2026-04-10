@@ -45,6 +45,11 @@ if (!databaseUrl || !databaseReachable) {
     userAgent: 'node-test',
   };
 
+  const tinyPngBuffer = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8f5i8AAAAASUVORK5CYII=',
+    'base64'
+  );
+
   let uploadDir;
   let uploadService;
   let commandService;
@@ -293,7 +298,7 @@ if (!databaseUrl || !databaseReachable) {
     const classificationPhoto = await commandService.addClassificationPhoto(
       {
         sampleId,
-        fileBuffer: Buffer.from('fake-classification-photo'),
+        fileBuffer: tinyPngBuffer,
         mimeType: 'image/jpeg',
         originalFileName: 'classificacao.jpg',
       },
@@ -453,7 +458,7 @@ if (!databaseUrl || !databaseReachable) {
     const first = await commandService.addClassificationPhoto(
       {
         sampleId,
-        fileBuffer: Buffer.from('classification-photo-v1'),
+        fileBuffer: tinyPngBuffer,
         mimeType: 'image/jpeg',
         originalFileName: 'classificacao-v1.jpg',
       },
@@ -463,7 +468,7 @@ if (!databaseUrl || !databaseReachable) {
     const second = await commandService.addClassificationPhoto(
       {
         sampleId,
-        fileBuffer: Buffer.from('classification-photo-v2'),
+        fileBuffer: tinyPngBuffer,
         mimeType: 'image/jpeg',
         originalFileName: 'classificacao-v2.jpg',
       },
