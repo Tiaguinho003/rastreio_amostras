@@ -19,8 +19,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --ext .ts,.tsx,.js,.jsx app src lib components scripts",
-    "lint:fix": "eslint --ext .ts,.tsx,.js,.jsx --fix app src lib components scripts",
+    "lint": "eslint app src lib components scripts",
+    "lint:fix": "eslint --fix app src lib components scripts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,mjs,cjs}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,mjs,cjs}\"",
     "validate:schemas": "node scripts/validate-schemas.js",
@@ -54,20 +54,17 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
     "c8": "^11.0.0",
-    "eslint": "^8.57.1",
+    "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.15",
-    "eslint-config-prettier": "^9.1.2",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "prisma": "^6.4.1",
-    "typescript": "^5.9.3"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.58.1"
   }
 }

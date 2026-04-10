@@ -426,7 +426,7 @@ export default function ClientDetailPage() {
   }, [commercialSubTab]);
 
   /* ---- sale search debounce ---- */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'SALE') return;
     if (saleSearchDebounceRef.current !== null) window.clearTimeout(saleSearchDebounceRef.current);
@@ -459,7 +459,7 @@ export default function ClientDetailPage() {
   }, [saleAppliedSearch, saleAppliedFilters]);
 
   /* ---- purchase search debounce ---- */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'PURCHASE') return;
     if (purchaseSearchDebounceRef.current !== null)
