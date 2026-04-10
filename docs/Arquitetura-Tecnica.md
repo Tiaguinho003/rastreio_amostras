@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: stack, componentes, modelo de dados, autenticacao e limites tecnicos da aplicacao  
-Ultima revisao: 2026-03-16  
+Ultima revisao: 2026-04-10  
 Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/Operacao-e-Runtime.md`
 
 ## Visao geral
@@ -19,6 +19,9 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 6. JSON Schema + Ajv para validacao de eventos
 7. `pdf-lib` para laudos
 8. `nodemailer` para notificacoes por SMTP ou outbox local
+9. ESLint 8 + Prettier 3 para lint e formatacao (Passe 4B)
+10. `file-type` para validacao de magic bytes em uploads
+11. `c8` para coverage report (dev dependency)
 
 ## Organizacao do codigo
 
@@ -94,6 +97,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
    `outbox` local em development ou fallback.
 3. Laudos PDF sao gerados a partir do estado consolidado da amostra classificada e geram evento `REPORT_EXPORTED`.
 4. O runtime aplica limite server-side de `8 MiB` por imagem por padrao.
+5. Uploads sao validados por magic bytes via `file-type` (aceita apenas JPEG, PNG, WebP).
 
 ## API interna
 
@@ -101,9 +105,18 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 2. A logica HTTP comum e delegada ao backend framework-agnostic em `src/api/v1/backend-api.js`.
 3. Isso reduz duplicacao e facilita teste de regras sem depender da camada de framework.
 
+## Seguranca
+
+1. Headers HTTP: HSTS, CSP (production-only), Permissions-Policy, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, poweredByHeader off. Configurados em `next.config.mjs`.
+2. Rate limiting: middleware in-memory (`src/auth/rate-limiter.js`), 10 req/min por IP no login. Retorna 429.
+3. Upload validation: magic bytes via `file-type` (JPEG/PNG/WebP apenas) em `src/uploads/local-upload-service.js`.
+4. Password enforcement: primeiro login retorna 403 PASSWORD_CHANGE_REQUIRED enquanto `initialPasswordDecision === 'PENDING'`.
+5. Dependabot: `.github/dependabot.yml`, check semanal para npm e GitHub Actions.
+6. Referencia completa: `docs/SECURITY.md`.
+
 ## Testes e validacao
 
-O repositorio possui hoje:
+O repositorio possui 101 testes (35 unit + 66 integration):
 
 1. validacao de schemas:
    `npm run validate:schemas`
@@ -114,9 +127,13 @@ O repositorio possui hoje:
 4. integracao com DB:
    `npm run test:integration:db`
 
+CI bloqueante em `.github/workflows/contracts.yml`: lint, format:check, typecheck, build, validate:schemas, test:contracts, test:unit, test:integration:db.
+
+Dependabot monitora dependencias npm e GitHub Actions semanalmente (`.github/dependabot.yml`).
+
 Regra consolidada:
 
-1. ha cobertura real de contrato, auth, cookies e integracao de backend;
+1. ha cobertura real de contrato, auth, roles, rate limiting, upload, cookies e integracao de backend;
 2. nao ha suite E2E versionada no repositorio nesta data.
 
 ## Limites tecnicos atuais
