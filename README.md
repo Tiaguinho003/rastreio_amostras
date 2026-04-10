@@ -32,7 +32,9 @@ O projeto roda como um monolito modular em Next.js, com frontend e API no mesmo 
 - `pdf-lib` para laudos
 - `nodemailer` com SMTP ou outbox local
 
-## Comecando em development
+## Fresh clone — rodando em 10 minutos
+
+Pre-requisitos: Node >= 22 (ver `.nvmrc`), Docker.
 
 1. Instale dependencias:
 
@@ -80,10 +82,15 @@ scripts/runtime/smoke.sh development
 4. [`docs/Operacao-e-Runtime.md`](docs/Operacao-e-Runtime.md): ambientes, envs, compose, scripts e operacao.
 5. [`docs/Homologacao-Google-Cloud.md`](docs/Homologacao-Google-Cloud.md): runbook canonico da homologacao em Cloud Run.
 6. [`docs/API-e-Contratos.md`](docs/API-e-Contratos.md): rotas, contratos, eventos e validacao.
+7. [`docs/Deploy-e-Cloud-Build.md`](docs/Deploy-e-Cloud-Build.md): guia operacional de deploy hml/prod.
+8. [`docs/SECURITY-audit.md`](docs/SECURITY-audit.md): audit de seguranca com status por categoria.
+
+## Seguranca
+
+Para detalhes sobre a postura de seguranca, politica de vulnerabilidades e threat model, veja [`SECURITY.md`](SECURITY.md) na raiz e [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Observacoes importantes
 
 - Os ambientes canonicos sao `development` (local), `cloud-homolog` (Cloud Run de homologacao) e `cloud-production` (Cloud Run de producao).
 - O fluxo de registro atual e manual; OCR automatico permanece fora do escopo implementado.
 - A trilha de auditoria das amostras e append-only por `SampleEvent`.
-- O repositorio ainda preserva alguns artefatos legados de compatibilidade, mas a autoridade documental agora esta concentrada nos arquivos acima.
