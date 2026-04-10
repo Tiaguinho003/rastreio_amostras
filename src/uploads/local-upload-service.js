@@ -2,8 +2,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
+import { fileTypeFromBuffer } from 'file-type';
+
 import { HttpError } from '../contracts/errors.js';
 import { assertAcceptedUploadSize, DEFAULT_MAX_UPLOAD_SIZE_BYTES } from './upload-policy.js';
+
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const ATTACHMENT_KIND_TO_FOLDER = {
   CLASSIFICATION_PHOTO: 'classification',
@@ -46,6 +50,11 @@ export class LocalUploadService {
       fieldLabel: 'Uploaded image',
     });
 
+    const detected = await fileTypeFromBuffer(buffer);
+    if (!detected || !ALLOWED_IMAGE_TYPES.has(detected.mime)) {
+      throw new HttpError(415, 'Unsupported file type. Only JPEG, PNG and WebP images are accepted');
+    }
+
     const attachmentId = randomUUID();
     const safeName = sanitizeFileName(originalFileName);
     const relativePath = path.join(
@@ -65,7 +74,7 @@ export class LocalUploadService {
       attachmentId,
       storagePath: relativePath,
       fileName: safeName,
-      mimeType,
+      mimeType: detected.mime,
       sizeBytes: buffer.length,
       checksumSha256,
     };
