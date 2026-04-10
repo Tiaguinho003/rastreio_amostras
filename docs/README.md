@@ -29,6 +29,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Funcao: runbook oficial de homologacao no Google Cloud com Cloud Run, Cloud SQL, Cloud Storage e Cloud Run Jobs.
 7. `docs/deploy.md`
    Funcao: guia operacional de deploy para hml e producao (pos-incidente 2026-04-07). Complementa `Homologacao-Google-Cloud.md` que cobre a topologia; este cobre o fluxo dia-a-dia.
+8. `docs/SECURITY-audit.md`
+   Funcao: audit de seguranca — cobre 9 categorias, status por item (OK/GAP/RISCO), debitos documentados. Atualizado ao final do Passe 7B+7C.
 
 ## Documentos de suporte
 
@@ -48,7 +50,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 1. `docs/Passe-6A-Relatorio-Testes-Cobertura.md`
    Baseline de cobertura, inventario de testes, gaps criticos identificados (2026-04-10). Read-only, gerado pelo Passe 6A.
 
-Relatorios de passes futuros (7A Security, etc.) serao adicionados nesta secao.
+Relatorios de passes futuros serao adicionados nesta secao.
 
 ## Regras de manutencao
 

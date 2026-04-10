@@ -52,7 +52,10 @@ export class LocalUploadService {
 
     const detected = await fileTypeFromBuffer(buffer);
     if (!detected || !ALLOWED_IMAGE_TYPES.has(detected.mime)) {
-      throw new HttpError(415, 'Unsupported file type. Only JPEG, PNG and WebP images are accepted');
+      throw new HttpError(
+        415,
+        'Unsupported file type. Only JPEG, PNG and WebP images are accepted'
+      );
     }
 
     const attachmentId = randomUUID();
