@@ -35,7 +35,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 
 - Indent: 2 espacos (`.editorconfig`)
 - Prettier formata tudo (default 80 cols)
-- ESLint: `.eslintrc.json` legacy config, extends `next/core-web-vitals` + `prettier`
+- ESLint 9 com flat config (ver `eslint.config.mjs` para regras e extensoes)
 - Nomes de arquivo: kebab-case para `.js`/`.ts`, PascalCase para componentes React
 - Nomes de variavel: camelCase. Enums Prisma: UPPER_SNAKE_CASE
 
