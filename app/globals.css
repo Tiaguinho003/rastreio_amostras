@@ -31,7 +31,7 @@
   /* ══════════════════════════════════════════════════════════════
      TYPOGRAPHY — Poppins via next/font
      ══════════════════════════════════════════════════════════════ */
-  --font-sans: var(--font-sans, 'Poppins'), system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
+  --font-family-sans: var(--font-sans), 'Poppins', system-ui, -apple-system, 'Segoe UI', 'Noto Sans', sans-serif;
 
   --font-size-xs: 0.75rem;      /* 12px */
   --font-size-sm: 0.8125rem;    /* 13px */
@@ -162,7 +162,7 @@ body {
 body {
   position: relative;
   margin: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-family-sans);
   background: var(--mobile-page-bg-base);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
