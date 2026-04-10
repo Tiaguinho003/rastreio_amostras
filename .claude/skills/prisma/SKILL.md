@@ -5,15 +5,15 @@ description: Use this skill when working with the database, Prisma schema, migra
 
 ## Stack de dados
 
-- Prisma 6.4 + PostgreSQL 16
+- Prisma (ver versao em `package.json`) + PostgreSQL (ver imagem em `compose/development.yml`)
 - Schema em `prisma/schema.prisma`
 - Client singleton em `src/db/prisma-client.js`
-- Seed em `prisma/seed.js` (bootstrap admin via env vars `BOOTSTRAP_ADMIN_*`)
+- Seed em `prisma/seed.js`, configurado via `prisma.config.ts` (bootstrap admin via env vars `BOOTSTRAP_ADMIN_*`)
 
 ## Models principais
 
 - **Sample** — snapshot atual da amostra (status, classificacao, comercial)
-- **SampleEvent** — timeline append-only (25 event types). Trigger `fn_prevent_sample_event_mutation` impede UPDATE/DELETE.
+- **SampleEvent** — timeline append-only (event types definidos em `enum SampleEventType` no schema). Funcao `fn_prevent_sample_event_mutation` + triggers `trg_sample_event_prevent_update`/`trg_sample_event_prevent_delete` impedem mutacao.
 - **SampleAttachment** — fotos (CLASSIFICATION_PHOTO). Unique por `(sampleId, kind)`.
 - **PrintJob** — tentativas de impressao/reimpressao.
 - **SampleMovement** — vendas e perdas parciais, com snapshot de buyer.
@@ -63,6 +63,6 @@ npm run db:seed          # seed inicial
 
 ## Regras criticas
 
-- O event store (SampleEvent) e **append-only**. O trigger `fn_prevent_sample_event_mutation` no banco impede UPDATE/DELETE. Qualquer migration que toque em `sample_event` deve preservar esse trigger.
+- O event store (SampleEvent) e **append-only**. A funcao `fn_prevent_sample_event_mutation` + triggers `trg_sample_event_prevent_update`/`trg_sample_event_prevent_delete` no banco impedem mutacao. Qualquer migration que toque em `sample_event` deve preservar esses triggers.
 - Concorrencia otimista via `version` + `expectedVersion` em Sample.
 - Idempotencia via `idempotencyScope` + `idempotencyKey` em SampleEvent.
