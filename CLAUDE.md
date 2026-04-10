@@ -81,6 +81,7 @@ Antes de finalizar uma sessao que modificou codigo, rodar mentalmente:
 ### Principio de referencia
 
 Skills devem **referenciar** o codigo em vez de **duplicar** dados que mudam. Exemplo:
+
 - **Sim**: "Event types definidos em `enum SampleEventType` no `prisma/schema.prisma`"
 - **Nao**: "25 event types no SampleEventType"
 

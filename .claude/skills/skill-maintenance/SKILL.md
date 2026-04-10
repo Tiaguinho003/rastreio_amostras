@@ -15,21 +15,21 @@ Listar arquivos modificados: `git diff --name-only HEAD~N` (onde N = numero de c
 
 Para cada arquivo modificado, verificar se alguma skill faz referencia a ele:
 
-| Arquivo modificado | Skills potencialmente impactadas |
-|---|---|
-| `package.json` | conventions (scripts, deps), tests (scripts), prisma (seed config) |
-| `eslint.config.mjs` | conventions (ESLint config) |
-| `prisma/schema.prisma` | prisma (models, enums, convencoes) |
-| `prisma.config.ts` | prisma (seed config) |
-| `next.config.mjs` | conventions (headers, seguranca), deploy (headers validation) |
-| `tests/**` | tests (categorias, padroes) |
-| `scripts/gcp/**` | deploy (scripts, antipadroes) |
-| `.github/workflows/**` | conventions (CI), tests (CI) |
-| `app/globals.css` | design-system (tokens, cores, variaveis) |
-| `components/**` | design-system (padroes), responsive (breakpoints, safe areas) |
-| `src/auth/**` | conventions (seguranca) |
-| `src/uploads/**` | conventions (magic bytes) |
-| `CLAUDE.md` | referencia central, verificar consistencia |
+| Arquivo modificado     | Skills potencialmente impactadas                                   |
+| ---------------------- | ------------------------------------------------------------------ |
+| `package.json`         | conventions (scripts, deps), tests (scripts), prisma (seed config) |
+| `eslint.config.mjs`    | conventions (ESLint config)                                        |
+| `prisma/schema.prisma` | prisma (models, enums, convencoes)                                 |
+| `prisma.config.ts`     | prisma (seed config)                                               |
+| `next.config.mjs`      | conventions (headers, seguranca), deploy (headers validation)      |
+| `tests/**`             | tests (categorias, padroes)                                        |
+| `scripts/gcp/**`       | deploy (scripts, antipadroes)                                      |
+| `.github/workflows/**` | conventions (CI), tests (CI)                                       |
+| `app/globals.css`      | design-system (tokens, cores, variaveis)                           |
+| `components/**`        | design-system (padroes), responsive (breakpoints, safe areas)      |
+| `src/auth/**`          | conventions (seguranca)                                            |
+| `src/uploads/**`       | conventions (magic bytes)                                          |
+| `CLAUDE.md`            | referencia central, verificar consistencia                         |
 
 ## 3. Verificar skills impactadas
 
