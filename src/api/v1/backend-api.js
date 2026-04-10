@@ -42,7 +42,7 @@ function buildRequestContext(input) {
   };
 }
 
-async function resolveActorContext(input, authService) {
+async function resolveActorContext(input, authService, { allowPending = false } = {}) {
   if (!authService) {
     throw new HttpError(501, 'Auth service is not configured');
   }
@@ -58,8 +58,16 @@ async function resolveActorContext(input, authService) {
     });
   }
 
+  const actor = await authService.authenticateAuthorizationHeader(authorization, requestContext);
+
+  if (!allowPending && actor.initialPasswordDecision === 'PENDING') {
+    throw new HttpError(403, 'Troca de senha obrigatoria antes de continuar', {
+      code: 'PASSWORD_CHANGE_REQUIRED',
+    });
+  }
+
   return {
-    ...(await authService.authenticateAuthorizationHeader(authorization, requestContext)),
+    ...actor,
     ...requestContext,
   };
 }
@@ -155,7 +163,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'User service is not configured');
         }
 
-        const actor = await resolveActorContext(input, authService);
+        const actor = await resolveActorContext(input, authService, { allowPending: true });
         const currentUser = await userService.getMe(actor);
 
         return {
@@ -1319,7 +1327,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'Auth service is not configured');
         }
 
-        const actor = await resolveActorContext(input, authService);
+        const actor = await resolveActorContext(input, authService, { allowPending: true });
         const result = await authService.logout(actor);
         return {
           status: 200,
@@ -1352,7 +1360,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'User service is not configured');
         }
 
-        const actor = await resolveActorContext(input, authService);
+        const actor = await resolveActorContext(input, authService, { allowPending: true });
         const result = await userService.getMe(actor);
         return {
           status: 200,
@@ -1388,7 +1396,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'User service is not configured');
         }
 
-        const actor = await resolveActorContext(input, authService);
+        const actor = await resolveActorContext(input, authService, { allowPending: true });
         const body = readRequestBody(input);
         const result = await userService.changeOwnPassword(
           {
@@ -1462,7 +1470,7 @@ export function createBackendApiV1({
           throw new HttpError(501, 'User service is not configured');
         }
 
-        const actor = await resolveActorContext(input, authService);
+        const actor = await resolveActorContext(input, authService, { allowPending: true });
         const body = readRequestBody(input);
         const result = await userService.recordInitialPasswordDecision(
           {

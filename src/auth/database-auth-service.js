@@ -120,6 +120,7 @@ export class DatabaseAuthService {
         username: currentSession.user.username,
         sessionId: currentSession.id,
         sessionExpiresAt: toIsoString(currentSession.expiresAt),
+        initialPasswordDecision: currentSession.user.initialPasswordDecision,
       };
     });
   }
