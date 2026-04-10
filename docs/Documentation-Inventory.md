@@ -48,6 +48,7 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `SECURITY.md` (raiz)                                       | canonico            | criado                                                | convencao GitHub para security reports (Passe 7D+8)                                             |
 | `docs/SECURITY.md`                                         | canonico            | criado                                                | politica de seguranca e runbook de resposta a incidente (Passe 7D+8)                            |
 | `docs/SECURITY-threat-model.md`                            | canonico            | criado                                                | threat model completo das 9 categorias de seguranca (Passe 7D+8)                                |
+| `docs/archive/Reorganizacao-2026Q2-Decisions.md`           | historico           | criado                                                | arquivo das 14 ADRs da reorganizacao Q2 2026 (Passe 9)                                          |
 
 ## Pontos de entrada revisados
 
