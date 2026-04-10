@@ -43,7 +43,7 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `docs/assets/Safras-logo-branco.png`                       | suporte tecnico     | mantido                                               | asset visual                                                                                    |
 | `docs/assets/Safras-logo-ori.png`                          | suporte tecnico     | mantido                                               | asset visual                                                                                    |
 | `docs/assets/Documento — Rastreio Interno de Amostras.pdf` | historico util      | mantido                                               | arquivo de apoio sem autoridade textual sobre os docs canonicos                                 |
-| `docs/deploy.md`                                           | canonico            | criado                                                | guia operacional pos-incidente (2026-04-07), concentra fluxo de deploy hml/prod via Cloud Build |
+| `docs/Deploy-e-Cloud-Build.md`                             | canonico            | criado                                                | guia operacional pos-incidente (2026-04-07), concentra fluxo de deploy hml/prod via Cloud Build |
 | `docs/Passe-6A-Relatorio-Testes-Cobertura.md`              | relatorio reorg     | criado                                                | baseline de cobertura e auditoria de testes (Passe 6A, 2026-04-10)                              |
 
 ## Pontos de entrada revisados
