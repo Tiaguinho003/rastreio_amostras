@@ -111,9 +111,7 @@ O repositorio possui hoje:
    `npm run test:contracts`
 3. testes unitarios:
    `npm run test:unit`
-4. integracao de backend:
-   `npm run test:backend:integration`
-5. integracao com DB:
+4. integracao com DB:
    `npm run test:integration:db`
 
 Regra consolidada:

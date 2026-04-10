@@ -151,7 +151,6 @@ Comandos relevantes:
 npm run validate:schemas
 npm run test:contracts
 npm run test:unit
-npm run test:backend:integration
 npm run test:integration:db
 ```
 
