@@ -570,37 +570,22 @@ function ClientsPage() {
             {CLIENT_CHIP_DEFINITIONS.map((chip) => {
               const isActive = activeClientChip === chip.id;
               const count = clientChipCounts[chip.id];
+              const chipModifier =
+                chip.id === 'buyer'
+                  ? ' is-chip-buyer'
+                  : chip.id === 'seller'
+                    ? ' is-chip-seller'
+                    : '';
               return (
                 <button
                   key={chip.id}
                   type="button"
-                  className={`spv2-chip${isActive ? ' is-active' : ''}`}
-                  style={
-                    isActive && chip.color
-                      ? { background: `${chip.color}14`, borderColor: chip.color }
-                      : undefined
-                  }
+                  className={`spv2-chip${chipModifier}${isActive ? ' is-active' : ''}`}
                   onClick={() => setActiveClientChip(chip.id)}
                 >
-                  {chip.color ? (
-                    <span className="spv2-chip-dot" style={{ background: chip.color }} />
-                  ) : null}
-                  <span
-                    className="spv2-chip-label"
-                    style={isActive && chip.color ? { color: chip.color } : undefined}
-                  >
-                    {chip.label}
-                  </span>
-                  <span
-                    className="spv2-chip-count"
-                    style={
-                      isActive && chip.color
-                        ? { background: `${chip.color}1A`, color: chip.color }
-                        : undefined
-                    }
-                  >
-                    {count}
-                  </span>
+                  {chip.color ? <span className="spv2-chip-dot" /> : null}
+                  <span className="spv2-chip-label">{chip.label}</span>
+                  <span className="spv2-chip-count">{count}</span>
                 </button>
               );
             })}
@@ -630,20 +615,12 @@ function ClientsPage() {
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
                 <svg
-                  className="spv2-empty-icon"
+                  className="spv2-empty-icon cv2-empty-icon"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
-                  style={{ width: 36 }}
                 >
-                  <path
-                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    fill="none"
-                    stroke="#ddd"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="12" cy="7" r="4" fill="none" stroke="#ddd" strokeWidth="1.6" />
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
                 <p className="spv2-empty-text">Nenhum cliente encontrado</p>
                 <p className="spv2-empty-sub">Tente outro termo de busca</p>
@@ -660,16 +637,15 @@ function ClientsPage() {
                     key={client.id}
                     type="button"
                     className="cv2-card"
-                    style={{ animationDelay: `${i * 0.04}s` }}
+                    style={
+                      {
+                        animationDelay: `${i * 0.04}s`,
+                        '--avatar-color': avatarColor,
+                      } as React.CSSProperties
+                    }
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
-                    <span
-                      className="cv2-card-avatar"
-                      style={{
-                        background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc)`,
-                        boxShadow: `0 2px 8px ${avatarColor}4D`,
-                      }}
-                    >
+                    <span className="cv2-card-avatar">
                       <span>{initials}</span>
                     </span>
                     <div className="cv2-card-content">
@@ -753,7 +729,7 @@ function ClientsPage() {
         <div className="app-modal-backdrop" onClick={closeClientDetail}>
           <section
             ref={clientDetailTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="records-client-detail-title"
@@ -768,9 +744,7 @@ function ClientsPage() {
                     return (
                       <span
                         className="cdm-header-avatar"
-                        style={{
-                          background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)`,
-                        }}
+                        style={{ '--avatar-color': detailColor } as React.CSSProperties}
                       >
                         <span>{detailInitials}</span>
                       </span>
@@ -795,7 +769,7 @@ function ClientsPage() {
               <button
                 ref={clientDetailCloseButtonRef}
                 type="button"
-                className="cdm-close"
+                className="app-modal-close cdm-close"
                 onClick={closeClientDetail}
                 aria-label="Fechar"
               >

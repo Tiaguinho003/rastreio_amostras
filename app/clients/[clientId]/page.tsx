@@ -890,12 +890,7 @@ export default function ClientDetailPage() {
                   <div className="sdv-identity-code-row">
                     <span className="sdv-identity-code">{client.displayName ?? 'Cliente'}</span>
                     <span
-                      className="sdv-identity-badge"
-                      style={
-                        client.status === 'ACTIVE'
-                          ? { color: '#27AE60', background: '#F0FDF4', borderColor: '#BBF7D0' }
-                          : { color: '#C0392B', background: '#FEF2F2', borderColor: '#FECACA' }
-                      }
+                      className={`sdv-identity-badge ${client.status === 'ACTIVE' ? 'is-active' : 'is-inactive'}`}
                     >
                       {getStatusLabel(client.status)}
                     </span>
@@ -1041,7 +1036,7 @@ export default function ClientDetailPage() {
                       </div>
 
                       {registrations.length === 0 ? (
-                        <div className="spv2-empty" style={{ padding: 'clamp(20px,5vw,28px) 0' }}>
+                        <div className="spv2-empty client-detail-empty-compact">
                           <p className="spv2-empty-text">Nenhuma inscricao cadastrada</p>
                         </div>
                       ) : (
@@ -1053,12 +1048,7 @@ export default function ClientDetailPage() {
                             >
                               <div className="sdv-com-mov-content">
                                 <div className="sdv-com-mov-top">
-                                  <span
-                                    className="sdv-com-mov-qty"
-                                    style={{ fontSize: 'clamp(13px,3.5vw,14px)' }}
-                                  >
-                                    {reg.registrationNumber}
-                                  </span>
+                                  <span className="sdv-com-mov-qty">{reg.registrationNumber}</span>
                                   <span
                                     className={`sdv-com-mov-badge ${reg.status === 'ACTIVE' ? 'is-sale' : 'is-cancelled'}`}
                                   >
@@ -1119,52 +1109,14 @@ export default function ClientDetailPage() {
                 ) : null}
 
                 {clientSection === 'COMMERCIAL' ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      flex: 1,
-                      minHeight: 0,
-                      gap: 'clamp(0.72rem, 2.5vw, 1.64rem)',
-                      paddingTop: 'clamp(0.38rem, 1.5vw, 0.72rem)',
-                    }}
-                  >
+                  <div className="client-detail-commercial-pane">
                     {/* BLOCO 1: Sub-abas (fixo) */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: '0.2rem',
-                        padding: '0.18rem',
-                        border: '1px solid #d6d2c5',
-                        borderRadius: '12px',
-                        background: 'linear-gradient(180deg, #f7f4ee 0%, #f0ece3 100%)',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <div className="client-detail-commercial-subtabs">
                       <button
                         type="button"
                         disabled={!client.isSeller}
                         onClick={() => setCommercialSubTab('SALE')}
-                        style={{
-                          border: 0,
-                          borderRadius: '9px',
-                          background:
-                            commercialSubTab === 'SALE'
-                              ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)'
-                              : 'transparent',
-                          color: commercialSubTab === 'SALE' ? '#ffffff' : '#5f6c61',
-                          fontSize: 'clamp(0.82rem, 3.2vw, 0.92rem)',
-                          fontWeight: 600,
-                          padding: 'clamp(0.38rem, 1.5vw, 0.48rem) 0.6rem',
-                          lineHeight: 1.2,
-                          boxShadow:
-                            commercialSubTab === 'SALE'
-                              ? '0 3px 8px rgba(45, 89, 42, 0.18)'
-                              : 'none',
-                          opacity: !client.isSeller ? 0.46 : 1,
-                          cursor: !client.isSeller ? 'not-allowed' : 'pointer',
-                        }}
+                        className={commercialSubTab === 'SALE' ? 'is-active' : ''}
                       >
                         Venda
                       </button>
@@ -1172,43 +1124,16 @@ export default function ClientDetailPage() {
                         type="button"
                         disabled={!client.isBuyer}
                         onClick={() => setCommercialSubTab('PURCHASE')}
-                        style={{
-                          border: 0,
-                          borderRadius: '9px',
-                          background:
-                            commercialSubTab === 'PURCHASE'
-                              ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)'
-                              : 'transparent',
-                          color: commercialSubTab === 'PURCHASE' ? '#ffffff' : '#5f6c61',
-                          fontSize: 'clamp(0.82rem, 3.2vw, 0.92rem)',
-                          fontWeight: 600,
-                          padding: 'clamp(0.38rem, 1.5vw, 0.48rem) 0.6rem',
-                          lineHeight: 1.2,
-                          boxShadow:
-                            commercialSubTab === 'PURCHASE'
-                              ? '0 3px 8px rgba(45, 89, 42, 0.18)'
-                              : 'none',
-                          opacity: !client.isBuyer ? 0.46 : 1,
-                          cursor: !client.isBuyer ? 'not-allowed' : 'pointer',
-                        }}
+                        className={commercialSubTab === 'PURCHASE' ? 'is-active' : ''}
                       >
                         Compra
                       </button>
                     </div>
 
                     {/* BLOCO 2: Cards de resumo (fixo) */}
-                    <div style={{ flexShrink: 0 }}>
+                    <div className="client-detail-commercial-summary-wrap">
                       {commercialSummaryLoading ? (
-                        <p
-                          style={{
-                            margin: 0,
-                            color: 'var(--muted)',
-                            textAlign: 'center',
-                            fontSize: '0.78rem',
-                          }}
-                        >
-                          Carregando resumo...
-                        </p>
+                        <p className="client-detail-status-msg">Carregando resumo...</p>
                       ) : commercialSummary ? (
                         <div className="client-detail-commercial-summary">
                           {commercialSubTab === 'SALE' ? (
@@ -1261,28 +1186,13 @@ export default function ClientDetailPage() {
                     </div>
 
                     {/* BLOCO 3: Lista de amostras/compras */}
-                    <div
-                      style={{
-                        flex: 1,
-                        minHeight: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.35rem',
-                      }}
-                    >
+                    <div className="client-detail-commercial-list-block">
                       {commercialSubTab === 'SALE' ? (
                         <>
                           {/* Topo fixo: busca + filtro */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: '0.35rem',
-                              alignItems: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
+                          <div className="client-detail-commercial-search-row">
                             <form
-                              style={{ flex: 1, display: 'flex' }}
+                              className="client-detail-commercial-search-form"
                               onSubmit={(e) => {
                                 e.preventDefault();
                                 if (saleSearchDebounceRef.current !== null) {
@@ -1294,77 +1204,28 @@ export default function ClientDetailPage() {
                               }}
                             >
                               <input
-                                className="samples-filter-field-input"
+                                className="samples-filter-field-input client-detail-commercial-search-input"
                                 value={saleSearch}
                                 onChange={(e) => setSaleSearch(e.target.value)}
                                 placeholder="Buscar por lote"
-                                style={{
-                                  flex: 1,
-                                  fontSize: '0.78rem',
-                                  padding: '0.32rem 0.58rem',
-                                  borderRadius: '10px',
-                                }}
                               />
                             </form>
                             <button
                               type="button"
-                              style={{
-                                border: '1px solid rgba(183, 203, 179, 0.86)',
-                                borderRadius: '999px',
-                                padding: '0.28rem',
-                                width: '2rem',
-                                height: '2rem',
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                background:
-                                  saleActiveFiltersCount > 0
-                                    ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)'
-                                    : 'rgba(255,255,255,0.74)',
-                                color: saleActiveFiltersCount > 0 ? '#fff' : '#456050',
-                                position: 'relative',
-                                flexShrink: 0,
-                                cursor: 'pointer',
-                              }}
+                              className={`client-detail-commercial-filter-btn${saleActiveFiltersCount > 0 ? ' has-filters' : ''}`}
                               onClick={() => {
                                 setSaleDraftFilters({ ...saleAppliedFilters });
                                 setSaleFiltersOpen(true);
                               }}
                               aria-label="Filtros"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.88rem',
-                                  height: '0.88rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M4 6h16" />
                                 <path d="M7 12h10" />
                                 <path d="M10 18h4" />
                               </svg>
                               {saleActiveFiltersCount > 0 ? (
-                                <span
-                                  style={{
-                                    position: 'absolute',
-                                    top: '-0.2rem',
-                                    right: '-0.2rem',
-                                    width: '0.88rem',
-                                    height: '0.88rem',
-                                    borderRadius: '999px',
-                                    background: '#c94444',
-                                    color: '#fff',
-                                    fontSize: '0.52rem',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
+                                <span className="client-detail-commercial-filter-badge">
                                   {saleActiveFiltersCount}
                                 </span>
                               ) : null}
@@ -1372,34 +1233,11 @@ export default function ClientDetailPage() {
                           </div>
 
                           {/* Meio: lista com scroll */}
-                          <div
-                            style={{
-                              flex: 1,
-                              minHeight: 0,
-                              overflowY: 'auto',
-                              WebkitOverflowScrolling: 'touch',
-                            }}
-                          >
+                          <div className="client-detail-commercial-scroll">
                             {ownerSamplesLoading ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  color: 'var(--muted)',
-                                  textAlign: 'center',
-                                  fontSize: '0.78rem',
-                                }}
-                              >
-                                Carregando amostras...
-                              </p>
+                              <p className="client-detail-status-msg">Carregando amostras...</p>
                             ) : ownerSamples.length === 0 ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  color: 'var(--muted)',
-                                  textAlign: 'center',
-                                  fontSize: '0.78rem',
-                                }}
-                              >
+                              <p className="client-detail-status-msg">
                                 Nenhuma amostra encontrada.
                               </p>
                             ) : (
@@ -1428,76 +1266,29 @@ export default function ClientDetailPage() {
                           </div>
 
                           {/* Fundo fixo: paginação */}
-                          <div
-                            className="client-detail-commercial-pagination"
-                            style={{ flexShrink: 0 }}
-                          >
+                          <div className="client-detail-commercial-pagination">
                             <button
                               type="button"
+                              className="client-detail-page-btn"
                               disabled={!ownerSamplesMeta?.hasPrev}
                               onClick={() => void fetchOwnerSamples(ownerSamplesPage - 1)}
-                              style={{
-                                width: '2rem',
-                                height: '2rem',
-                                minWidth: '2rem',
-                                borderRadius: '999px',
-                                padding: 0,
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                border: '1px solid rgba(112, 133, 98, 0.5)',
-                                background: 'rgba(255,255,255,0.74)',
-                                color: '#456050',
-                              }}
                               aria-label="Pagina anterior"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.92rem',
-                                  height: '0.92rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M15 6 9 12l6 6" />
                               </svg>
                             </button>
-                            <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>
+                            <span className="client-detail-page-info">
                               {ownerSamplesPage} de {ownerSamplesMeta?.totalPages ?? 1}
                             </span>
                             <button
                               type="button"
+                              className="client-detail-page-btn"
                               disabled={!ownerSamplesMeta?.hasNext}
                               onClick={() => void fetchOwnerSamples(ownerSamplesPage + 1)}
-                              style={{
-                                width: '2rem',
-                                height: '2rem',
-                                minWidth: '2rem',
-                                borderRadius: '999px',
-                                padding: 0,
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                border: '1px solid rgba(112, 133, 98, 0.5)',
-                                background: 'rgba(255,255,255,0.74)',
-                                color: '#456050',
-                              }}
                               aria-label="Proxima pagina"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.92rem',
-                                  height: '0.92rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 6 6 6-6 6" />
                               </svg>
                             </button>
@@ -1506,16 +1297,9 @@ export default function ClientDetailPage() {
                       ) : (
                         <>
                           {/* Topo fixo: busca + filtro */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: '0.35rem',
-                              alignItems: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
+                          <div className="client-detail-commercial-search-row">
                             <form
-                              style={{ flex: 1, display: 'flex' }}
+                              className="client-detail-commercial-search-form"
                               onSubmit={(e) => {
                                 e.preventDefault();
                                 if (purchaseSearchDebounceRef.current !== null) {
@@ -1527,77 +1311,28 @@ export default function ClientDetailPage() {
                               }}
                             >
                               <input
-                                className="samples-filter-field-input"
+                                className="samples-filter-field-input client-detail-commercial-search-input"
                                 value={purchaseSearch}
                                 onChange={(e) => setPurchaseSearch(e.target.value)}
                                 placeholder="Buscar por lote"
-                                style={{
-                                  flex: 1,
-                                  fontSize: '0.78rem',
-                                  padding: '0.32rem 0.58rem',
-                                  borderRadius: '10px',
-                                }}
                               />
                             </form>
                             <button
                               type="button"
-                              style={{
-                                border: '1px solid rgba(183, 203, 179, 0.86)',
-                                borderRadius: '999px',
-                                padding: '0.28rem',
-                                width: '2rem',
-                                height: '2rem',
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                background:
-                                  purchaseActiveFiltersCount > 0
-                                    ? 'linear-gradient(180deg, #5caa4f 0%, #3e8438 100%)'
-                                    : 'rgba(255,255,255,0.74)',
-                                color: purchaseActiveFiltersCount > 0 ? '#fff' : '#456050',
-                                position: 'relative',
-                                flexShrink: 0,
-                                cursor: 'pointer',
-                              }}
+                              className={`client-detail-commercial-filter-btn${purchaseActiveFiltersCount > 0 ? ' has-filters' : ''}`}
                               onClick={() => {
                                 setPurchaseDraftFilters({ ...purchaseAppliedFilters });
                                 setPurchaseFiltersOpen(true);
                               }}
                               aria-label="Filtros"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.88rem',
-                                  height: '0.88rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M4 6h16" />
                                 <path d="M7 12h10" />
                                 <path d="M10 18h4" />
                               </svg>
                               {purchaseActiveFiltersCount > 0 ? (
-                                <span
-                                  style={{
-                                    position: 'absolute',
-                                    top: '-0.2rem',
-                                    right: '-0.2rem',
-                                    width: '0.88rem',
-                                    height: '0.88rem',
-                                    borderRadius: '999px',
-                                    background: '#c94444',
-                                    color: '#fff',
-                                    fontSize: '0.52rem',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
+                                <span className="client-detail-commercial-filter-badge">
                                   {purchaseActiveFiltersCount}
                                 </span>
                               ) : null}
@@ -1605,36 +1340,11 @@ export default function ClientDetailPage() {
                           </div>
 
                           {/* Meio: lista com scroll */}
-                          <div
-                            style={{
-                              flex: 1,
-                              minHeight: 0,
-                              overflowY: 'auto',
-                              WebkitOverflowScrolling: 'touch',
-                            }}
-                          >
+                          <div className="client-detail-commercial-scroll">
                             {buyerPurchasesLoading ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  color: 'var(--muted)',
-                                  textAlign: 'center',
-                                  fontSize: '0.78rem',
-                                }}
-                              >
-                                Carregando compras...
-                              </p>
+                              <p className="client-detail-status-msg">Carregando compras...</p>
                             ) : buyerPurchases.length === 0 ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  color: 'var(--muted)',
-                                  textAlign: 'center',
-                                  fontSize: '0.78rem',
-                                }}
-                              >
-                                Nenhuma compra encontrada.
-                              </p>
+                              <p className="client-detail-status-msg">Nenhuma compra encontrada.</p>
                             ) : (
                               <div className="client-detail-commercial-list">
                                 {buyerPurchases.map((purchase) => (
@@ -1662,76 +1372,29 @@ export default function ClientDetailPage() {
                           </div>
 
                           {/* Fundo fixo: paginação */}
-                          <div
-                            className="client-detail-commercial-pagination"
-                            style={{ flexShrink: 0 }}
-                          >
+                          <div className="client-detail-commercial-pagination">
                             <button
                               type="button"
+                              className="client-detail-page-btn"
                               disabled={!buyerPurchasesMeta?.hasPrev}
                               onClick={() => void fetchBuyerPurchases(buyerPurchasesPage - 1)}
-                              style={{
-                                width: '2rem',
-                                height: '2rem',
-                                minWidth: '2rem',
-                                borderRadius: '999px',
-                                padding: 0,
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                border: '1px solid rgba(112, 133, 98, 0.5)',
-                                background: 'rgba(255,255,255,0.74)',
-                                color: '#456050',
-                              }}
                               aria-label="Pagina anterior"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.92rem',
-                                  height: '0.92rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M15 6 9 12l6 6" />
                               </svg>
                             </button>
-                            <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>
+                            <span className="client-detail-page-info">
                               {buyerPurchasesPage} de {buyerPurchasesMeta?.totalPages ?? 1}
                             </span>
                             <button
                               type="button"
+                              className="client-detail-page-btn"
                               disabled={!buyerPurchasesMeta?.hasNext}
                               onClick={() => void fetchBuyerPurchases(buyerPurchasesPage + 1)}
-                              style={{
-                                width: '2rem',
-                                height: '2rem',
-                                minWidth: '2rem',
-                                borderRadius: '999px',
-                                padding: 0,
-                                display: 'inline-grid',
-                                placeItems: 'center',
-                                border: '1px solid rgba(112, 133, 98, 0.5)',
-                                background: 'rgba(255,255,255,0.74)',
-                                color: '#456050',
-                              }}
                               aria-label="Proxima pagina"
                             >
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{
-                                  width: '0.92rem',
-                                  height: '0.92rem',
-                                  fill: 'none',
-                                  stroke: 'currentColor',
-                                  strokeWidth: 2.2,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                }}
-                              >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 6 6 6-6 6" />
                               </svg>
                             </button>
@@ -1759,14 +1422,13 @@ export default function ClientDetailPage() {
         >
           <section
             ref={editClientTrapRef}
-            className="app-modal client-detail-edit-modal"
+            className="app-modal client-detail-edit-modal client-detail-modal-scrollable"
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-client-title"
             onClick={(e) => e.stopPropagation()}
-            style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
           >
-            <header className="app-modal-header" style={{ flexShrink: 0 }}>
+            <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="edit-client-title" className="app-modal-title">
                   Editar cliente
@@ -1784,42 +1446,16 @@ export default function ClientDetailPage() {
             </header>
 
             {editClientSuccess ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '2rem',
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: '3rem',
-                    height: '3rem',
-                    fill: 'none',
-                    stroke: '#3d9a55',
-                    strokeWidth: 2,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+              <div className="client-detail-success-check">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                   <path d="m9 12 2 2 4-4" />
                 </svg>
               </div>
             ) : (
               <form
-                className="app-modal-content"
+                className="app-modal-content client-detail-modal-form"
                 onSubmit={handleUpdateClient}
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
               >
                 <label className="app-modal-field">
                   <span className="app-modal-label">Tipo de pessoa</span>
@@ -1961,7 +1597,7 @@ export default function ClientDetailPage() {
 
                 <NoticeSlot notice={editClientModalNotice} />
 
-                <div className="app-modal-actions" style={{ flexShrink: 0 }}>
+                <div className="app-modal-actions">
                   <button
                     type="submit"
                     className="app-modal-submit"
@@ -1994,14 +1630,13 @@ export default function ClientDetailPage() {
         >
           <section
             ref={regTrapRef}
-            className="app-modal client-detail-reg-modal"
+            className="app-modal client-detail-reg-modal client-detail-modal-scrollable"
             role="dialog"
             aria-modal="true"
             aria-labelledby="reg-modal-title"
             onClick={(e) => e.stopPropagation()}
-            style={{ display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
           >
-            <header className="app-modal-header" style={{ flexShrink: 0 }}>
+            <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="reg-modal-title" className="app-modal-title">
                   {regModalMode === 'create' ? 'Nova inscricao' : 'Editar inscricao'}
@@ -2019,42 +1654,16 @@ export default function ClientDetailPage() {
             </header>
 
             {regSuccess ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '2rem',
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: '3rem',
-                    height: '3rem',
-                    fill: 'none',
-                    stroke: '#3d9a55',
-                    strokeWidth: 2,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+              <div className="client-detail-success-check">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                   <path d="m9 12 2 2 4-4" />
                 </svg>
               </div>
             ) : (
               <form
-                className="app-modal-content"
+                className="app-modal-content client-detail-modal-form"
                 onSubmit={handleRegSubmit}
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
               >
                 <label className="app-modal-field">
                   <span className="app-modal-label">Numero da inscricao</span>
@@ -2157,7 +1766,7 @@ export default function ClientDetailPage() {
 
                 <NoticeSlot notice={registrationModalNotice} />
 
-                <div className="app-modal-actions" style={{ flexShrink: 0 }}>
+                <div className="app-modal-actions">
                   <button
                     type="submit"
                     className="app-modal-submit"
@@ -2220,13 +1829,13 @@ export default function ClientDetailPage() {
 
             <form className="app-modal-content" onSubmit={handleStatusSubmit}>
               {statusAction === 'inactivate' && statusImpactLoading ? (
-                <p style={{ margin: 0, color: 'var(--muted)' }}>Verificando impacto...</p>
+                <p className="client-detail-status-msg">Verificando impacto...</p>
               ) : null}
 
               {statusAction === 'inactivate' && statusImpact && !statusImpactLoading ? (
                 <div className="client-detail-impact-warning">
-                  <p style={{ margin: 0, fontWeight: 600 }}>Este cliente possui vinculos ativos:</p>
-                  <ul style={{ margin: '0.32rem 0 0', paddingLeft: '1.2rem' }}>
+                  <p className="client-detail-impact-title">Este cliente possui vinculos ativos:</p>
+                  <ul>
                     {statusImpact.ownedSamples > 0 ? (
                       <li>{statusImpact.ownedSamples} amostra(s) como proprietario</li>
                     ) : null}
