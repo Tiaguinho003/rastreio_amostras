@@ -216,12 +216,15 @@ body {
 .login-page {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
   margin: 0;
-  padding: 0;
-  background: #ffffff;
+  padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
+    calc(env(safe-area-inset-bottom) + clamp(20px, 6vw, 32px));
+  background: linear-gradient(160deg, var(--brand-green-deep) 0%, var(--brand-green-strong) 40%, var(--brand-green) 80%, var(--brand-green-soft) 100%);
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -234,10 +237,11 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: calc(env(safe-area-inset-top) + clamp(72px, 22vw, 92px)) clamp(24px, 8vw, 32px) clamp(68px, 22vw, 88px);
-  background: linear-gradient(160deg, var(--brand-green-deep) 0%, var(--brand-green-strong) 40%, var(--brand-green) 80%, var(--brand-green-soft) 100%);
-  overflow: hidden;
+  padding: 0 clamp(16px, 5vw, 24px) clamp(20px, 6vw, 28px);
+  background: transparent;
+  overflow: visible;
   flex-shrink: 0;
+  z-index: 2;
 }
 
 .login-header-logo {
@@ -263,9 +267,10 @@ body {
 /* ── Coffee Beans ── */
 
 .login-header-beans {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
 }
 
 .login-bean {
@@ -296,70 +301,70 @@ body {
 }
 
 .login-bean-1 {
-  top: 10%;
+  top: 6%;
   right: 7%;
-  width: clamp(20px, 6vw, 24px);
-  --bean-opacity: 0.08;
+  width: clamp(24px, 7vw, 30px);
+  --bean-opacity: 0.16;
   --bean-start-rotation: -25deg;
   animation-duration: 8.4s;
   animation-delay: 0s;
 }
 
 .login-bean-2 {
-  top: 25%;
-  right: 20%;
-  width: clamp(12px, 3.8vw, 15px);
-  --bean-opacity: 0.05;
+  top: 18%;
+  right: 22%;
+  width: clamp(14px, 4.2vw, 18px);
+  --bean-opacity: 0.11;
   --bean-start-rotation: 15deg;
   animation-duration: 10.6s;
   animation-delay: -1.5s;
 }
 
 .login-bean-3 {
-  bottom: 15%;
-  left: 5%;
-  width: clamp(18px, 5.5vw, 22px);
-  --bean-opacity: 0.07;
+  bottom: 10%;
+  left: 6%;
+  width: clamp(22px, 6.5vw, 28px);
+  --bean-opacity: 0.14;
   --bean-start-rotation: 40deg;
   animation-duration: 7.2s;
   animation-delay: -3s;
 }
 
 .login-bean-4 {
-  bottom: 32%;
-  left: 16%;
-  width: clamp(11px, 3.2vw, 13px);
-  --bean-opacity: 0.04;
+  bottom: 28%;
+  left: 18%;
+  width: clamp(13px, 3.8vw, 16px);
+  --bean-opacity: 0.09;
   --bean-start-rotation: -10deg;
   animation-duration: 11.8s;
   animation-delay: -4.5s;
 }
 
 .login-bean-5 {
-  top: 48%;
+  top: 50%;
   right: 4%;
-  width: clamp(14px, 4.2vw, 17px);
-  --bean-opacity: 0.05;
+  width: clamp(16px, 4.8vw, 20px);
+  --bean-opacity: 0.11;
   --bean-start-rotation: 60deg;
   animation-duration: 9.4s;
   animation-delay: -6s;
 }
 
 .login-bean-6 {
-  top: 16%;
-  left: 10%;
-  width: clamp(13px, 4vw, 16px);
-  --bean-opacity: 0.05;
+  top: 12%;
+  left: 9%;
+  width: clamp(15px, 4.5vw, 19px);
+  --bean-opacity: 0.11;
   --bean-start-rotation: -45deg;
   animation-duration: 6.6s;
   animation-delay: -2.2s;
 }
 
 .login-bean-7 {
-  bottom: 8%;
+  bottom: 6%;
   right: 14%;
-  width: clamp(16px, 5vw, 20px);
-  --bean-opacity: 0.06;
+  width: clamp(18px, 5.5vw, 23px);
+  --bean-opacity: 0.13;
   --bean-start-rotation: 25deg;
   animation-duration: 11.2s;
   animation-delay: -3.8s;
@@ -367,9 +372,9 @@ body {
 
 .login-bean-8 {
   top: 38%;
-  left: 3%;
-  width: clamp(10px, 3vw, 12px);
-  --bean-opacity: 0.04;
+  left: 4%;
+  width: clamp(12px, 3.5vw, 14px);
+  --bean-opacity: 0.09;
   --bean-start-rotation: 75deg;
   animation-duration: 7.8s;
   animation-delay: -5.2s;
@@ -379,15 +384,19 @@ body {
 
 .login-form-section {
   position: relative;
-  flex: 1;
+  flex: none;
+  width: 100%;
+  max-width: min(380px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   background: #ffffff;
-  border-radius: clamp(22px, 7vw, 28px) clamp(22px, 7vw, 28px) 0 0;
-  margin-top: clamp(-20px, -6vw, -24px);
-  padding: 0 clamp(24px, 7vw, 32px) clamp(20px, 6vw, 28px);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+  border-radius: clamp(22px, 6.5vw, 28px);
+  margin-top: 0;
+  padding: clamp(28px, 8vw, 36px) clamp(24px, 7vw, 32px) clamp(22px, 6vw, 28px);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    0 8px 20px rgba(0, 0, 0, 0.12);
   z-index: 2;
   animation: login-card-slide-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
 }
@@ -441,8 +450,8 @@ body {
 
 .login-form-heading {
   text-align: center;
-  margin-top: clamp(28px, 9vw, 36px);
-  margin-bottom: clamp(22px, 7vw, 30px);
+  margin-top: 0;
+  margin-bottom: clamp(22px, 6vw, 28px);
   animation: login-field-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
 }
 
@@ -648,11 +657,11 @@ body {
 /* ── Footer ── */
 
 .login-footer-text {
-  margin: auto 0 0;
-  padding-top: clamp(16px, 5vw, 24px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + clamp(8px, 2vw, 12px));
-  font-size: clamp(9px, 2.5vw, 10px);
-  color: #ccc;
+  margin: 0;
+  padding-top: clamp(18px, 5vw, 24px);
+  padding-bottom: 0;
+  font-size: clamp(10px, 2.6vw, 11px);
+  color: #b8b8b8;
   text-align: center;
 }
 
@@ -11424,7 +11433,6 @@ button:disabled {
     width: 100%;
     min-height: 100dvh;
     margin: 0;
-    padding: 0;
     overflow: hidden;
     overscroll-behavior: none;
   }
@@ -17035,46 +17043,20 @@ button:disabled {
   }
 
   /* ══════════════════════════════════════════
-     LOGIN — fundo verde + card branco central
+     LOGIN — overrides para desktop (card maior)
      ══════════════════════════════════════════ */
-
-  .login-page {
-    background: linear-gradient(160deg, var(--brand-green-deep) 0%, var(--brand-green-strong) 40%, var(--brand-green) 80%, var(--brand-green-soft) 100%);
-    justify-content: center;
-    align-items: center;
-  }
-
-  .login-header {
-    background: transparent;
-    padding: 0 2rem 1.5rem;
-    flex-shrink: 0;
-  }
-
-  .login-header-logo {
-    width: 220px;
-  }
 
   .login-form-section {
     max-width: 440px;
-    width: 100%;
-    flex: none;
-    border-radius: 24px;
-    margin-top: -8px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
-    padding-bottom: 2rem;
+    padding: 2.4rem 2.2rem 1.8rem;
+  }
+
+  .login-header {
+    padding-bottom: 1.6rem;
   }
 
   .login-form-subtitle {
     display: none;
-  }
-
-  .login-form-heading {
-    margin-top: 1.8rem;
-    margin-bottom: 1.8rem;
-  }
-
-  .login-footer-text {
-    padding-bottom: 0;
   }
 
   /* ══════════════════════════════════════════
