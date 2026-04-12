@@ -14776,36 +14776,18 @@ button:disabled {
   cursor: default;
 }
 
-/* ── Type selection overlay (cam-type) ── */
+/* ── Type selection modal (cam-type) ── */
 
-.cam-type-overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: clamp(16px, 5vw, 24px);
+.cam-type-backdrop {
   background: rgba(9, 15, 12, 0.55);
-  -webkit-backdrop-filter: blur(20px) saturate(1.02);
-  backdrop-filter: blur(20px) saturate(1.02);
-  z-index: 5;
-  animation: app-modal-backdrop-in 0.3s ease both;
 }
 
 .cam-type-card {
-  width: min(340px, calc(100vw - 2rem));
+  max-width: min(340px, calc(100vw - 2rem));
   display: flex;
   flex-direction: column;
   gap: clamp(14px, 4vw, 18px);
   padding: clamp(20px, 5.5vw, 26px);
-  border: 1px solid rgba(214, 214, 214, 0.55);
-  border-radius: clamp(20px, 6vw, 28px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 248, 245, 0.86) 100%);
-  box-shadow:
-    0 22px 54px rgba(18, 24, 20, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  -webkit-backdrop-filter: blur(22px) saturate(1.03);
-  backdrop-filter: blur(22px) saturate(1.03);
-  animation: app-modal-card-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
 }
 
 .cam-type-title {

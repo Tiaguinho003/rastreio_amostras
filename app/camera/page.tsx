@@ -1008,8 +1008,17 @@ function CameraPageContent() {
 
               {/* Type selection */}
               {flowState === 'selecting-type' ? (
-                <div className="cam-type-overlay">
-                  <div className="cam-type-card">
+                <div
+                  className="app-modal-backdrop cam-type-backdrop"
+                  onClick={() => setFlowState('preview')}
+                >
+                  <section
+                    className="app-modal cam-type-card"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Selecionar tipo de cafe"
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     <h3 className="cam-type-title">Qual o tipo do cafe?</h3>
                     <div className="cam-type-options">
                       {(['PREPARADO', 'LOW_CAFF', 'BICA'] as ClassificationType[]).map((type) => (
@@ -1033,7 +1042,7 @@ function CameraPageContent() {
                     >
                       Cancelar
                     </button>
-                  </div>
+                  </section>
                 </div>
               ) : null}
 
