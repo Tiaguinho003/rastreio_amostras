@@ -160,19 +160,20 @@ function ClassificationConfirmModal({
     <div className="app-modal-backdrop" onClick={onCancel}>
       <section
         ref={trapRef}
-        className="cam-cf-modal"
+        className="app-modal cam-cf-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Confirmar classificacao"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cam-cf-handle">
-          <span />
-        </div>
-
         <header className="cam-cf-header">
           <h3 className="cam-cf-title">{typeLabel}</h3>
-          <button type="button" className="cam-cf-close" onClick={onCancel} aria-label="Fechar">
+          <button
+            type="button"
+            className="app-modal-close cam-cf-close"
+            onClick={onCancel}
+            aria-label="Fechar"
+          >
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -212,7 +213,7 @@ function ClassificationConfirmModal({
         </div>
 
         <div className="cam-cf-body">
-          <div className="cam-cf-section" style={{ '--sc': '#2f6b4a' } as React.CSSProperties}>
+          <div className="cam-cf-section is-general">
             <div className="cam-cf-section-title">
               <span className="cam-cf-dot" />
               Geral
@@ -221,7 +222,7 @@ function ClassificationConfirmModal({
           </div>
 
           {sieveFields.length > 0 && (
-            <div className="cam-cf-section" style={{ '--sc': '#2980B9' } as React.CSSProperties}>
+            <div className="cam-cf-section is-sieves">
               <div className="cam-cf-section-title">
                 <span className="cam-cf-dot" />
                 Peneiras <span className="cam-cf-section-unit">%</span>
@@ -232,7 +233,7 @@ function ClassificationConfirmModal({
             </div>
           )}
 
-          <div className="cam-cf-section" style={{ '--sc': '#D4A017' } as React.CSSProperties}>
+          <div className="cam-cf-section is-funds">
             <div className="cam-cf-section-title">
               <span className="cam-cf-dot" />
               Fundos
@@ -246,7 +247,7 @@ function ClassificationConfirmModal({
           </div>
 
           {defectFields.length > 0 && (
-            <div className="cam-cf-section" style={{ '--sc': '#C0392B' } as React.CSSProperties}>
+            <div className="cam-cf-section is-defects">
               <div className="cam-cf-section-title">
                 <span className="cam-cf-dot" />
                 Defeitos e analises
@@ -257,7 +258,7 @@ function ClassificationConfirmModal({
             </div>
           )}
 
-          <div className="cam-cf-section" style={{ '--sc': '#7D3C98' } as React.CSSProperties}>
+          <div className="cam-cf-section is-notes">
             <div className="cam-cf-section-title">
               <span className="cam-cf-dot" />
               Observacoes
@@ -888,25 +889,15 @@ function CameraPageContent() {
             {/* Camera feed — always mounted to preserve scanner reference, hidden visually when not needed */}
             <video
               ref={videoRef}
-              className="camera-hub-video"
+              className={`camera-hub-video${flowState === 'preview' || flowState === 'success' ? ' is-hidden' : ''}`}
               autoPlay
               muted
               playsInline
-              style={
-                flowState === 'preview' || flowState === 'success'
-                  ? { visibility: 'hidden' }
-                  : undefined
-              }
             />
             <div
               ref={overlayRef}
-              className="camera-hub-overlay"
+              className={`camera-hub-overlay${flowState === 'preview' || flowState === 'success' ? ' is-hidden' : ''}`}
               aria-hidden="true"
-              style={
-                flowState === 'preview' || flowState === 'success'
-                  ? { visibility: 'hidden' }
-                  : undefined
-              }
             />
 
             {/* Photo preview */}
@@ -1057,7 +1048,7 @@ function CameraPageContent() {
               {/* Form detected */}
               {flowState === 'detected' ? (
                 <div className="camera-hub-extracting">
-                  <div className="camera-hub-success-icon" style={{ width: 32, height: 32 }}>
+                  <div className="camera-hub-success-icon is-sm">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M5 13l4 4L19 7" />
                     </svg>
@@ -1068,18 +1059,15 @@ function CameraPageContent() {
 
               {/* Detection failed */}
               {flowState === 'detect-failed' ? (
-                <div className="camera-hub-extracting" style={{ gap: 12 }}>
+                <div className="camera-hub-extracting">
                   <span className="camera-hub-extracting-label">
                     Nao foi possivel encontrar a ficha automaticamente.
                   </span>
-                  <span
-                    className="camera-hub-extracting-label"
-                    style={{ fontSize: '0.8em', opacity: 0.7 }}
-                  >
+                  <span className="camera-hub-extracting-label is-secondary">
                     Tente fotografar com a ficha mais visivel, ou continue para extrair da foto
                     completa.
                   </span>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="camera-hub-extracting-actions">
                     <button
                       type="button"
                       className="camera-hub-btn camera-hub-btn-secondary"
@@ -1171,7 +1159,7 @@ function CameraPageContent() {
       {/* Error overlay */}
       {flowState === 'error' && flowError ? (
         <div className="app-modal-backdrop" onClick={resetClassificationFlow}>
-          <div className="cam-error-card" onClick={(e) => e.stopPropagation()}>
+          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
             <p className="cam-error-text">{flowError}</p>
             <button type="button" className="cam-error-btn" onClick={resetClassificationFlow}>
               Voltar
@@ -1183,7 +1171,7 @@ function CameraPageContent() {
       {/* Lot mismatch dialog (Flow B) */}
       {flowState === 'lot-mismatch' ? (
         <div className="app-modal-backdrop" onClick={() => {}}>
-          <div className="cam-error-card" onClick={(e) => e.stopPropagation()}>
+          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
             <p className="cam-error-text">
               O lote da classificacao nao confere com a respectiva amostra.
             </p>
@@ -1206,7 +1194,7 @@ function CameraPageContent() {
       {/* Overwrite confirm dialog (Flow A) */}
       {flowState === 'overwrite-confirm' && resolvedSample ? (
         <div className="app-modal-backdrop" onClick={() => setFlowState('confirming')}>
-          <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
+          <div className="app-modal cam-already-card" onClick={(e) => e.stopPropagation()}>
             <p className="cam-already-text">
               A amostra <strong>{resolvedSample.internalLotNumber}</strong> ja possui classificacao.
               Deseja sobrescrever?
@@ -1234,7 +1222,7 @@ function CameraPageContent() {
       {/* Not found dialog (Flow A) */}
       {flowState === 'not-found' ? (
         <div className="app-modal-backdrop" onClick={() => {}}>
-          <div className="cam-error-card" onClick={(e) => e.stopPropagation()}>
+          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
             <p className="cam-error-text">
               Nenhuma amostra encontrada com o lote <strong>{editableLot}</strong>.
             </p>
