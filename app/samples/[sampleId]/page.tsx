@@ -2200,14 +2200,7 @@ export default function SampleDetailPage() {
                     {sendHistory.length > 0 ? (
                       <div className="sdv-card">
                         <span className="sdv-card-title">Historico de envios</span>
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 'clamp(8px, 2.5vw, 10px)',
-                            marginTop: 'clamp(8px, 2.5vw, 10px)',
-                          }}
-                        >
+                        <div className="sdv-send-history">
                           {sendHistory.map((evt) => {
                             const isPhysical = evt.eventType === 'PHYSICAL_SAMPLE_SENT';
                             const payload = evt.payload as Record<string, unknown>;
@@ -2224,59 +2217,16 @@ export default function SampleDetailPage() {
                             return (
                               <div
                                 key={evt.eventId}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 'clamp(10px, 3vw, 12px)',
-                                  padding: 'clamp(12px, 3.5vw, 14px) clamp(12px, 3.5vw, 14px)',
-                                  background: '#F8FAFC',
-                                  borderRadius: 'clamp(10px, 3vw, 12px)',
-                                  fontSize: 'clamp(13px, 3.5vw, 14px)',
-                                }}
+                                className={`sdv-send-item ${isPhysical ? 'is-physical' : 'is-pdf'}`}
                               >
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 'clamp(36px, 10vw, 42px)',
-                                    height: 'clamp(36px, 10vw, 42px)',
-                                    borderRadius: '50%',
-                                    background: isPhysical ? '#E8F5E9' : '#E3F2FD',
-                                    flexShrink: 0,
-                                  }}
-                                >
+                                <span className="sdv-send-icon">
                                   {isPhysical ? (
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      width="18"
-                                      height="18"
-                                      aria-hidden="true"
-                                      style={{
-                                        stroke: '#2f6b4a' /* brand-green-soft */,
-                                        fill: 'none',
-                                        strokeWidth: 2,
-                                        strokeLinecap: 'round',
-                                        strokeLinejoin: 'round',
-                                      }}
-                                    >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
                                       <path d="m22 2-7 20-4-9-9-4 20-7z" />
                                       <path d="M22 2 11 13" />
                                     </svg>
                                   ) : (
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      width="18"
-                                      height="18"
-                                      aria-hidden="true"
-                                      style={{
-                                        stroke: '#1565C0',
-                                        fill: 'none',
-                                        strokeWidth: 2,
-                                        strokeLinecap: 'round',
-                                        strokeLinejoin: 'round',
-                                      }}
-                                    >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
                                       <path d="M7 4.8h7l3 3V19.2H7z" />
                                       <path d="M14 4.8v3h3" />
                                       <path d="M9 12h6" />
@@ -2284,25 +2234,9 @@ export default function SampleDetailPage() {
                                     </svg>
                                   )}
                                 </span>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontWeight: 600,
-                                      color: '#1A1A1A',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {clientName}
-                                  </div>
-                                  <div
-                                    style={{
-                                      color: '#999',
-                                      fontSize: 'clamp(11px, 3vw, 12px)',
-                                      marginTop: '2px',
-                                    }}
-                                  >
+                                <div className="sdv-send-info">
+                                  <div className="sdv-send-label">{clientName}</div>
+                                  <div className="sdv-send-date">
                                     {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
                                   </div>
                                 </div>
@@ -2323,15 +2257,7 @@ export default function SampleDetailPage() {
                         return (
                           <div className="sdv-card">
                             <span className="sdv-card-title">Classificacao</span>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 'clamp(12px, 3.2vw, 13px)',
-                                color: '#999',
-                              }}
-                            >
-                              Sem classificacao
-                            </p>
+                            <p className="sdv-empty-text">Sem classificacao</p>
                           </div>
                         );
                       }
@@ -2391,13 +2317,11 @@ export default function SampleDetailPage() {
                     })()}
 
                     {detail.sample.status === 'INVALIDATED' ? (
-                      <div className="sdv-card" style={{ borderLeft: '3px solid #C0392B' }}>
-                        <span className="sdv-card-title" style={{ color: '#C0392B' }}>
+                      <div className="sdv-card sdv-card-invalidated">
+                        <span className="sdv-card-title sdv-card-title-danger">
                           Amostra invalidada
                         </span>
-                        <p
-                          style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}
-                        >
+                        <p className="sdv-empty-text">
                           Esta amostra foi retirada do fluxo operacional e permanece apenas para
                           consulta.
                         </p>
@@ -2473,44 +2397,14 @@ export default function SampleDetailPage() {
               }}
             >
               {hasActiveMovements ? (
-                <div
-                  style={{
-                    padding: 'clamp(10px, 3vw, 14px)',
-                    background: '#FEF2F2',
-                    border: '1px solid #FECACA',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    gap: '10px',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    style={{
-                      width: 20,
-                      minWidth: 20,
-                      height: 20,
-                      fill: 'none',
-                      stroke: '#C0392B',
-                      strokeWidth: 2,
-                      strokeLinecap: 'round',
-                      strokeLinejoin: 'round',
-                    }}
-                  >
+                <div className="sdv-warn-box">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
                     <path d="M12 9v4" />
                     <path d="M12 17h.01" />
                   </svg>
-                  <div
-                    style={{
-                      fontSize: 'clamp(11px, 3vw, 12.5px)',
-                      color: '#7f1d1d',
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    <strong style={{ display: 'block', marginBottom: 2 }}>
-                      Esta amostra possui movimentacoes comerciais
-                    </strong>
+                  <div className="sdv-warn-text">
+                    <strong>Esta amostra possui movimentacoes comerciais</strong>
                     Cancele todas as vendas e perdas registradas antes de invalidar. Isso garante a
                     consistencia do historico de compras dos clientes.
                   </div>
@@ -2744,23 +2638,19 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={() => cancelRegistrationEdit()}>
           <section
             ref={registrationEditTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="registration-edit-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3
-                id="registration-edit-modal-title"
-                className="cdm-header-name"
-                style={{ flex: 1 }}
-              >
+            <div className="cdm-header">
+              <h3 id="registration-edit-modal-title" className="cdm-header-name">
                 Editar informacoes
               </h3>
               <button
                 type="button"
-                className="cdm-close"
+                className="app-modal-close cdm-close"
                 onClick={cancelRegistrationEdit}
                 disabled={registrationUpdating}
                 aria-label="Fechar"
@@ -2898,7 +2788,6 @@ export default function SampleDetailPage() {
                   (registrationEditReasonCode === 'OTHER' &&
                     registrationEditReasonText.trim().length === 0)
                 }
-                style={{ opacity: registrationUpdating ? 0.65 : 1 }}
               >
                 {registrationUpdating ? 'Salvando...' : 'Salvar edicao'}
               </button>
@@ -2941,16 +2830,12 @@ export default function SampleDetailPage() {
               <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
                 <section
                   ref={classificationDetailTrapRef}
-                  className="cld-modal"
+                  className="app-modal cld-modal"
                   role="dialog"
                   aria-modal="true"
                   aria-label="Classificacao completa"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="cld-handle">
-                    <span />
-                  </div>
-
                   <header className="cld-header">
                     <h3 className="cld-title">
                       Classificacao
@@ -2980,7 +2865,7 @@ export default function SampleDetailPage() {
                       ) : null}
                       <button
                         type="button"
-                        className="cld-close-btn"
+                        className="app-modal-close cld-close-btn"
                         onClick={closeClassificationDetail}
                         aria-label="Fechar"
                       >
@@ -3011,10 +2896,7 @@ export default function SampleDetailPage() {
                     const showFundo2 = typeConfig?.hasFundo2 !== false;
                     return (
                       <div className={`cld-body${saved ? ' is-saved' : ''}`}>
-                        <div
-                          className="cld-section"
-                          style={{ '--sc': '#2f6b4a' } as React.CSSProperties}
-                        >
+                        <div className="cld-section is-general">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
                             Geral
@@ -3029,10 +2911,7 @@ export default function SampleDetailPage() {
                         </div>
 
                         {sieveList.length > 0 && (
-                          <div
-                            className="cld-section"
-                            style={{ '--sc': '#2980B9' } as React.CSSProperties}
-                          >
+                          <div className="cld-section is-sieves">
                             <div className="cld-section-title">
                               <span className="cld-dot" />
                               Peneiras <span className="cld-section-unit">%</span>
@@ -3043,10 +2922,7 @@ export default function SampleDetailPage() {
                           </div>
                         )}
 
-                        <div
-                          className="cld-section"
-                          style={{ '--sc': '#D4A017' } as React.CSSProperties}
-                        >
+                        <div className="cld-section is-funds">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
                             Fundos
@@ -3060,10 +2936,7 @@ export default function SampleDetailPage() {
                         </div>
 
                         {defectList.length > 0 && (
-                          <div
-                            className="cld-section"
-                            style={{ '--sc': '#C0392B' } as React.CSSProperties}
-                          >
+                          <div className="cld-section is-defects">
                             <div className="cld-section-title">
                               <span className="cld-dot" />
                               Defeitos e analises
@@ -3074,10 +2947,7 @@ export default function SampleDetailPage() {
                           </div>
                         )}
 
-                        <div
-                          className="cld-section"
-                          style={{ '--sc': '#7D3C98' } as React.CSSProperties}
-                        >
+                        <div className="cld-section is-notes">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
                             Observacoes
@@ -3103,10 +2973,7 @@ export default function SampleDetailPage() {
                     );
                   })()}
 
-                  <div
-                    className="cld-actions"
-                    style={!editing ? { visibility: 'hidden' } : undefined}
-                  >
+                  <div className={`cld-actions${editing ? '' : ' is-hidden'}`}>
                     <button
                       type="button"
                       className="cld-btn-cancel"
@@ -3256,8 +3123,7 @@ export default function SampleDetailPage() {
 
       {classificationPhotoPreviewOpen && classificationSavedPhotoUrl ? (
         <div
-          className="app-modal-backdrop"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
+          className="app-modal-backdrop sdv-photo-preview-backdrop"
           onClick={() => setClassificationPhotoPreviewOpen(false)}
         >
           {/* next/image nao se aplica: foto fullscreen com dimensoes via viewport units */}
@@ -3265,12 +3131,7 @@ export default function SampleDetailPage() {
           <img
             src={classificationSavedPhotoUrl}
             alt="Foto da classificacao"
-            style={{
-              maxWidth: '92vw',
-              maxHeight: '85dvh',
-              objectFit: 'contain',
-              borderRadius: '12px',
-            }}
+            className="sdv-photo-preview-img"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -3280,18 +3141,16 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>
           <section
             ref={exportTypeTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                Gerar laudo
-              </h3>
+            <div className="cdm-header">
+              <h3 className="cdm-header-name">Gerar laudo</h3>
               <button
                 type="button"
-                className="cdm-close"
+                className="app-modal-close cdm-close"
                 onClick={handleCloseExportTypeSelector}
                 aria-label="Fechar"
               >
@@ -3301,9 +3160,7 @@ export default function SampleDetailPage() {
                 </svg>
               </button>
             </div>
-            <p style={{ margin: 0, fontSize: 'clamp(12px, 3.2vw, 13px)', color: '#999' }}>
-              Selecione o tipo de laudo
-            </p>
+            <p className="sdv-modal-hint">Selecione o tipo de laudo</p>
             <div className="sdv-edit-actions">
               <button
                 type="button"
@@ -3320,8 +3177,7 @@ export default function SampleDetailPage() {
               </button>
               <button
                 type="button"
-                className="cdm-manage-link"
-                style={{ background: 'linear-gradient(135deg, #0D47A1, #1565C0)' }}
+                className="cdm-manage-link is-secondary"
                 onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3340,18 +3196,16 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                Confirmar exportacao
-              </h3>
+            <div className="cdm-header">
+              <h3 className="cdm-header-name">Confirmar exportacao</h3>
               <button
                 type="button"
-                className="cdm-close"
+                className="app-modal-close cdm-close"
                 onClick={handleCloseExportConfirmation}
                 disabled={Boolean(exportingPdfType)}
                 aria-label="Fechar"
@@ -3383,7 +3237,6 @@ export default function SampleDetailPage() {
                 className="cdm-manage-link"
                 onClick={handleConfirmExportFromModal}
                 disabled={Boolean(exportingPdfType) || !exportRecipientClient}
-                style={{ opacity: exportingPdfType || !exportRecipientClient ? 0.65 : 1 }}
               >
                 {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
               </button>
@@ -3399,18 +3252,16 @@ export default function SampleDetailPage() {
         >
           <section
             ref={physicalSendTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                Enviar amostra fisica
-              </h3>
+            <div className="cdm-header">
+              <h3 className="cdm-header-name">Enviar amostra fisica</h3>
               <button
                 type="button"
-                className="cdm-close"
+                className="app-modal-close cdm-close"
                 onClick={() => setPhysicalSendModalOpen(false)}
                 disabled={physicalSending}
                 aria-label="Fechar"
@@ -3452,7 +3303,6 @@ export default function SampleDetailPage() {
                 className="cdm-manage-link"
                 onClick={handlePhysicalSend}
                 disabled={physicalSending || !physicalSendClient}
-                style={{ opacity: physicalSending || !physicalSendClient ? 0.65 : 1 }}
               >
                 {physicalSending ? 'Registrando...' : 'Confirmar envio'}
               </button>

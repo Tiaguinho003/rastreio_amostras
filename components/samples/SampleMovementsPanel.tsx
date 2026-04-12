@@ -16,7 +16,6 @@ import type {
   SampleSnapshot,
   SessionData,
 } from '../../lib/types';
-import { SampleCommercialSummaryCard } from './SampleCommercialSummaryCard';
 import { SampleMovementModal } from './SampleMovementModal';
 
 type SampleMovementsPanelProps = {
@@ -178,9 +177,7 @@ export function SampleMovementsPanel({
           <span className="sdv-com-count">{sortedMovements.length} registros</span>
         </div>
 
-        {error ? (
-          <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p>
-        ) : null}
+        {error ? <p className="sdv-modal-error">{error}</p> : null}
 
         {hasMovements ? (
           <div className="sdv-com-movements">
@@ -228,7 +225,7 @@ export function SampleMovementsPanel({
                       {!isSale && movement.lossReasonText ? (
                         <>
                           <span className="sdv-com-mov-sep" />
-                          <span style={{ color: '#C0392B' }}>{movement.lossReasonText}</span>
+                          <span className="sdv-com-mov-reason">{movement.lossReasonText}</span>
                         </>
                       ) : null}
                     </div>
@@ -422,18 +419,16 @@ export function SampleMovementsPanel({
             <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
               <section
                 ref={cancelTrapRef}
-                className="cdm-modal"
+                className="app-modal cdm-modal"
                 role="dialog"
                 aria-modal="true"
                 onClick={(event) => event.stopPropagation()}
               >
-                <div className="cdm-header" style={{ gap: '10px' }}>
-                  <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                    Cancelar movimentacao
-                  </h3>
+                <div className="cdm-header">
+                  <h3 className="cdm-header-name">Cancelar movimentacao</h3>
                   <button
                     type="button"
-                    className="cdm-close"
+                    className="app-modal-close cdm-close"
                     onClick={() => setCancelMovement(null)}
                     disabled={saving}
                     aria-label="Fechar"
@@ -445,7 +440,7 @@ export function SampleMovementsPanel({
                   </button>
                 </div>
 
-                <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#999' }}>
+                <p className="sdv-modal-hint">
                   Informe o motivo para manter a auditoria consistente.
                 </p>
 
@@ -465,11 +460,7 @@ export function SampleMovementsPanel({
                 <div className="sdv-edit-actions">
                   <button
                     type="button"
-                    className="cdm-manage-link"
-                    style={{
-                      background: 'linear-gradient(135deg, #C0392B, #E74C3C)',
-                      opacity: saving || cancelReasonText.trim().length === 0 ? 0.5 : 1,
-                    }}
+                    className="cdm-manage-link is-danger"
                     disabled={saving || cancelReasonText.trim().length === 0}
                     onClick={async () => {
                       if (!cancelMovement) return;

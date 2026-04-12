@@ -249,19 +249,19 @@ export function SampleMovementModal({
     <div className="app-modal-backdrop" onClick={() => !saving && onClose()}>
       <section
         ref={focusTrapRef}
-        className="cdm-modal"
+        className="app-modal cdm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="sample-movement-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="cdm-header" style={{ gap: '10px' }}>
-          <h3 id="sample-movement-modal-title" className="cdm-header-name" style={{ flex: 1 }}>
+        <div className="cdm-header">
+          <h3 id="sample-movement-modal-title" className="cdm-header-name">
             {title}
           </h3>
           <button
             type="button"
-            className="cdm-close"
+            className="app-modal-close cdm-close"
             onClick={onClose}
             disabled={saving}
             aria-label="Fechar"
@@ -273,9 +273,7 @@ export function SampleMovementModal({
           </button>
         </div>
 
-        {error ? (
-          <p style={{ margin: 0, fontSize: 'clamp(11px, 3vw, 12px)', color: '#c45c5c' }}>{error}</p>
-        ) : null}
+        {error ? <p className="sdv-modal-error">{error}</p> : null}
 
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
@@ -312,11 +310,11 @@ export function SampleMovementModal({
             <div className="sdv-edit-field">
               <span className="sdv-edit-label">
                 Sacas{' '}
-                <span style={{ fontWeight: 400, color: '#999' }}>
+                <span className="sdv-edit-label-hint">
                   ({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})
                 </span>
               </span>
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="sdv-edit-row-inline">
                 <input
                   className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`}
                   value={quantitySacks}
@@ -326,7 +324,6 @@ export function SampleMovementModal({
                     setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
                     setError(null);
                   }}
-                  style={{ flex: 1 }}
                 />
                 {effectiveLimit > 0 ? (
                   <button
@@ -376,66 +373,22 @@ export function SampleMovementModal({
             </label>
           ) : null}
 
-          <div className="sdv-edit-actions" style={{ marginTop: 'clamp(4px, 1vw, 6px)' }}>
-            <button
-              type="submit"
-              className="cdm-manage-link"
-              disabled={saving || submitDisabled}
-              style={{ opacity: saving || submitDisabled ? 0.5 : 1 }}
-            >
+          <div className="sdv-edit-actions">
+            <button type="submit" className="cdm-manage-link" disabled={saving || submitDisabled}>
               {saving ? 'Salvando...' : mode === 'create' ? 'Registrar' : 'Salvar'}
             </button>
           </div>
         </form>
 
         {stampType ? (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              placeItems: 'center',
-              background: 'rgba(253,249,236,0.92)',
-              borderRadius: '20px',
-              zIndex: 10,
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  background: stampType === 'SALE' ? '#F0FDF4' : '#FEF2F2',
-                  border: `1px solid ${stampType === 'SALE' ? '#BBF7D0' : '#FECACA'}`,
-                  display: 'inline-grid',
-                  placeItems: 'center',
-                  marginBottom: 8,
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: 22,
-                    height: 22,
-                    fill: 'none',
-                    stroke: stampType === 'SALE' ? '#27AE60' : '#C0392B',
-                    strokeWidth: 2,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+          <div className={`sdv-stamp-overlay is-${stampType === 'SALE' ? 'sale' : 'loss'}`}>
+            <div className="sdv-stamp-content">
+              <div className="sdv-stamp-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m5 12.5 4.3 4.2L19 7" />
                 </svg>
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 'clamp(14px, 3.8vw, 15px)',
-                  fontWeight: 700,
-                  color: '#1a1a1a',
-                }}
-              >
+              <p className="sdv-stamp-label">
                 {stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}
               </p>
             </div>
