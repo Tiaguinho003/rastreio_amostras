@@ -674,181 +674,176 @@ function NewSamplePageContent() {
 
         {/* ── Form ── */}
         <section className="nsv2-body nsv2-body-form">
-          <div className="nsv2-form-card">
-            {error ? <p className="nsv2-inline-error">{error}</p> : null}
-            {message ? <p className="nsv2-inline-success">{message}</p> : null}
+          {error ? <p className="nsv2-inline-error">{error}</p> : null}
+          {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
-            <div ref={stageBodyRef} className="nsv2-form-scroll">
-              <div className="nsv2-form-grid">
-                <div className="nsv2-grid-full">
-                  <ClientLookupField
-                    session={session}
-                    label="Proprietario"
-                    kind="owner"
-                    required
-                    inputRef={ownerInputRef}
-                    invalid={Boolean(requiredFieldErrors.owner)}
-                    invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
-                    selectedClient={selectedOwnerClient}
-                    onSelectClient={(client) => {
-                      setSelectedOwnerClient(client);
-                      setOwner(client?.displayName ?? '');
-                      setSelectedOwnerRegistrationId(null);
-                      clearRequiredFieldError('owner');
-                      setError(null);
+          <div ref={stageBodyRef} className="nsv2-form-scroll">
+            <div className="nsv2-form-grid">
+              <div className="nsv2-grid-full">
+                <ClientLookupField
+                  session={session}
+                  label="Proprietario"
+                  kind="owner"
+                  required
+                  inputRef={ownerInputRef}
+                  invalid={Boolean(requiredFieldErrors.owner)}
+                  invalidText={requiredFieldErrors.owner ?? 'Obrigatorio'}
+                  selectedClient={selectedOwnerClient}
+                  onSelectClient={(client) => {
+                    setSelectedOwnerClient(client);
+                    setOwner(client?.displayName ?? '');
+                    setSelectedOwnerRegistrationId(null);
+                    clearRequiredFieldError('owner');
+                    setError(null);
+                  }}
+                  onRequestCreate={(searchTerm) => {
+                    setQuickCreateSeed(searchTerm);
+                    setQuickCreateOpen(true);
+                  }}
+                  createLabel="Cadastrar proprietario"
+                />
+              </div>
+
+              <div className="nsv2-grid-full">
+                <ClientRegistrationSelect
+                  label="Inscricao"
+                  registrations={ownerRegistrations}
+                  value={selectedOwnerRegistrationId}
+                  disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
+                  onChange={setSelectedOwnerRegistrationId}
+                />
+                {ownerRegistrationLoading ? (
+                  <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
+                ) : null}
+              </div>
+
+              <div className="nsv2-grid-half">
+                <label className="nsv2-field">
+                  <span className="nsv2-field-label">
+                    Sacas<span className="nsv2-required-star"> *</span>
+                  </span>
+                  <input
+                    ref={sacksInputRef}
+                    value={sacks}
+                    className={`nsv2-field-input ${requiredFieldErrors.sacks ? 'has-error' : ''}`}
+                    aria-invalid={Boolean(requiredFieldErrors.sacks)}
+                    onChange={(event) => {
+                      setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                      clearRequiredFieldError('sacks');
                     }}
-                    onRequestCreate={(searchTerm) => {
-                      setQuickCreateSeed(searchTerm);
-                      setQuickCreateOpen(true);
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
+                  />
+                </label>
+              </div>
+
+              <div className="nsv2-grid-half" ref={harvestFieldRef}>
+                <label className="nsv2-field" htmlFor="nsv2-harvest-input">
+                  <span className="nsv2-field-label">
+                    Safra<span className="nsv2-required-star"> *</span>
+                  </span>
+                  <input
+                    id="nsv2-harvest-input"
+                    ref={harvestInputRef}
+                    className={`nsv2-field-input ${requiredFieldErrors.harvest ? 'has-error' : ''}`}
+                    aria-invalid={Boolean(requiredFieldErrors.harvest)}
+                    value={harvest}
+                    onFocus={() => setHarvestOptionsOpen(true)}
+                    onChange={(event) => {
+                      setHarvest(event.target.value);
+                      clearRequiredFieldError('harvest');
                     }}
-                    createLabel="Cadastrar proprietario"
+                    placeholder={
+                      requiredFieldErrors.harvest
+                        ? requiredFieldErrors.harvest
+                        : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
+                    }
                   />
-                </div>
+                </label>
+                {harvestOptionsOpen ? (
+                  <div className="new-sample-harvest-options">
+                    {HARVEST_PRESET_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
+                        onClick={() => {
+                          setHarvest(option);
+                          clearRequiredFieldError('harvest');
+                          setHarvestOptionsOpen(false);
+                        }}
+                        disabled={submitting}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
-                <div className="nsv2-grid-full">
-                  <ClientRegistrationSelect
-                    label="Inscricao"
-                    registrations={ownerRegistrations}
-                    value={selectedOwnerRegistrationId}
-                    disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                    onChange={setSelectedOwnerRegistrationId}
+              <div className="nsv2-grid-half">
+                <label className="nsv2-field">
+                  <span className="nsv2-field-label">Lote de origem</span>
+                  <input
+                    ref={originLotInputRef}
+                    value={originLot}
+                    className="nsv2-field-input"
+                    onChange={(event) => {
+                      setOriginLot(event.target.value);
+                    }}
+                    placeholder="Codigo do lote"
                   />
-                  {ownerRegistrationLoading ? (
-                    <span
-                      className="new-sample-select-spinner"
-                      aria-label="Carregando inscricoes"
-                    />
-                  ) : null}
-                </div>
+                </label>
+              </div>
 
-                <div className="nsv2-grid-half">
-                  <label className="nsv2-field">
-                    <span className="nsv2-field-label">
-                      Sacas<span className="nsv2-required-star"> *</span>
-                    </span>
-                    <input
-                      ref={sacksInputRef}
-                      value={sacks}
-                      className={`nsv2-field-input ${requiredFieldErrors.sacks ? 'has-error' : ''}`}
-                      aria-invalid={Boolean(requiredFieldErrors.sacks)}
-                      onChange={(event) => {
-                        setSacks(event.target.value.replace(/[^0-9]/g, ''));
-                        clearRequiredFieldError('sacks');
-                      }}
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      placeholder={requiredFieldErrors.sacks ? requiredFieldErrors.sacks : 'Ex: 40'}
-                    />
-                  </label>
-                </div>
+              <div className="nsv2-grid-half">
+                <label className="nsv2-field">
+                  <span className="nsv2-field-label">Local</span>
+                  <input
+                    value={location}
+                    className="nsv2-field-input"
+                    onChange={(event) => setLocation(event.target.value)}
+                    placeholder="Ex: BM, Patos"
+                    maxLength={30}
+                  />
+                </label>
+              </div>
 
-                <div className="nsv2-grid-half" ref={harvestFieldRef}>
-                  <label className="nsv2-field" htmlFor="nsv2-harvest-input">
-                    <span className="nsv2-field-label">
-                      Safra<span className="nsv2-required-star"> *</span>
-                    </span>
-                    <input
-                      id="nsv2-harvest-input"
-                      ref={harvestInputRef}
-                      className={`nsv2-field-input ${requiredFieldErrors.harvest ? 'has-error' : ''}`}
-                      aria-invalid={Boolean(requiredFieldErrors.harvest)}
-                      value={harvest}
-                      onFocus={() => setHarvestOptionsOpen(true)}
-                      onChange={(event) => {
-                        setHarvest(event.target.value);
-                        clearRequiredFieldError('harvest');
-                      }}
-                      placeholder={
-                        requiredFieldErrors.harvest
-                          ? requiredFieldErrors.harvest
-                          : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
-                      }
-                    />
-                  </label>
-                  {harvestOptionsOpen ? (
-                    <div className="new-sample-harvest-options">
-                      {HARVEST_PRESET_OPTIONS.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
-                          onClick={() => {
-                            setHarvest(option);
-                            clearRequiredFieldError('harvest');
-                            setHarvestOptionsOpen(false);
-                          }}
-                          disabled={submitting}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="nsv2-grid-half">
-                  <label className="nsv2-field">
-                    <span className="nsv2-field-label">Lote de origem</span>
-                    <input
-                      ref={originLotInputRef}
-                      value={originLot}
-                      className="nsv2-field-input"
-                      onChange={(event) => {
-                        setOriginLot(event.target.value);
-                      }}
-                      placeholder="Codigo do lote"
-                    />
-                  </label>
-                </div>
-
-                <div className="nsv2-grid-half">
-                  <label className="nsv2-field">
-                    <span className="nsv2-field-label">Local</span>
-                    <input
-                      value={location}
-                      className="nsv2-field-input"
-                      onChange={(event) => setLocation(event.target.value)}
-                      placeholder="Ex: BM, Patos"
-                      maxLength={30}
-                    />
-                  </label>
-                </div>
-
-                <div className="nsv2-grid-full">
-                  <label className="nsv2-field">
-                    <span className="nsv2-field-label">Observacoes</span>
-                    <input
-                      value={notes}
-                      className="nsv2-field-input"
-                      onChange={(event) => setNotes(event.target.value)}
-                      placeholder=""
-                    />
-                  </label>
-                </div>
+              <div className="nsv2-grid-full">
+                <label className="nsv2-field">
+                  <span className="nsv2-field-label">Observacoes</span>
+                  <input
+                    value={notes}
+                    className="nsv2-field-input"
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder=""
+                  />
+                </label>
               </div>
             </div>
-            <div className="nsv2-submit-wrap">
-              <button
-                type="button"
-                className="nsv2-clear-btn"
-                disabled={submitting || !hasUnsavedData()}
-                onClick={resetDraft}
-              >
-                <span>Limpar</span>
-              </button>
-              <button
-                ref={lastCreateButtonRef}
-                type="button"
-                className="nsv2-submit-btn"
-                disabled={submitting || !isOnline}
-                onClick={(event) => {
-                  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-                  openReviewModal(event.currentTarget);
-                }}
-              >
-                <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
-              </button>
-            </div>
+          </div>
+          <div className="nsv2-submit-wrap">
+            <button
+              type="button"
+              className="nsv2-clear-btn"
+              disabled={submitting || !hasUnsavedData()}
+              onClick={resetDraft}
+            >
+              <span>Limpar</span>
+            </button>
+            <button
+              ref={lastCreateButtonRef}
+              type="button"
+              className="nsv2-submit-btn"
+              disabled={submitting || !isOnline}
+              onClick={(event) => {
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+                openReviewModal(event.currentTarget);
+              }}
+            >
+              <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
+            </button>
           </div>
         </section>
 
