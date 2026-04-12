@@ -176,9 +176,9 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
     const bodyPaddingRight = Number.parseFloat(computedBodyPaddingRight || '0') || 0;
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
 
-    document.documentElement.style.scrollbarGutter = 'stable';
     document.body.style.overflow = 'hidden';
     if (scrollbarWidth > 0) {
+      document.documentElement.style.scrollbarGutter = 'stable';
       document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
     }
 
