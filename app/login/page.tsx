@@ -177,13 +177,9 @@ export default function LoginPage() {
       </section>
 
       <section className="login-form-section">
-        <div className="login-drag-handle" aria-hidden="true">
-          <span />
-        </div>
-
         <div className="login-form-heading">
-          <p className="login-form-title">Bem-vindo de volta</p>
-          <p className="login-form-subtitle">Faca login para continuar</p>
+          <p className="login-form-title">Bem-vindo</p>
+          <p className="login-form-subtitle">Entre para continuar</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -269,7 +265,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="login-footer-text">Safras & Negocios &copy; 2025 · v1.0</p>
+        <p className="login-footer-text">Safras & Negocios &copy; 2026 · v1.0</p>
       </section>
 
       <ForgotPasswordModal
