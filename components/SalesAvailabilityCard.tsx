@@ -80,10 +80,11 @@ export function SalesAvailabilityCard({ data }: { data: SalesAvailabilityData })
             className="sales-card-legend-card"
             style={{ borderColor: BAND_COLORS[entry.key] }}
           >
+            <strong className="sales-card-legend-count">{entry.value}</strong>
             <span className="sales-card-legend-title" style={{ color: BAND_COLORS[entry.key] }}>
               {BAND_LABELS[entry.key]}
             </span>
-            <strong className="sales-card-legend-count">{entry.value}</strong>
+            <span className="sales-card-legend-unit">dias</span>
           </Link>
         ))}
       </div>

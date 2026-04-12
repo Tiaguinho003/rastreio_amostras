@@ -4139,11 +4139,42 @@ button:disabled {
   100% { transform: scale(1); }
 }
 
+@keyframes dashboard-hero-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dashboard-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashboard-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Label & sub-status ── */
 
 .dashboard-operation-label {
   font-size: clamp(12.5px, 3.6vw, 14.5px);
-  font-weight: 700;
+  font-weight: 500;
   color: #444;
   line-height: 1.2;
 }
@@ -12134,6 +12165,7 @@ button:disabled {
     display: grid;
     gap: 3dvh;
     flex-shrink: 0;
+    animation: dashboard-hero-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .dashboard-hero-header {
@@ -12256,6 +12288,19 @@ button:disabled {
     gap: clamp(2rem, 7vw, 3rem);
     overflow: hidden;
     min-height: 0;
+    animation: dashboard-sheet-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+
+  .dashboard-operations-grid .dashboard-operation-card:nth-child(1) {
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  }
+
+  .dashboard-operations-grid .dashboard-operation-card:nth-child(2) {
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+  }
+
+  .sales-card {
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
   }
 
   .dashboard-sheet-section {
@@ -14522,8 +14567,8 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(4px, 1.2vw, 6px);
-  padding: clamp(10px, 3vw, 14px) clamp(6px, 2vw, 10px);
+  gap: clamp(3px, 1vw, 5px);
+  padding: clamp(14px, 4vw, 18px) clamp(8px, 2.5vw, 12px);
   border-radius: clamp(10px, 3vw, 12px);
   border: 1.5px solid;
   background: #fafaf7;
@@ -14536,18 +14581,26 @@ button:disabled {
   background: #f0efe8;
 }
 
-.sales-card-legend-title {
-  font-size: clamp(13px, 3.8vw, 15px);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.3px;
-}
-
 .sales-card-legend-count {
   font-size: clamp(18px, 5.5vw, 22px);
   font-weight: 800;
   line-height: 1;
   color: #2c2c2c;
+}
+
+.sales-card-legend-title {
+  font-size: clamp(13px, 3.8vw, 15px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.3px;
+}
+
+.sales-card-legend-unit {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 400;
+  line-height: 1;
+  color: #999;
+  text-transform: lowercase;
 }
 
 .sales-card-alert {
