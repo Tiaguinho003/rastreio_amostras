@@ -750,7 +750,7 @@ function ClientsPage() {
 
       {/* Client detail modal */}
       {clientsState.detailOpen ? (
-        <div className="client-modal-backdrop" onClick={closeClientDetail}>
+        <div className="app-modal-backdrop" onClick={closeClientDetail}>
           <section
             ref={clientDetailTrapRef}
             className="cdm-modal"

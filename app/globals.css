@@ -4656,6 +4656,10 @@ button:disabled {
   padding: 0 clamp(14px, 4vw, 20px) clamp(14px, 3.5vw, 18px);
 }
 
+.samples-page-v2 .hero-search-wrap {
+  animation: samples-search-in 0.4s ease-out 0.1s both;
+}
+
 .hero-search-bar {
   display: flex;
   align-items: center;
@@ -4760,6 +4764,7 @@ button:disabled {
   background: transparent;
   flex-shrink: 0;
   gap: clamp(8px, 2.5vw, 12px);
+  animation: samples-header-in 0.5s ease-out both;
 }
 
 .samples-page-v2-header-center {
@@ -4781,6 +4786,7 @@ button:disabled {
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
+  animation: samples-sheet-in 0.5s ease-out 0.15s both;
 }
 
 /* ── spv2: aging banner ── */
@@ -4821,7 +4827,8 @@ button:disabled {
 }
 
 .spv2-aging-banner-clear:active {
-  background: rgba(30, 70, 32, 0.2);
+  transform: scale(0.9);
+  background: rgba(30, 70, 32, 0.18);
 }
 
 .spv2-aging-banner-clear svg {
@@ -4942,10 +4949,30 @@ button:disabled {
   color: var(--brand-green-soft);
 }
 
+.spv2-sort-btn:active {
+  transform: scale(0.95);
+  opacity: 0.7;
+}
+
 /* ── spv2: card list ── */
 
 @keyframes spv2-cardIn {
   from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes samples-header-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes samples-sheet-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes samples-search-in {
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -4972,10 +4999,14 @@ button:disabled {
   align-items: center;
   gap: clamp(12px, 3.5vw, 16px);
   padding: clamp(15px, 4.4vw, 18px) clamp(14px, 4vw, 18px);
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
   border-radius: clamp(14px, 4vw, 16px);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.07),
+    0 8px 24px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   text-decoration: none;
   color: inherit;
   -webkit-tap-highlight-color: transparent;
@@ -4992,6 +5023,7 @@ button:disabled {
   width: 4px;
   height: clamp(44px, 12.5vw, 55px);
   border-radius: 2px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
 }
 
@@ -7706,13 +7738,13 @@ button:disabled {
 
 .samples-filter-modal-backdrop {
   background: rgba(244, 246, 242, 0.18);
-  -webkit-backdrop-filter: blur(22px) saturate(1.03);
-  backdrop-filter: blur(22px) saturate(1.03);
+  -webkit-backdrop-filter: blur(20px) saturate(1.02);
+  backdrop-filter: blur(20px) saturate(1.02);
 }
 
 .samples-filter-modal {
   width: min(26rem, calc(100vw - 1rem));
-  max-height: min(38rem, calc(100dvh - 1.5rem));
+  max-height: min(42rem, calc(100dvh - 2rem));
   overflow: hidden;
   overflow-x: hidden;
   border-radius: 24px;
@@ -7749,6 +7781,7 @@ button:disabled {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
 }
 
 .samples-filter-fields {
@@ -9283,36 +9316,13 @@ button:disabled {
 }
 
 .new-sample-label-modal-backdrop {
-  position: fixed;
-  inset: 0;
   z-index: 110;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.15);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  backdrop-filter: blur(24px) saturate(1.4);
-  overflow: hidden;
 }
 
 .new-sample-label-modal {
   position: relative;
-  width: min(430px, calc(100vw - 1.5rem));
-  max-height: min(84vh, 40rem);
-  overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 28px;
-  padding: 1.1rem;
-  background: rgba(255, 255, 255, 0.65);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  display: grid;
   gap: 0.8rem;
-  overscroll-behavior: contain;
-  -webkit-backdrop-filter: blur(40px) saturate(1.6);
-  backdrop-filter: blur(40px) saturate(1.6);
+  padding: 1.1rem;
 }
 
 .new-sample-label-modal-header {
@@ -9329,23 +9339,6 @@ button:disabled {
   font-size: 1.15rem;
   font-weight: 700;
   line-height: 1.1;
-}
-
-.new-sample-label-modal-close {
-  min-width: 2.1rem;
-  min-height: 2.1rem;
-  border-radius: 999px;
-  padding: 0;
-  border: none;
-  background: rgba(0, 0, 0, 0.06);
-  color: rgba(60, 60, 60, 0.7);
-  box-shadow: none;
-  transition: background 150ms ease;
-}
-
-.new-sample-label-modal-close:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(60, 60, 60, 0.9);
 }
 
 .new-sample-label-modal-close span {
@@ -9738,27 +9731,6 @@ button:disabled {
   color: var(--muted);
 }
 
-.client-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(18, 25, 20, 0.42);
-  backdrop-filter: blur(7px);
-  overflow: hidden;
-}
-
-.client-modal {
-  width: min(720px, calc(100vw - 1.5rem));
-  max-height: 90vh;
-  overflow: auto;
-  overflow-x: hidden;
-  gap: 0.9rem;
-}
-
 .sample-movement-modal {
   width: min(400px, calc(100vw - 1.5rem));
   gap: 0.62rem;
@@ -10005,6 +9977,7 @@ button:disabled {
 }
 
 .client-quick-create-modal {
+  position: relative;
   width: min(680px, calc(100vw - 1.5rem));
   max-height: min(90vh, 44rem);
   overflow: hidden;
@@ -14671,6 +14644,21 @@ button:disabled {
    New Sample v2 (nsv2)
    ================================================================ */
 
+@keyframes nsv2-header-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes nsv2-form-card-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nsv2-field-cascade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .nsv2-page {
   display: flex;
   flex-direction: column;
@@ -14687,6 +14675,7 @@ button:disabled {
   background: transparent;
   flex-shrink: 0;
   gap: clamp(8px, 2.5vw, 12px);
+  animation: nsv2-header-in 0.5s ease-out both;
 }
 
 .nsv2-back {
@@ -15413,11 +15402,12 @@ button:disabled {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: clamp(18px, 5.5vw, 22px) clamp(18px, 5.5vw, 22px) 0 0;
-  box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.18), 0 -3px 12px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  overflow: visible;
   min-height: 0;
+  animation: nsv2-form-card-in 0.5s ease-out 0.1s backwards;
 }
 
 .nsv2-form-card.has-photo {
@@ -15425,32 +15415,19 @@ button:disabled {
   z-index: 1;
 }
 
-.nsv2-drag-handle {
-  display: flex;
-  justify-content: center;
-  padding: clamp(8px, 2.5vw, 10px) 0 clamp(2px, 0.8vw, 4px);
-}
-
-.nsv2-drag-handle span {
-  display: block;
-  width: clamp(28px, 8vw, 32px);
-  height: 3.5px;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.08);
-}
-
-
 .nsv2-form-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: clamp(6px, 2vw, 10px) clamp(16px, 4.5vw, 20px) clamp(6px, 2vw, 10px);
+  flex: 0 1 auto;
+  overflow: visible;
+  padding: clamp(10px, 3vw, 14px) clamp(16px, 4.5vw, 20px) clamp(8px, 2vw, 10px);
 }
 
 .nsv2-submit-wrap {
   flex-shrink: 0;
-  padding: clamp(4px, 1.2vw, 6px) clamp(16px, 4.5vw, 20px) clamp(4px, 1.2vw, 6px);
-  background: #ffffff;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.5vw, 10px);
+  padding: clamp(8px, 2vw, 10px) clamp(16px, 4.5vw, 20px) clamp(8px, 2vw, 10px);
+  background: transparent;
 }
 
 /* ── Form Grid ── */
@@ -15458,8 +15435,20 @@ button:disabled {
 .nsv2-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(6px, 1.8vw, 8px) clamp(8px, 2.5vw, 10px);
+  gap: clamp(10px, 2.8vw, 14px) clamp(8px, 2.5vw, 10px);
 }
+
+.nsv2-form-grid > * {
+  animation: nsv2-field-cascade 0.4s ease-out backwards;
+}
+
+.nsv2-form-grid > *:nth-child(1) { animation-delay: 0.15s; }
+.nsv2-form-grid > *:nth-child(2) { animation-delay: 0.2s; }
+.nsv2-form-grid > *:nth-child(3) { animation-delay: 0.25s; }
+.nsv2-form-grid > *:nth-child(4) { animation-delay: 0.3s; }
+.nsv2-form-grid > *:nth-child(5) { animation-delay: 0.35s; }
+.nsv2-form-grid > *:nth-child(6) { animation-delay: 0.4s; }
+.nsv2-form-grid > *:nth-child(7) { animation-delay: 0.45s; }
 
 .nsv2-grid-full {
   grid-column: 1 / -1;
@@ -15494,11 +15483,11 @@ button:disabled {
   padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
   border: 1.5px solid rgba(0, 0, 0, 0.10);
   border-radius: clamp(8px, 2.5vw, 10px);
-  background: #f7f5f1;
+  background: #faf9f6;
   font-size: clamp(12px, 3.5vw, 13px);
   font-family: inherit;
   color: #1a1a1a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   outline: none;
 }
@@ -15506,7 +15495,7 @@ button:disabled {
 .nsv2-field-input:focus {
   background: #ffffff;
   border-color: var(--brand-green-soft);
-  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.07);
+  box-shadow: 0 0 0 2.5px rgba(46, 125, 50, 0.10);
 }
 
 .nsv2-field-input::placeholder {
@@ -15534,7 +15523,7 @@ button:disabled {
 .nsv2-form-card .client-lookup-shell input,
 .nsv2-form-card .client-registration-select select {
   border: 1.5px solid rgba(0, 0, 0, 0.10);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .nsv2-form-card .client-lookup-shell input::placeholder,
@@ -15585,6 +15574,34 @@ button:disabled {
   opacity: 0.65;
   cursor: wait;
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+}
+
+.nsv2-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: clamp(11px, 3.2vw, 13px);
+  background: transparent;
+  color: #777;
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.nsv2-clear-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.nsv2-clear-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* ── Photo Fullscreen ── */
@@ -16170,11 +16187,19 @@ button:disabled {
     gap: 0;
     overflow: hidden;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      0 4px 12px rgba(0, 0, 0, 0.07),
+      0 8px 24px rgba(0, 0, 0, 0.03),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .samples-page-v2 .spv2-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1), 0 16px 40px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.08),
+      0 14px 36px rgba(0, 0, 0, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .samples-page-v2 .spv2-card:active {
@@ -16184,8 +16209,9 @@ button:disabled {
   /* Barra: horizontal no topo do card */
   .samples-page-v2 .spv2-card-bar {
     width: 100%;
-    height: 5px;
-    border-radius: 0;
+    height: 4px;
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   }
 
   /* Conteudo: vertical, mais alto */
@@ -17031,11 +17057,14 @@ button:disabled {
     border-radius: 24px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 12px 36px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(0, 0, 0, 0.04);
+    background: #ffffff;
+    overflow: visible;
   }
 
   /* Form scroll: espaco interno generoso */
   .nsv2-form-scroll {
     padding: 2.5rem 3rem;
+    overflow: visible;
   }
 
   /* Grid do form: gap grande */
@@ -17102,6 +17131,8 @@ button:disabled {
 
   /* Botao submit: grande, com efeitos */
   .nsv2-submit-wrap {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
     padding: 1.5rem 3rem 2.5rem;
   }
 
@@ -17120,6 +17151,22 @@ button:disabled {
   .nsv2-submit-btn:active {
     transform: translateY(0) scale(0.98);
     box-shadow: 0 2px 8px rgba(27, 94, 32, 0.2);
+  }
+
+  .nsv2-clear-btn {
+    padding: 1.1rem;
+    font-size: 1.1rem;
+    border-radius: 16px;
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+
+  .nsv2-clear-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+
+  .nsv2-clear-btn:active {
+    transform: scale(0.98);
   }
 
   .new-sample-label-modal {

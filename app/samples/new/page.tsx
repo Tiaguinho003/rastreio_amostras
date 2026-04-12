@@ -675,10 +675,6 @@ function NewSamplePageContent() {
         {/* ── Form ── */}
         <section className="nsv2-body nsv2-body-form">
           <div className="nsv2-form-card">
-            <div className="nsv2-drag-handle" aria-hidden="true">
-              <span />
-            </div>
-
             {error ? <p className="nsv2-inline-error">{error}</p> : null}
             {message ? <p className="nsv2-inline-success">{message}</p> : null}
 
@@ -833,6 +829,14 @@ function NewSamplePageContent() {
             </div>
             <div className="nsv2-submit-wrap">
               <button
+                type="button"
+                className="nsv2-clear-btn"
+                disabled={submitting || !hasUnsavedData()}
+                onClick={resetDraft}
+              >
+                <span>Limpar</span>
+              </button>
+              <button
                 ref={lastCreateButtonRef}
                 type="button"
                 className="nsv2-submit-btn"
@@ -864,7 +868,7 @@ function NewSamplePageContent() {
 
       {labelModalOpen ? (
         <div
-          className="new-sample-label-modal-backdrop"
+          className="app-modal-backdrop new-sample-label-modal-backdrop"
           onClick={() => {
             if (canCloseModal) {
               closeLabelModal();
@@ -873,7 +877,7 @@ function NewSamplePageContent() {
         >
           <section
             ref={labelTrapRef}
-            className="new-sample-label-modal"
+            className="app-modal new-sample-label-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-sample-label-modal-title"
@@ -888,7 +892,7 @@ function NewSamplePageContent() {
                 <button
                   ref={labelModalCloseButtonRef}
                   type="button"
-                  className="new-sample-label-modal-close"
+                  className="app-modal-close new-sample-label-modal-close"
                   onClick={closeLabelModal}
                   aria-label="Fechar modal"
                 >

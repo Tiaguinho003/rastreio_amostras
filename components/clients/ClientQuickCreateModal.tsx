@@ -180,7 +180,7 @@ export function ClientQuickCreateModal({
 
   return (
     <div
-      className="client-modal-backdrop"
+      className="app-modal-backdrop"
       onClick={() => {
         if (!saving && !showSuccess) {
           onClose();
@@ -189,12 +189,11 @@ export function ClientQuickCreateModal({
     >
       <section
         ref={focusTrapRef}
-        className="client-modal panel stack client-quick-create-modal"
+        className="app-modal client-quick-create-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-quick-create-title"
         onClick={(event) => event.stopPropagation()}
-        style={{ position: 'relative', overflow: 'hidden' }}
       >
         {showSuccess ? (
           <div className="client-create-success-overlay" aria-live="polite">
