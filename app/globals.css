@@ -18690,4 +18690,189 @@ button:disabled {
   .client-quick-create-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  /* ══════════════════════════════════════════
+     FASE 1 — LISTAS DESKTOP (samples, clients, users)
+     Patches sobrescrevem/complementam regras anteriores neste mesmo bloco.
+     ══════════════════════════════════════════ */
+
+  /* T2: hover refinado nos cards de samples */
+  .samples-page-v2 .spv2-card {
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .samples-page-v2 .spv2-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.09);
+  }
+
+  /* T2: hover refinado nos cards de clientes/usuarios */
+  .clients-page-v2 .cv2-card {
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .clients-page-v2 .cv2-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.09);
+  }
+
+  /* T3: modal de filtro de samples expande para min(720px, 60vw) */
+  .samples-filter-modal {
+    width: min(720px, 60vw);
+    max-height: min(54rem, calc(100dvh - 2rem));
+    padding: 1.5rem 1.75rem;
+    border-radius: 28px;
+  }
+
+  /* T5: role badges maiores na lista de usuarios */
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-admin,
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-classifier,
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-registration,
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-commercial {
+    font-size: 0.82rem;
+    padding: 4px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  /* T5: icone "locked" no canto superior direito do card */
+  .clients-page-v2 .cv2-card {
+    position: relative;
+  }
+
+  .clients-page-v2 .cv2-card .cv2-card-role.is-locked {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 999px;
+    z-index: 1;
+  }
+
+  /* T7: modal quick-view de cliente expande de 520 para 640 */
+  .cdm-modal {
+    width: min(640px, calc(100vw - 3rem));
+    padding: 1.75rem;
+    border-radius: 24px;
+  }
+
+  /* T4: FAB reposicionado como botao ancorado ao topo no desktop */
+  .cv2-fab {
+    position: fixed;
+    bottom: auto;
+    top: calc(4.5rem + 1.25rem);
+    right: max(
+      calc((100vw - var(--desktop-content-max)) / 2 + var(--desktop-gutter)),
+      2rem
+    );
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    padding: 0.65rem 1.15rem 0.65rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    box-shadow:
+      0 2px 8px rgba(27, 94, 32, 0.22),
+      0 8px 24px rgba(27, 94, 32, 0.18);
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+    z-index: var(--z-modal-backdrop, 40);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   @media (min-width: 1200px) — wide desktop
+   Abertura: Fase 1 (listas). Fases subsequentes devem adicionar
+   suas regras aqui, mantendo um unico bloco 1200px.
+   ════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1200px) {
+  /* T1: grid auto-fill na lista de samples */
+  .samples-page-v2 .spv2-list-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.25rem;
+    justify-content: start;
+    padding-left: var(--desktop-gutter);
+    padding-right: var(--desktop-gutter);
+    max-width: var(--content-max-normal, 1080px);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
+  .samples-page-v2 .spv2-card {
+    max-width: 280px;
+    width: 100%;
+  }
+
+  /* T1: mesmo tratamento para clients/users */
+  .clients-v2-sheet .spv2-list-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.25rem;
+    justify-content: start;
+    padding-left: var(--desktop-gutter);
+    padding-right: var(--desktop-gutter);
+    max-width: var(--content-max-normal, 1080px);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
+  .clients-page-v2 .cv2-card {
+    max-width: 280px;
+    width: 100%;
+    justify-self: start;
+  }
+
+  /* T6: chips com spacing consistente */
+  .samples-page-v2 .spv2-chips,
+  .clients-page-v2 .spv2-chips {
+    justify-content: flex-start;
+    gap: 1rem;
+    padding: 0 var(--desktop-gutter);
+    max-width: var(--content-max-normal, 1080px);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
+  /* T8: footer de paginacao com largura maxima */
+  .samples-page-v2 .spv2-footer,
+  .clients-page-v2 .spv2-footer {
+    padding: 16px var(--desktop-gutter) 12px;
+    max-width: var(--content-max-normal, 1080px);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    gap: 1.25rem;
+  }
+
+  /* T8: meta da lista alinhada */
+  .samples-page-v2 .spv2-list-meta,
+  .clients-page-v2 .spv2-list-meta {
+    padding: 12px var(--desktop-gutter) 8px;
+    max-width: var(--content-max-normal, 1080px);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
 }
