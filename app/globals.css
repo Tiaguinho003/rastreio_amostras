@@ -18795,6 +18795,66 @@ button:disabled {
       box-shadow 0.2s ease;
     z-index: var(--z-modal-backdrop, 40);
   }
+
+  /* ══════════════════════════════════════════
+     FASE 2 — DETALHES DESKTOP (sample + client)
+     ══════════════════════════════════════════ */
+
+  /* T1: hover refinado nas sdv-action-card */
+  .sdv-action-card:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.05);
+    border-color: rgba(46, 125, 50, 0.2);
+  }
+
+  /* T2: .sdv-card — gap interno no desktop */
+  .sdv-card {
+    gap: 1.2rem;
+  }
+
+  /* T3: .app-modal.cdm-modal — modal de edicao maior nas paginas de detalhe */
+  .app-modal.cdm-modal {
+    width: min(680px, calc(100vw - 4rem));
+    padding: 1.75rem 1.75rem 1.5rem;
+    border-radius: 22px;
+  }
+
+  .app-modal.cdm-modal .sdv-edit-row {
+    gap: 0.9rem 1rem;
+  }
+
+  /* T4: sliding underline no tab ativo */
+  .sdv-tab {
+    position: relative;
+    border-bottom-color: transparent;
+  }
+
+  .sdv-tab::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    right: auto;
+    bottom: -1px;
+    height: 2.5px;
+    width: 0;
+    background: var(--brand-green);
+    border-radius: 2px 2px 0 0;
+    transform: translateX(-50%);
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+    animation-fill-mode: backwards;
+  }
+
+  .sdv-tab.is-active::after {
+    width: 60%;
+  }
+
+  .sdv-tab:hover:not(.is-active)::after {
+    width: 24%;
+    background: var(--brand-green-soft);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -18874,5 +18934,52 @@ button:disabled {
     margin-left: auto;
     margin-right: auto;
     width: 100%;
+  }
+
+  /* ══════════════════════════════════════════
+     FASE 2 (1200+) — DETALHES COMMERCIAL / INSCRICOES
+     ══════════════════════════════════════════ */
+
+  /* T5: resumo comercial 4 colunas quando eh vendedor */
+  .client-detail-commercial-summary:has(.is-samples),
+  .client-detail-commercial-summary:has(.is-sacks),
+  .client-detail-commercial-summary:has(.is-sold),
+  .client-detail-commercial-summary:has(.is-lost) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .client-detail-commercial-summary:has(.is-purchases) {
+    gap: 0.75rem;
+  }
+
+  .client-detail-commercial-summary .client-detail-summary-card {
+    aspect-ratio: 2.4 / 1;
+    padding: 0.75rem 1rem;
+    border-radius: 14px;
+  }
+
+  .client-detail-commercial-summary .client-detail-summary-value {
+    font-size: 1.9rem;
+  }
+
+  .client-detail-commercial-summary .client-detail-summary-label {
+    font-size: 0.74rem;
+  }
+
+  /* T6: lista de inscricoes em 2 colunas */
+  .client-detail-registration-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .client-detail-page .sdv-card .sdv-com-movements {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .client-detail-page .sdv-com-movements .sdv-com-mov {
+    min-width: 0;
   }
 }
