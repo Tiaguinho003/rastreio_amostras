@@ -119,6 +119,15 @@
   --z-tooltip: 700;
 
   /* ══════════════════════════════════════════════════════════════
+     BREAKPOINTS — documentacao + consumo via JS
+     Nao usaveis diretamente em @media (CSS nao resolve vars em media queries)
+     Sempre manter em sincronia com as media queries literais no arquivo
+     ══════════════════════════════════════════════════════════════ */
+  --bp-desktop: 901px;  /* limite mobile/desktop — base do projeto */
+  --bp-wide: 1200px;    /* layouts mais densos (listas, dashboards) */
+  --bp-large: 1440px;   /* limite superior — ultra-wide para em 1440 */
+
+  /* ══════════════════════════════════════════════════════════════
      LEGACY ALIASES — compatibilidade com as 17k linhas já escritas.
      Não remover. Apontam para os novos tokens.
      ══════════════════════════════════════════════════════════════ */
@@ -17350,6 +17359,10 @@ button:disabled {
   :root {
     --desktop-content-max: 1200px;
     --desktop-gutter: 2rem;
+    /* tokens de largura por contexto (Fase 0 — fundacao desktop) */
+    --content-max-narrow: 720px;  /* forms centrados, auth */
+    --content-max-normal: 1080px; /* lista/detalhe normal */
+    --content-max-wide: 1320px;   /* dashboards, detalhes amplos */
   }
 
   /* ── AppShell: esconder elementos mobile-only ── */
