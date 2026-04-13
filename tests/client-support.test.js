@@ -52,6 +52,34 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
   assert.equal(normalized.cnpj, null);
 });
 
+test('normalizeCreateClientInput requires cpf for PF clients', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PF',
+        fullName: 'Francisco Sales Darcadia',
+        phone: '35 99999-0000',
+        isBuyer: false,
+        isSeller: true,
+      }),
+    /cpf is required/
+  );
+});
+
+test('normalizeCreateClientInput requires cnpj for PJ clients', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PJ',
+        legalName: 'Coopercitrus',
+        phone: '35 99999-0000',
+        isBuyer: true,
+        isSeller: true,
+      }),
+    /cnpj is required/
+  );
+});
+
 test('normalizeCreateClientInput rejects invalid phone lengths', () => {
   assert.throws(
     () =>

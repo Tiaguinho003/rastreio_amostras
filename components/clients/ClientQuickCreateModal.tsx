@@ -101,11 +101,10 @@ export function ClientQuickCreateModal({
   const isPhoneValid =
     form.phone.replace(/\D/g, '').length === 0 ||
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
-  const isDocumentValid = documentDigitCount === 0 || isDocumentComplete;
 
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid;
-  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid]);
+    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentComplete;
+  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentComplete]);
 
   if (!open) {
     return null;
@@ -115,11 +114,14 @@ export function ClientQuickCreateModal({
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
 
   const showFieldErrors = submitted && !canSubmit;
-  const isDocumentInvalid = documentDigitCount > 0 && !isDocumentComplete;
-  const hasDocumentError = showFieldErrors && isDocumentInvalid;
+  const isDocumentFilled = documentDigitCount > 0;
+  const isDocumentInvalid = isDocumentFilled && !isDocumentComplete;
+  const hasDocumentError = showFieldErrors && !isDocumentComplete;
   const documentHint = isDocumentInvalid
     ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
-    : null;
+    : !isDocumentFilled
+      ? `${documentLabel} obrigatorio`
+      : null;
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
@@ -261,13 +263,13 @@ export function ClientQuickCreateModal({
                 </label>
 
                 <label
-                  className={`client-quick-create-field${isDocumentInvalid ? ' is-field-error' : ''}`}
+                  className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
                 >
                   {documentLabel}
                   <input
                     value={documentValue}
                     disabled={saving}
-                    className={isDocumentInvalid ? 'cqc-input-error' : undefined}
+                    className={hasDocumentError ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -281,7 +283,7 @@ export function ClientQuickCreateModal({
                             : current.cnpj,
                       }))
                     }
-                    placeholder={isDocumentInvalid ? (documentHint ?? '') : ''}
+                    placeholder={hasDocumentError ? (documentHint ?? '') : ''}
                   />
                 </label>
               </div>
