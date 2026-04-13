@@ -606,15 +606,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                         >
                           <svg
                             viewBox="0 0 24 24"
-                            style={{
-                              width: 16,
-                              height: 16,
-                              fill: 'none',
-                              stroke: '#aaa',
-                              strokeWidth: 1.6,
-                              strokeLinecap: 'round',
-                              strokeLinejoin: 'round',
-                            }}
+                            className="app-shell-password-eye"
+                            aria-hidden="true"
                           >
                             {showNewPassword ? (
                               <>
@@ -652,15 +645,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                         >
                           <svg
                             viewBox="0 0 24 24"
-                            style={{
-                              width: 16,
-                              height: 16,
-                              fill: 'none',
-                              stroke: '#aaa',
-                              strokeWidth: 1.6,
-                              strokeLinecap: 'round',
-                              strokeLinejoin: 'round',
-                            }}
+                            className="app-shell-password-eye"
+                            aria-hidden="true"
                           >
                             {showConfirmPassword ? (
                               <>

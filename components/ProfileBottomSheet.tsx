@@ -115,8 +115,8 @@ export function ProfileBottomSheet({ session, open, onClose, onLogout }: Profile
     >
       <div
         ref={sheetRef}
-        className={`profile-sheet ${isOpen ? 'is-open' : ''}`}
-        style={dragOffset > 0 ? { transform: sheetTransform, transition: 'none' } : undefined}
+        className={`profile-sheet ${isOpen ? 'is-open' : ''}${dragOffset > 0 ? ' is-dragging' : ''}`}
+        style={dragOffset > 0 ? { transform: sheetTransform } : undefined}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

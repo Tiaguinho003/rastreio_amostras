@@ -7,6 +7,7 @@
   --brand-green-ink: #24392f;       /* tinta escura */
   --brand-green-soft: #2f6b4a;      /* accent médio */
   --brand-green-strong: #24553a;    /* accent escuro */
+  --brand-green-rgb: 31, 93, 67;    /* rgb do --brand-green para tints */
   --brand-cream: #efebe4;           /* fundo creme */
   --brand-cream-soft: #fefcf9;      /* superfície */
   --brand-cream-line: #ddd7cc;      /* linha/divisor */
@@ -27,6 +28,7 @@
   --color-warning: #c57d0c;
   --color-info: #1e5f8f;
   --color-danger: #b83232;
+  --color-danger-rgb: 184, 50, 50;
 
   /* ══════════════════════════════════════════════════════════════
      TYPOGRAPHY — Poppins via next/font
@@ -967,7 +969,7 @@ body {
 .app-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3570,10 +3572,16 @@ button:disabled {
   padding: 0;
   background: rgba(255, 255, 255, 0.12);
   color: var(--topbar-ink);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease, background 140ms ease;
 }
 
 .topbar-profile-trigger:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.topbar-profile-trigger:active {
+  transform: scale(0.94);
 }
 
 .topbar-profile-icon {
@@ -3726,6 +3734,22 @@ button:disabled {
   border: 0;
   padding: 4px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+
+.app-modal-password-toggle:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.app-shell-password-eye {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .app-modal-error {
@@ -3762,6 +3786,10 @@ button:disabled {
 .mobile-tabbar-link:hover {
   color: #ffffff;
   background: transparent;
+}
+
+.mobile-tabbar-link:active {
+  transform: scale(0.92);
 }
 
 .mobile-tabbar-link.is-active {
@@ -15023,9 +15051,10 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #1f5d43 0%, #1a5c40 30%, #17493a 65%, #0d2e22 100%);
+  background: linear-gradient(160deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
   overflow: hidden;
   animation: splash-bg-in 500ms ease-out;
+  will-change: transform, opacity, filter;
 }
 
 .splash-screen.is-exiting {
@@ -15090,7 +15119,7 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: clamp(0.8rem, 3vw, 1.4rem);
-  animation: splash-center-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
+  animation: splash-center-in 900ms var(--ease-out) 150ms backwards;
 }
 
 @keyframes splash-center-in {
@@ -15106,7 +15135,7 @@ button:disabled {
   height: clamp(130px, 48vw, 260px);
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(47, 107, 74, 0.55) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--brand-green-rgb), 0.55) 0%, transparent 70%);
   animation: splash-glow-pulse 2.2s ease-in-out infinite;
   pointer-events: none;
 }
@@ -15136,7 +15165,7 @@ button:disabled {
   color: rgba(255, 255, 255, 0.65);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  animation: splash-title-in 600ms ease-out 650ms both;
+  animation: splash-title-in 600ms var(--ease-out) 650ms backwards;
 }
 
 @keyframes splash-title-in {
@@ -15156,7 +15185,7 @@ button:disabled {
   align-items: center;
   gap: clamp(0.5rem, 1.5vw, 0.8rem);
   width: clamp(160px, 55vw, 280px);
-  animation: splash-footer-in 500ms ease-out 1s both;
+  animation: splash-footer-in 500ms var(--ease-out) 1s backwards;
 }
 
 @keyframes splash-footer-in {
@@ -15210,6 +15239,17 @@ button:disabled {
    Page Transition — Fade + Scale cross-fade between routes
    ================================================================ */
 
+.page-transition-root {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+
+.page-transition-content {
+  position: relative;
+  width: 100%;
+}
+
 .page-transition-exit {
   position: fixed;
   inset: 0;
@@ -15227,23 +15267,23 @@ button:disabled {
 }
 
 .page-transition-exit--forward {
-  animation: pt-exit-forward 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: pt-exit-forward 300ms var(--ease-out) forwards;
 }
 
 .page-transition-exit--back {
-  animation: pt-exit-back 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: pt-exit-back 300ms var(--ease-out) forwards;
 }
 
 .page-transition-enter.page-transition-enter--forward {
   will-change: transform, opacity;
   pointer-events: none;
-  animation: pt-enter-forward 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: pt-enter-forward 300ms var(--ease-out) backwards;
 }
 
 .page-transition-enter.page-transition-enter--back {
   will-change: transform, opacity;
   pointer-events: none;
-  animation: pt-enter-back 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: pt-enter-back 300ms var(--ease-out) backwards;
 }
 
 @keyframes pt-exit-forward {
@@ -15271,14 +15311,21 @@ button:disabled {
 .profile-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--z-modal-backdrop);
   background: rgba(0, 0, 0, 0);
-  transition: background 0.45s ease;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition:
+    background 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    backdrop-filter 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    -webkit-backdrop-filter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
 }
 
 .profile-sheet-backdrop.is-open {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px) saturate(1.02);
+  -webkit-backdrop-filter: blur(16px) saturate(1.02);
   pointer-events: auto;
 }
 
@@ -15287,8 +15334,8 @@ button:disabled {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 201;
-  background: #fdf9ec;
+  z-index: var(--z-modal);
+  background: var(--brand-cream-soft);
   border-radius: clamp(18px, 5vw, 24px) clamp(18px, 5vw, 24px) 0 0;
   padding: 0 clamp(1.2rem, 5vw, 1.6rem) calc(env(safe-area-inset-bottom) + 1.5rem);
   transform: translateY(100%);
@@ -15303,6 +15350,10 @@ button:disabled {
   transform: translateY(0);
 }
 
+.profile-sheet.is-dragging {
+  transition: none;
+}
+
 .profile-sheet-handle {
   display: flex;
   justify-content: center;
@@ -15314,7 +15365,7 @@ button:disabled {
   width: clamp(2rem, 10vw, 2.8rem);
   height: 4px;
   border-radius: 2px;
-  background: #c5bfa8;
+  background: var(--color-line);
 }
 
 .profile-sheet-user {
@@ -15331,14 +15382,14 @@ button:disabled {
   min-width: clamp(2.8rem, 11vw, 3.4rem);
   height: clamp(2.8rem, 11vw, 3.4rem);
   border-radius: 999px;
-  background: #2a6b45;
+  background: var(--brand-green);
 }
 
 .profile-sheet-avatar svg {
   width: 60%;
   height: 60%;
   fill: none;
-  stroke: #ffffff;
+  stroke: var(--brand-cream-soft);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -15354,7 +15405,7 @@ button:disabled {
   margin: 0;
   font-size: clamp(1.05rem, 4.2vw, 1.25rem);
   font-weight: 700;
-  color: #1a3a28;
+  color: var(--color-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -15363,7 +15414,7 @@ button:disabled {
 .profile-sheet-user-meta {
   margin: 0;
   font-size: clamp(0.78rem, 3vw, 0.9rem);
-  color: #6b8a74;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -15371,7 +15422,7 @@ button:disabled {
 
 .profile-sheet-divider {
   height: 1px;
-  background: #d9d3be;
+  background: var(--color-line);
   margin: clamp(0.3rem, 1vw, 0.5rem) 0;
 }
 
@@ -15389,14 +15440,19 @@ button:disabled {
   border-radius: clamp(10px, 3vw, 14px);
   font-size: clamp(0.92rem, 3.6vw, 1.05rem);
   font-weight: 600;
-  color: #1a3a28;
+  color: var(--color-ink);
   background: transparent;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
+.profile-sheet-menu-item:hover {
+  background: rgba(var(--brand-green-rgb), 0.04);
+}
+
 .profile-sheet-menu-item:active {
-  background: rgba(42, 107, 69, 0.08);
+  background: rgba(var(--brand-green-rgb), 0.08);
+  transform: scale(0.98);
 }
 
 .profile-sheet-menu-icon {
@@ -15412,7 +15468,7 @@ button:disabled {
   width: 100%;
   height: 100%;
   fill: none;
-  stroke: #2a6b45;
+  stroke: var(--brand-green);
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -15428,19 +15484,24 @@ button:disabled {
   border-radius: clamp(10px, 3vw, 14px);
   font-size: clamp(0.92rem, 3.6vw, 1.05rem);
   font-weight: 600;
-  color: #a63d3d;
+  color: var(--color-danger);
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.profile-sheet-logout:hover {
+  background: rgba(var(--color-danger-rgb), 0.04);
 }
 
 .profile-sheet-logout:active {
-  background: rgba(166, 61, 61, 0.08);
+  background: rgba(var(--color-danger-rgb), 0.08);
+  transform: scale(0.98);
 }
 
 .profile-sheet-logout .profile-sheet-menu-icon svg {
-  stroke: #a63d3d;
+  stroke: var(--color-danger);
 }
 
 /* ── Sales Availability Card ── */
