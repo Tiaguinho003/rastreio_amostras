@@ -6477,6 +6477,7 @@ button:disabled {
 
 .sdv-info-item {
   padding: clamp(8px, 2.2vw, 10px) 0;
+  min-width: 0;
 }
 
 .sdv-info-item.is-full {

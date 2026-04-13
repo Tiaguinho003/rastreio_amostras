@@ -2133,13 +2133,13 @@ export default function SampleDetailPage() {
                     {/* Card 1: Informações */}
                     <div className="sdv-card sdv-info-compact">
                       <div className="sdv-info-grid">
-                        <div className="sdv-info-item">
+                        <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Proprietario</span>
                           <span className="sdv-info-value">
                             {buildReadableValue(detail.sample.declared.owner)}
                           </span>
                         </div>
-                        <div className="sdv-info-item">
+                        <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">Inscricao</span>
                           <span className="sdv-info-value">
                             {buildReadableValue(
