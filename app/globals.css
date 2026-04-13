@@ -18962,6 +18962,63 @@ button:disabled {
     transform: scale(1.05);
     background: rgba(0, 0, 0, 0.04);
   }
+
+  /* ══════════════════════════════════════════
+     FASE 6 — POLISH GLOBAL (hover audit em classes compartilhadas)
+     ══════════════════════════════════════════ */
+
+  /* CTA principal dos modais/CTAs — lift sutil no desktop */
+  .cdm-manage-link {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  }
+
+  .cdm-manage-link:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(27, 94, 32, 0.35);
+    filter: brightness(1.03);
+  }
+
+  /* Acoes de classificacao (save/complete) */
+  .sdv-cls-action-save,
+  .sdv-cls-action-complete {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  }
+
+  .sdv-cls-action-save:hover:not(:disabled),
+  .sdv-cls-action-complete:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+
+  /* Acoes comerciais (loss/sale) */
+  .sdv-com-action-loss,
+  .sdv-com-action-sale {
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+
+  .sdv-com-action-loss:hover:not(:disabled),
+  .sdv-com-action-sale:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+
+  /* CTAs do cliente detail */
+  .client-detail-hero-action {
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .client-detail-hero-action:hover:not(:disabled) {
+    transform: scale(1.05);
+  }
+
+  /* Botoes card-btn do detail */
+  .client-detail-card-btn {
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .client-detail-card-btn:hover:not(:disabled) {
+    background: rgba(var(--brand-green-rgb), 0.06);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
