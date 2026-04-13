@@ -12645,7 +12645,8 @@ button:disabled {
     position: relative;
     z-index: 0;
     isolation: isolate;
-    min-height: 100svh;
+    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--mobile-page-bg);
   }
 
@@ -13029,7 +13030,8 @@ button:disabled {
 
   .app-shell-main {
     position: relative;
-    min-height: 100svh;
+    min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
     background: var(--mobile-page-bg);
     padding:
