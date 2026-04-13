@@ -17431,7 +17431,7 @@ button:disabled {
 
   .dashboard-operations-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
   }
 
@@ -18981,5 +18981,86 @@ button:disabled {
 
   .client-detail-page .sdv-com-movements .sdv-com-mov {
     min-width: 0;
+  }
+
+  /* ══════════════════════════════════════════
+     FASE 3 — DASHBOARD (1200+)
+     ══════════════════════════════════════════ */
+
+  /* T6: dashboard usa token de largura maior */
+  .dashboard-page {
+    max-width: var(--content-max-wide);
+    padding: 2rem var(--desktop-gutter) 2.5rem;
+    gap: 3rem;
+  }
+
+  /* T2: operations + sales side-by-side */
+  .dashboard-sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: 2rem;
+    align-items: start;
+    overflow: visible;
+  }
+
+  .dashboard-sheet-content {
+    grid-column: 2;
+    grid-row: 1 / span 99;
+    position: sticky;
+    top: 6rem;
+    align-self: start;
+  }
+
+  .dashboard-sheet > .dashboard-sheet-section:not(.dashboard-sheet-content) {
+    grid-column: 1;
+  }
+
+  .dashboard-operations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* T5: sales parity de sombra com operation cards */
+  .sales-card {
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      0 8px 22px rgba(0, 0, 0, 0.08),
+      0 18px 40px rgba(0, 0, 0, 0.05);
+  }
+
+  .sales-card-hero {
+    padding: 2rem 2rem 1.6rem;
+  }
+  .sales-card-bar-section {
+    padding: 1.4rem 2rem;
+  }
+  .sales-card-legend {
+    padding: 1rem 2rem 1.6rem;
+  }
+
+  /* T3: latest registrations 3+ cols auto-fill */
+  .dashboard-latest-registration-list {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  /* T4: refino do transition (hover ja existe em 901) */
+  .dashboard-operation-card {
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s ease;
+  }
+
+  /* Entry animations com backwards (nunca both no desktop) */
+  .dashboard-sheet-content .sales-card {
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+  }
+
+  .dashboard-operations-grid > .dashboard-operation-card:nth-child(1) {
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.12s backwards;
+  }
+
+  .dashboard-operations-grid > .dashboard-operation-card:nth-child(2) {
+    animation: dashboard-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
   }
 }
