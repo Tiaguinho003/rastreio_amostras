@@ -332,10 +332,7 @@ export default function SettingsPage() {
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
         {/* Header */}
-        <header
-          className="sdv-header"
-          style={{ alignItems: 'center', paddingBottom: 'clamp(16px, 4vw, 20px)' }}
-        >
+        <header className="sdv-header stg-header">
           <div className="sdv-header-top">
             <Link href="/dashboard" className="nsv2-back" aria-label="Voltar">
               <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -343,104 +340,34 @@ export default function SettingsPage() {
               </svg>
             </Link>
             <span className="sdv-header-title">Meu Perfil</span>
-            <span style={{ width: 'clamp(32px,9vw,36px)' }} />
+            <span className="stg-header-spacer" />
           </div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 'clamp(6px, 1.5vw, 8px)',
-            }}
-          >
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 20,
-                background: 'rgba(255,255,255,0.15)',
-                border: '2px solid rgba(255,255,255,0.2)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <span style={{ fontSize: 26, fontWeight: 700, color: '#fff' }}>{initials}</span>
+          <div className="stg-header-wrap">
+            <div className="stg-header-avatar">
+              <span className="stg-header-avatar-text">{initials}</span>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 'clamp(16px,4.5vw,18px)',
-                  fontWeight: 700,
-                  color: '#fff',
-                }}
-              >
-                {fullName}
-              </p>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 'clamp(11px,3vw,12px)',
-                  color: 'rgba(255,255,255,0.5)',
-                }}
-              >
-                @{session.user.username}
-              </p>
+            <div className="stg-header-text-wrap">
+              <p className="stg-header-user-name">{fullName}</p>
+              <p className="stg-header-user-username">@{session.user.username}</p>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <section
-          className="sdv-content"
-          style={{ gap: 'clamp(10px,3vw,12px)', display: 'flex', flexDirection: 'column' }}
-        >
-          {initialLoadError ? (
-            <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-              {initialLoadError}
-            </p>
-          ) : null}
+        <section className="sdv-content stg-content">
+          {initialLoadError ? <p className="stg-feedback is-error">{initialLoadError}</p> : null}
 
           {/* Card 1: Dados Pessoais */}
-          <div
-            className="sdv-card"
-            style={{ animationDelay: '0s', animation: 'sdv-fadeIn 0.3s ease both' }}
-          >
+          <div className="sdv-card stg-card" style={{ '--i': 0 } as React.CSSProperties}>
             <div className="sdv-card-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px,2.2vw,10px)' }}>
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    background: '#F0FDF4',
-                    border: '1px solid #BBF7D0',
-                    display: 'grid',
-                    placeItems: 'center',
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    style={{
-                      width: 15,
-                      height: 15,
-                      fill: 'none',
-                      stroke: '#27AE60',
-                      strokeWidth: 1.8,
-                      strokeLinecap: 'round',
-                      strokeLinejoin: 'round',
-                    }}
-                  >
+              <div className="stg-card-title-row">
+                <div className="stg-card-icon is-profile">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
-                <span
-                  style={{ fontSize: 'clamp(13px,3.5vw,14px)', fontWeight: 700, color: '#333' }}
-                >
-                  Dados pessoais
-                </span>
+                <span className="stg-card-title">Dados pessoais</span>
               </div>
               <button
                 type="button"
@@ -455,7 +382,7 @@ export default function SettingsPage() {
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                 </svg>
-                <span style={profileEditMode ? { color: '#C0392B' } : undefined}>
+                <span className={`stg-edit-btn-label${profileEditMode ? ' is-cancel' : ''}`}>
                   {profileEditMode ? 'Cancelar' : 'Editar'}
                 </span>
               </button>
@@ -464,77 +391,40 @@ export default function SettingsPage() {
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Nome completo</span>
                 <input
-                  className="sdv-edit-input"
+                  className={`sdv-edit-input stg-input${!profileEditMode ? ' is-readonly' : ''}`}
                   value={profileForm.fullName}
                   readOnly={!profileEditMode}
                   onChange={(e) => setProfileForm((c) => ({ ...c, fullName: e.target.value }))}
-                  style={
-                    !profileEditMode
-                      ? {
-                          background: '#f9f7f3',
-                          border: '1.5px solid transparent',
-                          color: '#999',
-                          pointerEvents: 'none',
-                        }
-                      : undefined
-                  }
                 />
               </label>
               <label className="sdv-edit-field">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div className="stg-username-row">
                   <span className="sdv-edit-label">Usuario</span>
-                  <span style={{ fontSize: 'clamp(8px,2vw,9px)', color: '#ccc', fontWeight: 600 }}>
-                    FIXO
-                  </span>
+                  <span className="stg-badge-fixed">FIXO</span>
                 </div>
                 <input
-                  className="sdv-edit-input"
+                  className="sdv-edit-input stg-input is-readonly"
                   value={profileForm.username}
                   readOnly
-                  style={{
-                    background: '#f9f7f3',
-                    border: '1.5px solid transparent',
-                    color: '#999',
-                    pointerEvents: 'none',
-                  }}
                 />
               </label>
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Telefone</span>
                 <input
-                  className="sdv-edit-input"
+                  className={`sdv-edit-input stg-input${!profileEditMode ? ' is-readonly' : ''}`}
                   value={profileForm.phone}
                   readOnly={!profileEditMode}
                   onChange={(e) => setProfileForm((c) => ({ ...c, phone: e.target.value }))}
                   placeholder="(00) 00000-0000"
-                  style={
-                    !profileEditMode
-                      ? {
-                          background: '#f9f7f3',
-                          border: '1.5px solid transparent',
-                          color: '#999',
-                          pointerEvents: 'none',
-                        }
-                      : undefined
-                  }
                 />
               </label>
-              {profileError ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-                  {profileError}
-                </p>
-              ) : null}
-              {profileMessage ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>
-                  {profileMessage}
-                </p>
-              ) : null}
+              {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}
+              {profileMessage ? <p className="stg-feedback is-success">{profileMessage}</p> : null}
               {profileEditMode ? (
                 <button
                   type="submit"
-                  className="cdm-manage-link"
+                  className={`cdm-manage-link stg-btn-save-profile${profileLoading ? ' is-disabled' : ''}`}
                   disabled={profileLoading}
-                  style={{ marginTop: 'clamp(8px,2vw,10px)', opacity: profileLoading ? 0.65 : 1 }}
                 >
                   {profileLoading ? 'Salvando...' : 'Salvar alteracoes'}
                 </button>
@@ -543,91 +433,28 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 2: Email */}
-          <div
-            className="sdv-card"
-            style={{ animationDelay: '0.05s', animation: 'sdv-fadeIn 0.3s ease both' }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'clamp(8px,2.2vw,10px)',
-                marginBottom: 'clamp(10px,3vw,12px)',
-              }}
-            >
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  background: '#EFF6FF',
-                  border: '1px solid #BFDBFE',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: 15,
-                    height: 15,
-                    fill: 'none',
-                    stroke: '#2980B9',
-                    strokeWidth: 1.8,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+          <div className="sdv-card stg-card" style={{ '--i': 1 } as React.CSSProperties}>
+            <div className="stg-card-title-row">
+              <div className="stg-card-icon is-email">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <rect x="2" y="4" width="20" height="16" rx="2" />
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
               </div>
-              <span style={{ fontSize: 'clamp(13px,3.5vw,14px)', fontWeight: 700, color: '#333' }}>
-                Email
-              </span>
+              <span className="stg-card-title">Email</span>
             </div>
-            <div
-              style={{
-                padding: 'clamp(8px,2.2vw,10px) clamp(10px,2.8vw,12px)',
-                borderRadius: 10,
-                background: '#f9f7f3',
-                marginBottom: 'clamp(8px,2.2vw,10px)',
-              }}
-            >
+            <div className="stg-email-box">
               <span className="sdv-edit-label">Email atual</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{ fontSize: 'clamp(12px,3.2vw,13px)', fontWeight: 600, color: '#666' }}
-                >
-                  {session.user.email}
-                </span>
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: 16,
-                    height: 16,
-                    fill: 'none',
-                    stroke: '#27AE60',
-                    strokeWidth: 2,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+              <div className="stg-email-box-value-row">
+                <span className="stg-email-box-value">{session.user.email}</span>
+                <svg className="stg-email-box-check" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m5 12.5 4.3 4.2L19 7" />
                 </svg>
               </div>
             </div>
             {pendingEmailChange ? (
-              <div
-                style={{
-                  padding: 'clamp(8px,2.2vw,10px) clamp(10px,2.8vw,12px)',
-                  borderRadius: 10,
-                  background: '#FFF7ED',
-                  border: '1px solid #FDE68A',
-                  marginBottom: 'clamp(8px,2.2vw,10px)',
-                }}
-              >
-                <span style={{ fontSize: 'clamp(10px,2.8vw,11px)', color: '#B45309' }}>
+              <div className="stg-email-pending">
+                <span className="stg-email-pending-text">
                   Pendente: <strong>{pendingEmailChange.newEmail}</strong>{' '}
                   {pendingExpiresLabel ? `(expira em ${pendingExpiresLabel})` : '(codigo expirado)'}
                 </span>
@@ -647,25 +474,14 @@ export default function SettingsPage() {
               </label>
               <button
                 type="submit"
-                className="sdv-cls-action-save"
+                className="sdv-cls-action-save stg-btn-request-email"
                 disabled={emailLoading}
-                style={{
-                  width: '100%',
-                  marginTop: 'clamp(4px,1vw,6px)',
-                  background: '#EFF6FF',
-                  border: '1.5px solid #BFDBFE',
-                  color: '#2980B9',
-                }}
               >
                 {emailLoading ? 'Enviando...' : 'Solicitar troca de email'}
               </button>
             </form>
             {pendingEmailChange ? (
-              <form
-                className="sdv-edit-fields"
-                onSubmit={handleEmailConfirm}
-                style={{ marginTop: 'clamp(8px,2.2vw,10px)' }}
-              >
+              <form className="sdv-edit-fields" onSubmit={handleEmailConfirm}>
                 <label className="sdv-edit-field">
                   <span className="sdv-edit-label">Codigo de confirmacao</span>
                   <input
@@ -677,12 +493,11 @@ export default function SettingsPage() {
                     placeholder="000000"
                   />
                 </label>
-                <div style={{ display: 'flex', gap: 'clamp(6px,1.8vw,8px)' }}>
+                <div className="stg-email-confirm-row">
                   <button
                     type="submit"
-                    className="cdm-manage-link"
+                    className={`cdm-manage-link${emailLoading || emailCode.length !== 6 ? ' is-disabled' : ''}`}
                     disabled={emailLoading || emailCode.length !== 6}
-                    style={{ flex: 1, opacity: emailLoading || emailCode.length !== 6 ? 0.5 : 1 }}
                   >
                     {emailLoading ? 'Confirmando...' : 'Confirmar'}
                   </button>
@@ -691,165 +506,63 @@ export default function SettingsPage() {
                     className="sdv-cls-action-save"
                     onClick={handleResendEmailCode}
                     disabled={emailLoading}
-                    style={{ flex: 1 }}
                   >
                     Reenviar
                   </button>
                 </div>
               </form>
             ) : null}
-            {emailError ? (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 'clamp(11px,3vw,12px)',
-                  color: '#c45c5c',
-                  marginTop: 4,
-                }}
-              >
-                {emailError}
-              </p>
-            ) : null}
+            {emailError ? <p className="stg-feedback is-error is-top-gap">{emailError}</p> : null}
             {emailMessage ? (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 'clamp(11px,3vw,12px)',
-                  color: '#27AE60',
-                  marginTop: 4,
-                }}
-              >
-                {emailMessage}
-              </p>
+              <p className="stg-feedback is-success is-top-gap">{emailMessage}</p>
             ) : null}
           </div>
 
           {/* Card 3: Senha */}
           <div
-            className="sdv-card"
+            className="sdv-card stg-card"
             ref={passwordSectionRef}
-            style={{ animationDelay: '0.1s', animation: 'sdv-fadeIn 0.3s ease both' }}
+            style={{ '--i': 2 } as React.CSSProperties}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'clamp(8px,2.2vw,10px)',
-                marginBottom: 'clamp(10px,3vw,12px)',
-              }}
-            >
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  background: '#FFF7ED',
-                  border: '1px solid #FDE68A',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  style={{
-                    width: 15,
-                    height: 15,
-                    fill: 'none',
-                    stroke: '#E67E22',
-                    strokeWidth: 1.8,
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round',
-                  }}
-                >
+            <div className="stg-card-title-row">
+              <div className="stg-card-icon is-password">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <rect x="3" y="11" width="18" height="11" rx="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               </div>
-              <span style={{ fontSize: 'clamp(13px,3.5vw,14px)', fontWeight: 700, color: '#333' }}>
-                Senha
-              </span>
+              <span className="stg-card-title">Senha</span>
             </div>
-            <div
-              style={{
-                padding: 'clamp(8px,2.2vw,10px) clamp(10px,2.8vw,12px)',
-                borderRadius: 10,
-                background: '#FFF7ED',
-                border: '1px solid #FDE68A',
-                display: 'flex',
-                gap: 8,
-                alignItems: 'flex-start',
-                marginBottom: 'clamp(10px,3vw,12px)',
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                style={{
-                  width: 15,
-                  height: 15,
-                  flexShrink: 0,
-                  marginTop: 2,
-                  fill: 'none',
-                  stroke: '#E67E22',
-                  strokeWidth: 1.8,
-                  strokeLinecap: 'round',
-                  strokeLinejoin: 'round',
-                }}
-              >
+            <div className="stg-password-warning">
+              <svg className="stg-password-warning-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              <span
-                style={{
-                  fontSize: 'clamp(10px,2.8vw,11px)',
-                  color: '#B45309',
-                  fontWeight: 500,
-                  lineHeight: 1.4,
-                }}
-              >
+              <span className="stg-password-warning-text">
                 A alteracao de senha encerra todas as sessoes ativas e exige novo login.
               </span>
             </div>
             <form className="sdv-edit-fields" onSubmit={handlePasswordSubmit}>
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Nova senha</span>
-                <div style={{ position: 'relative' }}>
+                <div className="stg-password-field-wrap">
                   <input
-                    className="sdv-edit-input"
+                    className="sdv-edit-input stg-password-input"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="new-password"
                     placeholder="Minimo de 8 caracteres"
-                    style={{ paddingRight: 36 }}
                   />
                   <button
                     type="button"
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 0,
-                      padding: 4,
-                      cursor: 'pointer',
-                    }}
+                    className="stg-password-toggle"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      style={{
-                        width: 16,
-                        height: 16,
-                        fill: 'none',
-                        stroke: '#aaa',
-                        strokeWidth: 1.6,
-                        strokeLinecap: 'round',
-                        strokeLinejoin: 'round',
-                      }}
-                    >
+                    <svg className="stg-password-eye" viewBox="0 0 24 24" aria-hidden="true">
                       {showPassword ? (
                         <>
                           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
@@ -868,43 +581,23 @@ export default function SettingsPage() {
               </label>
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Confirmar nova senha</span>
-                <div style={{ position: 'relative' }}>
+                <div className="stg-password-field-wrap">
                   <input
-                    className="sdv-edit-input"
+                    className="sdv-edit-input stg-password-input"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     autoComplete="new-password"
                     placeholder="Repita a nova senha"
-                    style={{ paddingRight: 36 }}
                   />
                   <button
                     type="button"
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 0,
-                      padding: 4,
-                      cursor: 'pointer',
-                    }}
+                    className="stg-password-toggle"
                     onClick={() => setShowConfirmPassword((v) => !v)}
                     tabIndex={-1}
+                    aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      style={{
-                        width: 16,
-                        height: 16,
-                        fill: 'none',
-                        stroke: '#aaa',
-                        strokeWidth: 1.6,
-                        strokeLinecap: 'round',
-                        strokeLinejoin: 'round',
-                      }}
-                    >
+                    <svg className="stg-password-eye" viewBox="0 0 24 24" aria-hidden="true">
                       {showConfirmPassword ? (
                         <>
                           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
@@ -921,27 +614,14 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </label>
-              {passwordError ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-                  {passwordError}
-                </p>
-              ) : null}
+              {passwordError ? <p className="stg-feedback is-error">{passwordError}</p> : null}
               {passwordMessage ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>
-                  {passwordMessage}
-                </p>
+                <p className="stg-feedback is-success">{passwordMessage}</p>
               ) : null}
               <button
                 type="submit"
-                className="sdv-cls-action-save"
+                className="sdv-cls-action-save stg-btn-save-password"
                 disabled={passwordLoading || password.length < 8}
-                style={{
-                  width: '100%',
-                  marginTop: 'clamp(4px,1vw,6px)',
-                  background: '#FFF7ED',
-                  border: '1.5px solid #FDE68A',
-                  color: '#E67E22',
-                }}
               >
                 {passwordLoading ? 'Salvando...' : 'Alterar senha'}
               </button>

@@ -18,6 +18,7 @@
      ══════════════════════════════════════════════════════════════ */
   --color-bg: var(--brand-cream);
   --color-surface: var(--brand-cream-soft);
+  --color-surface-muted: #f9f7f3;
   --color-ink: var(--brand-green-ink);
   --color-muted: var(--brand-muted);
   --color-line: var(--brand-cream-line);
@@ -5541,6 +5542,401 @@ button:disabled {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* ================================================================
+   Users page helpers (.usr-*)
+   ================================================================ */
+
+.usr-card-email {
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv2-card-role.is-role-admin,
+.cdm-type-badge.is-role-admin {
+  color: #C62828;
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.cv2-card-role.is-role-classifier,
+.cdm-type-badge.is-role-classifier {
+  color: #2980B9;
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+}
+
+.cv2-card-role.is-role-registration,
+.cdm-type-badge.is-role-registration {
+  color: #E67E22;
+  background: #FFF7ED;
+  border-color: #FDE68A;
+}
+
+.cv2-card-role.is-role-commercial,
+.cdm-type-badge.is-role-commercial {
+  color: #27AE60;
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.cv2-card-role.is-locked,
+.cdm-header-status.is-locked {
+  color: #C62828;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+}
+
+.usr-feedback {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+}
+
+.usr-feedback.is-error {
+  color: var(--color-danger);
+}
+
+.usr-feedback.is-success {
+  color: #27AE60;
+}
+
+.usr-action-grid {
+  display: flex;
+  gap: clamp(6px, 1.8vw, 8px);
+  flex-wrap: wrap;
+}
+
+.usr-action-grid > button {
+  flex: 1;
+  padding: clamp(8px, 2.2vw, 10px);
+  font-size: clamp(11px, 3vw, 12px);
+}
+
+.cdm-manage-link.is-saving {
+  opacity: 0.65;
+}
+
+.cdm-header-name.is-fill {
+  flex: 1;
+}
+
+/* ================================================================
+   Settings page (.stg-*)
+   ================================================================ */
+
+.sdv-header.stg-header {
+  align-items: center;
+  padding-bottom: clamp(16px, 4vw, 20px);
+}
+
+.stg-header-spacer {
+  width: clamp(32px, 9vw, 36px);
+}
+
+.stg-header-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 8px);
+}
+
+.stg-header-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: grid;
+  place-items: center;
+}
+
+.stg-header-avatar-text {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.stg-header-text-wrap {
+  text-align: center;
+}
+
+.stg-header-user-name {
+  margin: 0;
+  font-size: clamp(16px, 4.5vw, 18px);
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stg-header-user-username {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.stg-content {
+  gap: clamp(10px, 3vw, 12px);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes stg-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stg-card {
+  animation: stg-card-in 0.3s ease backwards;
+  animation-delay: calc(var(--i, 0) * 0.05s);
+}
+
+.stg-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.2vw, 10px);
+  margin-bottom: clamp(10px, 3vw, 12px);
+}
+
+.stg-card-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.stg-card-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stg-card-icon.is-profile {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+}
+.stg-card-icon.is-profile svg {
+  stroke: #27AE60;
+}
+
+.stg-card-icon.is-email {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+}
+.stg-card-icon.is-email svg {
+  stroke: #2980B9;
+}
+
+.stg-card-icon.is-password {
+  background: #FFF7ED;
+  border: 1px solid #FDE68A;
+}
+.stg-card-icon.is-password svg {
+  stroke: #E67E22;
+}
+
+.stg-card-title {
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.stg-edit-btn-label.is-cancel {
+  color: #C0392B;
+}
+
+.stg-input.is-readonly {
+  background: var(--color-surface-muted);
+  border: 1.5px solid transparent;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.stg-username-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stg-badge-fixed {
+  font-size: clamp(8px, 2vw, 9px);
+  color: var(--color-line);
+  font-weight: 600;
+}
+
+.stg-email-box {
+  padding: clamp(8px, 2.2vw, 10px) clamp(10px, 2.8vw, 12px);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+  margin-bottom: clamp(8px, 2.2vw, 10px);
+}
+
+.stg-email-box-value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stg-email-box-value {
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 600;
+  color: #666;
+}
+
+.stg-email-box-check {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #27AE60;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stg-email-pending {
+  padding: clamp(8px, 2.2vw, 10px) clamp(10px, 2.8vw, 12px);
+  border-radius: 10px;
+  background: #FFF7ED;
+  border: 1px solid #FDE68A;
+  margin-bottom: clamp(8px, 2.2vw, 10px);
+}
+
+.stg-email-pending-text {
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: #B45309;
+}
+
+.stg-btn-request-email {
+  width: 100%;
+  margin-top: clamp(4px, 1vw, 6px);
+  background: #EFF6FF;
+  border: 1.5px solid #BFDBFE;
+  color: #2980B9;
+}
+
+.stg-email-confirm-row {
+  display: flex;
+  gap: clamp(6px, 1.8vw, 8px);
+  margin-top: clamp(8px, 2.2vw, 10px);
+}
+
+.stg-email-confirm-row > * {
+  flex: 1;
+}
+
+.stg-email-confirm-row .cdm-manage-link.is-disabled {
+  opacity: 0.5;
+}
+
+.stg-password-warning {
+  padding: clamp(8px, 2.2vw, 10px) clamp(10px, 2.8vw, 12px);
+  border-radius: 10px;
+  background: #FFF7ED;
+  border: 1px solid #FDE68A;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: clamp(10px, 3vw, 12px);
+}
+
+.stg-password-warning-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  fill: none;
+  stroke: #E67E22;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stg-password-warning-text {
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: #B45309;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.stg-password-field-wrap {
+  position: relative;
+}
+
+.stg-password-input {
+  padding-right: 36px;
+}
+
+.stg-password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 140ms ease;
+}
+
+.stg-password-toggle:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.stg-password-eye {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stg-feedback {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+}
+
+.stg-feedback.is-error {
+  color: var(--color-danger);
+}
+
+.stg-feedback.is-success {
+  color: #27AE60;
+}
+
+.stg-feedback.is-warning {
+  color: #E67E22;
+}
+
+.stg-feedback.is-top-gap {
+  margin-top: 4px;
+}
+
+.stg-btn-save-profile {
+  margin-top: clamp(8px, 2vw, 10px);
+}
+
+.stg-btn-save-password {
+  width: 100%;
+  margin-top: clamp(4px, 1vw, 6px);
+  background: #FFF7ED;
+  border: 1.5px solid #FDE68A;
+  color: #E67E22;
+}
+
+.cdm-manage-link.is-disabled {
+  opacity: 0.65;
+}
+
 .sdv-page {
   display: flex;
   flex-direction: column;
@@ -6258,7 +6654,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(10px, 3vw, 12px);
-  animation: sdv-fadeIn 0.3s ease both;
+  animation: sdv-fadeIn 0.3s ease backwards;
 }
 
 .sdv-cls-pending {
@@ -6584,7 +6980,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(10px, 3vw, 12px);
-  animation: sdv-fadeIn 0.3s ease both;
+  animation: sdv-fadeIn 0.3s ease backwards;
 }
 
 .sdv-com-status {

@@ -69,18 +69,18 @@ function getUserInitials(name: string): string {
     .toUpperCase();
 }
 
-function getRoleBadgeStyle(role: UserRole): { color: string; bg: string; border: string } {
+function getRoleModifierClass(role: UserRole): string {
   switch (role) {
     case 'ADMIN':
-      return { color: '#C62828', bg: '#FEF2F2', border: '#FECACA' };
+      return 'is-role-admin';
     case 'CLASSIFIER':
-      return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE' };
+      return 'is-role-classifier';
     case 'REGISTRATION':
-      return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A' };
+      return 'is-role-registration';
     case 'COMMERCIAL':
-      return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0' };
+      return 'is-role-commercial';
     default:
-      return { color: '#999', bg: '#f5f5f5', border: '#e0e0e0' };
+      return '';
   }
 }
 
@@ -635,16 +635,9 @@ export default function UsersPage() {
           ) : listState.items.length === 0 ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
-                <svg style={{ width: 36 }} viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    fill="none"
-                    stroke="#ddd"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="12" cy="7" r="4" fill="none" stroke="#ddd" strokeWidth="1.6" />
+                <svg className="cv2-empty-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
                 <p className="spv2-empty-text">Nenhum usuario encontrado</p>
                 <p className="spv2-empty-sub">Tente outro termo de busca</p>
@@ -655,56 +648,37 @@ export default function UsersPage() {
               {listState.items.map((user, i) => {
                 const avatarColor = getUserAvatarColor(user.fullName);
                 const initials = getUserInitials(user.fullName);
-                const roleStyle = getRoleBadgeStyle(user.role);
+                const roleModifier = getRoleModifierClass(user.role);
                 return (
                   <button
                     key={user.id}
                     type="button"
                     className="cv2-card"
-                    style={{ animationDelay: `${i * 0.04}s` }}
+                    style={
+                      {
+                        animationDelay: `${i * 0.04}s`,
+                        '--avatar-color': avatarColor,
+                      } as React.CSSProperties
+                    }
                     onClick={(event) => openUserDetail(user.id, event.currentTarget)}
                   >
-                    <span
-                      className="cv2-card-avatar"
-                      style={{
-                        background: `linear-gradient(135deg, ${avatarColor}, ${avatarColor}cc)`,
-                        boxShadow: `0 2px 8px ${avatarColor}4D`,
-                      }}
-                    >
+                    <span className="cv2-card-avatar">
                       <span>{initials}</span>
                     </span>
                     <div className="cv2-card-content">
                       <div className="cv2-card-top">
                         <span className="cv2-card-name">{user.fullName}</span>
-                        <span
-                          className="cv2-card-role"
-                          style={{
-                            color: roleStyle.color,
-                            background: roleStyle.bg,
-                            borderColor: roleStyle.border,
-                          }}
-                        >
+                        <span className={`cv2-card-role ${roleModifier}`}>
                           {getRoleLabel(user.role)}
                         </span>
                       </div>
                       <div className="cv2-card-bottom">
-                        <span style={{ fontSize: 'clamp(10px,2.8vw,11px)', color: '#aaa' }}>
-                          {user.email}
-                        </span>
+                        <span className="usr-card-email">{user.email}</span>
                         {user.status !== 'ACTIVE' ? (
                           <span className="cv2-card-role is-none">Inativo</span>
                         ) : null}
                         {user.isLocked ? (
-                          <span
-                            className="cv2-card-role"
-                            style={{
-                              color: '#C62828',
-                              background: '#FEF2F2',
-                              borderColor: '#FECACA',
-                            }}
-                          >
-                            Bloqueado
-                          </span>
+                          <span className="cv2-card-role is-locked">Bloqueado</span>
                         ) : null}
                       </div>
                     </div>
@@ -764,7 +738,7 @@ export default function UsersPage() {
         <div className="app-modal-backdrop" onClick={closeModal}>
           <section
             ref={modalTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
@@ -777,9 +751,7 @@ export default function UsersPage() {
                   <div className="cdm-header">
                     <span
                       className="cdm-header-avatar"
-                      style={{
-                        background: `linear-gradient(135deg, ${detailColor}, ${detailColor}cc)`,
-                      }}
+                      style={{ '--avatar-color': detailColor } as React.CSSProperties}
                     >
                       <span>{detailInit}</span>
                     </span>
@@ -793,16 +765,7 @@ export default function UsersPage() {
                           {userStatusLabel(modal.user.status)}
                         </span>
                         {modal.user.isLocked ? (
-                          <span
-                            className="cdm-header-status is-inactive"
-                            style={{
-                              color: '#C62828',
-                              background: '#FEF2F2',
-                              borderColor: '#FECACA',
-                            }}
-                          >
-                            Bloqueado
-                          </span>
+                          <span className="cdm-header-status is-locked">Bloqueado</span>
                         ) : null}
                       </div>
                     </div>
@@ -823,9 +786,7 @@ export default function UsersPage() {
               })()
             ) : (
               <div className="cdm-header">
-                <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                  Usuario
-                </h3>
+                <h3 className="cdm-header-name is-fill">Usuario</h3>
                 <button
                   ref={closeButtonRef}
                   type="button"
@@ -865,17 +826,11 @@ export default function UsersPage() {
                       <div className="cdm-info-row">
                         <div className="cdm-info-item">
                           <span className="cdm-info-label">Perfil</span>
-                          {(() => {
-                            const s = getRoleBadgeStyle(modal.user!.role);
-                            return (
-                              <span
-                                className="cdm-type-badge"
-                                style={{ color: s.color, background: s.bg }}
-                              >
-                                {getRoleLabel(modal.user!.role)}
-                              </span>
-                            );
-                          })()}
+                          <span
+                            className={`cdm-type-badge ${getRoleModifierClass(modal.user!.role)}`}
+                          >
+                            {getRoleLabel(modal.user!.role)}
+                          </span>
                         </div>
                         <div className="cdm-info-item">
                           <span className="cdm-info-label">Criado em</span>
@@ -886,15 +841,9 @@ export default function UsersPage() {
                       </div>
                     </div>
 
-                    {modal.error ? (
-                      <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-                        {modal.error}
-                      </p>
-                    ) : null}
+                    {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
                     {modal.message ? (
-                      <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>
-                        {modal.message}
-                      </p>
+                      <p className="usr-feedback is-success">{modal.message}</p>
                     ) : null}
 
                     <div className="sdv-edit-actions">
@@ -907,12 +856,11 @@ export default function UsersPage() {
                         Editar
                       </button>
                     </div>
-                    <div style={{ display: 'flex', gap: 'clamp(6px,1.8vw,8px)', flexWrap: 'wrap' }}>
+                    <div className="usr-action-grid">
                       {modal.user.status === 'ACTIVE' ? (
                         <button
                           type="button"
                           className="sdv-com-action-loss"
-                          style={{ flex: 1, padding: 'clamp(8px,2.2vw,10px)' }}
                           onClick={handleInactivate}
                           disabled={modal.saving}
                         >
@@ -922,11 +870,6 @@ export default function UsersPage() {
                         <button
                           type="button"
                           className="sdv-cls-action-complete"
-                          style={{
-                            flex: 1,
-                            padding: 'clamp(8px,2.2vw,10px)',
-                            fontSize: 'clamp(11px,3vw,12px)',
-                          }}
                           onClick={handleReactivate}
                           disabled={modal.saving}
                         >
@@ -937,11 +880,6 @@ export default function UsersPage() {
                         <button
                           type="button"
                           className="sdv-cls-action-complete"
-                          style={{
-                            flex: 1,
-                            padding: 'clamp(8px,2.2vw,10px)',
-                            fontSize: 'clamp(11px,3vw,12px)',
-                          }}
                           onClick={handleUnlock}
                           disabled={modal.saving}
                         >
@@ -951,11 +889,6 @@ export default function UsersPage() {
                       <button
                         type="button"
                         className="sdv-cls-action-save"
-                        style={{
-                          flex: 1,
-                          padding: 'clamp(8px,2.2vw,10px)',
-                          fontSize: 'clamp(11px,3vw,12px)',
-                        }}
                         onClick={handlePasswordReset}
                         disabled={modal.saving}
                       >
@@ -1017,17 +950,12 @@ export default function UsersPage() {
                         </select>
                       </label>
                     </div>
-                    {modal.error ? (
-                      <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-                        {modal.error}
-                      </p>
-                    ) : null}
+                    {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
                     <div className="sdv-edit-actions">
                       <button
                         type="submit"
-                        className="cdm-manage-link"
+                        className={`cdm-manage-link${modal.saving ? ' is-saving' : ''}`}
                         disabled={modal.saving}
-                        style={{ opacity: modal.saving ? 0.65 : 1 }}
                       >
                         {modal.saving ? 'Salvando...' : 'Salvar'}
                       </button>
@@ -1045,15 +973,13 @@ export default function UsersPage() {
         <div className="app-modal-backdrop" onClick={closeModal}>
           <section
             ref={modalTrapRef}
-            className="cdm-modal"
+            className="app-modal cdm-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header" style={{ gap: '10px' }}>
-              <h3 className="cdm-header-name" style={{ flex: 1 }}>
-                Novo usuario
-              </h3>
+            <div className="cdm-header">
+              <h3 className="cdm-header-name is-fill">Novo usuario</h3>
               <button
                 ref={closeButtonRef}
                 type="button"
@@ -1134,23 +1060,14 @@ export default function UsersPage() {
                 />
               </label>
 
-              {modal.error ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#c45c5c' }}>
-                  {modal.error}
-                </p>
-              ) : null}
-              {modal.message ? (
-                <p style={{ margin: 0, fontSize: 'clamp(11px,3vw,12px)', color: '#27AE60' }}>
-                  {modal.message}
-                </p>
-              ) : null}
+              {modal.error ? <p className="usr-feedback is-error">{modal.error}</p> : null}
+              {modal.message ? <p className="usr-feedback is-success">{modal.message}</p> : null}
 
               <div className="sdv-edit-actions">
                 <button
                   type="submit"
-                  className="cdm-manage-link"
+                  className={`cdm-manage-link${modal.saving ? ' is-saving' : ''}`}
                   disabled={modal.saving}
-                  style={{ opacity: modal.saving ? 0.65 : 1 }}
                 >
                   {modal.saving ? 'Criando...' : 'Criar usuario'}
                 </button>
