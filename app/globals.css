@@ -18855,6 +18855,30 @@ button:disabled {
     width: 24%;
     background: var(--brand-green-soft);
   }
+
+  /* ══════════════════════════════════════════
+     FASE 4 — FORMS DESKTOP (settings hover)
+     ══════════════════════════════════════════ */
+
+  /* 4.2.4: stg-card lift suave no hover */
+  .stg-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .stg-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  }
+
+  /* 4.2.5: edit btn hover escopado em settings */
+  .stg-card .sdv-edit-btn {
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .stg-card .sdv-edit-btn:hover {
+    transform: scale(1.05);
+    background: rgba(0, 0, 0, 0.04);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -18981,6 +19005,78 @@ button:disabled {
 
   .client-detail-page .sdv-com-movements .sdv-com-mov {
     min-width: 0;
+  }
+
+  /* ══════════════════════════════════════════
+     FASE 4 — FORMS DESKTOP WIDE (new sample + settings)
+     ══════════════════════════════════════════ */
+
+  /* 4.1.1: new sample form card mais largo no wide */
+  .nsv2-body-form {
+    max-width: min(1080px, calc(100vw - 6rem), 1320px);
+  }
+
+  /* 4.1.2: grid permanece 2-col (4 grid-half nao balanceiam em 3-col) */
+  .nsv2-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 2rem;
+  }
+
+  .nsv2-form-scroll {
+    padding: 3rem 3.5rem;
+  }
+
+  /* 4.1.3-bis: padding mais generoso nos campos no wide */
+  .nsv2-field-input,
+  .nsv2-field-select,
+  .nsv2-page .client-lookup-field input {
+    padding: 1.2rem 1.4rem;
+  }
+
+  /* 4.2.1: settings content vira grid 2-col (3a card full-width) */
+  .stg-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .stg-content > .stg-card:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  /* 4.2.2: profile edit form 2-col, escopado em settings */
+  .stg-card .sdv-edit-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 1rem;
+  }
+
+  .stg-card .sdv-edit-fields > .sdv-edit-actions,
+  .stg-card .sdv-edit-fields > .stg-feedback,
+  .stg-card .sdv-edit-fields > .stg-email-box,
+  .stg-card .sdv-edit-fields > .stg-email-pending,
+  .stg-card .sdv-edit-fields > .stg-email-confirm-row,
+  .stg-card .sdv-edit-fields > .stg-password-warning,
+  .stg-card .sdv-edit-fields > button {
+    grid-column: 1 / -1;
+  }
+
+  /* 4.2.3: card icon maior no wide */
+  .stg-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .stg-card-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* settings shell respira mais no wide */
+  .sdv-page:has(.stg-content) {
+    max-width: min(1320px, calc(100vw - 4rem));
   }
 
   /* ══════════════════════════════════════════
