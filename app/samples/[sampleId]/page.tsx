@@ -2013,7 +2013,7 @@ export default function SampleDetailPage() {
             <div className="sdv-actions-bar">
               <button
                 type="button"
-                className={`sdv-action-card${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                className={`sdv-action-card is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
                 onClick={(event) => {
                   setPrintHighlighted(false);
                   openLabelReviewModal(event.currentTarget);
@@ -2032,7 +2032,7 @@ export default function SampleDetailPage() {
               </button>
               <button
                 type="button"
-                className="sdv-action-card"
+                className="sdv-action-card is-report"
                 onClick={handleOpenExportTypeSelector}
                 disabled={!canQuickReport || Boolean(exportingPdfType)}
               >
@@ -2048,7 +2048,7 @@ export default function SampleDetailPage() {
               </button>
               <button
                 type="button"
-                className="sdv-action-card"
+                className="sdv-action-card is-send"
                 onClick={() => {
                   setPhysicalSendClient(null);
                   setPhysicalSendDate(getTodayDateInput());

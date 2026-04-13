@@ -159,7 +159,8 @@ textarea {
 
 html,
 body {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {
@@ -169,6 +170,7 @@ body {
   background: var(--mobile-page-bg-base);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
 }
 
 .mobile-edge-shell {
@@ -178,6 +180,10 @@ body {
 
 .app-shell-root {
   position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-edge-shell-auth {
@@ -1736,7 +1742,7 @@ button:disabled {
   gap: 0;
   flex: 1 1 auto;
   min-height: 0;
-  padding-top: 0.38rem;
+  padding-top: clamp(0.8rem, 3vw, 1.2rem);
   border-radius: 0;
   border-top: 0;
   box-shadow:
@@ -1971,8 +1977,14 @@ button:disabled {
 }
 
 .sample-detail-main-facts.sample-detail-main-facts-columns {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem 0.32rem;
+}
+
+.sample-detail-main-facts.sample-detail-main-facts-columns > .sample-detail-main-fact {
+  flex: 1 1 calc(50% - 0.16rem);
+  min-width: min(100%, 10rem);
 }
 
 .sample-detail-main-facts-general {
@@ -3669,6 +3681,8 @@ button:disabled {
 
 .app-shell-main {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .app-shell-main.is-camera-route {
@@ -6147,8 +6161,8 @@ button:disabled {
 .sdv-actions-bar {
   flex-shrink: 0;
   display: flex;
-  gap: clamp(8px, 2.5vw, 10px);
-  padding: clamp(10px, 3vw, 14px) clamp(14px, 4vw, 20px);
+  gap: clamp(6px, 2vw, 8px);
+  padding: clamp(8px, 2.5vw, 10px) clamp(14px, 4vw, 20px);
   background: linear-gradient(180deg, #fdf9ec 0%, #f5f0e8 100%);
   animation: sdv-element-in 0.4s ease-out 0.15s backwards;
 }
@@ -6156,66 +6170,80 @@ button:disabled {
 .sdv-action-card {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: clamp(6px, 2vw, 8px);
-  padding: clamp(12px, 3.5vw, 14px) clamp(6px, 2vw, 8px);
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: clamp(12px, 3.5vw, 14px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
+  justify-content: center;
+  gap: clamp(5px, 1.8vw, 7px);
+  padding: clamp(8px, 2.5vw, 10px) clamp(6px, 2vw, 8px);
+  color: #ffffff;
+  border: 0;
+  border-radius: clamp(10px, 3vw, 12px);
+  font-size: clamp(11px, 3vw, 12.5px);
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .sdv-action-card:active:not(:disabled) {
-  transform: scale(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transform: scale(0.94);
+  filter: brightness(0.94);
 }
 
 .sdv-action-card:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: default;
+  filter: saturate(0.6);
+}
+
+.sdv-action-card.is-print {
+  background: linear-gradient(135deg, var(--brand-green-soft), var(--brand-green));
+  box-shadow: 0 2px 6px rgba(27, 94, 32, 0.28), 0 6px 14px rgba(27, 94, 32, 0.14);
+}
+
+.sdv-action-card.is-report {
+  background: linear-gradient(135deg, #3a8fd0, var(--color-info, #1e5f8f));
+  box-shadow: 0 2px 6px rgba(30, 95, 143, 0.28), 0 6px 14px rgba(30, 95, 143, 0.14);
+}
+
+.sdv-action-card.is-send {
+  background: linear-gradient(135deg, #e39234, var(--color-warning, #c57d0c));
+  box-shadow: 0 2px 6px rgba(197, 125, 12, 0.28), 0 6px 14px rgba(197, 125, 12, 0.14);
 }
 
 .sdv-action-card.is-highlight-pulse {
   animation: sdv-print-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(194, 145, 73, 0.5);
 }
 
 @keyframes sdv-print-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(194, 145, 73, 0.5); }
-  70% { box-shadow: 0 0 0 12px rgba(194, 145, 73, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(194, 145, 73, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(27, 94, 32, 0.55), 0 2px 6px rgba(27, 94, 32, 0.28), 0 6px 14px rgba(27, 94, 32, 0.14); }
+  70% { box-shadow: 0 0 0 10px rgba(27, 94, 32, 0), 0 2px 6px rgba(27, 94, 32, 0.28), 0 6px 14px rgba(27, 94, 32, 0.14); }
+  100% { box-shadow: 0 0 0 0 rgba(27, 94, 32, 0), 0 2px 6px rgba(27, 94, 32, 0.28), 0 6px 14px rgba(27, 94, 32, 0.14); }
 }
 
 .sdv-action-card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(36px, 10vw, 42px);
-  height: clamp(36px, 10vw, 42px);
-  border-radius: clamp(10px, 3vw, 12px);
-  background: linear-gradient(135deg, rgba(46, 125, 50, 0.1), rgba(46, 125, 50, 0.04));
-  border: 1px solid rgba(46, 125, 50, 0.12);
+  width: clamp(18px, 5vw, 20px);
+  height: clamp(18px, 5vw, 20px);
+  flex-shrink: 0;
 }
 
 .sdv-action-card-icon svg {
-  width: clamp(18px, 5vw, 20px);
-  height: clamp(18px, 5vw, 20px);
+  width: 100%;
+  height: 100%;
   fill: none;
-  stroke: var(--brand-green-soft);
-  stroke-width: 1.6;
+  stroke: currentColor;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .sdv-action-card-label {
-  font-size: clamp(11px, 3vw, 12px);
+  font-size: clamp(11px, 3vw, 12.5px);
   font-weight: 600;
-  color: #555;
-  text-align: center;
+  color: currentColor;
   line-height: 1.2;
 }
 
@@ -11017,10 +11045,11 @@ button:disabled {
 .client-quick-create-modal {
   position: relative;
   width: min(100%, 29rem);
-  max-height: min(90dvh, 44rem);
+  max-height: min(88dvh, 40rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  gap: 0.82rem;
+  gap: clamp(0.5rem, 2vw, 0.75rem);
+  padding: clamp(0.7rem, 3vw, 1rem);
 }
 
 .client-quick-create-header {
@@ -11047,7 +11076,7 @@ button:disabled {
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0.82rem;
+  gap: clamp(0.5rem, 2vw, 0.72rem);
 }
 
 .client-quick-create-body {
@@ -11055,7 +11084,7 @@ button:disabled {
   overflow-y: auto;
   overflow-x: hidden;
   display: grid;
-  gap: 0.82rem;
+  gap: clamp(0.5rem, 2vw, 0.72rem);
   padding-right: 0.08rem;
 }
 
@@ -11065,20 +11094,20 @@ button:disabled {
 
 .client-quick-create-group {
   display: grid;
-  gap: 0.58rem;
-  padding: 0.74rem;
+  gap: clamp(0.4rem, 1.5vw, 0.52rem);
+  padding: clamp(0.55rem, 2.2vw, 0.7rem);
   border: 1px solid rgba(214, 214, 214, 0.46);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.44);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 10px 18px rgba(18, 24, 20, 0.05);
+    0 8px 14px rgba(18, 24, 20, 0.05);
 }
 
 .client-quick-create-group-title {
-  margin: 0;
+  margin: 0 0 clamp(0.1rem, 0.6vw, 0.2rem);
   color: #536152;
-  font-size: 0.72rem;
+  font-size: clamp(0.66rem, 2.3vw, 0.72rem);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -11087,7 +11116,7 @@ button:disabled {
 .client-quick-create-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.68rem;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
 }
 
 .client-quick-create-grid-compact {
@@ -11099,8 +11128,14 @@ button:disabled {
 }
 
 .client-quick-create-field {
-  gap: 0.32rem;
-  font-size: 0.88rem;
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+  font-size: clamp(0.82rem, 2.8vw, 0.88rem);
+}
+
+.client-quick-create-field input,
+.client-quick-create-field select {
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  font-size: clamp(0.82rem, 2.8vw, 0.9rem);
 }
 
 .client-quick-create-field.is-field-error {
@@ -11137,37 +11172,34 @@ button:disabled {
 .client-quick-create-flags {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.52rem;
+  gap: clamp(0.4rem, 1.5vw, 0.52rem);
 }
 
 .client-quick-create-flag {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.62rem;
-  min-height: 2.9rem;
-  padding: 0.7rem 0.78rem;
-  border: 1px solid rgba(214, 214, 214, 0.42);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.68);
+  display: flex;
   align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(214, 214, 214, 0.42);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
   line-height: 1.28;
   text-align: left;
 }
 
 .client-quick-create-flag input {
   flex: 0 0 auto;
-  width: auto;
-  min-width: 1rem;
+  width: 1rem;
   height: 1rem;
   margin: 0;
   padding: 0;
-  align-self: center;
 }
 
 .client-quick-create-flag-label {
   display: block;
-  min-width: 0;
   white-space: nowrap;
+  font-size: clamp(0.8rem, 2.8vw, 0.88rem);
 }
 
 .client-quick-create-actions {
