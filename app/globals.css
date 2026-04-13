@@ -971,14 +971,15 @@ body {
   inset: 0;
   z-index: var(--z-modal-backdrop);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 1rem;
   background: rgba(245, 245, 241, 0.18);
   backdrop-filter: blur(20px) saturate(1.02);
   -webkit-backdrop-filter: blur(20px) saturate(1.02);
-  overflow: hidden;
-  animation: app-modal-backdrop-in 0.3s ease both;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: app-modal-backdrop-in 0.3s ease backwards;
 }
 
 @keyframes app-modal-backdrop-in {
@@ -997,7 +998,8 @@ body {
 .app-modal {
   width: min(430px, calc(100vw - 1.5rem));
   max-width: calc(100vw - 1.5rem);
-  max-height: min(84vh, 40rem);
+  max-height: min(84dvh, 40rem);
+  margin: auto;
   overflow: auto;
   overflow-x: hidden;
   border: 1px solid rgba(214, 214, 214, 0.55);
@@ -1012,7 +1014,7 @@ body {
   overscroll-behavior: contain;
   -webkit-backdrop-filter: blur(22px) saturate(1.03);
   backdrop-filter: blur(22px) saturate(1.03);
-  animation: app-modal-card-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+  animation: app-modal-card-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s backwards;
 }
 
 @keyframes app-modal-card-in {
@@ -8585,14 +8587,6 @@ button:disabled {
     max-height: 92vh;
   }
 
-  .client-quick-create-grid,
-  .client-quick-create-actions {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .client-quick-create-modal {
-    width: min(100%, 29rem);
-  }
 }
 
 @media (max-width: 1200px) {
@@ -9968,14 +9962,10 @@ button:disabled {
   margin-top: 0.18rem;
 }
 
-.new-sample-label-modal-backdrop {
-  z-index: 110;
-}
-
 .new-sample-label-modal {
-  position: relative;
   gap: 0.8rem;
   padding: 1.1rem;
+  max-height: min(90dvh, 44rem);
 }
 
 .new-sample-label-modal-header {
@@ -10630,9 +10620,10 @@ button:disabled {
 
 .client-quick-create-modal {
   position: relative;
-  width: min(680px, calc(100vw - 1.5rem));
-  max-height: min(90vh, 44rem);
-  overflow: hidden;
+  width: min(100%, 29rem);
+  max-height: min(90dvh, 44rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 0.82rem;
 }
 
@@ -10699,7 +10690,7 @@ button:disabled {
 
 .client-quick-create-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.68rem;
 }
 
@@ -10780,13 +10771,12 @@ button:disabled {
 .client-quick-create-flag-label {
   display: block;
   min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .client-quick-create-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.56rem;
 }
 
@@ -13616,7 +13606,7 @@ button:disabled {
   }
 
   .new-sample-label-modal {
-    max-height: 90vh;
+    max-height: 90dvh;
     padding: clamp(0.65rem, 2.7vw, 0.95rem);
     gap: clamp(0.48rem, 2vw, 0.7rem);
     border-radius: clamp(18px, 6vw, 24px);
@@ -18253,5 +18243,10 @@ button:disabled {
 
   .client-quick-create-modal {
     width: min(600px, calc(100vw - 3rem));
+  }
+
+  .client-quick-create-grid,
+  .client-quick-create-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

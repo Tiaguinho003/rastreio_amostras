@@ -2502,7 +2502,7 @@ export default function SampleDetailPage() {
 
       {detail && labelModalOpen ? (
         <div
-          className="new-sample-label-modal-backdrop"
+          className="app-modal-backdrop new-sample-label-modal-backdrop"
           onClick={() => {
             if (canCloseLabelModal) {
               closeLabelModal();
@@ -2511,7 +2511,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={labelTrapRef}
-            className="new-sample-label-modal"
+            className="app-modal new-sample-label-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-label-modal-title"
