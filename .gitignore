@@ -11,12 +11,9 @@ data/email-outbox
 .env
 .env.development
 .env.development.ops
-.env.cloud-homolog
-.env.cloud-homolog.ops
 .env.cloud-production
 .env.cloud-production.ops
 .env.prod
-.env.homolog
 *.tsbuildinfo
 rootCA.pem
 *:Zone.Identifier
@@ -24,6 +21,9 @@ rootCA.pem
 # Screenshots de desenvolvimento
 /*.png
 /*.jpg
+
+# Playwright MCP snapshots
+.playwright-mcp/
 
 # MCP config (local)
 .mcp.json
