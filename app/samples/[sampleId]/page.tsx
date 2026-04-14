@@ -55,6 +55,7 @@ import {
   type ClassificationSievePayload,
   type ClassificationTechnicalPayload,
   type NumericField,
+  CLASSIFICATION_TYPE_LABEL,
   EMPTY_CLASSIFICATION_FORM,
   SIEVE_FIELDS,
   NUMERIC_FIELDS,
@@ -193,6 +194,7 @@ function buildClassificationFormState(
     imp: toText(mergedData.imp),
     classificador: toText(mergedData.classificador) || fallbackClassifier,
     defeito: toText(mergedData.defeito),
+    certif: toText(mergedData.certif),
     observacoes: toText(mergedData.observacoes),
     safra: toText(mergedData.safra),
     peneiraP19: toText(mergedSieve.p19),
@@ -2840,7 +2842,7 @@ export default function SampleDetailPage() {
                     <h3 className="cld-title">
                       Classificacao
                       {detail.sample.classificationType
-                        ? ` \u2014 ${detail.sample.classificationType === 'LOW_CAFF' ? 'LOW CAFF' : detail.sample.classificationType}`
+                        ? ` \u2014 ${CLASSIFICATION_TYPE_LABEL[detail.sample.classificationType]}`
                         : ''}
                     </h3>
                     <div className="cld-header-actions">
@@ -2907,6 +2909,7 @@ export default function SampleDetailPage() {
                             {renderVal('aspecto', 'Aspecto')}
                             {renderVal('bebida', 'Bebida')}
                             {renderVal('safra', 'Safra')}
+                            {renderVal('certif', 'Certif.')}
                           </div>
                         </div>
 

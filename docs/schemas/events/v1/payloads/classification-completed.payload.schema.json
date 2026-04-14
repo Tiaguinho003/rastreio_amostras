@@ -88,6 +88,9 @@
         "defeito": {
           "type": ["string", "null"]
         },
+        "certif": {
+          "type": ["string", "null"]
+        },
         "observacoes": {
           "type": ["string", "null"]
         }

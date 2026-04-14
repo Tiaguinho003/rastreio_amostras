@@ -4,7 +4,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGO_PATH = path.resolve(__dirname, '../assets/Safras-logo-ori.png');
 
 // --- Unit conversion ---
 const MM = 2.8346;
@@ -23,22 +22,38 @@ const PAGE_H = 297;
 // --- Grid: 2 cols x 3 rows = 6 cards per page ---
 const COLS = 2;
 const ROWS = 3;
-const PAGE_MARGIN_H = 3;
-const PAGE_MARGIN_V = 3;
-const GAP_H = (PAGE_W - 2 * PAGE_MARGIN_H - COLS * CARD_W) / (COLS - 1);
-const GAP_V = (PAGE_H - 2 * PAGE_MARGIN_V - ROWS * CARD_H) / (ROWS - 1);
+// Zero gap entre cartoes: fronteiras sao compartilhadas e as linhas de corte
+// atravessam a folha A4 em linhas retas de borda a borda, permitindo corte em
+// pilha com guillhotina/estilete+regua sem rebarbas assimetricas.
+const GAP_H = 0;
+const GAP_V = 0;
+// Margens centralizam a grade de cartoes na folha A4.
+const PAGE_MARGIN_H = (PAGE_W - COLS * CARD_W) / 2; // 4mm
+const PAGE_MARGIN_V = (PAGE_H - ROWS * CARD_H) / 2; // 5.25mm
 
 // --- Card internal padding (mm) ---
-const PAD = { top: 2, bottom: 1.5, left: 2, right: 2 };
+// Reduzido para acomodar o header de 15mm sem comer espaco de nenhum campo.
+const PAD = { top: 1, bottom: 0.5, left: 2, right: 2 };
 const USABLE_W = CARD_W - PAD.left - PAD.right; // 97mm
 
 // --- Row heights (mm) ---
-const HEADER_H = 13;
+const HEADER_H = 15;
+// O header e dividido em duas faixas verticais:
+// - Tarja superior (TYPE_STRIP_H): bg bege com o nome do tipo centralizado
+// - Zona inferior (HEADER_FIELDS_H): celula LOTE (larga) + celula Certif. (estreita)
+const TYPE_STRIP_H = 3;
+const HEADER_FIELDS_H = HEADER_H - TYPE_STRIP_H; // 12mm
 const ROW_H = 13;
 const SECTION_GAP = 0.6;
 
 // --- Standard column width (4-col grid) ---
 const COL_W = USABLE_W / 4; // 24.25mm
+
+// --- Header field widths (mm) ---
+// LOTE domina (~65%) porque o codigo de lote e o dado mais critico; Certif.
+// guarda siglas curtas (UTZ, RA, FLO, 4C, ORG...), 34mm cabe ate 2 siglas.
+const LOTE_W = 63;
+const CERTIF_W = USABLE_W - LOTE_W; // 34mm
 
 // --- Colors ---
 const DARK = rgb(0.15, 0.15, 0.15);
@@ -48,15 +63,14 @@ const LIGHT_BG = rgb(0.96, 0.95, 0.92);
 
 // --- Font sizes (optimized for AI extraction) ---
 const LABEL_SIZE = 7;
-const LOTE_LABEL_SIZE = 8;
-const TYPE_NAME_SIZE = 9;
+const LOTE_LABEL_SIZE = 8; // usado tambem pelo label "Certif."
+const TYPE_NAME_SIZE = 8; // reduzido de 9 para caber na tarja de 3mm
 const OBS_LABEL_SIZE = 6.5;
 
 // --- Border widths (thicker for AI detection) ---
 const CELL_BORDER_W = 0.5;
 const CARD_BORDER_W = 1.0;
 const LOTE_BORDER_W = 0.6;
-const LOTE_LINE_W = 0.5;
 
 // ============================================================
 // CARD TYPE DEFINITIONS
@@ -116,7 +130,7 @@ const CARD_TYPES = {
   },
 
   LOW_CAFF: {
-    typeName: 'LOW CAFF',
+    typeName: 'CAF\u00c9 BAIXO',
     rows: [
       // Row 1: Common
       {
@@ -248,7 +262,7 @@ function drawCell(page, x, y, w, h, label, fonts, opts = {}) {
   }
 }
 
-function drawCard(page, cardX, cardY, fonts, logoImage, cardType) {
+function drawCard(page, cardX, cardY, fonts, cardType) {
   const bx = cardX;
   const by = cardY;
   const config = CARD_TYPES[cardType];
@@ -263,67 +277,56 @@ function drawCard(page, cardX, cardY, fonts, logoImage, cardType) {
     borderWidth: CARD_BORDER_W,
   });
 
-  let cy = 0; // cumulative Y from top
-
-  // === HEADER (13mm): Logo + Lote + Type Name ===
+  // === HEADER (15mm): Type strip (bg bege) + LOTE + Certif. ===
+  const headerX = bx + PAD.left;
   const headerY = by + CARD_H - PAD.top - HEADER_H;
 
-  // Logo cell
-  const logoW = 28;
-  const logoX = bx + PAD.left;
-  drawCell(page, logoX, headerY, logoW, HEADER_H, null, fonts, { borderW: LOTE_BORDER_W });
-
-  // Logo image
-  const logoPadX = 1.5;
-  const logoPadY = 2;
-  const logoAvailW = logoW - logoPadX * 2;
-  const logoAvailH = HEADER_H - logoPadY * 2;
-  const logoImgW = Math.min(logoAvailW, logoAvailH * 2.96);
-  const logoImgH = logoImgW / 2.96;
-  const logoDrawX = logoX + logoPadX + (logoAvailW - logoImgW) / 2;
-  const logoDrawY = headerY + logoPadY + (logoAvailH - logoImgH) / 2;
-  page.drawImage(logoImage, {
-    x: pt(logoDrawX),
-    y: pt(logoDrawY),
-    width: pt(logoImgW),
-    height: pt(logoImgH),
+  // --- Tarja do tipo (3mm, fundo bege, texto centralizado) ---
+  const stripY = headerY + HEADER_FIELDS_H;
+  drawCell(page, headerX, stripY, USABLE_W, TYPE_STRIP_H, null, fonts, {
+    bg: LIGHT_BG,
+    borderW: LOTE_BORDER_W,
   });
 
-  // Lote field
-  const loteX = logoX + logoW;
-  const loteW = USABLE_W - logoW;
-  drawCell(page, loteX, headerY, loteW, HEADER_H, null, fonts, { borderW: LOTE_BORDER_W });
-
-  // LOTE label
-  page.drawText('LOTE', {
-    x: pt(loteX + 2),
-    y: pt(headerY + HEADER_H - 4.5),
-    size: LOTE_LABEL_SIZE,
-    font: fonts.bold,
-    color: DARK,
-  });
-
-  // LOTE writing line
-  const lineStartX = loteX + 13;
-  const lineEndX = loteX + loteW - 2;
-  const lineY = headerY + 5.5;
-  page.drawLine({
-    start: { x: pt(lineStartX), y: pt(lineY) },
-    end: { x: pt(lineEndX), y: pt(lineY) },
-    thickness: LOTE_LINE_W,
-    color: BORDER_COLOR,
-  });
-
-  // Type name below the writing line
+  const typeTextWidthPt = fonts.bold.widthOfTextAtSize(config.typeName, TYPE_NAME_SIZE);
+  const stripCenterXPt = pt(headerX + USABLE_W / 2);
+  const typeCapHeightPt = TYPE_NAME_SIZE * 0.7; // Helvetica-Bold cap height aproximada
+  const stripCenterYPt = pt(stripY + TYPE_STRIP_H / 2);
   page.drawText(config.typeName, {
-    x: pt(loteX + 2),
-    y: pt(headerY + 1.5),
+    x: stripCenterXPt - typeTextWidthPt / 2,
+    y: stripCenterYPt - typeCapHeightPt / 2,
     size: TYPE_NAME_SIZE,
     font: fonts.bold,
     color: DARK,
   });
 
-  cy = PAD.top + HEADER_H;
+  // --- Celula LOTE (esquerda, 63mm x 12mm) ---
+  const loteX = headerX;
+  drawCell(page, loteX, headerY, LOTE_W, HEADER_FIELDS_H, null, fonts, {
+    borderW: LOTE_BORDER_W,
+  });
+  page.drawText('LOTE', {
+    x: pt(loteX + 1.2),
+    y: pt(headerY + HEADER_FIELDS_H - 3.5),
+    size: LOTE_LABEL_SIZE,
+    font: fonts.bold,
+    color: DARK,
+  });
+
+  // --- Celula Certif. (direita, 34mm x 12mm) ---
+  const certifX = loteX + LOTE_W;
+  drawCell(page, certifX, headerY, CERTIF_W, HEADER_FIELDS_H, null, fonts, {
+    borderW: LOTE_BORDER_W,
+  });
+  page.drawText('Certif.', {
+    x: pt(certifX + 1.2),
+    y: pt(headerY + HEADER_FIELDS_H - 3.5),
+    size: LOTE_LABEL_SIZE,
+    font: fonts.bold,
+    color: DARK,
+  });
+
+  let cy = PAD.top + HEADER_H;
 
   // === DATA ROWS ===
   const gridStartX = bx + PAD.left;
@@ -354,29 +357,31 @@ function drawCard(page, cardX, cardY, fonts, logoImage, cardType) {
 }
 
 function drawCutGuides(page) {
-  const dash = { dashArray: [pt(2), pt(2)] };
-  const color = rgb(0.7, 0.7, 0.7);
+  // Linhas solidas finas cinza-escuro, atravessando a folha inteira de borda a
+  // borda. Desenhadas por ultimo para ficar por cima das bordas dos cartoes,
+  // garantindo uma guia visual continua para alinhar a regua no corte em pilha.
+  const color = rgb(0.15, 0.15, 0.15);
   const thickness = 0.3;
 
-  // Vertical cut line between columns
-  const cutX = PAGE_MARGIN_H + CARD_W + GAP_H / 2;
-  page.drawLine({
-    start: { x: pt(cutX), y: 0 },
-    end: { x: pt(cutX), y: pt(PAGE_H) },
-    thickness,
-    color,
-    ...dash,
-  });
+  // Linhas verticais: borda esquerda externa, entre colunas, borda direita externa
+  for (let col = 0; col <= COLS; col++) {
+    const cutX = PAGE_MARGIN_H + col * CARD_W;
+    page.drawLine({
+      start: { x: pt(cutX), y: 0 },
+      end: { x: pt(cutX), y: pt(PAGE_H) },
+      thickness,
+      color,
+    });
+  }
 
-  // Horizontal cut lines between rows
-  for (let row = 1; row < ROWS; row++) {
-    const cutY = PAGE_MARGIN_V + row * CARD_H + (row - 0.5) * GAP_V;
+  // Linhas horizontais: borda inferior externa, entre linhas, borda superior externa
+  for (let row = 0; row <= ROWS; row++) {
+    const cutY = PAGE_MARGIN_V + row * CARD_H;
     page.drawLine({
       start: { x: 0, y: pt(cutY) },
       end: { x: pt(PAGE_W), y: pt(cutY) },
       thickness,
       color,
-      ...dash,
     });
   }
 }
@@ -385,13 +390,12 @@ function drawCutGuides(page) {
 // MAIN — Generate one PDF per card type
 // ============================================================
 
-async function generatePdf(cardType, fonts, logoImage) {
+async function generatePdf(cardType) {
   const doc = await PDFDocument.create();
   const embeddedFonts = {
     regular: await doc.embedFont(StandardFonts.Helvetica),
     bold: await doc.embedFont(StandardFonts.HelveticaBold),
   };
-  const embeddedLogo = await doc.embedPng(logoImage);
 
   const page = doc.addPage([pt(PAGE_W), pt(PAGE_H)]);
 
@@ -399,7 +403,7 @@ async function generatePdf(cardType, fonts, logoImage) {
     for (let col = 0; col < COLS; col++) {
       const cardX = PAGE_MARGIN_H + col * (CARD_W + GAP_H);
       const cardBottomY = PAGE_H - PAGE_MARGIN_V - (row + 1) * CARD_H - row * GAP_V;
-      drawCard(page, cardX, cardBottomY, embeddedFonts, embeddedLogo, cardType);
+      drawCard(page, cardX, cardBottomY, embeddedFonts, cardType);
     }
   }
 
@@ -409,17 +413,15 @@ async function generatePdf(cardType, fonts, logoImage) {
 }
 
 async function main() {
-  const logoBytes = fs.readFileSync(LOGO_PATH);
-
   const types = ['PREPARADO', 'LOW_CAFF', 'BICA'];
   const fileNames = {
     PREPARADO: 'ficha-preparado.pdf',
-    LOW_CAFF: 'ficha-low-caff.pdf',
+    LOW_CAFF: 'ficha-cafe-baixo.pdf',
     BICA: 'ficha-bica.pdf',
   };
 
   for (const type of types) {
-    const pdfBytes = await generatePdf(type, null, logoBytes);
+    const pdfBytes = await generatePdf(type);
     const outPath = path.resolve(__dirname, '..', fileNames[type]);
     fs.writeFileSync(outPath, pdfBytes);
     console.log(`Generated: ${outPath}`);

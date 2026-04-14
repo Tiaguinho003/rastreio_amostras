@@ -16,6 +16,7 @@ export type ClassificationFormState = {
   gpi: string;
   classificador: string;
   defeito: string;
+  certif: string;
   observacoes: string;
   peneiraP19: string;
   peneiraP18: string;
@@ -64,6 +65,7 @@ export type ClassificationDataPayload = {
   classificador: string | null;
   peneirasPercentuais: Partial<ClassificationSievePayload> | null;
   defeito: string | null;
+  certif: string | null;
   observacoes: string | null;
 };
 
@@ -79,6 +81,12 @@ export type NumericField = {
 
 // --- Constants ---
 
+export const CLASSIFICATION_TYPE_LABEL: Record<ClassificationType, string> = {
+  PREPARADO: 'PREPARADO',
+  LOW_CAFF: 'CAFÉ BAIXO',
+  BICA: 'BICA',
+};
+
 export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   dataClassificacao: '',
   padrao: '',
@@ -93,6 +101,7 @@ export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   gpi: '',
   classificador: '',
   defeito: '',
+  certif: '',
   observacoes: '',
   peneiraP19: '',
   peneiraP18: '',
@@ -191,6 +200,7 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       defeito: 'defeito',
       fundo1_peneira: 'fundo1Peneira',
       fundo1_percentual: 'fundo1Percent',
+      certif: 'certif',
       observacoes: 'observacoes',
     },
   },
@@ -236,6 +246,7 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       fundo1_percentual: 'fundo1Percent',
       fundo2_peneira: 'fundo2Peneira',
       fundo2_percentual: 'fundo2Percent',
+      certif: 'certif',
       observacoes: 'observacoes',
     },
   },
@@ -267,6 +278,7 @@ export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> 
       fundo1_percentual: 'fundo1Percent',
       fundo2_peneira: 'fundo2Peneira',
       fundo2_percentual: 'fundo2Percent',
+      certif: 'certif',
       observacoes: 'observacoes',
     },
   },
@@ -401,6 +413,7 @@ export function buildClassificationDataPayload(
     classificador: form.classificador.trim() || null,
     peneirasPercentuais: hasSieve ? (sieve as Partial<ClassificationSievePayload>) : null,
     defeito: !config || config.hasDefeito ? form.defeito.trim() || null : null,
+    certif: form.certif.trim() || null,
     observacoes: form.observacoes.trim() || null,
   };
 
@@ -457,6 +470,7 @@ const UNIVERSAL_EXTRACTION_MAP: Record<string, keyof ClassificationFormState> = 
   defeito: 'defeito',
   ap: 'ap',
   gpi: 'gpi',
+  certif: 'certif',
   observacoes: 'observacoes',
 };
 

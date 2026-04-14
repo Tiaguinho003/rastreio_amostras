@@ -73,6 +73,7 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'gpi',
   'classificador',
   'defeito',
+  'certif',
   'observacoes',
 ];
 const CLASSIFICATION_SIEVE_FIELDS = [

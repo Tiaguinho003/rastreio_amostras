@@ -9,10 +9,10 @@ const SYSTEM_PROMPT = `Voce e um sistema especializado em extracao de dados manu
 
 CONTEXTO DA IMAGEM:
 A foto mostra uma mesa de classificacao de cafe. Na cena voce encontrara:
-- Uma ficha de classificacao da empresa SAFRAS & negocios. Ela e um cartao retangular branco com o logo "SAFRAS" no canto superior esquerdo, o campo "LOTE" no cabecalho, e o NOME DO TIPO de cafe impresso logo abaixo (ex: "BICA", "PREPARADO", "LOW CAFF"). Esta e a UNICA ficha que voce deve ler.
+- Uma ficha de classificacao retangular branca. O cabecalho dela tem 3 zonas caracteristicas: (1) uma TARJA SUPERIOR fina com fundo bege claro, contendo o NOME DO TIPO de cafe centralizado em letras impressas maiusculas (ex: "BICA", "PREPARADO", "CAF\u00c9 BAIXO"); (2) uma CELULA GRANDE "LOTE" a esquerda (ocupa ~65% da largura) com o codigo do lote escrito a mao em tamanho grande; (3) uma CELULA MENOR "Certif." a direita (~35%) com siglas manuscritas de certificacao. Esta e a UNICA ficha que voce deve ler.
 - Graos de cafe espalhados ao redor da ficha, em um ou mais montes. IGNORE completamente os graos de cafe.
 - A mesa de classificacao e uma superficie cinza escura.
-- Pode haver OUTROS documentos, tabelas de referencia ou fichas de outras empresas visiveis na mesa (como tabelas da Green Coffee Association, Volcafe, ou similares). IGNORE todos os outros papeis — extraia dados SOMENTE da ficha SAFRAS.
+- Pode haver OUTROS documentos, tabelas de referencia ou fichas de outras empresas visiveis na mesa (como tabelas da Green Coffee Association, Volcafe, ou similares). IGNORE todos os outros papeis — extraia dados SOMENTE da ficha com o layout descrito acima.
 
 A ficha SAFRAS pode ocupar desde uma area pequena da foto (15-30%) ate a maior parte da imagem. Em qualquer caso, foque toda sua atencao na ficha e ignore todo o restante da cena.
 
@@ -31,17 +31,17 @@ REGRAS CRITICAS DE EXTRACAO:
 // USER PROMPTS (one per classification type)
 // ============================================================
 
-const BICA_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao SAFRAS & negocios do tipo BICA presente na foto.
+const BICA_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo BICA presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com o logo "SAFRAS & negocios" no canto superior esquerdo e a palavra "BICA" impressa no cabecalho, abaixo do campo LOTE. Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a palavra "BICA" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
 LAYOUT DA FICHA BICA (de cima para baixo):
 
-CABECALHO:
-- Lado esquerdo: logo "SAFRAS & negocios" (impresso, ignore)
-- Lado direito: campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha.
-- Abaixo da linha do lote: texto "BICA" impresso (ignore, e o nome do tipo)
+CABECALHO (3 zonas):
+- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "BICA" impresso centralizado (ignore, e o nome do tipo)
+- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
+- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
 
 Abaixo do cabecalho ha 4 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
@@ -85,7 +85,7 @@ LINHA 5 — Observacoes (campo unico, largura total da ficha, mais alto que os d
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, BICA, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.17 %, MK %, Fundo Pen., %, Observações, SAFRAS, & negocios
+LOTE, Certif., Certif, Certificado, BICA, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.17 %, MK %, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -93,7 +93,8 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande no cabecalho (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
+- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
@@ -118,6 +119,7 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "fundo1_percentual": "numero ou null",
     "fundo2_peneira": "identificador manuscrito ou null",
     "fundo2_percentual": "numero ou null",
+    "certif": "siglas manuscritas do campo Certif. ou null",
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
@@ -125,17 +127,17 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
   }
 }`;
 
-const PREPARADO_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao SAFRAS & negocios do tipo PREPARADO presente na foto.
+const PREPARADO_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo PREPARADO presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com o logo "SAFRAS & negocios" no canto superior esquerdo e a palavra "PREPARADO" impressa no cabecalho, abaixo do campo LOTE. Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a palavra "PREPARADO" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
 LAYOUT DA FICHA PREPARADO (de cima para baixo):
 
-CABECALHO:
-- Lado esquerdo: logo "SAFRAS & negocios" (impresso, ignore)
-- Lado direito: campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha.
-- Abaixo da linha do lote: texto "PREPARADO" impresso (ignore, e o nome do tipo)
+CABECALHO (3 zonas):
+- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "PREPARADO" impresso centralizado (ignore, e o nome do tipo)
+- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
+- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
 
 Abaixo do cabecalho ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
@@ -182,7 +184,7 @@ LINHA 6 — Observacoes (campo unico, largura total da ficha):
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, PREPARADO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.19 %, P.18 %, P.17 %, P.16 %, P.15 %, P.14 %, MK %, Defeito, Fundo Pen., %, Observações, SAFRAS, & negocios
+LOTE, Certif., Certif, Certificado, PREPARADO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.19 %, P.18 %, P.17 %, P.16 %, P.15 %, P.14 %, MK %, Defeito, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -191,7 +193,8 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande no cabecalho (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
+- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
@@ -220,6 +223,7 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "defeito": "numero ou null",
     "fundo1_peneira": "identificador manuscrito ou null",
     "fundo1_percentual": "numero ou null",
+    "certif": "siglas manuscritas do campo Certif. ou null",
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
@@ -227,17 +231,17 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
   }
 }`;
 
-const LOW_CAFF_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao SAFRAS & negocios do tipo LOW CAFF presente na foto.
+const LOW_CAFF_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo CAF\u00c9 BAIXO presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com o logo "SAFRAS & negocios" no canto superior esquerdo e a palavra "LOW CAFF" impressa no cabecalho, abaixo do campo LOTE. Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a expressao "CAF\u00c9 BAIXO" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
-LAYOUT DA FICHA LOW CAFF (de cima para baixo):
+LAYOUT DA FICHA CAF\u00c9 BAIXO (de cima para baixo):
 
-CABECALHO:
-- Lado esquerdo: logo "SAFRAS & negocios" (impresso, ignore)
-- Lado direito: campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha.
-- Abaixo da linha do lote: texto "LOW CAFF" impresso (ignore, e o nome do tipo)
+CABECALHO (3 zonas):
+- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "CAF\u00c9 BAIXO" impresso centralizado (ignore, e o nome do tipo)
+- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
+- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
 
 Abaixo do cabecalho ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
@@ -293,7 +297,7 @@ LINHA 6 — Observacoes (campo unico, largura total da ficha):
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, LOW CAFF, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.15 %, P.14 %, P.13 %, P.12 %, P.11 %, P.10 %, AP %, GPI, Defeito, Fundo Pen., %, Observações, SAFRAS, & negocios
+LOTE, Certif., Certif, Certificado, CAF\u00c9 BAIXO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.15 %, P.14 %, P.13 %, P.12 %, P.11 %, P.10 %, AP %, GPI, Defeito, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -303,7 +307,8 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza, gpi): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande no cabecalho (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
+- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
@@ -336,6 +341,7 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "fundo1_percentual": "numero ou null",
     "fundo2_peneira": "identificador manuscrito ou null",
     "fundo2_percentual": "numero ou null",
+    "certif": "siglas manuscritas do campo Certif. ou null",
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
@@ -434,9 +440,16 @@ const KNOWN_LABELS = new Set([
   // ---- Type names printed on cards ----
   'bica',
   'preparado',
-  'low caff',
+  'caf\u00e9 baixo',
+  'cafe baixo',
 
-  // ---- Form identifiers ----
+  // ---- Header field labels ----
+  'lote',
+  'certif',
+  'certif.',
+  'certificado',
+
+  // ---- Form identifiers (legacy, still rejected defensively) ----
   'classificador',
   'safras',
   '& negocios',
@@ -512,6 +525,7 @@ function normalizeClassificacaoBica(raw) {
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
     fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
     fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
+    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
     observacoes: toStringOrNull(raw.observacoes),
   };
 }
@@ -536,6 +550,7 @@ function normalizeClassificacaoPreparado(raw) {
     defeito: toNumericOrNull(raw.defeito),
     fundo1_peneira: rejectIfLabel(toStringOrNull(raw.fundo1_peneira)),
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
+    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
     observacoes: toStringOrNull(raw.observacoes),
   };
 }
@@ -563,6 +578,7 @@ function normalizeClassificacaoLowCaff(raw) {
     fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
     fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
     fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
+    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
     observacoes: toStringOrNull(raw.observacoes),
   };
 }

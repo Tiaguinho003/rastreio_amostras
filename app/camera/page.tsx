@@ -20,6 +20,7 @@ import { compressImage } from '../../lib/compress-image';
 import {
   type ClassificationFormState,
   EMPTY_CLASSIFICATION_FORM,
+  CLASSIFICATION_TYPE_LABEL,
   mapExtractionToForm,
   validateClassificationForm,
   buildClassificationDataPayload,
@@ -210,6 +211,29 @@ function ClassificationConfirmModal({
           ) : (
             <span className="cam-cf-lot-value">{lotNumber || '\u2014'}</span>
           )}
+        </div>
+
+        <div className="cam-cf-lot-bar cam-cf-certif-bar">
+          <svg
+            className="cam-cf-lot-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="9" r="6" />
+            <path d="M8.5 14.2L7.5 21l4.5-2.5L16.5 21l-1-6.8" />
+          </svg>
+          <input
+            type="text"
+            className="cam-cf-lot-input"
+            value={form.certif}
+            onChange={(e) => onFormChange('certif', e.target.value)}
+            disabled={submitting}
+            placeholder="Certif. (ex: UTZ, RA, BIO)"
+          />
         </div>
 
         <div className="cam-cf-body">
@@ -1031,7 +1055,7 @@ function CameraPageContent() {
                             void handleSendPhoto();
                           }}
                         >
-                          {type === 'LOW_CAFF' ? 'LOW CAFF' : type}
+                          {CLASSIFICATION_TYPE_LABEL[type]}
                         </button>
                       ))}
                     </div>
