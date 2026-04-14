@@ -37,6 +37,11 @@ rootCA.pem
 # Cache local de outras ferramentas
 .codex
 
+# Arquivos de analise temporaria (CSS audit, scripts ad-hoc)
+CSS_ANALYSIS.md
+analyze_css.py
+extract_css.py
+
 # Anotacoes pessoais (nao versionar)
 Opções para pausar.txt
 notes-*.md
