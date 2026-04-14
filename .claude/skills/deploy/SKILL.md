@@ -3,64 +3,82 @@ name: deploy
 description: Use this skill when deploying, troubleshooting deploys, or working with GCP infrastructure (Cloud Run, Cloud Build, Cloud SQL, Secret Manager).
 ---
 
-## Ambientes
+## Ambiente
 
 | Ambiente   | Projeto GCP          | Config gcloud | Cloud Run service |
 | ---------- | -------------------- | ------------- | ----------------- |
-| homolog    | rastreio-amostras    | default       | rastreio-hml-app  |
 | production | safras-amostras-prod | empresa       | rastreio-prod-app |
 
-## Deploy para homolog (automatico)
+Nao ha mais ambiente de homologacao. Validacao pre-producao e feita via deploy canary (revision sem trafego com tag estavel).
+
+## Deploy canary para producao
 
 ```bash
-git push origin main
-# Cloud Build trigger dispara automaticamente
-# Build + push imagem :<SHORT_SHA> + deploy + migrate job
-# ~4-6 minutos
+# 1. Working tree limpo (o script recusa sujo)
+git status
+
+# 2. Build da imagem (tag = git SHA, validado automaticamente)
+scripts/gcp/build-image.sh cloud-production
+
+# 3. Deploy canary (sem trafego, tag=canary)
+scripts/gcp/deploy-cloud.sh cloud-production --canary
+# Output imprime a URL canary: https://canary---rastreio-prod-app-<hash>.a.run.app
+
+# 4. Executar migrate se ha migracao nova
+scripts/gcp/execute-job.sh migrate cloud-production
+
+# 5. Smoke test manual na URL canary
+#    - login, dashboard, fluxo critico da feature
+
+# 6. Promover trafego para nova revisao
+gcloud run services update-traffic rastreio-prod-app \
+  --to-latest --region=southamerica-east1
 ```
 
-## Deploy para producao (manual)
+**Migrate em prod NAO e automatico.** Executar conscientemente via `execute-job.sh`.
+
+## Rollback
+
+**Antes de promover:** nao faca o passo 6. Trafego continua na revisao anterior automaticamente (rollback implicito, custo zero).
+
+**Apos promover (emergencia):**
 
 ```bash
-git status                    # working tree limpo obrigatorio
-CLOUDSDK_ACTIVE_CONFIG_NAME=empresa scripts/gcp/build-image.sh cloud-production
-CLOUDSDK_ACTIVE_CONFIG_NAME=empresa scripts/gcp/deploy-cloud.sh cloud-production
-scripts/gcp/parity-check.sh   # verificar paridade hml <-> prod
-```
-
-**Migrate em prod NAO e automatico.** Executar conscientemente:
-
-```bash
-gcloud --configuration=empresa run jobs execute rastreio-prod-migrate --region=southamerica-east1 --wait
+gcloud run revisions list --service=rastreio-prod-app \
+  --region=southamerica-east1 --limit=5
+# identifique a revisao anterior estavel
+gcloud run services update-traffic rastreio-prod-app \
+  --to-revisions=<REVISION_ANTERIOR>=100 \
+  --region=southamerica-east1
 ```
 
 ## Scripts GCP
 
-- `scripts/gcp/build-image.sh <env>` — build com guard de tree limpo (tag automatica do git SHA)
-- `scripts/gcp/deploy-cloud.sh <env>` — deploy service + jobs
-- `scripts/gcp/deploy-cloud-homolog.sh` — usado pelo Cloud Build automatico
-- `scripts/gcp/parity-check.sh` — compara hml vs prod (exit 0 = paridade)
-- `scripts/gcp/preflight.sh` — valida auth e recursos
-- `scripts/gcp/execute-job.sh` — executa jobs migrate/seed
-- `scripts/gcp/smoke.sh` — smoke test HTTP contra URL do ambiente
+- `scripts/gcp/build-image.sh cloud-production` — build com tag=git SHA e guard de tree limpo
+- `scripts/gcp/deploy-cloud.sh cloud-production [--canary]` — deploy service + jobs
+- `scripts/gcp/execute-job.sh <migrate|seed> cloud-production` — executa jobs
+- `scripts/gcp/preflight.sh cloud-production` — valida auth e recursos
+- `scripts/gcp/smoke.sh cloud-production` — smoke test HTTP
+
+O parametro `cloud-production` e obrigatorio em todos os scripts.
 
 ## Antipadroes (NUNCA fazer)
 
 1. **NUNCA** `gcloud builds submit` sem ter commitado (gera codigo sem rastreabilidade)
-2. **NUNCA** editar `GCLOUD_IMAGE_TAG` nos `.env.*.ops` (tag e dinamica do git SHA)
-3. **NUNCA** `gcloud run services update-traffic --to-revisions=...` sem desfazer depois (trafego fica pinned)
+2. **NUNCA** editar `GCLOUD_IMAGE_TAG` em `.env.cloud-production.ops` (tag e dinamica do git SHA)
+3. **NUNCA** promover trafego pra nova revisao sem smoke test no canary primeiro
+4. **NUNCA** `gcloud run services update-traffic --to-revisions=...` sem desfazer depois (trafego fica pinned)
 
 ## Validacao pos-deploy
 
-- `scripts/gcp/parity-check.sh` — verifica mesma tag em hml e prod
-- Smoke test manual: login + dashboard em hml
+- Smoke test manual: login + dashboard + fluxo critico
 - Headers HTTP: `curl -sI <URL> | grep -iE '(content-security-policy|strict-transport-security)'`
 
 ## Secret Manager
 
-- Secrets de banco, auth, bootstrap admin e OpenAI em Secret Manager
+- Secrets de banco, auth, bootstrap admin, SMTP pass e OpenAI em Secret Manager (projeto `safras-amostras-prod`)
 - Nunca em env files commitados
-- `.env.cloud-{homolog,production}` e `.env.cloud-{homolog,production}.ops` sao locais (gitignored)
+- `.env.cloud-production` e `.env.cloud-production.ops` sao locais (gitignored)
 
 ## Referencia completa
 

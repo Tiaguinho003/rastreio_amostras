@@ -17,4 +17,4 @@ Documentos relacionados: `docs/Operacao-e-Runtime.md`
 
 1. os wrappers devem ser usados apenas dentro do fluxo descrito em `docs/Operacao-e-Runtime.md`;
 2. `development` usa `.env.development`;
-3. `cloud-homolog` e `cloud-production` nao usam esses wrappers; o fluxo canonico fica em `scripts/gcp/` e `docs/Homologacao-Google-Cloud.md`.
+3. `cloud-production` nao usa esses wrappers; o fluxo canonico fica em `scripts/gcp/` e `docs/Deploy-e-Cloud-Build.md`.

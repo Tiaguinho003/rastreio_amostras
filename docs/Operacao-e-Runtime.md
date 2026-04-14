@@ -2,8 +2,8 @@
 
 Status: Ativo  
 Escopo: ambientes oficiais, modelo operacional, envs, compose, scripts e operacao basica  
-Ultima revisao: 2026-04-10  
-Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/Homologacao-Google-Cloud.md`
+Ultima revisao: 2026-04-14  
+Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/Deploy-e-Cloud-Build.md`
 
 ## Modelo operacional oficial
 
@@ -16,8 +16,8 @@ O projeto deve ser entendido em tres camadas:
 Regra consolidada:
 
 1. o sistema e unico e mora no repositorio;
-2. os perfis oficiais sao `development`, `cloud-homolog` e `cloud-production`;
-3. cada perfil cloud possui configuracoes proprias em `.env.cloud-*` e deploy via `scripts/gcp/`.
+2. os perfis oficiais sao `development` e `cloud-production`;
+3. `cloud-production` possui configuracoes proprias em `.env.cloud-production{,.ops}` e deploy via `scripts/gcp/`.
 
 ## Ambientes oficiais
 
@@ -35,37 +35,22 @@ Arquivos canonicos:
 2. `.env.development`
 3. `compose/development.yml`
 
-### `cloud-homolog`
-
-Uso:
-
-1. homologacao remota no Google Cloud;
-2. validacao real de Cloud Run, Cloud SQL e storage montado;
-3. ensaio de deploy por imagem antes da producao.
-
-Arquivos canonicos:
-
-1. `env/examples/cloud-homolog.env.example`
-2. `env/examples/cloud-homolog.ops.env.example`
-3. `.env.cloud-homolog`
-4. `.env.cloud-homolog.ops`
-5. `docs/Homologacao-Google-Cloud.md`
-6. `scripts/gcp/README.md`
-
 ### `cloud-production`
 
 Uso:
 
 1. producao real com dados de clientes;
 2. deploy manual via `scripts/gcp/` (nao automatico por push);
-3. migration job executado manualmente (decisao consciente).
+3. validacao pre-promocao via deploy canary (revision sem trafego com tag);
+4. migration job executado manualmente (decisao consciente).
 
 Arquivos canonicos:
 
-1. `env/examples/cloud-production.ops.env.example`
-2. `.env.cloud-production`
-3. `.env.cloud-production.ops`
-4. `docs/Deploy-e-Cloud-Build.md`
+1. `env/examples/cloud-production.env.example`
+2. `env/examples/cloud-production.ops.env.example`
+3. `.env.cloud-production`
+4. `.env.cloud-production.ops`
+5. `docs/Deploy-e-Cloud-Build.md`
 
 ## Fluxo canonico de development
 
@@ -101,44 +86,47 @@ scripts/runtime/preflight.sh development
 scripts/runtime/smoke.sh development
 ```
 
-## Fluxo canonico de cloud-homolog
+## Fluxo canonico de cloud-production (deploy canary)
 
-1. copiar envs:
+1. copiar envs dos templates se nao tiver:
 
 ```bash
-cp env/examples/cloud-homolog.env.example .env.cloud-homolog
-cp env/examples/cloud-homolog.ops.env.example .env.cloud-homolog.ops
+cp env/examples/cloud-production.env.example .env.cloud-production
+cp env/examples/cloud-production.ops.env.example .env.cloud-production.ops
+# customizar com os valores reais do projeto
 ```
 
 2. validar contexto:
 
 ```bash
-scripts/gcp/preflight.sh
+scripts/gcp/preflight.sh cloud-production
 ```
 
 3. publicar imagem:
 
 ```bash
-scripts/gcp/build-image.sh
+scripts/gcp/build-image.sh cloud-production
 ```
 
-4. implantar servico e jobs:
+4. implantar canary (sem trafego):
 
 ```bash
-scripts/gcp/deploy-cloud-homolog.sh
+scripts/gcp/deploy-cloud.sh cloud-production --canary
 ```
 
-5. executar migrations e seed:
+5. executar migrations se houve mudanca de schema:
 
 ```bash
-scripts/gcp/execute-job.sh migrate
-scripts/gcp/execute-job.sh seed
+scripts/gcp/execute-job.sh migrate cloud-production
 ```
 
-6. validar aplicacao:
+6. smoke test manual na URL canary impressa pelo deploy
+
+7. promover trafego:
 
 ```bash
-scripts/gcp/smoke.sh
+gcloud run services update-traffic rastreio-prod-app \
+  --to-latest --region=southamerica-east1
 ```
 
 ## Scripts canonicos
@@ -153,24 +141,20 @@ scripts/gcp/smoke.sh
    Valida comandos, envs e consistencia minima.
 5. `scripts/runtime/smoke.sh`
    Executa smoke test operacional contra `development`.
-6. `scripts/gcp/preflight.sh`
-   Valida envs, auth e recursos basicos da homologacao Google Cloud.
-7. `scripts/gcp/build-image.sh`
+6. `scripts/gcp/preflight.sh cloud-production`
+   Valida envs, auth e recursos basicos de producao Google Cloud.
+7. `scripts/gcp/build-image.sh cloud-production`
    Publica a imagem no Artifact Registry via Cloud Build.
-8. `scripts/gcp/deploy-cloud-homolog.sh`
+8. `scripts/gcp/deploy-cloud.sh cloud-production [--canary]`
    Implanta o servico Cloud Run e os jobs de migration/seed.
-9. `scripts/gcp/execute-job.sh`
+9. `scripts/gcp/execute-job.sh <migrate|seed> cloud-production`
    Executa os jobs `migrate` e `seed`.
-10. `scripts/gcp/smoke.sh`
-    Executa smoke test HTTP contra a URL de homologacao.
+10. `scripts/gcp/smoke.sh cloud-production`
+    Executa smoke test HTTP contra a URL de producao.
 11. `scripts/lib/smoke-test.sh`
     Implementacao compartilhada do smoke test HTTP (chamada por `scripts/runtime/smoke.sh` e `scripts/gcp/smoke.sh`).
 12. `scripts/db/verify-phases-1-4.sh`
     Sanity check de schema do banco (tabelas, colunas, migrations e enums).
-13. `scripts/gcp/deploy-cloud.sh`
-    Deploy generico de producao (Cloud Run service + jobs).
-14. `scripts/gcp/parity-check.sh`
-    Compara configuracao de hml vs prod (imagem, envs, secrets).
 
 ## Variaveis importantes
 
@@ -211,25 +195,28 @@ scripts/gcp/smoke.sh
 
 1. `UPLOADS_DIR`
 
-### Ops env de `cloud-homolog`
+### Ops env de `cloud-production`
 
 1. `GCLOUD_PROJECT_ID`
 2. `GCLOUD_REGION`
 3. `GCLOUD_ARTIFACT_REGISTRY_REPOSITORY`
 4. `GCLOUD_IMAGE_NAME`
-5. `GCLOUD_IMAGE_TAG`
-6. `GCLOUD_CLOUD_RUN_SERVICE`
-7. `GCLOUD_CLOUD_RUN_MIGRATE_JOB`
-8. `GCLOUD_CLOUD_RUN_SEED_JOB`
-9. `GCLOUD_SERVICE_ACCOUNT`
-10. `GCLOUD_CLOUD_SQL_INSTANCE_CONNECTION_NAME`
-11. `GCLOUD_STORAGE_BUCKET`
-12. `GCLOUD_SECRET_DATABASE_URL`
-13. `GCLOUD_SECRET_AUTH_SECRET`
-14. `GCLOUD_SECRET_BOOTSTRAP_ADMIN_*`
-15. `SMOKE_USERNAME`
-16. `SMOKE_PASSWORD`
-17. `API_BASE_URL`
+5. `GCLOUD_CLOUD_RUN_SERVICE`
+6. `GCLOUD_CLOUD_RUN_MIGRATE_JOB`
+7. `GCLOUD_CLOUD_RUN_SEED_JOB`
+8. `GCLOUD_SERVICE_ACCOUNT`
+9. `GCLOUD_CLOUD_SQL_INSTANCE_CONNECTION_NAME`
+10. `GCLOUD_STORAGE_BUCKET`
+11. `GCLOUD_SECRET_DATABASE_URL`
+12. `GCLOUD_SECRET_AUTH_SECRET`
+13. `GCLOUD_SECRET_BOOTSTRAP_ADMIN_*`
+14. `GCLOUD_SECRET_SMTP_PASS`
+15. `GCLOUD_SECRET_OPENAI_API_KEY`
+16. `SMOKE_USERNAME`
+17. `SMOKE_PASSWORD`
+18. `API_BASE_URL`
+
+> `GCLOUD_IMAGE_TAG` NAO deve ser setado no env file — e derivado dinamicamente do `git rev-parse --short HEAD`.
 
 ## Politicas operacionais
 
@@ -244,19 +231,18 @@ scripts/gcp/smoke.sh
 3. `true`
    forca `Secure` em qualquer request.
 
-Em `cloud-homolog`, o valor canonico e `auto`.
+Em `cloud-production`, o valor canonico e `auto`.
 
 ### Email
 
 1. `development` usa `outbox` por padrao.
-2. `cloud-homolog` usa `outbox` por padrao.
-3. `cloud-production` usa `smtp` por padrao.
+2. `cloud-production` usa `smtp` por padrao.
 
 ### Uploads
 
 1. o runtime oficial usa `MAX_UPLOAD_SIZE_BYTES=8388608` por padrao;
 2. cada imagem acima de `8 MiB` deve ser rejeitada com erro `413`;
-3. em `cloud-homolog`, `UPLOADS_DIR` e `EMAIL_OUTBOX_DIR` devem apontar para o bucket montado em `/mnt/runtime`.
+3. em `cloud-production`, `UPLOADS_DIR` aponta para o bucket GCS montado em `/mnt/runtime`.
 
 ### Bootstrap de usuarios
 
@@ -275,9 +261,9 @@ Regras:
 
 1. `preflight` valida envs e o contexto operacional do ambiente, incluindo `docker compose config` quando aplicavel;
 2. `smoke` depende do ops env do ambiente;
-3. `cloud-homolog` e `cloud-production` devem validar `database`, `uploads` e `emailOutbox` no readiness.
+3. `cloud-production` deve validar `database`, `uploads` e `emailOutbox` no readiness.
 
 ## Backup e restore
 
-1. Em `cloud-homolog` e `cloud-production`, o backup do banco usa os mecanismos gerenciados do `Cloud SQL` (snapshots automaticos + point-in-time recovery), nao ha wrapper local.
+1. Em `cloud-production`, o backup do banco usa os mecanismos gerenciados do `Cloud SQL` (snapshots automaticos + point-in-time recovery), nao ha wrapper local.
 2. `development` nao possui backup automatico — em caso de necessidade, usar `pg_dump` manual.

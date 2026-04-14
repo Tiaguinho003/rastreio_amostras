@@ -43,7 +43,7 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `docs/assets/Safras-logo-branco.png`                       | suporte tecnico     | mantido                                               | asset visual                                                                                    |
 | `docs/assets/Safras-logo-ori.png`                          | suporte tecnico     | mantido                                               | asset visual                                                                                    |
 | `docs/assets/Documento — Rastreio Interno de Amostras.pdf` | historico util      | mantido                                               | arquivo de apoio sem autoridade textual sobre os docs canonicos                                 |
-| `docs/Deploy-e-Cloud-Build.md`                             | canonico            | criado                                                | guia operacional pos-incidente (2026-04-07), concentra fluxo de deploy hml/prod via Cloud Build |
+| `docs/Deploy-e-Cloud-Build.md`                             | canonico            | criado                                                | guia operacional pos-incidente (2026-04-07), concentra fluxo de deploy canary para producao    |
 | `docs/Passe-6A-Relatorio-Testes-Cobertura.md`              | relatorio reorg     | criado                                                | baseline de cobertura e auditoria de testes (Passe 6A, 2026-04-10)                              |
 | `SECURITY.md` (raiz)                                       | canonico            | criado                                                | convencao GitHub para security reports (Passe 7D+8)                                             |
 | `docs/SECURITY.md`                                         | canonico            | criado                                                | politica de seguranca e runbook de resposta a incidente (Passe 7D+8)                            |
@@ -57,14 +57,14 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 | `package.json`         | atualizado | metadata agora descreve o sistema como aplicacao fullstack e nao apenas validacao de contratos                                    |
 | `app/`                 | revisado   | fluxo funcional consolidado em dashboard, camera, amostras, usuarios e configuracoes                                              |
 | `prisma/schema.prisma` | revisado   | regras de dados, eventos, sessoes e auditoria refletidas na documentacao canonica                                                 |
-| `compose/`             | revisado   | `development` confirmado como unico ambiente local oficial; `cloud-homolog` e `cloud-production` operam por Cloud Run sem Compose |
+| `compose/`             | revisado   | `development` confirmado como unico ambiente local oficial; `cloud-production` opera por Cloud Run sem Compose                    |
 | `env/examples/`        | revisado   | exemplos canonicos confirmados por ambiente                                                                                       |
 | `scripts/runtime/`     | revisado   | wrappers oficiais confirmados para compose, migrate, seed, preflight e smoke                                                      |
 
 ## Decisoes consolidadas nesta revisao
 
 1. O sistema deixou de ser descrito como repositorio de contratos. A descricao oficial agora e a de uma aplicacao fullstack operacional.
-2. Os ambientes oficiais sao `development` (local), `cloud-homolog` (Cloud Run de homologacao) e `cloud-production` (Cloud Run de producao). `internal-production` e qualquer aparato on-premise foram descontinuados.
+2. Os ambientes oficiais sao `development` (local) e `cloud-production` (Cloud Run de producao). `internal-production` e qualquer aparato on-premise foram descontinuados.
 3. O registro da amostra e manual. Nao ha foto no fluxo de registro.
 4. A conclusao da classificacao exige foto de classificacao. Sem essa foto a amostra nao pode sair de `CLASSIFICATION_IN_PROGRESS`.
 5. O status comercial e uma dimensao separada e so pode mudar quando a amostra esta `CLASSIFIED`.

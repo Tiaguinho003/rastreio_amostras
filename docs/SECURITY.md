@@ -69,7 +69,7 @@ Configurados em `next.config.mjs`:
 
 ## Gestao de secrets
 
-1. Producao e homologacao: secrets injetados via Google Cloud Secret Manager no Cloud Build (`cloudbuild.homolog.yaml`).
+1. Producao: secrets injetados via Google Cloud Secret Manager (projeto `safras-amostras-prod`).
 2. Desenvolvimento local: env vars em `.env.development` (gitignored, nunca commitadas).
 3. Zero secrets hardcoded em `src/`, `app/`, `lib/`, `components/`, `scripts/`.
 4. Rotacao: sem politica formal. Debito aceito para volume atual.
@@ -118,14 +118,14 @@ Configurados em `next.config.mjs`:
 
 - Audit trail: consultar `UserAuditEvent` (login, criacao, alteracao de role).
 - Event timeline: consultar `SampleEvent` para acoes sobre amostras.
-- Logs Cloud Run: `gcloud run services logs read rastreio-hml-app --region=southamerica-east1`.
+- Logs Cloud Run: `gcloud run services logs read rastreio-prod-app --region=southamerica-east1`.
 
 ### 4. Correcao
 
 - Hotfix no branch `main`.
-- Push aciona deploy automatico em hml.
-- Validar no hml: smoke test + verificacao manual.
-- Deploy manual em prod via `scripts/gcp/build-image.sh` + `scripts/gcp/deploy-cloud.sh`.
+- Deploy canary em prod via `scripts/gcp/build-image.sh cloud-production` + `scripts/gcp/deploy-cloud.sh cloud-production --canary`.
+- Smoke test manual na URL canary (`https://canary---rastreio-prod-app-<hash>.a.run.app`).
+- Promover trafego via `gcloud run services update-traffic rastreio-prod-app --to-latest --region=southamerica-east1`.
 
 ### 5. Comunicacao
 

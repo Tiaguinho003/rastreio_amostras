@@ -3,7 +3,7 @@
 Status: Ativo  
 Escopo: checklist executavel e criterios de aceite para validar as fases 1 a 4 de clientes, proprietario estruturado, movimentacoes comerciais e status automatico  
 Ultima revisao: 2026-03-19  
-Documentos relacionados: `docs/Clientes-e-Movimentacoes-Especificacao.md`, `docs/API-e-Contratos.md`, `docs/Arquitetura-Tecnica.md`, `docs/Homologacao-Google-Cloud.md`
+Documentos relacionados: `docs/Clientes-e-Movimentacoes-Especificacao.md`, `docs/API-e-Contratos.md`, `docs/Arquitetura-Tecnica.md`, `docs/Deploy-e-Cloud-Build.md`
 
 ## Objetivo
 

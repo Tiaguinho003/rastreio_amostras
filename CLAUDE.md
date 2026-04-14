@@ -11,7 +11,7 @@ O projeto possui skills em `.claude/skills/` que o Claude Code carrega automatic
 - `conventions` — padroes de codigo, commits, quality gates, seguranca
 - `prisma` — schema, migrations, seed, drift check, regras do event store
 - `tests` — como rodar, como adicionar, estrutura e padroes de teste
-- `deploy` — ambientes, Cloud Build, deploy hml/prod, troubleshoot
+- `deploy` — ambientes, deploy canary para producao, troubleshoot
 
 ### Frontend e UI
 
@@ -41,8 +41,9 @@ npm run test:contracts         # Testes de contrato
 npm run test:unit              # Testes unitarios
 npm run test:integration:db    # Testes de integracao (requer DB)
 
-# Deploy
-git push origin main           # Deploya hml automaticamente
+# Deploy (manual, canary em producao)
+scripts/gcp/build-image.sh cloud-production
+scripts/gcp/deploy-cloud.sh cloud-production --canary
 ```
 
 ## Regras obrigatorias

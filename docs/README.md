@@ -25,25 +25,21 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Funcao: referencia oficial de rotas, contratos internos, eventos, idempotencia e validacao.
 5. `docs/Documentation-Inventory.md`
    Funcao: registra o destino dos documentos antigos e as decisoes de consolidacao feitas nesta revisao.
-6. `docs/Homologacao-Google-Cloud.md`
-   Funcao: runbook oficial de homologacao no Google Cloud com Cloud Run, Cloud SQL, Cloud Storage e Cloud Run Jobs.
-7. `docs/Deploy-e-Cloud-Build.md`
-   Funcao: guia operacional de deploy para hml e producao (pos-incidente 2026-04-07). Complementa `Homologacao-Google-Cloud.md` que cobre a topologia; este cobre o fluxo dia-a-dia.
-8. `docs/SECURITY-audit.md`
+6. `docs/Deploy-e-Cloud-Build.md`
+   Funcao: guia operacional de deploy canary para producao (Cloud Build + Cloud Run + fluxo de promocao de trafego).
+7. `docs/SECURITY-audit.md`
    Funcao: audit de seguranca — cobre 9 categorias, status por item (OK/GAP/RISCO), debitos documentados. Atualizado ao final do Passe 7B+7C.
-9. `docs/SECURITY.md`
+8. `docs/SECURITY.md`
    Funcao: politica de seguranca, principios, autenticacao, autorizacao e runbook de resposta a incidente.
-10. `docs/SECURITY-threat-model.md`
-    Funcao: threat model completo das 9 categorias com ameacas, mitigacoes, status e risco residual.
+9. `docs/SECURITY-threat-model.md`
+   Funcao: threat model completo das 9 categorias com ameacas, mitigacoes, status e risco residual.
 
 ## Documentos de suporte
 
-1. `docs/Checklist-Homologacao-Cloud-Run.md`
-   Uso: checklist operacional de pre-push, deploy e aceite funcional para `cloud-homolog` no Cloud Run.
-2. `docs/schemas/events/v1/README.md`
+1. `docs/schemas/events/v1/README.md`
    Uso: navegar pelos schemas JSON do contrato de eventos.
-3. `scripts/gcp/README.md`
-   Uso: localizar os wrappers operacionais da homologacao Google Cloud.
+2. `scripts/gcp/README.md`
+   Uso: localizar os wrappers operacionais de deploy para producao.
 4. `docs/Conferencia-Fases-1a4.md`
    Uso: checklist oficial de conferencia das fases 1 a 4 com banco, contratos, backend e regressao.
 5. `docs/Clientes-e-Movimentacoes-Especificacao.md`

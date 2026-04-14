@@ -12,4 +12,4 @@ Documentos relacionados: `docs/Operacao-e-Runtime.md`
 ## Regra
 
 1. estes arquivos so fazem sentido dentro do fluxo descrito em `docs/Operacao-e-Runtime.md`;
-2. `cloud-homolog` e `cloud-production` nao usam Compose; essa trilha opera por `Cloud Run` e `scripts/gcp/`.
+2. `cloud-production` nao usa Compose; essa trilha opera por `Cloud Run` e `scripts/gcp/`.

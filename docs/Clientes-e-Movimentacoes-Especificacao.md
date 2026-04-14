@@ -3,7 +3,7 @@
 Status: Planejado  
 Escopo: especificacao funcional e tecnica base para a implementacao de clientes, proprietario, inscricoes, vendas, perdas, status comercial e auditoria  
 Ultima revisao: 2026-03-19  
-Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`, `docs/Homologacao-Google-Cloud.md`
+Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`, `docs/Deploy-e-Cloud-Build.md`
 
 ## Objetivo
 
@@ -291,7 +291,7 @@ Ele funciona como referencia unica para as proximas etapas de implementacao.
 ## Regras de rollout
 
 1. A mudanca deve ser implantada primeiro em desenvolvimento local.
-2. Depois deve seguir para homologacao no Google Cloud com migracao via Cloud Run Jobs.
+2. Depois deve seguir para producao via fluxo canary com migracao via Cloud Run Jobs.
 3. Nao ha necessidade de importacao inicial de clientes na primeira versao.
 4. Amostras antigas podem permanecer sem vinculo estruturado e ser removidas posteriormente, conforme decisao operacional.
 5. O rollout deve preservar compatibilidade suficiente para nao quebrar laudo, etiqueta, listagem e historico durante a transicao.

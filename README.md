@@ -80,10 +80,9 @@ scripts/runtime/smoke.sh development
 2. [`docs/Produto-e-Fluxos.md`](docs/Produto-e-Fluxos.md): escopo funcional, papeis, estados e regras.
 3. [`docs/Arquitetura-Tecnica.md`](docs/Arquitetura-Tecnica.md): stack, servicos, dados e limites tecnicos.
 4. [`docs/Operacao-e-Runtime.md`](docs/Operacao-e-Runtime.md): ambientes, envs, compose, scripts e operacao.
-5. [`docs/Homologacao-Google-Cloud.md`](docs/Homologacao-Google-Cloud.md): runbook canonico da homologacao em Cloud Run.
-6. [`docs/API-e-Contratos.md`](docs/API-e-Contratos.md): rotas, contratos, eventos e validacao.
-7. [`docs/Deploy-e-Cloud-Build.md`](docs/Deploy-e-Cloud-Build.md): guia operacional de deploy hml/prod.
-8. [`docs/SECURITY-audit.md`](docs/SECURITY-audit.md): audit de seguranca com status por categoria.
+5. [`docs/API-e-Contratos.md`](docs/API-e-Contratos.md): rotas, contratos, eventos e validacao.
+6. [`docs/Deploy-e-Cloud-Build.md`](docs/Deploy-e-Cloud-Build.md): guia operacional de deploy canary para producao.
+7. [`docs/SECURITY-audit.md`](docs/SECURITY-audit.md): audit de seguranca com status por categoria.
 
 ## Seguranca
 
@@ -91,6 +90,6 @@ Para detalhes sobre a postura de seguranca, politica de vulnerabilidades e threa
 
 ## Observacoes importantes
 
-- Os ambientes canonicos sao `development` (local), `cloud-homolog` (Cloud Run de homologacao) e `cloud-production` (Cloud Run de producao).
+- Os ambientes canonicos sao `development` (local) e `cloud-production` (Cloud Run de producao).
 - O fluxo de registro atual e manual; OCR automatico permanece fora do escopo implementado.
 - A trilha de auditoria das amostras e append-only por `SampleEvent`.

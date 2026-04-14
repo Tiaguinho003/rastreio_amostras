@@ -1,65 +1,54 @@
 # Deploy guide
 
-Guia operacional para deploy do `rastreio-interno-amostras` em homolog e produção.
+Guia operacional para deploy do `rastreio-interno-amostras` em producao via
+fluxo canary.
 
-> Este documento foi escrito após o incidente de 07-08/04/2026, em que 6 deploys
-> consecutivos foram feitos para produção sem passar pelo git, gerando código
-> rodando em produção sem rastreabilidade. A Fase B (commits B1-B5) blindou o
-> tooling para evitar a repetição. Este guia documenta o caminho correto e os
-> antipadrões que devemos evitar.
+> Este guia substitui o fluxo antigo que passava por um ambiente de homolog
+> intermediario. Desde 2026-04-14, validacao pre-producao e feita diretamente
+> via deploy canario em producao (revision sem trafego com tag estavel).
+> Rollback e instantaneo via `update-traffic` apontando pra revisao anterior.
 
 ---
 
-## Visão geral do fluxo
+## Visao geral do fluxo
 
 ```
 1. commit local
-2. git push origin main
-3. trigger Cloud Build (rastreio-hml-cloud-run) dispara automaticamente
-4. build + push da imagem :<SHORT_SHA> + deploy hml + migrate job
-5. validar hml em https://rastreio-hml-app-yvcijqvsca-rj.a.run.app
-6. (depois de OK) build manual de prod com mesmo SHA
-7. deploy de prod via scripts/gcp/deploy-cloud.sh
-8. confirmar paridade via scripts/gcp/parity-check.sh
+2. git push origin main (sem trigger automatico — push so salva no git)
+3. scripts/gcp/build-image.sh cloud-production (build da imagem com tag=SHA)
+4. scripts/gcp/deploy-cloud.sh cloud-production --canary (deploy sem trafego)
+5. (se houver migration nova) scripts/gcp/execute-job.sh migrate cloud-production
+6. smoke test manual na URL canary: https://canary---rastreio-prod-app-<hash>.a.run.app
+7. (se OK) gcloud run services update-traffic rastreio-prod-app --to-latest --region=southamerica-east1
 ```
 
 ---
 
-## Pré-requisitos
+## Pre-requisitos
 
-### Configs gcloud
+### gcloud config
 
-- **`default`**: conta pessoal `flaviohfoliveira@gmail.com` → projeto `rastreio-amostras` → **homolog**
-- **`empresa`**: conta Measy `measyia@gmail.com` → projeto `safras-amostras-prod` → **produção**
+- **`empresa`**: conta Measy `measyia@gmail.com` -> projeto `safras-amostras-prod` -> producao
 
 ```bash
 gcloud config configurations list
 ```
 
-Trocar entre configs sem persistir:
+### Auth valido
 
 ```bash
-gcloud --configuration=empresa <comando>
-# OU
-CLOUDSDK_ACTIVE_CONFIG_NAME=empresa <comando>
-```
-
-### Auth válido
-
-```bash
-gcloud --configuration=default auth print-access-token
-gcloud --configuration=empresa auth print-access-token
+gcloud auth print-access-token
 ```
 
 Se expirado:
 
 ```bash
-gcloud --configuration=<conf> auth login
+gcloud auth login
 ```
 
 ### Working tree limpo
 
-O `build-image.sh` recusa rodar se houver mudanças não commitadas. Antes de buildar:
+O `build-image.sh` recusa rodar se houver mudancas nao commitadas. Antes de buildar:
 
 ```bash
 git status
@@ -68,143 +57,135 @@ git status
 
 ### Env files locais
 
-Os arquivos `.env.cloud-{homolog,production}{,.ops}` são **ignorados pelo git**
-(estão em `.gitignore`). Cada máquina tem sua cópia local com secrets de SMOKE
-test, etc. Se você está em uma máquina nova, peça os arquivos pro Flavio.
+Os arquivos `.env.cloud-production` e `.env.cloud-production.ops` sao **ignorados pelo git**
+(estao em `.gitignore`). Cada maquina tem sua copia local com secrets de smoke test etc.
 
-> ⚠️ A partir de B1 (Fase B), **NÃO** definir `GCLOUD_IMAGE_TAG` nesses arquivos.
-> A tag agora é gerada automaticamente do `git rev-parse --short HEAD`.
-> Se você tem cópia antiga, remova/comente a linha `GCLOUD_IMAGE_TAG=`.
+Se voce esta em uma maquina nova, copie dos templates versionados:
+
+```bash
+cp env/examples/cloud-production.env.example .env.cloud-production
+cp env/examples/cloud-production.ops.env.example .env.cloud-production.ops
+# customizar com os valores reais do projeto
+```
+
+> **NAO** definir `GCLOUD_IMAGE_TAG` nesses arquivos. A tag e gerada
+> automaticamente do `git rev-parse --short HEAD`.
 
 ---
 
-## Deploy pra homolog (automático)
+## Deploy canary (producao)
 
-100% automático via Cloud Build trigger. Apenas:
-
-```bash
-git push origin main
-```
-
-**O que acontece:**
-
-1. GitHub recebe o push
-2. Cloud Build trigger `rastreio-hml-cloud-run` (ID `23e4ad65-b17c-4925-939d-7fc0d1b9ebc6`) detecta o push em `main`
-3. Roda `cloudbuild.homolog.yaml`:
-   - Build da imagem com tag `:<SHORT_SHA>`
-   - Push pro Artifact Registry de homolog
-   - Deploy no Cloud Run service `rastreio-hml-app`
-   - Executa o migrate job `rastreio-hml-migrate`
-4. Hml fica disponível em https://rastreio-hml-app-yvcijqvsca-rj.a.run.app
-
-**Acompanhar o build:**
+Sequencia completa:
 
 ```bash
-gcloud --configuration=default builds list --limit=1 \
-  --format='value(id,status,substitutions.SHORT_SHA)'
-# pegar o ID, depois:
-gcloud --configuration=default builds log <ID> --stream
-```
-
-Ou no console:
-https://console.cloud.google.com/cloud-build/builds?project=rastreio-amostras
-
-**Tempo total esperado:** 4-6 minutos (build ~3min + deploy ~30s + migrate ~30s).
-
----
-
-## Deploy pra produção (manual)
-
-Sequência completa:
-
-```bash
-# 1. Garantir working tree limpo (o script vai recusar senão)
+# 1. Garantir working tree limpo (o script vai recusar senao)
 git status
 
-# 2. Garantir que está no commit que quer deployar
+# 2. Garantir que esta no commit que quer deployar
 git log --oneline -1
 
 # 3. Build da imagem
-CLOUDSDK_ACTIVE_CONFIG_NAME=empresa scripts/gcp/build-image.sh cloud-production
+scripts/gcp/build-image.sh cloud-production
 
-# 4. Deploy
-CLOUDSDK_ACTIVE_CONFIG_NAME=empresa scripts/gcp/deploy-cloud.sh cloud-production
+# 4. Deploy canary (sem trafego, tag=canary)
+scripts/gcp/deploy-cloud.sh cloud-production --canary
+```
 
-# 5. Verificar paridade prod ↔ hml
-scripts/gcp/parity-check.sh
+Output esperado do deploy canary:
+
+```
+[gcp] ============================================================
+[gcp]  CANARY deployed (sem trafego)
+[gcp]  URL: https://canary---rastreio-prod-app-r4au5o2iea-rj.a.run.app
+[gcp]  Trafego 100% continua na revisao anterior.
+[gcp]  Para promover apos smoke test:
+[gcp]    gcloud run services update-traffic rastreio-prod-app \
+[gcp]      --to-latest --region=southamerica-east1
+[gcp] ============================================================
 ```
 
 **Detalhes:**
 
-- A tag da imagem é gerada **automaticamente** do `git rev-parse --short HEAD`.
-  Você não edita `.env.cloud-production.ops` nem precisa lembrar de mudar tag.
-- O `build-image.sh` chama `gcloud builds submit .` no projeto da empresa.
-  O working tree é empacotado e enviado pro Cloud Build remoto.
-- O `deploy-cloud.sh` faz:
-  - `gcloud run deploy` no service `rastreio-prod-app`
-  - Atualiza `APP_BASE_URL` se mudou
-  - Re-deploya os jobs `rastreio-prod-migrate` e `rastreio-prod-seed`
-  - **NÃO executa** automaticamente o migrate job em prod (ver Troubleshoot)
+- A tag da imagem e gerada **automaticamente** do `git rev-parse --short HEAD`.
+- O `build-image.sh` chama `gcloud builds submit .` no projeto `safras-amostras-prod`.
+- O `deploy-cloud.sh --canary` faz:
+  - `gcloud run deploy --no-traffic --tag=canary` no service `rastreio-prod-app`
+  - Nao atualiza `APP_BASE_URL` (evitaria criar revisao sem a tag canary)
+  - Re-deploya os jobs `rastreio-prod-migrate` e `rastreio-prod-seed` (nao os executa)
 
-**Tempo total esperado:** 5-8 minutos (build ~5min + deploy ~30s).
+**Tempo total esperado:** ~5 minutos (build ~3min + deploy canary ~1min).
+
+### Smoke test na URL canary
+
+A URL canary e estavel entre deploys (tag=canary sempre aponta pra revisao
+mais recente com essa tag). Teste manualmente:
+
+1. Login
+2. Dashboard carrega
+3. Fluxo critico da feature em desenvolvimento
+4. Headers de seguranca: `curl -sI <canary-url> | grep -iE '(csp|hsts)'`
+
+### Executar migrate (se houve mudanca de schema)
+
+```bash
+scripts/gcp/execute-job.sh migrate cloud-production
+```
+
+Rodar migrate **antes** de promover trafego. Migrations devem ser backward-
+compatible — a revisao anterior (ainda servindo trafego) precisa continuar
+funcionando com o novo schema.
+
+### Promover trafego
+
+Se smoke test passou:
+
+```bash
+gcloud run services update-traffic rastreio-prod-app \
+  --to-latest --region=southamerica-east1
+```
+
+Trafego 100% muda pra revisao nova instantaneamente.
+
+**Se smoke test falhou:** nao promover. Trafego continua 100% na revisao
+anterior (rollback implicito). Corrigir o bug, commitar, voltar ao passo 3.
 
 ---
 
-## Verificar paridade
+## Rollback
+
+### Antes de promover
+
+Simplesmente nao faca `update-traffic`. A revisao anterior continua servindo
+100%. Opcionalmente, deletar a revisao canary pra limpeza.
+
+### Apos promover (emergencia)
 
 ```bash
-scripts/gcp/parity-check.sh
+gcloud run revisions list --service=rastreio-prod-app \
+  --region=southamerica-east1 --limit=5
+# identifique a revisao anterior estavel, ex: rastreio-prod-app-00053-dmx
+gcloud run services update-traffic rastreio-prod-app \
+  --to-revisions=rastreio-prod-app-00053-dmx=100 \
+  --region=southamerica-east1
 ```
 
-Output esperado quando ok:
-
-```
-================================================================
-  PARITY CHECK -- homolog vs producao
-================================================================
-
-  HML  config:    default (rastreio-hml-app)
-  PROD config:    empresa (rastreio-prod-app)
-
-  HML  tag:       6db9801
-  PROD tag:       6db9801
-
-  HML  revision:  rastreio-hml-app-00159-6gh (latestRevision=True)
-  PROD revision:  rastreio-prod-app-00053-dmx (latestRevision=True)
-
-  OK MESMA VERSAO (6db9801)
-```
-
-Exit codes:
-
-- `0` — paridade total
-- `1` — divergência (tags diferentes ou tráfego pinned)
-- `2` — erro de gcloud (auth, config, region)
-
-Útil em scripts de cron/CI:
-
-```bash
-if ! scripts/gcp/parity-check.sh > /dev/null; then
-  echo "ALERTA: prod e hml estão divergentes"
-fi
-```
+> **Desfazer pin apos rollback:** depois que o bug for corrigido e a revisao
+> nova deployada, rodar `--to-latest` pra desfazer o pin — senao deploys
+> subsequentes criam revisoes mas nunca servem trafego.
 
 ---
 
-## Antipadrões
+## Antipadroes
 
 ### NUNCA `gcloud builds submit` direto do working tree sem ter commitado
 
-**Por quê:** gera código rodando em produção sem rastreabilidade no git. Fica
-impossível auditar o que está rodando, fazer rollback, ou entender o estado
+**Por que:** gera codigo rodando em producao sem rastreabilidade no git. Fica
+impossivel auditar o que esta rodando, fazer rollback, ou entender o estado
 real do sistema.
 
-**Já aconteceu:** 07-08/04/2026, gerou 6 imagens em prod com tags manuais
-descritivas (`prod-20260407-location`, `prod-20260408-commercial-fixes`, etc),
-nenhuma rastreável a um commit do git. O recovery custou ~4 horas e envolveu
-extrair source da imagem Docker, recriar commits, dividir em commits temáticos
-e rebuildar prod com SHA correto. Detalhes em `feedback_no_deploy_without_commit.md`
-(memória do Claude Code).
+**Ja aconteceu:** 07-08/04/2026, gerou 6 imagens em prod com tags manuais
+descritivas sem rastreabilidade. Recovery custou ~4 horas. Detalhes em
+`feedback_no_deploy_without_commit.md` (memoria do Claude Code).
 
 **Bypass excepcional** (recovery, build de WIP pra teste):
 
@@ -212,12 +193,10 @@ e rebuildar prod com SHA correto. Detalhes em `feedback_no_deploy_without_commit
 ALLOW_DIRTY=true scripts/gcp/build-image.sh cloud-production
 ```
 
-### NUNCA editar `.env.*.ops` pra mudar `GCLOUD_IMAGE_TAG`
+### NUNCA editar `.env.cloud-production.ops` pra mudar `GCLOUD_IMAGE_TAG`
 
-**Por quê:** a tag agora é dinâmica (vem do `git rev-parse --short HEAD`).
-Hardcoding traz de volta o problema antigo (cada build precisa lembrar de
-editar o arquivo, e usar tags descritivas em vez de SHA é uma porta de entrada
-pra deploys sem rastreabilidade).
+**Por que:** a tag e dinamica (vem do `git rev-parse --short HEAD`).
+Hardcoding traz de volta o problema antigo.
 
 **Bypass excepcional:**
 
@@ -229,161 +208,128 @@ OPS_ENV_FILE=/tmp/cloud-production-recovery.ops scripts/gcp/build-image.sh cloud
 rm /tmp/cloud-production-recovery.ops
 ```
 
+### NUNCA promover trafego sem smoke test no canary
+
+**Por que:** o canary existe exatamente pra essa validacao. Promover direto
+equivale a deploy sem validacao.
+
 ### NUNCA `gcloud run services update-traffic --to-revisions=...` sem desfazer depois
 
-**Por quê:** o pinning de tráfego persiste indefinidamente. Deploys subsequentes
-ficam `Retired` sem nunca servir tráfego.
-
-**Já aconteceu:** entre 06 e 09/04/2026, hml ficou pinned na revision 00153-mf9
-(do dia 06). Os deploys 154-159 foram criados mas nunca serviram tráfego — o
-usuário não percebeu por dias.
+**Por que:** o pinning de trafego persiste indefinidamente. Deploys subsequentes
+ficam `Retired` sem nunca servir trafego.
 
 **Como detectar:**
 
 ```bash
-scripts/gcp/parity-check.sh
-# Ele avisa se latestRevision != True
+gcloud run services describe rastreio-prod-app \
+  --region=southamerica-east1 --format='yaml(spec.traffic)'
 ```
+
+Se mostrar `revisionName` especifica em vez de `latestRevision: true`, esta pinado.
 
 **Como desfazer:**
 
 ```bash
-gcloud --configuration=<conf> run services update-traffic <svc> \
-  --region=southamerica-east1 \
-  --to-latest
+gcloud run services update-traffic rastreio-prod-app \
+  --region=southamerica-east1 --to-latest
 ```
 
 ---
 
 ## Troubleshoot
 
-### Build de prod recusa rodar com "working tree sujo"
+### Build recusa rodar com "working tree sujo"
 
 ```
 [gcp] ERRO: working tree tem mudancas nao commitadas.
 ```
 
-**Causa:** B2 guard ativado (correto). Há mudanças não commitadas ou arquivos
-untracked não-ignorados pelo `.gitignore`.
+**Causa:** guard de integridade ativado (correto). Ha mudancas nao commitadas
+ou arquivos untracked nao-ignorados pelo `.gitignore`.
 
 **Fix:**
 
 ```bash
-git status        # ver o que está sujo
+git status        # ver o que esta sujo
 git add ... && git commit -m "..."   # commitar
 # OU
 git stash         # se quiser deixar pra depois
 ```
 
-**Bypass excepcional** (recovery, build de WIP pra teste):
+### Canary URL retorna 404 ou erro 503
+
+**Causa 1:** deploy canary ainda nao completou. Aguardar ~30s.
+
+**Causa 2:** revision canary falhou (por exemplo, migration nao aplicada). Checar:
 
 ```bash
-ALLOW_DIRTY=true scripts/gcp/build-image.sh cloud-production
+gcloud run revisions list --service=rastreio-prod-app \
+  --region=southamerica-east1 --limit=3
+gcloud run revisions describe <REVISION_NAME> \
+  --region=southamerica-east1 --format='yaml(status)'
 ```
 
-### `parity-check.sh` diz "DIVERGENCIA"
+### Migrate job nao foi executado
 
-**Causa 1**: deploy de prod não foi feito ainda.
-**Fix:** rodar `scripts/gcp/build-image.sh cloud-production` + `deploy-cloud.sh cloud-production`.
-
-**Causa 2**: tráfego pinned em revision antiga.
-**Fix:**
-
-```bash
-gcloud --configuration=<conf> run services describe <svc> \
-  --region=southamerica-east1 --format='yaml(spec.traffic)'
-# Se mostrar revisionName especifica em vez de latestRevision: true:
-gcloud --configuration=<conf> run services update-traffic <svc> \
-  --region=southamerica-east1 --to-latest
-```
-
-### Cloud Build trigger não disparou após push
-
-**Causa:** branch errada ou trigger desabilitado.
-
-**Fix:**
-
-```bash
-# Listar triggers
-gcloud --configuration=default builds triggers list
-
-# Ver detalhes do trigger esperado
-gcloud --configuration=default builds triggers describe rastreio-hml-cloud-run
-
-# Disparar manualmente (caso emergencial)
-gcloud --configuration=default builds triggers run rastreio-hml-cloud-run \
-  --branch=main
-```
-
-### Migrate job não foi executado em prod
-
-O `deploy-cloud.sh` **deploya** os jobs `migrate` e `seed` (atualiza a definição
-com a nova imagem) mas **não os executa** automaticamente. Em prod, executar
-migrações é decisão consciente.
+O `deploy-cloud.sh` **deploya** os jobs `migrate` e `seed` (atualiza a
+definicao com a nova imagem) mas **nao os executa** automaticamente. Em prod,
+executar migracoes e decisao consciente.
 
 **Para executar migrate em prod (idempotente):**
 
 ```bash
-gcloud --configuration=empresa run jobs execute rastreio-prod-migrate \
-  --region=southamerica-east1 \
-  --wait
+scripts/gcp/execute-job.sh migrate cloud-production
+# ou direto:
+gcloud run jobs execute rastreio-prod-migrate \
+  --region=southamerica-east1 --wait
 ```
 
-> O Prisma faz no-op em migrations já aplicadas. Seguro de rodar mesmo se você
-> não tem certeza se já foi aplicado.
+> O Prisma faz no-op em migrations ja aplicadas. Seguro de rodar mesmo sem
+> certeza se ja foi aplicado.
 
 ---
 
-## Referência
+## Referencia
 
 ### Scripts
 
-- `scripts/gcp/build-image.sh <cloud-env>` — build da imagem (com guard de tree limpo)
-- `scripts/gcp/deploy-cloud.sh <cloud-env>` — deploy do service e jobs
-- `scripts/gcp/deploy-cloud-homolog.sh` — deploy de hml (usado pelo Cloud Build automático)
-- `scripts/gcp/parity-check.sh` — comparar hml vs prod
-- `scripts/gcp/_lib.sh` — funções compartilhadas (carrega env files, deriva defaults, computa tag dinâmica)
+- `scripts/gcp/build-image.sh cloud-production` — build da imagem (com guard de tree limpo)
+- `scripts/gcp/deploy-cloud.sh cloud-production [--canary]` — deploy do service e jobs
+- `scripts/gcp/execute-job.sh <migrate|seed> cloud-production` — executa jobs
+- `scripts/gcp/preflight.sh cloud-production` — valida envs, auth e recursos
+- `scripts/gcp/smoke.sh cloud-production` — smoke test HTTP contra producao
+- `scripts/gcp/_lib.sh` — funcoes compartilhadas (carrega env files, deriva defaults, computa tag dinamica)
 
-### Cloud Build
+### Env files (NAO versionados)
 
-- **Config homolog:** `cloudbuild.homolog.yaml` (no repo)
-- **Trigger homolog:** `rastreio-hml-cloud-run` (ID `23e4ad65-b17c-4925-939d-7fc0d1b9ebc6`)
-- **Disparo:** push em `main`
-- **Pipeline:** prepare-env → build-image → push-image → deploy → migrate → seed-optional
-- **Não há trigger pra produção.** Deploy de prod é manual via scripts.
-
-### Env files (NÃO versionados)
-
-Cada máquina precisa ter cópias locais:
-
-- `.env.cloud-homolog`
-- `.env.cloud-homolog.ops`
 - `.env.cloud-production`
 - `.env.cloud-production.ops`
 
-Se faltarem, peça pro Flavio.
+Templates em `env/examples/cloud-production{,.ops}.env.example`.
 
 ### URLs
 
-- **HML:** https://rastreio-hml-app-yvcijqvsca-rj.a.run.app
 - **PROD:** https://rastreio-prod-app-r4au5o2iea-rj.a.run.app
+- **CANARY (estavel entre deploys):** https://canary---rastreio-prod-app-r4au5o2iea-rj.a.run.app
 
-### Secret Manager
+### Secret Manager (projeto `safras-amostras-prod`)
 
-- **Homolog (`rastreio-amostras` projeto):** `rastreio-hml-database-url`, `rastreio-hml-auth-secret`, `rastreio-hml-bootstrap-admin-{full-name,username,email,password}`, `rastreio-hml-openai-api-key`
-- **Produção (`safras-amostras-prod` projeto):** `rastreio-prod-database-url`, `rastreio-prod-auth-secret`, `rastreio-prod-bootstrap-admin-{full-name,username,email,password}`, `rastreio-prod-openai-api-key`, `rastreio-prod-smtp-pass`
+- `rastreio-prod-database-url`
+- `rastreio-prod-auth-secret`
+- `rastreio-prod-bootstrap-admin-{full-name,username,email,password}`
+- `rastreio-prod-openai-api-key`
+- `rastreio-prod-smtp-pass`
 
 ### Cloud SQL
 
-- `rastreio-hml-pg` (Postgres homolog) — activation-policy=NEVER por default (liga sob demanda pra economizar custo)
-- `rastreio-prod-pg` (Postgres produção) — 24/7
+- `rastreio-prod-pg` (Postgres producao) — 24/7
 
 ### Backup tags
 
-Após qualquer recovery, criar tag de backup pra poder voltar:
+Apos qualquer recovery, criar tag de backup pra poder voltar:
 
 ```bash
 git tag backup-recovery-main-$(date +%Y%m%d-%H%M)
 ```
 
-Remover quando não precisar mais (~7 dias).
+Remover quando nao precisar mais (~7 dias).

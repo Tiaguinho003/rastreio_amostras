@@ -10,7 +10,7 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 1. **Frontend (browser)** → Next.js App Router → Route Handlers (`app/api/`) → Service Layer (`src/`) → Prisma → PostgreSQL (Cloud SQL)
 2. **Upload path:** browser → route handler → `LocalUploadService` (magic bytes validation → filesystem/Cloud Storage mount)
 3. **Auth path:** login → bcrypt verify → JWT sign → cookie HTTP-only → middleware verify → session hydration
-4. **Email path:** service layer → nodemailer (SMTP em prod, outbox local em dev/hml)
+4. **Email path:** service layer → nodemailer (SMTP em prod, outbox local em dev)
 5. **External API:** service layer → OpenAI API (classification extraction, server-side only)
 
 ## Atores
