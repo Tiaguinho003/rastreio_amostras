@@ -19,7 +19,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 6. JSON Schema + Ajv para validacao de eventos
 7. `pdf-lib` para laudos
 8. `nodemailer` para notificacoes por SMTP ou outbox local
-9. ESLint 8 + Prettier 3 para lint e formatacao (Passe 4B)
+9. ESLint 9 (flat config via `eslint.config.mjs`) + Prettier 3 para lint e formatacao
 10. `file-type` para validacao de magic bytes em uploads
 11. `c8` para coverage report (dev dependency)
 
@@ -116,7 +116,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 
 ## Testes e validacao
 
-O repositorio possui 101 testes (35 unit + 66 integration):
+O repositorio organiza os testes em quatro categorias (contagem exata no output de cada comando):
 
 1. validacao de schemas:
    `npm run validate:schemas`
