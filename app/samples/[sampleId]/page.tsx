@@ -2961,6 +2961,28 @@ export default function SampleDetailPage() {
                       {canEdit && !editing ? (
                         <button
                           type="button"
+                          className="cld-reclassify-btn"
+                          onClick={() => setReclassifyModalOpen(true)}
+                          aria-label="Reclassificar amostra"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M21 12a9 9 0 1 1-3-6.7" />
+                            <path d="M21 4v5h-5" />
+                          </svg>
+                          Reclassificar
+                        </button>
+                      ) : null}
+                      {canEdit && !editing ? (
+                        <button
+                          type="button"
                           className="cld-edit-btn"
                           onClick={() => setClassificationDetailEditing(true)}
                         >
@@ -3553,18 +3575,17 @@ export default function SampleDetailPage() {
           </section>
         </div>
       ) : null}
-      {/* Botao flutuante Classificar */}
-      {detail && detail.sample.status !== 'INVALIDATED' ? (
+      {/* Botao flutuante Classificar — aparece apenas quando ha classificacao
+          pendente/em andamento. Para reclassificar uma amostra ja CLASSIFIED,
+          o usuario abre o modal full-view e usa o botao Reclassificar la. */}
+      {detail &&
+      (detail.sample.status === 'QR_PENDING_PRINT' ||
+        detail.sample.status === 'QR_PRINTED' ||
+        detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') ? (
         <button
           type="button"
           className="sdv-fab-classify"
-          onClick={() => {
-            if (detail.sample.status === 'CLASSIFIED') {
-              setReclassifyModalOpen(true);
-            } else {
-              router.push(`/camera?sampleId=${sampleId}`);
-            }
-          }}
+          onClick={() => router.push(`/camera?sampleId=${sampleId}`)}
           aria-label="Classificar amostra"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3575,33 +3596,63 @@ export default function SampleDetailPage() {
         </button>
       ) : null}
 
-      {/* Modal de reclassificacao */}
+      {/* Modal de confirmacao de reclassificacao — empilhado sobre o modal
+          full-view de classificacao. Usa o padrao oficial .app-modal. */}
       {reclassifyModalOpen ? (
-        <div className="app-modal-backdrop" onClick={() => setReclassifyModalOpen(false)}>
-          <div className="cam-already-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-already-text">
-              Esta amostra ja possui classificacao. Deseja reclassificar?
-            </p>
-            <div className="cam-already-actions">
+        <div
+          className="app-modal-backdrop sample-detail-reclassify-backdrop"
+          onClick={() => setReclassifyModalOpen(false)}
+        >
+          <section
+            className="app-modal sample-detail-reclassify-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sample-detail-reclassify-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="sample-detail-reclassify-modal-title" className="app-modal-title">
+                  Reclassificar amostra
+                </h3>
+                <p className="app-modal-description">
+                  A nova classificacao vai substituir a atual. A classificacao anterior permanece no
+                  historico de eventos.
+                </p>
+              </div>
               <button
                 type="button"
-                className="cam-already-btn-no"
+                className="app-modal-close"
                 onClick={() => setReclassifyModalOpen(false)}
+                aria-label="Fechar modal de reclassificacao"
               >
-                Nao
+                <span aria-hidden="true">×</span>
               </button>
-              <button
-                type="button"
-                className="cam-already-btn-yes"
-                onClick={() => {
-                  setReclassifyModalOpen(false);
-                  router.push(`/camera?sampleId=${sampleId}`);
-                }}
-              >
-                Sim, reclassificar
-              </button>
+            </header>
+
+            <div className="app-modal-content">
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => setReclassifyModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="app-modal-submit"
+                  onClick={() => {
+                    setReclassifyModalOpen(false);
+                    closeClassificationDetail();
+                    router.push(`/camera?sampleId=${sampleId}`);
+                  }}
+                >
+                  Sim, reclassificar
+                </button>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       ) : null}
     </AppShell>

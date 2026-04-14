@@ -2486,6 +2486,18 @@ button:disabled {
   min-height: 3rem;
 }
 
+/* Modal de confirmacao de reclassificacao — empilhado por cima do modal
+   full-view (.cld-modal). Como ambos usam .app-modal-backdrop com o mesmo
+   z-index, a ordem do DOM ja garante que este aparece em cima; aumentamos
+   o z-index apenas como seguranca extra contra regressoes de stacking. */
+.sample-detail-reclassify-backdrop {
+  z-index: calc(var(--z-modal-backdrop, 400) + 5);
+}
+
+.sample-detail-reclassify-modal {
+  width: min(26rem, calc(100vw - 1.25rem));
+}
+
 .sample-detail-main-facts-general .client-lookup-field,
 .sample-detail-main-facts-general .client-registration-select {
   display: grid;
@@ -6628,6 +6640,44 @@ button:disabled {
   color: var(--brand-green-soft);
 }
 
+/* Botao circular para expandir o card de classificacao e abrir o modal
+   full-view com todos os dados + edicao. Fica no header do sdv-cls-block. */
+.sdv-cls-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(30px, 8vw, 34px);
+  height: clamp(30px, 8vw, 34px);
+  border: 1px solid rgba(46, 125, 50, 0.18);
+  border-radius: 999px;
+  background: rgba(46, 125, 50, 0.06);
+  color: var(--brand-green-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  padding: 0;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.sdv-cls-expand-btn:active {
+  transform: scale(0.92);
+  background: rgba(46, 125, 50, 0.14);
+}
+
+.sdv-cls-expand-btn:hover {
+  background: rgba(46, 125, 50, 0.1);
+}
+
+.sdv-cls-expand-btn svg {
+  width: clamp(14px, 3.6vw, 16px);
+  height: clamp(14px, 3.6vw, 16px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Edit modal fields */
 .sdv-edit-fields {
   display: flex;
@@ -7869,6 +7919,35 @@ button:disabled {
 .cld-edit-btn svg {
   width: clamp(12px, 3.2vw, 14px);
   height: clamp(12px, 3.2vw, 14px);
+}
+
+.cld-reclassify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 1.5vw, 6px);
+  padding: clamp(6px, 2vw, 8px) clamp(10px, 3vw, 12px);
+  border: 1px solid rgba(46, 125, 50, 0.3);
+  border-radius: 999px;
+  background: var(--brand-green-soft);
+  color: #ffffff;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.cld-reclassify-btn:active {
+  transform: scale(0.95);
+  background: #286a2b;
+}
+
+.cld-reclassify-btn svg {
+  width: clamp(12px, 3.2vw, 14px);
+  height: clamp(12px, 3.2vw, 14px);
+  fill: none;
+  stroke: #ffffff;
 }
 
 .cld-body {
