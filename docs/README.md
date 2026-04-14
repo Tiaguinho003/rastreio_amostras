@@ -40,11 +40,11 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: navegar pelos schemas JSON do contrato de eventos.
 2. `scripts/gcp/README.md`
    Uso: localizar os wrappers operacionais de deploy para producao.
-4. `docs/Conferencia-Fases-1a4.md`
+3. `docs/Conferencia-Fases-1a4.md`
    Uso: checklist oficial de conferencia das fases 1 a 4 com banco, contratos, backend e regressao.
-5. `docs/Clientes-e-Movimentacoes-Especificacao.md`
+4. `docs/Clientes-e-Movimentacoes-Especificacao.md`
    Uso: especificacao funcional/tecnica de clientes, proprietarios, movimentacoes comerciais e auditoria. Status: Planejado.
-6. `docs/archive/Reorganizacao-2026Q2-Decisions.md`
+5. `docs/archive/Reorganizacao-2026Q2-Decisions.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
 
 ## Relatorios da reorganizacao
