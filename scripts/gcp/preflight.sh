@@ -46,7 +46,11 @@ check_gcloud_resource() {
   fi
 }
 
-CLOUD_ENV="${1:-cloud-homolog}"
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <cloud-env>" >&2
+  exit 1
+fi
+CLOUD_ENV="$1"
 load_cloud_context "${CLOUD_ENV}"
 
 echo "=== Cloud Preflight (${CLOUD_ENV}) ==="

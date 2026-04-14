@@ -1,43 +1,50 @@
 # Scripts GCP
 
 Status: Ponteiro local
-Escopo: wrappers operacionais para ambientes Google Cloud (homolog e producao)
-Ultima revisao: 2026-03-30
-Documentos relacionados: `docs/Homologacao-Google-Cloud.md`, `docs/Operacao-e-Runtime.md`
+Escopo: wrappers operacionais para o ambiente `cloud-production` no Google Cloud
+Ultima revisao: 2026-04-14
+Documentos relacionados: `docs/Deploy-e-Cloud-Build.md`, `docs/Operacao-e-Runtime.md`
 
 ## Scripts oficiais
 
-1. `scripts/gcp/preflight.sh [cloud-env]`
-2. `scripts/gcp/build-image.sh [cloud-env]`
-3. `scripts/gcp/deploy-cloud.sh [cloud-env]`
-4. `scripts/gcp/execute-job.sh <migrate|seed> [cloud-env]`
-5. `scripts/gcp/smoke.sh [cloud-env]`
-6. `scripts/gcp/deploy-cloud-homolog.sh` (legado, use `deploy-cloud.sh cloud-homolog`)
+1. `scripts/gcp/preflight.sh cloud-production`
+2. `scripts/gcp/build-image.sh cloud-production`
+3. `scripts/gcp/deploy-cloud.sh cloud-production [--canary]`
+4. `scripts/gcp/execute-job.sh <migrate|seed> cloud-production`
+5. `scripts/gcp/smoke.sh cloud-production`
 
-O parametro `[cloud-env]` define o ambiente. Padrao: `cloud-homolog`.
+O parametro `<cloud-env>` e obrigatorio. Unico valor suportado: `cloud-production`.
 
-## Ambientes
+## Ambiente
 
 | Ambiente           | Env files                                             | Projeto GCP            |
 | ------------------ | ----------------------------------------------------- | ---------------------- |
-| `cloud-homolog`    | `.env.cloud-homolog` + `.env.cloud-homolog.ops`       | `rastreio-amostras`    |
 | `cloud-production` | `.env.cloud-production` + `.env.cloud-production.ops` | `safras-amostras-prod` |
 
-## Exemplos
+## Fluxo canario (producao)
 
 ```bash
-# Homolog (padrao)
-./scripts/gcp/build-image.sh
-./scripts/gcp/deploy-cloud.sh
+# 1. Working tree limpo (o script recusa sujo)
+git status
 
-# Producao
-./scripts/gcp/build-image.sh cloud-production
-./scripts/gcp/deploy-cloud.sh cloud-production
-./scripts/gcp/execute-job.sh migrate cloud-production
+# 2. Build (tag = git SHA)
+scripts/gcp/build-image.sh cloud-production
+
+# 3. Deploy canary (sem trafego, gera URL https://canary---<service>-<hash>.a.run.app)
+scripts/gcp/deploy-cloud.sh cloud-production --canary
+
+# 4. Executar migrate se houve migracao nova
+scripts/gcp/execute-job.sh migrate cloud-production
+
+# 5. Smoke test manual na URL canary
+
+# 6. Promover trafego (se OK)
+gcloud run services update-traffic rastreio-prod-app \
+  --to-latest --region=southamerica-east1
 ```
 
 ## Regra
 
-1. esses scripts usam `.env.<cloud-env>` e `.env.<cloud-env>.ops`;
+1. esses scripts usam `.env.cloud-production` e `.env.cloud-production.ops`;
 2. o deploy nao usa Compose — apenas Cloud Run + Cloud SQL + GCS;
-3. build, deploy e jobs devem seguir o fluxo descrito em `docs/Homologacao-Google-Cloud.md`.
+3. toda operacao de deploy deve seguir o fluxo canario descrito acima.

@@ -3,12 +3,12 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 canonical_cloud_env_file() {
-  local env_name="${1:-cloud-homolog}"
+  local env_name="${1:?env_name required}"
   printf '%s/.env.%s\n' "${PROJECT_DIR}" "${env_name}"
 }
 
 canonical_cloud_ops_env_file() {
-  local env_name="${1:-cloud-homolog}"
+  local env_name="${1:?env_name required}"
   printf '%s/.env.%s.ops\n' "${PROJECT_DIR}" "${env_name}"
 }
 
@@ -27,7 +27,7 @@ source_local_env() {
 }
 
 load_cloud_context() {
-  local env_name="${1:-cloud-homolog}"
+  local env_name="${1:?env_name required}"
   local env_file
   local ops_env_file
 
@@ -39,11 +39,6 @@ load_cloud_context() {
   derive_cloud_defaults
 }
 
-# Backward compatibility
-load_cloud_homolog_context() {
-  load_cloud_context "cloud-homolog"
-}
-
 derive_cloud_defaults() {
   : "${GCLOUD_REGION:=southamerica-east1}"
   : "${GCLOUD_ARTIFACT_REGISTRY_HOST:=${GCLOUD_REGION}-docker.pkg.dev}"
@@ -52,9 +47,6 @@ derive_cloud_defaults() {
     GCLOUD_IMAGE_TAG="$(git -C "${PROJECT_DIR}" rev-parse --short HEAD 2>/dev/null || echo 'no-git')"
     export GCLOUD_IMAGE_TAG
   fi
-  : "${GCLOUD_CLOUD_RUN_SERVICE:=rastreio-hml-app}"
-  : "${GCLOUD_CLOUD_RUN_MIGRATE_JOB:=rastreio-hml-migrate}"
-  : "${GCLOUD_CLOUD_RUN_SEED_JOB:=rastreio-hml-seed}"
   : "${GCLOUD_STORAGE_MOUNT_PATH:=/mnt/runtime}"
   : "${SESSION_COOKIE_SECURE:=auto}"
   : "${EMAIL_TRANSPORT:=outbox}"
@@ -66,12 +58,6 @@ derive_cloud_defaults() {
   : "${GCLOUD_MAX_INSTANCES:=3}"
   : "${GCLOUD_TIMEOUT_SECONDS:=300}"
   : "${GCLOUD_ALLOW_UNAUTHENTICATED:=true}"
-  : "${GCLOUD_SECRET_DATABASE_URL:=rastreio-hml-database-url}"
-  : "${GCLOUD_SECRET_AUTH_SECRET:=rastreio-hml-auth-secret}"
-  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_FULL_NAME:=rastreio-hml-bootstrap-admin-full-name}"
-  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_USERNAME:=rastreio-hml-bootstrap-admin-username}"
-  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_EMAIL:=rastreio-hml-bootstrap-admin-email}"
-  : "${GCLOUD_SECRET_BOOTSTRAP_ADMIN_PASSWORD:=rastreio-hml-bootstrap-admin-password}"
 
   if [[ -z "${UPLOADS_DIR:-}" ]]; then
     export UPLOADS_DIR="${GCLOUD_STORAGE_MOUNT_PATH%/}/uploads"

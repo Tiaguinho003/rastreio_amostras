@@ -5,12 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/_lib.sh"
 
-if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <migrate|seed> [cloud-env]" >&2
+if [[ $# -lt 2 ]]; then
+  echo "Usage: $0 <migrate|seed> <cloud-env>" >&2
   exit 1
 fi
 
-CLOUD_ENV="${2:-cloud-homolog}"
+CLOUD_ENV="$2"
 load_cloud_context "${CLOUD_ENV}"
 
 case "$1" in
