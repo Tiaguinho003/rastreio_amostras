@@ -12,7 +12,7 @@ description: Use this skill when writing, running, or debugging tests. Covers te
 ## Categorias de teste
 
 1. **Contratos** (`npm run test:contracts`) — `tests/event-contract.test.js`. Valida que JSON schemas em `docs/schemas/events/v1/` estao corretos e que o event-validator aceita/rejeita payloads esperados.
-2. **Unitarios** (`npm run test:unit`) — testam funcoes puras em isolamento: auth, cookies, uploads, roles, rate-limiter, client-support.
+2. **Unitarios** (`npm run test:unit`) — testam funcoes puras em isolamento (auth, cookies, uploads, roles, rate-limiter, client-support, normalizadores, services sem I/O). Lista canonica dos arquivos esta no script `test:unit` do `package.json`.
 3. **Integracao com DB** (`npm run test:integration:db`) — requerem PostgreSQL rodando. Testam fluxos completos via services. Rodam com `--test-concurrency=1`.
 
 ## Onde ficam os testes
