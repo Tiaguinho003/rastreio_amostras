@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { HttpError } from '../../../../../src/contracts/errors.js';
 import { toHttpErrorResponse } from '../../../../../src/api/http-utils.js';
 import { assertAcceptedUploadSize } from '../../../../../src/uploads/upload-policy.js';
 import { executeBackend, readJsonBody, toNextResponse } from '../../_lib/adapter';
@@ -18,8 +19,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (!contentType.startsWith('multipart/form-data')) {
+      throw new HttpError(415, 'Body deve ser multipart/form-data ou application/json');
+    }
+
     // Mode 1: direct file upload (legacy)
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      throw new HttpError(422, 'Body multipart/form-data invalido');
+    }
 
     const fileValue = formData.get('file');
     let fileBuffer: Buffer | null = null;
