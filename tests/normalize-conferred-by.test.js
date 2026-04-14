@@ -56,10 +56,7 @@ test('normalizeConferredBy returns null for empty array', async () => {
 
 test('normalizeConferredBy builds snapshots from valid userIds', async () => {
   const svc = buildService(users);
-  const result = await svc.normalizeConferredBy(
-    [{ userId: UID_A }, { userId: UID_B }],
-    { actor }
-  );
+  const result = await svc.normalizeConferredBy([{ userId: UID_A }, { userId: UID_B }], { actor });
   assert.equal(Array.isArray(result), true);
   assert.equal(result.length, 2);
   assert.deepEqual(result[0], {
@@ -102,11 +99,7 @@ test('normalizeConferredBy rejects self-conferral (422 SELF_CONFERRAL_NOT_ALLOWE
 test('normalizeConferredBy rejects unknown user (422 CONFERRER_NOT_FOUND)', async () => {
   const svc = buildService(users);
   await assert.rejects(
-    () =>
-      svc.normalizeConferredBy(
-        [{ userId: '44444444-4444-4444-8444-444444444444' }],
-        { actor }
-      ),
+    () => svc.normalizeConferredBy([{ userId: '44444444-4444-4444-8444-444444444444' }], { actor }),
     (error) =>
       error instanceof HttpError &&
       error.status === 422 &&
@@ -171,9 +164,7 @@ test('normalizeConferredBy rejects more than 50 items (422 CONFERRED_BY_TOO_MANY
 });
 
 test('normalizeConferredBy falls back to username when fullName is empty', async () => {
-  const svc = buildService([
-    { id: UID_A, fullName: '   ', username: 'alice', status: 'ACTIVE' },
-  ]);
+  const svc = buildService([{ id: UID_A, fullName: '   ', username: 'alice', status: 'ACTIVE' }]);
   const result = await svc.normalizeConferredBy([{ userId: UID_A }], { actor });
   assert.equal(result[0].fullName, 'alice');
 });
