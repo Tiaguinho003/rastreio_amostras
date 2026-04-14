@@ -30,6 +30,7 @@ import type {
   SampleExportType,
   UpdateReasonCode,
   UserAuditListResponse,
+  UserLookupResponse,
   UserMutationResponse,
   UserPasswordMutationResponse,
   UserResponse,
@@ -981,12 +982,28 @@ export function confirmClassificationFromCamera(
     classificationData: { [key: string]: JsonValue };
     photoToken: string;
     classificationType?: string | null;
+    conferredBy?: Array<{ userId: string }> | null;
   }
 ) {
   return request<CommandResponse>('/classification/confirm', {
     method: 'POST',
     session,
-    body: data,
+    body: data as unknown as { [key: string]: JsonValue },
+  });
+}
+
+export function lookupUsersForReference(
+  session: SessionData,
+  query: { search?: string; excludeUserId?: string; limit?: number } = {}
+) {
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.excludeUserId) params.set('excludeUserId', query.excludeUserId);
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<UserLookupResponse>(`/users/lookup${suffix}`, {
+    method: 'GET',
+    session,
   });
 }
 

@@ -412,13 +412,46 @@ async function renderSamplePdf({
     ['defeito', 'Defeitos'],
     ['umidade', 'Umidade'],
     ['classificador', 'Classificador'],
-    ['observacoes', 'Observacoes'],
   ]) {
     const entry = entryById.get(id);
     if (entry) {
       classificationRows.push({ label, value: asValue(entry) });
       usedIds.add(id);
     }
+  }
+
+  // Conferentes: expande em multiplas rows (padrao analogo ao sieveRows) para
+  // preservar legibilidade no laudo, ja que o renderer nao faz wrapping.
+  // Cap de 8 nomes visiveis; o resto vira um sufixo contando os adicionais.
+  const conferralEntry = entryById.get('conferredBy');
+  if (conferralEntry) {
+    usedIds.add('conferredBy');
+    const names = asValue(conferralEntry)
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const CONFERRAL_VISIBLE_CAP = 8;
+    const visible = names.slice(0, CONFERRAL_VISIBLE_CAP);
+    for (let i = 0; i < visible.length; i++) {
+      classificationRows.push({
+        label: i === 0 ? 'Conferido por' : '',
+        value: visible[i],
+      });
+    }
+    const overflow = names.length - visible.length;
+    if (overflow > 0) {
+      classificationRows.push({
+        label: '',
+        value: `+${overflow} conferente${overflow > 1 ? 's' : ''} adicional${overflow > 1 ? 'is' : ''}`,
+      });
+    }
+  }
+
+  // Observacoes por ultimo na secao de classificacao
+  const observacoesEntry = entryById.get('observacoes');
+  if (observacoesEntry) {
+    classificationRows.push({ label: 'Observacoes', value: asValue(observacoesEntry) });
+    usedIds.add('observacoes');
   }
 
   const technicalRows = [];

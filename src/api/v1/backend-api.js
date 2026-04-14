@@ -421,6 +421,7 @@ export function createBackendApiV1({
             consumptionGrams: body.consumptionGrams ?? null,
             classifierUserId: body.classifierUserId,
             classifierName: body.classifierName,
+            conferredBy: body.conferredBy,
             idempotencyKey: body.idempotencyKey,
           },
           actor
@@ -1568,6 +1569,28 @@ export function createBackendApiV1({
         };
       }),
 
+    lookupUsersForReference: (input) =>
+      executeApiForInput(input, async () => {
+        if (!userService) {
+          throw new HttpError(501, 'User service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await userService.lookupUsersForReference(
+          {
+            search: query.search,
+            excludeUserId: query.excludeUserId,
+            limit: query.limit,
+          },
+          actor
+        );
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     getUser: (input) =>
       executeApiForInput(input, async () => {
         if (!userService) {
@@ -1806,6 +1829,7 @@ export function createBackendApiV1({
             photoToken: body.photoToken,
             idempotencyKey: body.idempotencyKey,
             classificationType: body.classificationType ?? null,
+            conferredBy: body.conferredBy,
           },
           actor
         );

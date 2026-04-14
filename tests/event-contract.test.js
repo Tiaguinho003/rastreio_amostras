@@ -329,6 +329,191 @@ test('classification completed requires classification photo reference and accep
   assert.equal(completed.event.eventType, 'CLASSIFICATION_COMPLETED');
 });
 
+test('classification completed accepts conferredBy array with valid snapshots', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+  service.appendEvent(
+    photoAddedEvent(sampleId, {
+      payload: {
+        attachmentId: 'classification-photo-1',
+        kind: 'CLASSIFICATION_PHOTO',
+        storagePath: `samples/${sampleId}/classification/foto.jpg`,
+        fileName: 'foto.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 2048,
+      },
+      module: 'classification',
+    })
+  );
+  service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_STARTED',
+      sampleId,
+      fromStatus: 'QR_PRINTED',
+      toStatus: 'CLASSIFICATION_IN_PROGRESS',
+      payload: {},
+      module: 'classification',
+    }),
+    { expectedVersion: 5 }
+  );
+
+  const completed = service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_COMPLETED',
+      sampleId,
+      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      toStatus: 'CLASSIFIED',
+      idempotencyScope: 'CLASSIFICATION_COMPLETE',
+      idempotencyKey: randomUUID(),
+      payload: {
+        classificationPhotoId: 'classification-photo-1',
+        conferredBy: [
+          {
+            id: '11111111-1111-4111-8111-111111111111',
+            fullName: 'Joao Silva',
+            username: 'jsilva',
+          },
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            fullName: 'Maria Souza',
+            username: 'msouza',
+          },
+        ],
+      },
+      module: 'classification',
+    }),
+    { expectedVersion: 6 }
+  );
+
+  assert.equal(completed.statusCode, 201);
+  assert.equal(completed.event.payload.conferredBy.length, 2);
+});
+
+test('classification completed rejects conferredBy with empty array', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+  service.appendEvent(
+    photoAddedEvent(sampleId, {
+      payload: {
+        attachmentId: 'classification-photo-1',
+        kind: 'CLASSIFICATION_PHOTO',
+        storagePath: `samples/${sampleId}/classification/foto.jpg`,
+        fileName: 'foto.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 2048,
+      },
+      module: 'classification',
+    })
+  );
+  service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_STARTED',
+      sampleId,
+      fromStatus: 'QR_PRINTED',
+      toStatus: 'CLASSIFICATION_IN_PROGRESS',
+      payload: {},
+      module: 'classification',
+    }),
+    { expectedVersion: 5 }
+  );
+
+  assert.throws(
+    () =>
+      service.appendEvent(
+        buildEvent({
+          eventType: 'CLASSIFICATION_COMPLETED',
+          sampleId,
+          fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+          toStatus: 'CLASSIFIED',
+          idempotencyScope: 'CLASSIFICATION_COMPLETE',
+          idempotencyKey: randomUUID(),
+          payload: {
+            classificationPhotoId: 'classification-photo-1',
+            conferredBy: [],
+          },
+          module: 'classification',
+        }),
+        { expectedVersion: 6 }
+      ),
+    (error) => error instanceof HttpError && error.status === 422
+  );
+});
+
+test('classification completed rejects conferredBy with extra keys per item', () => {
+  const { service } = createService();
+  const sampleId = randomUUID();
+
+  service.appendEvent(sampleReceivedEvent(sampleId));
+  service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
+  service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+  service.appendEvent(
+    photoAddedEvent(sampleId, {
+      payload: {
+        attachmentId: 'classification-photo-1',
+        kind: 'CLASSIFICATION_PHOTO',
+        storagePath: `samples/${sampleId}/classification/foto.jpg`,
+        fileName: 'foto.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 2048,
+      },
+      module: 'classification',
+    })
+  );
+  service.appendEvent(
+    buildEvent({
+      eventType: 'CLASSIFICATION_STARTED',
+      sampleId,
+      fromStatus: 'QR_PRINTED',
+      toStatus: 'CLASSIFICATION_IN_PROGRESS',
+      payload: {},
+      module: 'classification',
+    }),
+    { expectedVersion: 5 }
+  );
+
+  assert.throws(
+    () =>
+      service.appendEvent(
+        buildEvent({
+          eventType: 'CLASSIFICATION_COMPLETED',
+          sampleId,
+          fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+          toStatus: 'CLASSIFIED',
+          idempotencyScope: 'CLASSIFICATION_COMPLETE',
+          idempotencyKey: randomUUID(),
+          payload: {
+            classificationPhotoId: 'classification-photo-1',
+            conferredBy: [
+              {
+                id: '11111111-1111-4111-8111-111111111111',
+                fullName: 'Joao Silva',
+                username: 'jsilva',
+                role: 'CLASSIFIER',
+              },
+            ],
+          },
+          module: 'classification',
+        }),
+        { expectedVersion: 6 }
+      ),
+    (error) => error instanceof HttpError && error.status === 422
+  );
+});
+
 test('report exported is accepted and does not mutate sample version/status', () => {
   const { store, service } = createService();
   const sampleId = randomUUID();

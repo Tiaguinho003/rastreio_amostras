@@ -12,6 +12,7 @@ import {
   extractAndPrepareClassification,
   extractFromDetectedForm,
   confirmClassificationFromCamera,
+  lookupUsersForReference,
   resolveSampleByLot,
   resolveSampleByQr,
   getSampleDetail,
@@ -28,9 +29,11 @@ import {
 } from '../../lib/classification-form';
 import type {
   ClassificationType,
+  ConferrerSnapshot,
   ExtractAndPrepareResponse,
   ResolveSampleByLotResponse,
   ResolveSampleByQrResponse,
+  UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -42,6 +45,7 @@ type ClassificationFlowState =
   | 'idle'
   | 'preview'
   | 'selecting-type'
+  | 'selecting-conferral'
   | 'detecting'
   | 'detected'
   | 'detect-failed'
@@ -375,6 +379,14 @@ function CameraPageContent() {
   // Classification type selection
   const [classificationType, setClassificationType] = useState<ClassificationType | null>(null);
 
+  // Conferral phase (nova etapa do modal apos a selecao de tipo)
+  const [hadConferral, setHadConferral] = useState<boolean | null>(null);
+  const [conferredBy, setConferredBy] = useState<ConferrerSnapshot[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<UserLookupItem[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userPickerSearch, setUserPickerSearch] = useState('');
+  const [userPickerError, setUserPickerError] = useState<string | null>(null);
+
   // Lot editing (Flow A)
   const [editableLot, setEditableLot] = useState('');
 
@@ -641,6 +653,11 @@ function CameraPageContent() {
     setExtractionResult(null);
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
     setClassificationType(null);
+    setHadConferral(null);
+    setConferredBy([]);
+    setAvailableUsers([]);
+    setUserPickerSearch('');
+    setUserPickerError(null);
     setFlowError(null);
     setConfirmedSampleId(null);
     setEditableLot('');
@@ -687,6 +704,45 @@ function CameraPageContent() {
     setCapturedPhoto(file);
     setCapturedPhotoUrl(URL.createObjectURL(file));
     setFlowState('preview');
+  }
+
+  async function loadAvailableUsersOnce() {
+    if (!session) return;
+    if (availableUsers.length > 0) return;
+    setLoadingUsers(true);
+    setUserPickerError(null);
+    try {
+      const response = await lookupUsersForReference(session, {
+        excludeUserId: session.user.id,
+        limit: 300,
+      });
+      if (!mountedRef.current) return;
+      setAvailableUsers(response.items);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setUserPickerError(
+        readErrorMessage(error, 'Nao foi possivel carregar a lista de classificadores.')
+      );
+    } finally {
+      if (mountedRef.current) setLoadingUsers(false);
+    }
+  }
+
+  function toggleConferrer(user: UserLookupItem) {
+    setConferredBy((prev) => {
+      const exists = prev.find((entry) => entry.id === user.id);
+      if (exists) {
+        return prev.filter((entry) => entry.id !== user.id);
+      }
+      return [...prev, { id: user.id, fullName: user.fullName, username: user.username }];
+    });
+  }
+
+  function handleConferralContinue() {
+    if (!classificationType) return;
+    if (hadConferral === null) return;
+    if (hadConferral === true && conferredBy.length === 0) return;
+    void handleSendPhoto(classificationType);
   }
 
   async function handleSendPhoto(type: ClassificationType) {
@@ -776,6 +832,8 @@ function CameraPageContent() {
         classificationData: classificationData as { [key: string]: JsonValue },
         photoToken: extractionResult.photoToken,
         classificationType,
+        conferredBy:
+          hadConferral === true ? conferredBy.map((entry) => ({ userId: entry.id })) : null,
       });
 
       if (!mountedRef.current) return;
@@ -1048,7 +1106,11 @@ function CameraPageContent() {
                           className="cam-type-btn"
                           onClick={() => {
                             setClassificationType(type);
-                            void handleSendPhoto(type);
+                            setHadConferral(null);
+                            setConferredBy([]);
+                            setUserPickerSearch('');
+                            setUserPickerError(null);
+                            setFlowState('selecting-conferral');
                           }}
                         >
                           {CLASSIFICATION_TYPE_LABEL[type]}
@@ -1062,6 +1124,173 @@ function CameraPageContent() {
                     >
                       Cancelar
                     </button>
+                  </section>
+                </div>
+              ) : null}
+
+              {/* Conferral phase */}
+              {flowState === 'selecting-conferral' ? (
+                <div
+                  className="app-modal-backdrop cam-type-backdrop"
+                  onClick={() => setFlowState('selecting-type')}
+                >
+                  <section
+                    className="app-modal cam-type-card cam-conferral-card"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Houve conferencia?"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <h3 className="cam-type-title">A classificacao foi conferida?</h3>
+                    <p className="cam-conferral-hint">
+                      Indique se outro classificador validou os dados junto com voce.
+                    </p>
+
+                    <div className="cam-conferral-toggle">
+                      <button
+                        type="button"
+                        className={`cam-conferral-opt${hadConferral === false ? ' is-selected' : ''}`}
+                        onClick={() => {
+                          setHadConferral(false);
+                          setConferredBy([]);
+                          setUserPickerError(null);
+                        }}
+                      >
+                        Nao houve
+                      </button>
+                      <button
+                        type="button"
+                        className={`cam-conferral-opt${hadConferral === true ? ' is-selected' : ''}`}
+                        onClick={() => {
+                          setHadConferral(true);
+                          void loadAvailableUsersOnce();
+                        }}
+                      >
+                        Sim, por:
+                      </button>
+                    </div>
+
+                    {hadConferral === true ? (
+                      <div className="cam-conferral-picker">
+                        {loadingUsers ? (
+                          <div className="cam-conferral-loading">Carregando...</div>
+                        ) : userPickerError ? (
+                          <div className="cam-conferral-error">
+                            {userPickerError}
+                            <button
+                              type="button"
+                              className="cam-conferral-retry"
+                              onClick={() => {
+                                setAvailableUsers([]);
+                                void loadAvailableUsersOnce();
+                              }}
+                            >
+                              Tentar novamente
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              className="cam-conferral-search"
+                              placeholder="Buscar por nome ou usuario"
+                              value={userPickerSearch}
+                              onChange={(event) => setUserPickerSearch(event.target.value)}
+                            />
+                            {conferredBy.length > 0 ? (
+                              <div className="cam-conferral-chips">
+                                {conferredBy.map((entry) => (
+                                  <span key={entry.id} className="cam-conferral-chip">
+                                    {entry.fullName}
+                                    <button
+                                      type="button"
+                                      className="cam-conferral-chip-x"
+                                      onClick={() =>
+                                        setConferredBy((prev) =>
+                                          prev.filter((c) => c.id !== entry.id)
+                                        )
+                                      }
+                                      aria-label={`Remover ${entry.fullName}`}
+                                    >
+                                      &times;
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            <div className="cam-conferral-list" role="listbox" aria-multiselectable>
+                              {(() => {
+                                const q = userPickerSearch.trim().toLowerCase();
+                                const filtered = q
+                                  ? availableUsers.filter(
+                                      (u) =>
+                                        u.fullName.toLowerCase().includes(q) ||
+                                        u.username.toLowerCase().includes(q)
+                                    )
+                                  : availableUsers;
+                                if (filtered.length === 0) {
+                                  return (
+                                    <div className="cam-conferral-empty">
+                                      Nenhum usuario encontrado.
+                                    </div>
+                                  );
+                                }
+                                return filtered.map((user) => {
+                                  const selected = conferredBy.some((c) => c.id === user.id);
+                                  return (
+                                    <button
+                                      key={user.id}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={selected}
+                                      className={`cam-conferral-row${selected ? ' is-selected' : ''}`}
+                                      onClick={() => toggleConferrer(user)}
+                                    >
+                                      <span className="cam-conferral-row-check">
+                                        {selected ? (
+                                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        ) : null}
+                                      </span>
+                                      <span className="cam-conferral-row-body">
+                                        <span className="cam-conferral-row-name">
+                                          {user.fullName}
+                                        </span>
+                                        <span className="cam-conferral-row-user">
+                                          @{user.username}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+
+                    <div className="cam-conferral-actions">
+                      <button
+                        type="button"
+                        className="cam-conferral-back"
+                        onClick={() => setFlowState('selecting-type')}
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        className="cam-conferral-continue"
+                        onClick={handleConferralContinue}
+                        disabled={
+                          hadConferral === null ||
+                          (hadConferral === true && conferredBy.length === 0)
+                        }
+                      >
+                        Continuar
+                      </button>
+                    </div>
                   </section>
                 </div>
               ) : null}

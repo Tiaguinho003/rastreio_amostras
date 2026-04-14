@@ -61,6 +61,7 @@ export function createBackendApiV1FromEnv() {
     clientService,
     extractionService,
     formDetectionService,
+    userService,
   });
   const reportService = new SamplePdfReportService({
     queryService,

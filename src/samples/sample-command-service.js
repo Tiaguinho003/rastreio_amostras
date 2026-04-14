@@ -629,6 +629,7 @@ function parseClassificationUpdatePatch(after) {
     'technical',
     'consumptionGrams',
     'peneirasPercentuais',
+    'conferredBy',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
@@ -716,10 +717,16 @@ function parseClassificationUpdatePatch(after) {
         )
       : undefined;
 
+  // conferredBy e extraido como sibling do classificationData porque vive
+  // top-level no payload do evento, nao dentro de classificationData. O shape
+  // ja foi validado antes por normalizeConferredBy (async) no caller.
+  const conferredBy = hasOwn(after, 'conferredBy') ? after.conferredBy : undefined;
+
   if (
     Object.keys(classificationDataPatch).length === 0 &&
     Object.keys(technicalPatch).length === 0 &&
-    consumptionGrams === undefined
+    consumptionGrams === undefined &&
+    conferredBy === undefined
   ) {
     throw new HttpError(422, 'after must include at least one editable classification field');
   }
@@ -728,6 +735,7 @@ function parseClassificationUpdatePatch(after) {
     classificationData: classificationDataPatch,
     technical: technicalPatch,
     consumptionGrams,
+    conferredBy,
   };
 }
 
@@ -1047,6 +1055,16 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
     }
   }
 
+  if (parsedPatch.conferredBy !== undefined) {
+    const currentConferredBy = hasOwn(currentData, 'conferidoPor')
+      ? currentData.conferidoPor
+      : null;
+    if (!valuesEqual(currentConferredBy, parsedPatch.conferredBy)) {
+      before.conferredBy = currentConferredBy;
+      after.conferredBy = parsedPatch.conferredBy;
+    }
+  }
+
   if (Object.keys(after).length === 0) {
     return null;
   }
@@ -1247,6 +1265,7 @@ export class SampleCommandService {
     clientService = null,
     extractionService = null,
     formDetectionService = null,
+    userService = null,
   }) {
     this.eventService = eventService;
     this.queryService = queryService;
@@ -1254,6 +1273,92 @@ export class SampleCommandService {
     this.clientService = clientService;
     this.extractionService = extractionService;
     this.formDetectionService = formDetectionService;
+    this.userService = userService;
+  }
+
+  // Valida e monta snapshots dos conferentes server-side. Recebe lista
+  // crua do cliente (so com userIds) e retorna array de snapshots prontos
+  // para persistencia no payload do evento, ou null se a lista for vazia.
+  //
+  // - Rejeita auto-conferral (conferrer === actor).
+  // - Rejeita usuarios inexistentes ou inativos.
+  // - Dedup silencioso por userId.
+  // - Cap de 50 conferentes.
+  // - Empty array / null / undefined -> null.
+  async normalizeConferredBy(raw, { actor }) {
+    if (raw === null || raw === undefined) return null;
+    if (!Array.isArray(raw)) {
+      throw new HttpError(422, 'conferredBy must be an array or null', {
+        code: 'CONFERRED_BY_INVALID_SHAPE',
+      });
+    }
+    if (raw.length === 0) return null;
+    if (raw.length > 50) {
+      throw new HttpError(422, 'conferredBy: maximo de 50 conferentes', {
+        code: 'CONFERRED_BY_TOO_MANY',
+      });
+    }
+
+    const seen = new Set();
+    const uniqueIds = [];
+    for (const item of raw) {
+      if (!isPlainObject(item)) {
+        throw new HttpError(422, 'conferredBy items must be objects', {
+          code: 'CONFERRED_BY_INVALID_SHAPE',
+        });
+      }
+      const userId = item.userId;
+      if (typeof userId !== 'string' || !UUID_REGEX.test(userId)) {
+        throw new HttpError(422, 'conferredBy[].userId must be a uuid', {
+          code: 'CONFERRED_BY_INVALID_SHAPE',
+        });
+      }
+      if (seen.has(userId)) continue;
+      seen.add(userId);
+      uniqueIds.push(userId);
+    }
+
+    if (uniqueIds.length === 0) return null;
+
+    const actorUserId = actor?.actorUserId ?? null;
+    if (actorUserId && uniqueIds.includes(actorUserId)) {
+      throw new HttpError(422, 'Voce nao pode se adicionar como conferente', {
+        code: 'SELF_CONFERRAL_NOT_ALLOWED',
+      });
+    }
+
+    if (!this.userService) {
+      throw new HttpError(501, 'User service is not configured for conferredBy validation');
+    }
+    const userMap = await this.userService.findUsersForSnapshotByIds(uniqueIds);
+
+    const snapshots = [];
+    for (const userId of uniqueIds) {
+      const user = userMap.get(userId);
+      if (!user) {
+        throw new HttpError(422, `Conferente nao encontrado: ${userId}`, {
+          code: 'CONFERRER_NOT_FOUND',
+          userId,
+        });
+      }
+      if (user.status !== 'ACTIVE') {
+        throw new HttpError(422, `Conferente inativo: ${userId}`, {
+          code: 'INACTIVE_CONFERRER',
+          userId,
+        });
+      }
+      const fullName =
+        typeof user.fullName === 'string' && user.fullName.trim().length > 0
+          ? user.fullName.trim()
+          : user.username;
+      snapshots.push({
+        id: user.id,
+        fullName,
+        username: user.username,
+      });
+    }
+
+    return snapshots;
   }
 
   async receiveSample(input, actorContext) {
@@ -1921,6 +2026,10 @@ export class SampleCommandService {
       payload.classifierName = input.classifierName;
     }
 
+    if (Array.isArray(input.conferredBy) || input.conferredBy === null) {
+      payload.conferredBy = input.conferredBy;
+    }
+
     if (input.classificationType) {
       payload.classificationType = input.classificationType;
     }
@@ -2053,7 +2162,15 @@ export class SampleCommandService {
     const reasonText = hasReasonText
       ? normalizeUpdateReasonText(input.reasonText)
       : 'Atualizacao de classificacao';
-    const parsedPatch = parseClassificationUpdatePatch(input.after ?? input.changes ?? {});
+    const rawAfter = input.after ?? input.changes ?? {};
+    // Normaliza conferredBy antes de parsear o patch, pois e async
+    // (precisa buscar usuarios). O parser sync so valida o shape top-level.
+    let normalizedAfter = rawAfter;
+    if (isPlainObject(rawAfter) && hasOwn(rawAfter, 'conferredBy')) {
+      const normalized = await this.normalizeConferredBy(rawAfter.conferredBy, { actor });
+      normalizedAfter = { ...rawAfter, conferredBy: normalized };
+    }
+    const parsedPatch = parseClassificationUpdatePatch(normalizedAfter);
     const updatePayload = buildClassificationUpdatePayload(sample, parsedPatch);
     if (!updatePayload) {
       throw new HttpError(409, 'No classification changes detected');
@@ -2830,6 +2947,14 @@ export class SampleCommandService {
           parsedPatch.peneirasPercentuais = sievePatch;
         }
       }
+      // conferredBy e passado top-level no after, fora do whitelist de
+      // CLASSIFICATION_DATA_EDITABLE_FIELDS acima. Passamos o input original
+      // (formato {userId}) e o updateClassification re-normaliza. A chamada
+      // anterior a this.normalizeConferredBy neste metodo servia apenas para
+      // detectar erros cedo (fail-fast) antes de entrar na branch.
+      if (input.conferredBy !== undefined) {
+        parsedPatch.conferredBy = input.conferredBy;
+      }
       result = await this.updateClassification(
         {
           sampleId,
@@ -2843,6 +2968,7 @@ export class SampleCommandService {
       );
     } else {
       // New classification
+      const normalizedConferredBy = await this.normalizeConferredBy(input.conferredBy, { actor });
       result = await this.completeClassification(
         {
           sampleId,
@@ -2850,6 +2976,7 @@ export class SampleCommandService {
           classificationData,
           technical: Object.keys(technical).length > 0 ? technical : undefined,
           classifierName,
+          conferredBy: normalizedConferredBy,
           idempotencyKey: input.idempotencyKey,
           classificationType: input.classificationType ?? null,
         },

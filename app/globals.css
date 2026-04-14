@@ -8057,6 +8057,202 @@ button:disabled {
   height: clamp(48px, 14vw, 60px);
 }
 
+/* ── Conferencia no modal full-view (cld-*) ── */
+
+.cld-conferral-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(6px, 1.8vw, 8px);
+}
+
+.cld-conferral-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 6px);
+  padding: clamp(4px, 1.2vw, 6px) clamp(8px, 2.4vw, 10px);
+  border-radius: 14px;
+  background: rgba(46, 125, 50, 0.08);
+  color: var(--brand-green-soft);
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+}
+
+.cld-conferral-chip-name {
+  font-weight: 600;
+}
+
+.cld-conferral-chip-user {
+  font-weight: 500;
+  opacity: 0.75;
+  font-size: clamp(10px, 2.8vw, 11px);
+}
+
+.cld-conferral-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--brand-green-soft);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  font-family: inherit;
+}
+
+.cld-conferral-add-btn {
+  align-self: flex-start;
+  padding: clamp(6px, 1.8vw, 8px) clamp(10px, 3vw, 12px);
+  border: 1.5px dashed rgba(46, 125, 50, 0.3);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--brand-green-soft);
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.cld-conferral-add-btn:active {
+  background: rgba(46, 125, 50, 0.06);
+}
+
+.cld-conferral-picker {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.8vw, 8px);
+  padding: clamp(8px, 2.5vw, 10px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: #fdfcfa;
+}
+
+.cld-conferral-loading,
+.cld-conferral-empty,
+.cld-conferral-error {
+  text-align: center;
+  color: #888;
+  font-size: clamp(11px, 3vw, 12px);
+  padding: clamp(8px, 2.5vw, 10px);
+}
+
+.cld-conferral-error {
+  color: #7f1d1d;
+  background: rgba(254, 226, 226, 0.4);
+  border-radius: 8px;
+}
+
+.cld-conferral-search {
+  width: 100%;
+  padding: clamp(8px, 2.4vw, 10px) clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: clamp(12px, 3.4vw, 13px);
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+}
+
+.cld-conferral-search:focus {
+  border-color: var(--brand-green-soft);
+}
+
+.cld-conferral-list {
+  max-height: 35vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cld-conferral-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(6px, 2vw, 8px) clamp(8px, 2.5vw, 10px);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1a1a1a;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.cld-conferral-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cld-conferral-row.is-selected {
+  background: rgba(46, 125, 50, 0.08);
+}
+
+.cld-conferral-row-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cld-conferral-row.is-selected .cld-conferral-row-check {
+  background: var(--brand-green-soft);
+  border-color: var(--brand-green-soft);
+}
+
+.cld-conferral-row-check svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cld-conferral-row-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.cld-conferral-row-name {
+  font-size: clamp(12px, 3.4vw, 13px);
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cld-conferral-row-user {
+  font-size: clamp(10px, 2.8vw, 11px);
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cld-conferral-close {
+  padding: clamp(6px, 1.8vw, 8px);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #777;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .samples-page-panel {
   position: relative;
   display: flex;
@@ -15299,6 +15495,273 @@ button:disabled {
 .cam-type-cancel:active {
   transform: scale(0.97);
   background: rgba(0, 0, 0, 0.04);
+}
+
+/* ── Conferral phase (segunda etapa do modal da camera) ── */
+
+.cam-conferral-card {
+  max-width: min(360px, 92vw);
+  gap: clamp(10px, 3vw, 14px);
+}
+
+.cam-conferral-hint {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  color: #777;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.cam-conferral-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.cam-conferral-opt {
+  padding: clamp(12px, 3.5vw, 14px);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: clamp(11px, 3.2vw, 13px);
+  background: #faf9f6;
+  color: #3a3a3a;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cam-conferral-opt:active {
+  transform: scale(0.97);
+}
+
+.cam-conferral-opt.is-selected {
+  border-color: var(--brand-green-soft);
+  background: rgba(46, 125, 50, 0.08);
+  color: var(--brand-green-soft);
+}
+
+.cam-conferral-picker {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5vw, 10px);
+  max-height: 45vh;
+  min-height: 0;
+}
+
+.cam-conferral-loading,
+.cam-conferral-empty {
+  padding: clamp(12px, 3.5vw, 16px);
+  text-align: center;
+  color: #888;
+  font-size: clamp(12px, 3.4vw, 13px);
+}
+
+.cam-conferral-error {
+  padding: clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(185, 28, 28, 0.2);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: rgba(254, 226, 226, 0.6);
+  color: #7f1d1d;
+  font-size: clamp(12px, 3.4vw, 13px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.cam-conferral-retry {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(185, 28, 28, 0.12);
+  color: #7f1d1d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cam-conferral-search {
+  width: 100%;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: #faf9f6;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+}
+
+.cam-conferral-search:focus {
+  border-color: var(--brand-green-soft);
+}
+
+.cam-conferral-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cam-conferral-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(46, 125, 50, 0.1);
+  color: var(--brand-green-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cam-conferral-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--brand-green-soft);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.cam-conferral-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  padding: 6px;
+  background: #fdfcfa;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cam-conferral-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1a1a1a;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.cam-conferral-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cam-conferral-row.is-selected {
+  background: rgba(46, 125, 50, 0.08);
+}
+
+.cam-conferral-row-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cam-conferral-row.is-selected .cam-conferral-row-check {
+  background: var(--brand-green-soft);
+  border-color: var(--brand-green-soft);
+}
+
+.cam-conferral-row-check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cam-conferral-row-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.cam-conferral-row-name {
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-conferral-row-user {
+  font-size: clamp(11px, 3vw, 12px);
+  color: #888;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-conferral-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.cam-conferral-back {
+  padding: clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: transparent;
+  color: #555;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.cam-conferral-back:active {
+  transform: scale(0.97);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cam-conferral-continue {
+  padding: clamp(10px, 3vw, 12px);
+  border: 0;
+  border-radius: clamp(10px, 3vw, 12px);
+  background: var(--brand-green-soft);
+  color: #ffffff;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.cam-conferral-continue:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cam-conferral-continue:not(:disabled):active {
+  transform: scale(0.97);
 }
 
 /* ── Detect-failed action buttons (camera-hub-btn) ── */

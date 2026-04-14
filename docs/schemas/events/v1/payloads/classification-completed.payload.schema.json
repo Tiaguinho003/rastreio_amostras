@@ -129,6 +129,21 @@
     "classifierName": {
       "type": ["string", "null"]
     },
+    "conferredBy": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fullName": { "type": "string", "minLength": 1 },
+          "username": { "type": "string", "minLength": 1 }
+        },
+        "required": ["id", "fullName", "username"],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 50
+    },
     "consumptionGrams": {
       "type": ["number", "null"],
       "minimum": 0

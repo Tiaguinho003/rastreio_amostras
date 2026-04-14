@@ -16,6 +16,7 @@ export const SAMPLE_EXPORT_FIELDS = [
   'imp',
   'defeito',
   'classificador',
+  'conferredBy',
   'observacoes',
   'classificationOriginLot',
   'peneirasPercentuais',
@@ -42,6 +43,7 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   imp: 'IMP',
   defeito: 'Defeito',
   classificador: 'Classificador',
+  conferredBy: 'Conferido por',
   observacoes: 'Observacoes',
   classificationOriginLot: 'Lote de origem (classificacao)',
   peneirasPercentuais: 'Peneiras percentuais',
@@ -102,6 +104,25 @@ function formatNumber(value) {
   }).format(parsed);
 }
 
+function formatConferredBy(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const names = value
+    .map((entry) => {
+      if (!isRecord(entry)) return null;
+      const name = typeof entry.fullName === 'string' ? entry.fullName.trim() : '';
+      return name.length > 0 ? name : null;
+    })
+    .filter((name) => name !== null);
+  if (names.length === 0) {
+    return null;
+  }
+  // Pipe-separado para o renderer expandir em multiplas rows (mesmo padrao
+  // usado por formatSieve / peneirasPercentuais).
+  return names.join('|');
+}
+
 function formatSieve(value) {
   if (!isRecord(value)) {
     return null;
@@ -159,6 +180,7 @@ function buildFieldValueMap(detail) {
     imp: classificationData.imp,
     defeito: classificationData.defeito,
     classificador: classificationData.classificador,
+    conferredBy: formatConferredBy(classificationData.conferidoPor),
     observacoes: classificationData.observacoes,
     classificationOriginLot: classificationData.loteOrigem,
     peneirasPercentuais: formatSieve(classificationData.peneirasPercentuais),

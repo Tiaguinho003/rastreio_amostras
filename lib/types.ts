@@ -1,5 +1,21 @@
 export type UserRole = 'ADMIN' | 'CLASSIFIER' | 'REGISTRATION' | 'COMMERCIAL';
 export type UserStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface ConferrerSnapshot {
+  id: string;
+  fullName: string;
+  username: string;
+}
+
+export interface UserLookupItem {
+  id: string;
+  fullName: string;
+  username: string;
+}
+
+export interface UserLookupResponse {
+  items: UserLookupItem[];
+}
 export type InitialPasswordDecision = 'PENDING' | 'KEPT' | 'CHANGED';
 export type UpdateReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'CANCELLED' | 'OTHER';

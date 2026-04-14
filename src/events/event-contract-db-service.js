@@ -173,6 +173,12 @@ function mergeClassificationData(currentData, fromPayload) {
   if (hasOwn(fromPayload, 'classifierName')) {
     merged.classificador = fromPayload.classifierName;
   }
+  // Conferencia (novo campo): wire-level usa "conferredBy" (array de snapshots
+  // ou null); no JSONB armazenamos em portugues como "conferidoPor" para bater
+  // com o padrao das outras chaves de classificationData.
+  if (hasOwn(fromPayload, 'conferredBy')) {
+    merged.conferidoPor = fromPayload.conferredBy;
+  }
 
   return Object.keys(merged).length > 0 ? merged : null;
 }

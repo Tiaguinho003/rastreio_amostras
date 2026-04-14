@@ -550,6 +550,71 @@ export class UserService {
     };
   }
 
+  // Listagem minima de usuarios ativos para uso em pickers (ex: conferencia
+  // de classificacao). Aberta a qualquer usuario autenticado, retorna so o
+  // suficiente para identificar visualmente (id, fullName, username).
+  async lookupUsersForReference(input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'lookup users');
+    const search = normalizeOptionalText(input?.search, 'search', 200);
+    const excludeUserId = normalizeOptionalText(input?.excludeUserId, 'excludeUserId', 100);
+    const rawLimit = Number.isFinite(input?.limit) ? Number(input.limit) : 200;
+    const limit = Math.min(Math.max(1, Math.trunc(rawLimit)), 500);
+
+    const where = {
+      status: USER_STATUSES.ACTIVE,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { fullName: { contains: search, mode: 'insensitive' } },
+              { username: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const items = await this.prisma.user.findMany({
+      where,
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+      take: limit,
+      select: {
+        id: true,
+        fullName: true,
+        username: true,
+      },
+    });
+
+    return {
+      items: items.map((item) => ({
+        id: item.id,
+        fullName: item.fullName,
+        username: item.username,
+      })),
+    };
+  }
+
+  // Usado pelo command service para construir snapshots de conferentes
+  // server-side. NAO faz checagem de actor porque o caller ja validou o
+  // usuario autenticado antes de chamar este metodo.
+  async findUsersForSnapshotByIds(userIds) {
+    const uniqueIds = Array.from(
+      new Set((Array.isArray(userIds) ? userIds : []).filter((id) => typeof id === 'string' && id))
+    );
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: {
+        id: true,
+        fullName: true,
+        username: true,
+        status: true,
+      },
+    });
+    return new Map(users.map((user) => [user.id, user]));
+  }
+
   async getUser(userId, actorContext) {
     assertAdminActor(actorContext, 'get user');
     return this.prisma.$transaction(async (tx) => {

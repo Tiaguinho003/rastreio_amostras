@@ -18,6 +18,7 @@ import {
   getSampleDetail,
   invalidateSample,
   listSampleEvents,
+  lookupUsersForReference,
   recordPhysicalSampleSent,
   requestQrReprint,
   requestQrPrint,
@@ -39,6 +40,7 @@ import type {
   ClientRegistrationSummary,
   ClientSummary,
   CommercialStatus,
+  ConferrerSnapshot,
   ExtractionResult,
   InvalidateReasonCode,
   PrintAction,
@@ -46,6 +48,7 @@ import type {
   SampleEvent,
   SampleExportType,
   UpdateReasonCode,
+  UserLookupItem,
   SampleStatus,
   SessionUser,
 } from '../../../lib/types';
@@ -532,6 +535,20 @@ export default function SampleDetailPage() {
   const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
   const [classificationDetailForm, setClassificationDetailForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
+  const [classificationDetailConferredBy, setClassificationDetailConferredBy] = useState<
+    ConferrerSnapshot[]
+  >([]);
+  const [classificationDetailConferredByOriginal, setClassificationDetailConferredByOriginal] =
+    useState<ConferrerSnapshot[]>([]);
+  const [classificationDetailPickerOpen, setClassificationDetailPickerOpen] = useState(false);
+  const [classificationDetailAvailableUsers, setClassificationDetailAvailableUsers] = useState<
+    UserLookupItem[]
+  >([]);
+  const [classificationDetailLoadingUsers, setClassificationDetailLoadingUsers] = useState(false);
+  const [classificationDetailUserSearch, setClassificationDetailUserSearch] = useState('');
+  const [classificationDetailUserError, setClassificationDetailUserError] = useState<string | null>(
+    null
+  );
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
@@ -1650,9 +1667,36 @@ export default function SampleDetailPage() {
     setClassificationEditMode(false);
   }
 
+  function readConferredByFromDetail(data: unknown): ConferrerSnapshot[] {
+    const raw =
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>).conferidoPor
+        : null;
+    if (!Array.isArray(raw)) return [];
+    const out: ConferrerSnapshot[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object') continue;
+      const e = entry as Record<string, unknown>;
+      if (
+        typeof e.id === 'string' &&
+        typeof e.fullName === 'string' &&
+        typeof e.username === 'string'
+      ) {
+        out.push({ id: e.id, fullName: e.fullName, username: e.username });
+      }
+    }
+    return out;
+  }
+
   function openClassificationDetail() {
     if (!detail || !session) return;
     setClassificationDetailForm(buildClassificationFormState(detail, session.user));
+    const initialConferredBy = readConferredByFromDetail(detail.sample.latestClassification?.data);
+    setClassificationDetailConferredBy(initialConferredBy);
+    setClassificationDetailConferredByOriginal(initialConferredBy);
+    setClassificationDetailPickerOpen(false);
+    setClassificationDetailUserSearch('');
+    setClassificationDetailUserError(null);
     setClassificationDetailEditing(false);
     setClassificationDetailSaved(false);
     setClassificationDetailOpen(true);
@@ -1663,10 +1707,53 @@ export default function SampleDetailPage() {
     setClassificationDetailEditing(false);
     setClassificationDetailSaving(false);
     setClassificationDetailSaved(false);
+    setClassificationDetailPickerOpen(false);
+    setClassificationDetailUserSearch('');
   }
 
   function updateClassificationDetailField(key: keyof ClassificationFormState, value: string) {
     setClassificationDetailForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function loadClassificationDetailUsers() {
+    if (!session) return;
+    if (classificationDetailAvailableUsers.length > 0) return;
+    setClassificationDetailLoadingUsers(true);
+    setClassificationDetailUserError(null);
+    try {
+      const response = await lookupUsersForReference(session, {
+        excludeUserId: session.user.id,
+        limit: 300,
+      });
+      setClassificationDetailAvailableUsers(response.items);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel carregar a lista de classificadores.';
+      setClassificationDetailUserError(message);
+    } finally {
+      setClassificationDetailLoadingUsers(false);
+    }
+  }
+
+  function toggleClassificationDetailConferrer(user: UserLookupItem) {
+    setClassificationDetailConferredBy((prev) => {
+      const exists = prev.find((entry) => entry.id === user.id);
+      if (exists) {
+        return prev.filter((entry) => entry.id !== user.id);
+      }
+      return [...prev, { id: user.id, fullName: user.fullName, username: user.username }];
+    });
+  }
+
+  function conferredByChanged(
+    current: ConferrerSnapshot[],
+    original: ConferrerSnapshot[]
+  ): boolean {
+    if (current.length !== original.length) return true;
+    const currentIds = new Set(current.map((c) => c.id));
+    return original.some((o) => !currentIds.has(o.id));
   }
 
   async function saveClassificationDetail() {
@@ -1685,18 +1772,31 @@ export default function SampleDetailPage() {
       });
       const technical = buildTechnicalFromClassificationData(classificationData);
 
+      const conferredByChangedNow = conferredByChanged(
+        classificationDetailConferredBy,
+        classificationDetailConferredByOriginal
+      );
+      const afterPayload: { [key: string]: unknown } = {
+        classificationData,
+        ...(technical ? { technical } : {}),
+      };
+      if (conferredByChangedNow) {
+        afterPayload.conferredBy =
+          classificationDetailConferredBy.length > 0
+            ? classificationDetailConferredBy.map((entry) => ({ userId: entry.id }))
+            : null;
+      }
+
       await updateClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
-        after: {
-          classificationData,
-          ...(technical ? { technical } : {}),
-        },
+        after: afterPayload as { [key: string]: import('../../../lib/api-client').JsonValue },
         reasonCode: 'DATA_FIX',
         reasonText: 'Edicao rapida',
       });
 
       setClassificationDetailSaved(true);
       setClassificationDetailEditing(false);
+      setClassificationDetailPickerOpen(false);
       await syncDetailState({ refreshHistory: true });
 
       setTimeout(() => {
@@ -2267,6 +2367,7 @@ export default function SampleDetailPage() {
                       const padrao = String(cd.padrao ?? '—');
                       const defeito = String(cd.defeito ?? '—');
                       const catacao = String(cd.catacao ?? '—');
+                      const conferredBySummary = readConferredByFromDetail(classData);
                       return (
                         <div className="sdv-card sdv-cls-block">
                           <div className="sdv-card-header">
@@ -2312,6 +2413,17 @@ export default function SampleDetailPage() {
                                 <span className="sdv-info-label">Catacao</span>
                                 <span className="sdv-info-value">{catacao}</span>
                               </div>
+                              {conferredBySummary.length > 0 ? (
+                                <div className="sdv-info-item">
+                                  <span className="sdv-info-label">Conferida por</span>
+                                  <span className="sdv-info-value">
+                                    {conferredBySummary[0].fullName}
+                                    {conferredBySummary.length > 1
+                                      ? ` +${conferredBySummary.length - 1}`
+                                      : ''}
+                                  </span>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -2913,6 +3025,131 @@ export default function SampleDetailPage() {
                           </div>
                         </div>
 
+                        <div className="cld-section is-conferral">
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Conferencia
+                          </div>
+                          {classificationDetailConferredBy.length === 0 ? (
+                            <span className="cld-field-value">Sem conferencia</span>
+                          ) : (
+                            <div className="cld-conferral-chips">
+                              {classificationDetailConferredBy.map((entry) => (
+                                <span key={entry.id} className="cld-conferral-chip">
+                                  <span className="cld-conferral-chip-name">{entry.fullName}</span>
+                                  <span className="cld-conferral-chip-user">@{entry.username}</span>
+                                  {editing ? (
+                                    <button
+                                      type="button"
+                                      className="cld-conferral-chip-x"
+                                      onClick={() =>
+                                        setClassificationDetailConferredBy((prev) =>
+                                          prev.filter((c) => c.id !== entry.id)
+                                        )
+                                      }
+                                      aria-label={`Remover ${entry.fullName}`}
+                                    >
+                                      &times;
+                                    </button>
+                                  ) : null}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {editing && !classificationDetailPickerOpen ? (
+                            <button
+                              type="button"
+                              className="cld-conferral-add-btn"
+                              onClick={() => {
+                                setClassificationDetailPickerOpen(true);
+                                void loadClassificationDetailUsers();
+                              }}
+                            >
+                              + Adicionar conferente
+                            </button>
+                          ) : null}
+                          {editing && classificationDetailPickerOpen ? (
+                            <div className="cld-conferral-picker">
+                              {classificationDetailLoadingUsers ? (
+                                <div className="cld-conferral-loading">Carregando...</div>
+                              ) : classificationDetailUserError ? (
+                                <div className="cld-conferral-error">
+                                  {classificationDetailUserError}
+                                </div>
+                              ) : (
+                                <>
+                                  <input
+                                    type="text"
+                                    className="cld-conferral-search"
+                                    placeholder="Buscar por nome ou usuario"
+                                    value={classificationDetailUserSearch}
+                                    onChange={(e) =>
+                                      setClassificationDetailUserSearch(e.target.value)
+                                    }
+                                  />
+                                  <div className="cld-conferral-list">
+                                    {(() => {
+                                      const q = classificationDetailUserSearch.trim().toLowerCase();
+                                      const filtered = q
+                                        ? classificationDetailAvailableUsers.filter(
+                                            (u) =>
+                                              u.fullName.toLowerCase().includes(q) ||
+                                              u.username.toLowerCase().includes(q)
+                                          )
+                                        : classificationDetailAvailableUsers;
+                                      if (filtered.length === 0) {
+                                        return (
+                                          <div className="cld-conferral-empty">
+                                            Nenhum usuario encontrado.
+                                          </div>
+                                        );
+                                      }
+                                      return filtered.map((user) => {
+                                        const selected = classificationDetailConferredBy.some(
+                                          (c) => c.id === user.id
+                                        );
+                                        return (
+                                          <button
+                                            key={user.id}
+                                            type="button"
+                                            className={`cld-conferral-row${selected ? ' is-selected' : ''}`}
+                                            onClick={() =>
+                                              toggleClassificationDetailConferrer(user)
+                                            }
+                                          >
+                                            <span className="cld-conferral-row-check">
+                                              {selected ? (
+                                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                  <path d="M5 13l4 4L19 7" />
+                                                </svg>
+                                              ) : null}
+                                            </span>
+                                            <span className="cld-conferral-row-body">
+                                              <span className="cld-conferral-row-name">
+                                                {user.fullName}
+                                              </span>
+                                              <span className="cld-conferral-row-user">
+                                                @{user.username}
+                                              </span>
+                                            </span>
+                                          </button>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="cld-conferral-close"
+                                    onClick={() => setClassificationDetailPickerOpen(false)}
+                                  >
+                                    Fechar lista
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
                         {sieveList.length > 0 && (
                           <div className="cld-section is-sieves">
                             <div className="cld-section-title">
@@ -2985,6 +3222,9 @@ export default function SampleDetailPage() {
                           setClassificationDetailForm(
                             buildClassificationFormState(detail, session.user)
                           );
+                        setClassificationDetailConferredBy(classificationDetailConferredByOriginal);
+                        setClassificationDetailPickerOpen(false);
+                        setClassificationDetailUserSearch('');
                         setClassificationDetailEditing(false);
                       }}
                       disabled={saving}
