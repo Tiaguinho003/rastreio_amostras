@@ -43,7 +43,7 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
 3. `docs/Conferencia-Fases-1a4.md`
    Uso: checklist oficial de conferencia das fases 1 a 4 com banco, contratos, backend e regressao.
 4. `docs/Clientes-e-Movimentacoes-Especificacao.md`
-   Uso: especificacao funcional/tecnica de clientes, proprietarios, movimentacoes comerciais e auditoria. Status: Planejado.
+   Uso: especificacao funcional/tecnica de clientes, proprietarios, movimentacoes comerciais e auditoria. Status: Ativo (implementado).
 5. `docs/archive/Reorganizacao-2026Q2-Decisions.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
 

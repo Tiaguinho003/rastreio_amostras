@@ -1,8 +1,8 @@
 # Clientes e Movimentacoes - Especificacao Base
 
-Status: Planejado  
-Escopo: especificacao funcional e tecnica base para a implementacao de clientes, proprietario, inscricoes, vendas, perdas, status comercial e auditoria  
-Ultima revisao: 2026-03-19  
+Status: Ativo  
+Escopo: especificacao funcional e tecnica base de clientes, proprietario, inscricoes, vendas, perdas, status comercial e auditoria (implementado)  
+Ultima revisao: 2026-04-14  
 Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`, `docs/Deploy-e-Cloud-Build.md`
 
 ## Objetivo
