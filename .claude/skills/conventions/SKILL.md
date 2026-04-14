@@ -27,7 +27,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `tests/` — testes na raiz (nao em `__tests__/`)
 - `prisma/` — schema + migrations + seed
 - `scripts/runtime/` — wrappers operacionais (compose, migrate, seed, preflight, smoke)
-- `scripts/gcp/` — deploy, build, parity-check
+- `scripts/gcp/` — deploy canary, build, preflight, smoke
 - `docs/` — documentacao canonica
 - `print-agent/` — agent de impressao (Node.js separado, roda no Windows do cliente)
 
