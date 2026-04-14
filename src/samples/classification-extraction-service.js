@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import OpenAI from 'openai';
 
+import { HttpError } from '../contracts/errors.js';
+
 // ============================================================
 // SYSTEM PROMPT (shared across all classification types)
 // ============================================================
@@ -614,8 +616,9 @@ export class ClassificationExtractionService {
   async extractClassificationFromPhoto(absoluteImagePath, classificationType) {
     const userPrompt = USER_PROMPTS[classificationType];
     if (!userPrompt) {
-      const error = new Error(
-        `Tipo de classificacao nao suportado para extracao: ${classificationType}`
+      const error = new HttpError(
+        422,
+        `Tipo de classificacao nao suportado para extracao: ${classificationType ?? 'nao informado'}`
       );
       error.code = 'UNSUPPORTED_TYPE';
       throw error;

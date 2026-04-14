@@ -689,7 +689,7 @@ function CameraPageContent() {
     setFlowState('preview');
   }
 
-  async function handleSendPhoto() {
+  async function handleSendPhoto(type: ClassificationType) {
     if (!session || !capturedPhoto) return;
 
     setFlowState('detecting');
@@ -715,15 +715,11 @@ function CameraPageContent() {
 
       // Step 3: Extract from cropped form
       setFlowState('extracting');
-      const result = await extractFromDetectedForm(
-        session,
-        detection.photoToken,
-        classificationType
-      );
+      const result = await extractFromDetectedForm(session, detection.photoToken, type);
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
-      const extracted = mapExtractionToForm(result.extractedFields, classificationType);
+      const extracted = mapExtractionToForm(result.extractedFields, type);
       setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
@@ -735,7 +731,7 @@ function CameraPageContent() {
   }
 
   async function handleContinueWithoutCrop() {
-    if (!session || !capturedPhoto) return;
+    if (!session || !capturedPhoto || !classificationType) return;
 
     setFlowState('extracting');
     setFlowError(null);
@@ -744,7 +740,7 @@ function CameraPageContent() {
       const compressed = await compressImage(capturedPhoto);
       const result = detectedPhotoToken
         ? await extractFromDetectedForm(session, detectedPhotoToken, classificationType)
-        : await extractAndPrepareClassification(session, compressed);
+        : await extractAndPrepareClassification(session, compressed, classificationType);
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
@@ -1052,7 +1048,7 @@ function CameraPageContent() {
                           className="cam-type-btn"
                           onClick={() => {
                             setClassificationType(type);
-                            void handleSendPhoto();
+                            void handleSendPhoto(type);
                           }}
                         >
                           {CLASSIFICATION_TYPE_LABEL[type]}

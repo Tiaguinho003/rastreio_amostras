@@ -1,4 +1,5 @@
 import type {
+  ClassificationType,
   ClientAuditListResponse,
   ClientCommercialSummaryResponse,
   ClientDetailResponse,
@@ -944,9 +945,14 @@ export function detectClassificationForm(session: SessionData, file: File) {
   });
 }
 
-export function extractAndPrepareClassification(session: SessionData, file: File) {
+export function extractAndPrepareClassification(
+  session: SessionData,
+  file: File,
+  classificationType?: ClassificationType | null
+) {
   const formData = new FormData();
   formData.append('file', file);
+  if (classificationType) formData.append('classificationType', classificationType);
   return request<ExtractAndPrepareResponse>('/classification/extract-and-prepare', {
     method: 'POST',
     session,
