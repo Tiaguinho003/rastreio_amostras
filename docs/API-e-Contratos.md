@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: referencia oficial das rotas internas, contratos de eventos e regras de validacao  
-Ultima revisao: 2026-03-16  
+Ultima revisao: 2026-04-15  
 Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/schemas/events/v1/README.md`
 
 ## Escopo da API
@@ -52,8 +52,28 @@ Regra consolidada:
 14. `POST /api/v1/samples/:sampleId/classification/update`
 15. `POST /api/v1/samples/:sampleId/edits/revert`
 16. `POST /api/v1/samples/:sampleId/commercial-status`
-17. `POST /api/v1/samples/:sampleId/export/pdf`
-18. `POST /api/v1/samples/:sampleId/invalidate`
+17. `POST /api/v1/samples/:sampleId/physical-send`
+18. `POST /api/v1/samples/:sampleId/export/pdf`
+19. `POST /api/v1/samples/:sampleId/invalidate`
+
+### Classificacao por camera e IA
+
+Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no body quando relevante):
+
+1. `POST /api/v1/classification/detect-form`
+   Recebe a foto (`multipart/form-data`), salva em area temporaria e tenta auto-cropar a ficha. Retorna `photoToken` e flag `detected`.
+2. `POST /api/v1/classification/extract-and-prepare`
+   Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken`. Envia a imagem ao modelo de extracao (GPT-4o) e retorna os campos extraidos. `classificationType` e obrigatorio e define qual prompt e normalizador sao aplicados.
+3. `POST /api/v1/classification/confirm`
+   Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `conferredBy` opcional. Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
+4. `POST /api/v1/classification/resolve-lot`
+   Procura a amostra a partir do lote extraido, usado pelo fluxo sem contexto previo.
+
+Validacoes criticas nessas rotas:
+
+1. `detect-form` e o modo `multipart` de `extract-and-prepare` rejeitam com `415` se o `Content-Type` nao comecar com `multipart/form-data`;
+2. `extract-and-prepare` retorna `422` se `classificationType` nao for um dos suportados (`BICA`, `PREPARADO`, `LOW_CAFF`);
+3. a extracao por IA depende de `OPENAI_API_KEY` configurada — caso contrario o endpoint retorna `503` e o frontend cai em preenchimento manual.
 
 ### Leitura
 
@@ -81,6 +101,8 @@ Regra consolidada:
 7. `POST /api/v1/users/:userId/unlock`
 8. `POST /api/v1/users/:userId/password/reset`
 9. `GET /api/v1/users/audit`
+10. `GET /api/v1/users/lookup`
+    Lista reduzida (`id`, `fullName`, `username`) de usuarios ativos para picker de conferencia da classificacao. Aberta a qualquer usuario autenticado (nao restrita a `ADMIN`).
 
 ### Conta propria
 
@@ -109,24 +131,33 @@ Regra consolidada:
 
 ## Contrato de eventos
 
-O dominio de amostras gera eventos como:
+O dominio de amostras gera os seguintes eventos (o enum canonico vive em `SampleEventType` no `prisma/schema.prisma`):
 
 1. `SAMPLE_RECEIVED`
 2. `REGISTRATION_STARTED`
 3. `PHOTO_ADDED`
 4. `REGISTRATION_CONFIRMED`
-5. `QR_PRINT_REQUESTED`
-6. `QR_PRINT_FAILED`
-7. `QR_PRINTED`
-8. `QR_REPRINT_REQUESTED`
-9. `CLASSIFICATION_STARTED`
-10. `CLASSIFICATION_SAVED_PARTIAL`
-11. `CLASSIFICATION_COMPLETED`
-12. `REGISTRATION_UPDATED`
-13. `CLASSIFICATION_UPDATED`
-14. `COMMERCIAL_STATUS_UPDATED`
-15. `REPORT_EXPORTED`
-16. `SAMPLE_INVALIDATED`
+5. `REGISTRATION_UPDATED`
+6. `QR_PRINT_REQUESTED`
+7. `QR_PRINT_FAILED`
+8. `QR_PRINTED`
+9. `QR_REPRINT_REQUESTED`
+10. `CLASSIFICATION_STARTED`
+11. `CLASSIFICATION_SAVED_PARTIAL`
+12. `CLASSIFICATION_EXTRACTION_COMPLETED`
+13. `CLASSIFICATION_EXTRACTION_FAILED`
+14. `CLASSIFICATION_COMPLETED`
+15. `CLASSIFICATION_UPDATED`
+16. `SALE_CREATED`
+17. `SALE_UPDATED`
+18. `SALE_CANCELLED`
+19. `LOSS_RECORDED`
+20. `LOSS_UPDATED`
+21. `LOSS_CANCELLED`
+22. `COMMERCIAL_STATUS_UPDATED`
+23. `PHYSICAL_SAMPLE_SENT`
+24. `REPORT_EXPORTED`
+25. `SAMPLE_INVALIDATED`
 
 Regras oficiais:
 
@@ -157,5 +188,5 @@ npm run test:integration:db
 ## Decisoes documentadas nesta consolidacao
 
 1. `v1` e um contrato interno da aplicacao, nao uma API publica estabilizada para terceiros.
-2. Extracao de dados por IA sera implementada no modulo de classificacao (via foto da ficha de classificacao).
+2. Extracao de dados por IA esta implementada no modulo de classificacao via GPT-4o, com revisao manual obrigatoria antes de persistir os campos extraidos (ver `docs/Produto-e-Fluxos.md`).
 3. O contrato de eventos segue ativo e executavel porque os schemas em `docs/schemas/events/v1/` continuam fazendo parte da validacao do repositorio.

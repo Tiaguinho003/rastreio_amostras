@@ -2,8 +2,8 @@
 
 Status: Ativo  
 Escopo: comportamento funcional oficial do sistema, estados da amostra e regras operacionais  
-Ultima revisao: 2026-03-16  
-Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`
+Ultima revisao: 2026-04-15  
+Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`, `docs/Clientes-e-Movimentacoes-Especificacao.md`
 
 ## Objetivo do sistema
 
@@ -73,14 +73,16 @@ Regra consolidada nesta revisao:
 O status comercial e separado do status operacional e usa:
 
 1. `OPEN`
-2. `SOLD`
-3. `LOST`
+2. `PARTIALLY_SOLD`
+3. `SOLD`
+4. `LOST`
 
 Regra oficial:
 
 1. o status comercial so pode ser alterado quando a amostra esta `CLASSIFIED`;
-2. as transicoes validas sao `OPEN -> SOLD`, `OPEN -> LOST`, `SOLD -> OPEN` e `LOST -> OPEN`;
-3. `INVALIDATED` bloqueia qualquer nova mudanca comercial.
+2. `PARTIALLY_SOLD` e calculado pelo backend quando ha vendas parciais registradas mas ainda resta saldo; `SOLD` significa saldo zerado; `LOST` cobre a perda do saldo restante;
+3. movimentos de venda e perda vivem em `SampleMovement` e sao a fonte de verdade do status comercial — ver `docs/Clientes-e-Movimentacoes-Especificacao.md`;
+4. `INVALIDATED` bloqueia qualquer nova mudanca comercial.
 
 ## Fluxo oficial
 
@@ -104,17 +106,35 @@ Regra oficial:
 ### 3. Classificacao
 
 1. A classificacao so pode ser iniciada a partir de `QR_PRINTED`.
-2. Durante `CLASSIFICATION_IN_PROGRESS`, a tela permite:
-   carregar foto da classificacao;
-   preencher os campos principais;
-   salvar rascunho parcial;
-   concluir a classificacao.
-3. A foto da classificacao e obrigatoria para concluir.
+2. O fluxo principal hoje e via `Camera inteligente`, com quatro fases conduzidas pelo mesmo modal:
+   escolha do tipo de cafe (`BICA`, `PREPARADO`, `LOW_CAFF`);
+   conferencia por outros classificadores (ver subsecao abaixo);
+   foto da ficha fisica de classificacao com auto-crop e extracao por IA (ver subsecao abaixo);
+   revisao dos campos extraidos e confirmacao.
+3. A foto da classificacao e obrigatoria para concluir, seja pelo fluxo de camera ou pelo fluxo manual legado.
 4. A data de classificacao e registrada automaticamente na timezone `America/Sao_Paulo`.
-5. Os principais grupos de campos hoje expostos na interface sao:
-   `padrao`, `catacao`, `aspecto`, `bebida`, `classificador`, `loteOrigem`, `aspectoCor`;
+5. O tipo de cafe define quais campos aparecem no formulario; os principais grupos hoje expostos sao:
+   `padrao`, `catacao`, `aspecto`, `bebida`, `classificador`, `loteOrigem`, `aspectoCor`, `certif`;
    `broca`, `pva`, `imp`, `defeito`, `umidade`, `observacoes`;
    granulometria por peneiras `18`, `17`, `16`, `MK`, `15`, `14`, `13`, `10` e `Fundo`.
+6. Reclassificar uma amostra ja `CLASSIFIED` e feito a partir do modal de detalhe — aciona o mesmo fluxo de camera e emite `CLASSIFICATION_UPDATED` com motivo automatico.
+
+#### Extracao por IA
+
+1. O sistema usa GPT-4o para extrair os campos manuscritos da ficha de classificacao a partir da foto, com prompts especializados por tipo de cafe.
+2. O pipeline tem tres etapas: `detect-form` tenta auto-detectar e recortar a ficha; `extract-and-prepare` envia a foto (ou o recorte) para o modelo e retorna os campos extraidos; `confirm` persiste a classificacao apos revisao manual do usuario.
+3. Os campos extraidos sao pre-preenchidos no formulario, **mas o usuario sempre revisa e confirma antes de salvar**. A extracao nunca e aceita automaticamente.
+4. Cada tentativa gera `CLASSIFICATION_EXTRACTION_COMPLETED` (sucesso) ou `CLASSIFICATION_EXTRACTION_FAILED` (erro), anexados ao historico da amostra.
+5. Em caso de falha da deteccao ou da extracao, o usuario pode prosseguir manualmente com o formulario vazio.
+6. O servico depende da variavel `OPENAI_API_KEY` — ausente, o modulo de extracao responde `503` e o fluxo de camera ainda funciona com preenchimento manual.
+
+#### Conferencia da classificacao
+
+1. Entre a escolha do tipo e a foto, o modal pergunta obrigatoriamente se a classificacao foi conferida por outros classificadores.
+2. Se sim, o usuario seleciona um ou mais usuarios ativos do sistema via picker com busca client-side.
+3. O backend valida a lista em `normalizeConferredBy`: rejeita auto-conferral (ator nao pode estar na lista), rejeita usuarios inativos ou inexistentes, faz dedup silencioso, limita a 50 entradas.
+4. O conjunto final e persistido como `conferredBy` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
+5. A conferencia aparece no card resumo da classificacao, no modal full-view e no laudo PDF exportado (com truncamento a partir de 8 nomes).
 
 ### 4. Laudo e consulta
 

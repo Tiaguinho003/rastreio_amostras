@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: stack, componentes, modelo de dados, autenticacao e limites tecnicos da aplicacao  
-Ultima revisao: 2026-04-10  
+Ultima revisao: 2026-04-15  
 Documentos relacionados: `docs/Produto-e-Fluxos.md`, `docs/Operacao-e-Runtime.md`
 
 ## Visao geral
@@ -22,6 +22,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
 9. ESLint 9 (flat config via `eslint.config.mjs`) + Prettier 3 para lint e formatacao
 10. `file-type` para validacao de magic bytes em uploads
 11. `c8` para coverage report (dev dependency)
+12. `openai` SDK para extracao de classificacao a partir de foto da ficha (GPT-4o, requer `OPENAI_API_KEY`; se ausente, o modulo responde `503` e o fluxo manual continua funcionando)
 
 ## Organizacao do codigo
 
