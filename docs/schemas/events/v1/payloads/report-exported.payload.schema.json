@@ -51,6 +51,7 @@
           "umidade",
           "aspectoCor",
           "classificador",
+          "conferredBy",
           "observacoes",
           "classificationOriginLot",
           "peneirasPercentuais",

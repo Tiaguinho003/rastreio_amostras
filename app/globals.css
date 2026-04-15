@@ -7591,6 +7591,12 @@ button:disabled {
   max-height: none; /* scroll fica no dropdown, evita container duplo */
 }
 
+.cdm-lookup-modal.app-modal .sdv-edit-fields,
+.cdm-lookup-modal.app-modal .sdv-edit-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .cdm-lookup-modal.app-modal .sdv-edit-input[type='date'] {
   display: block;
   width: 100%;
