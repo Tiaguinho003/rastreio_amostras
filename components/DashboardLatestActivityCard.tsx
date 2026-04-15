@@ -3,10 +3,7 @@
 import Link from 'next/link';
 import { useLayoutEffect, useRef } from 'react';
 
-import type {
-  DashboardLatestActivityItem,
-  DashboardLatestActivityType,
-} from '../lib/types';
+import type { DashboardLatestActivityItem, DashboardLatestActivityType } from '../lib/types';
 
 interface Props {
   items: DashboardLatestActivityItem[] | null;
@@ -56,7 +53,9 @@ export function DashboardLatestActivityCard({ items }: Props) {
   }, [items]);
 
   if (items === null) {
-    return <div className="dashboard-activity-card dashboard-activity-loading" aria-hidden="true" />;
+    return (
+      <div className="dashboard-activity-card dashboard-activity-loading" aria-hidden="true" />
+    );
   }
 
   if (items.length === 0) {
