@@ -12,10 +12,13 @@ function isOffline(): boolean {
 
 const MIN_SPLASH_MS = 1200;
 const EXIT_ANIMATION_MS = 700;
-const BACKGROUND_COOLDOWN_MS = 30 * 1000;
+const BACKGROUND_COOLDOWN_MS = 60 * 1000;
+const DASHBOARD_REDIRECT_AFTER_MS = 15 * 60 * 1000;
 
 const SESSION_KEY = 'splash-shown-this-session';
 const BACKGROUND_KEY = 'splash-last-background';
+
+type SplashMode = 'initial' | 'resume';
 
 function wasShownThisSession(): boolean {
   try {
@@ -31,13 +34,15 @@ function markShownThisSession(): void {
   } catch {}
 }
 
-function isBackgroundCooldownExpired(): boolean {
+function getBackgroundElapsedMs(): number | null {
   try {
     const raw = localStorage.getItem(BACKGROUND_KEY);
-    if (!raw) return true;
-    return Date.now() - Number(raw) >= BACKGROUND_COOLDOWN_MS;
+    if (!raw) return null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return null;
+    return Date.now() - parsed;
   } catch {
-    return true;
+    return null;
   }
 }
 
@@ -69,55 +74,86 @@ export function SplashScreen() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const activeRef = useRef(false);
 
-  const runSplash = useCallback(() => {
-    if (activeRef.current) return;
-    activeRef.current = true;
+  const runSplash = useCallback(
+    (mode: SplashMode, backgroundElapsedMs: number) => {
+      if (activeRef.current) return;
+      activeRef.current = true;
 
-    setVisible(true);
-    setExiting(false);
+      setVisible(true);
+      setExiting(false);
 
-    timersRef.current.forEach(clearTimeout);
+      timersRef.current.forEach(clearTimeout);
 
-    const startedAt = Date.now();
+      const startedAt = Date.now();
+      const forceDashboard =
+        mode === 'resume' && backgroundElapsedMs >= DASHBOARD_REDIRECT_AFTER_MS;
 
-    resolveDestination().then((destination) => {
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
+      resolveDestination().then((sessionDestination) => {
+        let navigateTo: string | null;
 
-      const t1 = setTimeout(() => setExiting(true), remaining);
-      const t2 = setTimeout(() => {
-        setVisible(false);
-        activeRef.current = false;
-        markShownThisSession();
-        recordBackgroundTimestamp();
-        router.replace(destination);
-      }, remaining + EXIT_ANIMATION_MS);
+        if (mode === 'initial') {
+          navigateTo = sessionDestination;
+        } else if (sessionDestination !== '/dashboard') {
+          navigateTo = sessionDestination;
+        } else if (forceDashboard) {
+          navigateTo = '/dashboard';
+        } else {
+          navigateTo = null;
+        }
 
-      timersRef.current = [t1, t2];
-    });
-  }, [router]);
+        if (navigateTo) {
+          router.replace(navigateTo);
+        }
+
+        const elapsed = Date.now() - startedAt;
+        const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
+
+        const t1 = setTimeout(() => setExiting(true), remaining);
+        const t2 = setTimeout(() => {
+          setVisible(false);
+          activeRef.current = false;
+          markShownThisSession();
+        }, remaining + EXIT_ANIMATION_MS);
+
+        timersRef.current = [t1, t2];
+      });
+    },
+    [router]
+  );
 
   useEffect(() => {
     if (wasShownThisSession()) {
       setVisible(false);
-      resolveDestination().then((dest) => router.replace(dest));
+      resolveDestination().then((dest) => {
+        if (dest !== '/dashboard') {
+          router.replace(dest);
+        }
+      });
       return;
     }
 
-    runSplash();
+    runSplash('initial', 0);
 
     return () => timersRef.current.forEach(clearTimeout);
   }, [runSplash, router]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (
-        document.visibilityState === 'visible' &&
-        !activeRef.current &&
-        isBackgroundCooldownExpired()
-      ) {
-        runSplash();
+      if (document.visibilityState === 'hidden') {
+        recordBackgroundTimestamp();
+        return;
       }
+
+      if (document.visibilityState !== 'visible' || activeRef.current) {
+        return;
+      }
+
+      const elapsed = getBackgroundElapsedMs();
+      if (elapsed === null || elapsed < BACKGROUND_COOLDOWN_MS) {
+        return;
+      }
+
+      runSplash('resume', elapsed);
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
