@@ -45,3 +45,6 @@ extract_css.py
 # Anotacoes pessoais (nao versionar)
 Opções para pausar.txt
 notes-*.md
+
+# Artefato local do gerador de bitmap da etiqueta
+print-agent/logo-preview.png

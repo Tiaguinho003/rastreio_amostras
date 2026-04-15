@@ -88,8 +88,8 @@ export function buildLabel(job) {
   const date = formatDate(job.sample.registeredAt);
 
   // --- Layout constants ---
-  const RX = 250; // right column start x
-  const RW = 540; // right column width
+  const RX = 280; // right column start x
+  const RW = 510; // right column width
   const F3W = 16; // font "3" char width
   const GAP = 10; // gap between text and separator bars
 
@@ -129,7 +129,7 @@ export function buildLabel(job) {
   const body = [
     '',
     // QR Code — left side, below logo
-    `QRCODE 42,88,L,7,A,0,M2,"${qrValue}"`,
+    `QRCODE 42,100,L,6,A,0,M2,"${qrValue}"`,
     '',
     // Info row — sacas | safra | data
     `TEXT ${ix},21,"3",0,1,1,"${sacks}"`,
