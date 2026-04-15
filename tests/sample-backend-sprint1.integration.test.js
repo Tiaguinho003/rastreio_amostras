@@ -372,10 +372,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(dashboard.printPending.items.length, 0);
     assert.equal(dashboard.classificationPending.total, 0);
     assert.equal(dashboard.classificationInProgress.total, 0);
-    assert.equal(dashboard.latestRegistrations.total, 1);
-    assert.equal(dashboard.latestRegistrations.items.length, 1);
-    assert.equal(dashboard.latestRegistrations.items[0]?.id, sampleId);
-    assert.equal(dashboard.latestRegistrations.items[0]?.status, 'CLASSIFIED');
   });
 
   test('tracks samples in registration in progress via pending counts', async () => {
@@ -586,77 +582,6 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(statusBySampleId.get(registrationConfirmedSampleId), 'REGISTRATION_CONFIRMED');
     assert.equal(statusBySampleId.get(qrPendingSampleId), 'QR_PENDING_PRINT');
-  });
-
-  test('returns latest registrations list without physical/in-progress drafts and keeps newest-first order', async () => {
-    const onlyReceivedSampleId = randomUUID();
-    const registrationInProgressSampleId = randomUUID();
-    const registrationConfirmedSampleId = randomUUID();
-    const qrPendingSampleId = randomUUID();
-    const qrPrintedSampleId = randomUUID();
-
-    await commandService.receiveSample(
-      {
-        sampleId: onlyReceivedSampleId,
-        receivedChannel: 'in_person',
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.receiveSample(
-      {
-        sampleId: registrationInProgressSampleId,
-        receivedChannel: 'in_person',
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.startRegistration(
-      {
-        sampleId: registrationInProgressSampleId,
-        expectedVersion: 1,
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await moveSampleToRegistrationConfirmed(registrationConfirmedSampleId);
-    await moveSampleToQrPendingPrint(qrPendingSampleId);
-    await moveSampleToQrPrinted(qrPrintedSampleId);
-
-    const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.latestRegistrations.total, 3);
-    assert.equal(dashboard.latestRegistrations.items.length, 3);
-
-    const latestIds = dashboard.latestRegistrations.items.map((sample) => sample.id);
-    assert.deepEqual(
-      [...latestIds].sort(),
-      [registrationConfirmedSampleId, qrPendingSampleId, qrPrintedSampleId].sort()
-    );
-    assert.equal(latestIds.includes(onlyReceivedSampleId), false);
-    assert.equal(latestIds.includes(registrationInProgressSampleId), false);
-
-    const latestStatusBySampleId = new Map(
-      dashboard.latestRegistrations.items.map((sample) => [sample.id, sample.status])
-    );
-    assert.equal(
-      latestStatusBySampleId.get(registrationConfirmedSampleId),
-      'REGISTRATION_CONFIRMED'
-    );
-    assert.equal(latestStatusBySampleId.get(qrPendingSampleId), 'QR_PENDING_PRINT');
-    assert.equal(latestStatusBySampleId.get(qrPrintedSampleId), 'QR_PRINTED');
-
-    for (let index = 1; index < dashboard.latestRegistrations.items.length; index += 1) {
-      const previousCreatedAt = new Date(
-        dashboard.latestRegistrations.items[index - 1].createdAt
-      ).getTime();
-      const currentCreatedAt = new Date(
-        dashboard.latestRegistrations.items[index].createdAt
-      ).getTime();
-      assert.ok(previousCreatedAt >= currentCreatedAt);
-    }
   });
 
   test('resolves sample from QR content for classification access', async () => {

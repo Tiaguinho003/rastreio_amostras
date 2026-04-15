@@ -543,10 +543,6 @@ export interface DashboardPendingResponse {
     total: number;
     items: SampleSnapshot[];
   };
-  latestRegistrations: {
-    total: number;
-    items: SampleSnapshot[];
-  };
 }
 
 export interface DashboardSalesAvailabilityResponse {

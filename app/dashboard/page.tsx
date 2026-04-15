@@ -28,8 +28,6 @@ interface OperationModalData {
   themeClass: string;
 }
 
-const DASHBOARD_LATEST_LIMIT = 10;
-
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Bom dia,';
@@ -59,13 +57,6 @@ function formatCreationTimestamp(value: string) {
   return `${date} - ${time}`;
 }
 
-function formatLatestSummary(sample: SampleSnapshot) {
-  const owner = renderMainSampleValue(sample.declared.owner);
-  const harvest = renderMainSampleValue(sample.declared.harvest);
-  const sacks = renderMainSampleValue(sample.declared.sacks);
-  return `${owner} | Safra ${harvest} | Saca ${sacks}`;
-}
-
 function buildOperationModalData(
   data: DashboardPendingResponse,
   activePanel: OperationPanel
@@ -93,58 +84,6 @@ function buildOperationModalData(
     items: [...data.classificationPending.items, ...(data.classificationInProgress?.items ?? [])],
     themeClass: 'is-status-classification-pending',
   };
-}
-
-function getStatusThemeClass(status: string): string {
-  switch (status) {
-    case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT':
-      return 'is-status-print-pending';
-    case 'QR_PRINTED':
-    case 'CLASSIFICATION_IN_PROGRESS':
-      return 'is-status-classification-pending';
-    case 'CLASSIFIED':
-      return 'is-status-success';
-    case 'INVALIDATED':
-      return 'is-status-danger';
-    default:
-      return 'is-status-neutral';
-  }
-}
-
-function LatestRegistrationCard({ sample }: { sample: SampleSnapshot }) {
-  return (
-    <Link
-      href={`/samples/${sample.id}`}
-      className={`dashboard-latest-registration-card ${getStatusThemeClass(sample.status)}`}
-    >
-      <div className="dashboard-latest-registration-main">
-        <p className="dashboard-latest-registration-title">
-          {sample.internalLotNumber ?? sample.id}
-        </p>
-        <p className="dashboard-latest-registration-subtitle">{formatLatestSummary(sample)}</p>
-        <p className="dashboard-latest-registration-meta">
-          <span className="dashboard-latest-registration-meta-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <rect x="4.5" y="5.5" width="15" height="14" rx="2.2" />
-              <path d="M7.5 3.8v3.2" />
-              <path d="M16.5 3.8v3.2" />
-              <path d="M4.5 9.5h15" />
-            </svg>
-          </span>
-          <span>{formatCreationTimestamp(sample.createdAt)}</span>
-        </p>
-      </div>
-
-      <div className="dashboard-latest-registration-leading" aria-hidden="true" />
-
-      <div className="dashboard-latest-registration-trailing" aria-hidden="true">
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="m9 6 6 6-6 6" />
-        </svg>
-      </div>
-    </Link>
-  );
 }
 
 export default function DashboardPage() {
@@ -251,9 +190,6 @@ export default function DashboardPage() {
   }
 
   const operationModalData = data ? buildOperationModalData(data, activeOperationPanel) : null;
-  const latestRegistrationItems = data
-    ? data.latestRegistrations.items.slice(0, DASHBOARD_LATEST_LIMIT)
-    : [];
   const fullName = session.user.fullName ?? session.user.username;
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);

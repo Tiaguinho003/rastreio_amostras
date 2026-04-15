@@ -13,14 +13,6 @@ const SAMPLE_STATUS_FILTER_GROUPS = {
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
   CLASSIFIED: ['CLASSIFIED'],
 };
-const LATEST_REGISTRATION_STATUSES = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED',
-  'INVALIDATED',
-];
 const DASHBOARD_LIST_LIMIT = 20;
 const DASHBOARD_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const SAMPLES_LIST_DEFAULT_LIMIT = 30;
@@ -1333,8 +1325,6 @@ export class SampleQueryService {
       agedPending,
       printPendingRows,
       classificationPendingRows,
-      latestRegistrationRows,
-      latestRegistrationTotal,
       todayReceivedRows,
     ] = await this.prisma.$transaction([
       this.prisma.sample.groupBy({
@@ -1367,19 +1357,6 @@ export class SampleQueryService {
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
         select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: LATEST_REGISTRATION_STATUSES },
-        },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      this.prisma.sample.count({
-        where: {
-          status: { in: LATEST_REGISTRATION_STATUSES },
-        },
       }),
       (() => {
         const nowUtc = new Date();
@@ -1452,10 +1429,6 @@ export class SampleQueryService {
         },
         total: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
         items: [],
-      },
-      latestRegistrations: {
-        total: latestRegistrationTotal,
-        items: latestRegistrationRows.map(mapDashboardSample),
       },
     };
   }
