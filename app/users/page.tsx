@@ -15,6 +15,7 @@ import {
   unlockUser,
   updateUser,
 } from '../../lib/api-client';
+import { maskPhoneInput } from '../../lib/client-field-formatters';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { getRoleLabel } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -319,7 +320,7 @@ export default function UsersPage() {
           fullName: response.user.fullName,
           username: response.user.username,
           email: response.user.email,
-          phone: response.user.phone ?? '',
+          phone: maskPhoneInput(response.user.phone ?? ''),
           role: response.user.role,
         });
       })
@@ -378,7 +379,7 @@ export default function UsersPage() {
         fullName: cached.fullName,
         username: cached.username,
         email: cached.email,
-        phone: cached.phone ?? '',
+        phone: maskPhoneInput(cached.phone ?? ''),
         role: cached.role,
       });
     }
@@ -414,6 +415,12 @@ export default function UsersPage() {
       return;
     }
 
+    const phoneDigits = createForm.phone.replace(/\D/g, '');
+    if (phoneDigits.length > 0 && phoneDigits.length !== 10 && phoneDigits.length !== 11) {
+      dispatchModal({ type: 'saveError', message: 'Telefone deve ter 10 ou 11 digitos' });
+      return;
+    }
+
     dispatchModal({ type: 'saving' });
 
     try {
@@ -435,7 +442,7 @@ export default function UsersPage() {
         fullName: response.user.fullName,
         username: response.user.username,
         email: response.user.email,
-        phone: response.user.phone ?? '',
+        phone: maskPhoneInput(response.user.phone ?? ''),
         role: response.user.role,
       });
       refreshList();
@@ -457,6 +464,12 @@ export default function UsersPage() {
       !editForm.email.trim()
     ) {
       dispatchModal({ type: 'saveError', message: 'Preencha todos os campos obrigatorios' });
+      return;
+    }
+
+    const phoneDigits = editForm.phone.replace(/\D/g, '');
+    if (phoneDigits.length > 0 && phoneDigits.length !== 10 && phoneDigits.length !== 11) {
+      dispatchModal({ type: 'saveError', message: 'Telefone deve ter 10 ou 11 digitos' });
       return;
     }
 
@@ -930,7 +943,11 @@ export default function UsersPage() {
                         <input
                           className="sdv-edit-input"
                           value={editForm.phone}
-                          onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))}
+                          onChange={(e) =>
+                            setEditForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
+                          }
+                          placeholder="(00) 00000-0000"
+                          inputMode="tel"
                         />
                       </label>
                       <label className="sdv-edit-field">
@@ -1028,7 +1045,11 @@ export default function UsersPage() {
                   <input
                     className="sdv-edit-input"
                     value={createForm.phone}
-                    onChange={(e) => setCreateForm((c) => ({ ...c, phone: e.target.value }))}
+                    onChange={(e) =>
+                      setCreateForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
+                    }
+                    placeholder="(00) 00000-0000"
+                    inputMode="tel"
                   />
                 </label>
                 <label className="sdv-edit-field">

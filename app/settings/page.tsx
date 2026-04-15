@@ -14,6 +14,7 @@ import {
   resendCurrentUserEmailChangeCode,
   updateCurrentUserProfile,
 } from '../../lib/api-client';
+import { maskPhoneInput } from '../../lib/client-field-formatters';
 import {
   changePasswordSchema,
   emailChangeConfirmSchema,
@@ -115,7 +116,8 @@ export default function SettingsPage() {
               typeof response.user?.username === 'string'
                 ? response.user.username
                 : targetSession.user.username,
-            phone: typeof response.user?.phone === 'string' ? response.user.phone : '',
+            phone:
+              typeof response.user?.phone === 'string' ? maskPhoneInput(response.user.phone) : '',
           });
           setEmailInput(
             typeof response.user?.email === 'string'
@@ -414,8 +416,11 @@ export default function SettingsPage() {
                   className={`sdv-edit-input stg-input${!profileEditMode ? ' is-readonly' : ''}`}
                   value={profileForm.phone}
                   readOnly={!profileEditMode}
-                  onChange={(e) => setProfileForm((c) => ({ ...c, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((c) => ({ ...c, phone: maskPhoneInput(e.target.value) }))
+                  }
                   placeholder="(00) 00000-0000"
+                  inputMode="tel"
                 />
               </label>
               {profileError ? <p className="stg-feedback is-error">{profileError}</p> : null}

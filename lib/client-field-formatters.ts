@@ -59,14 +59,14 @@ export function maskPhoneInput(value: string) {
   const rest = digits.slice(2);
 
   if (digits.length <= 6) {
-    return `(${areaCode})${rest}`;
+    return `(${areaCode}) ${rest}`;
   }
 
   if (digits.length <= 10) {
-    return `(${areaCode})${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `(${areaCode}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
   }
 
-  return `(${areaCode})${rest.slice(0, 5)}-${rest.slice(5)}`;
+  return `(${areaCode}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
 }
 
 export function maskDocumentInput(value: string, personType: ClientPersonType) {

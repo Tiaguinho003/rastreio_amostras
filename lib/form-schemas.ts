@@ -68,7 +68,19 @@ export const createSampleDraftSchema = z.object({
 export const updateProfileSchema = z.object({
   fullName: z.string().trim().min(1, 'Nome completo e obrigatorio'),
   username: z.string().trim().min(1, 'Usuario e obrigatorio'),
-  phone: z.string().trim().optional().nullable(),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .refine(
+      (value) => {
+        if (!value) return true;
+        const digits = value.replace(/\D/g, '');
+        return digits.length === 10 || digits.length === 11;
+      },
+      { message: 'Telefone deve ter 10 ou 11 digitos' }
+    ),
 });
 
 export const emailChangeRequestSchema = z.object({
