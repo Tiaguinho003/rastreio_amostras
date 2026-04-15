@@ -37,23 +37,20 @@ const PAD = { top: 1, bottom: 0.5, left: 2, right: 2 };
 const USABLE_W = CARD_W - PAD.left - PAD.right; // 97mm
 
 // --- Row heights (mm) ---
-const HEADER_H = 15;
-// O header e dividido em duas faixas verticais:
-// - Tarja superior (TYPE_STRIP_H): bg bege com o nome do tipo centralizado
-// - Zona inferior (HEADER_FIELDS_H): celula LOTE (larga) + celula Certif. (estreita)
+// Header novo: apenas a tarja de 3mm com o nome do tipo.
+// Lote, Sacas e Certif. passaram a ser celulas comuns do corpo (L1 e L2).
 const TYPE_STRIP_H = 3;
-const HEADER_FIELDS_H = HEADER_H - TYPE_STRIP_H; // 12mm
 const ROW_H = 13;
 const SECTION_GAP = 0.6;
 
 // --- Standard column width (4-col grid) ---
 const COL_W = USABLE_W / 4; // 24.25mm
 
-// --- Header field widths (mm) ---
-// LOTE domina (~65%) porque o codigo de lote e o dado mais critico; Certif.
-// guarda siglas curtas (UTZ, RA, FLO, 4C, ORG...), 34mm cabe ate 2 siglas.
+// --- L1 (Lote + Sacas) field widths (mm) ---
+// LOTE domina (~65%) porque o codigo de lote e o dado mais critico e e escrito
+// em tamanho grande; Sacas guarda um numero curto (100, 200, 350...).
 const LOTE_W = 63;
-const CERTIF_W = USABLE_W - LOTE_W; // 34mm
+const SACAS_W = USABLE_W - LOTE_W; // 34mm
 
 // --- Colors ---
 const DARK = rgb(0.15, 0.15, 0.15);
@@ -76,48 +73,58 @@ const LOTE_BORDER_W = 0.6;
 // CARD TYPE DEFINITIONS
 // ============================================================
 
+// Celulas L1 (Lote larga + Sacas estreita) — destaque visual: label maior e
+// borda um pouco mais grossa, pro operador reconhecer como zona de identificacao.
+const L1_CELLS = [
+  { label: 'LOTE', w: LOTE_W, labelSize: LOTE_LABEL_SIZE, borderW: LOTE_BORDER_W },
+  { label: 'Sacas', w: SACAS_W, labelSize: LOTE_LABEL_SIZE, borderW: LOTE_BORDER_W },
+];
+
 const CARD_TYPES = {
   PREPARADO: {
     typeName: 'PREPARADO',
     rows: [
-      // Row 1: Common — general classification
+      // L1: Lote + Sacas (identificacao)
+      { cells: L1_CELLS },
+      // L2: Padrao + Safra + Aspecto + Certif.
       {
         cells: [
           { label: 'Padr\u00e3o', w: COL_W },
-          { label: 'Cata\u00e7\u00e3o', w: COL_W },
+          { label: 'Safra', w: COL_W },
           { label: 'Aspecto', w: COL_W },
-          { label: 'Bebida', w: COL_W },
+          { label: 'Certif.', w: COL_W },
         ],
       },
-      // Row 2: Common — defects & harvest (gap after)
+      // L3: Catacao + Broca + PVA + Bebida (gap after)
       {
         cells: [
-          { label: 'Safra', w: COL_W },
+          { label: 'Cata\u00e7\u00e3o', w: COL_W },
           { label: 'Broca', w: COL_W },
           { label: 'PVA', w: COL_W },
-          { label: 'Impureza', w: COL_W },
+          { label: 'Bebida', w: COL_W },
         ],
         gapAfter: true,
       },
-      // Row 3: Sieves upper
+      // L4: Peneiras P.19..P.14 (6 colunas compactadas)
       {
         cells: [
-          { label: 'P.19 %', w: COL_W },
-          { label: 'P.18 %', w: COL_W },
-          { label: 'P.17 %', w: COL_W },
-          { label: 'P.16 %', w: COL_W },
+          { label: 'P.19 %', w: USABLE_W / 6 },
+          { label: 'P.18 %', w: USABLE_W / 6 },
+          { label: 'P.17 %', w: USABLE_W / 6 },
+          { label: 'P.16 %', w: USABLE_W / 6 },
+          { label: 'P.15 %', w: USABLE_W / 6 },
+          { label: 'P.14 %', w: USABLE_W / 6 },
         ],
       },
-      // Row 4: Sieves lower + MK + Defeito
+      // L5: MK + Defeito + Impureza (3 cols largas)
       {
         cells: [
-          { label: 'P.15 %', w: COL_W },
-          { label: 'P.14 %', w: COL_W },
-          { label: 'MK %', w: COL_W },
-          { label: 'Defeito', w: COL_W },
+          { label: 'MK %', w: USABLE_W / 3 },
+          { label: 'Defeito', w: USABLE_W / 3 },
+          { label: 'Impureza', w: USABLE_W / 3 },
         ],
       },
-      // Row 5: Fundo 1 only (2 wide cells, beige)
+      // L6: Fundo 1 apenas (2 cols largas, bege)
       {
         cells: [
           { label: 'Fundo Pen.', w: USABLE_W / 2 },
@@ -132,26 +139,28 @@ const CARD_TYPES = {
   LOW_CAFF: {
     typeName: 'CAF\u00c9 BAIXO',
     rows: [
-      // Row 1: Common
+      // L1: Lote + Sacas
+      { cells: L1_CELLS },
+      // L2: Padrao + Safra + Aspecto + Certif.
       {
         cells: [
           { label: 'Padr\u00e3o', w: COL_W },
-          { label: 'Cata\u00e7\u00e3o', w: COL_W },
+          { label: 'Safra', w: COL_W },
           { label: 'Aspecto', w: COL_W },
-          { label: 'Bebida', w: COL_W },
+          { label: 'Certif.', w: COL_W },
         ],
       },
-      // Row 2: Common (gap after)
+      // L3: Catacao + Broca + PVA + Bebida (gap after)
       {
         cells: [
-          { label: 'Safra', w: COL_W },
+          { label: 'Cata\u00e7\u00e3o', w: COL_W },
           { label: 'Broca', w: COL_W },
           { label: 'PVA', w: COL_W },
-          { label: 'Impureza', w: COL_W },
+          { label: 'Bebida', w: COL_W },
         ],
         gapAfter: true,
       },
-      // Row 3: 6 sieves (compressed — 6 columns)
+      // L4: Peneiras P.15..P.10 (6 cols compactadas)
       {
         cells: [
           { label: 'P.15 %', w: USABLE_W / 6 },
@@ -162,15 +171,16 @@ const CARD_TYPES = {
           { label: 'P.10 %', w: USABLE_W / 6 },
         ],
       },
-      // Row 4: AP, GPI, Defeito (3 equal cells)
+      // L5: AP + GPI + Defeito + Impureza (4 cols)
       {
         cells: [
-          { label: 'AP %', w: USABLE_W / 3 },
-          { label: 'GPI', w: USABLE_W / 3 },
-          { label: 'Defeito', w: USABLE_W / 3 },
+          { label: 'AP %', w: COL_W },
+          { label: 'GPI', w: COL_W },
+          { label: 'Defeito', w: COL_W },
+          { label: 'Impureza', w: COL_W },
         ],
       },
-      // Row 5: Fundo 1 + Fundo 2 (4 cols, beige)
+      // L6: Fundo 1 + Fundo 2 (4 cols, bege)
       {
         cells: [
           { label: 'Fundo Pen.', w: COL_W },
@@ -186,33 +196,36 @@ const CARD_TYPES = {
   BICA: {
     typeName: 'BICA',
     rows: [
-      // Row 1: Common
+      // L1: Lote + Sacas
+      { cells: L1_CELLS },
+      // L2: Padrao + Safra + Aspecto + Certif.
       {
         cells: [
           { label: 'Padr\u00e3o', w: COL_W },
-          { label: 'Cata\u00e7\u00e3o', w: COL_W },
+          { label: 'Safra', w: COL_W },
           { label: 'Aspecto', w: COL_W },
-          { label: 'Bebida', w: COL_W },
+          { label: 'Certif.', w: COL_W },
         ],
       },
-      // Row 2: Common (gap after)
+      // L3: Catacao + Broca + PVA + Bebida (gap after)
       {
         cells: [
-          { label: 'Safra', w: COL_W },
+          { label: 'Cata\u00e7\u00e3o', w: COL_W },
           { label: 'Broca', w: COL_W },
           { label: 'PVA', w: COL_W },
-          { label: 'Impureza', w: COL_W },
+          { label: 'Bebida', w: COL_W },
         ],
         gapAfter: true,
       },
-      // Row 3: Only P.17 + MK (2 wide cells)
+      // L4: P.17 + MK + Impureza (3 cols largas)
       {
         cells: [
-          { label: 'P.17 %', w: USABLE_W / 2 },
-          { label: 'MK %', w: USABLE_W / 2 },
+          { label: 'P.17 %', w: USABLE_W / 3 },
+          { label: 'MK %', w: USABLE_W / 3 },
+          { label: 'Impureza', w: USABLE_W / 3 },
         ],
       },
-      // Row 4: Fundo 1 + Fundo 2 (4 cols, beige)
+      // L5: Fundo 1 + Fundo 2 (4 cols, bege)
       {
         cells: [
           { label: 'Fundo Pen.', w: COL_W },
@@ -223,7 +236,7 @@ const CARD_TYPES = {
         bg: LIGHT_BG,
       },
     ],
-    obsHeight: 26, // Extra tall — Bica has fewer rows
+    obsHeight: 26, // Extra tall — BICA tem menos linhas de dados
   },
 };
 
@@ -277,12 +290,10 @@ function drawCard(page, cardX, cardY, fonts, cardType) {
     borderWidth: CARD_BORDER_W,
   });
 
-  // === HEADER (15mm): Type strip (bg bege) + LOTE + Certif. ===
+  // === TARJA (3mm): apenas nome do tipo centralizado, fundo bege ===
+  // Lote, Sacas e Certif. agora sao celulas comuns do corpo (L1 e L2).
   const headerX = bx + PAD.left;
-  const headerY = by + CARD_H - PAD.top - HEADER_H;
-
-  // --- Tarja do tipo (3mm, fundo bege, texto centralizado) ---
-  const stripY = headerY + HEADER_FIELDS_H;
+  const stripY = by + CARD_H - PAD.top - TYPE_STRIP_H;
   drawCell(page, headerX, stripY, USABLE_W, TYPE_STRIP_H, null, fonts, {
     bg: LIGHT_BG,
     borderW: LOTE_BORDER_W,
@@ -300,33 +311,7 @@ function drawCard(page, cardX, cardY, fonts, cardType) {
     color: DARK,
   });
 
-  // --- Celula LOTE (esquerda, 63mm x 12mm) ---
-  const loteX = headerX;
-  drawCell(page, loteX, headerY, LOTE_W, HEADER_FIELDS_H, null, fonts, {
-    borderW: LOTE_BORDER_W,
-  });
-  page.drawText('LOTE', {
-    x: pt(loteX + 1.2),
-    y: pt(headerY + HEADER_FIELDS_H - 3.5),
-    size: LOTE_LABEL_SIZE,
-    font: fonts.bold,
-    color: DARK,
-  });
-
-  // --- Celula Certif. (direita, 34mm x 12mm) ---
-  const certifX = loteX + LOTE_W;
-  drawCell(page, certifX, headerY, CERTIF_W, HEADER_FIELDS_H, null, fonts, {
-    borderW: LOTE_BORDER_W,
-  });
-  page.drawText('Certif.', {
-    x: pt(certifX + 1.2),
-    y: pt(headerY + HEADER_FIELDS_H - 3.5),
-    size: LOTE_LABEL_SIZE,
-    font: fonts.bold,
-    color: DARK,
-  });
-
-  let cy = PAD.top + HEADER_H;
+  let cy = PAD.top + TYPE_STRIP_H;
 
   // === DATA ROWS ===
   const gridStartX = bx + PAD.left;
@@ -337,7 +322,11 @@ function drawCard(page, cardX, cardY, fonts, cardType) {
 
     let cx = 0;
     for (const cell of row.cells) {
-      drawCell(page, gridStartX + cx, rowY, cell.w, ROW_H, cell.label, fonts, { bg: row.bg });
+      drawCell(page, gridStartX + cx, rowY, cell.w, ROW_H, cell.label, fonts, {
+        bg: row.bg,
+        labelSize: cell.labelSize,
+        borderW: cell.borderW,
+      });
       cx += cell.w;
     }
 

@@ -11,7 +11,7 @@ const SYSTEM_PROMPT = `Voce e um sistema especializado em extracao de dados manu
 
 CONTEXTO DA IMAGEM:
 A foto mostra uma mesa de classificacao de cafe. Na cena voce encontrara:
-- Uma ficha de classificacao retangular branca. O cabecalho dela tem 3 zonas caracteristicas: (1) uma TARJA SUPERIOR fina com fundo bege claro, contendo o NOME DO TIPO de cafe centralizado em letras impressas maiusculas (ex: "BICA", "PREPARADO", "CAF\u00c9 BAIXO"); (2) uma CELULA GRANDE "LOTE" a esquerda (ocupa ~65% da largura) com o codigo do lote escrito a mao em tamanho grande; (3) uma CELULA MENOR "Certif." a direita (~35%) com siglas manuscritas de certificacao. Esta e a UNICA ficha que voce deve ler.
+- Uma ficha de classificacao retangular branca. No TOPO da ficha ha uma TARJA FINA com fundo bege claro contendo o NOME DO TIPO de cafe centralizado em letras impressas maiusculas (ex: "BICA", "PREPARADO", "CAF\u00c9 BAIXO"). Logo abaixo da tarja comeca o corpo da ficha com varias LINHAS de dados. A PRIMEIRA LINHA (L1) do corpo e a zona de identificacao: ela tem duas celulas com bordas mais grossas — uma celula grande a esquerda com o rotulo "LOTE" (onde fica o codigo manuscrito grande) e uma celula menor a direita com o rotulo "Sacas" (numero manuscrito). Esta e a UNICA ficha que voce deve ler.
 - Graos de cafe espalhados ao redor da ficha, em um ou mais montes. IGNORE completamente os graos de cafe.
 - A mesa de classificacao e uma superficie cinza escura.
 - Pode haver OUTROS documentos, tabelas de referencia ou fichas de outras empresas visiveis na mesa (como tabelas da Green Coffee Association, Volcafe, ou similares). IGNORE todos os outros papeis — extraia dados SOMENTE da ficha com o layout descrito acima.
@@ -27,7 +27,8 @@ REGRAS CRITICAS DE EXTRACAO:
 6. Responda APENAS com JSON valido no formato especificado. Nenhum texto antes ou depois do JSON.
 7. Valores manuscritos ficam ABAIXO ou AO LADO do rotulo impresso de cada campo, dentro da celula.
 8. Se a escrita e ilegivel, retorne null em vez de adivinhar.
-9. O campo Observacoes pode conter QUALQUER texto manuscrito (valores numericos, descricoes, abreviacoes). Extraia TODO o texto visivel nesse campo como uma unica string.`;
+9. O campo Observacoes pode conter QUALQUER texto manuscrito (valores numericos, descricoes, abreviacoes). Extraia TODO o texto visivel nesse campo como uma unica string.
+10. Campos de identificacao (lote, sacas, safra) devem aparecer dentro de "identificacao" no JSON. O campo safra TAMBEM deve ser copiado para "classificacao.safra" porque e usado nos dois lugares.`;
 
 // ============================================================
 // USER PROMPTS (one per classification type)
@@ -36,36 +37,38 @@ REGRAS CRITICAS DE EXTRACAO:
 const BICA_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo BICA presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a palavra "BICA" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a palavra "BICA" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
 LAYOUT DA FICHA BICA (de cima para baixo):
 
-CABECALHO (3 zonas):
-- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "BICA" impresso centralizado (ignore, e o nome do tipo)
-- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
-- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
+TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "BICA" impresso centralizado (ignore, e o nome do tipo).
 
-Abaixo do cabecalho ha 4 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
+Abaixo da tarja ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
-LINHA 1 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao"
-  Campo centro-esquerdo: rotulo "Catação" → extraia como "catacao"
+LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
+  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
+  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
+
+LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
+  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
   Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
+  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
 
-LINHA 2 — Safra e defeitos (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Safra" → extraia como "safra"
+LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
   Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
   Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Impureza" → extraia como "impureza"
+  Campo direito: rotulo "Bebida" → extraia como "bebida"
 
 Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
 
-LINHA 3 — Peneiras (2 campos largos, cada um ocupa METADE da largura da ficha):
-  Campo esquerdo (metade): rotulo "P.17 %" → extraia como "p17"
-  Campo direito (metade): rotulo "MK %" → extraia como "mk"
+LINHA 4 — Peneiras e impureza (3 campos largos, cada um ocupa UM TERCO da largura):
+  Campo esquerdo (terco): rotulo "P.17 %" → extraia como "p17"
+  Campo centro (terco): rotulo "MK %" → extraia como "mk"
+  Campo direito (terco): rotulo "Impureza" → extraia como "impureza"
 
-LINHA 4 — Fundos (4 campos lado a lado, fundo bege claro):
+LINHA 5 — Fundos (4 campos lado a lado, fundo bege claro):
   Esta linha tem fundo bege e contem DOIS pares de fundos.
   Primeiro par (fundo 1):
     Campo 1 com rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
@@ -75,7 +78,7 @@ LINHA 4 — Fundos (4 campos lado a lado, fundo bege claro):
     Campo 4 com rotulo "%" → extraia como "fundo2_percentual"
   Se apenas o primeiro fundo estiver preenchido, retorne null para fundo2_peneira e fundo2_percentual.
 
-LINHA 5 — Observacoes (campo unico, largura total da ficha, mais alto que os demais):
+LINHA 6 — Observacoes (campo unico, largura total da ficha, mais alto que os demais):
   Rotulo "Observações" no canto superior esquerdo.
   Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
   - Valores numericos como "Pau 2", "AP 1", "Umid 11,5"
@@ -87,7 +90,7 @@ LINHA 5 — Observacoes (campo unico, largura total da ficha, mais alto que os d
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Certif., Certif, Certificado, BICA, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.17 %, MK %, Fundo Pen., %, Observações
+LOTE, Sacas, Certif., Certif, Certificado, BICA, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.17 %, MK %, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -95,8 +98,9 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
-- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
+- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
@@ -125,56 +129,62 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
-    "lote": "codigo manuscrito do cabecalho ou null"
+    "lote": "codigo manuscrito da L1 ou null",
+    "sacas": "numero manuscrito da L1 ou null",
+    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
   }
 }`;
 
 const PREPARADO_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo PREPARADO presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a palavra "PREPARADO" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a palavra "PREPARADO" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
 LAYOUT DA FICHA PREPARADO (de cima para baixo):
 
-CABECALHO (3 zonas):
-- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "PREPARADO" impresso centralizado (ignore, e o nome do tipo)
-- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
-- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
+TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "PREPARADO" impresso centralizado (ignore, e o nome do tipo).
 
-Abaixo do cabecalho ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
+Abaixo da tarja ha 6 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
-LINHA 1 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao"
-  Campo centro-esquerdo: rotulo "Catação" → extraia como "catacao"
+LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
+  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
+  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
+
+LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
+  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
   Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
+  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
 
-LINHA 2 — Safra e defeitos (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Safra" → extraia como "safra"
+LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
   Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
   Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Impureza" → extraia como "impureza"
+  Campo direito: rotulo "Bebida" → extraia como "bebida"
 
 Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
 
-LINHA 3 — Peneiras superiores (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "P.19 %" → extraia como "p19"
-  Campo centro-esquerdo: rotulo "P.18 %" → extraia como "p18"
-  Campo centro-direito: rotulo "P.17 %" → extraia como "p17"
-  Campo direito: rotulo "P.16 %" → extraia como "p16"
+LINHA 4 — Peneiras superiores (6 campos COMPACTADOS lado a lado, mais estreitos que as outras linhas):
+  ATENCAO: esta linha tem 6 colunas de largura igual. Cada coluna e mais estreita.
+  Da esquerda para a direita:
+  Coluna 1: rotulo "P.19 %" → extraia como "p19"
+  Coluna 2: rotulo "P.18 %" → extraia como "p18"
+  Coluna 3: rotulo "P.17 %" → extraia como "p17"
+  Coluna 4: rotulo "P.16 %" → extraia como "p16"
+  Coluna 5: rotulo "P.15 %" → extraia como "p15"
+  Coluna 6: rotulo "P.14 %" → extraia como "p14"
 
-LINHA 4 — Peneiras inferiores, MK e Defeito (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "P.15 %" → extraia como "p15"
-  Campo centro-esquerdo: rotulo "P.14 %" → extraia como "p14"
-  Campo centro-direito: rotulo "MK %" → extraia como "mk"
-  Campo direito: rotulo "Defeito" → extraia como "defeito"
+LINHA 5 — MK, Defeito e Impureza (3 campos lado a lado, cada um ocupa UM TERCO da largura):
+  Campo esquerdo (terco): rotulo "MK %" → extraia como "mk"
+  Campo centro (terco): rotulo "Defeito" → extraia como "defeito"
+  Campo direito (terco): rotulo "Impureza" → extraia como "impureza"
 
-LINHA 5 — Fundo (2 campos largos, cada um ocupa METADE da largura da ficha, fundo bege claro):
-  Esta linha tem fundo bege e contem apenas UM fundo.
+LINHA 6 — Fundo (2 campos largos, cada um ocupa METADE da largura da ficha, fundo bege claro):
+  Esta linha tem fundo bege e contem apenas UM fundo (PREPARADO nao tem fundo 2).
   Campo esquerdo (metade): rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
   Campo direito (metade): rotulo "%" → extraia o numero manuscrito como "fundo1_percentual" (ex: "1,5")
 
-LINHA 6 — Observacoes (campo unico, largura total da ficha):
+LINHA 7 — Observacoes (campo unico, largura total da ficha):
   Rotulo "Observações" no canto superior esquerdo.
   Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
   - Valores numericos como "Pau 2", "AP 1", "Umid 11,5"
@@ -186,7 +196,7 @@ LINHA 6 — Observacoes (campo unico, largura total da ficha):
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Certif., Certif, Certificado, PREPARADO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.19 %, P.18 %, P.17 %, P.16 %, P.15 %, P.14 %, MK %, Defeito, Fundo Pen., %, Observações
+LOTE, Sacas, Certif., Certif, Certificado, PREPARADO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.19 %, P.18 %, P.17 %, P.16 %, P.15 %, P.14 %, MK %, Defeito, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -195,14 +205,16 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
-- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
+- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
 - NAO confunda o numero "1" com a letra "l" ou "I".
 - Se um valor parece ser texto impresso e nao manuscrito, retorne null.
 - Muitos campos ficam vazios (sem escrita) — retorne null para eles sem hesitar.
+- Na LINHA 4 com 6 colunas compactadas, preste atencao extra para nao confundir valores entre colunas adjacentes.
 
 Retorne SOMENTE o JSON abaixo, sem texto adicional:
 {
@@ -229,40 +241,43 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
-    "lote": "codigo manuscrito do cabecalho ou null"
+    "lote": "codigo manuscrito da L1 ou null",
+    "sacas": "numero manuscrito da L1 ou null",
+    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
   }
 }`;
 
 const LOW_CAFF_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo CAF\u00c9 BAIXO presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a expressao "CAF\u00c9 BAIXO" impressa em uma TARJA SUPERIOR com fundo bege claro. Abaixo da tarja ha duas celulas lado a lado: "LOTE" (esquerda, larga) e "Certif." (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
+Procure o cartao branco retangular com a expressao "CAF\u00c9 BAIXO" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
 
 LAYOUT DA FICHA CAF\u00c9 BAIXO (de cima para baixo):
 
-CABECALHO (3 zonas):
-- TARJA SUPERIOR (faixa fina com fundo bege claro, largura total): texto "CAF\u00c9 BAIXO" impresso centralizado (ignore, e o nome do tipo)
-- CELULA ESQUERDA (larga, ~65% da largura): campo "LOTE" com o codigo do lote escrito a mao em tamanho grande. Este e o maior texto manuscrito da ficha. O rotulo "LOTE" fica impresso no canto superior esquerdo da celula. A celula e vazia (sem linha de escrita) para dar espaco livre ao manuscrito.
-- CELULA DIREITA (estreita, ~35% da largura): campo "Certif." com as siglas manuscritas de certificacao (ex: "UTZ", "RA", "FLO", "4C", "ORG", "UTZ/RA", "BIO"). O rotulo "Certif." fica impresso no canto superior esquerdo da celula. Pode estar vazio.
+TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "CAF\u00c9 BAIXO" impresso centralizado (ignore, e o nome do tipo).
 
-Abaixo do cabecalho ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
+Abaixo da tarja ha 6 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
 
-LINHA 1 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao"
-  Campo centro-esquerdo: rotulo "Catação" → extraia como "catacao"
+LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
+  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
+  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
+
+LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
+  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
   Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
+  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
 
-LINHA 2 — Safra e defeitos (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Safra" → extraia como "safra"
+LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
   Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
   Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Impureza" → extraia como "impureza"
+  Campo direito: rotulo "Bebida" → extraia como "bebida"
 
 Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
 
-LINHA 3 — Peneiras (6 campos COMPACTADOS lado a lado, mais estreitos que as outras linhas):
-  ATENCAO: esta linha tem 6 colunas em vez de 4. Cada coluna e mais estreita.
+LINHA 4 — Peneiras (6 campos COMPACTADOS lado a lado, mais estreitos que as outras linhas):
+  ATENCAO: esta linha tem 6 colunas de largura igual. Cada coluna e mais estreita.
   Da esquerda para a direita:
   Coluna 1: rotulo "P.15 %" → extraia como "p15"
   Coluna 2: rotulo "P.14 %" → extraia como "p14"
@@ -271,13 +286,13 @@ LINHA 3 — Peneiras (6 campos COMPACTADOS lado a lado, mais estreitos que as ou
   Coluna 5: rotulo "P.11 %" → extraia como "p11"
   Coluna 6: rotulo "P.10 %" → extraia como "p10"
 
-LINHA 4 — AP, GPI e Defeito (3 campos lado a lado, cada um ocupa UM TERCO da largura):
-  ATENCAO: esta linha tem 3 colunas em vez de 4. Cada coluna e mais larga.
-  Campo esquerdo (terco): rotulo "AP %" → extraia como "ap"
-  Campo centro (terco): rotulo "GPI" → extraia como "gpi"
-  Campo direito (terco): rotulo "Defeito" → extraia como "defeito"
+LINHA 5 — AP, GPI, Defeito e Impureza (4 campos lado a lado, largura igual):
+  Campo esquerdo: rotulo "AP %" → extraia como "ap"
+  Campo centro-esquerdo: rotulo "GPI" → extraia como "gpi"
+  Campo centro-direito: rotulo "Defeito" → extraia como "defeito"
+  Campo direito: rotulo "Impureza" → extraia como "impureza"
 
-LINHA 5 — Fundos (4 campos lado a lado, fundo bege claro):
+LINHA 6 — Fundos (4 campos lado a lado, fundo bege claro):
   Esta linha tem fundo bege e contem DOIS pares de fundos.
   Primeiro par (fundo 1):
     Campo 1 com rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
@@ -287,7 +302,7 @@ LINHA 5 — Fundos (4 campos lado a lado, fundo bege claro):
     Campo 4 com rotulo "%" → extraia como "fundo2_percentual"
   Se apenas o primeiro fundo estiver preenchido, retorne null para fundo2_peneira e fundo2_percentual.
 
-LINHA 6 — Observacoes (campo unico, largura total da ficha):
+LINHA 7 — Observacoes (campo unico, largura total da ficha):
   Rotulo "Observações" no canto superior esquerdo.
   Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
   - Valores numericos como "Pau 2", "Umid 11,5"
@@ -299,7 +314,7 @@ LINHA 6 — Observacoes (campo unico, largura total da ficha):
   → extraia como "observacoes"
 
 ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Certif., Certif, Certificado, CAF\u00c9 BAIXO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.15 %, P.14 %, P.13 %, P.12 %, P.11 %, P.10 %, AP %, GPI, Defeito, Fundo Pen., %, Observações
+LOTE, Sacas, Certif., Certif, Certificado, CAF\u00c9 BAIXO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.15 %, P.14 %, P.13 %, P.12 %, P.11 %, P.10 %, AP %, GPI, Defeito, Fundo Pen., %, Observações
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
@@ -309,15 +324,16 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza, gpi): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande do campo "LOTE" no cabecalho (ex: "5487", "A-5490").
-- Certif: retorne as siglas manuscritas do campo "Certif." no cabecalho, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se o campo estiver vazio, retorne null.
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
+- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
 - NAO confunda o numero "1" com a letra "l" ou "I".
 - Se um valor parece ser texto impresso e nao manuscrito, retorne null.
 - Muitos campos ficam vazios (sem escrita) — retorne null para eles sem hesitar.
-- Na LINHA 3 com 6 colunas compactadas, preste atencao extra para nao confundir valores entre colunas adjacentes.
+- Na LINHA 4 com 6 colunas compactadas, preste atencao extra para nao confundir valores entre colunas adjacentes.
 
 Retorne SOMENTE o JSON abaixo, sem texto adicional:
 {
@@ -347,7 +363,9 @@ Retorne SOMENTE o JSON abaixo, sem texto adicional:
     "observacoes": "texto manuscrito completo ou null"
   },
   "identificacao": {
-    "lote": "codigo manuscrito do cabecalho ou null"
+    "lote": "codigo manuscrito da L1 ou null",
+    "sacas": "numero manuscrito da L1 ou null",
+    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
   }
 }`;
 
