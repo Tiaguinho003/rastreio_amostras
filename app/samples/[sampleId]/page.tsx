@@ -3461,7 +3461,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
-            className="app-modal cdm-modal"
+            className="app-modal cdm-modal cdm-lookup-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
@@ -3517,7 +3517,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={physicalSendTrapRef}
-            className="app-modal cdm-modal"
+            className="app-modal cdm-modal cdm-lookup-modal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
