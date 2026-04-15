@@ -7597,12 +7597,29 @@ button:disabled {
   max-width: 100%;
 }
 
+/* iOS Safari ignora width/max-width em input[type=date] nativo, causando
+   overflow do campo para fora do modal. Desativar a aparencia nativa
+   (-webkit-appearance: none) faz o browser tratar como input de texto
+   normal, respeitando width: 100%. Reaplicamos um icone de calendario
+   via background-image pra manter a dica visual. */
 .cdm-lookup-modal.app-modal .sdv-edit-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
   display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234d6452' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right clamp(10px, 2.8vw, 12px) center;
+  background-size: 1rem 1rem;
+  padding-right: clamp(2rem, 7vw, 2.4rem);
+}
+
+.cdm-lookup-modal.app-modal .sdv-edit-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (max-width: 900px) {
@@ -18516,12 +18533,12 @@ button:disabled {
 @media (min-width: 901px) {
   /* ── Variables ── */
   :root {
-    --desktop-content-max: 2000px;
-    --desktop-gutter: 0.67rem;
+    --desktop-content-max: 2400px;
+    --desktop-gutter: clamp(0.5rem, 1.25vw, 2rem);
     /* tokens de largura por contexto (Fase 0 — fundacao desktop) */
     --content-max-narrow: 720px; /* forms centrados, auth — mantem estreito */
-    --content-max-normal: 1800px; /* lista/detalhe normal */
-    --content-max-wide: 2200px; /* dashboards, detalhes amplos */
+    --content-max-normal: 2000px; /* lista/detalhe normal */
+    --content-max-wide: 2600px; /* dashboards, detalhes amplos */
   }
 
   /* ── AppShell: esconder elementos mobile-only ── */
