@@ -270,6 +270,49 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 - Icone de atencao SVG + texto em `font-weight: 600`
 - Cor do texto e icone na cor do status (ex: `#C0392B` para alertas criticos)
 
+## 13. Toasts (feedback transiente global)
+
+Para feedback nao-bloqueante vindo de acoes globais (bipador, API, navegacao), usar o sistema de toast em `lib/toast/ToastProvider.tsx`. Nao inventar componentes proprios de notificacao.
+
+### Quando usar toast vs outras opcoes
+
+- **Toast** — acao concluida ou falhou, feedback transiente que nao exige acao do usuario. Ex: "Amostra L-12345 encontrada", "QR nao reconhecido", "Sessao expirada".
+- **Alerta inline** (secao 12) — estado persistente de uma area da pagina. Ex: aviso de que uma amostra esta invalidada.
+- **Erro dentro do campo** — erro de validacao de formulario. Ex: "Obrigatorio" no input de sacas.
+- **Modal de confirmacao** (ver `app-confirm-modal` em globals.css) — acao destrutiva ou navegacao que descarta trabalho nao-salvo.
+
+### API
+
+```tsx
+import { useToast } from '@/lib/toast/ToastProvider';
+
+const toast = useToast();
+toast.success({ title: 'Amostra criada', description: 'Lote L-12345' });
+toast.error({ title: 'Falha ao salvar', description: err.message });
+toast.info({ title: 'Amostra ja aberta' });
+```
+
+### Posicao
+
+- **Mobile** (< 901px): centro inferior, respeitando `safe-area-inset-bottom`
+- **Desktop** (>= 901px): canto inferior direito
+
+### Variantes
+
+- `success` — verde (`--color-success`), icone de check
+- `error` — vermelho (`--color-danger`), icone de alerta
+- `info` — azul (`--color-info`), icone de info
+- Barra lateral de 4px na cor da variante, fundo cream translucido
+
+### Duracao padrao
+
+- 4s auto-dismiss. Para toasts que levam o usuario a outra tela (ex: "abrindo..."), usar `durationMs: 2600`.
+- Maximo de 3 visiveis simultaneamente — os mais antigos sao descartados.
+
+### Dirty state e modal de confirmacao
+
+Telas com estado nao-salvo devem se registrar via `useRegisterDirtyState('chave', isDirty, 'motivo')` em `lib/dirty-state/DirtyStateProvider.tsx`. Acoes globais (bipador, navegacao futura) consultam esse registro e mostram `app-confirm-modal` antes de descartar alteracoes.
+
 ## Checklist de Design
 
 Ao construir ou revisar qualquer pagina:

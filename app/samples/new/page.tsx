@@ -16,6 +16,7 @@ import {
   getPendingPrintJobs,
   getSampleDetail,
 } from '../../../lib/api-client';
+import { useRegisterDirtyState } from '../../../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import type {
   ClientRegistrationSummary,
@@ -192,6 +193,18 @@ function NewSamplePageContent() {
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
   const canCloseModal = labelModalStep === 'review' || labelModalStep === 'completed';
+
+  const hasFormContent = Boolean(
+    owner.trim() ||
+    sacks.trim() ||
+    harvest.trim() ||
+    originLot.trim() ||
+    location.trim() ||
+    notes.trim()
+  );
+  const isPrintInProgress = printStatus === 'pending';
+  const isFormDirty = hasFormContent || pendingDraft !== null || isPrintInProgress;
+  useRegisterDirtyState('samples/new', isFormDirty, 'Nova amostra em preenchimento');
 
   useEffect(() => {
     if (!session || !selectedOwnerClient) {

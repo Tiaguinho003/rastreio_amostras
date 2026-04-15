@@ -4,6 +4,9 @@ import { Poppins } from 'next/font/google';
 import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { SplashScreen } from '../components/SplashScreen';
+import { DirtyStateProvider } from '../lib/dirty-state/DirtyStateProvider';
+import { ScannerBridge } from '../lib/scanner/ScannerBridge';
+import { ToastProvider } from '../lib/toast/ToastProvider';
 import './globals.css';
 
 const poppins = Poppins({
@@ -53,7 +56,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <PwaRegistration />
         <SplashScreen />
-        <PageTransition>{children}</PageTransition>
+        <ToastProvider>
+          <DirtyStateProvider>
+            <ScannerBridge>
+              <PageTransition>{children}</PageTransition>
+            </ScannerBridge>
+          </DirtyStateProvider>
+        </ToastProvider>
       </body>
     </html>
   );
