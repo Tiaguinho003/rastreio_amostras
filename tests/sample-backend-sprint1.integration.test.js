@@ -652,6 +652,301 @@ if (!databaseUrl || !databaseReachable) {
     const sample = await queryService.requireSample(sampleId);
     assert.equal(sample.status, 'INVALIDATED');
   });
+
+  // Helper: cria a foto temporaria que confirmClassificationFromCamera espera
+  // (normalmente populada por detectClassificationForm / extractAndPrepareClassification).
+  async function writeTempCameraPhoto(photoToken) {
+    const tempDir = path.join(uploadDir, '_temp');
+    await fs.mkdir(tempDir, { recursive: true });
+    const tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
+    await fs.writeFile(tempPath, tinyPngBuffer);
+    return tempPath;
+  }
+
+  test('confirmClassificationFromCamera preserves existing flow when applySampleUpdates is omitted', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: {
+          padrao: 'PADRAO-1',
+          bebida: 'DURA',
+          defeito: '9',
+        },
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.status, 'CLASSIFIED');
+    // Sacks/harvest nao alterados
+    assert.equal(detail.sample.declared.sacks, 11);
+    assert.equal(detail.sample.declared.harvest, '25/26');
+    // Nenhum REGISTRATION_UPDATED emitido
+    const registrationUpdateEvents = detail.events.filter(
+      (event) => event.eventType === 'REGISTRATION_UPDATED'
+    );
+    assert.equal(registrationUpdateEvents.length, 0);
+    // CLASSIFICATION_COMPLETED presente
+    const classificationCompletedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_COMPLETED'
+    );
+    assert.equal(classificationCompletedEvents.length, 1);
+  });
+
+  test('confirmClassificationFromCamera updates declaredSacks when applySampleUpdates.declaredSacks is provided', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: {
+          padrao: 'PADRAO-2',
+          bebida: 'MOLE',
+        },
+        idempotencyKey: randomUUID(),
+        applySampleUpdates: {
+          declaredSacks: 50,
+        },
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.status, 'CLASSIFIED');
+    assert.equal(detail.sample.declared.sacks, 50);
+    assert.equal(detail.sample.declared.harvest, '25/26');
+
+    const registrationUpdateEvents = detail.events.filter(
+      (event) => event.eventType === 'REGISTRATION_UPDATED'
+    );
+    assert.equal(registrationUpdateEvents.length, 1);
+    const classificationCompletedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_COMPLETED'
+    );
+    assert.equal(classificationCompletedEvents.length, 1);
+  });
+
+  test('confirmClassificationFromCamera updates declaredHarvest when applySampleUpdates.declaredHarvest is provided', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: {
+          padrao: 'PADRAO-3',
+        },
+        idempotencyKey: randomUUID(),
+        applySampleUpdates: {
+          declaredHarvest: '24/25',
+        },
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.status, 'CLASSIFIED');
+    assert.equal(detail.sample.declared.harvest, '24/25');
+    assert.equal(detail.sample.declared.sacks, 11);
+
+    const registrationUpdateEvents = detail.events.filter(
+      (event) => event.eventType === 'REGISTRATION_UPDATED'
+    );
+    assert.equal(registrationUpdateEvents.length, 1);
+  });
+
+  test('confirmClassificationFromCamera updates both declaredSacks and declaredHarvest when both are provided', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: {
+          padrao: 'PADRAO-BOTH',
+        },
+        idempotencyKey: randomUUID(),
+        applySampleUpdates: {
+          declaredSacks: 25,
+          declaredHarvest: '23/24',
+        },
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.status, 'CLASSIFIED');
+    assert.equal(detail.sample.declared.sacks, 25);
+    assert.equal(detail.sample.declared.harvest, '23/24');
+
+    const registrationUpdateEvents = detail.events.filter(
+      (event) => event.eventType === 'REGISTRATION_UPDATED'
+    );
+    // Uma unica chamada ao updateRegistration aplica as duas mudancas no mesmo evento
+    assert.equal(registrationUpdateEvents.length, 1);
+    const updatePayload = registrationUpdateEvents[0].payload;
+    assert.equal(updatePayload.after?.declared?.sacks, 25);
+    assert.equal(updatePayload.after?.declared?.harvest, '23/24');
+  });
+
+  test('confirmClassificationFromCamera tolerates applySampleUpdates that match current values (no-op)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken,
+        classificationData: {
+          padrao: 'PADRAO-NOOP',
+        },
+        idempotencyKey: randomUUID(),
+        // Valores ja batem com o cadastrado (sacks=11, harvest='25/26').
+        applySampleUpdates: {
+          declaredSacks: 11,
+          declaredHarvest: '25/26',
+        },
+      },
+      actorClassifier
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.status, 'CLASSIFIED');
+    // Nenhum REGISTRATION_UPDATED deve ter sido emitido (no-op tolerado)
+    const registrationUpdateEvents = detail.events.filter(
+      (event) => event.eventType === 'REGISTRATION_UPDATED'
+    );
+    assert.equal(registrationUpdateEvents.length, 0);
+    // Mas a classificacao passou normalmente
+    const classificationCompletedEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_COMPLETED'
+    );
+    assert.equal(classificationCompletedEvents.length, 1);
+  });
+
+  test('confirmClassificationFromCamera rejects applySampleUpdates.declaredSacks below sold+lost sacks with 409', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    // Avanca a amostra ate CLASSIFIED e registra uma venda de 8 sacas para
+    // depois tentar reduzir declaredSacks para 5 via applySampleUpdates.
+    await commandService.startClassification(
+      {
+        sampleId,
+        expectedVersion: 5,
+        classificationId: null,
+        notes: null,
+      },
+      actorClassifier
+    );
+
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    // PHOTO_ADDED nao bumpa a versao — leia dinamicamente para evitar drift.
+    const currentBeforeComplete = await queryService.requireSample(sampleId);
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: currentBeforeComplete.version,
+        classificationData: {
+          dataClassificacao: '2026-02-27',
+          padrao: 'PADRAO-SOLD',
+          classificador: 'Classificador Teste',
+          defeito: '9',
+          bebida: 'DURA',
+        },
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    // Sample agora esta CLASSIFIED com declaredSacks=11. Registra uma venda.
+    const buyerClient = await createSellerClient({
+      legalName: 'Comprador LTDA',
+      tradeName: 'Comprador LTDA',
+      isBuyer: true,
+    });
+
+    const currentBeforeSale = await queryService.requireSample(sampleId);
+    await commandService.createSampleMovement(
+      {
+        sampleId,
+        expectedVersion: currentBeforeSale.version,
+        movementType: 'SALE',
+        buyerClientId: buyerClient.client.id,
+        quantitySacks: 8,
+        movementDate: '2026-02-28',
+        notes: 'venda de teste',
+      },
+      actorClassifier
+    );
+
+    // Agora tenta reclassificar com applySampleUpdates reduzindo sacks para 5,
+    // o que deve falhar (8 ja vendidas, minimo permitido e 8).
+    const photoToken = randomUUID();
+    await writeTempCameraPhoto(photoToken);
+
+    await assert.rejects(
+      () =>
+        commandService.confirmClassificationFromCamera(
+          {
+            sampleId,
+            photoToken,
+            classificationData: {
+              padrao: 'PADRAO-FAIL',
+            },
+            idempotencyKey: randomUUID(),
+            applySampleUpdates: {
+              declaredSacks: 5,
+            },
+          },
+          actorClassifier
+        ),
+      (error) => error instanceof HttpError && error.status === 409
+    );
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

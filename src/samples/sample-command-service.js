@@ -541,6 +541,59 @@ function parseRegistrationUpdatePatch(after) {
   return patch;
 }
 
+/**
+ * Normaliza o payload opcional `applySampleUpdates` usado por
+ * confirmClassificationFromCamera. Retorna um objeto com as atualizacoes
+ * pendentes (apenas campos nao-nulos) ou null quando nada precisa ser
+ * aplicado. Valores `null` sao aceitos e interpretados como "nao aplicar
+ * este campo" — o frontend usa null para explicitamente sinalizar que o
+ * operador escolheu manter o valor cadastrado.
+ */
+function parseApplySampleUpdatesPatch(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (!isPlainObject(value)) {
+    throw new HttpError(422, 'applySampleUpdates must be an object');
+  }
+
+  const allowedKeys = new Set(['declaredSacks', 'declaredHarvest']);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new HttpError(422, `applySampleUpdates.${key} is not a supported field`);
+    }
+  }
+
+  const patch = {};
+
+  if (hasOwn(value, 'declaredSacks') && value.declaredSacks !== null) {
+    const parsed =
+      typeof value.declaredSacks === 'number' ? value.declaredSacks : Number(value.declaredSacks);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new HttpError(422, 'applySampleUpdates.declaredSacks must be an integer >= 1');
+    }
+    patch.declaredSacks = parsed;
+  }
+
+  if (hasOwn(value, 'declaredHarvest') && value.declaredHarvest !== null) {
+    if (typeof value.declaredHarvest !== 'string') {
+      throw new HttpError(422, 'applySampleUpdates.declaredHarvest must be a string');
+    }
+    const normalized = value.declaredHarvest.trim();
+    if (!normalized) {
+      throw new HttpError(422, 'applySampleUpdates.declaredHarvest must be a non-empty string');
+    }
+    patch.declaredHarvest = normalized;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return null;
+  }
+
+  return patch;
+}
+
 function parseClassificationSievePatch(value) {
   if (value === undefined) {
     return undefined;
@@ -2873,6 +2926,10 @@ export class SampleCommandService {
       throw new HttpError(422, 'photoToken e obrigatorio');
     }
 
+    // Valida cedo o payload opcional `applySampleUpdates` para falhar antes
+    // de consumir a foto temporaria caso o operador envie valores invalidos.
+    const sampleUpdatesPatch = parseApplySampleUpdatesPatch(input.applySampleUpdates);
+
     const sample = await this.queryService.requireSample(sampleId);
     const classifiableStatuses = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
     assertSampleStatus(sample, classifiableStatuses, 'confirm classification from camera');
@@ -2923,7 +2980,58 @@ export class SampleCommandService {
       }
     }
     // Re-read sample after photo upload (version changed)
-    const current = await this.queryService.requireSample(sampleId);
+    let current = await this.queryService.requireSample(sampleId);
+
+    // Reconciliacao opcional: quando o operador confere a ficha e escolhe
+    // "usar valor da ficha" para sacas/safra, o frontend envia
+    // `applySampleUpdates`. Aplicamos a atualizacao ANTES da classificacao.
+    //
+    // Nota de transacionalidade: `updateRegistration` e a chamada de
+    // classificacao subsequente rodam em transacoes Prisma separadas. Se
+    // falhar entre as duas, a amostra fica com os novos sacks/harvest mas
+    // sem classificacao — o operador pode reclassificar (idempotencyKey
+    // protege duplicacao). Tolerado por ora para nao reestruturar o fluxo.
+    if (sampleUpdatesPatch) {
+      const registrationAfter = { declared: {} };
+      if (hasOwn(sampleUpdatesPatch, 'declaredSacks')) {
+        registrationAfter.declared.sacks = sampleUpdatesPatch.declaredSacks;
+      }
+      if (hasOwn(sampleUpdatesPatch, 'declaredHarvest')) {
+        registrationAfter.declared.harvest = sampleUpdatesPatch.declaredHarvest;
+      }
+
+      // `updateRegistration` lanca 409 se nao detectar mudanca (no-op) ou
+      // se a reducao de sacks violar soldSacks+lostSacks. Propagamos o erro
+      // para o cliente em ambos os casos.
+      try {
+        await this.updateRegistration(
+          {
+            sampleId,
+            expectedVersion: current.version,
+            after: registrationAfter,
+            reasonCode: 'DATA_FIX',
+            reasonText: 'Conferencia de ficha na camera',
+          },
+          actorContext
+        );
+      } catch (error) {
+        // No-op: quando os valores enviados ja batem com o cadastrado,
+        // `updateRegistration` lanca 409 "No registration changes detected".
+        // Isso nao deve bloquear a classificacao — apenas seguimos.
+        const isNoOpChange =
+          error instanceof HttpError &&
+          error.status === 409 &&
+          typeof error.message === 'string' &&
+          error.message.includes('No registration changes detected');
+        if (!isNoOpChange) {
+          throw error;
+        }
+      }
+
+      // Re-read sample after potential registration update (version changed)
+      current = await this.queryService.requireSample(sampleId);
+    }
+
     let result;
 
     if (sample.status === 'CLASSIFIED') {
