@@ -8205,12 +8205,30 @@ button:disabled {
   gap: clamp(6px, 2vw, 8px) clamp(8px, 2.5vw, 10px);
 }
 
+.cld-grid-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
 .cld-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.cld-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .cld-grid-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cld-grid-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 500px) {
+  .cld-grid-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .cld-field {
@@ -15383,6 +15401,103 @@ button:disabled {
   transform: scale(0.96);
 }
 
+/* ── Data mismatch resolution modal (sacas/safra) ── */
+
+.cam-mismatch-card {
+  width: min(520px, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  padding: clamp(20px, 5.5vw, 28px) clamp(18px, 5vw, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 4vw, 18px);
+}
+
+.cam-mismatch-text {
+  color: #1a1a1a;
+  font-size: clamp(13px, 3.6vw, 14px);
+  line-height: 1.45;
+  margin: 0;
+  text-align: center;
+}
+
+.cam-mismatch-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+}
+
+.cam-mismatch-row {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5vw, 10px);
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 3px solid var(--brand-green-soft);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+}
+
+.cam-mismatch-row-label {
+  font-size: clamp(11px, 2.8vw, 12px);
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.cam-mismatch-options {
+  display: flex;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.cam-mismatch-option {
+  flex: 1;
+  cursor: pointer;
+  padding: clamp(10px, 3vw, 12px) clamp(10px, 3vw, 12px);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: clamp(9px, 2.6vw, 10px);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cam-mismatch-option input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cam-mismatch-option:active {
+  transform: scale(0.98);
+}
+
+.cam-mismatch-option.is-selected {
+  border-color: var(--brand-green-soft);
+  background: rgba(46, 125, 50, 0.08);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12);
+}
+
+.cam-mismatch-option-label {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cam-mismatch-option-value {
+  font-size: clamp(14px, 4vw, 16px);
+  font-weight: 700;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
 /* Floating error toast (used inside camera flow) */
 .cam-confirm-error {
   position: fixed;
@@ -15542,12 +15657,30 @@ button:disabled {
   gap: clamp(6px, 2vw, 8px) clamp(8px, 2.5vw, 10px);
 }
 
+.cam-cf-grid-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
 .cam-cf-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.cam-cf-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .cam-cf-grid-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cam-cf-grid-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 500px) {
+  .cam-cf-grid-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .cam-cf-field {

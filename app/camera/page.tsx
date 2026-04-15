@@ -27,6 +27,11 @@ import {
   buildClassificationDataPayload,
   getTypeConfig,
 } from '../../lib/classification-form';
+import {
+  compareIdentification,
+  type IdentificationDivergence,
+  type IdentificationField,
+} from '../../lib/sample-identification';
 import type {
   ClassificationType,
   ConferrerSnapshot,
@@ -56,8 +61,11 @@ type ClassificationFlowState =
   | 'overwrite-confirm'
   | 'not-found'
   | 'lot-mismatch'
+  | 'data-mismatch'
   | 'submitting'
   | 'success';
+
+type MismatchChoice = 'extracted' | 'stored';
 
 const DEFAULT_STATUS_MESSAGE = 'Aponte para um QR code ou tire uma foto da ficha.';
 const REPEATED_SCAN_WINDOW_MS = 1800;
@@ -89,6 +97,7 @@ function ClassificationConfirmModal({
   mode,
   lotNumber,
   onLotNumberChange,
+  sampleSacks,
   form,
   onFormChange,
   onConfirm,
@@ -99,6 +108,7 @@ function ClassificationConfirmModal({
   mode: 'no-context' | 'with-context';
   lotNumber: string;
   onLotNumberChange?: (value: string) => void;
+  sampleSacks: number | null;
   form: ClassificationFormState;
   onFormChange: (key: keyof ClassificationFormState, value: string) => void;
   onConfirm: () => void;
@@ -108,14 +118,6 @@ function ClassificationConfirmModal({
 }) {
   const trapRef = useFocusTrap(true);
   const config = getTypeConfig(classificationType);
-
-  const textFields: Array<{ key: keyof ClassificationFormState; label: string }> = [
-    { key: 'padrao', label: 'Padrao' },
-    { key: 'catacao', label: 'Catacao' },
-    { key: 'aspecto', label: 'Aspecto' },
-    { key: 'bebida', label: 'Bebida' },
-    { key: 'safra', label: 'Safra' },
-  ];
 
   const sieveFields = config?.sieveFields ?? [
     { key: 'peneiraP18' as const, label: 'P.18' },
@@ -191,65 +193,105 @@ function ClassificationConfirmModal({
           </button>
         </header>
 
-        <div className="cam-cf-lot-bar">
-          <svg
-            className="cam-cf-lot-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-          {mode === 'no-context' ? (
-            <input
-              type="text"
-              className="cam-cf-lot-input"
-              value={lotNumber}
-              onChange={(e) => onLotNumberChange?.(e.target.value)}
-              disabled={submitting}
-              placeholder="Numero do lote"
-            />
-          ) : (
-            <span className="cam-cf-lot-value">{lotNumber || '\u2014'}</span>
-          )}
-        </div>
-
-        <div className="cam-cf-lot-bar cam-cf-certif-bar">
-          <svg
-            className="cam-cf-lot-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="9" r="6" />
-            <path d="M8.5 14.2L7.5 21l4.5-2.5L16.5 21l-1-6.8" />
-          </svg>
-          <input
-            type="text"
-            className="cam-cf-lot-input"
-            value={form.certif}
-            onChange={(e) => onFormChange('certif', e.target.value)}
-            disabled={submitting}
-            placeholder="Certif. (ex: UTZ, RA, BIO)"
-          />
-        </div>
-
         <div className="cam-cf-body">
           <div className="cam-cf-section is-general">
             <div className="cam-cf-section-title">
               <span className="cam-cf-dot" />
               Geral
             </div>
-            <div className="cam-cf-grid cam-cf-grid-2">{textFields.map((f) => renderField(f))}</div>
+            <div className="cam-cf-grid cam-cf-grid-2">
+              {mode === 'no-context' ? (
+                <label className="cam-cf-field">
+                  <span className="cam-cf-field-label">Lote</span>
+                  <input
+                    type="text"
+                    className="cam-cf-input"
+                    value={lotNumber}
+                    onChange={(e) => onLotNumberChange?.(e.target.value)}
+                    disabled={submitting}
+                    placeholder="Numero do lote"
+                  />
+                </label>
+              ) : (
+                <div className="cam-cf-field">
+                  <span className="cam-cf-field-label">Lote</span>
+                  <span className="cam-cf-field-value">{lotNumber || '\u2014'}</span>
+                </div>
+              )}
+              <div className="cam-cf-field">
+                <span className="cam-cf-field-label">Sacas</span>
+                <span className="cam-cf-field-value">
+                  {sampleSacks !== null && sampleSacks !== undefined
+                    ? String(sampleSacks)
+                    : '\u2014'}
+                </span>
+              </div>
+            </div>
+            <div className="cam-cf-grid cam-cf-grid-4">
+              {renderField({ key: 'padrao', label: 'Padrao' })}
+              {renderField({ key: 'safra', label: 'Safra' })}
+              {renderField({ key: 'aspecto', label: 'Aspecto' })}
+              {renderField({ key: 'certif', label: 'Certif.' })}
+            </div>
+            <div className="cam-cf-grid cam-cf-grid-4">
+              {renderField({ key: 'catacao', label: 'Catacao' })}
+              {renderField({ key: 'broca', label: 'Broca' }, 'decimal')}
+              {renderField({ key: 'pva', label: 'PVA' }, 'decimal')}
+              {renderField({ key: 'bebida', label: 'Bebida' })}
+            </div>
           </div>
 
-          {sieveFields.length > 0 && (
+          {classificationType === 'BICA' && (
+            <div className="cam-cf-section is-sieves">
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Peneiras <span className="cam-cf-section-unit">%</span>
+              </div>
+              <div className="cam-cf-grid cam-cf-grid-3">
+                {renderField({ key: 'peneiraP17', label: 'P.17' }, 'decimal')}
+                {renderField({ key: 'peneiraMk', label: 'MK' }, 'decimal')}
+                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
+              </div>
+            </div>
+          )}
+          {classificationType === 'LOW_CAFF' && (
+            <div className="cam-cf-section is-sieves">
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Peneiras <span className="cam-cf-section-unit">%</span>
+              </div>
+              <div className="cam-cf-grid cam-cf-grid-6">
+                {renderField({ key: 'peneiraP15', label: 'P.15' }, 'decimal')}
+                {renderField({ key: 'peneiraP14', label: 'P.14' }, 'decimal')}
+                {renderField({ key: 'peneiraP13', label: 'P.13' }, 'decimal')}
+                {renderField({ key: 'peneiraP12', label: 'P.12' }, 'decimal')}
+                {renderField({ key: 'peneiraP11', label: 'P.11' }, 'decimal')}
+                {renderField({ key: 'peneiraP10', label: 'P.10' }, 'decimal')}
+              </div>
+            </div>
+          )}
+          {classificationType === 'PREPARADO' && (
+            <div className="cam-cf-section is-sieves">
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Peneiras <span className="cam-cf-section-unit">%</span>
+              </div>
+              <div className="cam-cf-grid cam-cf-grid-6">
+                {renderField({ key: 'peneiraP19', label: 'P.19' }, 'decimal')}
+                {renderField({ key: 'peneiraP18', label: 'P.18' }, 'decimal')}
+                {renderField({ key: 'peneiraP17', label: 'P.17' }, 'decimal')}
+                {renderField({ key: 'peneiraP16', label: 'P.16' }, 'decimal')}
+                {renderField({ key: 'peneiraP15', label: 'P.15' }, 'decimal')}
+                {renderField({ key: 'peneiraP14', label: 'P.14' }, 'decimal')}
+              </div>
+              <div className="cam-cf-grid cam-cf-grid-3">
+                {renderField({ key: 'peneiraMk', label: 'MK' }, 'decimal')}
+                {renderField({ key: 'defeito', label: 'Defeito' }, 'decimal')}
+                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
+              </div>
+            </div>
+          )}
+          {!classificationType && sieveFields.length > 0 && (
             <div className="cam-cf-section is-sieves">
               <div className="cam-cf-section-title">
                 <span className="cam-cf-dot" />
@@ -261,20 +303,21 @@ function ClassificationConfirmModal({
             </div>
           )}
 
-          <div className="cam-cf-section is-funds">
-            <div className="cam-cf-section-title">
-              <span className="cam-cf-dot" />
-              Fundos
+          {classificationType === 'LOW_CAFF' && (
+            <div className="cam-cf-section is-defects">
+              <div className="cam-cf-section-title">
+                <span className="cam-cf-dot" />
+                Defeitos e analises
+              </div>
+              <div className="cam-cf-grid cam-cf-grid-4">
+                {renderField({ key: 'ap', label: 'AP (%)' }, 'decimal')}
+                {renderField({ key: 'gpi', label: 'GPI' }, 'decimal')}
+                {renderField({ key: 'defeito', label: 'Defeito' }, 'decimal')}
+                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
+              </div>
             </div>
-            <div className="cam-cf-grid cam-cf-grid-4">
-              {renderField({ key: 'fundo1Peneira', label: 'FD1 Pen.' })}
-              {renderField({ key: 'fundo1Percent', label: 'FD1 %' }, 'decimal')}
-              {hasFundo2 && renderField({ key: 'fundo2Peneira', label: 'FD2 Pen.' })}
-              {hasFundo2 && renderField({ key: 'fundo2Percent', label: 'FD2 %' }, 'decimal')}
-            </div>
-          </div>
-
-          {defectFields.length > 0 && (
+          )}
+          {!classificationType && defectFields.length > 0 && (
             <div className="cam-cf-section is-defects">
               <div className="cam-cf-section-title">
                 <span className="cam-cf-dot" />
@@ -285,6 +328,19 @@ function ClassificationConfirmModal({
               </div>
             </div>
           )}
+
+          <div className="cam-cf-section is-funds">
+            <div className="cam-cf-section-title">
+              <span className="cam-cf-dot" />
+              Fundos
+            </div>
+            <div className={`cam-cf-grid ${hasFundo2 ? 'cam-cf-grid-4' : 'cam-cf-grid-2'}`}>
+              {renderField({ key: 'fundo1Peneira', label: 'FD1 Pen.' })}
+              {renderField({ key: 'fundo1Percent', label: 'FD1 %' }, 'decimal')}
+              {hasFundo2 && renderField({ key: 'fundo2Peneira', label: 'FD2 Pen.' })}
+              {hasFundo2 && renderField({ key: 'fundo2Percent', label: 'FD2 %' }, 'decimal')}
+            </div>
+          </div>
 
           <div className="cam-cf-section is-notes">
             <div className="cam-cf-section-title">
@@ -374,6 +430,8 @@ function CameraPageContent() {
   // Context sample (Flow B)
   const [contextSampleLot, setContextSampleLot] = useState<string | null>(null);
   const [contextSampleStatus, setContextSampleStatus] = useState<string | null>(null);
+  const [contextSampleSacks, setContextSampleSacks] = useState<number | null>(null);
+  const [contextSampleHarvest, setContextSampleHarvest] = useState<string | null>(null);
   const [detectedPhotoToken, setDetectedPhotoToken] = useState<string | null>(null);
 
   // Classification type selection
@@ -394,6 +452,14 @@ function CameraPageContent() {
   const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(
     null
   );
+
+  // Data mismatch (sacas/safra divergem do cadastro)
+  const [mismatchDivergences, setMismatchDivergences] = useState<IdentificationDivergence[]>([]);
+  const [mismatchChoices, setMismatchChoices] = useState<
+    Record<IdentificationField, MismatchChoice>
+  >({} as Record<IdentificationField, MismatchChoice>);
+  const [mismatchTargetSampleId, setMismatchTargetSampleId] = useState<string | null>(null);
+  const [mismatchOverwriteAfter, setMismatchOverwriteAfter] = useState<boolean>(false);
 
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
@@ -420,6 +486,8 @@ function CameraPageContent() {
         if (!cancelled && detail?.sample) {
           setContextSampleLot(detail.sample.internalLotNumber ?? null);
           setContextSampleStatus(detail.sample.status);
+          setContextSampleSacks(detail.sample.declared?.sacks ?? null);
+          setContextSampleHarvest(detail.sample.declared?.harvest ?? null);
         }
       })
       .catch(() => {});
@@ -451,7 +519,8 @@ function CameraPageContent() {
         flowState === 'preview' ||
         flowState === 'error' ||
         flowState === 'not-found' ||
-        flowState === 'lot-mismatch'
+        flowState === 'lot-mismatch' ||
+        flowState === 'data-mismatch'
       ) {
         resetClassificationFlow();
       } else if (flowState === 'confirming' || flowState === 'overwrite-confirm') {
@@ -662,6 +731,10 @@ function CameraPageContent() {
     setConfirmedSampleId(null);
     setEditableLot('');
     setResolvedSample(null);
+    setMismatchDivergences([]);
+    setMismatchChoices({} as Record<IdentificationField, MismatchChoice>);
+    setMismatchTargetSampleId(null);
+    setMismatchOverwriteAfter(false);
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
@@ -815,7 +888,27 @@ function CameraPageContent() {
     setClassificationForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function saveClassification(sampleId: string) {
+  function buildApplySampleUpdatesFromMismatch(): {
+    declaredSacks?: number;
+    declaredHarvest?: string;
+  } | null {
+    const updates: { declaredSacks?: number; declaredHarvest?: string } = {};
+    for (const divergence of mismatchDivergences) {
+      const choice = mismatchChoices[divergence.field];
+      if (choice !== 'extracted') continue;
+      if (divergence.field === 'sacks' && typeof divergence.extracted === 'number') {
+        updates.declaredSacks = divergence.extracted;
+      } else if (divergence.field === 'harvest' && typeof divergence.extracted === 'string') {
+        updates.declaredHarvest = divergence.extracted;
+      }
+    }
+    return Object.keys(updates).length > 0 ? updates : null;
+  }
+
+  async function saveClassification(
+    sampleId: string,
+    applySampleUpdates: { declaredSacks?: number; declaredHarvest?: string } | null = null
+  ) {
     if (!session || !extractionResult) return;
 
     setFlowState('submitting');
@@ -834,6 +927,7 @@ function CameraPageContent() {
         classificationType,
         conferredBy:
           hadConferral === true ? conferredBy.map((entry) => ({ userId: entry.id })) : null,
+        applySampleUpdates,
       });
 
       if (!mountedRef.current) return;
@@ -875,6 +969,34 @@ function CameraPageContent() {
         return;
       }
 
+      const divergences = compareIdentification(
+        {
+          lote: null,
+          sacas: extractionResult.identification.sacas,
+          safra: extractionResult.identification.safra,
+        },
+        {
+          declaredSacks: contextSampleSacks,
+          declaredHarvest: contextSampleHarvest,
+        }
+      );
+      if (divergences.length > 0) {
+        setMismatchDivergences(divergences);
+        setMismatchChoices(
+          divergences.reduce(
+            (acc, d) => {
+              acc[d.field] = 'stored';
+              return acc;
+            },
+            {} as Record<IdentificationField, MismatchChoice>
+          )
+        );
+        setMismatchTargetSampleId(contextSampleId);
+        setMismatchOverwriteAfter(false);
+        setFlowState('data-mismatch');
+        return;
+      }
+
       await saveClassification(contextSampleId);
     } else {
       // Flow A: resolve sample by lot
@@ -909,6 +1031,34 @@ function CameraPageContent() {
           return;
         }
 
+        const divergences = compareIdentification(
+          {
+            lote: null,
+            sacas: extractionResult.identification.sacas,
+            safra: extractionResult.identification.safra,
+          },
+          {
+            declaredSacks: resolved.sample.declared?.sacks ?? null,
+            declaredHarvest: resolved.sample.declared?.harvest ?? null,
+          }
+        );
+        if (divergences.length > 0) {
+          setMismatchDivergences(divergences);
+          setMismatchChoices(
+            divergences.reduce(
+              (acc, d) => {
+                acc[d.field] = 'stored';
+                return acc;
+              },
+              {} as Record<IdentificationField, MismatchChoice>
+            )
+          );
+          setMismatchTargetSampleId(resolved.sample.id);
+          setMismatchOverwriteAfter(resolved.sample.status === 'CLASSIFIED');
+          setFlowState('data-mismatch');
+          return;
+        }
+
         if (resolved.sample.status === 'CLASSIFIED') {
           setFlowState('overwrite-confirm');
           return;
@@ -923,9 +1073,20 @@ function CameraPageContent() {
     }
   }
 
+  async function handleApplyMismatchResolution() {
+    if (!mismatchTargetSampleId) return;
+    if (mismatchOverwriteAfter) {
+      setFlowState('overwrite-confirm');
+      return;
+    }
+    const updates = buildApplySampleUpdatesFromMismatch();
+    await saveClassification(mismatchTargetSampleId, updates);
+  }
+
   async function handleConfirmOverwrite() {
     if (!resolvedSample) return;
-    await saveClassification(resolvedSample.id);
+    const updates = buildApplySampleUpdatesFromMismatch();
+    await saveClassification(resolvedSample.id, updates);
   }
 
   // --- QR result handlers ---
@@ -1449,6 +1610,89 @@ function CameraPageContent() {
         </div>
       ) : null}
 
+      {/* Data mismatch resolution modal (sacas/safra) */}
+      {flowState === 'data-mismatch' ? (
+        <div className="app-modal-backdrop" onClick={() => {}}>
+          <div className="app-modal cam-mismatch-card" onClick={(e) => e.stopPropagation()}>
+            <p className="cam-mismatch-text">
+              Algumas informacoes da ficha divergem do cadastro da amostra. Escolha qual valor
+              manter em cada linha antes de salvar.
+            </p>
+            <div className="cam-mismatch-list">
+              {mismatchDivergences.map((divergence) => {
+                const label = divergence.field === 'sacks' ? 'Sacas' : 'Safra';
+                const choice = mismatchChoices[divergence.field];
+                const extractedText =
+                  divergence.extracted !== null && divergence.extracted !== undefined
+                    ? String(divergence.extracted)
+                    : '\u2014';
+                const storedText =
+                  divergence.stored !== null && divergence.stored !== undefined
+                    ? String(divergence.stored)
+                    : '\u2014';
+                return (
+                  <div key={divergence.field} className="cam-mismatch-row">
+                    <div className="cam-mismatch-row-label">{label}</div>
+                    <div className="cam-mismatch-options">
+                      <label
+                        className={`cam-mismatch-option${choice === 'extracted' ? ' is-selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name={`mismatch-${divergence.field}`}
+                          checked={choice === 'extracted'}
+                          onChange={() =>
+                            setMismatchChoices((prev) => ({
+                              ...prev,
+                              [divergence.field]: 'extracted',
+                            }))
+                          }
+                        />
+                        <span className="cam-mismatch-option-label">Ficha (extraido)</span>
+                        <span className="cam-mismatch-option-value">{extractedText}</span>
+                      </label>
+                      <label
+                        className={`cam-mismatch-option${choice === 'stored' ? ' is-selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name={`mismatch-${divergence.field}`}
+                          checked={choice === 'stored'}
+                          onChange={() =>
+                            setMismatchChoices((prev) => ({
+                              ...prev,
+                              [divergence.field]: 'stored',
+                            }))
+                          }
+                        />
+                        <span className="cam-mismatch-option-label">Cadastro</span>
+                        <span className="cam-mismatch-option-value">{storedText}</span>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="cam-already-actions">
+              <button
+                type="button"
+                className="cam-already-btn-no"
+                onClick={resetClassificationFlow}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cam-already-btn-yes"
+                onClick={() => void handleApplyMismatchResolution()}
+              >
+                Aplicar e salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Overwrite confirm dialog (Flow A) */}
       {flowState === 'overwrite-confirm' && resolvedSample ? (
         <div className="app-modal-backdrop" onClick={() => setFlowState('confirming')}>
@@ -1516,6 +1760,7 @@ function CameraPageContent() {
             mode={hasContext ? 'with-context' : 'no-context'}
             lotNumber={hasContext ? (contextSampleLot ?? '') : editableLot}
             onLotNumberChange={hasContext ? undefined : setEditableLot}
+            sampleSacks={hasContext ? contextSampleSacks : null}
             form={classificationForm}
             onFormChange={updateFormField}
             onConfirm={() => void handleConfirmClassification()}
