@@ -14,6 +14,7 @@ import type {
   CreateSampleAndPreparePrintResponse,
   ExtractAndPrepareResponse,
   ResolveSampleByLotResponse,
+  DashboardLatestActivityResponse,
   DashboardPendingResponse,
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
@@ -679,6 +680,13 @@ export function getDashboardSalesAvailability(session: SessionData) {
   });
 }
 
+export function getDashboardLatestActivity(session: SessionData) {
+  return request<DashboardLatestActivityResponse>('/dashboard/latest-activity', {
+    method: 'GET',
+    session,
+  });
+}
+
 export function getPendingPrintJobs(
   session: SessionData,
   options: { limit?: number; sampleId?: string } = {}
@@ -983,6 +991,10 @@ export function confirmClassificationFromCamera(
     photoToken: string;
     classificationType?: string | null;
     conferredBy?: Array<{ userId: string }> | null;
+    applySampleUpdates?: {
+      declaredSacks?: number | null;
+      declaredHarvest?: string | null;
+    } | null;
   }
 ) {
   return request<CommandResponse>('/classification/confirm', {
