@@ -13938,6 +13938,10 @@ button:disabled {
     display: none;
   }
 
+  .dashboard-sheet > .is-desktop-only {
+    display: none;
+  }
+
   .dashboard-sheet-content {
     flex: none;
     background: transparent;
@@ -20296,25 +20300,30 @@ button:disabled {
     gap: 3rem;
   }
 
-  /* T2: operations + sales side-by-side */
+  /* Desktop 2x2 grid: operations + sales na linha 1, outros slots na linha 2.
+     Coluna 2 da linha 2 fica reservada para um container futuro (TBD). */
   .dashboard-sheet {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
-    gap: 2rem;
+    column-gap: 2rem;
+    row-gap: 2rem;
     align-items: start;
     overflow: visible;
   }
 
   .dashboard-sheet-content {
     grid-column: 2;
-    grid-row: 1 / span 99;
-    position: sticky;
-    top: 6rem;
+    grid-row: 1;
     align-self: start;
   }
 
   .dashboard-sheet > .dashboard-sheet-section:not(.dashboard-sheet-content) {
     grid-column: 1;
+  }
+
+  .dashboard-sheet > .is-desktop-only {
+    display: grid;
+    gap: 1.5rem;
   }
 
   .dashboard-operations-grid {
