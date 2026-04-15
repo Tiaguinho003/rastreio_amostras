@@ -12,6 +12,7 @@ import {
   rectangle,
   rgb,
 } from 'pdf-lib';
+import sharp from 'sharp';
 
 import { HttpError } from '../contracts/errors.js';
 import {
@@ -230,11 +231,12 @@ async function embedImage(pdfDoc, bytes, mimeType) {
     return pdfDoc.embedJpg(bytes);
   }
 
-  try {
-    return await pdfDoc.embedJpg(bytes);
-  } catch {
-    return pdfDoc.embedPng(bytes);
-  }
+  // pdf-lib so suporta PNG e JPEG nativamente. Para qualquer outro formato
+  // aceito pelo upload service (WebP, e futuramente HEIC/AVIF), convertemos
+  // para PNG via sharp antes de embedar. Este fallback tambem cobre o caso
+  // de mimeType ausente/desconhecido: sharp auto-detecta o formato real.
+  const pngBytes = await sharp(bytes).png().toBuffer();
+  return pdfDoc.embedPng(pngBytes);
 }
 
 async function renderSamplePdf({

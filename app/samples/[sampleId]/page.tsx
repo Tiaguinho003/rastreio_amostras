@@ -3563,7 +3563,7 @@ export default function SampleDetailPage() {
               </button>
             </div>
             <div className="sdv-edit-fields">
-              <label className="sdv-edit-field">
+              <div className="sdv-edit-field">
                 <span className="sdv-edit-label">Destinatario</span>
                 <ClientLookupField
                   session={session!}
@@ -3575,7 +3575,7 @@ export default function SampleDetailPage() {
                   placeholder="Busque por nome, documento ou codigo"
                   compact
                 />
-              </label>
+              </div>
             </div>
             <div className="sdv-edit-actions">
               <button
@@ -3619,7 +3619,7 @@ export default function SampleDetailPage() {
               </button>
             </div>
             <div className="sdv-edit-fields">
-              <label className="sdv-edit-field">
+              <div className="sdv-edit-field">
                 <span className="sdv-edit-label">Destinatario</span>
                 <ClientLookupField
                   session={session!}
@@ -3631,7 +3631,7 @@ export default function SampleDetailPage() {
                   placeholder="Busque por nome, documento ou codigo"
                   compact
                 />
-              </label>
+              </div>
               <label className="sdv-edit-field">
                 <span className="sdv-edit-label">Data de envio</span>
                 <input
