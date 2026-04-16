@@ -93,7 +93,9 @@ export function ClientQuickCreateModal({
   }, [form.cpf, form.cnpj, form.personType]);
 
   const expectedDocumentDigits = form.personType === 'PF' ? 11 : 14;
+  const isDocumentFilled = documentDigitCount > 0;
   const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
+  const isDocumentValid = !isDocumentFilled || isDocumentComplete;
 
   const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
   const isNameFilled = nameValue.trim().length > 0;
@@ -103,8 +105,8 @@ export function ClientQuickCreateModal({
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentComplete;
-  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentComplete]);
+    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid;
+  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid]);
 
   if (!open) {
     return null;
@@ -114,14 +116,11 @@ export function ClientQuickCreateModal({
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
 
   const showFieldErrors = submitted && !canSubmit;
-  const isDocumentFilled = documentDigitCount > 0;
   const isDocumentInvalid = isDocumentFilled && !isDocumentComplete;
-  const hasDocumentError = showFieldErrors && !isDocumentComplete;
+  const hasDocumentError = showFieldErrors && isDocumentInvalid;
   const documentHint = isDocumentInvalid
     ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
-    : !isDocumentFilled
-      ? `${documentLabel} obrigatorio`
-      : null;
+    : null;
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;

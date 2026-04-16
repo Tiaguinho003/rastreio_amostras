@@ -585,7 +585,10 @@ export default function ClientDetailPage() {
     const phoneOk = phoneDigits === 10 || phoneDigits === 11;
     const cpfDigits = editClientForm.cpf.replace(/\D/g, '').length;
     const cnpjDigits = editClientForm.cnpj.replace(/\D/g, '').length;
-    const docOk = editClientForm.personType === 'PF' ? cpfDigits === 11 : cnpjDigits === 14;
+    const docOk =
+      editClientForm.personType === 'PF'
+        ? cpfDigits === 0 || cpfDigits === 11
+        : cnpjDigits === 0 || cnpjDigits === 14;
     return nameOk && phoneOk && docOk;
   }, [editClientForm]);
 

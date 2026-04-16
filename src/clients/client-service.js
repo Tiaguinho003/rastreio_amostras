@@ -500,6 +500,10 @@ export class ClientService {
   }
 
   async assertDocumentAvailable(tx, documentCanonical, { excludeClientId = null } = {}) {
+    if (!documentCanonical) {
+      return;
+    }
+
     const existing = await tx.client.findFirst({
       where: {
         documentCanonical,

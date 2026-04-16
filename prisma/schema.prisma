@@ -352,7 +352,7 @@ model Client {
   tradeName         String?           @map("trade_name")
   cpf               String?
   cnpj              String?
-  documentCanonical String            @unique(map: "uq_client_document_canonical") @map("document_canonical")
+  documentCanonical String?           @unique(map: "uq_client_document_canonical") @map("document_canonical")
   phone             String?
   isBuyer           Boolean           @default(false) @map("is_buyer")
   isSeller          Boolean           @default(false) @map("is_seller")

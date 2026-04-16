@@ -274,12 +274,6 @@ function buildClientWriteData({
   if (personType === CLIENT_PERSON_TYPES.PF) {
     const normalizedFullName = normalizeRequiredText(fullName, 'fullName', 160);
     const normalizedCpf = normalizeCpf(cpf);
-    if (!normalizedCpf) {
-      throw new HttpError(422, 'cpf is required', {
-        code: 'VALIDATION_ERROR',
-        field: 'cpf',
-      });
-    }
     return {
       personType,
       fullName: normalizedFullName,
@@ -296,12 +290,6 @@ function buildClientWriteData({
   const normalizedLegalName = normalizeRequiredText(legalName, 'legalName', 200);
   const normalizedTradeName = normalizeOptionalText(tradeName, 'tradeName', 200);
   const normalizedCnpj = normalizeCnpj(cnpj);
-  if (!normalizedCnpj) {
-    throw new HttpError(422, 'cnpj is required', {
-      code: 'VALIDATION_ERROR',
-      field: 'cnpj',
-    });
-  }
 
   return {
     personType,

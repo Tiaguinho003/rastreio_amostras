@@ -52,31 +52,61 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
   assert.equal(normalized.cnpj, null);
 });
 
-test('normalizeCreateClientInput requires cpf for PF clients', () => {
+test('normalizeCreateClientInput accepts PF clients without cpf', () => {
+  const result = normalizeCreateClientInput({
+    personType: 'PF',
+    fullName: 'Francisco Sales Darcadia',
+    phone: '35 99999-0000',
+    isBuyer: false,
+    isSeller: true,
+  });
+
+  assert.equal(result.cpf, null);
+  assert.equal(result.documentCanonical, null);
+  assert.equal(result.fullName, 'Francisco Sales Darcadia');
+});
+
+test('normalizeCreateClientInput accepts PJ clients without cnpj', () => {
+  const result = normalizeCreateClientInput({
+    personType: 'PJ',
+    legalName: 'Coopercitrus',
+    phone: '35 99999-0000',
+    isBuyer: true,
+    isSeller: true,
+  });
+
+  assert.equal(result.cnpj, null);
+  assert.equal(result.documentCanonical, null);
+  assert.equal(result.legalName, 'Coopercitrus');
+});
+
+test('normalizeCreateClientInput still rejects malformed cpf', () => {
   assert.throws(
     () =>
       normalizeCreateClientInput({
         personType: 'PF',
         fullName: 'Francisco Sales Darcadia',
+        cpf: '123',
         phone: '35 99999-0000',
         isBuyer: false,
         isSeller: true,
       }),
-    /cpf is required/
+    /cpf is invalid/
   );
 });
 
-test('normalizeCreateClientInput requires cnpj for PJ clients', () => {
+test('normalizeCreateClientInput still rejects malformed cnpj', () => {
   assert.throws(
     () =>
       normalizeCreateClientInput({
         personType: 'PJ',
         legalName: 'Coopercitrus',
+        cnpj: '123',
         phone: '35 99999-0000',
         isBuyer: true,
         isSeller: true,
       }),
-    /cnpj is required/
+    /cnpj is invalid/
   );
 });
 
