@@ -1104,19 +1104,14 @@ export default function SampleDetailPage() {
       return;
     }
 
-    if (!recipientClient) {
-      setGeneralNotice({ kind: 'error', text: 'Selecione o destinatario do laudo.' });
-      return;
-    }
-
     setGeneralNotice(null);
     setExportingPdfType(exportType);
 
     try {
       const exported = await exportSamplePdf(session, sampleId, {
         exportType,
-        destination: recipientClient.displayName,
-        recipientClientId: recipientClient.id,
+        destination: recipientClient?.displayName ?? null,
+        recipientClientId: recipientClient?.id ?? null,
       });
 
       const blobUrl = URL.createObjectURL(exported.blob);
@@ -1148,7 +1143,7 @@ export default function SampleDetailPage() {
   }
 
   async function handleConfirmExportFromModal() {
-    if (!pendingExportType || !exportRecipientClient) {
+    if (!pendingExportType) {
       return;
     }
 
@@ -1156,7 +1151,7 @@ export default function SampleDetailPage() {
   }
 
   async function handlePhysicalSend() {
-    if (!session || !detail || !physicalSendClient) {
+    if (!session || !detail) {
       return;
     }
 
@@ -1165,7 +1160,7 @@ export default function SampleDetailPage() {
 
     try {
       await recordPhysicalSampleSent(session, sampleId, {
-        recipientClientId: physicalSendClient.id,
+        recipientClientId: physicalSendClient?.id ?? null,
         sentDate: physicalSendDate,
       });
 
@@ -3582,7 +3577,7 @@ export default function SampleDetailPage() {
                 type="button"
                 className="cdm-manage-link"
                 onClick={handleConfirmExportFromModal}
-                disabled={Boolean(exportingPdfType) || !exportRecipientClient}
+                disabled={Boolean(exportingPdfType)}
               >
                 {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
               </button>
@@ -3648,7 +3643,7 @@ export default function SampleDetailPage() {
                 type="button"
                 className="cdm-manage-link"
                 onClick={handlePhysicalSend}
-                disabled={physicalSending || !physicalSendClient}
+                disabled={physicalSending}
               >
                 {physicalSending ? 'Registrando...' : 'Confirmar envio'}
               </button>

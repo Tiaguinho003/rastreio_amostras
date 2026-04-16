@@ -902,7 +902,7 @@ export function recordPhysicalSampleSent(
   session: SessionData,
   sampleId: string,
   data: {
-    recipientClientId: string;
+    recipientClientId: string | null;
     sentDate: string;
   }
 ) {

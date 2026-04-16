@@ -2686,12 +2686,17 @@ export class SampleCommandService {
     const sample = await this.queryService.requireSample(input.sampleId);
     assertSampleStatus(sample, ['CLASSIFIED'], 'record physical sample sent');
 
-    const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
-    if (!UUID_REGEX.test(clientId)) {
-      throw new HttpError(422, 'recipientClientId must be a valid UUID');
-    }
+    let recipientClientId = null;
+    let recipientClientSnapshot = null;
 
-    const recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
+    if (input.recipientClientId) {
+      const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
+      if (!UUID_REGEX.test(clientId)) {
+        throw new HttpError(422, 'recipientClientId must be a valid UUID');
+      }
+      recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
+      recipientClientId = clientId;
+    }
 
     const sentDate = input.sentDate
       ? normalizeRequiredText(input.sentDate, 'sentDate')
@@ -2705,7 +2710,7 @@ export class SampleCommandService {
       eventType: 'PHYSICAL_SAMPLE_SENT',
       sampleId: sample.id,
       payload: {
-        recipientClientId: clientId,
+        recipientClientId,
         recipientClientSnapshot,
         sentDate,
       },

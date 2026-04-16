@@ -4,17 +4,18 @@
   "title": "PHYSICAL_SAMPLE_SENT payload",
   "type": "object",
   "properties": {
-    "recipientClientId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
-    "recipientClientSnapshot": { "type": "object" },
+    "recipientClientId": {
+      "oneOf": [
+        { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "recipientClientSnapshot": { "type": ["object", "null"] },
     "sentDate": {
       "type": "string",
       "format": "date"
     }
   },
-  "required": [
-    "recipientClientId",
-    "recipientClientSnapshot",
-    "sentDate"
-  ],
+  "required": ["sentDate"],
   "additionalProperties": false
 }
