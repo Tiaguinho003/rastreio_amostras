@@ -297,12 +297,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     const KEYBOARD_SELECTOR =
       'input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select, [contenteditable="true"]';
 
+    let savedScroll: { x: number; y: number } | null = null;
+
     function isKeyboardTarget(el: EventTarget | null) {
       return el instanceof HTMLElement && el.matches(KEYBOARD_SELECTOR);
     }
 
     function onFocusIn(event: FocusEvent) {
       if (isKeyboardTarget(event.target)) {
+        if (savedScroll === null) {
+          savedScroll = { x: window.scrollX, y: window.scrollY };
+        }
         document.body.classList.add('is-keyboard-open');
       }
     }
@@ -311,6 +316,13 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       requestAnimationFrame(() => {
         if (!isKeyboardTarget(document.activeElement)) {
           document.body.classList.remove('is-keyboard-open');
+          const target = savedScroll;
+          savedScroll = null;
+          if (target !== null) {
+            window.setTimeout(() => {
+              window.scrollTo({ top: target.y, left: target.x, behavior: 'smooth' });
+            }, 320);
+          }
         }
       });
     }
