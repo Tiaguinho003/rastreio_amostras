@@ -566,6 +566,26 @@ export interface DashboardOperationalMetricsResponse {
   }>;
 }
 
+export type DashboardRecentActivityType =
+  | 'REGISTRATION_CONFIRMED'
+  | 'SALE_CREATED'
+  | 'LOSS_RECORDED';
+
+export interface DashboardRecentActivityItem {
+  sampleId: string;
+  internalLotNumber: string | null;
+  producer: string | null;
+  sacks: number | null;
+  activity: {
+    type: DashboardRecentActivityType;
+    at: string;
+  };
+}
+
+export interface DashboardRecentActivityResponse {
+  items: DashboardRecentActivityItem[];
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {

@@ -31,6 +31,36 @@ function computeMedian(values) {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+const RECENT_ACTIVITY_LIMIT = 20;
+
+function mapRecentActivityRow(row) {
+  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  const eventType = row.eventType;
+
+  let sacks = null;
+  if (eventType === 'REGISTRATION_CONFIRMED') {
+    sacks = typeof row.declaredSacks === 'number' ? row.declaredSacks : null;
+  } else if (eventType === 'SALE_CREATED' || eventType === 'LOSS_RECORDED') {
+    if (typeof payload.quantitySacks === 'number') {
+      sacks = payload.quantitySacks;
+    }
+  }
+
+  return {
+    sampleId: row.sampleId,
+    internalLotNumber: row.internalLotNumber ?? null,
+    producer: row.declaredOwner ?? null,
+    sacks,
+    activity: {
+      type: eventType,
+      at:
+        row.occurredAt instanceof Date
+          ? row.occurredAt.toISOString()
+          : new Date(row.occurredAt).toISOString(),
+    },
+  };
+}
+
 const SAMPLE_OWNER_INCLUDE = {
   ownerClient: {
     select: {
@@ -1608,6 +1638,47 @@ export class SampleQueryService {
       meta: 15,
       sampleCount: allValues.length,
       daily,
+    };
+  }
+
+  async getDashboardRecentActivity() {
+    const rows = await this.prisma.$queryRaw`
+      WITH ranked AS (
+        SELECT
+          se.sample_id,
+          se.event_type::text AS event_type,
+          se.payload,
+          se.occurred_at,
+          se.sequence_number,
+          ROW_NUMBER() OVER (
+            PARTITION BY se.sample_id
+            ORDER BY se.occurred_at DESC, se.sequence_number DESC
+          ) AS rn
+        FROM "sample_event" se
+        WHERE se.event_type IN (
+          'REGISTRATION_CONFIRMED',
+          'SALE_CREATED',
+          'LOSS_RECORDED'
+        )
+      )
+      SELECT
+        r.sample_id AS "sampleId",
+        r.event_type AS "eventType",
+        r.payload AS "payload",
+        r.occurred_at AS "occurredAt",
+        s.internal_lot_number AS "internalLotNumber",
+        s.declared_owner AS "declaredOwner",
+        s.declared_sacks AS "declaredSacks"
+      FROM ranked r
+      JOIN "sample" s ON s.id = r.sample_id
+      WHERE r.rn = 1
+        AND s.status != 'INVALIDATED'
+      ORDER BY r.occurred_at DESC, s.id DESC
+      LIMIT ${RECENT_ACTIVITY_LIMIT}
+    `;
+
+    return {
+      items: rows.map(mapRecentActivityRow),
     };
   }
 

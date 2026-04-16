@@ -5,13 +5,16 @@ import { useEffect, useState } from 'react';
 import {
   getDashboardOperationalMetrics,
   getDashboardCommercialMetrics,
+  getDashboardRecentActivity,
 } from '../../lib/api-client';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { MetricsCard } from './MetricsCard';
+import { RecentActivityList } from './RecentActivityList';
 import type {
   DashboardOperationalMetricsResponse,
   DashboardPendingResponse,
+  DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
@@ -80,18 +83,40 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     useState<DashboardOperationalMetricsResponse | null>(null);
   const [commercialMetrics, setCommercialMetrics] =
     useState<DashboardOperationalMetricsResponse | null>(null);
+  const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
 
   useEffect(() => {
     if (!session) return;
     const isDesktop = window.matchMedia('(min-width: 901px)').matches;
     if (!isDesktop) return;
 
-    getDashboardOperationalMetrics(session)
-      .then(setOperationalMetrics)
-      .catch(() => {});
-    getDashboardCommercialMetrics(session)
-      .then(setCommercialMetrics)
-      .catch(() => {});
+    function refetchAll() {
+      if (!session) return;
+      getDashboardOperationalMetrics(session)
+        .then(setOperationalMetrics)
+        .catch(() => {});
+      getDashboardCommercialMetrics(session)
+        .then(setCommercialMetrics)
+        .catch(() => {});
+      getDashboardRecentActivity(session)
+        .then((response) => setRecentActivity(response.items))
+        .catch(() => {});
+    }
+
+    refetchAll();
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refetchAll();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refetchAll);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refetchAll);
+    };
   }, [session]);
 
   const printTotal = data?.printPending.total ?? 0;
@@ -194,6 +219,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             unitMode="days"
           />
         </div>
+
+        <RecentActivityList items={recentActivity} />
       </section>
 
       {operationModalData ? (

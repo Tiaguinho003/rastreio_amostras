@@ -18,6 +18,7 @@ import type {
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
   DashboardOperationalMetricsResponse,
+  DashboardRecentActivityResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -689,6 +690,13 @@ export function getDashboardOperationalMetrics(session: SessionData) {
 
 export function getDashboardCommercialMetrics(session: SessionData) {
   return request<DashboardOperationalMetricsResponse>('/dashboard/commercial-metrics', {
+    method: 'GET',
+    session,
+  });
+}
+
+export function getDashboardRecentActivity(session: SessionData) {
+  return request<DashboardRecentActivityResponse>('/dashboard/recent-activity', {
     method: 'GET',
     session,
   });
