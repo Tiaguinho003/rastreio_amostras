@@ -1683,7 +1683,7 @@ export class SampleQueryService {
   }
 
   async getNextInternalLotNumber() {
-    const initialSequence = 5555;
+    const initialSequence = 5561;
 
     const result = await this.prisma.$queryRaw`
       SELECT internal_lot_number FROM sample
