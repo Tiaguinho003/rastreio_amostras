@@ -27,15 +27,33 @@ const BAND_COLORS: Record<BandKey, string> = {
   under15: '#27AE60',
 };
 
-function StackedBar({
+function DonutChart({
   bands,
   total,
 }: {
   bands: DashboardSalesAvailabilityResponse['bands'];
   total: number;
 }) {
+  const size = 72;
+  const center = size / 2;
+  const radius = 26;
+  const strokeWidth = 10;
+  const circumference = 2 * Math.PI * radius;
+  const gap = 2;
+
   if (total === 0) {
-    return <div className="dd-bar-empty" />;
+    return (
+      <svg viewBox={`0 0 ${size} ${size}`} className="dd-donut">
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="#e8e3d5"
+          strokeWidth={strokeWidth}
+        />
+      </svg>
+    );
   }
 
   const segments = (
@@ -46,19 +64,41 @@ function StackedBar({
     ] as const
   ).filter((s) => s.value > 0);
 
+  let offset = 0;
+  const rings = segments.map((segment) => {
+    const length = (segment.value / total) * circumference;
+    const dash = Math.max(0, length - (segments.length > 1 ? gap : 0));
+    const el = (
+      <circle
+        key={segment.key}
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={BAND_COLORS[segment.key]}
+        strokeWidth={strokeWidth}
+        strokeDasharray={`${dash} ${circumference - dash}`}
+        strokeDashoffset={-offset}
+        transform={`rotate(-90 ${center} ${center})`}
+        strokeLinecap="butt"
+      />
+    );
+    offset += length;
+    return el;
+  });
+
   return (
-    <div className="dd-bar">
-      {segments.map((segment) => (
-        <div
-          key={segment.key}
-          className="dd-bar-segment"
-          style={{
-            flex: segment.value,
-            background: BAND_COLORS[segment.key],
-          }}
-        />
-      ))}
-    </div>
+    <svg viewBox={`0 0 ${size} ${size}`} className="dd-donut">
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke="#f0ebdf"
+        strokeWidth={strokeWidth}
+      />
+      {rings}
+    </svg>
   );
 }
 
@@ -185,19 +225,20 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
 
           {salesData ? (
             <div className="dd-card dd-card-sales">
-              <div className="dd-card-sales-header">
+              <div className="dd-card-sales-info">
                 <span className="dd-card-sales-kicker">Disponiveis para venda</span>
-                <div className="dd-card-sales-number">
-                  <strong className="dd-card-count">{salesData.total}</strong>
-                  <span className="dd-card-sales-unit">amostras</span>
-                </div>
+                <strong className="dd-card-count">{salesData.total}</strong>
+                <span className="dd-card-sales-unit">amostras</span>
               </div>
-              <StackedBar bands={salesData.bands} total={salesData.total} />
+              <DonutChart bands={salesData.bands} total={salesData.total} />
             </div>
           ) : (
             <div className="dd-card dd-card-sales dd-card-skeleton" aria-hidden="true">
               <span className="dd-card-count-placeholder" style={{ width: '40%' }} />
-              <span className="dd-card-label-placeholder" style={{ width: '100%', height: 8 }} />
+              <span
+                className="dd-card-icon-placeholder"
+                style={{ width: 72, height: 72, borderRadius: '50%', justifySelf: 'end' }}
+              />
             </div>
           )}
         </div>

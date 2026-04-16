@@ -18606,7 +18606,7 @@ button:disabled {
     max-width: none;
     margin: 0;
     padding: 1.5rem 300px 2rem;
-    gap: 2rem;
+    gap: 1.3rem;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -20602,8 +20602,8 @@ button:disabled {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.6rem;
-    padding: 1.8rem 1.2rem;
+    gap: 0.4rem;
+    padding: 1.3rem 1.2rem;
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 18px;
@@ -20638,16 +20638,16 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     background: var(--dd-card-accent-bg);
     color: var(--dd-card-accent);
   }
 
   .dd-card-icon svg {
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     stroke: currentColor;
     stroke-width: 1.6;
     stroke-linecap: round;
@@ -20656,7 +20656,7 @@ button:disabled {
   }
 
   .dd-card-count {
-    font-size: 2.2rem;
+    font-size: 2.6rem;
     font-weight: 800;
     line-height: 1;
     color: #1a2e1f;
@@ -20683,11 +20683,20 @@ button:disabled {
   /* ── Sales summary card (terceiro, 1/3 maior) ── */
 
   .dd-card-sales {
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 1rem;
-    padding: 1.6rem 1.8rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0;
+    padding: 1.3rem 1.6rem;
     cursor: default;
+  }
+
+  .dd-card-sales .dd-card-sales-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.4rem;
   }
 
   .dd-card-sales:hover {
@@ -20701,10 +20710,11 @@ button:disabled {
     transform: none;
   }
 
-  .dd-card-sales-header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  .dd-donut {
+    width: 100px;
+    height: 100px;
+    flex-shrink: 0;
+    justify-self: center;
   }
 
   .dd-card-sales-kicker {
@@ -20713,12 +20723,9 @@ button:disabled {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #72766f;
-  }
-
-  .dd-card-sales-number {
+    min-height: 40px;
     display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
+    align-items: flex-start;
   }
 
   .dd-card-sales .dd-card-count {
@@ -20726,9 +20733,10 @@ button:disabled {
   }
 
   .dd-card-sales-unit {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 500;
     color: #72766f;
+    letter-spacing: 0.01em;
   }
 
   .dd-bar {
@@ -20804,8 +20812,8 @@ button:disabled {
   .dd-metrics-card {
     display: grid;
     grid-template-rows: auto 1fr;
-    gap: 0.8rem;
-    padding: 1.4rem 1.8rem 1.6rem;
+    gap: 0.3rem;
+    padding: 0.9rem 1.6rem 1rem;
     background: #ffffff;
     border: 1px solid rgba(112, 130, 103, 0.22);
     border-radius: 18px;
@@ -20836,15 +20844,15 @@ button:disabled {
 
   .dd-metrics-body {
     display: grid;
-    grid-template-columns: 112px 1fr;
+    grid-template-columns: 84px 1fr;
     gap: 0.8rem;
     align-items: center;
     min-height: 0;
   }
 
   .dd-gauge {
-    width: 112px;
-    height: 112px;
+    width: 84px;
+    height: 84px;
   }
 
   .dd-gauge-value {
@@ -20863,7 +20871,7 @@ button:disabled {
 
   .dd-area-chart {
     width: 100%;
-    height: 72px;
+    height: 54px;
   }
 
   .dd-metrics-skeleton {

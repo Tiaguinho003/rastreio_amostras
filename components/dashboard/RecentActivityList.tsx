@@ -101,7 +101,6 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
     <div className="dd-activity-container">
       <div className="dd-activity-header">
         <h3 className="dd-activity-title">Ultimas atividades</h3>
-        <span className="dd-activity-count">{items.length}</span>
       </div>
       <div className="dd-activity-list">
         {items.map((item) => {
