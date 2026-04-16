@@ -19198,81 +19198,86 @@ button:disabled {
     background: transparent;
   }
 
-  /* Cards: formato retangulo vertical */
+  /* Cards: formato retangulo vertical, 25% menor com sombra mais marcada */
   .clients-page-v2 .cv2-card {
     flex-direction: column;
     align-items: center;
     text-align: center;
     padding: 0;
-    border-radius: 18px;
+    border-radius: 14px;
     gap: 0;
     overflow: hidden;
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      0 8px 18px rgba(19, 35, 24, 0.12),
+      0 16px 36px rgba(19, 35, 24, 0.08);
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease;
   }
 
   .clients-page-v2 .cv2-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow:
-      0 8px 20px rgba(0, 0, 0, 0.1),
-      0 16px 40px rgba(0, 0, 0, 0.06);
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 12px 24px rgba(19, 35, 24, 0.16),
+      0 20px 44px rgba(19, 35, 24, 0.1);
   }
 
   .clients-page-v2 .cv2-card:active {
     transform: translateY(-1px) scale(0.98);
   }
 
-  /* Avatar: maior, centralizado no topo */
+  /* Avatar: reduzido em 25% */
   .clients-page-v2 .cv2-card-avatar {
-    width: 56px;
-    min-width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    margin-top: 1.25rem;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    margin-top: 0.95rem;
   }
 
   .clients-page-v2 .cv2-card-avatar span {
-    font-size: 1.1rem;
+    font-size: 0.85rem;
   }
 
-  /* Conteudo: centrado */
+  /* Conteudo: padding reduzido proporcionalmente */
   .clients-page-v2 .cv2-card-content {
-    padding: 0.85rem 1rem 1.1rem;
+    padding: 0.65rem 0.75rem 0.85rem;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.38rem;
   }
 
   .clients-page-v2 .cv2-card-top {
     flex-direction: column;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.3rem;
   }
 
   .clients-page-v2 .cv2-card-name {
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 700;
     max-width: 100%;
     white-space: normal;
     text-align: center;
-    line-height: 1.3;
+    line-height: 1.25;
   }
 
   .clients-page-v2 .cv2-card-type {
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 6px;
+    font-size: 0.62rem;
+    padding: 1px 6px;
+    border-radius: 5px;
   }
 
   .clients-page-v2 .cv2-card-bottom {
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.3rem;
   }
 
   .clients-page-v2 .cv2-card-role {
-    font-size: 0.72rem;
-    padding: 3px 10px;
-    border-radius: 8px;
+    font-size: 0.62rem;
+    padding: 2px 8px;
+    border-radius: 6px;
   }
 
   /* Chips: sem padding lateral (container pai cuida) */
@@ -19387,11 +19392,56 @@ button:disabled {
     transform: scale(0.97);
   }
 
-  /* Client detail modal: maior */
+  /* Client detail modal: padrao client-quick-create (750px, no-scroll) */
   .cdm-modal {
-    width: min(520px, calc(100vw - 3rem));
-    padding: 1.5rem;
+    width: min(750px, calc(100vw - 3rem));
+    max-height: none;
+    overflow: visible;
+    padding: 1.25rem;
+    gap: 0.95rem;
     border-radius: 24px;
+  }
+
+  .cdm-modal .cdm-header {
+    gap: 0.85rem;
+  }
+
+  .cdm-modal .cdm-header-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+  }
+
+  .cdm-modal .cdm-header-avatar span {
+    font-size: 1.25rem;
+  }
+
+  .cdm-modal .cdm-header-title {
+    font-size: 1.4rem;
+  }
+
+  .cdm-modal .cdm-header-subtitle {
+    font-size: 1rem;
+  }
+
+  .cdm-modal .cdm-section-title {
+    font-size: 1rem;
+  }
+
+  .cdm-modal .cdm-info-label {
+    font-size: 0.8rem;
+  }
+
+  .cdm-modal .cdm-info-value {
+    font-size: 1rem;
+  }
+
+  .cdm-modal .cdm-actions button,
+  .cdm-modal .cdm-footer button {
+    min-height: 3rem;
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
   }
 
   /* ══════════════════════════════════════════
@@ -19404,6 +19454,14 @@ button:disabled {
     margin: 0 auto;
     height: auto;
     overflow: visible;
+  }
+
+  /* Aba comercial: trava a cadeia de altura, sem scroll na pagina */
+  .sdv-page:has(.sample-detail-commercial-pane) {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Header: fundo transparente, textos escuros */
@@ -19551,14 +19609,35 @@ button:disabled {
     color: var(--brand-green-soft);
   }
 
-  /* Content: fundo verde para destacar cards brancos */
+  /* Content: fundo transparente (body beige) — sem verde feio */
   .sdv-content {
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1.5rem var(--desktop-gutter) 2rem;
-    background: linear-gradient(180deg, #1f5d43 0%, #17453a 100%);
-    border-radius: 20px;
-    margin: 0 var(--desktop-gutter) 1.5rem;
+    padding: 1rem var(--desktop-gutter) 1.5rem;
+    background: transparent;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  /* Commercial tab: sem scroll na pagina, so dentro do card de movimentacoes */
+  .sdv-content:has(.sample-detail-commercial-pane) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) > .sdv-content-inner {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sample-detail-commercial-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   /* General: 2 colunas (dados + foto lado a lado) */
@@ -19569,12 +19648,17 @@ button:disabled {
     gap: 1rem;
   }
 
-  /* Cards brancos: destaque sobre o verde */
+  /* Cards brancos: sombra marcante */
   .sdv-card {
     max-width: none;
     padding: 1.5rem;
     border-radius: 18px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    background: #ffffff;
+    border: 1px solid rgba(112, 130, 103, 0.22);
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      0 12px 26px rgba(19, 35, 24, 0.14),
+      0 24px 48px rgba(19, 35, 24, 0.1);
   }
 
   .sdv-card-title {
@@ -19652,6 +19736,41 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     gap: 1.25rem;
     align-items: start;
+  }
+
+  /* Commercial: movimentacoes com scroll interno no card */
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.3rem;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar {
+    width: 0.45rem;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar-thumb {
+    background: #d6d0c1;
+    border-radius: 999px;
+  }
+
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   /* Botoes de acao: faixa verde lateral */
@@ -19744,42 +19863,75 @@ button:disabled {
     font-size: 0.8rem;
   }
 
-  /* Botoes venda/perda: maiores */
+  /* Botoes venda/perda: padronizados, texto branco, sombra marcante */
   .sdv-com-actions {
-    gap: 0.75rem;
-    margin-top: 0.5rem;
+    gap: 0.9rem;
+    margin-top: 0.75rem;
   }
 
   .sdv-com-action-loss,
   .sdv-com-action-sale {
-    padding: 0.9rem;
+    padding: 1rem 1.25rem;
     border-radius: 14px;
-    font-size: 0.95rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+    border: 0;
     transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s ease,
+      filter 0.2s ease;
+  }
+
+  .sdv-com-action-sale {
+    background: linear-gradient(135deg, #1f5d43 0%, #2f6b4a 100%);
+    box-shadow:
+      0 4px 10px rgba(27, 94, 32, 0.28),
+      0 10px 24px rgba(27, 94, 32, 0.18);
+  }
+
+  .sdv-com-action-loss {
+    background: linear-gradient(135deg, #9a3434 0%, #c0392b 100%);
+    box-shadow:
+      0 4px 10px rgba(192, 57, 43, 0.24),
+      0 10px 24px rgba(192, 57, 43, 0.16);
   }
 
   .sdv-com-action-sale:hover:not(:disabled) {
     transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(27, 94, 32, 0.4);
+    filter: brightness(1.05);
+    box-shadow:
+      0 6px 14px rgba(27, 94, 32, 0.35),
+      0 14px 32px rgba(27, 94, 32, 0.25);
   }
 
   .sdv-com-action-loss:hover:not(:disabled) {
     transform: translateY(-3px);
-    box-shadow: 0 6px 18px rgba(192, 57, 43, 0.15);
+    filter: brightness(1.05);
+    box-shadow:
+      0 6px 14px rgba(192, 57, 43, 0.3),
+      0 14px 32px rgba(192, 57, 43, 0.22);
   }
 
   .sdv-com-action-loss:active:not(:disabled),
   .sdv-com-action-sale:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: translateY(-1px) scale(0.98);
   }
 
-  /* Modal de movimento: 50% maior */
+  .sdv-com-action-loss:disabled,
+  .sdv-com-action-sale:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Modal de movimento: padrao client-quick-create */
   .sample-movement-modal {
-    width: min(580px, calc(100vw - 3rem));
-    padding: 1.5rem;
-    gap: 1rem;
+    width: min(750px, calc(100vw - 3rem));
+    max-height: none;
+    overflow: visible;
+    padding: 1.25rem;
+    gap: 0.95rem;
   }
 
   .sample-movement-modal .app-modal-header {
@@ -19787,36 +19939,37 @@ button:disabled {
   }
 
   .sample-movement-modal .app-modal-title {
-    font-size: 1.25rem;
+    font-size: 1.4rem;
   }
 
   .sample-movement-modal .app-modal-content {
-    gap: 0.85rem;
+    gap: 0.9rem;
   }
 
   .sample-movement-modal .app-modal-field {
-    gap: 0.35rem;
+    gap: 0.4rem;
   }
 
   .sample-movement-modal .app-modal-field-label {
-    font-size: 0.82rem;
+    font-size: 1rem;
   }
 
   .sample-movement-modal .app-modal-input {
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
+    padding: 0.775rem 0.975rem;
+    font-size: 1.05rem;
     border-radius: 14px;
   }
 
   .sample-movement-modal .app-modal-actions {
-    gap: 0.65rem;
+    gap: 0.75rem;
     padding-top: 0.5rem;
   }
 
   .sample-movement-modal .app-modal-submit,
   .sample-movement-modal .app-modal-secondary {
-    padding: 0.75rem;
-    font-size: 0.95rem;
+    min-height: 3.525rem;
+    padding: 0.8rem;
+    font-size: 1.05rem;
     border-radius: 12px;
     transition: transform 0.15s ease;
   }
@@ -19829,6 +19982,38 @@ button:disabled {
   .sample-movement-modal .app-modal-submit:active,
   .sample-movement-modal .app-modal-secondary:active {
     transform: scale(0.97);
+  }
+
+  /* Modal de invalidar amostra + outros modais dessa pagina: mesmo padrao */
+  .sample-detail-invalidate-modal,
+  .new-sample-label-modal {
+    width: min(600px, calc(100vw - 3rem));
+    max-height: none;
+    overflow: visible;
+    padding: 1.25rem;
+    gap: 0.95rem;
+  }
+
+  .sample-detail-invalidate-modal .app-modal-title,
+  .new-sample-label-modal .app-modal-title {
+    font-size: 1.25rem;
+  }
+
+  .sample-detail-invalidate-modal .app-modal-input,
+  .new-sample-label-modal .app-modal-input {
+    padding: 0.775rem 0.975rem;
+    font-size: 1.05rem;
+    border-radius: 14px;
+  }
+
+  .sample-detail-invalidate-modal .app-modal-submit,
+  .sample-detail-invalidate-modal .app-modal-secondary,
+  .new-sample-label-modal .app-modal-submit,
+  .new-sample-label-modal .app-modal-secondary {
+    min-height: 3.525rem;
+    padding: 0.8rem;
+    font-size: 1.05rem;
+    border-radius: 12px;
   }
 
   /* ══════════════════════════════════════════
@@ -20213,7 +20398,7 @@ button:disabled {
     box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
   }
 
-  /* T2: hover refinado nos cards de clientes/usuarios */
+  /* T2: hover com sombra marcada */
   .clients-page-v2 .cv2-card {
     transition:
       transform 0.2s ease,
@@ -20222,10 +20407,11 @@ button:disabled {
   }
 
   .clients-page-v2 .cv2-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow:
-      0 4px 12px rgba(0, 0, 0, 0.08),
-      0 12px 32px rgba(0, 0, 0, 0.08);
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 12px 24px rgba(19, 35, 24, 0.16),
+      0 20px 44px rgba(19, 35, 24, 0.1);
     border-color: rgba(0, 0, 0, 0.09);
   }
 
@@ -20237,14 +20423,14 @@ button:disabled {
     border-radius: 28px;
   }
 
-  /* T5: role badges maiores na lista de usuarios */
+  /* T5: role badges proporcionais ao card 25% menor */
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-admin,
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-classifier,
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-registration,
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-commercial {
-    font-size: 0.82rem;
-    padding: 4px 12px;
-    border-radius: 10px;
+    font-size: 0.62rem;
+    padding: 3px 9px;
+    border-radius: 7px;
     font-weight: 600;
     letter-spacing: 0.01em;
   }
@@ -20314,8 +20500,11 @@ button:disabled {
 
   /* T3: .app-modal.cdm-modal — modal de edicao maior nas paginas de detalhe */
   .app-modal.cdm-modal {
-    width: min(680px, calc(100vw - 4rem));
-    padding: 1.75rem 1.75rem 1.5rem;
+    width: min(750px, calc(100vw - 3rem));
+    max-height: none;
+    overflow: visible;
+    padding: 1.25rem;
+    gap: 0.95rem;
     border-radius: 22px;
   }
 
@@ -20477,11 +20666,11 @@ button:disabled {
     width: auto;
   }
 
-  /* T1: clients — auto-fill mantido, sem max-width cap (container pai cuida) */
+  /* T1: clients — auto-fill com cards 25% menores (min 195px) */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 1rem;
     justify-content: start;
     padding: 0.4rem 0.2rem 0.2rem;
     max-width: none;
@@ -20550,17 +20739,69 @@ button:disabled {
      FASE 2 (1200+) — DETALHES COMMERCIAL / INSCRICOES
      ══════════════════════════════════════════ */
 
-  /* T5: resumo comercial 4 colunas quando eh vendedor */
+  /* T5: resumo comercial — vendas (4 cards) em 4 colunas, compras (2 cards) em 2 colunas 50/50 */
+  .client-detail-commercial-summary {
+    gap: 0.75rem;
+  }
+
   .client-detail-commercial-summary:has(.is-samples),
   .client-detail-commercial-summary:has(.is-sacks),
   .client-detail-commercial-summary:has(.is-sold),
   .client-detail-commercial-summary:has(.is-lost) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
   }
 
   .client-detail-commercial-summary:has(.is-purchases) {
-    gap: 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .client-detail-commercial-summary .client-detail-summary-card {
+    width: 100%;
+  }
+
+  /* Sample cards na aba comercial do cliente: padrao spv2-card (lista registros) */
+  .client-detail-page .client-detail-commercial-item,
+  .client-detail-commercial-pane .client-detail-commercial-item {
+    padding: 0.9rem 1.1rem;
+    border-radius: 12px;
+    background: #fffefb;
+    border: 1px solid rgba(112, 130, 103, 0.18);
+    border-left: 4px solid var(--commercial-status-color, #6b9d6b);
+    box-shadow: none;
+    transition:
+      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .client-detail-page .client-detail-commercial-item:hover,
+  .client-detail-commercial-pane .client-detail-commercial-item:hover {
+    transform: translateX(2px);
+    background: #fbf8ef;
+    border-color: rgba(112, 130, 103, 0.32);
+    border-left-color: var(--commercial-status-color, #6b9d6b);
+    box-shadow: 0 4px 10px rgba(19, 35, 24, 0.06);
+  }
+
+  .client-detail-page .client-detail-commercial-item-main strong,
+  .client-detail-commercial-pane .client-detail-commercial-item-main strong {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #243a28;
+    letter-spacing: 0.01em;
+  }
+
+  .client-detail-page .client-detail-commercial-item-main span,
+  .client-detail-commercial-pane .client-detail-commercial-item-main span {
+    font-size: 0.88rem;
+    color: #4d5c52;
+  }
+
+  .client-detail-page .client-detail-commercial-item-date,
+  .client-detail-commercial-pane .client-detail-commercial-item-date {
+    font-size: 0.82rem;
+    color: #72766f;
   }
 
   .client-detail-commercial-summary .client-detail-summary-card {
