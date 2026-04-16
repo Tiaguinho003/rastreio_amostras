@@ -4122,6 +4122,14 @@ button:disabled {
   font-weight: 700;
 }
 
+.dashboard-mobile {
+  display: contents;
+}
+
+.dashboard-desktop {
+  display: none;
+}
+
 .dashboard-page {
   display: grid;
   gap: 1.95rem;
@@ -18537,7 +18545,15 @@ button:disabled {
     --content-max-wide: 2600px; /* dashboards, detalhes amplos */
   }
 
-  /* ── AppShell: esconder elementos mobile-only ── */
+  /* ── Viewport toggle: mobile/desktop dashboard ── */
+  .dashboard-mobile {
+    display: none;
+  }
+
+  .dashboard-desktop {
+    display: contents;
+  }
+
   .dashboard-hero {
     display: none;
   }
