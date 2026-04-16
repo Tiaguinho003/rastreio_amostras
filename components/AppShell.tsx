@@ -294,6 +294,37 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   }, []);
 
   useEffect(() => {
+    const KEYBOARD_SELECTOR =
+      'input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select, [contenteditable="true"]';
+
+    function isKeyboardTarget(el: EventTarget | null) {
+      return el instanceof HTMLElement && el.matches(KEYBOARD_SELECTOR);
+    }
+
+    function onFocusIn(event: FocusEvent) {
+      if (isKeyboardTarget(event.target)) {
+        document.body.classList.add('is-keyboard-open');
+      }
+    }
+
+    function onFocusOut() {
+      requestAnimationFrame(() => {
+        if (!isKeyboardTarget(document.activeElement)) {
+          document.body.classList.remove('is-keyboard-open');
+        }
+      });
+    }
+
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      document.body.classList.remove('is-keyboard-open');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!showPasswordDecisionModal) return;
     const block = (e: KeyboardEvent) => {
       if (e.key === 'Escape') e.preventDefault();
