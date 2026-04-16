@@ -894,9 +894,20 @@ export class SampleQueryService {
     const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
     const where = {
       status: 'PENDING',
-      // Only return jobs for samples still awaiting print — if the sample
-      // already advanced past QR_PENDING_PRINT the job is stale.
-      sample: { status: 'QR_PENDING_PRINT' },
+      OR: [
+        // Print inicial: sample ainda aguardando primeira impressao.
+        { printAction: 'PRINT', sample: { status: 'QR_PENDING_PRINT' } },
+        // Reprint: evento nao altera status da amostra, entao o job
+        // precisa ser retornado em qualquer status permitido para reimprimir.
+        {
+          printAction: 'REPRINT',
+          sample: {
+            status: {
+              in: ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'],
+            },
+          },
+        },
+      ],
     };
 
     if (options.sampleId) {
