@@ -175,6 +175,11 @@ html,
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+html {
+  background-color: var(--brand-cream);
 }
 
 body {
@@ -184,7 +189,6 @@ body {
   background: var(--mobile-page-bg-base);
   color: var(--ink);
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior-y: none;
 }
 
 .mobile-edge-shell {
@@ -13160,23 +13164,10 @@ button:disabled {
 
   html {
     font-size: 110%;
-    background-color: #1f5d43;
   }
 
   body {
-    min-height: 100dvh;
     overflow-x: hidden;
-    background: #1f5d43;
-    overscroll-behavior-y: none;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background: var(--mobile-edge-fill-base);
-    z-index: -1;
   }
 
   .mobile-edge-shell {
@@ -13190,7 +13181,7 @@ button:disabled {
 
   .mobile-edge-shell::before {
     content: '';
-    position: fixed;
+    position: absolute;
     inset: 0;
     pointer-events: none;
     background: var(--mobile-edge-fill);
