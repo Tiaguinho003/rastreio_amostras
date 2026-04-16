@@ -48,3 +48,6 @@ notes-*.md
 
 # Artefato local do gerador de bitmap da etiqueta
 print-agent/logo-preview.png
+
+# Estado local do print-agent (jobs ja impressos nesta sessao)
+print-agent/.printed-jobs.json

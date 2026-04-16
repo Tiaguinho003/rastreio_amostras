@@ -1,9 +1,40 @@
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as log from './logger.js';
 import { ensureAuthenticated, getAuthHeaders, clearSession, login } from './auth.js';
 import { sendToPrinter } from './printer.js';
 import { buildLabel } from './label.js';
 
-const printedJobIds = new Set();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PRINTED_JOBS_FILE = join(__dirname, '.printed-jobs.json');
+const PRINTED_JOBS_MAX = 500;
+
+function loadPrintedJobs() {
+  if (!existsSync(PRINTED_JOBS_FILE)) return new Set();
+  try {
+    const raw = readFileSync(PRINTED_JOBS_FILE, 'utf-8');
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistPrintedJobs() {
+  try {
+    if (printedJobIds.size > PRINTED_JOBS_MAX) {
+      const trimmed = Array.from(printedJobIds).slice(-PRINTED_JOBS_MAX);
+      printedJobIds.clear();
+      for (const id of trimmed) printedJobIds.add(id);
+    }
+    writeFileSync(PRINTED_JOBS_FILE, JSON.stringify(Array.from(printedJobIds)));
+  } catch (err) {
+    log.warn(`Falha ao persistir printed-jobs: ${err.message}`);
+  }
+}
+
+const printedJobIds = loadPrintedJobs();
 
 async function fetchPendingJobs(config) {
   const res = await fetch(`${config.backendUrl}/api/v1/print-queue/pending?limit=10`, {
@@ -58,6 +89,7 @@ async function reportSuccess(config, job) {
 
       if (res.ok) {
         printedJobIds.delete(job.jobId);
+        persistPrintedJobs();
         return;
       }
 
@@ -150,7 +182,7 @@ async function processJob(config, job) {
   log.info(`[${lotId}] Imprimindo etiqueta (${job.printAction} #${job.attemptNumber})...`);
 
   const tspl = buildLabel(job);
-  log.debug(`[${lotId}] TSPL:\n${tspl}`);
+  log.debug(`[${lotId}] TSPL gerado: ${tspl.length} bytes (jobId=${job.jobId})`);
 
   const maxRetries = config.printRetryCount;
   let lastError = null;
@@ -160,6 +192,7 @@ async function processJob(config, job) {
       await sendToPrinter(config.printerName, null, tspl);
       log.info(`[${lotId}] Impressao enviada com sucesso`);
       printedJobIds.add(job.jobId);
+      persistPrintedJobs();
       await reportSuccess(config, job);
       return;
     } catch (err) {

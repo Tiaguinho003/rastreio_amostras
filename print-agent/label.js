@@ -113,11 +113,15 @@ export function buildLabel(job) {
 
   // Header + logo bitmap (top-left)
   const header = [
-    'SET RIBBON ON',
-    'DENSITY 10',
     'SIZE 100 mm, 35 mm',
     'GAP 3 mm, 0 mm',
     'DIRECTION 1',
+    'REFERENCE 0,0',
+    'SET TEAR ON',
+    'SHIFT 0',
+    'OFFSET 0 mm',
+    'DENSITY 10',
+    'SET RIBBON ON',
     'CLS',
     '',
     `BITMAP 10,5,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,

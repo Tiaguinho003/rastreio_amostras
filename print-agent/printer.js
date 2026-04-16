@@ -29,7 +29,7 @@ export function sendToPrinter(printerName, _port, tsplCommands) {
       ],
       {
         encoding: 'utf-8',
-        timeout: 15000,
+        timeout: 60000,
       }
     );
 
@@ -41,7 +41,7 @@ export function sendToPrinter(printerName, _port, tsplCommands) {
     log.debug('Dados enviados para impressora com sucesso');
   } catch (err) {
     const hint = err.killed
-      ? 'Impressora nao respondeu em 15s. Verifique se esta ligada e conectada via USB.'
+      ? 'Impressora/spooler nao respondeu em 60s. Verifique se a impressora esta ligada, pronta e conectada.'
       : 'Verifique: (1) impressora ligada, (2) cabo USB conectado, (3) nome da impressora no .env correto (PRINTER_NAME).';
     throw new Error(`Falha ao enviar para "${printerName}": ${err.message}. ${hint}`);
   } finally {
