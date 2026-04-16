@@ -17,6 +17,7 @@ import type {
   DashboardPendingResponse,
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
+  DashboardOperationalMetricsResponse,
   InvalidateReasonCode,
   PendingPrintQueueResponse,
   ListSamplesResponse,
@@ -674,6 +675,13 @@ export function getDashboardPending(session: SessionData) {
 
 export function getDashboardSalesAvailability(session: SessionData) {
   return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
+    method: 'GET',
+    session,
+  });
+}
+
+export function getDashboardOperationalMetrics(session: SessionData) {
+  return request<DashboardOperationalMetricsResponse>('/dashboard/operational-metrics', {
     method: 'GET',
     session,
   });

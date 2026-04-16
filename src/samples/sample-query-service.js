@@ -23,6 +23,14 @@ const UUID_PATTERN =
   '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'A-\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
+
+function computeMedian(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 const SAMPLE_OWNER_INCLUDE = {
   ownerClient: {
     select: {
@@ -1480,6 +1488,62 @@ export class SampleQueryService {
         from15to30: toIntegerOrZero(row.from15to30),
         under15: toIntegerOrZero(row.under15),
       },
+    };
+  }
+
+  async getDashboardOperationalMetrics() {
+    const rows = await this.prisma.$queryRaw`
+      WITH classified AS (
+        SELECT sample_id, MIN(occurred_at) AS classified_at
+        FROM sample_event
+        WHERE event_type = 'CLASSIFICATION_COMPLETED'
+          AND occurred_at >= NOW() - INTERVAL '28 days'
+        GROUP BY sample_id
+      ),
+      registered AS (
+        SELECT sample_id, MIN(occurred_at) AS registered_at
+        FROM sample_event
+        WHERE event_type = 'REGISTRATION_CONFIRMED'
+        GROUP BY sample_id
+      )
+      SELECT
+        (c.classified_at - INTERVAL '3 hours')::date AS "date",
+        EXTRACT(EPOCH FROM (c.classified_at - r.registered_at)) / 3600.0 AS "hoursElapsed"
+      FROM classified c
+      JOIN registered r ON r.sample_id = c.sample_id
+      JOIN sample s ON s.id = c.sample_id AND s.status != 'INVALIDATED'
+      WHERE c.classified_at > r.registered_at
+      ORDER BY c.classified_at
+    `;
+
+    const byDate = new Map();
+    const allValues = [];
+
+    for (const row of rows) {
+      const dateStr =
+        row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date);
+      const hours = Number(row.hoursElapsed);
+      if (!byDate.has(dateStr)) {
+        byDate.set(dateStr, []);
+      }
+      byDate.get(dateStr).push(hours);
+      allValues.push(hours);
+    }
+
+    const daily = [];
+    for (const [date, values] of byDate) {
+      daily.push({
+        date,
+        median: computeMedian(values),
+        count: values.length,
+      });
+    }
+
+    return {
+      overallMedian: computeMedian(allValues),
+      meta: 24,
+      sampleCount: allValues.length,
+      daily,
     };
   }
 

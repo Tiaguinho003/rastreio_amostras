@@ -555,6 +555,17 @@ export interface DashboardSalesAvailabilityResponse {
   };
 }
 
+export interface DashboardOperationalMetricsResponse {
+  overallMedian: number | null;
+  meta: number;
+  sampleCount: number;
+  daily: Array<{
+    date: string;
+    median: number;
+    count: number;
+  }>;
+}
+
 export interface ResolveSampleByQrResponse {
   query: string;
   sample: {
