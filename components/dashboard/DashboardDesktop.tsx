@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-import { getDashboardOperationalMetrics } from '../../lib/api-client';
+import {
+  getDashboardOperationalMetrics,
+  getDashboardCommercialMetrics,
+} from '../../lib/api-client';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { MetricsCard } from './MetricsCard';
@@ -75,6 +78,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
 
   const [operationalMetrics, setOperationalMetrics] =
     useState<DashboardOperationalMetricsResponse | null>(null);
+  const [commercialMetrics, setCommercialMetrics] =
+    useState<DashboardOperationalMetricsResponse | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -83,6 +88,9 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
 
     getDashboardOperationalMetrics(session)
       .then(setOperationalMetrics)
+      .catch(() => {});
+    getDashboardCommercialMetrics(session)
+      .then(setCommercialMetrics)
       .catch(() => {});
   }, [session]);
 
@@ -176,6 +184,14 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
             data={operationalMetrics}
             color="#5f8c6a"
             id="operational"
+          />
+          <MetricsCard
+            kicker="Comercial"
+            subtitle="Classificacao → Venda"
+            data={commercialMetrics}
+            color="#3a6ea3"
+            id="commercial"
+            unitMode="days"
           />
         </div>
       </section>

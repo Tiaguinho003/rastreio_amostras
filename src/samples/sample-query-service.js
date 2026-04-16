@@ -1547,6 +1547,70 @@ export class SampleQueryService {
     };
   }
 
+  async getDashboardCommercialMetrics() {
+    const rows = await this.prisma.$queryRaw`
+      WITH first_sale AS (
+        SELECT
+          se.sample_id,
+          MIN(se.occurred_at) AS sold_at
+        FROM sample_event se
+        LEFT JOIN sample_movement sm
+          ON sm.sample_id = se.sample_id
+          AND sm.movement_type = 'SALE'
+          AND sm.status = 'ACTIVE'
+          AND sm.created_at <= se.occurred_at + INTERVAL '1 second'
+        WHERE se.event_type = 'SALE_CREATED'
+          AND se.occurred_at >= NOW() - INTERVAL '28 days'
+          AND (sm.id IS NOT NULL)
+        GROUP BY se.sample_id
+      ),
+      classified AS (
+        SELECT sample_id, MIN(occurred_at) AS classified_at
+        FROM sample_event
+        WHERE event_type = 'CLASSIFICATION_COMPLETED'
+        GROUP BY sample_id
+      )
+      SELECT
+        (fs.sold_at - INTERVAL '3 hours')::date AS "date",
+        EXTRACT(EPOCH FROM (fs.sold_at - c.classified_at)) / 86400.0 AS "daysElapsed"
+      FROM first_sale fs
+      JOIN classified c ON c.sample_id = fs.sample_id
+      JOIN sample s ON s.id = fs.sample_id AND s.status != 'INVALIDATED'
+      WHERE fs.sold_at > c.classified_at
+      ORDER BY fs.sold_at
+    `;
+
+    const byDate = new Map();
+    const allValues = [];
+
+    for (const row of rows) {
+      const dateStr =
+        row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date);
+      const days = Number(row.daysElapsed);
+      if (!byDate.has(dateStr)) {
+        byDate.set(dateStr, []);
+      }
+      byDate.get(dateStr).push(days);
+      allValues.push(days);
+    }
+
+    const daily = [];
+    for (const [date, values] of byDate) {
+      daily.push({
+        date,
+        median: computeMedian(values),
+        count: values.length,
+      });
+    }
+
+    return {
+      overallMedian: computeMedian(allValues),
+      meta: 15,
+      sampleCount: allValues.length,
+      daily,
+    };
+  }
+
   async getNextInternalLotNumber() {
     const initialSequence = 5469;
 

@@ -687,6 +687,13 @@ export function getDashboardOperationalMetrics(session: SessionData) {
   });
 }
 
+export function getDashboardCommercialMetrics(session: SessionData) {
+  return request<DashboardOperationalMetricsResponse>('/dashboard/commercial-metrics', {
+    method: 'GET',
+    session,
+  });
+}
+
 export function getPendingPrintJobs(
   session: SessionData,
   options: { limit?: number; sampleId?: string } = {}

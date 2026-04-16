@@ -4,14 +4,29 @@ import type { DashboardOperationalMetricsResponse } from '../../lib/types';
 
 type MetricsData = DashboardOperationalMetricsResponse;
 
-function formatValue(hours: number): { value: string; unit: string } {
-  if (hours < 1) {
-    return { value: String(Math.round(hours * 60)), unit: 'MIN' };
+type UnitMode = 'auto-hours' | 'days';
+
+function formatValue(val: number, unitMode: UnitMode): { value: string; unit: string } {
+  if (unitMode === 'days') {
+    return { value: val.toFixed(1), unit: 'DIAS' };
   }
-  return { value: hours.toFixed(1), unit: 'HORAS' };
+  if (val < 1) {
+    return { value: String(Math.round(val * 60)), unit: 'MIN' };
+  }
+  return { value: val.toFixed(1), unit: 'HORAS' };
 }
 
-function Gauge({ median, meta, color }: { median: number; meta: number; color: string }) {
+function Gauge({
+  median,
+  meta,
+  color,
+  unitMode,
+}: {
+  median: number;
+  meta: number;
+  color: string;
+  unitMode: UnitMode;
+}) {
   const radius = 44;
   const strokeWidth = 7;
   const center = 56;
@@ -39,7 +54,7 @@ function Gauge({ median, meta, color }: { median: number; meta: number; color: s
   const bgPath = describeArc(startAngle, startAngle + totalAngle);
   const fgPath = filledAngle > 0.5 ? describeArc(startAngle, startAngle + filledAngle) : '';
 
-  const { value, unit } = formatValue(median);
+  const { value, unit } = formatValue(median, unitMode);
 
   return (
     <svg viewBox="0 0 112 112" className="dd-gauge">
@@ -130,9 +145,17 @@ interface MetricsCardProps {
   data: MetricsData | null;
   color: string;
   id: string;
+  unitMode?: UnitMode;
 }
 
-export function MetricsCard({ kicker, subtitle, data, color, id }: MetricsCardProps) {
+export function MetricsCard({
+  kicker,
+  subtitle,
+  data,
+  color,
+  id,
+  unitMode = 'auto-hours',
+}: MetricsCardProps) {
   if (!data || data.overallMedian === null) {
     return (
       <div className="dd-metrics-card dd-metrics-skeleton" aria-hidden="true">
@@ -163,7 +186,7 @@ export function MetricsCard({ kicker, subtitle, data, color, id }: MetricsCardPr
         <span className="dd-metrics-subtitle">{subtitle}</span>
       </div>
       <div className="dd-metrics-body">
-        <Gauge median={data.overallMedian} meta={data.meta} color={color} />
+        <Gauge median={data.overallMedian} meta={data.meta} color={color} unitMode={unitMode} />
         <AreaChart daily={data.daily} overallMedian={data.overallMedian} color={color} id={id} />
       </div>
     </div>
