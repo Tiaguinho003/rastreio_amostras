@@ -90,7 +90,6 @@ interface PendingDraftPayload {
   location: string | null;
   receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
   notes: string | null;
-  printerId: string | null;
 }
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
@@ -179,7 +178,6 @@ function NewSamplePageContent() {
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
   const [modalError, setModalError] = useState<string | null>(null);
-  const [modalMessage, setModalMessage] = useState<string | null>(null);
 
   const ownerInputRef = useRef<HTMLInputElement | null>(null);
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
@@ -456,7 +454,6 @@ function NewSamplePageContent() {
     setError(null);
     setMessage(null);
     setModalError(null);
-    setModalMessage(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
     setSubmitting(false);
     setPrintStatus(null);
@@ -526,7 +523,6 @@ function NewSamplePageContent() {
     setError(null);
     setMessage(null);
     setModalError(null);
-    setModalMessage(null);
 
     if (!selectedOwnerClient) {
       setRequiredFieldErrors((current) => ({
@@ -582,7 +578,6 @@ function NewSamplePageContent() {
       location: parsed.data.location ?? null,
       receivedChannel: parsed.data.receivedChannel,
       notes: parsed.data.notes ?? null,
-      printerId: null,
     });
 
     setLabelModalStep('review');
@@ -596,7 +591,6 @@ function NewSamplePageContent() {
 
     setSubmitting(true);
     setModalError(null);
-    setModalMessage(null);
 
     try {
       const result = await createSampleAndPreparePrint(session, {
@@ -610,7 +604,6 @@ function NewSamplePageContent() {
         location: pendingDraft.location,
         receivedChannel: pendingDraft.receivedChannel,
         notes: pendingDraft.notes,
-        printerId: pendingDraft.printerId,
       });
 
       clearPersistedDraftId();
