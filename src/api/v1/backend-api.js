@@ -851,16 +851,6 @@ export function createBackendApiV1({
         };
       }),
 
-    getDashboardLatestActivity: (input) =>
-      executeApiForInput(input, async () => {
-        await resolveActorContext(input, authService);
-        const result = await queryService.getDashboardLatestActivity();
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
     getPendingPrintJobs: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

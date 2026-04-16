@@ -545,34 +545,6 @@ export interface DashboardPendingResponse {
   };
 }
 
-export type DashboardLatestActivityType =
-  | 'REGISTRATION_CONFIRMED'
-  | 'SALE_CREATED'
-  | 'SALE_CANCELLED'
-  | 'LOSS_RECORDED'
-  | 'LOSS_CANCELLED'
-  | 'SAMPLE_INVALIDATED';
-
-export interface DashboardLatestActivityItem {
-  sampleId: string;
-  internalLotNumber: string | null;
-  producer: string | null;
-  isInvalidated: boolean;
-  activity: {
-    type: DashboardLatestActivityType;
-    at: string;
-    context: {
-      sacks?: number;
-      clientName?: string;
-      reason?: string;
-    };
-  };
-}
-
-export interface DashboardLatestActivityResponse {
-  items: DashboardLatestActivityItem[];
-}
-
 export interface DashboardSalesAvailabilityResponse {
   total: number;
   classifiedToday: number;

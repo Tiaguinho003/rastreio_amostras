@@ -23,7 +23,6 @@ const UUID_PATTERN =
   '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'A-\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
-const LATEST_ACTIVITY_LIMIT = 20;
 const SAMPLE_OWNER_INCLUDE = {
   ownerClient: {
     select: {
@@ -646,61 +645,6 @@ function mapDashboardSample(row) {
       location: row.declaredLocation ?? null,
     },
     createdAt: row.createdAt.toISOString(),
-  };
-}
-
-function mapLatestActivityRow(row) {
-  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
-  const context = {};
-  const eventType = row.eventType;
-
-  if (eventType === 'SALE_CREATED') {
-    if (typeof payload.quantitySacks === 'number') {
-      context.sacks = payload.quantitySacks;
-    }
-    const snapshot =
-      payload.buyerClientSnapshot && typeof payload.buyerClientSnapshot === 'object'
-        ? payload.buyerClientSnapshot
-        : null;
-    if (snapshot) {
-      const fallbackFromPersonType =
-        snapshot.personType === 'PF' ? snapshot.fullName : snapshot.legalName;
-      const candidate =
-        typeof snapshot.displayName === 'string' && snapshot.displayName.length > 0
-          ? snapshot.displayName
-          : typeof fallbackFromPersonType === 'string' && fallbackFromPersonType.length > 0
-            ? fallbackFromPersonType
-            : null;
-      if (candidate) {
-        context.clientName = candidate;
-      }
-    }
-  } else if (eventType === 'LOSS_RECORDED') {
-    if (typeof payload.quantitySacks === 'number') {
-      context.sacks = payload.quantitySacks;
-    }
-    if (typeof payload.lossReasonText === 'string' && payload.lossReasonText.length > 0) {
-      context.reason = payload.lossReasonText;
-    }
-  } else if (eventType === 'SAMPLE_INVALIDATED') {
-    if (typeof payload.reasonText === 'string' && payload.reasonText.length > 0) {
-      context.reason = payload.reasonText;
-    }
-  }
-
-  return {
-    sampleId: row.sampleId,
-    internalLotNumber: row.internalLotNumber ?? null,
-    producer: row.declaredOwner ?? null,
-    isInvalidated: row.status === 'INVALIDATED',
-    activity: {
-      type: eventType,
-      at:
-        row.occurredAt instanceof Date
-          ? row.occurredAt.toISOString()
-          : new Date(row.occurredAt).toISOString(),
-      context,
-    },
   };
 }
 
@@ -1486,49 +1430,6 @@ export class SampleQueryService {
         total: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
         items: [],
       },
-    };
-  }
-
-  async getDashboardLatestActivity() {
-    const rows = await this.prisma.$queryRaw`
-      WITH ranked AS (
-        SELECT
-          se.sample_id,
-          se.event_type::text AS event_type,
-          se.payload,
-          se.occurred_at,
-          se.sequence_number,
-          ROW_NUMBER() OVER (
-            PARTITION BY se.sample_id
-            ORDER BY se.occurred_at DESC, se.sequence_number DESC
-          ) AS rn
-        FROM "sample_event" se
-        WHERE se.event_type IN (
-          'REGISTRATION_CONFIRMED',
-          'SALE_CREATED',
-          'SALE_CANCELLED',
-          'LOSS_RECORDED',
-          'LOSS_CANCELLED',
-          'SAMPLE_INVALIDATED'
-        )
-      )
-      SELECT
-        r.sample_id AS "sampleId",
-        r.event_type AS "eventType",
-        r.payload AS "payload",
-        r.occurred_at AS "occurredAt",
-        s.internal_lot_number AS "internalLotNumber",
-        s.status::text AS "status",
-        s.declared_owner AS "declaredOwner"
-      FROM ranked r
-      JOIN "sample" s ON s.id = r.sample_id
-      WHERE r.rn = 1
-      ORDER BY r.occurred_at DESC, s.id DESC
-      LIMIT ${LATEST_ACTIVITY_LIMIT}
-    `;
-
-    return {
-      items: rows.map(mapLatestActivityRow),
     };
   }
 

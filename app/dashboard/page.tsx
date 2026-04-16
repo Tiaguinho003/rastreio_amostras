@@ -4,31 +4,17 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { DashboardLatestActivityCard } from '../../components/DashboardLatestActivityCard';
 import { SalesAvailabilityCard } from '../../components/SalesAvailabilityCard';
 import { SampleSearchField } from '../../components/SampleSearchField';
-import {
-  ApiError,
-  getDashboardLatestActivity,
-  getDashboardPending,
-  getDashboardSalesAvailability,
-} from '../../lib/api-client';
+import { ApiError, getDashboardPending, getDashboardSalesAvailability } from '../../lib/api-client';
 import { getRoleLabel } from '../../lib/roles';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { useRequireAuth } from '../../lib/use-auth';
 import type {
-  DashboardLatestActivityResponse,
   DashboardPendingResponse,
   DashboardSalesAvailabilityResponse,
   SampleSnapshot,
 } from '../../lib/types';
-
-const DESKTOP_BREAKPOINT_QUERY = '(min-width: 901px)';
-
-function isDesktopViewport(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia(DESKTOP_BREAKPOINT_QUERY).matches;
-}
 
 type OperationPanel = 'print_pending' | 'classification_pending' | null;
 type OperationPanelKey = Exclude<OperationPanel, null>;
@@ -104,22 +90,11 @@ export default function DashboardPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const [data, setData] = useState<DashboardPendingResponse | null>(null);
   const [salesData, setSalesData] = useState<DashboardSalesAvailabilityResponse | null>(null);
-  const [activityData, setActivityData] = useState<DashboardLatestActivityResponse | null>(null);
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => isDesktopViewport());
   const [error, setError] = useState<string | null>(null);
   const [activeOperationPanel, setActiveOperationPanel] = useState<OperationPanel>(null);
   const focusTrapRef = useFocusTrap(activeOperationPanel !== null);
   const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastOperationTriggerRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia(DESKTOP_BREAKPOINT_QUERY);
-    const handler = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
-    setIsDesktop(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
 
   const refreshDashboard = useCallback(() => {
     if (!session) {
@@ -146,24 +121,10 @@ export default function DashboardPage() {
         }
       });
 
-    // Desktop-only: latest activity is a separate fetch so mobile never pays the cost.
-    if (isDesktop) {
-      getDashboardLatestActivity(session)
-        .then((response) => {
-          if (active) {
-            setActivityData(response);
-          }
-        })
-        .catch(() => {
-          // Intentionally swallow — a failed activity fetch should not break the main dashboard.
-          // The card keeps its previous state (or stays in loading if first load failed).
-        });
-    }
-
     return () => {
       active = false;
     };
-  }, [session, isDesktop]);
+  }, [session]);
 
   useEffect(() => {
     return refreshDashboard();
@@ -386,13 +347,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </section>
-
-          <section className="dashboard-sheet-section is-slot-activity is-desktop-only">
-            <div className="dashboard-section-heading">
-              <h2 className="dashboard-section-title">Ultimas atividades</h2>
-            </div>
-            <DashboardLatestActivityCard items={activityData?.items ?? null} />
           </section>
         </section>
       </section>

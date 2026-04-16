@@ -14,7 +14,6 @@ import type {
   CreateSampleAndPreparePrintResponse,
   ExtractAndPrepareResponse,
   ResolveSampleByLotResponse,
-  DashboardLatestActivityResponse,
   DashboardPendingResponse,
   DetectFormResponse,
   DashboardSalesAvailabilityResponse,
@@ -675,13 +674,6 @@ export function getDashboardPending(session: SessionData) {
 
 export function getDashboardSalesAvailability(session: SessionData) {
   return request<DashboardSalesAvailabilityResponse>('/dashboard/sales-availability', {
-    method: 'GET',
-    session,
-  });
-}
-
-export function getDashboardLatestActivity(session: SessionData) {
-  return request<DashboardLatestActivityResponse>('/dashboard/latest-activity', {
     method: 'GET',
     session,
   });
