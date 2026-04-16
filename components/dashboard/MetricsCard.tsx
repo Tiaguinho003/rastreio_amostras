@@ -33,7 +33,7 @@ function Gauge({
   const totalAngle = 260;
   const startAngle = 140;
 
-  const ratio = Math.min(median / meta, 1.15);
+  const ratio = meta > 0 ? Math.min(median / meta, 1.15) : 0;
   const filledAngle = totalAngle * Math.min(ratio, 1);
 
   function polarToCartesian(angleDeg: number) {

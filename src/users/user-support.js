@@ -1,4 +1,4 @@
-import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
 import { HttpError } from '../contracts/errors.js';
@@ -238,6 +238,18 @@ export function generateNumericCode() {
 
 export function hashCode(code) {
   return createHash('sha256').update(String(code)).digest('hex');
+}
+
+export function safeEqualHashes(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
+    return false;
+  }
+  const bufA = Buffer.from(a, 'hex');
+  const bufB = Buffer.from(b, 'hex');
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
 }
 
 export function addMilliseconds(date, amount) {

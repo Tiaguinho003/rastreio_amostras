@@ -38,6 +38,7 @@ import {
   normalizeRole,
   normalizeUsername,
   nowUtc,
+  safeEqualHashes,
   readLimitQuery,
   readPageQuery,
   toIsoString,
@@ -234,7 +235,7 @@ export class UserService {
   }
 
   async assertPasswordResetCode(tx, request, code, now = nowUtc()) {
-    if (request.codeHash === hashCode(code)) {
+    if (safeEqualHashes(request.codeHash, hashCode(code))) {
       return;
     }
 
