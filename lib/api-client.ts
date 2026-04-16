@@ -55,7 +55,6 @@ const API_BASE = '/api/v1';
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
-type PhotoKind = 'CLASSIFICATION_PHOTO';
 
 async function parseJsonSafe(response: Response): Promise<Record<string, unknown>> {
   try {
@@ -932,7 +931,7 @@ export function uploadSamplePhoto(
   sampleId: string,
   file: File,
   options: {
-    kind: PhotoKind;
+    kind: 'CLASSIFICATION_PHOTO';
     replaceExisting?: boolean;
   }
 ) {
@@ -1015,7 +1014,7 @@ export function confirmClassificationFromCamera(
   return request<CommandResponse>('/classification/confirm', {
     method: 'POST',
     session,
-    body: data as unknown as { [key: string]: JsonValue },
+    body: data,
   });
 }
 
