@@ -99,10 +99,7 @@ function createEncodingCanvas(
     return null;
   }
 
-  let ctx = canvas.getContext('2d', {
-    colorSpace: 'display-p3' as PredefinedColorSpace,
-  }) as OffscreenCanvasRenderingContext2D | null;
-  if (!ctx) ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
   ctx.imageSmoothingEnabled = true;

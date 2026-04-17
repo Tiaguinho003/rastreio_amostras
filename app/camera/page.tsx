@@ -745,59 +745,29 @@ function CameraPageContent() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const stream = video.srcObject instanceof MediaStream ? video.srcObject : null;
-    const track = stream?.getVideoTracks()[0] ?? null;
+    setCaptureFlashKey((key) => key + 1);
+    navigator.vibrate?.(40);
 
-    let upscaled = false;
-    if (track && typeof track.applyConstraints === 'function') {
-      try {
-        await track.applyConstraints({
-          advanced: [{ width: { ideal: 4096 }, height: { ideal: 3072 } }],
-        });
-        upscaled = true;
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-        });
-      } catch {
-        // Constraint not honored by device/browser; proceed with current resolution.
-      }
-    }
+    const canvas = canvasRef.current ?? document.createElement('canvas');
+    canvasRef.current = canvas;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, 0, 0);
 
-    try {
-      setCaptureFlashKey((key) => key + 1);
-      navigator.vibrate?.(40);
+    const quality = pickQualityFromEnv({ highQualityEnabled: isHighQualityEnabled() });
+    const blob: Blob | null = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+    });
 
-      const canvas = canvasRef.current ?? document.createElement('canvas');
-      canvasRef.current = canvas;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(video, 0, 0);
-
-      const quality = pickQualityFromEnv({ highQualityEnabled: isHighQualityEnabled() });
-      const blob: Blob | null = await new Promise((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+    if (blob) {
+      const file = new File([blob], `classificacao-${Date.now()}.jpg`, {
+        type: 'image/jpeg',
       });
-
-      if (blob) {
-        const file = new File([blob], `classificacao-${Date.now()}.jpg`, {
-          type: 'image/jpeg',
-        });
-        handlePhotoSelected(file);
-      }
-    } finally {
-      if (upscaled && track && typeof track.applyConstraints === 'function') {
-        try {
-          await track.applyConstraints({
-            advanced: [{ width: { ideal: 1280 }, height: { ideal: 720 } }],
-          });
-        } catch {
-          // Best-effort restore; QR scanner tolerates whatever resolution stays.
-        }
-      }
+      handlePhotoSelected(file);
     }
   }
 
