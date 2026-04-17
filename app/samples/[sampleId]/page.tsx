@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
+import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
@@ -462,7 +463,6 @@ export default function SampleDetailPage() {
   const [classificationModalNotice, setClassificationModalNotice] = useState<Notice>(null);
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
-  const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
   const [classificationImageModalOpen, setClassificationImageModalOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
@@ -816,8 +816,6 @@ export default function SampleDetailPage() {
     classificationSelectedPhotoPreviewUrl ??
     classificationSavedPhotoPreviewUrl ??
     classificationServerPhotoUrl;
-  const classificationSavedPhotoUrl =
-    classificationSavedPhotoPreviewUrl ?? classificationServerPhotoUrl;
   const classificationCanComplete =
     !classificationPhotoUploading &&
     !classificationSelectedPhoto &&
@@ -2365,43 +2363,31 @@ export default function SampleDetailPage() {
                       const catacao = String(cd.catacao ?? '—');
                       const conferredBySummary = readConferredByFromDetail(classData);
                       return (
-                        <div className="sdv-card sdv-cls-block">
+                        <div
+                          className="sdv-card sdv-cls-block sdv-cls-block-clickable"
+                          role="button"
+                          tabIndex={0}
+                          onClick={openClassificationDetail}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openClassificationDetail();
+                            }
+                          }}
+                          aria-label="Ver classificacao completa"
+                        >
                           <div className="sdv-card-header">
                             <span className="sdv-card-title">Classificacao</span>
-                            <button
-                              type="button"
-                              className="sdv-cls-expand-btn"
-                              onClick={openClassificationDetail}
-                              aria-label="Ver classificacao completa"
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                              </svg>
-                            </button>
                           </div>
                           <div className="sdv-cls-block-summary">
                             {classPhotoUrl ? (
-                              <button
-                                type="button"
-                                className="sdv-cls-block-thumb-btn"
-                                onClick={() => setClassificationImageModalOpen(true)}
-                                aria-label="Ampliar foto da classificacao"
-                              >
-                                {/* next/image nao se aplica: src vem do upload local, dimensoes via CSS class */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={classPhotoUrl}
-                                  alt="Foto da classificacao"
-                                  className="sdv-cls-block-thumb"
-                                />
-                              </button>
+                              // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={classPhotoUrl}
+                                alt="Foto da classificacao"
+                                className="sdv-cls-block-thumb"
+                              />
                             ) : null}
                             <div className="sdv-cls-block-fields">
                               <div className="sdv-info-item">
@@ -3044,6 +3030,27 @@ export default function SampleDetailPage() {
                     const classificationType = detail.sample.classificationType;
                     return (
                       <div className={`cld-body${saved ? ' is-saved' : ''}`}>
+                        <div className="cld-photo-section">
+                          {classificationServerPhotoUrl ? (
+                            <button
+                              type="button"
+                              className="cld-photo-btn"
+                              onClick={() => setClassificationImageModalOpen(true)}
+                              aria-label="Ampliar foto da classificacao"
+                            >
+                              {/* next/image nao se aplica: foto local, dimensoes via CSS */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={classificationServerPhotoUrl}
+                                alt="Foto da classificacao"
+                                className="cld-photo"
+                              />
+                            </button>
+                          ) : (
+                            <div className="cld-photo-empty">Sem foto</div>
+                          )}
+                        </div>
+
                         <div className="cld-section is-general">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
@@ -3470,36 +3477,12 @@ export default function SampleDetailPage() {
         </div>
       ) : null}
 
-      {classificationPhotoPreviewOpen && classificationSavedPhotoUrl ? (
-        <div
-          className="app-modal-backdrop sdv-photo-preview-backdrop"
-          onClick={() => setClassificationPhotoPreviewOpen(false)}
-        >
-          {/* next/image nao se aplica: foto fullscreen com dimensoes via viewport units */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={classificationSavedPhotoUrl}
-            alt="Foto da classificacao"
-            className="sdv-photo-preview-img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      ) : null}
-
       {classificationImageModalOpen && classificationServerPhotoUrl ? (
-        <div
-          className="app-modal-backdrop sdv-photo-preview-backdrop"
-          onClick={() => setClassificationImageModalOpen(false)}
-        >
-          {/* next/image nao se aplica: foto fullscreen com dimensoes via viewport units */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={classificationServerPhotoUrl}
-            alt="Foto da classificacao"
-            className="sdv-photo-preview-img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        <PhotoZoomViewer
+          src={classificationServerPhotoUrl}
+          alt="Foto da classificacao"
+          onClose={() => setClassificationImageModalOpen(false)}
+        />
       ) : null}
 
       {exportTypeSelectorOpen ? (

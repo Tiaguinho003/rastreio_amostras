@@ -5936,46 +5936,6 @@ button:disabled {
   color: var(--brand-green-soft);
 }
 
-/* Botao circular para expandir o card de classificacao e abrir o modal
-   full-view com todos os dados + edicao. Fica no header do sdv-cls-block. */
-.sdv-cls-expand-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(30px, 8vw, 34px);
-  height: clamp(30px, 8vw, 34px);
-  border: 1px solid rgba(46, 125, 50, 0.18);
-  border-radius: 999px;
-  background: rgba(46, 125, 50, 0.06);
-  color: var(--brand-green-soft);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-  padding: 0;
-  transition:
-    transform 0.15s,
-    background 0.15s;
-}
-
-.sdv-cls-expand-btn:active {
-  transform: scale(0.92);
-  background: rgba(46, 125, 50, 0.14);
-}
-
-.sdv-cls-expand-btn:hover {
-  background: rgba(46, 125, 50, 0.1);
-}
-
-.sdv-cls-expand-btn svg {
-  width: clamp(14px, 3.6vw, 16px);
-  height: clamp(14px, 3.6vw, 16px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* Edit modal fields */
 .sdv-edit-fields {
   display: flex;
@@ -6307,7 +6267,24 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* Classification block in General tab */
+/* Classification block in General tab — card inteiro clicavel */
+.sdv-cls-block-clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.sdv-cls-block-clickable:active {
+  transform: scale(0.995);
+}
+
+.sdv-cls-block-clickable:focus-visible {
+  outline: 2px solid var(--brand-green-soft);
+  outline-offset: 2px;
+}
+
 .sdv-cls-block-summary {
   display: flex;
   gap: clamp(10px, 3vw, 14px);
@@ -6320,24 +6297,6 @@ button:disabled {
   object-fit: cover;
   border-radius: clamp(8px, 2vw, 10px);
   flex-shrink: 0;
-}
-
-.sdv-cls-block-thumb-btn {
-  appearance: none;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  cursor: pointer;
-  display: block;
-  flex-shrink: 0;
-  border-radius: clamp(8px, 2vw, 10px);
-  transition: transform 140ms ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sdv-cls-block-thumb-btn:active {
-  transform: scale(0.96);
 }
 
 .sdv-cls-block-fields {
@@ -7270,17 +7229,133 @@ button:disabled {
   margin-bottom: 2px;
 }
 
-/* Photo preview fullscreen */
+/* Modal full-view: secao da foto da classificacao (topo, abaixo do header) */
 
-.sdv-photo-preview-backdrop {
-  background: rgba(0, 0, 0, 0.92);
+.cld-photo-section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: clamp(10px, 2.4vw, 14px);
 }
 
-.sdv-photo-preview-img {
-  max-width: 92vw;
-  max-height: 85dvh;
-  object-fit: contain;
-  border-radius: 12px;
+.cld-photo-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  border-radius: clamp(10px, 2.6vw, 14px);
+  overflow: hidden;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+  display: block;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.cld-photo-btn:active {
+  transform: scale(0.985);
+}
+
+.cld-photo-btn:focus-visible {
+  outline: 2px solid var(--brand-green-soft);
+  outline-offset: 2px;
+}
+
+.cld-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.cld-photo-empty {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: clamp(10px, 2.6vw, 14px);
+  background: #f8f6f2;
+  color: #999;
+  font-size: clamp(13px, 3.4vw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* PhotoZoomViewer — fullscreen com zoom e pan */
+
+.pzv-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  background: rgba(0, 0, 0, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: pzv-stage-in 180ms ease backwards;
+}
+
+@keyframes pzv-stage-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pzv-close {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.pzv-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.pzv-close:active {
+  transform: scale(0.92);
+}
+
+.pzv-close svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pzv-image {
+  max-width: 100%;
+  max-height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 /* cld section accent variants */
