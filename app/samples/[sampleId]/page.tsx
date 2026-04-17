@@ -308,6 +308,18 @@ function getExportTypeLabel(exportType: SampleExportType): string {
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
 const MAX_PHOTO_SIZE_BYTES = 12 * 1024 * 1024; // 12 MB — same as backend DEFAULT_MAX_UPLOAD_SIZE_BYTES
 
+function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): string {
+  const sample = detail?.sample;
+  const lotRaw = sample?.internalLotNumber ?? sample?.id ?? 'amostra';
+  const lot = lotRaw.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const data = isRecord(sample?.latestClassification?.data) ? sample.latestClassification.data : {};
+  const rawDate = typeof data.dataClassificacao === 'string' ? data.dataClassificacao : '';
+  const datePart = /^\d{4}-\d{2}-\d{2}/.test(rawDate)
+    ? rawDate.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+  return `classificacao-${lot}-${datePart}.jpg`;
+}
+
 function getOperationalStatusDotTone(status: SampleStatus) {
   if (status === 'PHYSICAL_RECEIVED' || status === 'REGISTRATION_IN_PROGRESS') {
     return 'neutral';
@@ -3469,6 +3481,7 @@ export default function SampleDetailPage() {
         <PhotoZoomViewer
           src={classificationServerPhotoUrl}
           alt="Foto da classificacao"
+          exportFilename={buildClassificationPhotoFilename(detail)}
           onClose={() => setClassificationImageModalOpen(false)}
         />
       ) : null}

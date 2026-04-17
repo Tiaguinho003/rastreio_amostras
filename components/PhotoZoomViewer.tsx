@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 interface PhotoZoomViewerProps {
   src: string;
   alt: string;
+  exportFilename?: string;
   onClose: () => void;
 }
 
@@ -12,8 +13,9 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 4;
 const DOUBLE_TAP_SCALE = 2.5;
 const DOUBLE_TAP_MS = 300;
+const TOAST_DURATION_MS = 2500;
 
-export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
+export function PhotoZoomViewer({ src, alt, exportFilename, onClose }: PhotoZoomViewerProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [scale, setScale] = useState(1);
@@ -36,6 +38,75 @@ export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
     offsetY: number;
   } | null>(null);
   const lastTapRef = useRef(0);
+
+  const [exporting, setExporting] = useState(false);
+  const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const showToast = useCallback((next: { kind: 'success' | 'error'; text: string }) => {
+    setToast(next);
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, TOAST_DURATION_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleExport = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const response = await fetch(src);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const filename = exportFilename ?? `classificacao-${Date.now()}.jpg`;
+      const mimeType = blob.type || 'image/jpeg';
+      const file = new File([blob], filename, { type: mimeType });
+
+      const canUseShare =
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] });
+
+      if (canUseShare) {
+        try {
+          await navigator.share({ files: [file] });
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          throw error;
+        }
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      showToast({ kind: 'success', text: 'Foto baixada.' });
+    } catch {
+      showToast({ kind: 'error', text: 'Falha ao exportar foto.' });
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, src, exportFilename, showToast]);
 
   const clampOffset = useCallback((nextOffset: { x: number; y: number }, nextScale: number) => {
     const stage = stageRef.current;
@@ -237,6 +308,27 @@ export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
     >
       <button
         type="button"
+        className="pzv-share"
+        onClick={(e) => {
+          e.stopPropagation();
+          void handleExport();
+        }}
+        disabled={exporting}
+        aria-label="Compartilhar foto"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 3v12M8 7l4-4 4 4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
         className="pzv-close"
         onClick={(e) => {
           e.stopPropagation();
@@ -254,6 +346,16 @@ export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
           />
         </svg>
       </button>
+      {toast ? (
+        <div
+          className={`pzv-toast pzv-toast-${toast.kind}`}
+          role="status"
+          aria-live="polite"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {toast.text}
+        </div>
+      ) : null}
       {/* next/image nao se aplica: foto local com dimensoes dinamicas via transform */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

@@ -7348,6 +7348,82 @@ button:disabled {
   height: 22px;
 }
 
+.pzv-share {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: calc(14px + 44px + 10px);
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    opacity 140ms ease;
+}
+
+.pzv-share:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.pzv-share:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.pzv-share:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.pzv-share svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pzv-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.88);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 2;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: pzv-toast-in 220ms ease-out backwards;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+
+.pzv-toast-error {
+  background: rgba(160, 40, 40, 0.92);
+}
+
+@keyframes pzv-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 .pzv-image {
   max-width: 100%;
   max-height: 100%;
