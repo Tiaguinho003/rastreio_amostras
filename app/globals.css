@@ -13215,6 +13215,30 @@ button:disabled {
   min-height: 0;
 }
 
+/* Flash overlay disparado no momento da captura da foto de classificacao.
+   Recriado via `key` para reiniciar a animacao em cada captura. */
+.camera-capture-flash {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  animation: camera-capture-flash-fade 180ms ease-out forwards;
+}
+
+@keyframes camera-capture-flash-fade {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .camera-hub-panel {
   display: grid;
   height: 100%;

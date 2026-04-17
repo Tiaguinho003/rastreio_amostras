@@ -17,7 +17,7 @@ import {
   resolveSampleByQr,
   getSampleDetail,
 } from '../../lib/api-client';
-import { compressImage } from '../../lib/compress-image';
+import { compressImage, isHighQualityEnabled, pickQualityFromEnv } from '../../lib/compress-image';
 import {
   type ClassificationFormState,
   EMPTY_CLASSIFICATION_FORM,
@@ -412,6 +412,7 @@ function CameraPageContent() {
   >('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
+  const [captureFlashKey, setCaptureFlashKey] = useState(0);
 
   // QR result modal
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
@@ -740,27 +741,64 @@ function CameraPageContent() {
     }
   }
 
-  function captureFromVideoStream() {
+  async function captureFromVideoStream() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const canvas = canvasRef.current ?? document.createElement('canvas');
-    canvasRef.current = canvas;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
+    const stream = video.srcObject instanceof MediaStream ? video.srcObject : null;
+    const track = stream?.getVideoTracks()[0] ?? null;
 
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `classificacao-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    let upscaled = false;
+    if (track && typeof track.applyConstraints === 'function') {
+      try {
+        await track.applyConstraints({
+          advanced: [{ width: { ideal: 4096 }, height: { ideal: 3072 } }],
+        });
+        upscaled = true;
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+      } catch {
+        // Constraint not honored by device/browser; proceed with current resolution.
+      }
+    }
+
+    try {
+      setCaptureFlashKey((key) => key + 1);
+      navigator.vibrate?.(40);
+
+      const canvas = canvasRef.current ?? document.createElement('canvas');
+      canvasRef.current = canvas;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(video, 0, 0);
+
+      const quality = pickQualityFromEnv({ highQualityEnabled: isHighQualityEnabled() });
+      const blob: Blob | null = await new Promise((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
+      });
+
+      if (blob) {
+        const file = new File([blob], `classificacao-${Date.now()}.jpg`, {
+          type: 'image/jpeg',
+        });
         handlePhotoSelected(file);
-      },
-      'image/jpeg',
-      0.92
-    );
+      }
+    } finally {
+      if (upscaled && track && typeof track.applyConstraints === 'function') {
+        try {
+          await track.applyConstraints({
+            advanced: [{ width: { ideal: 1280 }, height: { ideal: 720 } }],
+          });
+        } catch {
+          // Best-effort restore; QR scanner tolerates whatever resolution stays.
+        }
+      }
+    }
   }
 
   function handlePhotoSelected(file: File | null) {
@@ -1122,6 +1160,9 @@ function CameraPageContent() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+      {captureFlashKey > 0 ? (
+        <div key={captureFlashKey} className="camera-capture-flash" aria-hidden="true" />
+      ) : null}
       <section className="camera-hub-page">
         <section className="camera-hub-panel">
           <div className="camera-hub-stage">
