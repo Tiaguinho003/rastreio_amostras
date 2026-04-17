@@ -109,6 +109,8 @@ export function buildLabel(job) {
   const lotW = lotNumber.length * lotCharW;
   const lotX = RX + Math.floor((RW - lotW) / 2);
 
+  const copies = job.printAction === 'PRINT' ? 2 : 1;
+
   const parts = [];
 
   // Header + logo bitmap (top-left)
@@ -148,7 +150,7 @@ export function buildLabel(job) {
     // Lot number — large, dominant
     `TEXT ${lotX},87,"4",0,3,5,"${lotNumber}"`,
     '',
-    'PRINT 1,1',
+    `PRINT 1,${copies}`,
     '',
   ].join('\r\n');
   parts.push(Buffer.from(body, 'ascii'));
