@@ -2358,10 +2358,9 @@ export default function SampleDetailPage() {
                         );
                       }
                       const cd = classData as Record<string, unknown>;
-                      const padrao = String(cd.padrao ?? '—');
-                      const defeito = String(cd.defeito ?? '—');
+                      const aspecto = String(cd.aspecto ?? '—');
                       const catacao = String(cd.catacao ?? '—');
-                      const conferredBySummary = readConferredByFromDetail(classData);
+                      const classificador = String(cd.classificador ?? '—');
                       return (
                         <div
                           className="sdv-card sdv-cls-block sdv-cls-block-clickable"
@@ -2391,28 +2390,17 @@ export default function SampleDetailPage() {
                             ) : null}
                             <div className="sdv-cls-block-fields">
                               <div className="sdv-info-item">
-                                <span className="sdv-info-label">Padrao</span>
-                                <span className="sdv-info-value">{padrao}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Defeito</span>
-                                <span className="sdv-info-value">{defeito}</span>
+                                <span className="sdv-info-label">Aspecto</span>
+                                <span className="sdv-info-value">{aspecto}</span>
                               </div>
                               <div className="sdv-info-item">
                                 <span className="sdv-info-label">Catacao</span>
                                 <span className="sdv-info-value">{catacao}</span>
                               </div>
-                              {conferredBySummary.length > 0 ? (
-                                <div className="sdv-info-item">
-                                  <span className="sdv-info-label">Conferida por</span>
-                                  <span className="sdv-info-value">
-                                    {conferredBySummary[0].fullName}
-                                    {conferredBySummary.length > 1
-                                      ? ` +${conferredBySummary.length - 1}`
-                                      : ''}
-                                  </span>
-                                </div>
-                              ) : null}
+                              <div className="sdv-info-item">
+                                <span className="sdv-info-label">Classificador</span>
+                                <span className="sdv-info-value">{classificador}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
