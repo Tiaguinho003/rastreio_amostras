@@ -1809,20 +1809,25 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(lostRemaining.body.sample.soldSacks, 4);
     assert.equal(lostRemaining.body.sample.lostSacks, 7);
 
-    const nonClassifiedSampleId = randomUUID();
-    await moveSampleToQrPrinted(nonClassifiedSampleId);
-    const blockedByOperationalStatus = await api.updateCommercialStatus(
+    // Amostras em status operacional intermediario (QR_PRINTED etc) podem registrar
+    // movimentacoes comerciais desde que tenham sacas declaradas. Invalidated continua
+    // bloqueada por check separado, e PHYSICAL_RECEIVED / REGISTRATION_IN_PROGRESS por
+    // falta de declaredSacks.
+    const preClassifiedSampleId = randomUUID();
+    await moveSampleToQrPrinted(preClassifiedSampleId);
+    const preClassifiedLoss = await api.updateCommercialStatus(
       buildInput({
-        params: { sampleId: nonClassifiedSampleId },
+        params: { sampleId: preClassifiedSampleId },
         body: {
           expectedVersion: 5,
           toCommercialStatus: 'LOST',
-          reasonText: 'deveria falhar',
+          reasonText: 'registro antes da classificacao',
         },
       })
     );
 
-    assert.equal(blockedByOperationalStatus.status, 409);
+    assert.equal(preClassifiedLoss.status, 201);
+    assert.equal(preClassifiedLoss.body.event.eventType, 'LOSS_RECORDED');
   });
 
   test('sample movements create update list cancel and recalculate commercial summary', async () => {
@@ -1939,7 +1944,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(cancelledLoss.body.sample.commercialStatus, 'PARTIALLY_SOLD');
   });
 
-  test('sample movement validations block inactive buyer, non-buyer client and non-classified sample', async () => {
+  test('sample movement validations block inactive buyer and non-buyer client, but allow pre-classification status', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
 
@@ -1996,8 +2001,10 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(nonBuyerResult.status, 422);
 
-    const nonClassifiedSampleId = randomUUID();
-    await moveSampleToQrPrinted(nonClassifiedSampleId);
+    // Venda e perda podem ser registradas antes da classificacao desde que a amostra
+    // tenha sacas declaradas (REGISTRATION_CONFIRMED / QR_* / CLASSIFICATION_IN_PROGRESS).
+    const preClassifiedSampleId = randomUUID();
+    await moveSampleToQrPrinted(preClassifiedSampleId);
     const validBuyer = await createSellerClient({
       legalName: 'Comprador Valido LTDA',
       tradeName: 'Comprador Valido LTDA',
@@ -2006,20 +2013,21 @@ if (!databaseUrl || !databaseReachable) {
       isSeller: false,
     });
 
-    const blockedByStatus = await api.createSampleMovement(
+    const preClassifiedSale = await api.createSampleMovement(
       buildInput({
-        params: { sampleId: nonClassifiedSampleId },
+        params: { sampleId: preClassifiedSampleId },
         body: {
           expectedVersion: 5,
           movementType: 'SALE',
           buyerClientId: validBuyer.client.id,
           quantitySacks: 2,
           movementDate: '2026-03-19',
-          notes: 'deve falhar',
+          notes: 'venda antes da classificacao',
         },
       })
     );
-    assert.equal(blockedByStatus.status, 409);
+    assert.equal(preClassifiedSale.status, 201);
+    assert.equal(preClassifiedSale.body.event.eventType, 'SALE_CREATED');
   });
 
   test('loss without sales keeps commercial status OPEN', async () => {
