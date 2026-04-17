@@ -463,6 +463,7 @@ export default function SampleDetailPage() {
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
 
   const [classificationPhotoPreviewOpen, setClassificationPhotoPreviewOpen] = useState(false);
+  const [classificationImageModalOpen, setClassificationImageModalOpen] = useState(false);
   const [classificationSelectedPhoto, setClassificationSelectedPhoto] = useState<File | null>(null);
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
     null
@@ -2387,13 +2388,20 @@ export default function SampleDetailPage() {
                           </div>
                           <div className="sdv-cls-block-summary">
                             {classPhotoUrl ? (
-                              // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={classPhotoUrl}
-                                alt="Foto da classificacao"
-                                className="sdv-cls-block-thumb"
-                              />
+                              <button
+                                type="button"
+                                className="sdv-cls-block-thumb-btn"
+                                onClick={() => setClassificationImageModalOpen(true)}
+                                aria-label="Ampliar foto da classificacao"
+                              >
+                                {/* next/image nao se aplica: src vem do upload local, dimensoes via CSS class */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={classPhotoUrl}
+                                  alt="Foto da classificacao"
+                                  className="sdv-cls-block-thumb"
+                                />
+                              </button>
                             ) : null}
                             <div className="sdv-cls-block-fields">
                               <div className="sdv-info-item">
@@ -3471,6 +3479,22 @@ export default function SampleDetailPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={classificationSavedPhotoUrl}
+            alt="Foto da classificacao"
+            className="sdv-photo-preview-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
+
+      {classificationImageModalOpen && classificationServerPhotoUrl ? (
+        <div
+          className="app-modal-backdrop sdv-photo-preview-backdrop"
+          onClick={() => setClassificationImageModalOpen(false)}
+        >
+          {/* next/image nao se aplica: foto fullscreen com dimensoes via viewport units */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={classificationServerPhotoUrl}
             alt="Foto da classificacao"
             className="sdv-photo-preview-img"
             onClick={(e) => e.stopPropagation()}

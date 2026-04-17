@@ -6322,6 +6322,24 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.sdv-cls-block-thumb-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  display: block;
+  flex-shrink: 0;
+  border-radius: clamp(8px, 2vw, 10px);
+  transition: transform 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sdv-cls-block-thumb-btn:active {
+  transform: scale(0.96);
+}
+
 .sdv-cls-block-fields {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
