@@ -50,7 +50,7 @@ derive_cloud_defaults() {
   : "${GCLOUD_STORAGE_MOUNT_PATH:=/mnt/runtime}"
   : "${SESSION_COOKIE_SECURE:=auto}"
   : "${EMAIL_TRANSPORT:=outbox}"
-  : "${MAX_UPLOAD_SIZE_BYTES:=8388608}"
+  : "${MAX_UPLOAD_SIZE_BYTES:=12582912}"
   : "${GCLOUD_CPU:=1}"
   : "${GCLOUD_MEMORY:=1Gi}"
   : "${GCLOUD_CONCURRENCY:=10}"

@@ -97,7 +97,7 @@ O projeto e um monolito modular em Next.js, com frontend e backend no mesmo repo
    `smtp` em runtime operacional;
    `outbox` local em development ou fallback.
 3. Laudos PDF sao gerados a partir do estado consolidado da amostra classificada e geram evento `REPORT_EXPORTED`.
-4. O runtime aplica limite server-side de `8 MiB` por imagem por padrao.
+4. O runtime aplica limite server-side de `12 MiB` por imagem por padrao.
 5. Uploads sao validados por magic bytes via `file-type` (aceita apenas JPEG, PNG, WebP).
 
 ## API interna

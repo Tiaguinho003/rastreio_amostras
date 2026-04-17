@@ -306,7 +306,7 @@ function getExportTypeLabel(exportType: SampleExportType): string {
 }
 
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
-const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB — same as backend DEFAULT_MAX_UPLOAD_SIZE_BYTES
+const MAX_PHOTO_SIZE_BYTES = 12 * 1024 * 1024; // 12 MB — same as backend DEFAULT_MAX_UPLOAD_SIZE_BYTES
 
 function getOperationalStatusDotTone(status: SampleStatus) {
   if (status === 'PHYSICAL_RECEIVED' || status === 'REGISTRATION_IN_PROGRESS') {

@@ -127,7 +127,7 @@ Validacoes criticas nessas rotas:
 3. Atualizacoes de registro e classificacao exigem motivo.
 4. `resolve` aceita QR bruto, URL, UUID e lote interno embutido em texto.
 5. A API retorna erros de negocio com `4xx` e mensagens explicitas do backend.
-6. Uploads de imagem sao limitados por `MAX_UPLOAD_SIZE_BYTES`, com padrao de `8 MiB` por arquivo.
+6. Uploads de imagem sao limitados por `MAX_UPLOAD_SIZE_BYTES`, com padrao de `12 MiB` por arquivo.
 
 ## Contrato de eventos
 

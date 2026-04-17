@@ -44,7 +44,7 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 | Ameaca                      | Mitigacao                                                                              | Status                | Risco residual                        |
 | --------------------------- | -------------------------------------------------------------------------------------- | --------------------- | ------------------------------------- |
 | SQL injection               | Prisma ORM + tagged template literals em todos $queryRaw                               | Mitigado              | -                                     |
-| Upload de binario malicioso | Magic bytes via file-type (JPEG/PNG/WebP); size limit 8 MiB                            | Mitigado              | Nao ha antivirus scan                 |
+| Upload de binario malicioso | Magic bytes via file-type (JPEG/PNG/WebP); size limit 12 MiB                           | Mitigado              | Nao ha antivirus scan                 |
 | Body request invalido       | Normalizers no service layer (client-support.js, user-support.js); event validator Ajv | Parcialmente mitigado | Sem schema validation no nivel da API |
 | Query param injection       | normalizeOptionalText (200 chars), readPositiveInteger, readPageQuery; Prisma ORM      | Mitigado              | -                                     |
 

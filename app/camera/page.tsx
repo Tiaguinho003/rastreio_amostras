@@ -804,9 +804,9 @@ function CameraPageContent() {
   function handlePhotoSelected(file: File | null) {
     if (!file) return;
 
-    const MAX_SIZE = 8 * 1024 * 1024;
+    const MAX_SIZE = 12 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      setCameraError('A foto excede o limite de 8 MB.');
+      setCameraError('A foto excede o limite de 12 MB.');
       return;
     }
 

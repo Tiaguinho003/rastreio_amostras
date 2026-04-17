@@ -240,8 +240,8 @@ Em `cloud-production`, o valor canonico e `auto`.
 
 ### Uploads
 
-1. o runtime oficial usa `MAX_UPLOAD_SIZE_BYTES=8388608` por padrao;
-2. cada imagem acima de `8 MiB` deve ser rejeitada com erro `413`;
+1. o runtime oficial usa `MAX_UPLOAD_SIZE_BYTES=12582912` por padrao;
+2. cada imagem acima de `12 MiB` deve ser rejeitada com erro `413`;
 3. em `cloud-production`, `UPLOADS_DIR` aponta para o bucket GCS montado em `/mnt/runtime`.
 
 ### Bootstrap de usuarios
