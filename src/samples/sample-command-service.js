@@ -30,7 +30,18 @@ const REPRINT_ALLOWED_STATUSES = [
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
 const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
-const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['CLASSIFIED']);
+// Venda e perda podem ser registradas a partir do momento em que a amostra tem sacas
+// declaradas (REGISTRATION_CONFIRMED). Classificacao nao e pre-requisito comercial:
+// o operador pode vender/registrar perda antes mesmo de classificar. INVALIDATED
+// continua bloqueado via check separado. PHYSICAL_RECEIVED e REGISTRATION_IN_PROGRESS
+// nao entram aqui porque declaredSacks ainda nao existe.
+const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set([
+  'REGISTRATION_CONFIRMED',
+  'QR_PENDING_PRINT',
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+]);
 const MOVEMENT_TYPES = {
   SALE: 'SALE',
   LOSS: 'LOSS',
@@ -2266,7 +2277,7 @@ export class SampleCommandService {
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
       throw new HttpError(
         409,
-        `Sample ${sample.id} must be CLASSIFIED to create commercial movements`
+        `Sample ${sample.id} must have confirmed registration to create commercial movements`
       );
     }
 
@@ -2361,7 +2372,7 @@ export class SampleCommandService {
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
       throw new HttpError(
         409,
-        `Sample ${sample.id} must be CLASSIFIED to update commercial movements`
+        `Sample ${sample.id} must have confirmed registration to update commercial movements`
       );
     }
 
@@ -2510,7 +2521,7 @@ export class SampleCommandService {
     if (!COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES.has(sample.status)) {
       throw new HttpError(
         409,
-        `Sample ${sample.id} must be CLASSIFIED to cancel commercial movements`
+        `Sample ${sample.id} must have confirmed registration to cancel commercial movements`
       );
     }
 

@@ -14,8 +14,18 @@ import type {
   SampleMovement,
   SampleMovementType,
   SampleSnapshot,
+  SampleStatus,
   SessionData,
 } from '../../lib/types';
+
+// Mesmo conjunto do backend (src/samples/sample-command-service.js).
+const COMMERCIAL_ALLOWED_STATUSES: readonly SampleStatus[] = [
+  'REGISTRATION_CONFIRMED',
+  'QR_PENDING_PRINT',
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+];
 import { SampleMovementModal } from './SampleMovementModal';
 
 type SampleMovementsPanelProps = {
@@ -84,6 +94,7 @@ export function SampleMovementsPanel({
   const sold = sample.soldSacks ?? 0;
   const lost = sample.lostSacks ?? 0;
   const available = sample.availableSacks ?? 0;
+  const commercialAllowed = COMMERCIAL_ALLOWED_STATUSES.includes(sample.status);
   const totalDeclared = sample.declared?.sacks ?? sold + lost + available;
   const total = totalDeclared || 1;
   const soldPct = (sold / total) * 100;
@@ -284,7 +295,7 @@ export function SampleMovementsPanel({
         <button
           type="button"
           className="sdv-com-action-loss"
-          disabled={sample.status !== 'CLASSIFIED' || available <= 0}
+          disabled={!commercialAllowed || available <= 0}
           onClick={() => {
             setCreateType('LOSS');
             setCreateOpen(true);
@@ -300,7 +311,7 @@ export function SampleMovementsPanel({
         <button
           type="button"
           className="sdv-com-action-sale"
-          disabled={sample.status !== 'CLASSIFIED' || available <= 0}
+          disabled={!commercialAllowed || available <= 0}
           onClick={() => {
             setCreateType('SALE');
             setCreateOpen(true);
