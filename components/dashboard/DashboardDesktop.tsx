@@ -246,7 +246,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         <div className="dd-metrics-row">
           <MetricsCard
             kicker="Operacional"
-            subtitle="Registro → Classificacao"
+            subtitle="Registro → Classificacao (inclui pendentes)"
             data={operationalMetrics}
             color="#5f8c6a"
             id="operational"

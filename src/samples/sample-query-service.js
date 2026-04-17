@@ -1533,28 +1533,33 @@ export class SampleQueryService {
   }
 
   async getDashboardOperationalMetrics() {
+    // Opcao B1: cohort por data de registro, inclui amostras pendentes contando com
+    // (NOW() - registered_at). Amostras INVALIDATED sao excluidas. Janela de 28 dias
+    // aplicada sobre registered_at, nao classified_at, para que dias antigos estabilizem
+    // e pendentes "fossilizadas" fora da janela nao distorcam a metrica.
     const rows = await this.prisma.$queryRaw`
-      WITH classified AS (
-        SELECT sample_id, MIN(occurred_at) AS classified_at
-        FROM sample_event
-        WHERE event_type = 'CLASSIFICATION_COMPLETED'
-          AND occurred_at >= NOW() - INTERVAL '28 days'
-        GROUP BY sample_id
-      ),
-      registered AS (
+      WITH registered AS (
         SELECT sample_id, MIN(occurred_at) AS registered_at
         FROM sample_event
         WHERE event_type = 'REGISTRATION_CONFIRMED'
         GROUP BY sample_id
+      ),
+      classified AS (
+        SELECT sample_id, MIN(occurred_at) AS classified_at
+        FROM sample_event
+        WHERE event_type = 'CLASSIFICATION_COMPLETED'
+        GROUP BY sample_id
       )
       SELECT
-        (c.classified_at - INTERVAL '3 hours')::date AS "date",
-        EXTRACT(EPOCH FROM (c.classified_at - r.registered_at)) / 3600.0 AS "hoursElapsed"
-      FROM classified c
-      JOIN registered r ON r.sample_id = c.sample_id
-      JOIN sample s ON s.id = c.sample_id AND s.status != 'INVALIDATED'
-      WHERE c.classified_at > r.registered_at
-      ORDER BY c.classified_at
+        (r.registered_at - INTERVAL '3 hours')::date AS "date",
+        EXTRACT(EPOCH FROM (COALESCE(c.classified_at, NOW()) - r.registered_at)) / 3600.0
+          AS "hoursElapsed"
+      FROM registered r
+      LEFT JOIN classified c ON c.sample_id = r.sample_id
+      JOIN sample s ON s.id = r.sample_id AND s.status != 'INVALIDATED'
+      WHERE r.registered_at >= NOW() - INTERVAL '28 days'
+        AND (c.classified_at IS NULL OR c.classified_at > r.registered_at)
+      ORDER BY r.registered_at
     `;
 
     const byDate = new Map();
