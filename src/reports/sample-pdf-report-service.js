@@ -168,6 +168,33 @@ function drawImageCover(page, image, { x, y, width, height }) {
   page.pushOperators(popGraphicsState());
 }
 
+function drawImageContain(page, image, { x, y, width, height }) {
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+
+  page.drawRectangle({
+    x,
+    y,
+    width,
+    height,
+    color: rgb(0.94, 0.94, 0.94),
+  });
+
+  const scale = Math.min(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+
+  page.drawImage(image, {
+    x: drawX,
+    y: drawY,
+    width: drawWidth,
+    height: drawHeight,
+  });
+}
+
 function buildReportFileName(sample) {
   const internalLot =
     typeof sample?.internalLotNumber === 'string' ? sample.internalLotNumber.trim() : '';
@@ -663,7 +690,7 @@ async function renderSamplePdf({
   const photoInnerW = topRightWidth;
   const photoInnerH = topRowHeight - 26;
 
-  drawImageCover(page, classificationImage, {
+  drawImageContain(page, classificationImage, {
     x: photoInnerX,
     y: photoInnerY,
     width: photoInnerW,
