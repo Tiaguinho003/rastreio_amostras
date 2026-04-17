@@ -30,6 +30,7 @@ import {
   uploadClassificationPhoto,
 } from '../../../lib/api-client';
 import { compressImage } from '../../../lib/compress-image';
+import { shareOrDownloadFile } from '../../../lib/share-blob';
 import {
   invalidateSampleSchema,
   registrationFormSchema,
@@ -1125,19 +1126,29 @@ export default function SampleDetailPage() {
         recipientClientId: recipientClient?.id ?? null,
       });
 
-      const blobUrl = URL.createObjectURL(exported.blob);
-      const anchor = document.createElement('a');
-      anchor.href = blobUrl;
-      anchor.download = exported.fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(blobUrl);
-
-      setGeneralNotice({
-        kind: 'success',
-        text: `Laudo PDF (${getExportTypeLabel(exportType)}) exportado com sucesso.`,
+      const typeLabel = getExportTypeLabel(exportType);
+      const result = await shareOrDownloadFile(exported.blob, exported.fileName, {
+        mimeType: 'application/pdf',
+        shareTitle: `Laudo ${typeLabel}`,
       });
+
+      if (result === 'cancelled') {
+        setGeneralNotice({
+          kind: 'success',
+          text: `Laudo PDF (${typeLabel}) cancelado.`,
+        });
+      } else if (result === 'shared') {
+        setGeneralNotice({
+          kind: 'success',
+          text: `Laudo PDF (${typeLabel}) compartilhado.`,
+        });
+      } else {
+        setGeneralNotice({
+          kind: 'success',
+          text: `Laudo PDF (${typeLabel}) baixado.`,
+        });
+      }
+
       setExportConfirmationOpen(false);
       setPendingExportType(null);
       setExportRecipientClient(null);

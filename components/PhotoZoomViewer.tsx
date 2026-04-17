@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { shareOrDownloadFile } from '../lib/share-blob';
+
 interface PhotoZoomViewerProps {
   src: string;
   alt: string;
@@ -70,37 +72,13 @@ export function PhotoZoomViewer({ src, alt, exportFilename, onClose }: PhotoZoom
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       const filename = exportFilename ?? `classificacao-${Date.now()}.jpg`;
-      const mimeType = blob.type || 'image/jpeg';
-      const file = new File([blob], filename, { type: mimeType });
 
-      const canUseShare =
-        typeof navigator !== 'undefined' &&
-        typeof navigator.share === 'function' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare({ files: [file] });
-
-      if (canUseShare) {
-        try {
-          await navigator.share({ files: [file] });
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') return;
-          throw error;
-        }
-        return;
+      const result = await shareOrDownloadFile(blob, filename, {
+        mimeType: blob.type || 'image/jpeg',
+      });
+      if (result === 'downloaded') {
+        showToast({ kind: 'success', text: 'Foto baixada.' });
       }
-
-      const url = URL.createObjectURL(blob);
-      try {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-      showToast({ kind: 'success', text: 'Foto baixada.' });
     } catch {
       showToast({ kind: 'error', text: 'Falha ao exportar foto.' });
     } finally {
