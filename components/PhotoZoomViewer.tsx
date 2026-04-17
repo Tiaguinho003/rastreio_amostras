@@ -37,23 +37,20 @@ export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
   } | null>(null);
   const lastTapRef = useRef(0);
 
-  const clampOffset = useCallback(
-    (nextOffset: { x: number; y: number }, nextScale: number) => {
-      const stage = stageRef.current;
-      const img = imgRef.current;
-      if (!stage || !img || nextScale <= 1) return { x: 0, y: 0 };
-      const stageRect = stage.getBoundingClientRect();
-      const scaledW = img.clientWidth * nextScale;
-      const scaledH = img.clientHeight * nextScale;
-      const maxX = Math.max(0, (scaledW - stageRect.width) / 2);
-      const maxY = Math.max(0, (scaledH - stageRect.height) / 2);
-      return {
-        x: Math.max(-maxX, Math.min(maxX, nextOffset.x)),
-        y: Math.max(-maxY, Math.min(maxY, nextOffset.y)),
-      };
-    },
-    []
-  );
+  const clampOffset = useCallback((nextOffset: { x: number; y: number }, nextScale: number) => {
+    const stage = stageRef.current;
+    const img = imgRef.current;
+    if (!stage || !img || nextScale <= 1) return { x: 0, y: 0 };
+    const stageRect = stage.getBoundingClientRect();
+    const scaledW = img.clientWidth * nextScale;
+    const scaledH = img.clientHeight * nextScale;
+    const maxX = Math.max(0, (scaledW - stageRect.width) / 2);
+    const maxY = Math.max(0, (scaledH - stageRect.height) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nextOffset.x)),
+      y: Math.max(-maxY, Math.min(maxY, nextOffset.y)),
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -133,10 +130,7 @@ export function PhotoZoomViewer({ src, alt, onClose }: PhotoZoomViewerProps) {
         const t2 = e.touches[1];
         const d = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
         const ratio = d / pinchRef.current.startDistance;
-        const next = Math.min(
-          MAX_SCALE,
-          Math.max(MIN_SCALE, pinchRef.current.startScale * ratio)
-        );
+        const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchRef.current.startScale * ratio));
         setScale(next);
         setOffset((prev) => clampOffset(prev, next));
         return;
