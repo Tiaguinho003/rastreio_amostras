@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/classification-extraction-failed.payload.schema.json",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/classification-extraction-failed.payload.schema.json",
   "title": "CLASSIFICATION_EXTRACTION_FAILED payload",
   "type": "object",
   "properties": {

@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Rastreio Interno de Amostras',
-    short_name: 'Rastreio',
+    name: 'Amostras Safras',
+    short_name: 'Amostras Safras',
     description: 'Fluxo de registro, classificacao e rastreio de amostras de cafe.',
     start_url: '/dashboard',
     scope: '/',

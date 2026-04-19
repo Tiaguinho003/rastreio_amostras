@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/event.schema.json",
+  "$id": "https://amostras-safras.local/schemas/events/v1/event.schema.json",
   "title": "Event Contract v1 - Aggregate Schema",
   "oneOf": [
     { "$ref": "./events/sample-received.event.schema.json" },

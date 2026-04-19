@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/loss-recorded.event.schema.json",
+  "$id": "https://amostras-safras.local/schemas/events/v1/events/loss-recorded.event.schema.json",
   "title": "LOSS_RECORDED event",
   "allOf": [
     { "$ref": "../base/event-envelope.schema.json" },

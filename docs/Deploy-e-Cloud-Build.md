@@ -1,6 +1,6 @@
 # Deploy guide
 
-Guia operacional para deploy do `rastreio-interno-amostras` em producao via
+Guia operacional para deploy do `amostras-safras` em producao via
 fluxo canary.
 
 > Este guia substitui o fluxo antigo que passava por um ambiente de homolog

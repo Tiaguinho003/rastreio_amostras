@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/payloads/commercial-status-updated.payload.schema.json",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/commercial-status-updated.payload.schema.json",
   "title": "COMMERCIAL_STATUS_UPDATED payload",
   "type": "object",
   "properties": {

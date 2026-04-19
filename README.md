@@ -1,4 +1,4 @@
-# Rastreio Interno de Amostras
+# Amostras Safras
 
 Sistema fullstack para rastreio interno de amostras, com fluxo operacional de recebimento, registro, QR, classificacao, laudo, autenticacao e administracao de usuarios.
 

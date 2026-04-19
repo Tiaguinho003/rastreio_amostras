@@ -1,4 +1,4 @@
-# Security Audit — rastreio-interno-amostras
+# Security Audit — amostras-safras
 
 Status: Ativo
 Escopo: threat model e gap analysis das 9 categorias de seguranca

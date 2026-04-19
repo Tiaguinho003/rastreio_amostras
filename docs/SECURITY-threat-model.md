@@ -1,4 +1,4 @@
-# Threat Model — rastreio-interno-amostras
+# Threat Model — amostras-safras
 
 Status: Ativo
 Escopo: analise estruturada de ameacas e mitigacoes derivada do security audit (Passe 7A)

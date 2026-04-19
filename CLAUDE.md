@@ -1,4 +1,4 @@
-# CLAUDE.md — rastreio-interno-amostras
+# CLAUDE.md — amostras-safras
 
 Este arquivo configura o Claude Code para trabalhar neste repositorio.
 

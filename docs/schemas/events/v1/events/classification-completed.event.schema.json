@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rastreio-interno-amostras.local/schemas/events/v1/events/classification-completed.event.schema.json",
+  "$id": "https://amostras-safras.local/schemas/events/v1/events/classification-completed.event.schema.json",
   "title": "CLASSIFICATION_COMPLETED event",
   "allOf": [
     { "$ref": "../base/event-envelope.schema.json" },

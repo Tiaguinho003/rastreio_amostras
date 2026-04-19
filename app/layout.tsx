@@ -24,14 +24,14 @@ const metadataBase =
 
 export const metadata: Metadata = {
   metadataBase,
-  applicationName: 'Rastreio Interno de Amostras',
-  title: 'Rastreio Interno de Amostras',
+  applicationName: 'Amostras Safras',
+  title: 'Amostras Safras',
   description: 'Fluxo de registro, classificacao e rastreio de amostras de cafe.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Rastreio',
+    title: 'Amostras Safras',
   },
   formatDetection: {
     telephone: false,
