@@ -10905,6 +10905,125 @@ button:disabled {
   min-height: 2.82rem;
 }
 
+.client-reg-modal {
+  position: relative;
+  width: min(100%, 29rem);
+  max-height: min(88dvh, 40rem);
+  overflow: hidden;
+  gap: clamp(0.5rem, 2vw, 0.75rem);
+  padding: clamp(0.7rem, 3vw, 1rem);
+}
+
+.client-reg-modal-header {
+  gap: 0.65rem;
+}
+
+.client-reg-modal-copy {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.client-reg-modal-close {
+  flex: 0 0 auto;
+  min-width: 2rem;
+  min-height: 2rem;
+}
+
+.client-reg-modal-close span {
+  font-size: 1.18rem;
+}
+
+.client-reg-modal-form {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(0.5rem, 2vw, 0.72rem);
+}
+
+.client-reg-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  gap: clamp(0.5rem, 2vw, 0.72rem);
+  padding-right: 0.08rem;
+}
+
+.client-reg-modal-group {
+  display: grid;
+  gap: clamp(0.4rem, 1.5vw, 0.52rem);
+  padding: clamp(0.55rem, 2.2vw, 0.7rem);
+  border: 1px solid rgba(214, 214, 214, 0.46);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.44);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 8px 14px rgba(18, 24, 20, 0.05);
+}
+
+.client-reg-modal-group-title {
+  margin: 0 0 clamp(0.1rem, 0.6vw, 0.2rem);
+  color: #536152;
+  font-size: clamp(0.66rem, 2.3vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.client-reg-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+}
+
+.client-reg-modal-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.client-reg-modal-grid-double {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.client-reg-modal-grid-uf-cep {
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: end;
+}
+
+.client-reg-modal-field {
+  display: grid;
+  gap: clamp(0.22rem, 1vw, 0.32rem);
+  font-size: clamp(0.82rem, 2.8vw, 0.88rem);
+  min-width: 0;
+}
+
+.client-reg-modal-field input {
+  padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
+  font-size: clamp(0.82rem, 2.8vw, 0.9rem);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.client-reg-modal-field.is-field-error {
+  color: inherit;
+}
+
+.client-reg-modal-field.is-field-error input {
+  border-color: rgba(196, 92, 92, 0.4);
+}
+
+.client-reg-modal-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.56rem;
+}
+
+.client-reg-modal-actions .app-modal-secondary,
+.client-reg-modal-actions .app-modal-submit {
+  min-height: 2.82rem;
+}
+
 .clients-page-shell {
   display: grid;
   gap: 1rem;
@@ -18523,6 +18642,43 @@ button:disabled {
   .client-quick-create-grid,
   .client-quick-create-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .client-reg-modal {
+    width: min(620px, calc(100vw - 3rem));
+    max-height: none;
+    overflow: visible;
+    gap: 0.95rem;
+    padding: 1.25rem;
+  }
+
+  .client-reg-modal-body {
+    overflow: visible;
+    min-height: auto;
+    gap: 0.9rem;
+    padding-right: 0;
+  }
+
+  .client-reg-modal-group {
+    padding: 0.875rem;
+  }
+
+  .client-reg-modal-field {
+    gap: 0.4rem;
+  }
+
+  .client-reg-modal-field input {
+    padding: 0.775rem 0.975rem;
+    font-size: 1.05rem;
+  }
+
+  .client-reg-modal-actions > button {
+    min-height: 3.525rem;
+    font-size: 1.05rem;
+  }
+
+  .client-reg-modal-grid-uf-cep {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
   }
 
   /* ══════════════════════════════════════════

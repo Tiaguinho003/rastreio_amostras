@@ -54,6 +54,46 @@ function NoticeSlot({ notice }: { notice: Notice }) {
   );
 }
 
+const REG_FIELD_LABELS: Record<string, string> = {
+  registrationNumber: 'Numero da inscricao',
+  registrationType: 'Tipo',
+  addressLine: 'Endereco',
+  district: 'Bairro',
+  city: 'Cidade',
+  state: 'UF',
+  postalCode: 'CEP',
+  complement: 'Complemento',
+};
+
+function translateRegistrationError(cause: unknown): string {
+  if (!(cause instanceof ApiError)) {
+    return 'Falha ao salvar inscricao. Tente novamente.';
+  }
+  if (cause.status === 0) {
+    return 'Sem conexao com o servidor. Verifique sua internet e tente novamente.';
+  }
+  if (cause.status === 401) {
+    return 'Sessao expirada. Faca login novamente.';
+  }
+  if (cause.status === 403) {
+    return 'Sem permissao para esta acao.';
+  }
+  const message = cause.message ?? '';
+  if (message.includes('already exists')) {
+    return 'Numero de inscricao ja esta cadastrado no sistema.';
+  }
+  if (message.includes('No client registration changes')) {
+    return 'Nenhuma alteracao detectada para salvar.';
+  }
+  if (cause.status === 422 && cause.details && typeof cause.details === 'object') {
+    const field = (cause.details as { field?: string }).field;
+    if (field && REG_FIELD_LABELS[field]) {
+      return `${REG_FIELD_LABELS[field]} invalido.`;
+    }
+  }
+  return 'Falha ao salvar inscricao. Tente novamente.';
+}
+
 function clientSummaryToForm(client: ClientSummary) {
   return {
     personType: client.personType,
@@ -171,6 +211,7 @@ export default function ClientDetailPage() {
   const [regForm, setRegForm] = useState(blankRegistrationForm());
   const [selectedRegId, setSelectedRegId] = useState<string | null>(null);
   const [savingReg, setSavingReg] = useState(false);
+  const [regSubmitted, setRegSubmitted] = useState(false);
   const regTrapRef = useFocusTrap(regModalOpen);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
@@ -675,6 +716,9 @@ export default function ClientDetailPage() {
     setRegForm(blankRegistrationForm());
     setSelectedRegId(null);
     setRegistrationModalNotice(null);
+    setRegSubmitted(false);
+    setSavingReg(false);
+    setRegSuccess(false);
     setRegModalOpen(true);
   }
 
@@ -683,6 +727,9 @@ export default function ClientDetailPage() {
     setRegForm(registrationToForm(reg));
     setSelectedRegId(reg.id);
     setRegistrationModalNotice(null);
+    setRegSubmitted(false);
+    setSavingReg(false);
+    setRegSuccess(false);
     setRegModalOpen(true);
   }
 
@@ -693,7 +740,15 @@ export default function ClientDetailPage() {
 
   async function handleRegSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!session || !clientId || !canSaveReg) return;
+    setRegSubmitted(true);
+    if (!session || !clientId) return;
+    if (!canSaveReg) {
+      setRegistrationModalNotice({
+        kind: 'error',
+        text: 'Preencha os campos obrigatorios destacados.',
+      });
+      return;
+    }
     setSavingReg(true);
     setRegistrationModalNotice(null);
 
@@ -728,7 +783,7 @@ export default function ClientDetailPage() {
     } catch (cause) {
       setRegistrationModalNotice({
         kind: 'error',
-        text: cause instanceof ApiError ? cause.message : 'Falha ao salvar inscricao.',
+        text: translateRegistrationError(cause),
       });
     } finally {
       setSavingReg(false);
@@ -1625,166 +1680,262 @@ export default function ClientDetailPage() {
         <div
           className="app-modal-backdrop"
           onClick={() => {
-            if (!savingReg) closeRegModal();
+            if (!savingReg && !regSuccess) closeRegModal();
           }}
         >
           <section
             ref={regTrapRef}
-            className="app-modal client-detail-reg-modal client-detail-modal-scrollable"
+            className="app-modal client-reg-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="reg-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="reg-modal-title" className="app-modal-title">
+            {regSuccess ? (
+              <div className="client-create-success-overlay" aria-live="polite">
+                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#2f8a3e"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 27l7 7 15-15"
+                  />
+                </svg>
+              </div>
+            ) : null}
+
+            <div className="client-modal-header client-reg-modal-header">
+              <div className="client-reg-modal-copy">
+                <h3 id="reg-modal-title" style={{ margin: 0 }}>
                   {regModalMode === 'create' ? 'Nova inscricao' : 'Editar inscricao'}
                 </h3>
               </div>
               <button
                 type="button"
-                className="app-modal-close"
+                className="app-modal-close client-reg-modal-close"
                 onClick={closeRegModal}
                 disabled={savingReg || regSuccess}
                 aria-label="Fechar"
               >
-                <span aria-hidden="true">&times;</span>
+                <span aria-hidden="true">×</span>
               </button>
-            </header>
+            </div>
 
-            {regSuccess ? (
-              <div className="client-detail-success-check">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-              </div>
-            ) : (
-              <form
-                className="app-modal-content client-detail-modal-form"
-                onSubmit={handleRegSubmit}
-              >
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Numero da inscricao</span>
-                  <input
-                    className="app-modal-input"
-                    value={regForm.registrationNumber}
-                    disabled={savingReg}
-                    onChange={(e) =>
-                      setRegForm((c) => ({ ...c, registrationNumber: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Tipo</span>
-                  <input
-                    className="app-modal-input"
-                    value={regForm.registrationType}
-                    disabled={savingReg}
-                    onChange={(e) =>
-                      setRegForm((c) => ({ ...c, registrationType: e.target.value }))
-                    }
-                    placeholder="Ex: IE, CNAE"
-                  />
-                </label>
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Endereco</span>
-                  <input
-                    className="app-modal-input"
-                    value={regForm.addressLine}
-                    disabled={savingReg}
-                    onChange={(e) => setRegForm((c) => ({ ...c, addressLine: e.target.value }))}
-                  />
-                </label>
-                <div className="client-detail-modal-row">
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Bairro</span>
-                    <input
-                      className="app-modal-input"
-                      value={regForm.district}
-                      disabled={savingReg}
-                      onChange={(e) => setRegForm((c) => ({ ...c, district: e.target.value }))}
-                    />
-                  </label>
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Cidade</span>
-                    <input
-                      className="app-modal-input"
-                      value={regForm.city}
-                      disabled={savingReg}
-                      onChange={(e) => setRegForm((c) => ({ ...c, city: e.target.value }))}
-                    />
-                  </label>
-                </div>
-                <div className="client-detail-modal-row">
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">UF</span>
-                    <input
-                      className="app-modal-input"
-                      value={regForm.state}
-                      maxLength={2}
-                      disabled={savingReg}
-                      onChange={(e) =>
-                        setRegForm((c) => ({ ...c, state: e.target.value.toUpperCase() }))
-                      }
-                    />
-                  </label>
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">CEP</span>
-                    <input
-                      className="app-modal-input"
-                      value={regForm.postalCode}
-                      disabled={savingReg}
-                      onChange={(e) => setRegForm((c) => ({ ...c, postalCode: e.target.value }))}
-                    />
-                  </label>
-                </div>
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Complemento</span>
-                  <input
-                    className="app-modal-input"
-                    value={regForm.complement}
-                    disabled={savingReg}
-                    onChange={(e) => setRegForm((c) => ({ ...c, complement: e.target.value }))}
-                    placeholder="Opcional"
-                  />
-                </label>
-
-                {regModalMode === 'edit' ? (
-                  <label className="app-modal-field">
-                    <span className="app-modal-label">Motivo da edicao (opcional)</span>
-                    <input
-                      className="app-modal-input"
-                      value={regForm.reasonText}
-                      disabled={savingReg}
-                      onChange={(e) => setRegForm((c) => ({ ...c, reasonText: e.target.value }))}
-                      placeholder="Opcional"
-                    />
-                  </label>
-                ) : null}
-
+            <form className="client-reg-modal-form" onSubmit={handleRegSubmit}>
+              <div className="client-reg-modal-body">
                 <NoticeSlot notice={registrationModalNotice} />
 
-                <div className="app-modal-actions">
-                  <button
-                    type="submit"
-                    className="app-modal-submit"
-                    disabled={savingReg || !canSaveReg}
-                  >
-                    {savingReg ? 'Salvando...' : regModalMode === 'create' ? 'Cadastrar' : 'Salvar'}
-                  </button>
-                  <button
-                    type="button"
-                    className="app-modal-secondary"
-                    onClick={closeRegModal}
-                    disabled={savingReg}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
+                <section
+                  className="client-reg-modal-group"
+                  aria-labelledby="reg-group-identificacao"
+                >
+                  <p id="reg-group-identificacao" className="client-reg-modal-group-title">
+                    Identificacao da inscricao
+                  </p>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.registrationNumber.trim() ? ' is-field-error' : ''}`}
+                    >
+                      Numero da inscricao
+                      <input
+                        value={regForm.registrationNumber}
+                        maxLength={80}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.registrationNumber.trim()
+                            ? 'cqc-input-error'
+                            : undefined
+                        }
+                        onChange={(e) =>
+                          setRegForm((c) => ({ ...c, registrationNumber: e.target.value }))
+                        }
+                        placeholder={
+                          regSubmitted && !regForm.registrationNumber.trim() ? 'Obrigatorio' : ''
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.registrationType.trim() ? ' is-field-error' : ''}`}
+                    >
+                      Tipo
+                      <input
+                        value={regForm.registrationType}
+                        maxLength={80}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.registrationType.trim()
+                            ? 'cqc-input-error'
+                            : undefined
+                        }
+                        onChange={(e) =>
+                          setRegForm((c) => ({ ...c, registrationType: e.target.value }))
+                        }
+                        placeholder={
+                          regSubmitted && !regForm.registrationType.trim()
+                            ? 'Obrigatorio'
+                            : 'Ex: Produtor Rural, Inscricao Estadual'
+                        }
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="client-reg-modal-group" aria-labelledby="reg-group-endereco">
+                  <p id="reg-group-endereco" className="client-reg-modal-group-title">
+                    Endereco
+                  </p>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.addressLine.trim() ? ' is-field-error' : ''}`}
+                    >
+                      Logradouro
+                      <input
+                        value={regForm.addressLine}
+                        maxLength={200}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.addressLine.trim()
+                            ? 'cqc-input-error'
+                            : undefined
+                        }
+                        onChange={(e) => setRegForm((c) => ({ ...c, addressLine: e.target.value }))}
+                        placeholder={
+                          regSubmitted && !regForm.addressLine.trim() ? 'Obrigatorio' : ''
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-double">
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.district.trim() ? ' is-field-error' : ''}`}
+                    >
+                      Bairro
+                      <input
+                        value={regForm.district}
+                        maxLength={120}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.district.trim() ? 'cqc-input-error' : undefined
+                        }
+                        onChange={(e) => setRegForm((c) => ({ ...c, district: e.target.value }))}
+                        placeholder={regSubmitted && !regForm.district.trim() ? 'Obrigatorio' : ''}
+                      />
+                    </label>
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.city.trim() ? ' is-field-error' : ''}`}
+                    >
+                      Cidade
+                      <input
+                        value={regForm.city}
+                        maxLength={120}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.city.trim() ? 'cqc-input-error' : undefined
+                        }
+                        onChange={(e) => setRegForm((c) => ({ ...c, city: e.target.value }))}
+                        placeholder={regSubmitted && !regForm.city.trim() ? 'Obrigatorio' : ''}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-uf-cep">
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.state.trim() ? ' is-field-error' : ''}`}
+                    >
+                      UF
+                      <input
+                        value={regForm.state}
+                        maxLength={2}
+                        disabled={savingReg}
+                        className={
+                          regSubmitted && !regForm.state.trim() ? 'cqc-input-error' : undefined
+                        }
+                        onChange={(e) =>
+                          setRegForm((c) => ({ ...c, state: e.target.value.toUpperCase() }))
+                        }
+                        placeholder={regSubmitted && !regForm.state.trim() ? 'Obrig.' : ''}
+                      />
+                    </label>
+                    <label
+                      className={`client-reg-modal-field${regSubmitted && !regForm.postalCode.trim() ? ' is-field-error' : ''}`}
+                    >
+                      CEP
+                      <input
+                        value={regForm.postalCode}
+                        maxLength={16}
+                        disabled={savingReg}
+                        inputMode="numeric"
+                        className={
+                          regSubmitted && !regForm.postalCode.trim() ? 'cqc-input-error' : undefined
+                        }
+                        onChange={(e) => setRegForm((c) => ({ ...c, postalCode: e.target.value }))}
+                        placeholder={
+                          regSubmitted && !regForm.postalCode.trim() ? 'Obrigatorio' : ''
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
+                    <label className="client-reg-modal-field">
+                      Complemento
+                      <input
+                        value={regForm.complement}
+                        maxLength={120}
+                        disabled={savingReg}
+                        onChange={(e) => setRegForm((c) => ({ ...c, complement: e.target.value }))}
+                        placeholder="Ex: Fazenda Santa Maria (opcional)"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                {regModalMode === 'edit' ? (
+                  <section className="client-reg-modal-group" aria-labelledby="reg-group-motivo">
+                    <p id="reg-group-motivo" className="client-reg-modal-group-title">
+                      Motivo da edicao
+                    </p>
+                    <div className="client-reg-modal-grid client-reg-modal-grid-single">
+                      <label className="client-reg-modal-field">
+                        Motivo
+                        <input
+                          value={regForm.reasonText}
+                          maxLength={300}
+                          disabled={savingReg}
+                          onChange={(e) =>
+                            setRegForm((c) => ({ ...c, reasonText: e.target.value }))
+                          }
+                          placeholder="Opcional"
+                        />
+                      </label>
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+
+              <div className="client-reg-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={closeRegModal}
+                  disabled={savingReg}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="app-modal-submit" disabled={savingReg}>
+                  {savingReg ? 'Salvando...' : regModalMode === 'create' ? 'Cadastrar' : 'Salvar'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}
