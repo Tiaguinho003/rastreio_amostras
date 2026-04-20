@@ -561,6 +561,21 @@ function SamplesPage() {
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterSectionRefs = useRef<Partial<Record<FilterSectionId, HTMLElement | null>>>({});
+
+  // Controle do fetch-more: estado imperativo que nao dispara re-render.
+  // inFlight previne chamadas concorrentes. token invalida responses obsoletos
+  // quando filtros/busca mudam durante um load-more em andamento.
+  const loadMoreStateRef = useRef<{ inFlight: boolean; token: number }>({
+    inFlight: false,
+    token: 0,
+  });
+  const mountedRef = useRef(true);
+
+  // Refs mutaveis para capturar filtros/sessao atuais dentro do callback estavel
+  // de load-more, sem precisar incluir os valores nas deps do useCallback (o que
+  // recriaria o callback a cada mudanca e forcaria o observer a reconectar).
+  const sessionRef = useRef(session);
+  const filtersRef = useRef({ appliedSearch, appliedHiddenFilters, activeAging });
   const hasDraftHiddenFilters = useMemo(
     () => hasAnyHiddenFilter(draftHiddenFilters),
     [draftHiddenFilters]
@@ -685,6 +700,70 @@ function SamplesPage() {
   }, [activeFilterSection, filtersOpen]);
 
   useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    filtersRef.current = { appliedSearch, appliedHiddenFilters, activeAging };
+  }, [appliedSearch, appliedHiddenFilters, activeAging]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const runLoadMore = useCallback((cursor: SampleCursor) => {
+    const state = loadMoreStateRef.current;
+    if (state.inFlight) return;
+    const currentSession = sessionRef.current;
+    if (!currentSession) return;
+
+    state.inFlight = true;
+    const myToken = state.token;
+    const filters = filtersRef.current;
+
+    dispatchSamples({ type: 'fetch-more' });
+
+    listSamples(currentSession, {
+      limit: SAMPLE_PAGE_LIMIT,
+      cursorCreatedAt: cursor.createdAt,
+      cursorId: cursor.id,
+      search: filters.appliedSearch || undefined,
+      owner: filters.appliedHiddenFilters.owner || undefined,
+      buyer: filters.appliedHiddenFilters.buyer || undefined,
+      statusGroup: filters.appliedHiddenFilters.statusGroup || undefined,
+      commercialStatus: filters.appliedHiddenFilters.commercialStatus || undefined,
+      harvest: filters.appliedHiddenFilters.harvest || undefined,
+      sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
+      sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
+      ...buildPeriodQuery(filters.appliedHiddenFilters),
+      classifiedAging: filters.activeAging || undefined,
+    })
+      .then((response) => {
+        state.inFlight = false;
+        if (!mountedRef.current) return;
+        if (state.token !== myToken) return;
+        dispatchSamples({
+          type: 'success-more',
+          items: response.items,
+          nextCursor: response.page.nextCursor,
+        });
+      })
+      .catch((cause) => {
+        state.inFlight = false;
+        if (!mountedRef.current) return;
+        if (state.token !== myToken) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        dispatchSamples({
+          type: 'error',
+          message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais registros',
+        });
+      });
+  }, []);
+
+  useEffect(() => {
     if (!session) {
       return;
     }
@@ -693,6 +772,11 @@ function SamplesPage() {
       skipNextFetchRef.current = false;
       return;
     }
+
+    // Invalida qualquer load-more em andamento: a proxima resposta obsoleta
+    // sera descartada ao comparar com o token atual.
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
 
     const abortController = new AbortController();
     let active = true;
@@ -761,72 +845,23 @@ function SamplesPage() {
 
     const scrollRoot = samplesScrollRef.current;
     const cursor = samplesState.nextCursor;
-    let abortController: AbortController | null = null;
-    let cancelled = false;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries[0]?.isIntersecting) return;
-        if (cancelled) return;
-
-        abortController = new AbortController();
-        dispatchSamples({ type: 'fetch-more' });
-
-        listSamples(
-          session,
-          {
-            limit: SAMPLE_PAGE_LIMIT,
-            cursorCreatedAt: cursor.createdAt,
-            cursorId: cursor.id,
-            search: appliedSearch || undefined,
-            owner: appliedHiddenFilters.owner || undefined,
-            buyer: appliedHiddenFilters.buyer || undefined,
-            statusGroup: appliedHiddenFilters.statusGroup || undefined,
-            commercialStatus: appliedHiddenFilters.commercialStatus || undefined,
-            harvest: appliedHiddenFilters.harvest || undefined,
-            sacksMin: appliedHiddenFilters.sacksMin || undefined,
-            sacksMax: appliedHiddenFilters.sacksMax || undefined,
-            ...buildPeriodQuery(appliedHiddenFilters),
-            classifiedAging: activeAging || undefined,
-          },
-          { signal: abortController.signal }
-        )
-          .then((response) => {
-            if (cancelled) return;
-            dispatchSamples({
-              type: 'success-more',
-              items: response.items,
-              nextCursor: response.page.nextCursor,
-            });
-          })
-          .catch((cause) => {
-            if (cancelled) return;
-            if (cause instanceof DOMException && cause.name === 'AbortError') return;
-            dispatchSamples({
-              type: 'error',
-              message:
-                cause instanceof ApiError ? cause.message : 'Falha ao carregar mais registros',
-            });
-          });
+        if (entries[0]?.isIntersecting) {
+          runLoadMore(cursor);
+        }
       },
       { root: scrollRoot, rootMargin: '200px' }
     );
 
     observer.observe(sentinel);
 
-    return () => {
-      cancelled = true;
-      observer.disconnect();
-      abortController?.abort();
-    };
-  }, [
-    activeAging,
-    appliedHiddenFilters,
-    appliedSearch,
-    samplesState.nextCursor,
-    samplesState.status,
-    session,
-  ]);
+    // Apenas desconecta o observer. Nao aborta o fetch em andamento:
+    // se dispatch de fetch-more muda status->loading-more e dispara este
+    // cleanup, o fetch continua e sua resposta ainda entra via success-more.
+    return () => observer.disconnect();
+  }, [runLoadMore, samplesState.nextCursor, samplesState.status, session]);
 
   function clearAging() {
     clearSamplesSnapshot();
