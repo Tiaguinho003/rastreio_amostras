@@ -892,7 +892,7 @@ export class ClientService {
           createdAt: true,
           updatedAt: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: offset,
         take: limit,
       }),
