@@ -1303,7 +1303,7 @@ export class SampleQueryService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
         where,
-        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
         include: SAMPLE_INCLUDE,
