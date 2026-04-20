@@ -570,13 +570,15 @@ export interface DashboardOperationalMetricsResponse {
 export type DashboardRecentActivityType =
   | 'REGISTRATION_CONFIRMED'
   | 'SALE_CREATED'
-  | 'LOSS_RECORDED';
+  | 'LOSS_RECORDED'
+  | 'PHYSICAL_SAMPLE_SENT';
 
 export interface DashboardRecentActivityItem {
   sampleId: string;
   internalLotNumber: string | null;
   producer: string | null;
   sacks: number | null;
+  recipient: string | null;
   activity: {
     type: DashboardRecentActivityType;
     at: string;

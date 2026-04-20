@@ -23,6 +23,11 @@ const EVENT_CONFIG: Record<
     color: '#9a3434',
     bg: 'rgba(154, 52, 52, 0.12)',
   },
+  PHYSICAL_SAMPLE_SENT: {
+    label: 'Enviada',
+    color: '#b56a1d',
+    bg: 'rgba(181, 106, 29, 0.12)',
+  },
 };
 
 function formatRelativeTime(iso: string): string {
@@ -54,6 +59,11 @@ function formatProducer(producer: string | null): string {
   return producer;
 }
 
+function formatRecipient(recipient: string | null): string {
+  if (!recipient || recipient.trim() === '') return '—';
+  return recipient;
+}
+
 function formatLot(lot: string | null, fallback: string): string {
   return lot ?? fallback.slice(0, 8);
 }
@@ -73,9 +83,10 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="dd-activity-card dd-activity-skeleton" aria-hidden="true">
               <span className="dd-card-label-placeholder" style={{ width: 70, height: 14 }} />
-              <span className="dd-card-label-placeholder" style={{ width: '50%', height: 14 }} />
-              <span className="dd-card-label-placeholder" style={{ width: 60, height: 14 }} />
+              <span className="dd-card-label-placeholder" style={{ width: '60%', height: 14 }} />
               <span className="dd-card-label-placeholder" style={{ width: 90, height: 14 }} />
+              <span className="dd-card-label-placeholder" style={{ width: 60, height: 14 }} />
+              <span className="dd-card-label-placeholder" style={{ width: '55%', height: 14 }} />
               <span className="dd-card-label-placeholder" style={{ width: 55, height: 14 }} />
             </div>
           ))}
@@ -115,10 +126,11 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
                 {formatLot(item.internalLotNumber, item.sampleId)}
               </span>
               <span className="dd-activity-producer">{formatProducer(item.producer)}</span>
-              <span className="dd-activity-sacks">{formatSacks(item.sacks)}</span>
               <span className="dd-activity-event" style={{ color: cfg.color, background: cfg.bg }}>
                 {cfg.label}
               </span>
+              <span className="dd-activity-sacks">{formatSacks(item.sacks)}</span>
+              <span className="dd-activity-recipient">{formatRecipient(item.recipient)}</span>
               <span className="dd-activity-time">{formatRelativeTime(item.activity.at)}</span>
             </Link>
           );

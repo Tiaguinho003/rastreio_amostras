@@ -17005,9 +17005,10 @@ button:disabled {
     display: grid;
     grid-template-columns:
       clamp(72px, 7.5vw, 100px)
-      minmax(0, 1fr)
-      clamp(70px, 7.5vw, 100px)
+      minmax(160px, 1.5fr)
       clamp(96px, 11vw, 130px)
+      clamp(70px, 7.5vw, 100px)
+      minmax(140px, 1fr)
       clamp(68px, 7vw, 90px);
     align-items: center;
     gap: clamp(0.55rem, 0.9vw, 1rem);
@@ -17062,6 +17063,15 @@ button:disabled {
     text-align: center;
   }
 
+  .dd-activity-recipient {
+    font-size: clamp(0.8rem, 0.88vw, 0.88rem);
+    font-weight: 500;
+    color: #4d5c52;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .dd-activity-event {
     font-size: clamp(0.7rem, 0.78vw, 0.78rem);
     font-weight: 700;
@@ -17095,9 +17105,10 @@ button:disabled {
     display: grid;
     grid-template-columns:
       clamp(72px, 7.5vw, 100px)
-      minmax(0, 1fr)
-      clamp(70px, 7.5vw, 100px)
+      minmax(160px, 1.5fr)
       clamp(96px, 11vw, 130px)
+      clamp(70px, 7.5vw, 100px)
+      minmax(140px, 1fr)
       clamp(68px, 7vw, 90px);
     align-items: center;
     gap: clamp(0.55rem, 0.9vw, 1rem);

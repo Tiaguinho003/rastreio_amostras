@@ -135,11 +135,19 @@ function mapRecentActivityRow(row) {
   const eventType = row.eventType;
 
   let sacks = null;
-  if (eventType === 'REGISTRATION_CONFIRMED') {
+  if (eventType === 'REGISTRATION_CONFIRMED' || eventType === 'PHYSICAL_SAMPLE_SENT') {
     sacks = typeof row.declaredSacks === 'number' ? row.declaredSacks : null;
   } else if (eventType === 'SALE_CREATED' || eventType === 'LOSS_RECORDED') {
     if (typeof payload.quantitySacks === 'number') {
       sacks = payload.quantitySacks;
+    }
+  }
+
+  let recipient = null;
+  if (eventType === 'PHYSICAL_SAMPLE_SENT') {
+    const snapshot = payload.recipientClientSnapshot;
+    if (snapshot && typeof snapshot === 'object' && typeof snapshot.displayName === 'string') {
+      recipient = snapshot.displayName;
     }
   }
 
@@ -148,6 +156,7 @@ function mapRecentActivityRow(row) {
     internalLotNumber: row.internalLotNumber ?? null,
     producer: row.declaredOwner ?? null,
     sacks,
+    recipient,
     activity: {
       type: eventType,
       at:
@@ -1834,7 +1843,8 @@ export class SampleQueryService {
         WHERE se.event_type IN (
           'REGISTRATION_CONFIRMED',
           'SALE_CREATED',
-          'LOSS_RECORDED'
+          'LOSS_RECORDED',
+          'PHYSICAL_SAMPLE_SENT'
         )
       )
       SELECT
