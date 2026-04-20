@@ -85,12 +85,12 @@ function Gauge({
 }
 
 function AreaChart({
-  daily,
+  buckets,
   overall,
   color,
   id,
 }: {
-  daily: MetricsData['daily'];
+  buckets: MetricsData['buckets'];
   overall: number;
   color: string;
   id: string;
@@ -100,13 +100,13 @@ function AreaChart({
   const px = 2;
   const py = 4;
 
-  if (daily.length < 2) return null;
+  if (buckets.length < 2) return null;
 
-  const maxVal = Math.max(...daily.map((d) => d.value), overall) * 1.25 || 1;
+  const maxVal = Math.max(...buckets.map((b) => b.value), overall) * 1.25 || 1;
 
-  const pts = daily.map((d, i) => ({
-    x: px + (i / (daily.length - 1)) * (w - px * 2),
-    y: py + (1 - d.value / maxVal) * (h - py * 2),
+  const pts = buckets.map((b, i) => ({
+    x: px + (i / (buckets.length - 1)) * (w - px * 2),
+    y: py + (1 - b.value / maxVal) * (h - py * 2),
   }));
 
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
@@ -187,7 +187,7 @@ export function MetricsCard({
       </div>
       <div className="dd-metrics-body">
         <Gauge value={data.overall} meta={data.meta} color={color} unitMode={unitMode} />
-        <AreaChart daily={data.daily} overall={data.overall} color={color} id={id} />
+        <AreaChart buckets={data.buckets} overall={data.overall} color={color} id={id} />
       </div>
     </div>
   );

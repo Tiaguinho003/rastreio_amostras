@@ -253,7 +253,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           />
           <MetricsCard
             kicker="Comercial"
-            subtitle="Classificacao → Venda"
+            subtitle="Classificacao → Venda (ultimas 4 semanas)"
             data={commercialMetrics}
             color="#3a6ea3"
             id="commercial"

@@ -146,10 +146,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.strictEqual(result.sampleCount, 0);
     assert.strictEqual(result.meta, 24);
     assert.deepStrictEqual(
-      result.daily.map((d) => d.date),
+      result.buckets.map((d) => d.date),
       ['2026-04-16', '2026-04-17', '2026-04-18', '2026-04-19', '2026-04-20']
     );
-    for (const bucket of result.daily) {
+    for (const bucket of result.buckets) {
       assert.strictEqual(bucket.value, 0);
       assert.strictEqual(bucket.count, 0);
     }
@@ -161,13 +161,13 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardOperationalMetrics({ now: FIXED_NOW });
 
-    const monday = result.daily.find((d) => d.date === '2026-04-20');
+    const monday = result.buckets.find((d) => d.date === '2026-04-20');
     assert.ok(monday, 'bucket de segunda nao encontrado');
     assert.strictEqual(monday.count, 1);
     assert.ok(Math.abs(monday.value - 68) < 0.01, `esperado ~68h, recebeu ${monday.value}`);
 
     // Amostra classificada segunda aparece apenas no bucket de segunda.
-    for (const bucket of result.daily) {
+    for (const bucket of result.buckets) {
       if (bucket.date !== '2026-04-20') {
         assert.strictEqual(bucket.count, 0);
       }
@@ -186,8 +186,8 @@ if (!databaseUrl || !databaseReachable) {
 
     const result = await queryService.getDashboardOperationalMetrics({ now: FIXED_NOW });
 
-    const saturday = result.daily.find((d) => d.date === '2026-04-18');
-    const sunday = result.daily.find((d) => d.date === '2026-04-19');
+    const saturday = result.buckets.find((d) => d.date === '2026-04-18');
+    const sunday = result.buckets.find((d) => d.date === '2026-04-19');
 
     assert.strictEqual(saturday.count, 2);
     assert.ok(Math.abs(saturday.value - 3) < 0.01);
@@ -249,11 +249,11 @@ if (!databaseUrl || !databaseReachable) {
     const result = await queryService.getDashboardOperationalMetrics({ now: beforeCutoff });
 
     assert.deepStrictEqual(
-      result.daily.map((d) => d.date),
+      result.buckets.map((d) => d.date),
       ['2026-04-15', '2026-04-16', '2026-04-17', '2026-04-18', '2026-04-19']
     );
     assert.strictEqual(result.sampleCount, 1);
-    const firstBucket = result.daily.find((d) => d.date === '2026-04-15');
+    const firstBucket = result.buckets.find((d) => d.date === '2026-04-15');
     assert.strictEqual(firstBucket.count, 1);
   });
 }

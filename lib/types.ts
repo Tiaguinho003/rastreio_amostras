@@ -559,7 +559,7 @@ export interface DashboardOperationalMetricsResponse {
   overall: number | null;
   meta: number;
   sampleCount: number;
-  daily: Array<{
+  buckets: Array<{
     date: string;
     value: number;
     count: number;

@@ -76,6 +76,58 @@ export function computeOperationalMetricsWindow(now = new Date()) {
   return { windowStartUtc, windowEndUtc, bucketDates };
 }
 
+// Calcula a janela da metrica comercial.
+// A "semana de referencia" (ultima semana do grafico) e a semana corrente se ja
+// passou sexta 17:30 BRT, senao a semana anterior. Semanas ISO (segunda-domingo).
+// A janela cobre 4 semanas calendario terminando na semana de referencia.
+// Retorna instantes UTC (windowStartUtc inclusivo, windowEndUtc exclusivo) e a lista
+// ordenada de 4 datas BRT (segunda-feira de cada semana) no formato YYYY-MM-DD.
+export function computeCommercialMetricsWindow(now = new Date()) {
+  const nowMs = now.getTime();
+  const brtNowMs = nowMs - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000;
+  const brtNow = new Date(brtNowMs);
+  const brtYear = brtNow.getUTCFullYear();
+  const brtMonth = brtNow.getUTCMonth();
+  const brtDay = brtNow.getUTCDate();
+  // getUTCDay: 0=Domingo, 1=Segunda, ..., 6=Sabado
+  const brtWeekday = brtNow.getUTCDay();
+  const daysFromMonday = brtWeekday === 0 ? 6 : brtWeekday - 1;
+
+  // Segunda-feira da semana corrente em BRT.
+  const thisWeekMondayDay = brtDay - daysFromMonday;
+  // Sexta 17:30 BRT = Sexta 20:30 UTC (segunda + 4 dias).
+  const thisFridayCutoffMs = Date.UTC(brtYear, brtMonth, thisWeekMondayDay + 4, 20, 30, 0);
+
+  const refMondayDay = nowMs >= thisFridayCutoffMs ? thisWeekMondayDay : thisWeekMondayDay - 7;
+
+  // Inicio: (refMonday - 21 dias) 00:00 BRT = 03:00 UTC.
+  // Fim: (refMonday + 7 dias) 00:00 BRT = 03:00 UTC (exclusivo).
+  const windowStartUtc = new Date(
+    Date.UTC(brtYear, brtMonth, refMondayDay - 21, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+  const windowEndUtc = new Date(
+    Date.UTC(brtYear, brtMonth, refMondayDay + 7, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+
+  const bucketDates = [];
+  for (let i = 3; i >= 0; i--) {
+    const d = new Date(Date.UTC(brtYear, brtMonth, refMondayDay - i * 7));
+    bucketDates.push(d.toISOString().slice(0, 10));
+  }
+
+  return { windowStartUtc, windowEndUtc, bucketDates };
+}
+
+// Retorna a data BRT (YYYY-MM-DD) da segunda-feira da semana ISO de dateStr.
+function mondayOfBrtDate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const weekday = d.getUTCDay();
+  const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+  const monday = new Date(Date.UTC(year, month - 1, day - daysFromMonday));
+  return monday.toISOString().slice(0, 10);
+}
+
 const RECENT_ACTIVITY_LIMIT = 20;
 
 function mapRecentActivityRow(row) {
@@ -1623,7 +1675,7 @@ export class SampleQueryService {
       allValues.push(hours);
     }
 
-    const daily = bucketDates.map((date) => {
+    const buckets = bucketDates.map((date) => {
       const values = byDate.get(date);
       return {
         date,
@@ -1636,11 +1688,20 @@ export class SampleQueryService {
       overall: computeMean(allValues),
       meta: 24,
       sampleCount: allValues.length,
-      daily,
+      buckets,
     };
   }
 
-  async getDashboardCommercialMetrics() {
+  async getDashboardCommercialMetrics({ now = new Date() } = {}) {
+    // Cohort por sold_at (primeira SALE_CREATED com sample_movement ACTIVE): 4 semanas
+    // ISO BRT (segunda-domingo) terminando na semana de referencia (semana corrente
+    // se NOW >= sexta 17:30 BRT, senao semana anterior). Mede tempo de classificacao ->
+    // venda como media aritmetica em dias. Amostras OPEN ou LOST sem venda ficam fora
+    // naturalmente (sem SALE_CREATED com movement ativo). Vendas canceladas excluidas
+    // pelo filtro sm.status = 'ACTIVE'. Amostras INVALIDATED excluidas. Semanas sem
+    // venda retornam bucket vazio (count:0, value:0).
+    const { windowStartUtc, windowEndUtc, bucketDates } = computeCommercialMetricsWindow(now);
+
     const rows = await this.prisma.$queryRaw`
       WITH first_sale AS (
         SELECT
@@ -1653,7 +1714,8 @@ export class SampleQueryService {
           AND sm.status = 'ACTIVE'
           AND sm.created_at <= se.occurred_at + INTERVAL '1 second'
         WHERE se.event_type = 'SALE_CREATED'
-          AND se.occurred_at >= NOW() - INTERVAL '28 days'
+          AND se.occurred_at >= ${windowStartUtc}
+          AND se.occurred_at < ${windowEndUtc}
           AND (sm.id IS NOT NULL)
         GROUP BY se.sample_id
       ),
@@ -1664,7 +1726,7 @@ export class SampleQueryService {
         GROUP BY sample_id
       )
       SELECT
-        (fs.sold_at - INTERVAL '3 hours')::date AS "date",
+        (fs.sold_at - INTERVAL '3 hours')::date AS "soldDate",
         EXTRACT(EPOCH FROM (fs.sold_at - c.classified_at)) / 86400.0 AS "daysElapsed"
       FROM first_sale fs
       JOIN classified c ON c.sample_id = fs.sample_id
@@ -1673,34 +1735,35 @@ export class SampleQueryService {
       ORDER BY fs.sold_at
     `;
 
-    const byDate = new Map();
+    const byBucket = new Map(bucketDates.map((date) => [date, []]));
     const allValues = [];
 
     for (const row of rows) {
-      const dateStr =
-        row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date);
+      const soldDate =
+        row.soldDate instanceof Date
+          ? row.soldDate.toISOString().slice(0, 10)
+          : String(row.soldDate);
       const days = Number(row.daysElapsed);
-      if (!byDate.has(dateStr)) {
-        byDate.set(dateStr, []);
-      }
-      byDate.get(dateStr).push(days);
+      const mondayKey = mondayOfBrtDate(soldDate);
+      if (!byBucket.has(mondayKey)) continue;
+      byBucket.get(mondayKey).push(days);
       allValues.push(days);
     }
 
-    const daily = [];
-    for (const [date, values] of byDate) {
-      daily.push({
+    const buckets = bucketDates.map((date) => {
+      const values = byBucket.get(date);
+      return {
         date,
-        value: computeMedian(values),
+        value: values.length > 0 ? computeMean(values) : 0,
         count: values.length,
-      });
-    }
+      };
+    });
 
     return {
-      overall: computeMedian(allValues),
+      overall: computeMean(allValues),
       meta: 15,
       sampleCount: allValues.length,
-      daily,
+      buckets,
     };
   }
 
