@@ -124,13 +124,31 @@
     },
     "classifierUserId": {
       "type": ["string", "null"],
-      "format": "uuid"
+      "format": "uuid",
+      "deprecated": true
     },
     "classifierName": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "deprecated": true
     },
     "conferredBy": {
       "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fullName": { "type": "string", "minLength": 1 },
+          "username": { "type": "string", "minLength": 1 }
+        },
+        "required": ["id", "fullName", "username"],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 50,
+      "deprecated": true
+    },
+    "classifiers": {
+      "type": "array",
       "items": {
         "type": "object",
         "properties": {
