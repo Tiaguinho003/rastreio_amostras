@@ -7,6 +7,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -377,62 +378,113 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
   );
 }
 
-/* ── Samples list reducer ── */
+/* ── Snapshot do estado da lista (preserva scroll e itens ao voltar da detail) ── */
+
+const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v1';
+
+interface SamplesSnapshot {
+  items: SampleSnapshot[];
+  total: number;
+  nextCursor: { createdAt: string; id: string } | null;
+  scrollTop: number;
+  searchInput: string;
+  appliedSearch: string;
+  appliedHiddenFilters: HiddenFilters;
+  agingParam: string | null;
+}
+
+function readSamplesSnapshot(): SamplesSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(SAMPLES_SNAPSHOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.items)) return null;
+    return parsed as SamplesSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function writeSamplesSnapshot(snapshot: SamplesSnapshot) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* ignora quota/serialization errors — snapshot é otimização, não crítico */
+  }
+}
+
+function clearSamplesSnapshot() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(SAMPLES_SNAPSHOT_KEY);
+  } catch {
+    /* ignora */
+  }
+}
+
+/* ── Samples list reducer (scroll infinito com cursor) ── */
+
+type SampleCursor = { createdAt: string; id: string };
+type SamplesListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface SamplesListState {
   items: SampleSnapshot[];
   total: number;
-  totalPages: number;
-  currentPage: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  loading: boolean;
+  nextCursor: SampleCursor | null;
+  status: SamplesListStatus;
   error: string | null;
 }
 
 type SamplesListAction =
-  | { type: 'fetch' }
+  | { type: 'fetch-initial' }
+  | { type: 'fetch-more' }
   | {
-      type: 'success';
+      type: 'success-initial';
       items: SampleSnapshot[];
       total: number;
-      totalPages: number;
-      hasPrev: boolean;
-      hasNext: boolean;
+      nextCursor: SampleCursor | null;
     }
-  | { type: 'error'; message: string }
-  | { type: 'setPage'; page: number };
+  | {
+      type: 'success-more';
+      items: SampleSnapshot[];
+      nextCursor: SampleCursor | null;
+    }
+  | { type: 'error'; message: string };
 
 const SAMPLES_INITIAL: SamplesListState = {
   items: [],
   total: 0,
-  totalPages: 1,
-  currentPage: 1,
-  hasPrev: false,
-  hasNext: false,
-  loading: true,
+  nextCursor: null,
+  status: 'loading-initial',
   error: null,
 };
 
 function samplesListReducer(state: SamplesListState, action: SamplesListAction): SamplesListState {
   switch (action.type) {
-    case 'fetch':
-      return { ...state, loading: true, error: null };
-    case 'success':
+    case 'fetch-initial':
+      return { ...SAMPLES_INITIAL, status: 'loading-initial' };
+    case 'fetch-more':
+      return { ...state, status: 'loading-more', error: null };
+    case 'success-initial':
       return {
-        ...state,
         items: action.items,
         total: action.total,
-        totalPages: action.totalPages,
-        hasPrev: action.hasPrev,
-        hasNext: action.hasNext,
-        loading: false,
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'success-more':
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        nextCursor: action.nextCursor,
+        status: 'idle',
         error: null,
       };
     case 'error':
-      return { ...state, loading: false, error: action.message };
-    case 'setPage':
-      return { ...state, currentPage: action.page };
+      return { ...state, status: 'error', error: action.message };
     default:
       return state;
   }
@@ -451,20 +503,54 @@ function SamplesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [samplesState, dispatchSamples] = useReducer(samplesListReducer, SAMPLES_INITIAL);
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
-  const [appliedHiddenFilters, setAppliedHiddenFilters] =
-    useState<HiddenFilters>(EMPTY_HIDDEN_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
   const agingParam = searchParams.get('aging');
   const activeAging: AgingBand | null =
     agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
+
+  const [initialSnapshot] = useState<SamplesSnapshot | null>(() => {
+    const snap = readSamplesSnapshot();
+    if (!snap) return null;
+    if (snap.agingParam !== agingParam) {
+      clearSamplesSnapshot();
+      return null;
+    }
+    return snap;
+  });
+
+  const [samplesState, dispatchSamples] = useReducer(
+    samplesListReducer,
+    initialSnapshot,
+    (snap): SamplesListState => {
+      if (!snap) return SAMPLES_INITIAL;
+      return {
+        items: snap.items,
+        total: snap.total,
+        nextCursor: snap.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    }
+  );
+  const [searchInput, setSearchInput] = useState(() => initialSnapshot?.searchInput ?? '');
+  const [appliedSearch, setAppliedSearch] = useState(() => initialSnapshot?.appliedSearch ?? '');
+  const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(
+    () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
+  );
+  const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(
+    () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const filtersTrapRef = useFocusTrap(filtersOpen);
-  const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
+  const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
+    initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'owner'
+  );
+  const skipNextFetchRef = useRef(initialSnapshot !== null);
+  const pendingScrollRestoreRef = useRef<number | null>(
+    initialSnapshot ? initialSnapshot.scrollTop : null
+  );
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterSectionRefs = useRef<Partial<Record<FilterSectionId, HTMLElement | null>>>({});
@@ -530,9 +616,12 @@ function SamplesPage() {
     [draftHiddenFilters]
   );
 
-  useEffect(() => {
-    samplesScrollRef.current?.scrollTo({ top: 0 });
-  }, [samplesState.currentPage]);
+  useLayoutEffect(() => {
+    const pending = pendingScrollRestoreRef.current;
+    if (pending === null) return;
+    pendingScrollRestoreRef.current = null;
+    samplesScrollRef.current?.scrollTo({ top: pending });
+  }, []);
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -593,15 +682,20 @@ function SamplesPage() {
       return;
     }
 
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
+
     const abortController = new AbortController();
     let active = true;
-    dispatchSamples({ type: 'fetch' });
+    dispatchSamples({ type: 'fetch-initial' });
+    samplesScrollRef.current?.scrollTo({ top: 0 });
 
     listSamples(
       session,
       {
         limit: SAMPLE_PAGE_LIMIT,
-        page: samplesState.currentPage,
         search: appliedSearch || undefined,
         owner: appliedHiddenFilters.owner || undefined,
         buyer: appliedHiddenFilters.buyer || undefined,
@@ -623,12 +717,10 @@ function SamplesPage() {
         }
 
         dispatchSamples({
-          type: 'success',
+          type: 'success-initial',
           items: response.items,
           total: response.page.total,
-          totalPages: response.page.totalPages,
-          hasPrev: response.page.hasPrev,
-          hasNext: response.page.hasNext,
+          nextCursor: response.page.nextCursor,
         });
       })
       .catch((cause) => {
@@ -650,37 +742,136 @@ function SamplesPage() {
       active = false;
       abortController.abort();
     };
-  }, [activeAging, appliedHiddenFilters, appliedSearch, samplesState.currentPage, session]);
+  }, [activeAging, appliedHiddenFilters, appliedSearch, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    if (samplesState.status !== 'idle') return;
+    if (!samplesState.nextCursor) return;
+
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const scrollRoot = samplesScrollRef.current;
+    const cursor = samplesState.nextCursor;
+    let abortController: AbortController | null = null;
+    let cancelled = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        if (cancelled) return;
+
+        abortController = new AbortController();
+        dispatchSamples({ type: 'fetch-more' });
+
+        listSamples(
+          session,
+          {
+            limit: SAMPLE_PAGE_LIMIT,
+            cursorCreatedAt: cursor.createdAt,
+            cursorId: cursor.id,
+            search: appliedSearch || undefined,
+            owner: appliedHiddenFilters.owner || undefined,
+            buyer: appliedHiddenFilters.buyer || undefined,
+            statusGroup: appliedHiddenFilters.statusGroup || undefined,
+            commercialStatus: appliedHiddenFilters.commercialStatus || undefined,
+            harvest: appliedHiddenFilters.harvest || undefined,
+            sacksMin: appliedHiddenFilters.sacksMin || undefined,
+            sacksMax: appliedHiddenFilters.sacksMax || undefined,
+            ...buildPeriodQuery(appliedHiddenFilters),
+            classifiedAging: activeAging || undefined,
+          },
+          { signal: abortController.signal }
+        )
+          .then((response) => {
+            if (cancelled) return;
+            dispatchSamples({
+              type: 'success-more',
+              items: response.items,
+              nextCursor: response.page.nextCursor,
+            });
+          })
+          .catch((cause) => {
+            if (cancelled) return;
+            if (cause instanceof DOMException && cause.name === 'AbortError') return;
+            dispatchSamples({
+              type: 'error',
+              message:
+                cause instanceof ApiError ? cause.message : 'Falha ao carregar mais registros',
+            });
+          });
+      },
+      { root: scrollRoot, rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      abortController?.abort();
+    };
+  }, [
+    activeAging,
+    appliedHiddenFilters,
+    appliedSearch,
+    samplesState.nextCursor,
+    samplesState.status,
+    session,
+  ]);
 
   function clearAging() {
+    clearSamplesSnapshot();
     router.replace('/samples', { scroll: false });
   }
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (activeAging) clearAging();
+    clearSamplesSnapshot();
     setAppliedSearch(searchInput.trim());
-    dispatchSamples({ type: 'setPage', page: 1 });
   }
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (activeAging) clearAging();
+    clearSamplesSnapshot();
     const nextFilters = normalizeHiddenFilters(draftHiddenFilters);
     setAppliedHiddenFilters(nextFilters);
     setDraftHiddenFilters(nextFilters);
-    dispatchSamples({ type: 'setPage', page: 1 });
     setActiveFilterSection(getInitialFilterSection(nextFilters));
     setFiltersOpen(false);
   }
 
   function handleClearFiltersOnly() {
     if (activeAging) clearAging();
+    clearSamplesSnapshot();
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setActiveFilterSection('owner');
-    dispatchSamples({ type: 'setPage', page: 1 });
   }
+
+  const saveSnapshotBeforeLeave = useCallback(() => {
+    writeSamplesSnapshot({
+      items: samplesState.items,
+      total: samplesState.total,
+      nextCursor: samplesState.nextCursor,
+      scrollTop: samplesScrollRef.current?.scrollTop ?? 0,
+      searchInput,
+      appliedSearch,
+      appliedHiddenFilters,
+      agingParam,
+    });
+  }, [
+    samplesState.items,
+    samplesState.total,
+    samplesState.nextCursor,
+    searchInput,
+    appliedSearch,
+    appliedHiddenFilters,
+    agingParam,
+  ]);
 
   function openFilters(trigger: HTMLButtonElement) {
     lastFilterTriggerRef.current = trigger;
@@ -703,11 +894,12 @@ function SamplesPage() {
     return null;
   }
 
-  const currentVisiblePage = samplesState.currentPage;
-  const currentVisibleTotalPages = samplesState.totalPages;
-  const paginationHasPrev = samplesState.hasPrev;
-  const paginationHasNext = samplesState.hasNext;
-  const paginationBusy = samplesState.loading;
+  const isLoadingInitial = samplesState.status === 'loading-initial';
+  const isLoadingMore = samplesState.status === 'loading-more';
+  const hasReachedEnd =
+    samplesState.status === 'idle' &&
+    samplesState.items.length > 0 &&
+    samplesState.nextCursor === null;
 
   function renderFilterFields() {
     return (
@@ -959,7 +1151,7 @@ function SamplesPage() {
           </div>
 
           {/* Section 3: Card list */}
-          {samplesState.loading ? (
+          {isLoadingInitial ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
                 <p className="spv2-empty-text">Carregando...</p>
@@ -993,6 +1185,7 @@ function SamplesPage() {
                     href={`/samples/${sample.id}`}
                     className="spv2-card"
                     style={{ animationDelay: `${i * 0.04}s` }}
+                    onClick={saveSnapshotBeforeLeave}
                   >
                     <span className="spv2-card-bar" style={{ background: statusColor }} />
                     <div className="spv2-card-content">
@@ -1031,39 +1224,20 @@ function SamplesPage() {
                   </Link>
                 );
               })}
+
+              {isLoadingMore
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="spv2-card spv2-card-skeleton" aria-hidden />
+                  ))
+                : null}
+
+              {samplesState.nextCursor ? (
+                <div ref={loadMoreRef} className="spv2-load-sentinel" aria-hidden />
+              ) : null}
+
+              {hasReachedEnd ? <p className="spv2-list-end">Você chegou ao fim</p> : null}
             </div>
           )}
-
-          {/* Pagination */}
-          <footer className="spv2-footer">
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!paginationHasPrev || paginationBusy}
-              onClick={() =>
-                dispatchSamples({ type: 'setPage', page: samplesState.currentPage - 1 })
-              }
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m14.5 6-6 6 6 6" />
-              </svg>
-            </button>
-            <span className="spv2-page-info">
-              <strong>{currentVisiblePage}</strong> / {currentVisibleTotalPages}
-            </span>
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!paginationHasNext || paginationBusy}
-              onClick={() =>
-                dispatchSamples({ type: 'setPage', page: samplesState.currentPage + 1 })
-              }
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m9.5 6 6 6-6 6" />
-              </svg>
-            </button>
-          </footer>
         </section>
       </section>
 
