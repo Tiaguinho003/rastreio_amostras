@@ -17964,13 +17964,6 @@ button:disabled {
     font-size: 1.4rem;
   }
 
-  .sdv-back {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
-  .sdv-back svg {
-    stroke: var(--ink);
-  }
 
   /* Identidade: card verde escuro com destaque */
   .sdv-identity-card {
@@ -18473,6 +18466,16 @@ button:disabled {
   .nsv2-step-dots,
   .nsv2-back {
     display: none;
+  }
+
+  /* Detalhe da amostra reexibe o back no desktop com cor adaptada ao header claro */
+  .sdv-header .nsv2-back {
+    display: inline-grid;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .sdv-header .nsv2-back svg {
+    stroke: var(--ink);
   }
 
   /* Body: fundo suave */
