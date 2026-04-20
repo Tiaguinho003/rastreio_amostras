@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/physical-sample-send-updated.payload.schema.json",
+  "title": "PHYSICAL_SAMPLE_SEND_UPDATED payload",
+  "type": "object",
+  "properties": {
+    "sendEventId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+    "recipientClientId": {
+      "oneOf": [
+        { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "recipientClientSnapshot": { "type": ["object", "null"] },
+    "sentDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "previous": {
+      "type": "object",
+      "properties": {
+        "recipientClientId": {
+          "oneOf": [
+            { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+            { "type": "null" }
+          ]
+        },
+        "recipientClientSnapshot": { "type": ["object", "null"] },
+        "sentDate": { "type": "string", "format": "date" }
+      },
+      "required": ["recipientClientId", "recipientClientSnapshot", "sentDate"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["sendEventId", "recipientClientId", "recipientClientSnapshot", "sentDate", "previous"],
+  "additionalProperties": false
+}

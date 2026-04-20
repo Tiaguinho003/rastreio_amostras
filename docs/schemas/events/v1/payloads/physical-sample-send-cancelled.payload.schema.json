@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/physical-sample-send-cancelled.payload.schema.json",
+  "title": "PHYSICAL_SAMPLE_SEND_CANCELLED payload",
+  "type": "object",
+  "properties": {
+    "sendEventId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" }
+  },
+  "required": ["sendEventId"],
+  "additionalProperties": false
+}

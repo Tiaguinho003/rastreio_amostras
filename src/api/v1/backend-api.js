@@ -636,6 +636,55 @@ export function createBackendApiV1({
         };
       }),
 
+    updatePhysicalSampleSend: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const sendEventId = input?.params?.sendEventId;
+        if (typeof sendEventId !== 'string' || sendEventId.length === 0) {
+          throw new HttpError(422, 'sendEventId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await commandService.updatePhysicalSampleSend(
+          {
+            sampleId,
+            sendEventId,
+            recipientClientId: body.recipientClientId,
+            sentDate: body.sentDate,
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: { event: result.event },
+        };
+      }),
+
+    cancelPhysicalSampleSend: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const sendEventId = input?.params?.sendEventId;
+        if (typeof sendEventId !== 'string' || sendEventId.length === 0) {
+          throw new HttpError(422, 'sendEventId path param is required');
+        }
+
+        const result = await commandService.cancelPhysicalSampleSend(
+          {
+            sampleId,
+            sendEventId,
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: { event: result.event },
+        };
+      }),
+
     resolveSampleByQr: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);

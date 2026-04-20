@@ -26,6 +26,8 @@
     { "$ref": "./events/sample-invalidated.event.schema.json" },
     { "$ref": "./events/report-exported.event.schema.json" },
     { "$ref": "./events/physical-sample-sent.event.schema.json" },
+    { "$ref": "./events/physical-sample-send-updated.event.schema.json" },
+    { "$ref": "./events/physical-sample-send-cancelled.event.schema.json" },
     { "$ref": "./events/classification-extraction-completed.event.schema.json" },
     { "$ref": "./events/classification-extraction-failed.event.schema.json" }
   ]

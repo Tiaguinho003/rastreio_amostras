@@ -42,6 +42,16 @@ const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set([
   'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ]);
+// Envio fisico de amostra pode ser registrado assim que a amostra foi registrada
+// (REGISTRATION_CONFIRMED). Edicao e cancelamento do envio tambem usam esse range.
+// INVALIDATED, PHYSICAL_RECEIVED e REGISTRATION_IN_PROGRESS ficam fora.
+const PHYSICAL_SEND_ALLOWED_STATUSES = [
+  'REGISTRATION_CONFIRMED',
+  'QR_PENDING_PRINT',
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+];
 const MOVEMENT_TYPES = {
   SALE: 'SALE',
   LOSS: 'LOSS',
@@ -1196,6 +1206,35 @@ function requireExpectedVersion(expectedVersion) {
   ) {
     throw new HttpError(422, 'expectedVersion must be a non-negative integer');
   }
+}
+
+function projectPhysicalSendState(events, sendEventId) {
+  const original = events.find(
+    (evt) => evt.eventId === sendEventId && evt.eventType === 'PHYSICAL_SAMPLE_SENT'
+  );
+  if (!original) {
+    return null;
+  }
+
+  const state = {
+    status: 'ACTIVE',
+    recipientClientId: original.payload?.recipientClientId ?? null,
+    recipientClientSnapshot: original.payload?.recipientClientSnapshot ?? null,
+    sentDate: original.payload?.sentDate ?? null,
+  };
+
+  for (const evt of events) {
+    if (evt.payload?.sendEventId !== sendEventId) continue;
+    if (evt.eventType === 'PHYSICAL_SAMPLE_SEND_UPDATED') {
+      state.recipientClientId = evt.payload.recipientClientId ?? null;
+      state.recipientClientSnapshot = evt.payload.recipientClientSnapshot ?? null;
+      state.sentDate = evt.payload.sentDate ?? state.sentDate;
+    } else if (evt.eventType === 'PHYSICAL_SAMPLE_SEND_CANCELLED') {
+      state.status = 'CANCELLED';
+    }
+  }
+
+  return state;
 }
 
 function assertSampleStatus(sample, allowedStatuses, actionLabel) {
@@ -2695,7 +2734,7 @@ export class SampleCommandService {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record physical sample sent');
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['CLASSIFIED'], 'record physical sample sent');
+    assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'record physical sample sent');
 
     let recipientClientId = null;
     let recipientClientSnapshot = null;
@@ -2725,6 +2764,98 @@ export class SampleCommandService {
         recipientClientSnapshot,
         sentDate,
       },
+      fromStatus: null,
+      toStatus: null,
+      module: 'classification',
+      actorContext: actor,
+    });
+
+    return this.eventService.appendEvent(event);
+  }
+
+  async updatePhysicalSampleSend(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'update physical sample send');
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'update physical sample send');
+
+    const sendEventId = normalizeRequiredText(input.sendEventId, 'sendEventId');
+    if (!UUID_REGEX.test(sendEventId)) {
+      throw new HttpError(422, 'sendEventId must be a valid UUID');
+    }
+
+    const events = await this.queryService.listSampleEvents(sample.id, { limit: 500 });
+    const previous = projectPhysicalSendState(events, sendEventId);
+    if (!previous) {
+      throw new HttpError(404, `Physical send ${sendEventId} not found`);
+    }
+    if (previous.status !== 'ACTIVE') {
+      throw new HttpError(409, `Physical send ${sendEventId} is already cancelled`);
+    }
+
+    let recipientClientId = null;
+    let recipientClientSnapshot = null;
+    if (input.recipientClientId) {
+      const clientId = normalizeRequiredText(input.recipientClientId, 'recipientClientId');
+      if (!UUID_REGEX.test(clientId)) {
+        throw new HttpError(422, 'recipientClientId must be a valid UUID');
+      }
+      recipientClientSnapshot = await this.clientService.resolveRecipientClient(clientId);
+      recipientClientId = clientId;
+    }
+
+    const sentDate = normalizeRequiredText(input.sentDate, 'sentDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sentDate)) {
+      throw new HttpError(422, 'sentDate must be in YYYY-MM-DD format');
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'PHYSICAL_SAMPLE_SEND_UPDATED',
+      sampleId: sample.id,
+      payload: {
+        sendEventId,
+        recipientClientId,
+        recipientClientSnapshot,
+        sentDate,
+        previous: {
+          recipientClientId: previous.recipientClientId,
+          recipientClientSnapshot: previous.recipientClientSnapshot,
+          sentDate: previous.sentDate,
+        },
+      },
+      fromStatus: null,
+      toStatus: null,
+      module: 'classification',
+      actorContext: actor,
+    });
+
+    return this.eventService.appendEvent(event);
+  }
+
+  async cancelPhysicalSampleSend(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'cancel physical sample send');
+
+    const sample = await this.queryService.requireSample(input.sampleId);
+    assertSampleStatus(sample, PHYSICAL_SEND_ALLOWED_STATUSES, 'cancel physical sample send');
+
+    const sendEventId = normalizeRequiredText(input.sendEventId, 'sendEventId');
+    if (!UUID_REGEX.test(sendEventId)) {
+      throw new HttpError(422, 'sendEventId must be a valid UUID');
+    }
+
+    const events = await this.queryService.listSampleEvents(sample.id, { limit: 500 });
+    const previous = projectPhysicalSendState(events, sendEventId);
+    if (!previous) {
+      throw new HttpError(404, `Physical send ${sendEventId} not found`);
+    }
+    if (previous.status !== 'ACTIVE') {
+      throw new HttpError(409, `Physical send ${sendEventId} is already cancelled`);
+    }
+
+    const event = buildEventEnvelope({
+      eventType: 'PHYSICAL_SAMPLE_SEND_CANCELLED',
+      sampleId: sample.id,
+      payload: { sendEventId },
       fromStatus: null,
       toStatus: null,
       module: 'classification',

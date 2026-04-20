@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amostras-safras.local/schemas/events/v1/events/physical-sample-send-cancelled.event.schema.json",
+  "title": "PHYSICAL_SAMPLE_SEND_CANCELLED event",
+  "allOf": [
+    { "$ref": "../base/event-envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "PHYSICAL_SAMPLE_SEND_CANCELLED" },
+        "schemaVersion": { "const": 1 },
+        "payload": { "$ref": "../payloads/physical-sample-send-cancelled.payload.schema.json" },
+        "fromStatus": { "type": "null" },
+        "toStatus": { "type": "null" }
+      },
+      "required": ["eventType", "schemaVersion", "payload", "fromStatus", "toStatus"]
+    }
+  ]
+}
