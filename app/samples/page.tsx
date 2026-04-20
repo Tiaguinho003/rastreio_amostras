@@ -164,7 +164,7 @@ function getCardStatusLabel(status: string): string {
     case 'CLASSIFICATION_IN_PROGRESS':
       return 'Classificando';
     case 'CLASSIFIED':
-      return 'Finalizada';
+      return 'Classificada';
     case 'INVALIDATED':
       return 'Invalidada';
     default:

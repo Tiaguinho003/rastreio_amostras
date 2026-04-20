@@ -2222,7 +2222,7 @@ export default function SampleDetailPage() {
       case 'CLASSIFICATION_IN_PROGRESS':
         return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE', label: 'Classificando' };
       case 'CLASSIFIED':
-        return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Finalizada' };
+        return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Classificada' };
       case 'INVALIDATED':
         return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Invalidada' };
       default:
