@@ -92,7 +92,6 @@ const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'imp',
   'ap',
   'gpi',
-  'classificador',
   'defeito',
   'certif',
   'observacoes',
@@ -703,7 +702,7 @@ function parseClassificationUpdatePatch(after) {
     'technical',
     'consumptionGrams',
     'peneirasPercentuais',
-    'conferredBy',
+    'classifiers',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
@@ -791,16 +790,16 @@ function parseClassificationUpdatePatch(after) {
         )
       : undefined;
 
-  // conferredBy e extraido como sibling do classificationData porque vive
+  // classifiers e extraido como sibling do classificationData porque vive
   // top-level no payload do evento, nao dentro de classificationData. O shape
-  // ja foi validado antes por normalizeConferredBy (async) no caller.
-  const conferredBy = hasOwn(after, 'conferredBy') ? after.conferredBy : undefined;
+  // ja foi validado antes por normalizeClassifiers (async) no caller.
+  const classifiers = hasOwn(after, 'classifiers') ? after.classifiers : undefined;
 
   if (
     Object.keys(classificationDataPatch).length === 0 &&
     Object.keys(technicalPatch).length === 0 &&
     consumptionGrams === undefined &&
-    conferredBy === undefined
+    classifiers === undefined
   ) {
     throw new HttpError(422, 'after must include at least one editable classification field');
   }
@@ -809,7 +808,7 @@ function parseClassificationUpdatePatch(after) {
     classificationData: classificationDataPatch,
     technical: technicalPatch,
     consumptionGrams,
-    conferredBy,
+    classifiers,
   };
 }
 
@@ -1129,13 +1128,13 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
     }
   }
 
-  if (parsedPatch.conferredBy !== undefined) {
-    const currentConferredBy = hasOwn(currentData, 'conferidoPor')
-      ? currentData.conferidoPor
+  if (parsedPatch.classifiers !== undefined) {
+    const currentClassifiers = hasOwn(currentData, 'classificadores')
+      ? currentData.classificadores
       : null;
-    if (!valuesEqual(currentConferredBy, parsedPatch.conferredBy)) {
-      before.conferredBy = currentConferredBy;
-      after.conferredBy = parsedPatch.conferredBy;
+    if (!valuesEqual(currentClassifiers, parsedPatch.classifiers)) {
+      before.classifiers = currentClassifiers;
+      after.classifiers = parsedPatch.classifiers;
     }
   }
 
@@ -1379,26 +1378,34 @@ export class SampleCommandService {
     this.userService = userService;
   }
 
-  // Valida e monta snapshots dos conferentes server-side. Recebe lista
+  // Valida e monta snapshots dos classificadores server-side. Recebe lista
   // crua do cliente (so com userIds) e retorna array de snapshots prontos
-  // para persistencia no payload do evento, ou null se a lista for vazia.
+  // para persistencia no payload do evento.
   //
-  // - Rejeita auto-conferral (conferrer === actor).
   // - Rejeita usuarios inexistentes ou inativos.
   // - Dedup silencioso por userId.
-  // - Cap de 50 conferentes.
-  // - Empty array / null / undefined -> null.
-  async normalizeConferredBy(raw, { actor }) {
-    if (raw === null || raw === undefined) return null;
-    if (!Array.isArray(raw)) {
-      throw new HttpError(422, 'conferredBy must be an array or null', {
-        code: 'CONFERRED_BY_INVALID_SHAPE',
+  // - Min 1, Max 50 classificadores.
+  // - Empty/null/undefined -> HttpError 422 (classifiers e obrigatorio).
+  // - Actor PODE estar na lista (auto-inclusao vem do frontend).
+  async normalizeClassifiers(raw) {
+    if (raw === null || raw === undefined) {
+      throw new HttpError(422, 'classifiers e obrigatorio (min 1)', {
+        code: 'CLASSIFIERS_REQUIRED',
       });
     }
-    if (raw.length === 0) return null;
+    if (!Array.isArray(raw)) {
+      throw new HttpError(422, 'classifiers must be an array', {
+        code: 'CLASSIFIERS_INVALID_SHAPE',
+      });
+    }
+    if (raw.length === 0) {
+      throw new HttpError(422, 'classifiers e obrigatorio (min 1)', {
+        code: 'CLASSIFIERS_REQUIRED',
+      });
+    }
     if (raw.length > 50) {
-      throw new HttpError(422, 'conferredBy: maximo de 50 conferentes', {
-        code: 'CONFERRED_BY_TOO_MANY',
+      throw new HttpError(422, 'classifiers: maximo de 50 classificadores', {
+        code: 'CLASSIFIERS_TOO_MANY',
       });
     }
 
@@ -1406,14 +1413,14 @@ export class SampleCommandService {
     const uniqueIds = [];
     for (const item of raw) {
       if (!isPlainObject(item)) {
-        throw new HttpError(422, 'conferredBy items must be objects', {
-          code: 'CONFERRED_BY_INVALID_SHAPE',
+        throw new HttpError(422, 'classifiers items must be objects', {
+          code: 'CLASSIFIERS_INVALID_SHAPE',
         });
       }
       const userId = item.userId;
       if (typeof userId !== 'string' || !UUID_REGEX.test(userId)) {
-        throw new HttpError(422, 'conferredBy[].userId must be a uuid', {
-          code: 'CONFERRED_BY_INVALID_SHAPE',
+        throw new HttpError(422, 'classifiers[].userId must be a uuid', {
+          code: 'CLASSIFIERS_INVALID_SHAPE',
         });
       }
       if (seen.has(userId)) continue;
@@ -1421,17 +1428,14 @@ export class SampleCommandService {
       uniqueIds.push(userId);
     }
 
-    if (uniqueIds.length === 0) return null;
-
-    const actorUserId = actor?.actorUserId ?? null;
-    if (actorUserId && uniqueIds.includes(actorUserId)) {
-      throw new HttpError(422, 'Voce nao pode se adicionar como conferente', {
-        code: 'SELF_CONFERRAL_NOT_ALLOWED',
+    if (uniqueIds.length === 0) {
+      throw new HttpError(422, 'classifiers e obrigatorio (min 1)', {
+        code: 'CLASSIFIERS_REQUIRED',
       });
     }
 
     if (!this.userService) {
-      throw new HttpError(501, 'User service is not configured for conferredBy validation');
+      throw new HttpError(501, 'User service is not configured for classifiers validation');
     }
     const userMap = await this.userService.findUsersForSnapshotByIds(uniqueIds);
 
@@ -1439,14 +1443,14 @@ export class SampleCommandService {
     for (const userId of uniqueIds) {
       const user = userMap.get(userId);
       if (!user) {
-        throw new HttpError(422, `Conferente nao encontrado: ${userId}`, {
-          code: 'CONFERRER_NOT_FOUND',
+        throw new HttpError(422, `Classificador nao encontrado: ${userId}`, {
+          code: 'CLASSIFIER_NOT_FOUND',
           userId,
         });
       }
       if (user.status !== 'ACTIVE') {
-        throw new HttpError(422, `Conferente inativo: ${userId}`, {
-          code: 'INACTIVE_CONFERRER',
+        throw new HttpError(422, `Classificador inativo: ${userId}`, {
+          code: 'INACTIVE_CLASSIFIER',
           userId,
         });
       }
@@ -2121,17 +2125,9 @@ export class SampleCommandService {
       payload.classificationVersion = input.classificationVersion;
     }
 
-    if (typeof input.classifierUserId === 'string' || input.classifierUserId === null) {
-      payload.classifierUserId = input.classifierUserId;
-    }
-
-    if (typeof input.classifierName === 'string' || input.classifierName === null) {
-      payload.classifierName = input.classifierName;
-    }
-
-    if (Array.isArray(input.conferredBy) || input.conferredBy === null) {
-      payload.conferredBy = input.conferredBy;
-    }
+    // classifiers e obrigatorio (min 1). O frontend compoe [actor, ...co-classificadores]
+    // antes de chamar. Backend apenas normaliza/valida existencia/ativo dos usuarios.
+    payload.classifiers = await this.normalizeClassifiers(input.classifiers);
 
     if (input.classificationType) {
       payload.classificationType = input.classificationType;
@@ -2266,12 +2262,12 @@ export class SampleCommandService {
       ? normalizeUpdateReasonText(input.reasonText)
       : 'Atualizacao de classificacao';
     const rawAfter = input.after ?? input.changes ?? {};
-    // Normaliza conferredBy antes de parsear o patch, pois e async
+    // Normaliza classifiers antes de parsear o patch, pois e async
     // (precisa buscar usuarios). O parser sync so valida o shape top-level.
     let normalizedAfter = rawAfter;
-    if (isPlainObject(rawAfter) && hasOwn(rawAfter, 'conferredBy')) {
-      const normalized = await this.normalizeConferredBy(rawAfter.conferredBy, { actor });
-      normalizedAfter = { ...rawAfter, conferredBy: normalized };
+    if (isPlainObject(rawAfter) && hasOwn(rawAfter, 'classifiers')) {
+      const normalized = await this.normalizeClassifiers(rawAfter.classifiers);
+      normalizedAfter = { ...rawAfter, classifiers: normalized };
     }
     const parsedPatch = parseClassificationUpdatePatch(normalizedAfter);
     const updatePayload = buildClassificationUpdatePayload(sample, parsedPatch);
@@ -3108,16 +3104,17 @@ export class SampleCommandService {
       actor
     );
 
-    // Build classification data
-    const classifierName = actor.displayName ?? actor.username ?? null;
+    // Build classification data. Campo `classificador` string foi abolido:
+    // agora o classificador (ou classificadores) e representado pelo array
+    // `classifiers` persistido top-level no payload do evento (via
+    // normalizeClassifiers abaixo).
     const classificationDate = buildBusinessDateStamp();
     const classificationData = isPlainObject(input.classificationData)
       ? {
           ...input.classificationData,
           dataClassificacao: classificationDate,
-          classificador: classifierName,
         }
-      : { dataClassificacao: classificationDate, classificador: classifierName };
+      : { dataClassificacao: classificationDate };
 
     const technical = {};
     if (classificationData.defeito) {
@@ -3202,13 +3199,11 @@ export class SampleCommandService {
           parsedPatch.peneirasPercentuais = sievePatch;
         }
       }
-      // conferredBy e passado top-level no after, fora do whitelist de
+      // classifiers e passado top-level no after, fora do whitelist de
       // CLASSIFICATION_DATA_EDITABLE_FIELDS acima. Passamos o input original
-      // (formato {userId}) e o updateClassification re-normaliza. A chamada
-      // anterior a this.normalizeConferredBy neste metodo servia apenas para
-      // detectar erros cedo (fail-fast) antes de entrar na branch.
-      if (input.conferredBy !== undefined) {
-        parsedPatch.conferredBy = input.conferredBy;
+      // (formato {userId}) e o updateClassification re-normaliza.
+      if (input.classifiers !== undefined) {
+        parsedPatch.classifiers = input.classifiers;
       }
       result = await this.updateClassification(
         {
@@ -3222,16 +3217,15 @@ export class SampleCommandService {
         actorContext
       );
     } else {
-      // New classification
-      const normalizedConferredBy = await this.normalizeConferredBy(input.conferredBy, { actor });
+      // New classification. Frontend envia `classifiers` ja com actor +
+      // co-classificadores. completeClassification normaliza e valida.
       result = await this.completeClassification(
         {
           sampleId,
           expectedVersion: current.version,
           classificationData,
           technical: Object.keys(technical).length > 0 ? technical : undefined,
-          classifierName,
-          conferredBy: normalizedConferredBy,
+          classifiers: input.classifiers,
           idempotencyKey: input.idempotencyKey,
           classificationType: input.classificationType ?? null,
         },

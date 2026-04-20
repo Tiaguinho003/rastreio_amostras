@@ -1,7 +1,7 @@
 export type UserRole = 'ADMIN' | 'CLASSIFIER' | 'REGISTRATION' | 'COMMERCIAL';
 export type UserStatus = 'ACTIVE' | 'INACTIVE';
 
-export interface ConferrerSnapshot {
+export interface ClassifierSnapshot {
   id: string;
   fullName: string;
   username: string;

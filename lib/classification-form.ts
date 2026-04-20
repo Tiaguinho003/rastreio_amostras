@@ -14,7 +14,6 @@ export type ClassificationFormState = {
   imp: string;
   ap: string;
   gpi: string;
-  classificador: string;
   defeito: string;
   certif: string;
   observacoes: string;
@@ -62,7 +61,6 @@ export type ClassificationDataPayload = {
   imp: string | null;
   ap: string | null;
   gpi: string | null;
-  classificador: string | null;
   peneirasPercentuais: Partial<ClassificationSievePayload> | null;
   defeito: string | null;
   certif: string | null;
@@ -99,7 +97,6 @@ export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
   imp: '',
   ap: '',
   gpi: '',
-  classificador: '',
   defeito: '',
   certif: '',
   observacoes: '',
@@ -410,7 +407,6 @@ export function buildClassificationDataPayload(
     ap: !config || config.defectFields.some((f) => f.key === 'ap') ? form.ap.trim() || null : null,
     gpi:
       !config || config.defectFields.some((f) => f.key === 'gpi') ? form.gpi.trim() || null : null,
-    classificador: form.classificador.trim() || null,
     peneirasPercentuais: hasSieve ? (sieve as Partial<ClassificationSievePayload>) : null,
     defeito: !config || config.hasDefeito ? form.defeito.trim() || null : null,
     certif: form.certif.trim() || null,

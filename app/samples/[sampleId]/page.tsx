@@ -41,10 +41,10 @@ import {
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
+  ClassifierSnapshot,
   ClientRegistrationSummary,
   ClientSummary,
   CommercialStatus,
-  ConferrerSnapshot,
   ExtractionResult,
   InvalidateReasonCode,
   PrintAction,
@@ -188,7 +188,6 @@ function buildClassificationFormState(
   const draftSieve = isRecord(draftData.peneirasPercentuais) ? draftData.peneirasPercentuais : {};
   const mergedSieve = { ...latestSieve, ...draftSieve };
 
-  const fallbackClassifier = user.displayName ?? user.username;
   return {
     ...EMPTY_CLASSIFICATION_FORM,
     dataClassificacao: toDateInput(latestData.dataClassificacao),
@@ -199,7 +198,6 @@ function buildClassificationFormState(
     broca: toText(mergedData.broca),
     pva: toText(mergedData.pva),
     imp: toText(mergedData.imp),
-    classificador: toText(mergedData.classificador) || fallbackClassifier,
     defeito: toText(mergedData.defeito),
     certif: toText(mergedData.certif),
     observacoes: toText(mergedData.observacoes),
@@ -664,11 +662,11 @@ export default function SampleDetailPage() {
   const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
   const [classificationDetailForm, setClassificationDetailForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
-  const [classificationDetailConferredBy, setClassificationDetailConferredBy] = useState<
-    ConferrerSnapshot[]
+  const [classificationDetailClassifiers, setClassificationDetailClassifiers] = useState<
+    ClassifierSnapshot[]
   >([]);
-  const [classificationDetailConferredByOriginal, setClassificationDetailConferredByOriginal] =
-    useState<ConferrerSnapshot[]>([]);
+  const [classificationDetailClassifiersOriginal, setClassificationDetailClassifiersOriginal] =
+    useState<ClassifierSnapshot[]>([]);
   const [classificationDetailPickerOpen, setClassificationDetailPickerOpen] = useState(false);
   const [classificationDetailAvailableUsers, setClassificationDetailAvailableUsers] = useState<
     UserLookupItem[]
@@ -1705,11 +1703,12 @@ export default function SampleDetailPage() {
     setClassificationNotice(null);
 
     try {
+      // Classificador = usuario atual (finalizando proprio draft).
       await completeClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         classificationData,
         technical,
-        classifierName: classificationData.classificador,
+        classifiers: [{ userId: session.user.id }],
       });
       setClassificationNotice({ kind: 'success', text: 'Classificacao concluida com sucesso.' });
       await syncDetailState();
@@ -1865,13 +1864,18 @@ export default function SampleDetailPage() {
     setClassificationEditMode(false);
   }
 
-  function readConferredByFromDetail(data: unknown): ConferrerSnapshot[] {
-    const raw =
-      data && typeof data === 'object' && !Array.isArray(data)
-        ? (data as Record<string, unknown>).conferidoPor
+  function readClassifiersFromDetail(data: unknown): ClassifierSnapshot[] {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+    const rec = data as Record<string, unknown>;
+    // Preferencia: novo campo `classificadores`. Fallback: `conferidoPor`
+    // (eventos antigos pre-migration). Migration script backfills nao-lidos.
+    const raw = Array.isArray(rec.classificadores)
+      ? rec.classificadores
+      : Array.isArray(rec.conferidoPor)
+        ? rec.conferidoPor
         : null;
     if (!Array.isArray(raw)) return [];
-    const out: ConferrerSnapshot[] = [];
+    const out: ClassifierSnapshot[] = [];
     for (const entry of raw) {
       if (!entry || typeof entry !== 'object') continue;
       const e = entry as Record<string, unknown>;
@@ -1889,9 +1893,9 @@ export default function SampleDetailPage() {
   function openClassificationDetail() {
     if (!detail || !session) return;
     setClassificationDetailForm(buildClassificationFormState(detail, session.user));
-    const initialConferredBy = readConferredByFromDetail(detail.sample.latestClassification?.data);
-    setClassificationDetailConferredBy(initialConferredBy);
-    setClassificationDetailConferredByOriginal(initialConferredBy);
+    const initialClassifiers = readClassifiersFromDetail(detail.sample.latestClassification?.data);
+    setClassificationDetailClassifiers(initialClassifiers);
+    setClassificationDetailClassifiersOriginal(initialClassifiers);
     setClassificationDetailPickerOpen(false);
     setClassificationDetailUserSearch('');
     setClassificationDetailUserError(null);
@@ -1935,8 +1939,8 @@ export default function SampleDetailPage() {
     }
   }
 
-  function toggleClassificationDetailConferrer(user: UserLookupItem) {
-    setClassificationDetailConferredBy((prev) => {
+  function toggleClassificationDetailClassifier(user: UserLookupItem) {
+    setClassificationDetailClassifiers((prev) => {
       const exists = prev.find((entry) => entry.id === user.id);
       if (exists) {
         return prev.filter((entry) => entry.id !== user.id);
@@ -1945,9 +1949,9 @@ export default function SampleDetailPage() {
     });
   }
 
-  function conferredByChanged(
-    current: ConferrerSnapshot[],
-    original: ConferrerSnapshot[]
+  function classifiersChanged(
+    current: ClassifierSnapshot[],
+    original: ClassifierSnapshot[]
   ): boolean {
     if (current.length !== original.length) return true;
     const currentIds = new Set(current.map((c) => c.id));
@@ -1970,19 +1974,24 @@ export default function SampleDetailPage() {
       });
       const technical = buildTechnicalFromClassificationData(classificationData);
 
-      const conferredByChangedNow = conferredByChanged(
-        classificationDetailConferredBy,
-        classificationDetailConferredByOriginal
+      const classifiersChangedNow = classifiersChanged(
+        classificationDetailClassifiers,
+        classificationDetailClassifiersOriginal
       );
+      // Min 1 classificador e obrigatorio. Se o usuario limpou a lista,
+      // bloqueamos o save aqui mesmo (backend tambem valida como defesa).
+      if (classifiersChangedNow && classificationDetailClassifiers.length === 0) {
+        setClassificationDetailSaving(false);
+        return;
+      }
       const afterPayload: { [key: string]: unknown } = {
         classificationData,
         ...(technical ? { technical } : {}),
       };
-      if (conferredByChangedNow) {
-        afterPayload.conferredBy =
-          classificationDetailConferredBy.length > 0
-            ? classificationDetailConferredBy.map((entry) => ({ userId: entry.id }))
-            : null;
+      if (classifiersChangedNow) {
+        afterPayload.classifiers = classificationDetailClassifiers.map((entry) => ({
+          userId: entry.id,
+        }));
       }
 
       await updateClassification(session, sampleId, {
@@ -2607,7 +2616,30 @@ export default function SampleDetailPage() {
                       const cd = classData as Record<string, unknown>;
                       const aspecto = String(cd.aspecto ?? '—');
                       const catacao = String(cd.catacao ?? '—');
-                      const classificador = String(cd.classificador ?? '—');
+                      // Classificadores: novo campo canonico `classificadores`
+                      // (array de snapshots). Fallback para `conferidoPor` (eventos
+                      // antigos pre-migration) ou string legacy `classificador`.
+                      const classifiersArr = Array.isArray(cd.classificadores)
+                        ? cd.classificadores
+                        : Array.isArray(cd.conferidoPor)
+                          ? cd.conferidoPor
+                          : null;
+                      const classificador = classifiersArr
+                        ? classifiersArr
+                            .map((c) =>
+                              c && typeof c === 'object' && 'fullName' in c
+                                ? String((c as { fullName: unknown }).fullName)
+                                : ''
+                            )
+                            .filter(Boolean)
+                            .join(', ') || '—'
+                        : typeof cd.classificador === 'string' && cd.classificador.trim()
+                          ? cd.classificador
+                          : '—';
+                      const classificadorLabel =
+                        classifiersArr && classifiersArr.length > 1
+                          ? 'Classificadores'
+                          : 'Classificador';
                       return (
                         <div
                           className="sdv-card sdv-cls-block sdv-cls-block-clickable"
@@ -2645,7 +2677,7 @@ export default function SampleDetailPage() {
                                 <span className="sdv-info-value">{catacao}</span>
                               </div>
                               <div className="sdv-info-item">
-                                <span className="sdv-info-label">Classificador</span>
+                                <span className="sdv-info-label">{classificadorLabel}</span>
                                 <span className="sdv-info-value">{classificador}</span>
                               </div>
                             </div>
@@ -3303,25 +3335,31 @@ export default function SampleDetailPage() {
                           </div>
                         </div>
 
-                        <div className="cld-section is-conferral">
+                        <div className="cld-section is-classifier">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
-                            Conferencia
+                            Classificadores
                           </div>
-                          {classificationDetailConferredBy.length === 0 ? (
-                            <span className="cld-field-value">Sem conferencia</span>
+                          {classificationDetailClassifiers.length === 0 ? (
+                            <span className="cld-field-value">
+                              {editing
+                                ? 'Adicione pelo menos um classificador'
+                                : 'Sem classificadores'}
+                            </span>
                           ) : (
-                            <div className="cld-conferral-chips">
-                              {classificationDetailConferredBy.map((entry) => (
-                                <span key={entry.id} className="cld-conferral-chip">
-                                  <span className="cld-conferral-chip-name">{entry.fullName}</span>
-                                  <span className="cld-conferral-chip-user">@{entry.username}</span>
+                            <div className="cld-classifier-chips">
+                              {classificationDetailClassifiers.map((entry) => (
+                                <span key={entry.id} className="cld-classifier-chip">
+                                  <span className="cld-classifier-chip-name">{entry.fullName}</span>
+                                  <span className="cld-classifier-chip-user">
+                                    @{entry.username}
+                                  </span>
                                   {editing ? (
                                     <button
                                       type="button"
-                                      className="cld-conferral-chip-x"
+                                      className="cld-classifier-chip-x"
                                       onClick={() =>
-                                        setClassificationDetailConferredBy((prev) =>
+                                        setClassificationDetailClassifiers((prev) =>
                                           prev.filter((c) => c.id !== entry.id)
                                         )
                                       }
@@ -3337,35 +3375,35 @@ export default function SampleDetailPage() {
                           {editing && !classificationDetailPickerOpen ? (
                             <button
                               type="button"
-                              className="cld-conferral-add-btn"
+                              className="cld-classifier-add-btn"
                               onClick={() => {
                                 setClassificationDetailPickerOpen(true);
                                 void loadClassificationDetailUsers();
                               }}
                             >
-                              + Adicionar conferente
+                              + Adicionar classificador
                             </button>
                           ) : null}
                           {editing && classificationDetailPickerOpen ? (
-                            <div className="cld-conferral-picker">
+                            <div className="cld-classifier-picker">
                               {classificationDetailLoadingUsers ? (
-                                <div className="cld-conferral-loading">Carregando...</div>
+                                <div className="cld-classifier-loading">Carregando...</div>
                               ) : classificationDetailUserError ? (
-                                <div className="cld-conferral-error">
+                                <div className="cld-classifier-error">
                                   {classificationDetailUserError}
                                 </div>
                               ) : (
                                 <>
                                   <input
                                     type="text"
-                                    className="cld-conferral-search"
+                                    className="cld-classifier-search"
                                     placeholder="Buscar por nome ou usuario"
                                     value={classificationDetailUserSearch}
                                     onChange={(e) =>
                                       setClassificationDetailUserSearch(e.target.value)
                                     }
                                   />
-                                  <div className="cld-conferral-list">
+                                  <div className="cld-classifier-list">
                                     {(() => {
                                       const q = classificationDetailUserSearch.trim().toLowerCase();
                                       const filtered = q
@@ -3377,36 +3415,36 @@ export default function SampleDetailPage() {
                                         : classificationDetailAvailableUsers;
                                       if (filtered.length === 0) {
                                         return (
-                                          <div className="cld-conferral-empty">
+                                          <div className="cld-classifier-empty">
                                             Nenhum usuario encontrado.
                                           </div>
                                         );
                                       }
                                       return filtered.map((user) => {
-                                        const selected = classificationDetailConferredBy.some(
+                                        const selected = classificationDetailClassifiers.some(
                                           (c) => c.id === user.id
                                         );
                                         return (
                                           <button
                                             key={user.id}
                                             type="button"
-                                            className={`cld-conferral-row${selected ? ' is-selected' : ''}`}
+                                            className={`cld-classifier-row${selected ? ' is-selected' : ''}`}
                                             onClick={() =>
-                                              toggleClassificationDetailConferrer(user)
+                                              toggleClassificationDetailClassifier(user)
                                             }
                                           >
-                                            <span className="cld-conferral-row-check">
+                                            <span className="cld-classifier-row-check">
                                               {selected ? (
                                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                                   <path d="M5 13l4 4L19 7" />
                                                 </svg>
                                               ) : null}
                                             </span>
-                                            <span className="cld-conferral-row-body">
-                                              <span className="cld-conferral-row-name">
+                                            <span className="cld-classifier-row-body">
+                                              <span className="cld-classifier-row-name">
                                                 {user.fullName}
                                               </span>
-                                              <span className="cld-conferral-row-user">
+                                              <span className="cld-classifier-row-user">
                                                 @{user.username}
                                               </span>
                                             </span>
@@ -3417,7 +3455,7 @@ export default function SampleDetailPage() {
                                   </div>
                                   <button
                                     type="button"
-                                    className="cld-conferral-close"
+                                    className="cld-classifier-close"
                                     onClick={() => setClassificationDetailPickerOpen(false)}
                                   >
                                     Fechar lista
@@ -3567,7 +3605,7 @@ export default function SampleDetailPage() {
                           setClassificationDetailForm(
                             buildClassificationFormState(detail, session.user)
                           );
-                        setClassificationDetailConferredBy(classificationDetailConferredByOriginal);
+                        setClassificationDetailClassifiers(classificationDetailClassifiersOriginal);
                         setClassificationDetailPickerOpen(false);
                         setClassificationDetailUserSearch('');
                         setClassificationDetailEditing(false);

@@ -449,21 +449,23 @@ async function renderSamplePdf({
     }
   }
 
-  // Conferentes: expande em multiplas rows (padrao analogo ao sieveRows) para
-  // preservar legibilidade no laudo, ja que o renderer nao faz wrapping.
+  // Classificadores: expande em multiplas rows (padrao analogo ao sieveRows)
+  // para preservar legibilidade no laudo, ja que o renderer nao faz wrapping.
   // Cap de 8 nomes visiveis; o resto vira um sufixo contando os adicionais.
-  const conferralEntry = entryById.get('conferredBy');
-  if (conferralEntry) {
-    usedIds.add('conferredBy');
-    const names = asValue(conferralEntry)
+  // Aceita tanto o campo novo `classifiers` quanto o legacy `conferredBy`
+  // (ambos retornam a mesma string pipe-separada do export-fields.js).
+  const classifiersEntry = entryById.get('classifiers') ?? entryById.get('conferredBy');
+  if (classifiersEntry) {
+    usedIds.add(classifiersEntry === entryById.get('classifiers') ? 'classifiers' : 'conferredBy');
+    const names = asValue(classifiersEntry)
       .split('|')
       .map((part) => part.trim())
       .filter(Boolean);
-    const CONFERRAL_VISIBLE_CAP = 8;
-    const visible = names.slice(0, CONFERRAL_VISIBLE_CAP);
+    const CLASSIFIERS_VISIBLE_CAP = 8;
+    const visible = names.slice(0, CLASSIFIERS_VISIBLE_CAP);
     for (let i = 0; i < visible.length; i++) {
       classificationRows.push({
-        label: i === 0 ? 'Conferido por' : '',
+        label: i === 0 ? 'Classificadores' : '',
         value: visible[i],
       });
     }
@@ -471,7 +473,7 @@ async function renderSamplePdf({
     if (overflow > 0) {
       classificationRows.push({
         label: '',
-        value: `+${overflow} conferente${overflow > 1 ? 's' : ''} adicional${overflow > 1 ? 'is' : ''}`,
+        value: `+${overflow} classificador${overflow > 1 ? 'es' : ''} adicional${overflow > 1 ? 'is' : ''}`,
       });
     }
   }

@@ -1038,7 +1038,7 @@ export function confirmClassificationFromCamera(
     classificationData: { [key: string]: JsonValue };
     photoToken: string;
     classificationType?: string | null;
-    conferredBy?: Array<{ userId: string }> | null;
+    classifiers: Array<{ userId: string }>;
     applySampleUpdates?: {
       declaredSacks?: number | null;
       declaredHarvest?: string | null;
@@ -1273,7 +1273,6 @@ export function completeClassification(
       pva?: string | null;
       imp?: string | null;
       pau?: string | null;
-      classificador?: string | null;
       peneirasPercentuais?: {
         p18?: number | null;
         p17?: number | null;
@@ -1295,8 +1294,7 @@ export function completeClassification(
     };
     consumptionGrams?: number | null;
     classificationVersion?: number;
-    classifierUserId?: string | null;
-    classifierName?: string | null;
+    classifiers: Array<{ userId: string }>;
     idempotencyKey?: string;
   }
 ) {
@@ -1320,13 +1318,7 @@ export function completeClassification(
     body.classificationVersion = data.classificationVersion;
   }
 
-  if (typeof data.classifierUserId === 'string' || data.classifierUserId === null) {
-    body.classifierUserId = data.classifierUserId;
-  }
-
-  if (typeof data.classifierName === 'string' || data.classifierName === null) {
-    body.classifierName = data.classifierName;
-  }
+  body.classifiers = data.classifiers;
 
   if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
     body.idempotencyKey = data.idempotencyKey;

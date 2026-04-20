@@ -17,6 +17,7 @@ export const SAMPLE_EXPORT_FIELDS = [
   'defeito',
   'classificador',
   'conferredBy',
+  'classifiers',
   'observacoes',
   'classificationOriginLot',
   'peneirasPercentuais',
@@ -44,6 +45,7 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   defeito: 'Defeito',
   classificador: 'Classificador',
   conferredBy: 'Conferido por',
+  classifiers: 'Classificadores',
   observacoes: 'Observacoes',
   classificationOriginLot: 'Lote de origem (classificacao)',
   peneirasPercentuais: 'Peneiras percentuais',
@@ -104,7 +106,7 @@ function formatNumber(value) {
   }).format(parsed);
 }
 
-function formatConferredBy(value) {
+function formatClassifiersArray(value) {
   if (!Array.isArray(value) || value.length === 0) {
     return null;
   }
@@ -121,6 +123,36 @@ function formatConferredBy(value) {
   // Pipe-separado para o renderer expandir em multiplas rows (mesmo padrao
   // usado por formatSieve / peneirasPercentuais).
   return names.join('|');
+}
+
+function resolveClassifiersList(classificationData) {
+  // Novo canonico: `classificadores`. Fallback: `conferidoPor` (eventos
+  // antigos pre-migration on-read).
+  if (Array.isArray(classificationData.classificadores)) {
+    return classificationData.classificadores;
+  }
+  if (Array.isArray(classificationData.conferidoPor)) {
+    return classificationData.conferidoPor;
+  }
+  return null;
+}
+
+function classifiersToSingleName(classifiersList, legacyString) {
+  // Usado pelo field `classificador` legacy: retorna o primeiro nome (ou
+  // nomes joinados se houver multiplos). Fallback para string legacy.
+  const list = Array.isArray(classifiersList) ? classifiersList : null;
+  if (list && list.length > 0) {
+    const names = list
+      .map((entry) =>
+        isRecord(entry) && typeof entry.fullName === 'string' ? entry.fullName.trim() : ''
+      )
+      .filter((n) => n.length > 0);
+    if (names.length > 0) return names.join(', ');
+  }
+  if (typeof legacyString === 'string' && legacyString.trim().length > 0) {
+    return legacyString.trim();
+  }
+  return null;
 }
 
 function formatSieve(value) {
@@ -164,6 +196,9 @@ function buildFieldValueMap(detail) {
     ? sample.latestClassification.technical
     : {};
 
+  const classifiersList = resolveClassifiersList(classificationData);
+  const classifiersFormatted = formatClassifiersArray(classifiersList);
+
   return {
     internalLotNumber: sample.internalLotNumber,
     owner: sample.declared?.owner,
@@ -179,8 +214,12 @@ function buildFieldValueMap(detail) {
     pva: classificationData.pva,
     imp: classificationData.imp,
     defeito: classificationData.defeito,
-    classificador: classificationData.classificador,
-    conferredBy: formatConferredBy(classificationData.conferidoPor),
+    // `classificador` (legacy): deriva do array de classificadores; fallback
+    // para string legacy armazenada em eventos antigos.
+    classificador: classifiersToSingleName(classifiersList, classificationData.classificador),
+    // `conferredBy` (legacy) e `classifiers` (novo) usam a mesma fonte canonica.
+    conferredBy: classifiersFormatted,
+    classifiers: classifiersFormatted,
     observacoes: classificationData.observacoes,
     classificationOriginLot: classificationData.loteOrigem,
     peneirasPercentuais: formatSieve(classificationData.peneirasPercentuais),

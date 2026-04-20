@@ -34,7 +34,7 @@ import {
 } from '../../lib/sample-identification';
 import type {
   ClassificationType,
-  ConferrerSnapshot,
+  ClassifierSnapshot,
   ExtractAndPrepareResponse,
   ResolveSampleByLotResponse,
   ResolveSampleByQrResponse,
@@ -50,7 +50,7 @@ type ClassificationFlowState =
   | 'idle'
   | 'preview'
   | 'selecting-type'
-  | 'selecting-conferral'
+  | 'selecting-classifier'
   | 'detecting'
   | 'detected'
   | 'detect-failed'
@@ -441,9 +441,10 @@ function CameraPageContent() {
   // Classification type selection
   const [classificationType, setClassificationType] = useState<ClassificationType | null>(null);
 
-  // Conferral phase (nova etapa do modal apos a selecao de tipo)
-  const [hadConferral, setHadConferral] = useState<boolean | null>(null);
-  const [conferredBy, setConferredBy] = useState<ConferrerSnapshot[]>([]);
+  // Classifier phase (etapa do modal apos selecao de tipo): multi-select de
+  // co-classificadores. O user atual e auto-incluido (chip fixo, sempre
+  // presente no array final enviado ao backend).
+  const [coClassifiers, setCoClassifiers] = useState<ClassifierSnapshot[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserLookupItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userPickerSearch, setUserPickerSearch] = useState('');
@@ -726,8 +727,7 @@ function CameraPageContent() {
     setExtractionResult(null);
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
     setClassificationType(null);
-    setHadConferral(null);
-    setConferredBy([]);
+    setCoClassifiers([]);
     setAvailableUsers([]);
     setUserPickerSearch('');
     setUserPickerError(null);
@@ -812,8 +812,8 @@ function CameraPageContent() {
     }
   }
 
-  function toggleConferrer(user: UserLookupItem) {
-    setConferredBy((prev) => {
+  function toggleCoClassifier(user: UserLookupItem) {
+    setCoClassifiers((prev) => {
       const exists = prev.find((entry) => entry.id === user.id);
       if (exists) {
         return prev.filter((entry) => entry.id !== user.id);
@@ -822,10 +822,10 @@ function CameraPageContent() {
     });
   }
 
-  function handleConferralContinue() {
+  function handleClassifierContinue() {
     if (!classificationType) return;
-    if (hadConferral === null) return;
-    if (hadConferral === true && conferredBy.length === 0) return;
+    // User atual e sempre incluido implicitamente, entao o botao e sempre
+    // habilitado. Co-classificadores sao opcionais.
     void handleSendPhoto(classificationType);
   }
 
@@ -931,13 +931,19 @@ function CameraPageContent() {
         classificationType,
       });
 
+      // Classifiers = [actor, ...co-classificadores selecionados]. Backend
+      // valida existencia/ativo dos usuarios e normaliza snapshots.
+      const classifiers = [
+        { userId: session.user.id },
+        ...coClassifiers.map((entry) => ({ userId: entry.id })),
+      ];
+
       await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
         photoToken: extractionResult.photoToken,
         classificationType,
-        conferredBy:
-          hadConferral === true ? conferredBy.map((entry) => ({ userId: entry.id })) : null,
+        classifiers,
         applySampleUpdates,
       });
 
@@ -1281,11 +1287,11 @@ function CameraPageContent() {
                           className="cam-type-btn"
                           onClick={() => {
                             setClassificationType(type);
-                            setHadConferral(null);
-                            setConferredBy([]);
+                            setCoClassifiers([]);
                             setUserPickerSearch('');
                             setUserPickerError(null);
-                            setFlowState('selecting-conferral');
+                            void loadAvailableUsersOnce();
+                            setFlowState('selecting-classifier');
                           }}
                         >
                           {CLASSIFICATION_TYPE_LABEL[type]}
@@ -1303,165 +1309,140 @@ function CameraPageContent() {
                 </div>
               ) : null}
 
-              {/* Conferral phase */}
-              {flowState === 'selecting-conferral' ? (
+              {/* Classifier phase */}
+              {flowState === 'selecting-classifier' ? (
                 <div
                   className="app-modal-backdrop cam-type-backdrop"
                   onClick={() => setFlowState('selecting-type')}
                 >
                   <section
-                    className="app-modal cam-type-card cam-conferral-card"
+                    className="app-modal cam-type-card cam-classifier-card"
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Houve conferencia?"
+                    aria-label="Quem classificou esta amostra?"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <h3 className="cam-type-title">A classificacao foi conferida?</h3>
-                    <p className="cam-conferral-hint">
-                      Indique se outro classificador validou os dados junto com voce.
+                    <h3 className="cam-type-title">Quem classificou esta amostra?</h3>
+                    <p className="cam-classifier-hint">
+                      Voce ja esta incluido. Adicione co-classificadores se aplicavel.
                     </p>
 
-                    <div className="cam-conferral-toggle">
-                      <button
-                        type="button"
-                        className={`cam-conferral-opt${hadConferral === false ? ' is-selected' : ''}`}
-                        onClick={() => {
-                          setHadConferral(false);
-                          setConferredBy([]);
-                          setUserPickerError(null);
-                        }}
-                      >
-                        Nao houve
-                      </button>
-                      <button
-                        type="button"
-                        className={`cam-conferral-opt${hadConferral === true ? ' is-selected' : ''}`}
-                        onClick={() => {
-                          setHadConferral(true);
-                          void loadAvailableUsersOnce();
-                        }}
-                      >
-                        Sim, por:
-                      </button>
-                    </div>
-
-                    {hadConferral === true ? (
-                      <div className="cam-conferral-picker">
-                        {loadingUsers ? (
-                          <div className="cam-conferral-loading">Carregando...</div>
-                        ) : userPickerError ? (
-                          <div className="cam-conferral-error">
-                            {userPickerError}
+                    <div className="cam-classifier-picker">
+                      {/* Chip fixo do user atual (nao removivel) */}
+                      <div className="cam-classifier-chips">
+                        <span
+                          className="cam-classifier-chip is-pinned"
+                          aria-label="Voce (classificador principal)"
+                        >
+                          {session.user.fullName ?? session.user.username}
+                          <span className="cam-classifier-chip-tag">voce</span>
+                        </span>
+                        {coClassifiers.map((entry) => (
+                          <span key={entry.id} className="cam-classifier-chip">
+                            {entry.fullName}
                             <button
                               type="button"
-                              className="cam-conferral-retry"
-                              onClick={() => {
-                                setAvailableUsers([]);
-                                void loadAvailableUsersOnce();
-                              }}
+                              className="cam-classifier-chip-x"
+                              onClick={() =>
+                                setCoClassifiers((prev) => prev.filter((c) => c.id !== entry.id))
+                              }
+                              aria-label={`Remover ${entry.fullName}`}
                             >
-                              Tentar novamente
+                              &times;
                             </button>
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              type="text"
-                              className="cam-conferral-search"
-                              placeholder="Buscar por nome ou usuario"
-                              value={userPickerSearch}
-                              onChange={(event) => setUserPickerSearch(event.target.value)}
-                            />
-                            {conferredBy.length > 0 ? (
-                              <div className="cam-conferral-chips">
-                                {conferredBy.map((entry) => (
-                                  <span key={entry.id} className="cam-conferral-chip">
-                                    {entry.fullName}
-                                    <button
-                                      type="button"
-                                      className="cam-conferral-chip-x"
-                                      onClick={() =>
-                                        setConferredBy((prev) =>
-                                          prev.filter((c) => c.id !== entry.id)
-                                        )
-                                      }
-                                      aria-label={`Remover ${entry.fullName}`}
-                                    >
-                                      &times;
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                            <div className="cam-conferral-list" role="listbox" aria-multiselectable>
-                              {(() => {
-                                const q = userPickerSearch.trim().toLowerCase();
-                                const filtered = q
-                                  ? availableUsers.filter(
-                                      (u) =>
-                                        u.fullName.toLowerCase().includes(q) ||
-                                        u.username.toLowerCase().includes(q)
-                                    )
-                                  : availableUsers;
-                                if (filtered.length === 0) {
-                                  return (
-                                    <div className="cam-conferral-empty">
-                                      Nenhum usuario encontrado.
-                                    </div>
-                                  );
-                                }
-                                return filtered.map((user) => {
-                                  const selected = conferredBy.some((c) => c.id === user.id);
-                                  return (
-                                    <button
-                                      key={user.id}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={selected}
-                                      className={`cam-conferral-row${selected ? ' is-selected' : ''}`}
-                                      onClick={() => toggleConferrer(user)}
-                                    >
-                                      <span className="cam-conferral-row-check">
-                                        {selected ? (
-                                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                                            <path d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        ) : null}
-                                      </span>
-                                      <span className="cam-conferral-row-body">
-                                        <span className="cam-conferral-row-name">
-                                          {user.fullName}
-                                        </span>
-                                        <span className="cam-conferral-row-user">
-                                          @{user.username}
-                                        </span>
-                                      </span>
-                                    </button>
-                                  );
-                                });
-                              })()}
-                            </div>
-                          </>
-                        )}
+                          </span>
+                        ))}
                       </div>
-                    ) : null}
 
-                    <div className="cam-conferral-actions">
+                      {loadingUsers ? (
+                        <div className="cam-classifier-loading">Carregando...</div>
+                      ) : userPickerError ? (
+                        <div className="cam-classifier-error">
+                          {userPickerError}
+                          <button
+                            type="button"
+                            className="cam-classifier-retry"
+                            onClick={() => {
+                              setAvailableUsers([]);
+                              void loadAvailableUsersOnce();
+                            }}
+                          >
+                            Tentar novamente
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            className="cam-classifier-search"
+                            placeholder="Buscar co-classificador por nome ou usuario"
+                            value={userPickerSearch}
+                            onChange={(event) => setUserPickerSearch(event.target.value)}
+                          />
+                          <div className="cam-classifier-list" role="listbox" aria-multiselectable>
+                            {(() => {
+                              const q = userPickerSearch.trim().toLowerCase();
+                              const filtered = q
+                                ? availableUsers.filter(
+                                    (u) =>
+                                      u.fullName.toLowerCase().includes(q) ||
+                                      u.username.toLowerCase().includes(q)
+                                  )
+                                : availableUsers;
+                              if (filtered.length === 0) {
+                                return (
+                                  <div className="cam-classifier-empty">
+                                    Nenhum usuario encontrado.
+                                  </div>
+                                );
+                              }
+                              return filtered.map((user) => {
+                                const selected = coClassifiers.some((c) => c.id === user.id);
+                                return (
+                                  <button
+                                    key={user.id}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    className={`cam-classifier-row${selected ? ' is-selected' : ''}`}
+                                    onClick={() => toggleCoClassifier(user)}
+                                  >
+                                    <span className="cam-classifier-row-check">
+                                      {selected ? (
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                          <path d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      ) : null}
+                                    </span>
+                                    <span className="cam-classifier-row-body">
+                                      <span className="cam-classifier-row-name">
+                                        {user.fullName}
+                                      </span>
+                                      <span className="cam-classifier-row-user">
+                                        @{user.username}
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="cam-classifier-actions">
                       <button
                         type="button"
-                        className="cam-conferral-back"
+                        className="cam-classifier-back"
                         onClick={() => setFlowState('selecting-type')}
                       >
                         Voltar
                       </button>
                       <button
                         type="button"
-                        className="cam-conferral-continue"
-                        onClick={handleConferralContinue}
-                        disabled={
-                          hadConferral === null ||
-                          (hadConferral === true && conferredBy.length === 0)
-                        }
+                        className="cam-classifier-continue"
+                        onClick={handleClassifierContinue}
                       >
                         Continuar
                       </button>
