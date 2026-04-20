@@ -4436,20 +4436,37 @@ button:disabled {
 
 /* ── spv2: scroll infinito ── */
 
-.spv2-card-skeleton {
-  background: linear-gradient(180deg, #f6f3ec 0%, #efece4 100%);
-  animation: spv2-skeleton-pulse 1.4s ease-in-out infinite;
-  min-height: 72px;
+.spv2-skeleton-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 58px;
+  border-radius: 12px;
+  background: #ede7d8;
+  border: 1px dashed rgba(112, 130, 103, 0.4);
+  flex-shrink: 0;
   pointer-events: none;
 }
 
-@keyframes spv2-skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
+.spv2-skeleton-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 100%
+  );
+  animation: spv2-skeleton-shimmer 1.2s ease-in-out infinite;
+  transform: translateX(-100%);
+}
+
+@keyframes spv2-skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
   }
-  50% {
-    opacity: 0.85;
+  100% {
+    transform: translateX(100%);
   }
 }
 

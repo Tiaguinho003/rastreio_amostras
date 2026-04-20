@@ -22,7 +22,7 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { CommercialStatus, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
-const SAMPLE_PAGE_LIMIT = 15;
+const SAMPLE_PAGE_LIMIT = 20;
 const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
 const STATUS_FILTER_OPTIONS = [
   { value: 'PRINT_PENDING', label: 'Impressao pendente' },
@@ -381,6 +381,7 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
 /* ── Snapshot do estado da lista (preserva scroll e itens ao voltar da detail) ── */
 
 const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v1';
+const SAMPLES_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
 interface SamplesSnapshot {
   items: SampleSnapshot[];
@@ -391,25 +392,31 @@ interface SamplesSnapshot {
   appliedSearch: string;
   appliedHiddenFilters: HiddenFilters;
   agingParam: string | null;
+  savedAt: number;
 }
 
 function readSamplesSnapshot(): SamplesSnapshot | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(SAMPLES_SNAPSHOT_KEY);
+    // Consume-once: snapshot sobrevive apenas uma leitura.
+    window.sessionStorage.removeItem(SAMPLES_SNAPSHOT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.items)) return null;
+    if (typeof parsed.savedAt !== 'number') return null;
+    if (Date.now() - parsed.savedAt > SAMPLES_SNAPSHOT_TTL_MS) return null;
     return parsed as SamplesSnapshot;
   } catch {
     return null;
   }
 }
 
-function writeSamplesSnapshot(snapshot: SamplesSnapshot) {
+function writeSamplesSnapshot(snapshot: Omit<SamplesSnapshot, 'savedAt'>) {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    const payload: SamplesSnapshot = { ...snapshot, savedAt: Date.now() };
+    window.sessionStorage.setItem(SAMPLES_SNAPSHOT_KEY, JSON.stringify(payload));
   } catch {
     /* ignora quota/serialization errors — snapshot é otimização, não crítico */
   }
@@ -1227,7 +1234,7 @@ function SamplesPage() {
 
               {isLoadingMore
                 ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={`skel-${i}`} className="spv2-card spv2-card-skeleton" aria-hidden />
+                    <div key={`skel-${i}`} className="spv2-skeleton-card" aria-hidden />
                   ))
                 : null}
 
