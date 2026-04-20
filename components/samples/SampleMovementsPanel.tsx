@@ -427,7 +427,7 @@ export function SampleMovementsPanel({
 
       {cancelMovement
         ? createPortal(
-            <div className="app-modal-backdrop" onClick={() => !saving && setCancelMovement(null)}>
+            <div className="app-modal-backdrop">
               <section
                 ref={cancelTrapRef}
                 className="app-modal cdm-modal"

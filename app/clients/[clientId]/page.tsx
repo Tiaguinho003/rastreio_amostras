@@ -1469,12 +1469,7 @@ export default function ClientDetailPage() {
 
       {/* ========== MODAL 1: Edit Client ========== */}
       {editClientOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!savingClient) closeEditClient();
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={editClientTrapRef}
             className="app-modal client-detail-edit-modal client-detail-modal-scrollable"
@@ -1539,7 +1534,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.fullName}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, fullName: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            fullName: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
@@ -1564,7 +1562,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.legalName}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, legalName: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            legalName: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
@@ -1575,7 +1576,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.tradeName}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, tradeName: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            tradeName: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
@@ -1644,7 +1648,10 @@ export default function ClientDetailPage() {
                     value={editClientForm.reasonText}
                     disabled={savingClient}
                     onChange={(e) =>
-                      setEditClientForm((c) => ({ ...c, reasonText: e.target.value }))
+                      setEditClientForm((c) => ({
+                        ...c,
+                        reasonText: e.target.value.toUpperCase(),
+                      }))
                     }
                     placeholder="Opcional"
                   />
@@ -1677,12 +1684,7 @@ export default function ClientDetailPage() {
 
       {/* ========== MODAL 2: Create/Edit Registration ========== */}
       {regModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!savingReg && !regSuccess) closeRegModal();
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={regTrapRef}
             className="app-modal client-reg-modal"
@@ -1751,7 +1753,10 @@ export default function ClientDetailPage() {
                             : undefined
                         }
                         onChange={(e) =>
-                          setRegForm((c) => ({ ...c, registrationNumber: e.target.value }))
+                          setRegForm((c) => ({
+                            ...c,
+                            registrationNumber: e.target.value.toUpperCase(),
+                          }))
                         }
                         placeholder={
                           regSubmitted && !regForm.registrationNumber.trim() ? 'Obrigatorio' : ''
@@ -1775,7 +1780,10 @@ export default function ClientDetailPage() {
                             : undefined
                         }
                         onChange={(e) =>
-                          setRegForm((c) => ({ ...c, registrationType: e.target.value }))
+                          setRegForm((c) => ({
+                            ...c,
+                            registrationType: e.target.value.toUpperCase(),
+                          }))
                         }
                         placeholder={
                           regSubmitted && !regForm.registrationType.trim()
@@ -1806,7 +1814,12 @@ export default function ClientDetailPage() {
                             ? 'cqc-input-error'
                             : undefined
                         }
-                        onChange={(e) => setRegForm((c) => ({ ...c, addressLine: e.target.value }))}
+                        onChange={(e) =>
+                          setRegForm((c) => ({
+                            ...c,
+                            addressLine: e.target.value.toUpperCase(),
+                          }))
+                        }
                         placeholder={
                           regSubmitted && !regForm.addressLine.trim() ? 'Obrigatorio' : ''
                         }
@@ -1826,7 +1839,9 @@ export default function ClientDetailPage() {
                         className={
                           regSubmitted && !regForm.district.trim() ? 'cqc-input-error' : undefined
                         }
-                        onChange={(e) => setRegForm((c) => ({ ...c, district: e.target.value }))}
+                        onChange={(e) =>
+                          setRegForm((c) => ({ ...c, district: e.target.value.toUpperCase() }))
+                        }
                         placeholder={regSubmitted && !regForm.district.trim() ? 'Obrigatorio' : ''}
                       />
                     </label>
@@ -1841,7 +1856,9 @@ export default function ClientDetailPage() {
                         className={
                           regSubmitted && !regForm.city.trim() ? 'cqc-input-error' : undefined
                         }
-                        onChange={(e) => setRegForm((c) => ({ ...c, city: e.target.value }))}
+                        onChange={(e) =>
+                          setRegForm((c) => ({ ...c, city: e.target.value.toUpperCase() }))
+                        }
                         placeholder={regSubmitted && !regForm.city.trim() ? 'Obrigatorio' : ''}
                       />
                     </label>
@@ -1892,7 +1909,12 @@ export default function ClientDetailPage() {
                         value={regForm.complement}
                         maxLength={120}
                         disabled={savingReg}
-                        onChange={(e) => setRegForm((c) => ({ ...c, complement: e.target.value }))}
+                        onChange={(e) =>
+                          setRegForm((c) => ({
+                            ...c,
+                            complement: e.target.value.toUpperCase(),
+                          }))
+                        }
                         placeholder="Ex: Fazenda Santa Maria (opcional)"
                       />
                     </label>
@@ -1912,7 +1934,10 @@ export default function ClientDetailPage() {
                           maxLength={300}
                           disabled={savingReg}
                           onChange={(e) =>
-                            setRegForm((c) => ({ ...c, reasonText: e.target.value }))
+                            setRegForm((c) => ({
+                              ...c,
+                              reasonText: e.target.value.toUpperCase(),
+                            }))
                           }
                           placeholder="Opcional"
                         />
@@ -1942,12 +1967,7 @@ export default function ClientDetailPage() {
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}
       {statusModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!savingStatus) closeStatusModal();
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={statusTrapRef}
             className="app-modal"
@@ -2011,7 +2031,7 @@ export default function ClientDetailPage() {
                   className="app-modal-input"
                   value={statusReasonText}
                   disabled={savingStatus}
-                  onChange={(e) => setStatusReasonText(e.target.value)}
+                  onChange={(e) => setStatusReasonText(e.target.value.toUpperCase())}
                   placeholder="Informe o motivo"
                 />
               </label>
@@ -2048,12 +2068,7 @@ export default function ClientDetailPage() {
 
       {/* ========== MODAL 4: Inactivate/Reactivate Registration ========== */}
       {regStatusModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!savingRegStatus) closeRegStatusModal();
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={regStatusTrapRef}
             className="app-modal"
@@ -2086,7 +2101,7 @@ export default function ClientDetailPage() {
                   className="app-modal-input"
                   value={regStatusReasonText}
                   disabled={savingRegStatus}
-                  onChange={(e) => setRegStatusReasonText(e.target.value)}
+                  onChange={(e) => setRegStatusReasonText(e.target.value.toUpperCase())}
                   placeholder="Informe o motivo"
                 />
               </label>

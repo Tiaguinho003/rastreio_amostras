@@ -748,7 +748,7 @@ export default function UsersPage() {
 
       {/* Detail / Edit Modal */}
       {modal.mode === 'view' || modal.mode === 'edit' ? (
-        <div className="app-modal-backdrop" onClick={closeModal}>
+        <div className="app-modal-backdrop">
           <section
             ref={modalTrapRef}
             className="app-modal cdm-modal"
@@ -987,7 +987,7 @@ export default function UsersPage() {
 
       {/* Create Modal */}
       {modal.mode === 'create' ? (
-        <div className="app-modal-backdrop" onClick={closeModal}>
+        <div className="app-modal-backdrop">
           <section
             ref={modalTrapRef}
             className="app-modal cdm-modal"

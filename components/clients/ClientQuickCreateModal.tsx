@@ -180,14 +180,7 @@ export function ClientQuickCreateModal({
   }
 
   return (
-    <div
-      className="app-modal-backdrop"
-      onClick={() => {
-        if (!saving && !showSuccess) {
-          onClose();
-        }
-      }}
-    >
+    <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
         className="app-modal client-quick-create-modal"
@@ -296,15 +289,14 @@ export function ClientQuickCreateModal({
                     value={nameValue}
                     disabled={saving}
                     className={hasNameError ? 'cqc-input-error' : undefined}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.target.value.toUpperCase();
                       setForm((current) => ({
                         ...current,
-                        fullName:
-                          current.personType === 'PF' ? event.target.value : current.fullName,
-                        legalName:
-                          current.personType === 'PJ' ? event.target.value : current.legalName,
-                      }))
-                    }
+                        fullName: current.personType === 'PF' ? value : current.fullName,
+                        legalName: current.personType === 'PJ' ? value : current.legalName,
+                      }));
+                    }}
                     placeholder={hasNameError ? 'Obrigatorio' : ''}
                   />
                 </label>
@@ -318,7 +310,10 @@ export function ClientQuickCreateModal({
                       value={form.tradeName}
                       disabled={saving}
                       onChange={(event) =>
-                        setForm((current) => ({ ...current, tradeName: event.target.value }))
+                        setForm((current) => ({
+                          ...current,
+                          tradeName: event.target.value.toUpperCase(),
+                        }))
                       }
                       placeholder=""
                     />

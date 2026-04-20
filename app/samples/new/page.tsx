@@ -757,7 +757,7 @@ function NewSamplePageContent() {
                     value={harvest}
                     onFocus={() => setHarvestOptionsOpen(true)}
                     onChange={(event) => {
-                      setHarvest(event.target.value);
+                      setHarvest(event.target.value.toUpperCase());
                       clearRequiredFieldError('harvest');
                     }}
                     placeholder={
@@ -796,7 +796,7 @@ function NewSamplePageContent() {
                     value={originLot}
                     className="nsv2-field-input"
                     onChange={(event) => {
-                      setOriginLot(event.target.value);
+                      setOriginLot(event.target.value.toUpperCase());
                     }}
                     placeholder="Codigo do lote"
                   />
@@ -809,7 +809,7 @@ function NewSamplePageContent() {
                   <input
                     value={location}
                     className="nsv2-field-input"
-                    onChange={(event) => setLocation(event.target.value)}
+                    onChange={(event) => setLocation(event.target.value.toUpperCase())}
                     placeholder="Ex: BM, Patos"
                     maxLength={30}
                   />
@@ -822,7 +822,7 @@ function NewSamplePageContent() {
                   <input
                     value={notes}
                     className="nsv2-field-input"
-                    onChange={(event) => setNotes(event.target.value)}
+                    onChange={(event) => setNotes(event.target.value.toUpperCase())}
                     placeholder=""
                   />
                 </label>
@@ -868,14 +868,7 @@ function NewSamplePageContent() {
       </section>
 
       {labelModalOpen ? (
-        <div
-          className="app-modal-backdrop new-sample-label-modal-backdrop"
-          onClick={() => {
-            if (canCloseModal) {
-              closeLabelModal();
-            }
-          }}
-        >
+        <div className="app-modal-backdrop new-sample-label-modal-backdrop">
           <section
             ref={labelTrapRef}
             className="app-modal new-sample-label-modal"

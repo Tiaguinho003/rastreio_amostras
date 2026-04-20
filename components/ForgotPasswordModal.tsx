@@ -337,14 +337,7 @@ export function ForgotPasswordModal({ open, onClose, returnFocusRef }: ForgotPas
   }
 
   return (
-    <div
-      className="login-modal-backdrop"
-      onClick={() => {
-        if (!busy) {
-          handleClose();
-        }
-      }}
-    >
+    <div className="login-modal-backdrop">
       <section
         ref={focusTrapRef}
         className="login-modal"

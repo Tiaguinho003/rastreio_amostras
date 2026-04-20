@@ -2132,6 +2132,7 @@ export default function SampleDetailPage() {
     } = {}
   ) {
     const fieldState = getClassificationFieldState(classificationForm[key], options.className);
+    const isNumeric = options.inputMode === 'decimal' || options.inputMode === 'numeric';
 
     return (
       <label key={String(key)} className={fieldState.fieldClassName}>
@@ -2140,7 +2141,10 @@ export default function SampleDetailPage() {
           type={options.type ?? 'text'}
           inputMode={options.inputMode}
           value={classificationForm[key]}
-          onChange={(event) => updateClassificationField(key, event.target.value)}
+          onChange={(event) => {
+            const raw = event.target.value;
+            updateClassificationField(key, isNumeric ? raw : raw.toUpperCase());
+          }}
           readOnly={classificationFieldsReadOnly}
           placeholder={fieldState.placeholder}
           className={fieldState.controlClassName}
@@ -2165,7 +2169,7 @@ export default function SampleDetailPage() {
         <textarea
           rows={options.rows ?? 2}
           value={classificationForm[key]}
-          onChange={(event) => updateClassificationField(key, event.target.value)}
+          onChange={(event) => updateClassificationField(key, event.target.value.toUpperCase())}
           readOnly={classificationFieldsReadOnly}
           placeholder={fieldState.placeholder}
           className={fieldState.controlClassName}
@@ -2682,14 +2686,7 @@ export default function SampleDetailPage() {
       </section>
 
       {detail && invalidateModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (!invalidating) {
-              setInvalidateModalOpen(false);
-            }
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={invalidateTrapRef}
             className="app-modal sample-detail-invalidate-modal"
@@ -2769,7 +2766,7 @@ export default function SampleDetailPage() {
                   className="app-modal-input sample-detail-invalidate-textarea"
                   rows={4}
                   value={invalidateReasonText}
-                  onChange={(event) => setInvalidateReasonText(event.target.value)}
+                  onChange={(event) => setInvalidateReasonText(event.target.value.toUpperCase())}
                   placeholder="Descreva o motivo da invalidacao"
                   disabled={invalidating || hasActiveMovements}
                 />
@@ -2835,14 +2832,7 @@ export default function SampleDetailPage() {
       ) : null}
 
       {detail && labelModalOpen ? (
-        <div
-          className="app-modal-backdrop new-sample-label-modal-backdrop"
-          onClick={() => {
-            if (canCloseLabelModal) {
-              closeLabelModal();
-            }
-          }}
-        >
+        <div className="app-modal-backdrop new-sample-label-modal-backdrop">
           <section
             ref={labelTrapRef}
             className="app-modal new-sample-label-modal"
@@ -2969,7 +2959,7 @@ export default function SampleDetailPage() {
       />
 
       {registrationEditMode ? (
-        <div className="app-modal-backdrop" onClick={() => cancelRegistrationEdit()}>
+        <div className="app-modal-backdrop">
           <section
             ref={registrationEditTrapRef}
             className="app-modal cdm-modal"
@@ -3047,7 +3037,7 @@ export default function SampleDetailPage() {
                   <input
                     className="sdv-edit-input"
                     value={harvest}
-                    onChange={(event) => setHarvest(event.target.value)}
+                    onChange={(event) => setHarvest(event.target.value.toUpperCase())}
                     disabled={registrationUpdating}
                   />
                 </label>
@@ -3058,7 +3048,7 @@ export default function SampleDetailPage() {
                   <input
                     className="sdv-edit-input"
                     value={originLot}
-                    onChange={(event) => setOriginLot(event.target.value)}
+                    onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
                     disabled={registrationUpdating}
                   />
                 </label>
@@ -3067,7 +3057,7 @@ export default function SampleDetailPage() {
                   <input
                     className="sdv-edit-input"
                     value={location}
-                    onChange={(event) => setLocation(event.target.value)}
+                    onChange={(event) => setLocation(event.target.value.toUpperCase())}
                     maxLength={30}
                     placeholder="Ex: BM, Patos"
                     disabled={registrationUpdating}
@@ -3100,7 +3090,9 @@ export default function SampleDetailPage() {
                 <input
                   className="sdv-edit-input"
                   value={registrationEditReasonText}
-                  onChange={(event) => setRegistrationEditReasonText(event.target.value)}
+                  onChange={(event) =>
+                    setRegistrationEditReasonText(event.target.value.toUpperCase())
+                  }
                   placeholder={
                     registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
                   }
@@ -3151,7 +3143,13 @@ export default function SampleDetailPage() {
                     inputMode={inputMode}
                     className="cld-field-input"
                     value={f[key]}
-                    onChange={(e) => updateClassificationDetailField(key, e.target.value)}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      updateClassificationDetailField(
+                        key,
+                        inputMode === 'decimal' ? raw : raw.toUpperCase()
+                      );
+                    }}
                     disabled={saving}
                     placeholder="\u2014"
                   />
@@ -3541,7 +3539,10 @@ export default function SampleDetailPage() {
                               className="cld-field-input cld-textarea"
                               value={f.observacoes}
                               onChange={(e) =>
-                                updateClassificationDetailField('observacoes', e.target.value)
+                                updateClassificationDetailField(
+                                  'observacoes',
+                                  e.target.value.toUpperCase()
+                                )
                               }
                               disabled={saving}
                               placeholder="\u2014"
@@ -3608,12 +3609,7 @@ export default function SampleDetailPage() {
         : null}
 
       {classificationEditReasonModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            closeClassificationEditReasonModal();
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={classificationEditTrapRef}
             className="app-modal"
@@ -3671,7 +3667,9 @@ export default function SampleDetailPage() {
                 <input
                   className="app-modal-input"
                   value={classificationEditReasonText}
-                  onChange={(event) => setClassificationEditReasonText(event.target.value)}
+                  onChange={(event) =>
+                    setClassificationEditReasonText(event.target.value.toUpperCase())
+                  }
                   placeholder={
                     classificationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
                   }
@@ -3826,15 +3824,7 @@ export default function SampleDetailPage() {
       ) : null}
 
       {physicalSendModalOpen ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (physicalSending) return;
-            setPhysicalSendModalOpen(false);
-            setEditingSendEventId(null);
-            setPhysicalSendError(null);
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             ref={physicalSendTrapRef}
             className="app-modal cdm-modal cdm-lookup-modal"
@@ -3914,14 +3904,7 @@ export default function SampleDetailPage() {
       ) : null}
 
       {cancelConfirmSendEventId ? (
-        <div
-          className="app-modal-backdrop"
-          onClick={() => {
-            if (cancellingSend) return;
-            setCancelConfirmSendEventId(null);
-            setCancelSendError(null);
-          }}
-        >
+        <div className="app-modal-backdrop">
           <section
             className="app-modal cdm-modal cdm-lookup-modal"
             role="dialog"
@@ -4004,10 +3987,7 @@ export default function SampleDetailPage() {
       {/* Modal de confirmacao de reclassificacao — empilhado sobre o modal
           full-view de classificacao. Usa o padrao oficial .app-modal. */}
       {reclassifyModalOpen ? (
-        <div
-          className="app-modal-backdrop sample-detail-reclassify-backdrop"
-          onClick={() => setReclassifyModalOpen(false)}
-        >
+        <div className="app-modal-backdrop sample-detail-reclassify-backdrop">
           <section
             className="app-modal sample-detail-reclassify-modal"
             role="dialog"

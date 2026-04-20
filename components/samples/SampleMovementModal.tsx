@@ -246,7 +246,7 @@ export function SampleMovementModal({
   }
 
   return createPortal(
-    <div className="app-modal-backdrop" onClick={() => !saving && onClose()}>
+    <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
         className="app-modal cdm-modal"
@@ -300,7 +300,7 @@ export function SampleMovementModal({
                 className="sdv-edit-input"
                 value={lossReasonText}
                 disabled={saving}
-                onChange={(event) => setLossReasonText(event.target.value)}
+                onChange={(event) => setLossReasonText(event.target.value.toUpperCase())}
                 placeholder="Descreva a origem da perda"
               />
             </label>
@@ -355,7 +355,7 @@ export function SampleMovementModal({
               className="sdv-edit-input"
               value={notes}
               disabled={saving}
-              onChange={(event) => setNotes(event.target.value)}
+              onChange={(event) => setNotes(event.target.value.toUpperCase())}
               placeholder="Observacoes adicionais"
             />
           </label>
@@ -367,7 +367,7 @@ export function SampleMovementModal({
                 className="sdv-edit-input"
                 value={reasonText}
                 disabled={saving}
-                onChange={(event) => setReasonText(event.target.value)}
+                onChange={(event) => setReasonText(event.target.value.toUpperCase())}
                 placeholder="Obrigatorio"
               />
             </label>

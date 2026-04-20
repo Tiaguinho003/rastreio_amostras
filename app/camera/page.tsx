@@ -155,7 +155,10 @@ function ClassificationConfirmModal({
           inputMode={inputMode}
           className="cam-cf-input"
           value={form[f.key]}
-          onChange={(e) => onFormChange(f.key, e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            onFormChange(f.key, inputMode === 'decimal' ? raw : raw.toUpperCase());
+          }}
           disabled={submitting}
           placeholder="\u2014"
         />
@@ -164,7 +167,7 @@ function ClassificationConfirmModal({
   };
 
   return (
-    <div className="app-modal-backdrop" onClick={onCancel}>
+    <div className="app-modal-backdrop">
       <section
         ref={trapRef}
         className="app-modal cam-cf-modal"
@@ -207,7 +210,7 @@ function ClassificationConfirmModal({
                     type="text"
                     className="cam-cf-input"
                     value={lotNumber}
-                    onChange={(e) => onLotNumberChange?.(e.target.value)}
+                    onChange={(e) => onLotNumberChange?.(e.target.value.toUpperCase())}
                     disabled={submitting}
                     placeholder="Numero do lote"
                   />
@@ -350,7 +353,7 @@ function ClassificationConfirmModal({
             <textarea
               className="cam-cf-input cam-cf-textarea"
               value={form.observacoes}
-              onChange={(e) => onFormChange('observacoes', e.target.value)}
+              onChange={(e) => onFormChange('observacoes', e.target.value.toUpperCase())}
               disabled={submitting}
               placeholder="Pau, AP, umidade, ou qualquer observacao..."
               rows={3}
