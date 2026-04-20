@@ -35,6 +35,7 @@ Hoje o sistema modela cada amostra (`Sample`) como um lote fisico indivisivel, i
 - [x] Uma liga pode ser insumo de outra liga (cascata recursiva)? **Sim** - precisamos preservar arvore completa de origens para rastreabilidade.
 
 **Implicacoes derivadas (a validar nos proximos blocos):**
+
 1. Como a contribuicao e fracionada, o modelo precisa armazenar `contributed_quantity` em unidade compativel com fracoes (ex: `Decimal` em kg, ou `Decimal` sacas com escala). Precisamos decidir a **unidade canonica** de inventario (kg? saca com decimais?).
 2. Como o lote de origem sobrevive, `Sample.declaredSacks` dele nao muda - precisamos de um conceito de **saldo disponivel** (`availableSacks` ou view computada = declaredSacks - soldSacks - lostSacks - blendedSacks).
 3. Como a liga e reversivel, precisamos de **evento de reversao** no event store e definir estado da liga revertida (invalidada? volta para origens?).
