@@ -87,18 +87,6 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'period',
 ];
 
-function renderSampleValue(value: string | number | null) {
-  if (value === null || value === '') {
-    return 'Nao informado';
-  }
-
-  return String(value);
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('pt-BR');
-}
-
 function getStatusThemeClass(status: string): string {
   switch (status) {
     case 'REGISTRATION_CONFIRMED':
@@ -145,17 +133,6 @@ function getCommercialStatusTheme(status: string): string {
     default:
       return '';
   }
-}
-
-function formatSampleCardSummary(sample: SampleSnapshot) {
-  const owner = renderSampleValue(sample.declared.owner);
-  const harvest = renderSampleValue(sample.declared.harvest);
-  const sacks = renderSampleValue(sample.declared.sacks);
-  return `${owner} | Safra ${harvest} | Saca ${sacks}`;
-}
-
-function formatSampleCardMeta(sample: SampleSnapshot) {
-  return `Criada ${formatDate(sample.createdAt)} | Atual. ${formatDate(sample.updatedAt)}`;
 }
 
 function getCardStatusColor(status: string): string {
@@ -487,8 +464,6 @@ function SamplesPage() {
     agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>('owner');
-  const [sortNewest, setSortNewest] = useState(true);
-
   const samplesScrollRef = useRef<HTMLDivElement | null>(null);
   const filterCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastFilterTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -554,14 +529,6 @@ function SamplesPage() {
     ],
     [draftHiddenFilters]
   );
-
-  const displayItems = useMemo(() => {
-    return [...samplesState.items].sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime();
-      const tb = new Date(b.createdAt).getTime();
-      return sortNewest ? tb - ta : ta - tb;
-    });
-  }, [samplesState.items, sortNewest]);
 
   useEffect(() => {
     samplesScrollRef.current?.scrollTo({ top: 0 });
@@ -741,7 +708,6 @@ function SamplesPage() {
   const paginationHasPrev = samplesState.hasPrev;
   const paginationHasNext = samplesState.hasNext;
   const paginationBusy = samplesState.loading;
-  const currentTotalLabel = `${samplesState.total} registros`;
 
   function renderFilterFields() {
     return (
@@ -987,21 +953,9 @@ function SamplesPage() {
             </div>
           ) : null}
 
-          {/* Section 2: Count + Sort */}
+          {/* Section 2: Count */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{displayItems.length} registros</span>
-            <button
-              type="button"
-              className="spv2-sort-btn"
-              onClick={() => setSortNewest((v) => !v)}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M4 12h10" />
-                <path d="M4 18h6" />
-              </svg>
-              <span>{sortNewest ? 'Recentes' : 'Antigos'}</span>
-            </button>
+            <span className="spv2-list-count">{samplesState.total} registros</span>
           </div>
 
           {/* Section 3: Card list */}
@@ -1011,7 +965,7 @@ function SamplesPage() {
                 <p className="spv2-empty-text">Carregando...</p>
               </div>
             </div>
-          ) : displayItems.length === 0 ? (
+          ) : samplesState.items.length === 0 ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
                 <svg className="spv2-empty-icon" viewBox="0 0 40 56" aria-hidden="true">
@@ -1030,7 +984,7 @@ function SamplesPage() {
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
-              {displayItems.map((sample, i) => {
+              {samplesState.items.map((sample, i) => {
                 const statusColor = getCardStatusColor(sample.status);
                 const statusLabel = getCardStatusLabel(sample.status);
                 return (
