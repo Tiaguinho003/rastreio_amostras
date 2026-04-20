@@ -45,6 +45,39 @@ if (!databaseUrl || !databaseReachable) {
     userAgent: 'node-test',
   };
 
+  // Mock de UserService pro fluxo de classifiers no command service.
+  // Aceita qualquer UUID como ACTIVE e retorna snapshot sintetico — os testes
+  // de integracao validam o fluxo, nao a validacao de existencia de usuario
+  // (ja coberto em normalize-classifiers.test.js unit).
+  const userServiceMock = {
+    async findUsersForSnapshotByIds(userIds) {
+      const uniqueIds = Array.from(
+        new Set(
+          (Array.isArray(userIds) ? userIds : []).filter(
+            (id) => typeof id === 'string' && id.length > 0
+          )
+        )
+      );
+      return new Map(
+        uniqueIds.map((id) => [
+          id,
+          {
+            id,
+            fullName: `Test User ${id.slice(0, 8)}`,
+            username: `u_${id.slice(0, 8)}`,
+            status: 'ACTIVE',
+          },
+        ])
+      );
+    },
+  };
+
+  // Helper: monta payload minimo de classifiers pros testes. Frontend
+  // compoe `[actor, ...co-classificadores]`; aqui usamos so o actor.
+  function classifiersOf(actor) {
+    return [{ userId: actor.actorUserId }];
+  }
+
   const tinyPngBuffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO8f5i8AAAAASUVORK5CYII=',
     'base64'
@@ -157,6 +190,7 @@ if (!databaseUrl || !databaseReachable) {
       queryService,
       uploadService,
       clientService,
+      userService: userServiceMock,
     });
   });
 
@@ -327,7 +361,6 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
-          classificador: 'Classificador Teste',
           defeito: '9',
           bebida: 'DURA',
           aspecto: 'verde',
@@ -341,6 +374,7 @@ if (!databaseUrl || !databaseReachable) {
           notes: 'ok',
         },
         consumptionGrams: null,
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -426,6 +460,7 @@ if (!databaseUrl || !databaseReachable) {
             classificationData: {
               padrao: 'SEM-FOTO',
             },
+            classifiers: classifiersOf(actorClassifier),
             idempotencyKey: randomUUID(),
           },
           actorClassifier
@@ -679,6 +714,7 @@ if (!databaseUrl || !databaseReachable) {
           bebida: 'DURA',
           defeito: '9',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -718,6 +754,7 @@ if (!databaseUrl || !databaseReachable) {
           padrao: 'PADRAO-2',
           bebida: 'MOLE',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
         applySampleUpdates: {
           declaredSacks: 50,
@@ -757,6 +794,7 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           padrao: 'PADRAO-3',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
         applySampleUpdates: {
           declaredHarvest: '24/25',
@@ -792,6 +830,7 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           padrao: 'PADRAO-BOTH',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
         applySampleUpdates: {
           declaredSacks: 25,
@@ -832,6 +871,7 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           padrao: 'PADRAO-NOOP',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
         // Valores ja batem com o cadastrado (sacks=11, harvest='25/26').
         applySampleUpdates: {
@@ -893,10 +933,10 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-SOLD',
-          classificador: 'Classificador Teste',
           defeito: '9',
           bebida: 'DURA',
         },
+        classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -937,6 +977,7 @@ if (!databaseUrl || !databaseReachable) {
             classificationData: {
               padrao: 'PADRAO-FAIL',
             },
+            classifiers: classifiersOf(actorClassifier),
             idempotencyKey: randomUUID(),
             applySampleUpdates: {
               declaredSacks: 5,

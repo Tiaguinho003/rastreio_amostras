@@ -274,6 +274,7 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           padrao: 'PADRAO-A',
         },
+        classifiers: [{ userId: actorClassifier.actorUserId }],
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -286,11 +287,37 @@ if (!databaseUrl || !databaseReachable) {
     uploadDir = await fs.mkdtemp(path.join(os.tmpdir(), 'coffee-api-missing-'));
     uploadService = new LocalUploadService({ baseDir: uploadDir });
 
+    // Mock de UserService pro fluxo de classifiers (unit testa validacao
+    // real; aqui testamos fluxo end-to-end de API).
+    const userServiceMock = {
+      async findUsersForSnapshotByIds(userIds) {
+        const uniqueIds = Array.from(
+          new Set(
+            (Array.isArray(userIds) ? userIds : []).filter(
+              (id) => typeof id === 'string' && id.length > 0
+            )
+          )
+        );
+        return new Map(
+          uniqueIds.map((id) => [
+            id,
+            {
+              id,
+              fullName: `Test User ${id.slice(0, 8)}`,
+              username: `u_${id.slice(0, 8)}`,
+              status: 'ACTIVE',
+            },
+          ])
+        );
+      },
+    };
+
     commandService = new SampleCommandService({
       eventService,
       queryService,
       uploadService,
       clientService,
+      userService: userServiceMock,
     });
     authService = new LocalAuthService({
       secret: 'super-secret-for-backend-api-missing-tests',
