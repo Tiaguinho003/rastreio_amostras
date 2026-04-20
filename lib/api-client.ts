@@ -727,6 +727,8 @@ export function listSamples(
     limit?: number;
     offset?: number;
     page?: number;
+    cursorCreatedAt?: string;
+    cursorId?: string;
     lot?: string;
     owner?: string;
     buyer?: string;
@@ -748,6 +750,8 @@ export function listSamples(
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (typeof query.offset === 'number') params.set('offset', String(query.offset));
   if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (query.cursorCreatedAt) params.set('cursorCreatedAt', query.cursorCreatedAt);
+  if (query.cursorId) params.set('cursorId', query.cursorId);
   if (query.lot) params.set('lot', query.lot);
   if (query.owner) params.set('owner', query.owner);
   if (query.buyer) params.set('buyer', query.buyer);

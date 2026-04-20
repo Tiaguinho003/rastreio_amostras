@@ -502,12 +502,13 @@ export interface ListSamplesResponse {
   items: SampleSnapshot[];
   page: {
     limit: number;
-    page: number;
-    offset: number;
+    page: number | null;
+    offset: number | null;
     total: number;
     totalPages: number;
     hasPrev: boolean;
     hasNext: boolean;
+    nextCursor: { createdAt: string; id: string } | null;
   };
 }
 

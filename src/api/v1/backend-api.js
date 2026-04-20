@@ -543,6 +543,8 @@ export function createBackendApiV1({
           limit: readPositiveInteger(query.limit, 30, 'limit'),
           offset: readPositiveInteger(query.offset, 0, 'offset'),
           page: readPageQuery(query.page),
+          cursorCreatedAt: readOptionalQueryString(query.cursorCreatedAt),
+          cursorId: readOptionalQueryString(query.cursorId),
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
           buyer: readOptionalQueryString(query.buyer),

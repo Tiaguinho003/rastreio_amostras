@@ -1069,6 +1069,113 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(ownerPartial.body.page.total, 0);
   });
 
+  test('GET /samples paginates with cursor (createdAt + id) without duplicates', async () => {
+    const ownerClient = await createSellerClient({
+      legalName: 'Fazenda Cursor Test',
+      tradeName: 'Fazenda Cursor Test',
+    });
+
+    for (let index = 0; index < 40; index += 1) {
+      await api.createSampleAndPreparePrint(
+        buildInput({
+          body: {
+            clientDraftId: randomUUID(),
+            ownerClientId: ownerClient.client.id,
+            sacks: 5 + index,
+            harvest: '25/26',
+            originLot: `CURSOR-${String(index + 1).padStart(3, '0')}`,
+            receivedChannel: 'courier',
+          },
+        })
+      );
+    }
+
+    const firstBatch = await api.listSamples(
+      buildInput({
+        query: {
+          limit: '15',
+        },
+      })
+    );
+
+    assert.equal(firstBatch.status, 200);
+    assert.equal(firstBatch.body.items.length, 15);
+    assert.equal(firstBatch.body.page.total, 40);
+    assert.ok(firstBatch.body.page.nextCursor);
+    assert.ok(firstBatch.body.page.nextCursor.createdAt);
+    assert.ok(firstBatch.body.page.nextCursor.id);
+
+    const secondBatch = await api.listSamples(
+      buildInput({
+        query: {
+          limit: '15',
+          cursorCreatedAt: firstBatch.body.page.nextCursor.createdAt,
+          cursorId: firstBatch.body.page.nextCursor.id,
+        },
+      })
+    );
+
+    assert.equal(secondBatch.status, 200);
+    assert.equal(secondBatch.body.items.length, 15);
+    assert.equal(secondBatch.body.page.total, 40);
+    assert.ok(secondBatch.body.page.nextCursor);
+
+    const thirdBatch = await api.listSamples(
+      buildInput({
+        query: {
+          limit: '15',
+          cursorCreatedAt: secondBatch.body.page.nextCursor.createdAt,
+          cursorId: secondBatch.body.page.nextCursor.id,
+        },
+      })
+    );
+
+    assert.equal(thirdBatch.status, 200);
+    assert.equal(thirdBatch.body.items.length, 10);
+    assert.equal(thirdBatch.body.page.total, 40);
+    assert.equal(thirdBatch.body.page.nextCursor, null);
+    assert.equal(thirdBatch.body.page.hasNext, false);
+
+    const allIds = [
+      ...firstBatch.body.items.map((item) => item.id),
+      ...secondBatch.body.items.map((item) => item.id),
+      ...thirdBatch.body.items.map((item) => item.id),
+    ];
+    const uniqueIds = new Set(allIds);
+    assert.equal(uniqueIds.size, 40, 'cursor pagination must not duplicate items');
+  });
+
+  test('GET /samples rejects malformed cursor with 422', async () => {
+    const missingId = await api.listSamples(
+      buildInput({
+        query: {
+          cursorCreatedAt: new Date().toISOString(),
+        },
+      })
+    );
+    assert.equal(missingId.status, 422);
+
+    const invalidDate = await api.listSamples(
+      buildInput({
+        query: {
+          cursorCreatedAt: 'not-a-date',
+          cursorId: randomUUID(),
+        },
+      })
+    );
+    assert.equal(invalidDate.status, 422);
+
+    const invalidId = await api.listSamples(
+      buildInput({
+        query: {
+          cursorCreatedAt: new Date().toISOString(),
+          cursorId: 'not-a-uuid',
+        },
+      })
+    );
+    assert.equal(invalidId.status, 422);
+  });
+
   test('GET /samples supports statusGroup filter options', async () => {
     const printPendingOwner = await createSellerClient({
       legalName: 'Fazenda Print Pendente',

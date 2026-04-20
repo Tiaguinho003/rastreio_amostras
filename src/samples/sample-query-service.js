@@ -543,6 +543,30 @@ function resolveCreatedPeriodRangeInSaoPaulo({
 
 const CLASSIFIED_AGING_BANDS = ['over30', 'from15to30', 'under15'];
 
+function resolveCursor({ cursorCreatedAt, cursorId }) {
+  const normalizedCreatedAt = normalizeOptionalText(cursorCreatedAt);
+  const normalizedId = normalizeOptionalText(cursorId);
+
+  if (!normalizedCreatedAt && !normalizedId) {
+    return null;
+  }
+
+  if (!normalizedCreatedAt || !normalizedId) {
+    throw new HttpError(422, 'cursorCreatedAt and cursorId must be provided together');
+  }
+
+  const parsed = new Date(normalizedCreatedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(422, 'cursorCreatedAt must be a valid ISO timestamp');
+  }
+
+  if (!new RegExp(`^${UUID_PATTERN}$`).test(normalizedId)) {
+    throw new HttpError(422, 'cursorId must be a valid UUID');
+  }
+
+  return { createdAt: parsed, id: normalizedId };
+}
+
 function resolveClassifiedAgingConditions(classifiedAging) {
   const normalized = normalizeOptionalText(classifiedAging);
   if (!normalized) return null;
@@ -1177,6 +1201,8 @@ export class SampleQueryService {
     limit = SAMPLES_LIST_DEFAULT_LIMIT,
     offset = 0,
     page = null,
+    cursorCreatedAt = null,
+    cursorId = null,
     lot = null,
     owner = null,
     buyer = null,
@@ -1189,10 +1215,11 @@ export class SampleQueryService {
     classifiedAging = null,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
+    const cursor = resolveCursor({ cursorCreatedAt, cursorId });
     const safeOffset = Math.max(offset, 0);
     const safePage = typeof page === 'number' && Number.isInteger(page) && page > 0 ? page : null;
-    const resolvedOffset = safePage ? (safePage - 1) * safeLimit : safeOffset;
-    const resolvedPage = safePage ?? Math.floor(resolvedOffset / safeLimit) + 1;
+    const resolvedOffset = cursor ? 0 : safePage ? (safePage - 1) * safeLimit : safeOffset;
+    const resolvedPage = cursor ? null : (safePage ?? Math.floor(resolvedOffset / safeLimit) + 1);
 
     const createdPeriodRange = resolveCreatedPeriodRangeInSaoPaulo({
       createdDate,
@@ -1298,33 +1325,56 @@ export class SampleQueryService {
       conditions.push(...agingConditions);
     }
 
-    const where = conditions.length > 0 ? { AND: conditions } : undefined;
+    const whereForCount = conditions.length > 0 ? { AND: conditions } : undefined;
+
+    const rowConditions = cursor
+      ? [
+          ...conditions,
+          {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              {
+                AND: [{ createdAt: cursor.createdAt }, { id: { gt: cursor.id } }],
+              },
+            ],
+          },
+        ]
+      : conditions;
+    const whereForRows = rowConditions.length > 0 ? { AND: rowConditions } : undefined;
 
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
-        where,
+        where: whereForRows,
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
         include: SAMPLE_INCLUDE,
       }),
-      this.prisma.sample.count({ where }),
+      this.prisma.sample.count({ where: whereForCount }),
     ]);
 
+    const nextCursor =
+      rows.length === safeLimit
+        ? {
+            createdAt: rows[rows.length - 1].createdAt.toISOString(),
+            id: rows[rows.length - 1].id,
+          }
+        : null;
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
-    const hasPrev = resolvedPage > 1;
-    const hasNext = resolvedPage < totalPages;
+    const hasPrev = cursor ? false : resolvedPage > 1;
+    const hasNext = cursor ? nextCursor !== null : resolvedPage < totalPages;
 
     return {
       items: rows.map(mapSample),
       page: {
         limit: safeLimit,
         page: resolvedPage,
-        offset: resolvedOffset,
+        offset: cursor ? null : resolvedOffset,
         total,
         totalPages,
         hasPrev,
         hasNext,
+        nextCursor,
       },
     };
   }
