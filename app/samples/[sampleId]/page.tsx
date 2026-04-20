@@ -607,8 +607,10 @@ export default function SampleDetailPage() {
   const [physicalSendDate, setPhysicalSendDate] = useState('');
   const [physicalSending, setPhysicalSending] = useState(false);
   const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
+  const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
   const [cancelConfirmSendEventId, setCancelConfirmSendEventId] = useState<string | null>(null);
   const [cancellingSend, setCancellingSend] = useState(false);
+  const [cancelSendError, setCancelSendError] = useState<string | null>(null);
   const [activeSendMenuId, setActiveSendMenuId] = useState<string | null>(null);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
@@ -1297,7 +1299,7 @@ export default function SampleDetailPage() {
     }
 
     setPhysicalSending(true);
-    setGeneralNotice(null);
+    setPhysicalSendError(null);
 
     const isEditing = Boolean(editingSendEventId);
 
@@ -1324,14 +1326,13 @@ export default function SampleDetailPage() {
       fetchSendHistory();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setGeneralNotice({ kind: 'error', text: cause.message });
+        setPhysicalSendError(cause.message);
       } else {
-        setGeneralNotice({
-          kind: 'error',
-          text: isEditing
-            ? 'Falha ao atualizar envio de amostra.'
-            : 'Falha ao registrar envio de amostra.',
-        });
+        setPhysicalSendError(
+          isEditing
+            ? 'Falha ao atualizar envio. Tente novamente.'
+            : 'Falha ao registrar envio. Tente novamente.'
+        );
       }
     } finally {
       setPhysicalSending(false);
@@ -1342,6 +1343,7 @@ export default function SampleDetailPage() {
     setActiveSendMenuId(null);
     setEditingSendEventId(item.sendEventId);
     setPhysicalSendDate(item.sentDate);
+    setPhysicalSendError(null);
     setGeneralNotice(null);
 
     if (item.recipientClientId && session) {
@@ -1364,7 +1366,7 @@ export default function SampleDetailPage() {
     }
 
     setCancellingSend(true);
-    setGeneralNotice(null);
+    setCancelSendError(null);
 
     try {
       await cancelPhysicalSampleSend(session, sampleId, cancelConfirmSendEventId);
@@ -1373,9 +1375,9 @@ export default function SampleDetailPage() {
       fetchSendHistory();
     } catch (cause) {
       if (cause instanceof ApiError) {
-        setGeneralNotice({ kind: 'error', text: cause.message });
+        setCancelSendError(cause.message);
       } else {
-        setGeneralNotice({ kind: 'error', text: 'Falha ao cancelar envio.' });
+        setCancelSendError('Falha ao cancelar envio. Tente novamente.');
       }
     } finally {
       setCancellingSend(false);
@@ -2351,6 +2353,7 @@ export default function SampleDetailPage() {
                   setEditingSendEventId(null);
                   setPhysicalSendClient(null);
                   setPhysicalSendDate(getTodayDateInput());
+                  setPhysicalSendError(null);
                   setPhysicalSendModalOpen(true);
                 }}
                 disabled={!canPhysicalSend || physicalSending}
@@ -3829,6 +3832,7 @@ export default function SampleDetailPage() {
             if (physicalSending) return;
             setPhysicalSendModalOpen(false);
             setEditingSendEventId(null);
+            setPhysicalSendError(null);
           }}
         >
           <section
@@ -3848,6 +3852,7 @@ export default function SampleDetailPage() {
                 onClick={() => {
                   setPhysicalSendModalOpen(false);
                   setEditingSendEventId(null);
+                  setPhysicalSendError(null);
                 }}
                 disabled={physicalSending}
                 aria-label="Fechar"
@@ -3882,6 +3887,11 @@ export default function SampleDetailPage() {
                   disabled={physicalSending}
                 />
               </label>
+              {physicalSendError ? (
+                <div className="sdv-modal-error" role="alert">
+                  {physicalSendError}
+                </div>
+              ) : null}
             </div>
             <div className="sdv-edit-actions">
               <button
@@ -3906,7 +3916,11 @@ export default function SampleDetailPage() {
       {cancelConfirmSendEventId ? (
         <div
           className="app-modal-backdrop"
-          onClick={() => !cancellingSend && setCancelConfirmSendEventId(null)}
+          onClick={() => {
+            if (cancellingSend) return;
+            setCancelConfirmSendEventId(null);
+            setCancelSendError(null);
+          }}
         >
           <section
             className="app-modal cdm-modal cdm-lookup-modal"
@@ -3919,7 +3933,10 @@ export default function SampleDetailPage() {
               <button
                 type="button"
                 className="app-modal-close cdm-close"
-                onClick={() => setCancelConfirmSendEventId(null)}
+                onClick={() => {
+                  setCancelConfirmSendEventId(null);
+                  setCancelSendError(null);
+                }}
                 disabled={cancellingSend}
                 aria-label="Fechar"
               >
@@ -3933,12 +3950,20 @@ export default function SampleDetailPage() {
               <p className="sdv-confirm-text">
                 Tem certeza que deseja cancelar este envio? Essa acao nao pode ser desfeita.
               </p>
+              {cancelSendError ? (
+                <div className="sdv-modal-error" role="alert">
+                  {cancelSendError}
+                </div>
+              ) : null}
             </div>
             <div className="sdv-edit-actions sdv-edit-actions-split">
               <button
                 type="button"
                 className="cdm-manage-link is-secondary"
-                onClick={() => setCancelConfirmSendEventId(null)}
+                onClick={() => {
+                  setCancelConfirmSendEventId(null);
+                  setCancelSendError(null);
+                }}
                 disabled={cancellingSend}
               >
                 Voltar

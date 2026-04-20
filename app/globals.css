@@ -7110,8 +7110,13 @@ button:disabled {
 
 .sdv-modal-error {
   margin: 0;
-  font-size: clamp(11px, 3vw, 12px);
-  color: #c45c5c;
+  padding: 10px 12px;
+  font-size: clamp(12px, 3.2vw, 13px);
+  font-weight: 500;
+  color: #8a2727;
+  background: rgba(192, 57, 43, 0.08);
+  border: 1px solid rgba(192, 57, 43, 0.25);
+  border-radius: 10px;
 }
 
 .sdv-modal-hint {
@@ -7229,21 +7234,24 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(32px, 9vw, 36px);
-  height: clamp(32px, 9vw, 36px);
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  color: var(--brand-muted);
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 1px solid rgba(var(--brand-green-rgb), 0.28);
+  background: rgba(var(--brand-green-rgb), 0.1);
+  border-radius: 12px;
+  color: var(--brand-green);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
     background 0.15s,
+    border-color 0.15s,
     transform 0.15s;
 }
 
 .sdv-send-menu-btn:hover {
-  background: rgba(var(--brand-green-rgb), 0.08);
+  background: rgba(var(--brand-green-rgb), 0.18);
+  border-color: rgba(var(--brand-green-rgb), 0.45);
 }
 
 .sdv-send-menu-btn:active {
@@ -7251,8 +7259,8 @@ button:disabled {
 }
 
 .sdv-send-menu-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   fill: currentColor;
   stroke: none;
 }
