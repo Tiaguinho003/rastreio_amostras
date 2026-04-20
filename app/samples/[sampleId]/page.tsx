@@ -12,6 +12,7 @@ import { ClientRegistrationSelect } from '../../../components/clients/ClientRegi
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import {
   ApiError,
+  cancelPhysicalSampleSend,
   completeClassification,
   confirmRegistration,
   exportSamplePdf,
@@ -26,6 +27,7 @@ import {
   saveClassificationPartial,
   startClassification,
   updateClassification,
+  updatePhysicalSampleSend,
   updateRegistration,
   uploadClassificationPhoto,
 } from '../../../lib/api-client';
@@ -298,6 +300,113 @@ function canRequestReprintStatus(status: SampleStatus): boolean {
   );
 }
 
+const PHYSICAL_SEND_ALLOWED_STATUSES = new Set<SampleStatus>([
+  'REGISTRATION_CONFIRMED',
+  'QR_PENDING_PRINT',
+  'QR_PRINTED',
+  'CLASSIFICATION_IN_PROGRESS',
+  'CLASSIFIED',
+]);
+
+type SendHistoryItem =
+  | {
+      kind: 'REPORT';
+      key: string;
+      recipientName: string;
+      dateLabel: string;
+      occurredAt: string;
+    }
+  | {
+      kind: 'PHYSICAL';
+      key: string;
+      sendEventId: string;
+      recipientClientId: string | null;
+      recipientName: string;
+      sentDate: string;
+      occurredAt: string;
+      cancelled: boolean;
+    };
+
+function projectSendHistoryItems(events: SampleEvent[]): SendHistoryItem[] {
+  const physicalById = new Map<
+    string,
+    {
+      sendEventId: string;
+      recipientClientId: string | null;
+      recipientName: string;
+      sentDate: string;
+      occurredAt: string;
+      cancelled: boolean;
+    }
+  >();
+  const reports: SendHistoryItem[] = [];
+
+  for (const evt of events) {
+    if (evt.eventType === 'REPORT_EXPORTED') {
+      const payload = evt.payload as Record<string, unknown>;
+      const snapshot = payload.recipientClientSnapshot as Record<string, unknown> | null;
+      const recipientName = String(snapshot?.displayName ?? payload.destination ?? '-');
+      reports.push({
+        kind: 'REPORT',
+        key: evt.eventId,
+        recipientName,
+        dateLabel: new Date(evt.occurredAt).toLocaleDateString('pt-BR'),
+        occurredAt: evt.occurredAt,
+      });
+      continue;
+    }
+
+    if (evt.eventType === 'PHYSICAL_SAMPLE_SENT') {
+      const payload = evt.payload as Record<string, unknown>;
+      const snapshot = payload.recipientClientSnapshot as Record<string, unknown> | null;
+      physicalById.set(evt.eventId, {
+        sendEventId: evt.eventId,
+        recipientClientId: (payload.recipientClientId as string | null) ?? null,
+        recipientName: String(snapshot?.displayName ?? '-'),
+        sentDate: String(payload.sentDate ?? ''),
+        occurredAt: evt.occurredAt,
+        cancelled: false,
+      });
+      continue;
+    }
+
+    if (evt.eventType === 'PHYSICAL_SAMPLE_SEND_UPDATED') {
+      const payload = evt.payload as Record<string, unknown>;
+      const targetId = String(payload.sendEventId ?? '');
+      const target = physicalById.get(targetId);
+      if (!target) continue;
+      const snapshot = payload.recipientClientSnapshot as Record<string, unknown> | null;
+      target.recipientClientId = (payload.recipientClientId as string | null) ?? null;
+      target.recipientName = String(snapshot?.displayName ?? '-');
+      target.sentDate = String(payload.sentDate ?? target.sentDate);
+      continue;
+    }
+
+    if (evt.eventType === 'PHYSICAL_SAMPLE_SEND_CANCELLED') {
+      const payload = evt.payload as Record<string, unknown>;
+      const targetId = String(payload.sendEventId ?? '');
+      const target = physicalById.get(targetId);
+      if (!target) continue;
+      target.cancelled = true;
+    }
+  }
+
+  const physicalItems: SendHistoryItem[] = Array.from(physicalById.values()).map((entry) => ({
+    kind: 'PHYSICAL',
+    key: entry.sendEventId,
+    sendEventId: entry.sendEventId,
+    recipientClientId: entry.recipientClientId,
+    recipientName: entry.recipientName,
+    sentDate: entry.sentDate,
+    occurredAt: entry.occurredAt,
+    cancelled: entry.cancelled,
+  }));
+
+  return [...reports, ...physicalItems].sort((a, b) =>
+    a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : 0
+  );
+}
+
 function isClassificationStatus(status: SampleStatus): boolean {
   return CLASSIFICATION_STATUSES.includes(status);
 }
@@ -497,6 +606,10 @@ export default function SampleDetailPage() {
   const [physicalSendClient, setPhysicalSendClient] = useState<ClientSummary | null>(null);
   const [physicalSendDate, setPhysicalSendDate] = useState('');
   const [physicalSending, setPhysicalSending] = useState(false);
+  const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
+  const [cancelConfirmSendEventId, setCancelConfirmSendEventId] = useState<string | null>(null);
+  const [cancellingSend, setCancellingSend] = useState(false);
+  const [activeSendMenuId, setActiveSendMenuId] = useState<string | null>(null);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
   const [loadingSendHistory, setLoadingSendHistory] = useState(false);
@@ -808,6 +921,7 @@ export default function SampleDetailPage() {
   const canQuickReport = Boolean(
     detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment
   );
+  const canPhysicalSend = detail ? PHYSICAL_SEND_ALLOWED_STATUSES.has(detail.sample.status) : false;
   const labelModalPrintAction = detail ? getLabelPrintActionForStatus(detail.sample.status) : null;
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationShowsWorkspace = Boolean(
@@ -962,7 +1076,10 @@ export default function SampleDetailPage() {
       const response = await listSampleEvents(session, sampleId, { limit: 200 });
       const sends = response.events.filter(
         (e: SampleEvent) =>
-          e.eventType === 'REPORT_EXPORTED' || e.eventType === 'PHYSICAL_SAMPLE_SENT'
+          e.eventType === 'REPORT_EXPORTED' ||
+          e.eventType === 'PHYSICAL_SAMPLE_SENT' ||
+          e.eventType === 'PHYSICAL_SAMPLE_SEND_UPDATED' ||
+          e.eventType === 'PHYSICAL_SAMPLE_SEND_CANCELLED'
       );
       setSendHistory(sends);
     } catch {
@@ -975,6 +1092,8 @@ export default function SampleDetailPage() {
   useEffect(() => {
     fetchSendHistory();
   }, [fetchSendHistory]);
+
+  const sendHistoryItems = useMemo(() => projectSendHistoryItems(sendHistory), [sendHistory]);
 
   if (loading || !session) {
     return null;
@@ -1180,26 +1299,86 @@ export default function SampleDetailPage() {
     setPhysicalSending(true);
     setGeneralNotice(null);
 
-    try {
-      await recordPhysicalSampleSent(session, sampleId, {
-        recipientClientId: physicalSendClient?.id ?? null,
-        sentDate: physicalSendDate,
-      });
+    const isEditing = Boolean(editingSendEventId);
 
-      setGeneralNotice({
-        kind: 'success',
-        text: 'Envio de amostra fisica registrado com sucesso.',
-      });
+    try {
+      if (isEditing && editingSendEventId) {
+        await updatePhysicalSampleSend(session, sampleId, editingSendEventId, {
+          recipientClientId: physicalSendClient?.id ?? null,
+          sentDate: physicalSendDate,
+        });
+        setGeneralNotice({ kind: 'success', text: 'Envio atualizado com sucesso.' });
+      } else {
+        await recordPhysicalSampleSent(session, sampleId, {
+          recipientClientId: physicalSendClient?.id ?? null,
+          sentDate: physicalSendDate,
+        });
+        setGeneralNotice({
+          kind: 'success',
+          text: 'Envio de amostra fisica registrado com sucesso.',
+        });
+      }
+
       setPhysicalSendModalOpen(false);
+      setEditingSendEventId(null);
       fetchSendHistory();
     } catch (cause) {
       if (cause instanceof ApiError) {
         setGeneralNotice({ kind: 'error', text: cause.message });
       } else {
-        setGeneralNotice({ kind: 'error', text: 'Falha ao registrar envio de amostra.' });
+        setGeneralNotice({
+          kind: 'error',
+          text: isEditing
+            ? 'Falha ao atualizar envio de amostra.'
+            : 'Falha ao registrar envio de amostra.',
+        });
       }
     } finally {
       setPhysicalSending(false);
+    }
+  }
+
+  async function handleOpenEditSend(item: Extract<SendHistoryItem, { kind: 'PHYSICAL' }>) {
+    setActiveSendMenuId(null);
+    setEditingSendEventId(item.sendEventId);
+    setPhysicalSendDate(item.sentDate);
+    setGeneralNotice(null);
+
+    if (item.recipientClientId && session) {
+      try {
+        const response = await getClient(session, item.recipientClientId);
+        setPhysicalSendClient(response.client);
+      } catch {
+        setPhysicalSendClient(null);
+      }
+    } else {
+      setPhysicalSendClient(null);
+    }
+
+    setPhysicalSendModalOpen(true);
+  }
+
+  async function handleConfirmCancelSend() {
+    if (!session || !cancelConfirmSendEventId) {
+      return;
+    }
+
+    setCancellingSend(true);
+    setGeneralNotice(null);
+
+    try {
+      await cancelPhysicalSampleSend(session, sampleId, cancelConfirmSendEventId);
+      setGeneralNotice({ kind: 'success', text: 'Envio cancelado com sucesso.' });
+      setCancelConfirmSendEventId(null);
+      fetchSendHistory();
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setGeneralNotice({ kind: 'error', text: cause.message });
+      } else {
+        setGeneralNotice({ kind: 'error', text: 'Falha ao cancelar envio.' });
+      }
+    } finally {
+      setCancellingSend(false);
     }
   }
 
@@ -2169,11 +2348,12 @@ export default function SampleDetailPage() {
                 type="button"
                 className="sdv-action-card is-send"
                 onClick={() => {
+                  setEditingSendEventId(null);
                   setPhysicalSendClient(null);
                   setPhysicalSendDate(getTodayDateInput());
                   setPhysicalSendModalOpen(true);
                 }}
-                disabled={!canQuickReport || physicalSending}
+                disabled={!canPhysicalSend || physicalSending}
               >
                 <span className="sdv-action-card-icon">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2316,27 +2496,18 @@ export default function SampleDetailPage() {
                       <NoticeSlot notice={generalNotice} />
                     </div>
 
-                    {sendHistory.length > 0 ? (
+                    {sendHistoryItems.length > 0 ? (
                       <div className="sdv-card">
                         <span className="sdv-card-title">Historico de envios</span>
                         <div className="sdv-send-history">
-                          {sendHistory.map((evt) => {
-                            const isPhysical = evt.eventType === 'PHYSICAL_SAMPLE_SENT';
-                            const payload = evt.payload as Record<string, unknown>;
-                            const snapshot = payload.recipientClientSnapshot as Record<
-                              string,
-                              unknown
-                            > | null;
-                            const clientName = String(
-                              snapshot?.displayName ?? payload.destination ?? '-'
-                            );
-                            const dateStr = isPhysical
-                              ? (payload.sentDate as string)
-                              : new Date(evt.occurredAt).toLocaleDateString('pt-BR');
+                          {sendHistoryItems.map((item) => {
+                            const isPhysical = item.kind === 'PHYSICAL';
+                            const cancelled = isPhysical && item.cancelled;
+                            const dateStr = isPhysical ? item.sentDate : item.dateLabel;
                             return (
                               <div
-                                key={evt.eventId}
-                                className={`sdv-send-item ${isPhysical ? 'is-physical' : 'is-pdf'}`}
+                                key={item.key}
+                                className={`sdv-send-item ${isPhysical ? 'is-physical' : 'is-pdf'}${cancelled ? ' is-cancelled' : ''}`}
                               >
                                 <span className="sdv-send-icon">
                                   {isPhysical ? (
@@ -2354,11 +2525,57 @@ export default function SampleDetailPage() {
                                   )}
                                 </span>
                                 <div className="sdv-send-info">
-                                  <div className="sdv-send-label">{clientName}</div>
+                                  <div className="sdv-send-label">{item.recipientName}</div>
                                   <div className="sdv-send-date">
                                     {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
+                                    {cancelled ? ' \u00b7 Cancelado' : ''}
                                   </div>
                                 </div>
+                                {isPhysical && !cancelled && canPhysicalSend ? (
+                                  <div className="sdv-send-menu">
+                                    <button
+                                      type="button"
+                                      className="sdv-send-menu-btn"
+                                      aria-label="Acoes do envio"
+                                      aria-haspopup="menu"
+                                      aria-expanded={activeSendMenuId === item.sendEventId}
+                                      onClick={() =>
+                                        setActiveSendMenuId((current) =>
+                                          current === item.sendEventId ? null : item.sendEventId
+                                        )
+                                      }
+                                    >
+                                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle cx="12" cy="5" r="1.5" />
+                                        <circle cx="12" cy="12" r="1.5" />
+                                        <circle cx="12" cy="19" r="1.5" />
+                                      </svg>
+                                    </button>
+                                    {activeSendMenuId === item.sendEventId ? (
+                                      <div className="sdv-send-menu-popover" role="menu">
+                                        <button
+                                          type="button"
+                                          className="sdv-send-menu-item"
+                                          role="menuitem"
+                                          onClick={() => handleOpenEditSend(item)}
+                                        >
+                                          Editar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="sdv-send-menu-item is-danger"
+                                          role="menuitem"
+                                          onClick={() => {
+                                            setActiveSendMenuId(null);
+                                            setCancelConfirmSendEventId(item.sendEventId);
+                                          }}
+                                        >
+                                          Cancelar envio
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}
@@ -3608,7 +3825,11 @@ export default function SampleDetailPage() {
       {physicalSendModalOpen ? (
         <div
           className="app-modal-backdrop"
-          onClick={() => !physicalSending && setPhysicalSendModalOpen(false)}
+          onClick={() => {
+            if (physicalSending) return;
+            setPhysicalSendModalOpen(false);
+            setEditingSendEventId(null);
+          }}
         >
           <section
             ref={physicalSendTrapRef}
@@ -3618,11 +3839,16 @@ export default function SampleDetailPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header">
-              <h3 className="cdm-header-name">Enviar amostra fisica</h3>
+              <h3 className="cdm-header-name">
+                {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra fisica'}
+              </h3>
               <button
                 type="button"
                 className="app-modal-close cdm-close"
-                onClick={() => setPhysicalSendModalOpen(false)}
+                onClick={() => {
+                  setPhysicalSendModalOpen(false);
+                  setEditingSendEventId(null);
+                }}
                 disabled={physicalSending}
                 aria-label="Fechar"
               >
@@ -3664,7 +3890,66 @@ export default function SampleDetailPage() {
                 onClick={handlePhysicalSend}
                 disabled={physicalSending}
               >
-                {physicalSending ? 'Registrando...' : 'Confirmar envio'}
+                {physicalSending
+                  ? editingSendEventId
+                    ? 'Salvando...'
+                    : 'Registrando...'
+                  : editingSendEventId
+                    ? 'Salvar alteracoes'
+                    : 'Confirmar envio'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {cancelConfirmSendEventId ? (
+        <div
+          className="app-modal-backdrop"
+          onClick={() => !cancellingSend && setCancelConfirmSendEventId(null)}
+        >
+          <section
+            className="app-modal cdm-modal cdm-lookup-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="cdm-header">
+              <h3 className="cdm-header-name">Cancelar envio</h3>
+              <button
+                type="button"
+                className="app-modal-close cdm-close"
+                onClick={() => setCancelConfirmSendEventId(null)}
+                disabled={cancellingSend}
+                aria-label="Fechar"
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="sdv-edit-fields">
+              <p className="sdv-confirm-text">
+                Tem certeza que deseja cancelar este envio? Essa acao nao pode ser desfeita.
+              </p>
+            </div>
+            <div className="sdv-edit-actions sdv-edit-actions-split">
+              <button
+                type="button"
+                className="cdm-manage-link is-secondary"
+                onClick={() => setCancelConfirmSendEventId(null)}
+                disabled={cancellingSend}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className="cdm-manage-link is-danger"
+                onClick={handleConfirmCancelSend}
+                disabled={cancellingSend}
+              >
+                {cancellingSend ? 'Cancelando...' : 'Confirmar cancelamento'}
               </button>
             </div>
           </section>

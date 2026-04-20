@@ -68,7 +68,7 @@ async function parseJsonSafe(response: Response): Promise<Record<string, unknown
 async function request<TResponse>(
   path: string,
   options: {
-    method?: 'GET' | 'POST' | 'PATCH';
+    method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
     body?: JsonValue;
     session?: SessionData | null;
     formData?: FormData;
@@ -913,6 +913,36 @@ export function recordPhysicalSampleSent(
       recipientClientId: data.recipientClientId,
       sentDate: data.sentDate,
     },
+  });
+}
+
+export function updatePhysicalSampleSend(
+  session: SessionData,
+  sampleId: string,
+  sendEventId: string,
+  data: {
+    recipientClientId: string | null;
+    sentDate: string;
+  }
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/physical-send/${sendEventId}`, {
+    method: 'PATCH',
+    session,
+    body: {
+      recipientClientId: data.recipientClientId,
+      sentDate: data.sentDate,
+    },
+  });
+}
+
+export function cancelPhysicalSampleSend(
+  session: SessionData,
+  sampleId: string,
+  sendEventId: string
+) {
+  return request<CommandResponse>(`/samples/${sampleId}/physical-send/${sendEventId}`, {
+    method: 'DELETE',
+    session,
   });
 }
 
