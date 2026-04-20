@@ -44,9 +44,11 @@ if (!databaseUrl || !databaseReachable) {
     'base64'
   );
 
+  // UUIDs v4 (exigencia do UUID_REGEX em normalizeClassifiers). Os IDs antigos
+  // '00000000-...-000000000101' falham porque nao tem versao 1-5 na posicao 13.
   const actorClassifier = {
     actorType: 'USER',
-    actorUserId: '00000000-0000-0000-0000-000000000101',
+    actorUserId: randomUUID(),
     role: 'CLASSIFIER',
     source: 'web',
     ip: '127.0.0.1',
@@ -55,7 +57,7 @@ if (!databaseUrl || !databaseReachable) {
 
   const actorAdmin = {
     actorType: 'USER',
-    actorUserId: '00000000-0000-0000-0000-000000000100',
+    actorUserId: randomUUID(),
     role: 'ADMIN',
     source: 'web',
     ip: '127.0.0.1',
