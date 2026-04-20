@@ -26,7 +26,7 @@
     "validate:schemas": "node scripts/validate-schemas.js",
     "generate:fichas": "node scripts/generate-classification-sheet.mjs",
     "test:contracts": "node --test tests/event-contract.test.js",
-    "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js tests/session-cookie-policy.test.js tests/local-upload-service.test.js tests/client-support.test.js tests/roles.test.js tests/rate-limiter.test.js tests/normalize-conferred-by.test.js tests/classification-extraction-service.test.js tests/scanner-buffer.test.js tests/sample-identification.test.js tests/compress-image.test.js",
+    "test:unit": "node --test tests/local-auth.test.js tests/backend-api-auth-mode.test.js tests/session-cookie-policy.test.js tests/local-upload-service.test.js tests/client-support.test.js tests/roles.test.js tests/rate-limiter.test.js tests/normalize-conferred-by.test.js tests/classification-extraction-service.test.js tests/scanner-buffer.test.js tests/sample-identification.test.js tests/compress-image.test.js tests/dashboard-operational-metrics-window.test.js",
     "test:integration:db": "node --test --test-concurrency=1 tests/**/*.integration.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",

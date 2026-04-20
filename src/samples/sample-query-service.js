@@ -31,6 +31,51 @@ function computeMedian(values) {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function computeMean(values) {
+  if (values.length === 0) return null;
+  let sum = 0;
+  for (const v of values) sum += v;
+  return sum / values.length;
+}
+
+// Calcula a janela da metrica operacional.
+// A "data de referencia" (ultimo dia do grafico) e hoje se ja passou 17:30 BRT,
+// senao ontem. A janela cobre 5 dias calendario terminando na data de referencia.
+// Retorna instantes UTC (windowStartUtc inclusivo, windowEndUtc exclusivo) e a lista
+// ordenada de 5 datas BRT no formato YYYY-MM-DD.
+export function computeOperationalMetricsWindow(now = new Date()) {
+  const nowMs = now.getTime();
+  const brtNowMs = nowMs - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000;
+  const brtNow = new Date(brtNowMs);
+  const brtYear = brtNow.getUTCFullYear();
+  const brtMonth = brtNow.getUTCMonth();
+  const brtDay = brtNow.getUTCDate();
+
+  // 17:30 BRT = 20:30 UTC (BRT = UTC-3, sem horario de verao desde 2019).
+  const todayCutoffMs = Date.UTC(brtYear, brtMonth, brtDay, 20, 30, 0);
+
+  const refYear = brtYear;
+  const refMonth = brtMonth;
+  const refDay = nowMs >= todayCutoffMs ? brtDay : brtDay - 1;
+
+  // Inicio: (refDay - 4) 00:00 BRT = (refDay - 4) 03:00 UTC.
+  // Fim: (refDay + 1) 00:00 BRT = (refDay + 1) 03:00 UTC (exclusivo).
+  const windowStartUtc = new Date(
+    Date.UTC(refYear, refMonth, refDay - 4, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+  const windowEndUtc = new Date(
+    Date.UTC(refYear, refMonth, refDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+  );
+
+  const bucketDates = [];
+  for (let i = 4; i >= 0; i--) {
+    const d = new Date(Date.UTC(refYear, refMonth, refDay - i));
+    bucketDates.push(d.toISOString().slice(0, 10));
+  }
+
+  return { windowStartUtc, windowEndUtc, bucketDates };
+}
+
 const RECENT_ACTIVITY_LIMIT = 20;
 
 function mapRecentActivityRow(row) {
@@ -1532,11 +1577,15 @@ export class SampleQueryService {
     };
   }
 
-  async getDashboardOperationalMetrics() {
-    // Opcao B1: cohort por data de registro, inclui amostras pendentes contando com
-    // (NOW() - registered_at). Amostras INVALIDATED sao excluidas. Janela de 28 dias
-    // aplicada sobre registered_at, nao classified_at, para que dias antigos estabilizem
-    // e pendentes "fossilizadas" fora da janela nao distorcam a metrica.
+  async getDashboardOperationalMetrics({ now = new Date() } = {}) {
+    // Cohort por classified_at: 5 dias calendario BRT terminando na data de referencia
+    // (hoje se NOW >= 17:30 BRT, senao ontem). Mede tempo de registro -> classificacao
+    // como media aritmetica. Amostras pendentes nao entram na metrica (quando classificarem
+    // aparecem no bucket do dia em que foram classificadas, refletindo atrasos reais ex.
+    // fim de semana). Amostras INVALIDATED sao excluidas. Dias sem classificacao retornam
+    // bucket vazio (count:0, value:0) para preservar o eixo temporal de 5 dias.
+    const { windowStartUtc, windowEndUtc, bucketDates } = computeOperationalMetricsWindow(now);
+
     const rows = await this.prisma.$queryRaw`
       WITH registered AS (
         SELECT sample_id, MIN(occurred_at) AS registered_at
@@ -1551,42 +1600,40 @@ export class SampleQueryService {
         GROUP BY sample_id
       )
       SELECT
-        (r.registered_at - INTERVAL '3 hours')::date AS "date",
-        EXTRACT(EPOCH FROM (COALESCE(c.classified_at, NOW()) - r.registered_at)) / 3600.0
-          AS "hoursElapsed"
-      FROM registered r
-      LEFT JOIN classified c ON c.sample_id = r.sample_id
-      JOIN sample s ON s.id = r.sample_id AND s.status != 'INVALIDATED'
-      WHERE r.registered_at >= NOW() - INTERVAL '28 days'
-        AND (c.classified_at IS NULL OR c.classified_at > r.registered_at)
-      ORDER BY r.registered_at
+        (c.classified_at - INTERVAL '3 hours')::date AS "date",
+        EXTRACT(EPOCH FROM (c.classified_at - r.registered_at)) / 3600.0 AS "hoursElapsed"
+      FROM classified c
+      JOIN registered r ON r.sample_id = c.sample_id
+      JOIN sample s ON s.id = c.sample_id AND s.status != 'INVALIDATED'
+      WHERE c.classified_at >= ${windowStartUtc}
+        AND c.classified_at < ${windowEndUtc}
+        AND c.classified_at > r.registered_at
+      ORDER BY c.classified_at
     `;
 
-    const byDate = new Map();
+    const byDate = new Map(bucketDates.map((date) => [date, []]));
     const allValues = [];
 
     for (const row of rows) {
       const dateStr =
         row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date);
       const hours = Number(row.hoursElapsed);
-      if (!byDate.has(dateStr)) {
-        byDate.set(dateStr, []);
-      }
+      if (!byDate.has(dateStr)) continue;
       byDate.get(dateStr).push(hours);
       allValues.push(hours);
     }
 
-    const daily = [];
-    for (const [date, values] of byDate) {
-      daily.push({
+    const daily = bucketDates.map((date) => {
+      const values = byDate.get(date);
+      return {
         date,
-        median: computeMedian(values),
+        value: values.length > 0 ? computeMean(values) : 0,
         count: values.length,
-      });
-    }
+      };
+    });
 
     return {
-      overallMedian: computeMedian(allValues),
+      overall: computeMean(allValues),
       meta: 24,
       sampleCount: allValues.length,
       daily,
@@ -1644,13 +1691,13 @@ export class SampleQueryService {
     for (const [date, values] of byDate) {
       daily.push({
         date,
-        median: computeMedian(values),
+        value: computeMedian(values),
         count: values.length,
       });
     }
 
     return {
-      overallMedian: computeMedian(allValues),
+      overall: computeMedian(allValues),
       meta: 15,
       sampleCount: allValues.length,
       daily,

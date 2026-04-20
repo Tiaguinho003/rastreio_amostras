@@ -17,12 +17,12 @@ function formatValue(val: number, unitMode: UnitMode): { value: string; unit: st
 }
 
 function Gauge({
-  median,
+  value,
   meta,
   color,
   unitMode,
 }: {
-  median: number;
+  value: number;
   meta: number;
   color: string;
   unitMode: UnitMode;
@@ -33,7 +33,7 @@ function Gauge({
   const totalAngle = 260;
   const startAngle = 140;
 
-  const ratio = meta > 0 ? Math.min(median / meta, 1.15) : 0;
+  const ratio = meta > 0 ? Math.min(value / meta, 1.15) : 0;
   const filledAngle = totalAngle * Math.min(ratio, 1);
 
   function polarToCartesian(angleDeg: number) {
@@ -54,7 +54,7 @@ function Gauge({
   const bgPath = describeArc(startAngle, startAngle + totalAngle);
   const fgPath = filledAngle > 0.5 ? describeArc(startAngle, startAngle + filledAngle) : '';
 
-  const { value, unit } = formatValue(median, unitMode);
+  const { value: displayValue, unit } = formatValue(value, unitMode);
 
   return (
     <svg viewBox="0 0 112 112" className="dd-gauge">
@@ -75,7 +75,7 @@ function Gauge({
         />
       )}
       <text x={center} y={center - 2} textAnchor="middle" className="dd-gauge-value">
-        {value}
+        {displayValue}
       </text>
       <text x={center} y={center + 14} textAnchor="middle" className="dd-gauge-unit">
         {unit}
@@ -86,12 +86,12 @@ function Gauge({
 
 function AreaChart({
   daily,
-  overallMedian,
+  overall,
   color,
   id,
 }: {
   daily: MetricsData['daily'];
-  overallMedian: number;
+  overall: number;
   color: string;
   id: string;
 }) {
@@ -102,16 +102,16 @@ function AreaChart({
 
   if (daily.length < 2) return null;
 
-  const maxVal = Math.max(...daily.map((d) => d.median), overallMedian) * 1.25 || 1;
+  const maxVal = Math.max(...daily.map((d) => d.value), overall) * 1.25 || 1;
 
   const pts = daily.map((d, i) => ({
     x: px + (i / (daily.length - 1)) * (w - px * 2),
-    y: py + (1 - d.median / maxVal) * (h - py * 2),
+    y: py + (1 - d.value / maxVal) * (h - py * 2),
   }));
 
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
   const area = `${line} L${pts[pts.length - 1].x},${h} L${pts[0].x},${h} Z`;
-  const medianY = py + (1 - overallMedian / maxVal) * (h - py * 2);
+  const overallY = py + (1 - overall / maxVal) * (h - py * 2);
   const last = pts[pts.length - 1];
 
   return (
@@ -126,9 +126,9 @@ function AreaChart({
       <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
       <line
         x1={px}
-        y1={medianY}
+        y1={overallY}
         x2={w - px}
-        y2={medianY}
+        y2={overallY}
         stroke={color}
         strokeWidth="1"
         strokeDasharray="4 3"
@@ -156,7 +156,7 @@ export function MetricsCard({
   id,
   unitMode = 'auto-hours',
 }: MetricsCardProps) {
-  if (!data || data.overallMedian === null) {
+  if (!data || data.overall === null) {
     return (
       <div className="dd-metrics-card dd-metrics-skeleton" aria-hidden="true">
         <div className="dd-metrics-header">
@@ -186,8 +186,8 @@ export function MetricsCard({
         <span className="dd-metrics-subtitle">{subtitle}</span>
       </div>
       <div className="dd-metrics-body">
-        <Gauge median={data.overallMedian} meta={data.meta} color={color} unitMode={unitMode} />
-        <AreaChart daily={data.daily} overallMedian={data.overallMedian} color={color} id={id} />
+        <Gauge value={data.overall} meta={data.meta} color={color} unitMode={unitMode} />
+        <AreaChart daily={data.daily} overall={data.overall} color={color} id={id} />
       </div>
     </div>
   );

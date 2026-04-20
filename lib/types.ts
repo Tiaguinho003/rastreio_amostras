@@ -556,12 +556,12 @@ export interface DashboardSalesAvailabilityResponse {
 }
 
 export interface DashboardOperationalMetricsResponse {
-  overallMedian: number | null;
+  overall: number | null;
   meta: number;
   sampleCount: number;
   daily: Array<{
     date: string;
-    median: number;
+    value: number;
     count: number;
   }>;
 }
