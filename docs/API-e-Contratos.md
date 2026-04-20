@@ -65,7 +65,7 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 2. `POST /api/v1/classification/extract-and-prepare`
    Aceita `multipart/form-data` (upload direto) ou `application/json` com `photoToken`. Envia a imagem ao modelo de extracao (GPT-4o) e retorna os campos extraidos. `classificationType` e obrigatorio e define qual prompt e normalizador sao aplicados.
 3. `POST /api/v1/classification/confirm`
-   Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `conferredBy` opcional. Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
+   Persiste a classificacao apos revisao do usuario, recebendo `sampleId`, `classificationData`, `photoToken`, `classificationType` e `classifiers` (obrigatorio, min 1 — frontend compoe `[actor, ...co-classificadores]`; backend valida existencia/ativo dos usuarios). Roteia entre `completeClassification` ou `updateClassification` conforme o status atual da amostra.
 4. `POST /api/v1/classification/resolve-lot`
    Procura a amostra a partir do lote extraido, usado pelo fluxo sem contexto previo.
 
