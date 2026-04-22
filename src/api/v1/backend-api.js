@@ -419,9 +419,7 @@ export function createBackendApiV1({
             technical: body.technical,
             classificationData: body.classificationData,
             consumptionGrams: body.consumptionGrams ?? null,
-            classifierUserId: body.classifierUserId,
-            classifierName: body.classifierName,
-            conferredBy: body.conferredBy,
+            classifiers: body.classifiers,
             idempotencyKey: body.idempotencyKey,
           },
           actor
@@ -1910,7 +1908,7 @@ export function createBackendApiV1({
             photoToken: body.photoToken,
             idempotencyKey: body.idempotencyKey,
             classificationType: body.classificationType ?? null,
-            conferredBy: body.conferredBy,
+            classifiers: body.classifiers,
             applySampleUpdates: body.applySampleUpdates ?? null,
           },
           actor
