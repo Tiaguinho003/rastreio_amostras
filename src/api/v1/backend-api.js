@@ -962,6 +962,7 @@ export function createBackendApiV1({
             personType: query.personType,
             isBuyer: query.isBuyer,
             isSeller: query.isSeller,
+            commercialUserId: query.commercialUserId,
           },
           actor
         );
@@ -1032,6 +1033,7 @@ export function createBackendApiV1({
             phone: body.phone,
             isBuyer: body.isBuyer,
             isSeller: body.isSeller,
+            commercialUserId: body.commercialUserId,
           },
           actor
         );
@@ -1065,6 +1067,7 @@ export function createBackendApiV1({
         assignIfDefined(updatePayload, 'phone', body.phone);
         assignIfDefined(updatePayload, 'isBuyer', body.isBuyer);
         assignIfDefined(updatePayload, 'isSeller', body.isSeller);
+        assignIfDefined(updatePayload, 'commercialUserId', body.commercialUserId);
         assignIfDefined(updatePayload, 'reasonText', body.reasonText);
 
         const result = await clientService.updateClient(clientId, updatePayload, actor);

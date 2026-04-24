@@ -19,7 +19,7 @@ description: Use this skill when working with the database, Prisma schema, migra
 - **SampleMovement** — vendas e perdas parciais, com snapshot de buyer.
 - **User** — conta com role, status, password hash (bcrypt), lockout.
 - **UserSession** — sessao JWT com expiracao e revogacao.
-- **Client** — PF/PJ com registrations (inscricoes estaduais).
+- **Client** — PF/PJ com registrations (inscricoes estaduais). Pode ter um `commercialUser` (FK opcional para User) como usuario responsavel.
 - **ClientRegistration** — inscricoes vinculadas a clientes.
 - **UserAuditEvent** / **ClientAuditEvent** — audit trails append-only.
 - **PasswordResetRequest** / **EmailChangeRequest** — fluxos de recuperacao.

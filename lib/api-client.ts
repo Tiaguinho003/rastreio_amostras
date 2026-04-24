@@ -281,6 +281,7 @@ export function listClients(
     personType?: string;
     isBuyer?: boolean;
     isSeller?: boolean;
+    commercialUserId?: string;
     page?: number;
     limit?: number;
   } = {},
@@ -292,6 +293,7 @@ export function listClients(
   if (query.personType) params.set('personType', query.personType);
   if (typeof query.isBuyer === 'boolean') params.set('isBuyer', String(query.isBuyer));
   if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
+  if (query.commercialUserId) params.set('commercialUserId', query.commercialUserId);
   if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   const suffix = params.size ? `?${params.toString()}` : '';
@@ -344,6 +346,7 @@ export function createClient(
     phone?: string | null;
     isBuyer: boolean;
     isSeller: boolean;
+    commercialUserId?: string | null;
   }
 ) {
   return request<ClientResponse>('/clients', {
@@ -366,6 +369,7 @@ export function updateClient(
     phone?: string | null;
     isBuyer?: boolean;
     isSeller?: boolean;
+    commercialUserId?: string | null;
     reasonText: string;
   }
 ) {

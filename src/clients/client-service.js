@@ -28,6 +28,13 @@ import {
   toClientSummary,
 } from './client-support.js';
 
+const COMMERCIAL_USER_SELECT = {
+  select: {
+    id: true,
+    fullName: true,
+  },
+};
+
 const CLIENT_SUMMARY_SELECT = {
   id: true,
   code: true,
@@ -41,8 +48,10 @@ const CLIENT_SUMMARY_SELECT = {
   isBuyer: true,
   isSeller: true,
   status: true,
+  commercialUserId: true,
   createdAt: true,
   updatedAt: true,
+  commercialUser: COMMERCIAL_USER_SELECT,
   registrations: {
     where: {
       status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
@@ -75,8 +84,10 @@ const CLIENT_DETAIL_SELECT = {
   isBuyer: true,
   isSeller: true,
   status: true,
+  commercialUserId: true,
   createdAt: true,
   updatedAt: true,
+  commercialUser: COMMERCIAL_USER_SELECT,
   registrations: {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   },
@@ -467,6 +478,7 @@ export class ClientService {
         isBuyer: true,
         isSeller: true,
         status: true,
+        commercialUserId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -479,6 +491,31 @@ export class ClientService {
     }
 
     return client;
+  }
+
+  async assertCommercialUserAssignable(tx, commercialUserId) {
+    if (commercialUserId === null || commercialUserId === undefined) {
+      return;
+    }
+
+    const user = await tx.user.findUnique({
+      where: { id: commercialUserId },
+      select: { id: true, status: true },
+    });
+
+    if (!user) {
+      throw new HttpError(422, 'commercialUserId does not reference an existing user', {
+        code: 'COMMERCIAL_USER_NOT_FOUND',
+        field: 'commercialUserId',
+      });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new HttpError(422, 'commercialUserId must reference an active user', {
+        code: 'COMMERCIAL_USER_INACTIVE',
+        field: 'commercialUserId',
+      });
+    }
   }
 
   async requireRegistrationById(tx, clientId, registrationId) {
@@ -558,7 +595,7 @@ export class ClientService {
   async listClients(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list clients');
 
-    const { page, limit, search, status, personType, isBuyer, isSeller } =
+    const { page, limit, search, status, personType, isBuyer, isSeller, commercialUserId } =
       normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
@@ -567,6 +604,7 @@ export class ClientService {
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
       ...(isSeller === null ? {} : { isSeller }),
+      ...(commercialUserId ? { commercialUserId } : {}),
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);
@@ -663,6 +701,7 @@ export class ClientService {
 
     return this.prisma.$transaction(async (tx) => {
       await this.assertDocumentAvailable(tx, normalized.documentCanonical);
+      await this.assertCommercialUserAssignable(tx, normalized.commercialUserId);
 
       const created = await tx.client.create({
         data: {
@@ -697,6 +736,10 @@ export class ClientService {
       await this.assertDocumentAvailable(tx, normalized.data.documentCanonical, {
         excludeClientId: current.id,
       });
+
+      if (normalized.data.commercialUserId !== (current.commercialUserId ?? null)) {
+        await this.assertCommercialUserAssignable(tx, normalized.data.commercialUserId);
+      }
 
       const before = buildClientAuditState(current);
       const afterCandidate = {
@@ -1106,6 +1149,38 @@ export class ClientService {
         impact: usage,
       };
     });
+  }
+
+  async bulkUnlinkCommercialUser(tx, commercialUserId, actorContext, reasonText) {
+    const clients = await tx.client.findMany({
+      where: { commercialUserId },
+      select: CLIENT_SUMMARY_SELECT,
+    });
+
+    if (clients.length === 0) {
+      return { unlinkedCount: 0 };
+    }
+
+    await tx.client.updateMany({
+      where: { commercialUserId },
+      data: { commercialUserId: null },
+    });
+
+    for (const client of clients) {
+      const before = buildClientAuditState(client);
+      const after = { ...before, commercialUserId: null };
+      const auditPayload = buildClientAuditPayload(before, after);
+
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        actorContext,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
+        reasonText: reasonText ?? null,
+        payload: auditPayload,
+      });
+    }
+
+    return { unlinkedCount: clients.length };
   }
 
   async reactivateClient(clientId, input, actorContext) {

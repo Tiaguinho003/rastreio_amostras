@@ -198,6 +198,27 @@ function normalizeReasonText(value, fieldName = 'reasonText') {
   return normalizeRequiredText(value, fieldName, 300);
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function normalizeCommercialUserId(value, fieldName = 'commercialUserId') {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value.trim())) {
+    throw new HttpError(422, `${fieldName} must be a valid uuid`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+
+  return value.trim().toLowerCase();
+}
+
 function normalizeOptionalReasonText(value, fieldName = 'reasonText') {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -315,7 +336,7 @@ export function normalizeCreateClientInput(input) {
     });
   }
 
-  return buildClientWriteData({
+  const data = buildClientWriteData({
     personType,
     fullName: input.fullName,
     legalName: input.legalName,
@@ -326,6 +347,11 @@ export function normalizeCreateClientInput(input) {
     isBuyer: input.isBuyer,
     isSeller: input.isSeller,
   });
+
+  const commercialUserId = normalizeCommercialUserId(input.commercialUserId);
+  data.commercialUserId = commercialUserId === undefined ? null : commercialUserId;
+
+  return data;
 }
 
 export function normalizeUpdateClientInput(input, currentClient) {
@@ -344,19 +370,27 @@ export function normalizeUpdateClientInput(input, currentClient) {
   const nextIsBuyer = hasOwn(input, 'isBuyer') ? input.isBuyer : currentClient.isBuyer;
   const nextIsSeller = hasOwn(input, 'isSeller') ? input.isSeller : currentClient.isSeller;
 
+  const data = buildClientWriteData({
+    personType: nextPersonType,
+    fullName: nextFullName,
+    legalName: nextLegalName,
+    tradeName: nextTradeName,
+    cpf: nextCpf,
+    cnpj: nextCnpj,
+    phone: nextPhone,
+    isBuyer: nextIsBuyer,
+    isSeller: nextIsSeller,
+  });
+
+  if (hasOwn(input, 'commercialUserId')) {
+    data.commercialUserId = normalizeCommercialUserId(input.commercialUserId) ?? null;
+  } else {
+    data.commercialUserId = currentClient.commercialUserId ?? null;
+  }
+
   return {
     reasonText: normalizeOptionalReasonText(input.reasonText),
-    data: buildClientWriteData({
-      personType: nextPersonType,
-      fullName: nextFullName,
-      legalName: nextLegalName,
-      tradeName: nextTradeName,
-      cpf: nextCpf,
-      cnpj: nextCnpj,
-      phone: nextPhone,
-      isBuyer: nextIsBuyer,
-      isSeller: nextIsSeller,
-    }),
+    data,
   };
 }
 
@@ -454,6 +488,11 @@ export function normalizeUpdateRegistrationInput(input, currentRegistration) {
 }
 
 export function normalizeListClientsInput(input) {
+  const normalizedCommercialUserId = normalizeCommercialUserId(
+    input.commercialUserId,
+    'commercialUserId'
+  );
+
   return {
     page: readPageQuery(input.page, 1),
     limit: readLimitQuery(input.limit, {
@@ -465,6 +504,7 @@ export function normalizeListClientsInput(input) {
     personType: input.personType ? normalizeClientPersonType(input.personType) : null,
     isBuyer: normalizeOptionalBooleanQuery(input.isBuyer, 'isBuyer'),
     isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller'),
+    commercialUserId: normalizedCommercialUserId ?? null,
   };
 }
 
@@ -519,6 +559,9 @@ export function buildClientDisplayName(client) {
 export function toClientSummary(client, options = {}) {
   const activeRegistrationCount = options.activeRegistrationCount ?? 0;
   const registrationCount = options.registrationCount ?? 0;
+  const commercialUser = client.commercialUser
+    ? { id: client.commercialUser.id, fullName: client.commercialUser.fullName }
+    : null;
 
   return {
     id: client.id,
@@ -535,6 +578,8 @@ export function toClientSummary(client, options = {}) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
+    commercialUserId: client.commercialUserId ?? null,
+    commercialUser,
     registrationCount,
     activeRegistrationCount,
     primaryCity: options.primaryCity ?? null,
@@ -624,6 +669,7 @@ export function buildClientAuditState(client) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
+    commercialUserId: client.commercialUserId ?? null,
   };
 }
 

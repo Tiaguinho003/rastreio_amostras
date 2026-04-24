@@ -108,9 +108,10 @@ function normalizePasswordResetCode(value, fieldName = 'code') {
 }
 
 export class UserService {
-  constructor({ prisma, emailService }) {
+  constructor({ prisma, emailService, clientService = null }) {
     this.prisma = prisma;
     this.emailService = emailService;
+    this.clientService = clientService;
   }
 
   async recordAuditEvent(tx, input) {
@@ -888,6 +889,18 @@ export class UserService {
       await this.revokeUserSessions(tx, user.id, USER_SESSION_END_REASONS.INACTIVATED);
       await this.invalidatePasswordResetRequests(tx, user.id, now);
       await this.invalidateEmailChangeRequests(tx, user.id, now);
+
+      let unlinkedCount = 0;
+      if (this.clientService) {
+        const unlinkResult = await this.clientService.bulkUnlinkCommercialUser(
+          tx,
+          user.id,
+          actor,
+          `Desvinculado automaticamente apos inativacao do usuario ${user.username}`
+        );
+        unlinkedCount = unlinkResult.unlinkedCount;
+      }
+
       await this.emailService.sendUserInactivated({
         to: updated.email,
         fullName: updated.fullName,
@@ -905,6 +918,7 @@ export class UserService {
           after: {
             status: updated.status,
           },
+          ...(unlinkedCount > 0 ? { unlinkedClients: unlinkedCount } : {}),
         },
       });
 

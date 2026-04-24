@@ -2,10 +2,10 @@
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ApiError, createClient } from '../../lib/api-client';
+import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientPersonType, ClientSummary, SessionData } from '../../lib/types';
+import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 
 type ClientQuickCreateModalProps = {
   session: SessionData;
@@ -40,6 +40,7 @@ function buildInitialForm({
     phone: '',
     isBuyer: initialIsBuyer,
     isSeller: initialIsSeller,
+    commercialUserId: null as string | null,
   };
 }
 
@@ -67,6 +68,8 @@ export function ClientQuickCreateModal({
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [users, setUsers] = useState<UserLookupItem[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const lastOpenRef = useRef(false);
 
   useEffect(() => {
@@ -86,6 +89,35 @@ export function ClientQuickCreateModal({
 
     lastOpenRef.current = open;
   }, [initialIsBuyer, initialIsSeller, initialPersonType, initialSearch, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingUsers(true);
+    lookupUsersForReference(session, { limit: 200 })
+      .then((response) => {
+        if (!cancelled) {
+          setUsers(response.items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUsers([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingUsers(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, session]);
 
   const documentDigitCount = useMemo(() => {
     const raw = form.personType === 'PF' ? form.cpf : form.cnpj;
@@ -165,6 +197,7 @@ export function ClientQuickCreateModal({
         phone: form.phone,
         isBuyer: form.isBuyer,
         isSeller: form.isSeller,
+        commercialUserId: form.commercialUserId,
       });
 
       setSaving(false);
@@ -346,6 +379,42 @@ export function ClientQuickCreateModal({
                     }
                     placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
                   />
+                </label>
+              </div>
+            </section>
+
+            <section
+              className="client-quick-create-group"
+              aria-labelledby="client-quick-create-group-responsavel"
+            >
+              <p
+                id="client-quick-create-group-responsavel"
+                className="client-quick-create-group-title"
+              >
+                Usuario responsavel
+              </p>
+              <div className="client-quick-create-grid client-quick-create-grid-single">
+                <label className="client-quick-create-field">
+                  Usuario responsavel
+                  <select
+                    value={form.commercialUserId ?? ''}
+                    disabled={saving || loadingUsers}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        commercialUserId: event.target.value || null,
+                      }))
+                    }
+                  >
+                    <option value="">
+                      {loadingUsers ? 'Carregando usuarios...' : 'Sem vinculo'}
+                    </option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.fullName}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             </section>

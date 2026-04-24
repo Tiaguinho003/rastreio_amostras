@@ -42,6 +42,26 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.$executeRawUnsafe(
       'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
+    await prisma.$executeRawUnsafe('DELETE FROM "app_user" WHERE "username" LIKE \'test-%\'');
+  }
+
+  async function createTestUser(role, overrides = {}) {
+    const id =
+      overrides.id ?? `00000000-0000-0000-0000-0000000003${Math.floor(Math.random() * 90 + 10)}`;
+    const username = overrides.username ?? `test-user-${Math.random().toString(36).slice(2, 8)}`;
+    return prisma.user.create({
+      data: {
+        id,
+        fullName: overrides.fullName ?? `Test ${role}`,
+        username,
+        usernameCanonical: username.toLowerCase(),
+        email: overrides.email ?? `${username}@test.local`,
+        emailCanonical: (overrides.email ?? `${username}@test.local`).toLowerCase(),
+        passwordHash: 'x',
+        role,
+        status: overrides.status ?? 'ACTIVE',
+      },
+    });
   }
 
   async function createPfClient(overrides = {}) {
@@ -509,6 +529,166 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(duplicateRegistration.status, 409);
+  });
+
+  test('POST /clients accepts optional commercialUserId and returns nested commercialUser', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-commercial-a' });
+
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.client.commercialUserId, user.id);
+    assert.deepEqual(created.body.client.commercialUser, {
+      id: user.id,
+      fullName: user.fullName,
+    });
+  });
+
+  test('POST /clients rejects unknown commercialUserId with 422', async () => {
+    const result = await createPjClient({
+      commercialUserId: '00000000-0000-0000-0000-0000000099ff',
+    });
+
+    assert.equal(result.status, 422);
+    assert.equal(result.body.error.details.field, 'commercialUserId');
+  });
+
+  test('POST /clients rejects inactive commercialUserId with 422', async () => {
+    const user = await createTestUser('CLASSIFIER', {
+      username: 'test-inactive',
+      status: 'INACTIVE',
+    });
+
+    const result = await createPjClient({ commercialUserId: user.id });
+
+    assert.equal(result.status, 422);
+    assert.equal(result.body.error.details.code, 'COMMERCIAL_USER_INACTIVE');
+  });
+
+  test('PATCH /clients updates commercialUserId and records CLIENT_UPDATED with diff', async () => {
+    const firstUser = await createTestUser('COMMERCIAL', { username: 'test-first' });
+    const secondUser = await createTestUser('COMMERCIAL', { username: 'test-second' });
+
+    const created = await createPjClient({ commercialUserId: firstUser.id });
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: {
+          commercialUserId: secondUser.id,
+          reasonText: 'trocar responsavel',
+        },
+      })
+    );
+
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.client.commercialUserId, secondUser.id);
+    assert.equal(updated.body.client.commercialUser.fullName, secondUser.fullName);
+
+    const audit = await api.listClientAuditEvents(
+      buildInput({ params: { clientId: created.body.client.id } })
+    );
+
+    assert.equal(audit.status, 200);
+    const updateEvent = audit.body.items.find((i) => i.eventType === 'CLIENT_UPDATED');
+    assert.ok(updateEvent);
+    assert.equal(updateEvent.payload.diff.before.commercialUserId, firstUser.id);
+    assert.equal(updateEvent.payload.diff.after.commercialUserId, secondUser.id);
+  });
+
+  test('PATCH /clients accepts null commercialUserId to unlink', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-unlinkable' });
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: {
+          commercialUserId: null,
+          reasonText: 'desvincular',
+        },
+      })
+    );
+
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.client.commercialUserId, null);
+    assert.equal(updated.body.client.commercialUser, null);
+  });
+
+  test('GET /clients filters by commercialUserId', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-filter-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-filter-b' });
+
+    const mine = await createPjClient({
+      legalName: 'Cliente A',
+      cnpj: '10.111.222/0001-11',
+      commercialUserId: userA.id,
+    });
+    await createPjClient({
+      legalName: 'Cliente B',
+      cnpj: '20.222.333/0001-22',
+      commercialUserId: userB.id,
+    });
+    await createPjClient({
+      legalName: 'Cliente C',
+      cnpj: '30.333.444/0001-33',
+    });
+
+    const filtered = await api.listClients(buildInput({ query: { commercialUserId: userA.id } }));
+
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.body.page.total, 1);
+    assert.equal(filtered.body.items[0].id, mine.body.client.id);
+  });
+
+  test('bulkUnlinkCommercialUser nulls links and records one CLIENT_UPDATED per client', async () => {
+    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-target' });
+    const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-other' });
+
+    const linkedA = await createPjClient({
+      legalName: 'Linked A',
+      cnpj: '40.444.555/0001-44',
+      commercialUserId: targetUser.id,
+    });
+    const linkedB = await createPjClient({
+      legalName: 'Linked B',
+      cnpj: '50.555.666/0001-55',
+      commercialUserId: targetUser.id,
+    });
+    const untouched = await createPjClient({
+      legalName: 'Other User',
+      cnpj: '60.666.777/0001-66',
+      commercialUserId: otherUser.id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      const result = await clientService.bulkUnlinkCommercialUser(
+        tx,
+        targetUser.id,
+        actor,
+        'Desvinculado automaticamente'
+      );
+      assert.equal(result.unlinkedCount, 2);
+    });
+
+    const afterA = await prisma.client.findUnique({ where: { id: linkedA.body.client.id } });
+    const afterB = await prisma.client.findUnique({ where: { id: linkedB.body.client.id } });
+    const afterUntouched = await prisma.client.findUnique({
+      where: { id: untouched.body.client.id },
+    });
+
+    assert.equal(afterA.commercialUserId, null);
+    assert.equal(afterB.commercialUserId, null);
+    assert.equal(afterUntouched.commercialUserId, otherUser.id);
+
+    const events = await prisma.clientAuditEvent.findMany({
+      where: { eventType: 'CLIENT_UPDATED', reasonText: 'Desvinculado automaticamente' },
+    });
+
+    assert.equal(events.length, 2);
+    const targetIds = events.map((e) => e.targetClientId).sort();
+    const expectedIds = [linkedA.body.client.id, linkedB.body.client.id].sort();
+    assert.deepEqual(targetIds, expectedIds);
   });
 }
 

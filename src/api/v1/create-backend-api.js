@@ -39,12 +39,13 @@ export function createBackendApiV1FromEnv() {
   const queryService = new SampleQueryService({ prisma });
   const uploadService = createLocalUploadServiceFromEnv();
   const emailService = createAppEmailServiceFromEnv();
+  const clientService = new ClientService({
+    prisma,
+  });
   const userService = new UserService({
     prisma,
     emailService,
-  });
-  const clientService = new ClientService({
-    prisma,
+    clientService,
   });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey

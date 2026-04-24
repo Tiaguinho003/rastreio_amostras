@@ -168,6 +168,8 @@ export interface ClientSummary {
   isBuyer: boolean;
   isSeller: boolean;
   status: ClientStatus;
+  commercialUserId: string | null;
+  commercialUser: { id: string; fullName: string } | null;
   registrationCount: number;
   activeRegistrationCount: number;
   primaryCity: string | null;

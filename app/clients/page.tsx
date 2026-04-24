@@ -14,10 +14,15 @@ import {
 
 import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
-import { ApiError, getClient, listClients } from '../../lib/api-client';
+import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
-import type { ClientRegistrationSummary, ClientStatus, ClientSummary } from '../../lib/types';
+import type {
+  ClientRegistrationSummary,
+  ClientStatus,
+  ClientSummary,
+  UserLookupItem,
+} from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
 const CLIENT_PAGE_LIMIT = 15;
@@ -247,6 +252,8 @@ function ClientsPage() {
 
   const [sortAZ, setSortAZ] = useState(true);
   const [activeClientChip, setActiveClientChip] = useState<ClientChipFilter>('all');
+  const [commercialUserFilter, setCommercialUserFilter] = useState<string>('');
+  const [users, setUsers] = useState<UserLookupItem[]>([]);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
   const clientDetailCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -308,6 +315,30 @@ function ClientsPage() {
     clientsScrollRef.current?.scrollTo({ top: 0 });
   }, [clientsState.currentPage]);
 
+  // Load user lookup once per session
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    let cancelled = false;
+    lookupUsersForReference(session, { limit: 200 })
+      .then((response) => {
+        if (!cancelled) {
+          setUsers(response.items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUsers([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   // Fetch clients list
   useEffect(() => {
     if (!session) {
@@ -322,6 +353,7 @@ function ClientsPage() {
       session,
       {
         search: appliedClientSearch || undefined,
+        commercialUserId: commercialUserFilter || undefined,
         page: clientsState.currentPage,
         limit: CLIENT_PAGE_LIMIT,
       },
@@ -360,7 +392,7 @@ function ClientsPage() {
       active = false;
       abortController.abort();
     };
-  }, [appliedClientSearch, clientsState.currentPage, session]);
+  }, [appliedClientSearch, commercialUserFilter, clientsState.currentPage, session]);
 
   // Fetch client detail
   useEffect(() => {
@@ -565,6 +597,33 @@ function ClientsPage() {
 
         {/* Sheet */}
         <section className="clients-v2-sheet">
+          {/* Filter por usuario responsavel */}
+          <div className="spv2-list-meta" style={{ marginBottom: '0.5rem' }}>
+            <label
+              className="sdv-edit-field"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}
+            >
+              <span className="sdv-edit-label" style={{ margin: 0 }}>
+                Usuario responsavel
+              </span>
+              <select
+                className="sdv-edit-input"
+                value={commercialUserFilter}
+                onChange={(event) => {
+                  setCommercialUserFilter(event.target.value);
+                  dispatchClients({ type: 'setPage', page: 1 });
+                }}
+              >
+                <option value="">Todos</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {/* Chips */}
           <div className="spv2-chips">
             {CLIENT_CHIP_DEFINITIONS.map((chip) => {

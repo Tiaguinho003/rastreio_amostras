@@ -19,6 +19,7 @@ import {
   listClientSamples,
   listClientPurchases,
   getClientCommercialSummary,
+  lookupUsersForReference,
 } from '../../../lib/api-client';
 import {
   formatClientDocument,
@@ -36,6 +37,7 @@ import type {
   ClientSampleItem,
   ClientPurchaseItem,
   ClientCommercialSummary,
+  UserLookupItem,
 } from '../../../lib/types';
 
 /* ------------------------------------------------------------------ */
@@ -105,6 +107,7 @@ function clientSummaryToForm(client: ClientSummary) {
     phone: maskPhoneInput(client.phone ?? ''),
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
+    commercialUserId: client.commercialUserId ?? (null as string | null),
     reasonText: '',
   };
 }
@@ -200,9 +203,13 @@ export default function ClientDetailPage() {
       isBuyer: false,
       isSeller: true,
       status: 'ACTIVE',
+      commercialUserId: null,
+      commercialUser: null,
     } as unknown as ClientSummary)
   );
   const [savingClient, setSavingClient] = useState(false);
+  const [users, setUsers] = useState<UserLookupItem[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const editClientTrapRef = useFocusTrap(editClientOpen);
 
   /* ---- registration modal (create + edit) ---- */
@@ -654,6 +661,13 @@ export default function ClientDetailPage() {
     setEditClientForm(clientSummaryToForm(client));
     setEditClientModalNotice(null);
     setEditClientOpen(true);
+
+    if (!session) return;
+    setLoadingUsers(true);
+    lookupUsersForReference(session, { limit: 200 })
+      .then((response) => setUsers(response.items))
+      .catch(() => setUsers([]))
+      .finally(() => setLoadingUsers(false));
   }
 
   function closeEditClient() {
@@ -689,6 +703,8 @@ export default function ClientDetailPage() {
       } else {
         data.phone = null;
       }
+
+      data.commercialUserId = editClientForm.commercialUserId;
 
       await updateClient(session, clientId, data);
       setEditClientSuccess(true);
@@ -1045,6 +1061,12 @@ export default function ClientDetailPage() {
                           <span className="sdv-info-label">Telefone</span>
                           <span className="sdv-info-value">
                             {formatPhone(client.phone) || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Usuario responsavel</span>
+                          <span className="sdv-info-value">
+                            {client.commercialUser?.fullName ?? '\u2014'}
                           </span>
                         </div>
                         <div className="sdv-info-sep" />
@@ -1614,6 +1636,34 @@ export default function ClientDetailPage() {
                     }
                     placeholder="(xx)xxxxx-xxxx"
                   />
+                </label>
+
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Usuario responsavel</span>
+                  <select
+                    className="app-modal-input"
+                    value={editClientForm.commercialUserId ?? ''}
+                    disabled={savingClient || loadingUsers}
+                    onChange={(e) =>
+                      setEditClientForm((c) => ({
+                        ...c,
+                        commercialUserId: e.target.value || null,
+                      }))
+                    }
+                  >
+                    <option value="">
+                      {loadingUsers ? 'Carregando usuarios...' : 'Sem vinculo'}
+                    </option>
+                    {editClientForm.commercialUserId &&
+                    !users.some((u) => u.id === editClientForm.commercialUserId) ? (
+                      <option value={editClientForm.commercialUserId}>Usuario indisponivel</option>
+                    ) : null}
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.fullName}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <div className="client-detail-modal-flags">
