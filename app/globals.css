@@ -4308,12 +4308,35 @@ button:disabled {
   transform: scale(0.98);
 }
 
+.spv2-card.is-card-open {
+  --card-status-color: #60a5fa;
+  --card-status-bg: #dbeafe;
+}
+
+.spv2-card.is-card-sold {
+  --card-status-color: #2a6539;
+  --card-status-bg: #e4f3e8;
+}
+
+.spv2-card.is-card-lost {
+  --card-status-color: #b44646;
+  --card-status-bg: #f6e1e1;
+}
+
+.spv2-card.is-card-invalid {
+  --card-status-color: #6b7280;
+  --card-status-bg: #f3f4f6;
+  opacity: 0.55;
+  filter: saturate(0.6);
+}
+
 .spv2-card-bar {
   width: 4px;
   height: clamp(44px, 12.5vw, 55px);
   border-radius: 2px;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  background: var(--card-status-color, #999);
 }
 
 .spv2-card-content {
@@ -4347,6 +4370,9 @@ button:disabled {
   border: 1px solid;
   white-space: nowrap;
   flex-shrink: 0;
+  color: var(--card-status-color);
+  background: var(--card-status-bg);
+  border-color: color-mix(in srgb, var(--card-status-color) 30%, transparent);
 }
 
 .spv2-card-bottom {
