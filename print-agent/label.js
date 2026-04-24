@@ -88,16 +88,20 @@ export function buildLabel(job) {
   const date = formatDate(job.sample.registeredAt);
 
   // --- Layout (etiqueta 100x35mm = 800x280 dots, 203dpi) ---
-  // Tres colunas: logo+lote | info (SACAS/SAFRA/DATA) | QR.
+  // Tres colunas: logo+lote | info (DATA/SAFRA/SACAS) | QR.
   // Gap padrao de 20 dots (2.5mm) nas bordas superior e inferior.
   //
-  // Lote em font "4" multiplier 2x4 (48x128 por char). Centralizado na
-  // coluna esquerda (x=0 a x=335). Ate 7 chars caberiam (336 dots); lote
-  // padrao de 6 chars (ex: "A-0000") fica centralizado com x dinamico.
-  const LOT_CHAR_W = 48;
+  // Logo e lote sao centralizados horizontalmente na coluna esquerda
+  // (x=0 a x=335). Logo em cima, lote em baixo.
+  //
+  // Lote em font "4" multiplier 2x4 (48x128 por char). Ate 7 chars caberiam
+  // (336 dots); lote padrao de 6 chars (ex: "A-0000") ocupa 288 dots.
   const LEFT_COLUMN_W = 335;
+  const LOT_CHAR_W = 48;
   const lotWidth = lotNumber.length * LOT_CHAR_W;
   const lotX = Math.max(0, Math.floor((LEFT_COLUMN_W - lotWidth) / 2));
+  const logoPixelWidth = LOGO_WIDTH_BYTES * 8;
+  const logoX = Math.max(0, Math.floor((LEFT_COLUMN_W - logoPixelWidth) / 2));
 
   const copies = 1;
 
@@ -107,7 +111,9 @@ export function buildLabel(job) {
   // SET TEAR/SET RIBBON/GAPDETECT vivem em calibratePrinter() (index.js),
   // enviados uma unica vez no startup — re-enviar a cada job disparava
   // auto-calibracao esporadica (etiqueta em branco intermitente).
-  const header = ['CLS', '', `BITMAP 30,20,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join('\r\n');
+  const header = ['CLS', '', `BITMAP ${logoX},20,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join(
+    '\r\n'
+  );
   parts.push(Buffer.from(header, 'ascii'));
   parts.push(LOGO_DATA);
 
@@ -117,13 +123,15 @@ export function buildLabel(job) {
     // Separador vertical entre coluna esquerda (logo+lote) e coluna meio (info)
     `BAR 335,20,3,240`,
     '',
-    // Coluna meio — labels SACAS/SAFRA/DATA com valores alinhados em x=456
-    `TEXT 360,20,"3",0,1,1,"SACAS:"`,
-    `TEXT 456,20,"3",0,1,1,"${sacks}"`,
-    `TEXT 360,130,"3",0,1,1,"SAFRA:"`,
-    `TEXT 456,130,"3",0,1,1,"${harvest}"`,
-    `TEXT 360,240,"3",0,1,1,"DATA:"`,
-    `TEXT 456,240,"3",0,1,1,"${date}"`,
+    // Coluna meio — DATA/SAFRA/SACAS (nessa ordem, de cima pra baixo).
+    // Gap uniforme de 55 dots entre linhas, concentrando as infos na metade
+    // inferior da etiqueta. Valores alinhados em x=456.
+    `TEXT 360,130,"3",0,1,1,"DATA:"`,
+    `TEXT 456,130,"3",0,1,1,"${date}"`,
+    `TEXT 360,185,"3",0,1,1,"SAFRA:"`,
+    `TEXT 456,185,"3",0,1,1,"${harvest}"`,
+    `TEXT 360,240,"3",0,1,1,"SACAS:"`,
+    `TEXT 456,240,"3",0,1,1,"${sacks}"`,
     '',
     // QR code — coluna direita, centralizado verticalmente (cell size 6, ~170x170)
     `QRCODE 612,55,L,6,A,0,M2,"${qrValue}"`,
