@@ -13,6 +13,7 @@ import { SampleMovementsPanel } from '../../../components/samples/SampleMovement
 import {
   ApiError,
   cancelPhysicalSampleSend,
+  cancelSampleMovement,
   completeClassification,
   confirmRegistration,
   exportSamplePdf,
@@ -20,6 +21,7 @@ import {
   getSampleDetail,
   invalidateSample,
   listSampleEvents,
+  listSampleMovements,
   lookupUsersForReference,
   recordPhysicalSampleSent,
   requestQrReprint,
@@ -51,6 +53,7 @@ import type {
   SampleDetailResponse,
   SampleEvent,
   SampleExportType,
+  SampleMovement,
   UpdateReasonCode,
   UserLookupItem,
   SampleStatus,
@@ -146,6 +149,25 @@ function toDateInput(value: unknown): string {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+function formatMovementDate(value: string): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+  return value;
+}
+
+function getMovementBuyerLabel(movement: SampleMovement): string | null {
+  if (movement.movementType !== 'SALE') {
+    return null;
+  }
+  const client = movement.buyerClient;
+  if (!client) {
+    return null;
+  }
+  return client.displayName ?? client.fullName ?? client.tradeName ?? null;
 }
 
 function formatDateInputLabel(value: string): string {
@@ -639,6 +661,8 @@ export default function SampleDetailPage() {
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
   const [invalidateModalOpen, setInvalidateModalOpen] = useState(false);
+  const [activeMovements, setActiveMovements] = useState<SampleMovement[] | null>(null);
+  const [activeMovementsError, setActiveMovementsError] = useState<string | null>(null);
 
   const [classificationForm, setClassificationForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
@@ -871,6 +895,8 @@ export default function SampleDetailPage() {
     setInvalidateModalOpen(false);
     setInvalidateReasonCode('OTHER');
     setInvalidateReasonText('');
+    setActiveMovements(null);
+    setActiveMovementsError(null);
     setSelectedOwnerClient(null);
     setOwnerRegistrations([]);
     setSelectedOwnerRegistrationId(null);
@@ -1027,6 +1053,36 @@ export default function SampleDetailPage() {
       }, 0);
     };
   }, [invalidateModalOpen, invalidating]);
+
+  useEffect(() => {
+    if (!invalidateModalOpen || !hasActiveMovements || !session) {
+      return;
+    }
+
+    let cancelled = false;
+    setActiveMovements(null);
+    setActiveMovementsError(null);
+
+    (async () => {
+      try {
+        const res = await listSampleMovements(session, sampleId, { status: 'ACTIVE' });
+        if (!cancelled) {
+          setActiveMovements(res.movements ?? []);
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setActiveMovementsError(
+            cause instanceof ApiError ? cause.message : 'Falha ao carregar movimentacoes'
+          );
+          setActiveMovements([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [invalidateModalOpen, hasActiveMovements, sampleId, session]);
 
   useEffect(() => {
     if (!highlightPrint || !detail) {
@@ -1570,6 +1626,142 @@ export default function SampleDetailPage() {
       } else {
         setInvalidateModalNotice({ kind: 'error', text: 'Falha ao invalidar amostra' });
       }
+    } finally {
+      setInvalidating(false);
+    }
+  }
+
+  async function refetchActiveMovements() {
+    if (!session) {
+      return;
+    }
+
+    try {
+      const res = await listSampleMovements(session, sampleId, { status: 'ACTIVE' });
+      setActiveMovements(res.movements ?? []);
+    } catch {
+      // ignore — usuario ja viu erro da operacao que falhou
+    }
+  }
+
+  async function handleCancelMovementsOnly() {
+    if (!session || !detail || !activeMovements || activeMovements.length === 0) {
+      return;
+    }
+
+    const trimmedReason = invalidateReasonText.trim();
+    if (trimmedReason.length === 0) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: 'Informe o motivo para cancelar as movimentacoes.',
+      });
+      return;
+    }
+
+    setInvalidating(true);
+    setInvalidateModalNotice(null);
+
+    try {
+      let currentVersion = detail.sample.version;
+      for (const mv of activeMovements) {
+        await cancelSampleMovement(session, sampleId, mv.id, {
+          expectedVersion: currentVersion,
+          reasonText: trimmedReason,
+        });
+        const refreshed = await refreshDetail();
+        if (!refreshed) {
+          throw new Error('Falha ao recarregar amostra apos cancelar movimentacao');
+        }
+        currentVersion = refreshed.sample.version;
+      }
+
+      setInvalidateModalOpen(false);
+      setInvalidateReasonCode('OTHER');
+      setInvalidateReasonText('');
+      setGeneralNotice({
+        kind: 'success',
+        text:
+          activeMovements.length === 1
+            ? 'Movimentacao cancelada com sucesso.'
+            : 'Movimentacoes canceladas com sucesso.',
+      });
+      await syncDetailState();
+    } catch (cause) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text:
+          cause instanceof ApiError
+            ? cause.message
+            : cause instanceof Error
+              ? cause.message
+              : 'Falha ao cancelar movimentacoes',
+      });
+      await refetchActiveMovements();
+    } finally {
+      setInvalidating(false);
+    }
+  }
+
+  async function handleCancelMovementsAndInvalidate() {
+    if (!session || !detail || !activeMovements || activeMovements.length === 0) {
+      return;
+    }
+
+    const parsed = invalidateSampleSchema.safeParse({
+      reasonCode: invalidateReasonCode,
+      reasonText: invalidateReasonText,
+    });
+
+    if (!parsed.success) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text: parsed.error.issues[0]?.message ?? 'Dados de invalidacao invalidos',
+      });
+      return;
+    }
+
+    setInvalidating(true);
+    setInvalidateModalNotice(null);
+
+    try {
+      let currentVersion = detail.sample.version;
+      for (const mv of activeMovements) {
+        await cancelSampleMovement(session, sampleId, mv.id, {
+          expectedVersion: currentVersion,
+          reasonText: parsed.data.reasonText,
+        });
+        const refreshed = await refreshDetail();
+        if (!refreshed) {
+          throw new Error('Falha ao recarregar amostra apos cancelar movimentacao');
+        }
+        currentVersion = refreshed.sample.version;
+      }
+
+      await invalidateSample(session, sampleId, {
+        expectedVersion: currentVersion,
+        reasonCode: parsed.data.reasonCode,
+        reasonText: parsed.data.reasonText,
+      });
+
+      setInvalidateModalOpen(false);
+      setInvalidateReasonCode('OTHER');
+      setInvalidateReasonText('');
+      setGeneralNotice({
+        kind: 'success',
+        text: 'Movimentacoes canceladas e amostra invalidada.',
+      });
+      await syncDetailState();
+    } catch (cause) {
+      setInvalidateModalNotice({
+        kind: 'error',
+        text:
+          cause instanceof ApiError
+            ? cause.message
+            : cause instanceof Error
+              ? cause.message
+              : 'Falha ao cancelar movimentacoes e invalidar amostra',
+      });
+      await refetchActiveMovements();
     } finally {
       setInvalidating(false);
     }
@@ -2756,22 +2948,104 @@ export default function SampleDetailPage() {
               className="app-modal-content"
               onSubmit={(event) => {
                 event.preventDefault();
-                void handleInvalidateSample();
+                if (hasActiveMovements) {
+                  void handleCancelMovementsAndInvalidate();
+                } else {
+                  void handleInvalidateSample();
+                }
               }}
             >
               {hasActiveMovements ? (
-                <div className="sdv-warn-box">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                  </svg>
-                  <div className="sdv-warn-text">
-                    <strong>Esta amostra possui movimentacoes comerciais</strong>
-                    Cancele todas as vendas e perdas registradas antes de invalidar. Isso garante a
-                    consistencia do historico de compras dos clientes.
+                <>
+                  <div className="sdv-warn-box">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                    <div className="sdv-warn-text">
+                      <strong>
+                        Esta amostra possui{' '}
+                        {activeMovements && activeMovements.length > 0
+                          ? `${activeMovements.length} movimentacao${activeMovements.length > 1 ? 'oes' : ''} ativa${activeMovements.length > 1 ? 's' : ''}`
+                          : 'movimentacoes ativas'}
+                      </strong>
+                      Para invalidar, todas as vendas e perdas registradas serao canceladas. Voce
+                      tambem pode apenas cancelar as movimentacoes sem invalidar a amostra.
+                    </div>
                   </div>
-                </div>
+
+                  <div className="sample-detail-invalidate-movements">
+                    {activeMovements === null ? (
+                      <p className="sample-detail-invalidate-movements-hint">
+                        Carregando movimentacoes...
+                      </p>
+                    ) : activeMovementsError ? (
+                      <p className="sdv-modal-error">{activeMovementsError}</p>
+                    ) : activeMovements.length === 0 ? (
+                      <p className="sample-detail-invalidate-movements-hint">
+                        Nenhuma movimentacao ativa encontrada.
+                      </p>
+                    ) : (
+                      <div className="sdv-com-movements">
+                        {activeMovements.map((movement, i) => {
+                          const isSale = movement.movementType === 'SALE';
+                          const buyerLabel = getMovementBuyerLabel(movement);
+                          return (
+                            <div
+                              key={movement.id}
+                              className="sdv-com-mov"
+                              style={{ animationDelay: `${i * 0.05}s` }}
+                            >
+                              <div className={`sdv-com-mov-icon ${isSale ? 'is-sale' : 'is-loss'}`}>
+                                {isSale ? (
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 19V5" />
+                                    <path d="m5 12 7-7 7 7" />
+                                  </svg>
+                                ) : (
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 5v14" />
+                                    <path d="m5 12 7 7 7-7" />
+                                  </svg>
+                                )}
+                              </div>
+                              <div className="sdv-com-mov-content">
+                                <div className="sdv-com-mov-top">
+                                  <span className="sdv-com-mov-qty">
+                                    {movement.quantitySacks} sacas
+                                  </span>
+                                  <span
+                                    className={`sdv-com-mov-badge ${isSale ? 'is-sale' : 'is-loss'}`}
+                                  >
+                                    {isSale ? 'Venda' : 'Perda'}
+                                  </span>
+                                </div>
+                                <div className="sdv-com-mov-bottom">
+                                  <span>{formatMovementDate(movement.movementDate)}</span>
+                                  {buyerLabel ? (
+                                    <>
+                                      <span className="sdv-com-mov-sep" />
+                                      <span>→ {buyerLabel}</span>
+                                    </>
+                                  ) : null}
+                                  {!isSale && movement.lossReasonText ? (
+                                    <>
+                                      <span className="sdv-com-mov-sep" />
+                                      <span className="sdv-com-mov-reason">
+                                        {movement.lossReasonText}
+                                      </span>
+                                    </>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
               ) : null}
 
               <label className="app-modal-field">
@@ -2779,7 +3053,7 @@ export default function SampleDetailPage() {
                 <select
                   className="app-modal-input"
                   value={invalidateReasonCode}
-                  disabled={invalidating || hasActiveMovements}
+                  disabled={invalidating}
                   onChange={(event) =>
                     setInvalidateReasonCode(event.target.value as InvalidateReasonCode)
                   }
@@ -2799,34 +3073,66 @@ export default function SampleDetailPage() {
                   rows={4}
                   value={invalidateReasonText}
                   onChange={(event) => setInvalidateReasonText(event.target.value.toUpperCase())}
-                  placeholder="Descreva o motivo da invalidacao"
-                  disabled={invalidating || hasActiveMovements}
+                  placeholder="Descreva o motivo"
+                  disabled={invalidating}
                 />
               </label>
 
               <NoticeSlot notice={invalidateModalNotice} />
 
-              <div className="app-modal-actions sample-detail-invalidate-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={() => {
-                    if (!invalidating) {
-                      setInvalidateModalOpen(false);
+              {hasActiveMovements ? (
+                <div className="app-modal-actions sample-detail-invalidate-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => {
+                      void handleCancelMovementsOnly();
+                    }}
+                    disabled={
+                      invalidating ||
+                      invalidateReasonText.trim().length === 0 ||
+                      activeMovements === null ||
+                      activeMovements.length === 0
                     }
-                  }}
-                  disabled={invalidating}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="danger sample-detail-invalidate-submit"
-                  disabled={invalidating || hasActiveMovements}
-                >
-                  {invalidating ? 'Invalidando...' : 'Invalidar'}
-                </button>
-              </div>
+                  >
+                    {invalidating ? 'Cancelando...' : 'So cancelar movimentacoes'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="danger sample-detail-invalidate-submit"
+                    disabled={
+                      invalidating ||
+                      invalidateReasonText.trim().length === 0 ||
+                      activeMovements === null ||
+                      activeMovements.length === 0
+                    }
+                  >
+                    {invalidating ? 'Processando...' : 'Cancelar e invalidar'}
+                  </button>
+                </div>
+              ) : (
+                <div className="app-modal-actions sample-detail-invalidate-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => {
+                      if (!invalidating) {
+                        setInvalidateModalOpen(false);
+                      }
+                    }}
+                    disabled={invalidating}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="danger sample-detail-invalidate-submit"
+                    disabled={invalidating}
+                  >
+                    {invalidating ? 'Invalidando...' : 'Invalidar'}
+                  </button>
+                </div>
+              )}
             </form>
           </section>
         </div>
