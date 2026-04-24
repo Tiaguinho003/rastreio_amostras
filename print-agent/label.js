@@ -88,30 +88,41 @@ export function buildLabel(job) {
   const date = formatDate(job.sample.registeredAt);
 
   // --- Layout (etiqueta 100x35mm = 800x280 dots, 203dpi) ---
-  // Tres colunas: logo+lote | info (DATA/SAFRA/SACAS) | QR.
-  // Gap padrao de 20 dots (2.5mm) nas bordas superior e inferior.
   //
-  // Logo e lote sao centralizados horizontalmente na coluna esquerda
-  // (x=0 a x=335). Logo em cima, lote em baixo.
+  // Esquerda (x=0-335): apenas o lote, centralizado horizontal e verticalmente.
+  // Direita (x=335-800): logo no topo + infos (DATA/SAFRA/SACAS) em baixo + QR
+  // mais a direita, com centro vertical alinhado ao centro das infos.
   //
-  // Lote em font "4" multiplier 2x4 (48x128 por char). Ate 7 chars caberiam
-  // (336 dots); lote padrao de 6 chars (ex: "A-0000") ocupa 288 dots.
+  // Gap superior padrao de 20 dots, mas o logo pode comecar em y=10 (passa
+  // um pouco do gap) pra ganhar mais respiro entre logo e infos.
+  //
+  // Lote em font "4" multiplier 2x4 (48x128 por char).
   const LEFT_COLUMN_W = 335;
+  const RIGHT_COLUMN_X = 335;
+  const RIGHT_COLUMN_W = 800 - RIGHT_COLUMN_X; // 465
   const LOT_CHAR_W = 48;
+  const LOT_HEIGHT = 128;
+
   const lotWidth = lotNumber.length * LOT_CHAR_W;
   const lotX = Math.max(0, Math.floor((LEFT_COLUMN_W - lotWidth) / 2));
+  // Lote centralizado verticalmente na area util (y=20 a y=260, altura 240)
+  const lotY = 20 + Math.floor((240 - LOT_HEIGHT) / 2);
+
   const logoPixelWidth = LOGO_WIDTH_BYTES * 8;
-  const logoX = Math.max(0, Math.floor((LEFT_COLUMN_W - logoPixelWidth) / 2));
+  // Logo centralizado horizontalmente no lado direito
+  const logoX = RIGHT_COLUMN_X + Math.floor((RIGHT_COLUMN_W - logoPixelWidth) / 2);
 
   const copies = 1;
 
   const parts = [];
 
-  // Header + logo bitmap. SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/DENSITY/
-  // SET TEAR/SET RIBBON/GAPDETECT vivem em calibratePrinter() (index.js),
-  // enviados uma unica vez no startup — re-enviar a cada job disparava
-  // auto-calibracao esporadica (etiqueta em branco intermitente).
-  const header = ['CLS', '', `BITMAP ${logoX},20,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join(
+  // Header + logo bitmap no topo direito (y=10, um pouco acima do gap padrao
+  // de 20 pra dar respiro entre logo e infos que comecam em y=130).
+  // SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/DENSITY/SET TEAR/SET RIBBON/
+  // GAPDETECT vivem em calibratePrinter() (index.js), enviados uma unica
+  // vez no startup — re-enviar a cada job disparava auto-calibracao
+  // esporadica (etiqueta em branco intermitente).
+  const header = ['CLS', '', `BITMAP ${logoX},10,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join(
     '\r\n'
   );
   parts.push(Buffer.from(header, 'ascii'));
@@ -120,12 +131,14 @@ export function buildLabel(job) {
   // Body commands
   const body = [
     '',
-    // Separador vertical entre coluna esquerda (logo+lote) e coluna meio (info)
+    // Separador vertical entre coluna esquerda (lote) e coluna direita (logo+infos+QR)
     `BAR 335,20,3,240`,
     '',
-    // Coluna meio — DATA/SAFRA/SACAS (nessa ordem, de cima pra baixo).
-    // Gap uniforme de 55 dots entre linhas, concentrando as infos na metade
-    // inferior da etiqueta. Valores alinhados em x=456.
+    // Lote grande — centralizado na coluna esquerda
+    `TEXT ${lotX},${lotY},"4",0,2,4,"${lotNumber}"`,
+    '',
+    // Coluna meio — DATA/SAFRA/SACAS (ordem de cima pra baixo).
+    // Gap de 55 dots entre linhas, valores alinhados em x=456.
     `TEXT 360,130,"3",0,1,1,"DATA:"`,
     `TEXT 456,130,"3",0,1,1,"${date}"`,
     `TEXT 360,185,"3",0,1,1,"SAFRA:"`,
@@ -133,11 +146,10 @@ export function buildLabel(job) {
     `TEXT 360,240,"3",0,1,1,"SACAS:"`,
     `TEXT 456,240,"3",0,1,1,"${sacks}"`,
     '',
-    // QR code — coluna direita, centralizado verticalmente (cell size 6, ~170x170)
-    `QRCODE 612,55,L,6,A,0,M2,"${qrValue}"`,
-    '',
-    // Lote grande — dominante na coluna esquerda, abaixo do logo
-    `TEXT ${lotX},132,"4",0,2,4,"${lotNumber}"`,
+    // QR code — mais a direita, centro vertical alinhado ao centro das infos
+    // (~y=195). Cell size 4 reduz o QR pra caber na area vertical das infos
+    // (y=130 a y=260, ~130 dots de altura). x=650 deixa ~10-20 dots da borda.
+    `QRCODE 650,130,L,4,A,0,M2,"${qrValue}"`,
     '',
     `PRINT 1,${copies}`,
     '',
