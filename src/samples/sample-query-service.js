@@ -23,6 +23,7 @@ const UUID_PATTERN =
   '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
 const INTERNAL_LOT_PATTERN = 'A-\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
+const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST', 'INVALIDATED'];
 
 function computeMedian(values) {
   if (values.length === 0) return null;
@@ -645,6 +646,32 @@ function resolveCommercialStatus(commercialStatus) {
   return normalizedUpper;
 }
 
+function resolveDisplayStatusFilter(displayStatus) {
+  const normalized = normalizeOptionalText(displayStatus);
+  if (!normalized) return null;
+
+  const upper = normalized.toUpperCase();
+  if (!DISPLAY_STATUSES.includes(upper)) {
+    throw new HttpError(422, 'displayStatus must be one of: OPEN, SOLD, LOST, INVALIDATED');
+  }
+
+  switch (upper) {
+    case 'OPEN':
+      return {
+        status: { not: 'INVALIDATED' },
+        commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
+      };
+    case 'SOLD':
+      return { status: { not: 'INVALIDATED' }, commercialStatus: 'SOLD' };
+    case 'LOST':
+      return { status: { not: 'INVALIDATED' }, commercialStatus: 'LOST' };
+    case 'INVALIDATED':
+      return { status: 'INVALIDATED' };
+    default:
+      return null;
+  }
+}
+
 function buildBuyerMovementFilter(buyer) {
   const normalizedBuyer = normalizeOptionalText(buyer);
   if (!normalizedBuyer) {
@@ -1207,6 +1234,7 @@ export class SampleQueryService {
     status = null,
     statusGroup = null,
     commercialStatus = null,
+    displayStatus = null,
     limit = SAMPLES_LIST_DEFAULT_LIMIT,
     offset = 0,
     page = null,
@@ -1280,6 +1308,11 @@ export class SampleQueryService {
       conditions.push({
         commercialStatus: resolvedCommercialStatus,
       });
+    }
+
+    const displayStatusConditions = resolveDisplayStatusFilter(displayStatus);
+    if (displayStatusConditions) {
+      conditions.push(displayStatusConditions);
     }
 
     const normalizedLot = normalizeOptionalText(lot);

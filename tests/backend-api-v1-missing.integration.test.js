@@ -1382,6 +1382,254 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(openFiltered.body.items[0].commercialStatus, 'OPEN');
   });
 
+  test('GET /samples displayStatus=OPEN returns OPEN and PARTIALLY_SOLD, excludes INVALIDATED', async () => {
+    // Amostra OPEN (classificada sem movimento)
+    const openSampleId = randomUUID();
+    await moveSampleToClassified(openSampleId);
+
+    // Amostra PARTIALLY_SOLD (classificada + venda parcial)
+    const partialSampleId = randomUUID();
+    await moveSampleToClassified(partialSampleId);
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Display OPEN LTDA',
+      tradeName: 'Comprador Display OPEN LTDA',
+      cnpj: '88.888.888/0001-88',
+      isBuyer: true,
+      isSeller: false,
+    });
+    await commandService.createSampleMovement(
+      {
+        sampleId: partialSampleId,
+        expectedVersion: 7,
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 4,
+        movementDate: '2026-03-19',
+        notes: 'venda parcial',
+      },
+      actorClassifier
+    );
+
+    // Amostra SOLD (venda total) — nao deve aparecer
+    const soldSampleId = randomUUID();
+    await moveSampleToClassified(soldSampleId);
+    await commandService.createSampleMovement(
+      {
+        sampleId: soldSampleId,
+        expectedVersion: 7,
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 11,
+        movementDate: '2026-03-19',
+        notes: 'lote completo',
+      },
+      actorClassifier
+    );
+
+    // Amostra INVALIDATED — nao deve aparecer
+    const invalidatedSampleId = randomUUID();
+    await moveSampleToClassified(invalidatedSampleId);
+    await commandService.invalidateSample(
+      {
+        sampleId: invalidatedSampleId,
+        expectedVersion: 7,
+        reasonCode: 'OTHER',
+        reasonText: 'teste invalidada',
+      },
+      actorAdmin
+    );
+
+    const result = await api.listSamples(
+      buildInput({
+        query: {
+          displayStatus: 'OPEN',
+        },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.page.total, 2);
+    const ids = result.body.items.map((item) => item.id).sort();
+    assert.deepEqual(ids, [openSampleId, partialSampleId].sort());
+    for (const item of result.body.items) {
+      assert.notEqual(item.status, 'INVALIDATED');
+      assert.ok(['OPEN', 'PARTIALLY_SOLD'].includes(item.commercialStatus));
+    }
+  });
+
+  test('GET /samples displayStatus=SOLD returns only SOLD and excludes INVALIDATED', async () => {
+    // Amostra SOLD
+    const soldSampleId = randomUUID();
+    await moveSampleToClassified(soldSampleId);
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Display SOLD LTDA',
+      tradeName: 'Comprador Display SOLD LTDA',
+      cnpj: '99.999.999/0001-99',
+      isBuyer: true,
+      isSeller: false,
+    });
+    await commandService.createSampleMovement(
+      {
+        sampleId: soldSampleId,
+        expectedVersion: 7,
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 11,
+        movementDate: '2026-03-19',
+        notes: 'lote completo',
+      },
+      actorClassifier
+    );
+
+    // Amostra OPEN — nao deve aparecer
+    const openSampleId = randomUUID();
+    await moveSampleToClassified(openSampleId);
+
+    // Amostra INVALIDATED sem movimento — nao deve aparecer
+    const invalidatedSampleId = randomUUID();
+    await moveSampleToClassified(invalidatedSampleId);
+    await commandService.invalidateSample(
+      {
+        sampleId: invalidatedSampleId,
+        expectedVersion: 7,
+        reasonCode: 'OTHER',
+        reasonText: 'teste invalidada',
+      },
+      actorAdmin
+    );
+
+    const result = await api.listSamples(
+      buildInput({
+        query: {
+          displayStatus: 'SOLD',
+        },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.page.total, 1);
+    assert.equal(result.body.items[0].id, soldSampleId);
+    assert.equal(result.body.items[0].commercialStatus, 'SOLD');
+    assert.notEqual(result.body.items[0].status, 'INVALIDATED');
+  });
+
+  test('GET /samples displayStatus=LOST returns only LOST and excludes INVALIDATED', async () => {
+    // Amostra LOST
+    const lostSampleId = randomUUID();
+    await moveSampleToClassified(lostSampleId);
+    await commandService.updateCommercialStatus(
+      {
+        sampleId: lostSampleId,
+        expectedVersion: 7,
+        toCommercialStatus: 'LOST',
+        reasonText: 'extravio',
+      },
+      actorClassifier
+    );
+
+    // Amostra OPEN — nao deve aparecer
+    const openSampleId = randomUUID();
+    await moveSampleToClassified(openSampleId);
+
+    // Amostra INVALIDATED — nao deve aparecer
+    const invalidatedSampleId = randomUUID();
+    await moveSampleToClassified(invalidatedSampleId);
+    await commandService.invalidateSample(
+      {
+        sampleId: invalidatedSampleId,
+        expectedVersion: 7,
+        reasonCode: 'OTHER',
+        reasonText: 'teste invalidada',
+      },
+      actorAdmin
+    );
+
+    const result = await api.listSamples(
+      buildInput({
+        query: {
+          displayStatus: 'LOST',
+        },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.page.total, 1);
+    assert.equal(result.body.items[0].id, lostSampleId);
+    assert.equal(result.body.items[0].commercialStatus, 'LOST');
+    assert.notEqual(result.body.items[0].status, 'INVALIDATED');
+  });
+
+  test('GET /samples displayStatus=INVALIDATED returns only INVALIDATED regardless of commercialStatus', async () => {
+    // Amostra INVALIDATED (sem movimentos, commercialStatus=OPEN)
+    const invalidatedSampleId = randomUUID();
+    await moveSampleToClassified(invalidatedSampleId);
+    await commandService.invalidateSample(
+      {
+        sampleId: invalidatedSampleId,
+        expectedVersion: 7,
+        reasonCode: 'OTHER',
+        reasonText: 'teste invalidada',
+      },
+      actorAdmin
+    );
+
+    // Amostra OPEN (ativa) — nao deve aparecer
+    const openSampleId = randomUUID();
+    await moveSampleToClassified(openSampleId);
+
+    // Amostra SOLD (ativa) — nao deve aparecer
+    const soldSampleId = randomUUID();
+    await moveSampleToClassified(soldSampleId);
+    const buyer = await createSellerClient({
+      legalName: 'Comprador Display INV LTDA',
+      tradeName: 'Comprador Display INV LTDA',
+      cnpj: '11.111.111/0001-11',
+      isBuyer: true,
+      isSeller: false,
+    });
+    await commandService.createSampleMovement(
+      {
+        sampleId: soldSampleId,
+        expectedVersion: 7,
+        movementType: 'SALE',
+        buyerClientId: buyer.client.id,
+        quantitySacks: 11,
+        movementDate: '2026-03-19',
+        notes: 'lote completo',
+      },
+      actorClassifier
+    );
+
+    const result = await api.listSamples(
+      buildInput({
+        query: {
+          displayStatus: 'INVALIDATED',
+        },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.page.total, 1);
+    assert.equal(result.body.items[0].id, invalidatedSampleId);
+    assert.equal(result.body.items[0].status, 'INVALIDATED');
+  });
+
+  test('GET /samples rejects invalid displayStatus value', async () => {
+    const bogus = await api.listSamples(
+      buildInput({
+        query: {
+          displayStatus: 'BOGUS',
+        },
+      })
+    );
+
+    assert.equal(bogus.status, 422);
+    assert.equal(
+      bogus.body.error.message,
+      'displayStatus must be one of: OPEN, SOLD, LOST, INVALIDATED'
+    );
+  });
+
   test('GET /samples validates period parameters and page', async () => {
     const invalidDate = await api.listSamples(
       buildInput({
