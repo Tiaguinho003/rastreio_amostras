@@ -87,58 +87,49 @@ export function buildLabel(job) {
   const harvest = sanitize(job.sample.declared?.harvest || '---', 10);
   const date = formatDate(job.sample.registeredAt);
 
-  // --- Layout constants ---
-  const RX = 280; // right column start x
-  const RW = 510; // right column width
-  const F3W = 16; // font "3" char width
-  const GAP = 10; // gap between text and separator bars
-
-  // Info row: dynamically centered in right column
-  const sw = sacks.length * F3W;
-  const hw = harvest.length * F3W;
-  const dw = date.length * F3W;
-  const infoW = sw + GAP + 2 + GAP + hw + GAP + 2 + GAP + dw;
-  const ix = RX + Math.floor((RW - infoW) / 2);
-  const b1x = ix + sw + GAP;
-  const hx = b1x + 2 + GAP;
-  const b2x = hx + hw + GAP;
-  const dx = b2x + 2 + GAP;
-
-  // Lot number: font "4" at 3x5 (72x160 per char), centered
-  const lotCharW = 72;
-  const lotW = lotNumber.length * lotCharW;
-  const lotX = RX + Math.floor((RW - lotW) / 2);
+  // --- Layout (etiqueta 100x35mm = 800x280 dots, 203dpi) ---
+  // Tres colunas: logo+lote | info (SACAS/SAFRA/DATA) | QR.
+  // Gap padrao de 20 dots (2.5mm) nas bordas superior e inferior.
+  //
+  // Lote em font "4" multiplier 2x4 (48x128 por char). Centralizado na
+  // coluna esquerda (x=0 a x=335). Ate 7 chars caberiam (336 dots); lote
+  // padrao de 6 chars (ex: "A-0000") fica centralizado com x dinamico.
+  const LOT_CHAR_W = 48;
+  const LEFT_COLUMN_W = 335;
+  const lotWidth = lotNumber.length * LOT_CHAR_W;
+  const lotX = Math.max(0, Math.floor((LEFT_COLUMN_W - lotWidth) / 2));
 
   const copies = 1;
 
   const parts = [];
 
-  // Header + logo bitmap (top-left). SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/
-  // DENSITY/SET TEAR/SET RIBBON/GAPDETECT vivem em calibratePrinter() (index.js),
+  // Header + logo bitmap. SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/DENSITY/
+  // SET TEAR/SET RIBBON/GAPDETECT vivem em calibratePrinter() (index.js),
   // enviados uma unica vez no startup — re-enviar a cada job disparava
   // auto-calibracao esporadica (etiqueta em branco intermitente).
-  const header = ['CLS', '', `BITMAP 10,5,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join('\r\n');
+  const header = ['CLS', '', `BITMAP 30,20,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join('\r\n');
   parts.push(Buffer.from(header, 'ascii'));
   parts.push(LOGO_DATA);
 
   // Body commands
   const body = [
     '',
-    // QR Code — left side, below logo
-    `QRCODE 42,100,L,6,A,0,M2,"${qrValue}"`,
+    // Separador vertical entre coluna esquerda (logo+lote) e coluna meio (info)
+    `BAR 335,20,3,240`,
     '',
-    // Info row — sacas | safra | data
-    `TEXT ${ix},21,"3",0,1,1,"${sacks}"`,
-    `BAR ${b1x},18,2,30`,
-    `TEXT ${hx},21,"3",0,1,1,"${harvest}"`,
-    `BAR ${b2x},18,2,30`,
-    `TEXT ${dx},21,"3",0,1,1,"${date}"`,
+    // Coluna meio — labels SACAS/SAFRA/DATA com valores alinhados em x=456
+    `TEXT 360,20,"3",0,1,1,"SACAS:"`,
+    `TEXT 456,20,"3",0,1,1,"${sacks}"`,
+    `TEXT 360,130,"3",0,1,1,"SAFRA:"`,
+    `TEXT 456,130,"3",0,1,1,"${harvest}"`,
+    `TEXT 360,240,"3",0,1,1,"DATA:"`,
+    `TEXT 456,240,"3",0,1,1,"${date}"`,
     '',
-    // Horizontal separator
-    `BAR ${RX},58,${RW},2`,
+    // QR code — coluna direita, centralizado verticalmente (cell size 6, ~170x170)
+    `QRCODE 612,55,L,6,A,0,M2,"${qrValue}"`,
     '',
-    // Lot number — large, dominant
-    `TEXT ${lotX},87,"4",0,3,5,"${lotNumber}"`,
+    // Lote grande — dominante na coluna esquerda, abaixo do logo
+    `TEXT ${lotX},132,"4",0,2,4,"${lotNumber}"`,
     '',
     `PRINT 1,${copies}`,
     '',
