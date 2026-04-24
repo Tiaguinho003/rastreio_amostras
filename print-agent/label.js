@@ -109,7 +109,7 @@ export function buildLabel(job) {
   const lotW = lotNumber.length * lotCharW;
   const lotX = RX + Math.floor((RW - lotW) / 2);
 
-  const copies = job.printAction === 'PRINT' ? 2 : 1;
+  const copies = 1;
 
   const parts = [];
 
