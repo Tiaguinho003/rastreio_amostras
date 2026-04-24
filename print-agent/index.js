@@ -6,7 +6,18 @@ import { sendToPrinter } from './printer.js';
 
 function calibratePrinter(config) {
   const tspl =
-    ['SET RIBBON ON', 'SIZE 100 mm, 35 mm', 'GAP 3 mm, 0 mm', 'GAPDETECT'].join('\r\n') + '\r\n';
+    [
+      'SIZE 100 mm, 35 mm',
+      'GAP 3 mm, 0 mm',
+      'DIRECTION 1',
+      'REFERENCE 0,0',
+      'OFFSET 0 mm',
+      'SHIFT 0',
+      'DENSITY 10',
+      'SET TEAR ON',
+      'SET RIBBON ON',
+      'GAPDETECT',
+    ].join('\r\n') + '\r\n';
 
   info('Calibrando sensor de gap da impressora...');
   try {

@@ -113,21 +113,11 @@ export function buildLabel(job) {
 
   const parts = [];
 
-  // Header + logo bitmap (top-left)
-  const header = [
-    'SIZE 100 mm, 35 mm',
-    'GAP 3 mm, 0 mm',
-    'DIRECTION 1',
-    'REFERENCE 0,0',
-    'SET TEAR ON',
-    'SHIFT 0',
-    'OFFSET 0 mm',
-    'DENSITY 10',
-    'SET RIBBON ON',
-    'CLS',
-    '',
-    `BITMAP 10,5,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`,
-  ].join('\r\n');
+  // Header + logo bitmap (top-left). SIZE/GAP/DIRECTION/REFERENCE/OFFSET/SHIFT/
+  // DENSITY/SET TEAR/SET RIBBON/GAPDETECT vivem em calibratePrinter() (index.js),
+  // enviados uma unica vez no startup — re-enviar a cada job disparava
+  // auto-calibracao esporadica (etiqueta em branco intermitente).
+  const header = ['CLS', '', `BITMAP 10,5,${LOGO_WIDTH_BYTES},${LOGO_HEIGHT},0,`].join('\r\n');
   parts.push(Buffer.from(header, 'ascii'));
   parts.push(LOGO_DATA);
 
