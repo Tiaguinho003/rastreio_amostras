@@ -734,6 +734,7 @@ export function listSamples(
     buyer?: string;
     statusGroup?: string;
     commercialStatus?: string;
+    displayStatus?: string;
     harvest?: string;
     sacksMin?: string;
     sacksMax?: string;
@@ -757,6 +758,7 @@ export function listSamples(
   if (query.buyer) params.set('buyer', query.buyer);
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
+  if (query.displayStatus) params.set('displayStatus', query.displayStatus);
   if (query.harvest) params.set('harvest', query.harvest);
   if (query.sacksMin) params.set('sacksMin', query.sacksMin);
   if (query.sacksMax) params.set('sacksMax', query.sacksMax);

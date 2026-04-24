@@ -15,42 +15,27 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { CommercialStatusBadge } from '../../components/CommercialStatusBadge';
-import { StatusBadge } from '../../components/StatusBadge';
 import { ApiError, listSamples } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { CommercialStatus, SampleSnapshot } from '../../lib/types';
+import type { SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
 const SAMPLE_PAGE_LIMIT = 20;
 const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
-const STATUS_FILTER_OPTIONS = [
-  { value: 'PRINT_PENDING', label: 'Impressao pendente' },
-  { value: 'CLASSIFICATION_PENDING', label: 'Classificacao pendente' },
-  { value: 'CLASSIFIED', label: 'Classificada' },
-] as const;
-const COMMERCIAL_FILTER_OPTIONS: Array<{ value: CommercialStatus; label: string }> = [
+const DISPLAY_STATUS_FILTER_OPTIONS = [
   { value: 'OPEN', label: 'Em aberto' },
-  { value: 'PARTIALLY_SOLD', label: 'Venda parcial' },
   { value: 'SOLD', label: 'Vendido' },
   { value: 'LOST', label: 'Perdido' },
-];
+  { value: 'INVALIDATED', label: 'Invalidada' },
+] as const;
+type DisplayStatusFilter = '' | (typeof DISPLAY_STATUS_FILTER_OPTIONS)[number]['value'];
 type PeriodMode = 'exact' | 'month' | 'year';
-type StatusGroupFilter = '' | (typeof STATUS_FILTER_OPTIONS)[number]['value'];
-type FilterSectionId =
-  | 'owner'
-  | 'buyer'
-  | 'status'
-  | 'commercialStatus'
-  | 'harvest'
-  | 'sacks'
-  | 'period';
+type FilterSectionId = 'owner' | 'buyer' | 'displayStatus' | 'harvest' | 'sacks' | 'period';
 
 interface HiddenFilters {
   owner: string;
   buyer: string;
-  statusGroup: StatusGroupFilter;
-  commercialStatus: '' | CommercialStatus;
+  displayStatus: DisplayStatusFilter;
   harvest: string;
   sacksMin: string;
   sacksMax: string;
@@ -61,8 +46,7 @@ interface HiddenFilters {
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   owner: '',
   buyer: '',
-  statusGroup: '',
-  commercialStatus: '',
+  displayStatus: '',
   harvest: '',
   sacksMin: '',
   sacksMax: '',
@@ -81,103 +65,36 @@ const AGING_LABELS: Record<AgingBand, string> = {
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'owner',
   'buyer',
-  'status',
-  'commercialStatus',
+  'displayStatus',
   'harvest',
   'sacks',
   'period',
 ];
 
-function getStatusThemeClass(status: string): string {
-  switch (status) {
-    case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT':
-      return 'is-status-print-pending';
-    case 'QR_PRINTED':
-      return 'is-status-classification-pending';
-    case 'CLASSIFICATION_IN_PROGRESS':
-      return 'is-status-classification-progress';
-    case 'CLASSIFIED':
-      return 'is-status-success';
-    case 'INVALIDATED':
-      return 'is-status-danger';
-    default:
-      return 'is-status-neutral';
-  }
-}
+type CardStatusKind = 'open' | 'sold' | 'lost' | 'invalidated';
 
-function getCommercialLabel(status: string): string {
-  switch (status) {
-    case 'OPEN':
-      return 'Em aberto';
-    case 'PARTIALLY_SOLD':
-      return 'Venda parcial';
-    case 'SOLD':
-      return 'Vendido';
-    case 'LOST':
-      return 'Perdido';
-    default:
-      return '';
+function deriveCardStatus(sample: SampleSnapshot): {
+  kind: CardStatusKind;
+  label: string;
+  className: string;
+} {
+  if (sample.status === 'INVALIDATED') {
+    return { kind: 'invalidated', label: 'Invalidada', className: 'is-card-invalid' };
   }
-}
-
-function getCommercialStatusTheme(status: string): string {
-  switch (status) {
-    case 'OPEN':
-      return 'is-commercial-open';
-    case 'PARTIALLY_SOLD':
-      return 'is-commercial-partial';
-    case 'SOLD':
-      return 'is-commercial-sold';
-    case 'LOST':
-      return 'is-commercial-lost';
-    default:
-      return '';
+  if (sample.commercialStatus === 'SOLD') {
+    return { kind: 'sold', label: 'Vendido', className: 'is-card-sold' };
   }
-}
-
-function getCardStatusColor(status: string): string {
-  switch (status) {
-    case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT':
-      return '#C0392B';
-    case 'QR_PRINTED':
-      return '#E67E22';
-    case 'CLASSIFICATION_IN_PROGRESS':
-      return '#2980B9';
-    case 'CLASSIFIED':
-      return '#27AE60';
-    case 'INVALIDATED':
-      return '#C0392B';
-    default:
-      return '#999';
+  if (sample.commercialStatus === 'LOST') {
+    return { kind: 'lost', label: 'Perdido', className: 'is-card-lost' };
   }
-}
-
-function getCardStatusLabel(status: string): string {
-  switch (status) {
-    case 'REGISTRATION_CONFIRMED':
-    case 'QR_PENDING_PRINT':
-      return 'Em aberto';
-    case 'QR_PRINTED':
-      return 'Impressa';
-    case 'CLASSIFICATION_IN_PROGRESS':
-      return 'Classificando';
-    case 'CLASSIFIED':
-      return 'Classificada';
-    case 'INVALIDATED':
-      return 'Invalidada';
-    default:
-      return '';
-  }
+  return { kind: 'open', label: 'Em aberto', className: 'is-card-open' };
 }
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
     filters.owner.trim().length > 0 ||
     filters.buyer.trim().length > 0 ||
-    filters.statusGroup.length > 0 ||
-    filters.commercialStatus.length > 0 ||
+    filters.displayStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
     filters.sacksMax.trim().length > 0 ||
@@ -189,8 +106,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
   return {
     owner: filters.owner.trim(),
     buyer: filters.buyer.trim(),
-    statusGroup: filters.statusGroup,
-    commercialStatus: filters.commercialStatus,
+    displayStatus: filters.displayStatus,
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
     sacksMax: filters.sacksMax.trim(),
@@ -203,8 +119,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   let count = 0;
   if (filters.owner.trim()) count += 1;
   if (filters.buyer.trim()) count += 1;
-  if (filters.statusGroup) count += 1;
-  if (filters.commercialStatus) count += 1;
+  if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodValue.trim()) count += 1;
@@ -268,13 +183,10 @@ function normalizePeriodValueForMode(periodMode: PeriodMode, value: string) {
   return value;
 }
 
-function getStatusGroupLabel(value: StatusGroupFilter) {
-  return STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Todos os status';
-}
-
-function getCommercialStatusLabel(value: '' | CommercialStatus) {
+function getDisplayStatusLabel(value: DisplayStatusFilter) {
   return (
-    COMMERCIAL_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'Qualquer status'
+    DISPLAY_STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.label ??
+    'Qualquer status'
   );
 }
 
@@ -325,12 +237,8 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
     return filters.buyer.trim().length > 0;
   }
 
-  if (sectionId === 'status') {
-    return filters.statusGroup.length > 0;
-  }
-
-  if (sectionId === 'commercialStatus') {
-    return filters.commercialStatus.length > 0;
+  if (sectionId === 'displayStatus') {
+    return filters.displayStatus.length > 0;
   }
 
   if (sectionId === 'harvest') {
@@ -353,12 +261,8 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
     return filters.buyer.trim() || 'Qualquer comprador';
   }
 
-  if (sectionId === 'status') {
-    return getStatusGroupLabel(filters.statusGroup);
-  }
-
-  if (sectionId === 'commercialStatus') {
-    return getCommercialStatusLabel(filters.commercialStatus);
+  if (sectionId === 'displayStatus') {
+    return getDisplayStatusLabel(filters.displayStatus);
   }
 
   if (sectionId === 'harvest') {
@@ -380,7 +284,7 @@ function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
 
 /* ── Snapshot do estado da lista (preserva scroll e itens ao voltar da detail) ── */
 
-const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v1';
+const SAMPLES_SNAPSHOT_KEY = 'samples-list-snapshot-v2';
 const SAMPLES_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
 interface SamplesSnapshot {
@@ -605,16 +509,10 @@ function SamplesPage() {
         active: hasFilterSectionValue('buyer', draftHiddenFilters),
       },
       {
-        id: 'status',
+        id: 'displayStatus',
         label: 'Status',
-        summary: getFilterSectionSummary('status', draftHiddenFilters),
-        active: hasFilterSectionValue('status', draftHiddenFilters),
-      },
-      {
-        id: 'commercialStatus',
-        label: 'Status comercial',
-        summary: getFilterSectionSummary('commercialStatus', draftHiddenFilters),
-        active: hasFilterSectionValue('commercialStatus', draftHiddenFilters),
+        summary: getFilterSectionSummary('displayStatus', draftHiddenFilters),
+        active: hasFilterSectionValue('displayStatus', draftHiddenFilters),
       },
       {
         id: 'harvest',
@@ -733,8 +631,7 @@ function SamplesPage() {
       search: filters.appliedSearch || undefined,
       owner: filters.appliedHiddenFilters.owner || undefined,
       buyer: filters.appliedHiddenFilters.buyer || undefined,
-      statusGroup: filters.appliedHiddenFilters.statusGroup || undefined,
-      commercialStatus: filters.appliedHiddenFilters.commercialStatus || undefined,
+      displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
@@ -790,8 +687,7 @@ function SamplesPage() {
         search: appliedSearch || undefined,
         owner: appliedHiddenFilters.owner || undefined,
         buyer: appliedHiddenFilters.buyer || undefined,
-        statusGroup: appliedHiddenFilters.statusGroup || undefined,
-        commercialStatus: appliedHiddenFilters.commercialStatus || undefined,
+        displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
@@ -975,17 +871,17 @@ function SamplesPage() {
         </label>
 
         <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Comercial</span>
+          <span className="samples-filter-field-label">Status</span>
           <div className="samples-filter-chip-row">
-            {COMMERCIAL_FILTER_OPTIONS.map((option) => (
+            {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className={`samples-filter-chip${draftHiddenFilters.commercialStatus === option.value ? ' is-selected' : ''}`}
+                className={`samples-filter-chip${draftHiddenFilters.displayStatus === option.value ? ' is-selected' : ''}`}
                 onClick={() =>
                   setDraftHiddenFilters((c) => ({
                     ...c,
-                    commercialStatus: c.commercialStatus === option.value ? '' : option.value,
+                    displayStatus: c.displayStatus === option.value ? '' : option.value,
                   }))
                 }
               >
@@ -1219,32 +1115,23 @@ function SamplesPage() {
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
               {samplesState.items.map((sample, i) => {
-                const statusColor = getCardStatusColor(sample.status);
-                const statusLabel = getCardStatusLabel(sample.status);
+                const cardStatus = deriveCardStatus(sample);
+                const availableSacks = sample.availableSacks;
                 return (
                   <Link
                     key={sample.id}
                     href={`/samples/${sample.id}`}
-                    className="spv2-card"
+                    className={`spv2-card ${cardStatus.className}`}
                     style={{ animationDelay: `${i * 0.04}s` }}
                     onClick={saveSnapshotBeforeLeave}
                   >
-                    <span className="spv2-card-bar" style={{ background: statusColor }} />
+                    <span className="spv2-card-bar" />
                     <div className="spv2-card-content">
                       <div className="spv2-card-top">
                         <span className="spv2-card-code">
                           {sample.internalLotNumber ?? sample.id}
                         </span>
-                        <span
-                          className="spv2-card-badge"
-                          style={{
-                            color: statusColor,
-                            background: `${statusColor}14`,
-                            borderColor: `${statusColor}33`,
-                          }}
-                        >
-                          {statusLabel}
-                        </span>
+                        <span className="spv2-card-badge">{cardStatus.label}</span>
                       </div>
                       <div className="spv2-card-bottom">
                         <span className="spv2-card-owner">
@@ -1256,7 +1143,10 @@ function SamplesPage() {
                             <rect x="2" y="7" width="20" height="14" rx="2" />
                             <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
                           </svg>
-                          {sample.declared.sacks ?? '—'} sacas
+                          {availableSacks === null || availableSacks === undefined
+                            ? '—'
+                            : availableSacks}{' '}
+                          sacas
                         </span>
                       </div>
                     </div>
