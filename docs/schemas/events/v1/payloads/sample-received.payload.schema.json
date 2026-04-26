@@ -6,10 +6,26 @@
   "properties": {
     "receivedChannel": {
       "type": "string",
-      "enum": ["in_person", "courier", "driver", "other"]
+      "enum": ["in_person", "courier", "driver", "other", "legacy_backfill"]
     },
     "notes": {
       "type": ["string", "null"]
+    },
+    "legacy": {
+      "type": "object",
+      "description": "Presente apenas em amostras criadas via backfill historico. Quando presente, projeta source/internalLotNumber/createdAt diretamente na Sample na criacao.",
+      "properties": {
+        "internalLotNumber": {
+          "type": "string",
+          "pattern": "^A-[0-9]+$"
+        },
+        "source": {
+          "type": "string",
+          "const": "LEGACY_BACKFILL"
+        }
+      },
+      "required": ["internalLotNumber", "source"],
+      "additionalProperties": false
     }
   },
   "required": ["receivedChannel"],

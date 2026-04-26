@@ -13,6 +13,15 @@
     },
     "printerId": {
       "type": ["string", "null"]
+    },
+    "legacy": {
+      "type": "object",
+      "description": "Presente quando a impressao foi pulada (ex: backfill historico). Indica que o evento e sintetico e nao corresponde a uma impressao real.",
+      "properties": {
+        "skipped": { "const": true }
+      },
+      "required": ["skipped"],
+      "additionalProperties": false
     }
   },
   "required": ["printAction", "attemptNumber", "printerId"],

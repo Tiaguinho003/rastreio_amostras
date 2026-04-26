@@ -248,13 +248,21 @@ function buildClassificationProjectionPatch({
 }
 
 function buildSampleCreateData(event) {
-  return {
+  const data = {
     id: event.sampleId,
     status: event.toStatus,
     commercialStatus: 'OPEN',
     version: 1,
     lastEventSequence: event.sequenceNumber,
   };
+
+  if (event.eventType === 'SAMPLE_RECEIVED' && event.payload?.legacy) {
+    data.source = event.payload.legacy.source;
+    data.internalLotNumber = event.payload.legacy.internalLotNumber;
+    data.createdAt = event.occurredAt;
+  }
+
+  return data;
 }
 
 function buildSampleUpdateData(currentSample, event, mutatesSample) {
@@ -522,11 +530,13 @@ export class EventContractDbService {
 
         const eventRecord = await tx.insertEvent(event);
 
-        if (PRINT_REQUEST_EVENTS.has(event.eventType)) {
+        const isLegacySkipped = event.payload?.legacy?.skipped === true;
+
+        if (PRINT_REQUEST_EVENTS.has(event.eventType) && !isLegacySkipped) {
           await tx.createPrintJobFromRequestedEvent(event, eventRecord.eventId);
         }
 
-        if (PRINT_RESULT_EVENTS.has(event.eventType)) {
+        if (PRINT_RESULT_EVENTS.has(event.eventType) && !isLegacySkipped) {
           const completedJob = await tx.completePrintJobFromResultEvent(event, eventRecord.eventId);
           if (!completedJob) {
             throw new HttpError(

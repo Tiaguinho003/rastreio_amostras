@@ -75,7 +75,8 @@
         "QR_REPRINT",
         "CLASSIFICATION_COMPLETE",
         "COMMERCIAL_STATUS_UPDATE",
-        "INVALIDATE"
+        "INVALIDATE",
+        "LEGACY_SKELETON_CREATE"
       ]
     },
     "commercialStatus": {
