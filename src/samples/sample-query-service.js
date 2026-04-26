@@ -553,9 +553,10 @@ function resolveCreatedPeriodRangeInSaoPaulo({
 
 const CLASSIFIED_AGING_BANDS = ['over30', 'from15to30', 'under15'];
 
-function resolveCursor({ cursorCreatedAt, cursorId }) {
+function resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber }) {
   const normalizedCreatedAt = normalizeOptionalText(cursorCreatedAt);
   const normalizedId = normalizeOptionalText(cursorId);
+  const normalizedInternalLotNumber = normalizeOptionalText(cursorInternalLotNumber);
 
   if (!normalizedCreatedAt && !normalizedId) {
     return null;
@@ -574,7 +575,11 @@ function resolveCursor({ cursorCreatedAt, cursorId }) {
     throw new HttpError(422, 'cursorId must be a valid UUID');
   }
 
-  return { createdAt: parsed, id: normalizedId };
+  return {
+    createdAt: parsed,
+    id: normalizedId,
+    internalLotNumber: normalizedInternalLotNumber,
+  };
 }
 
 function resolveClassifiedAgingConditions(classifiedAging) {
@@ -1241,6 +1246,7 @@ export class SampleQueryService {
     page = null,
     cursorCreatedAt = null,
     cursorId = null,
+    cursorInternalLotNumber = null,
     lot = null,
     owner = null,
     buyer = null,
@@ -1253,7 +1259,14 @@ export class SampleQueryService {
     classifiedAging = null,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
-    const cursor = resolveCursor({ cursorCreatedAt, cursorId });
+    const cursor = resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber });
+    if (cursor && cursor.internalLotNumber === null) {
+      const cursorRow = await this.prisma.sample.findUnique({
+        where: { id: cursor.id },
+        select: { internalLotNumber: true },
+      });
+      cursor.internalLotNumber = cursorRow?.internalLotNumber ?? null;
+    }
     const safeOffset = Math.max(offset, 0);
     const safePage = typeof page === 'number' && Number.isInteger(page) && page > 0 ? page : null;
     const resolvedOffset = cursor ? 0 : safePage ? (safePage - 1) * safeLimit : safeOffset;
@@ -1377,7 +1390,17 @@ export class SampleQueryService {
             OR: [
               { createdAt: { lt: cursor.createdAt } },
               {
-                AND: [{ createdAt: cursor.createdAt }, { id: { gt: cursor.id } }],
+                AND: [
+                  { createdAt: cursor.createdAt },
+                  { internalLotNumber: { gt: cursor.internalLotNumber ?? '' } },
+                ],
+              },
+              {
+                AND: [
+                  { createdAt: cursor.createdAt },
+                  { internalLotNumber: cursor.internalLotNumber ?? null },
+                  { id: { gt: cursor.id } },
+                ],
               },
             ],
           },
@@ -1388,7 +1411,7 @@ export class SampleQueryService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
         where: whereForRows,
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        orderBy: [{ createdAt: 'desc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
         include: SAMPLE_INCLUDE,
@@ -1400,6 +1423,7 @@ export class SampleQueryService {
       rows.length === safeLimit
         ? {
             createdAt: rows[rows.length - 1].createdAt.toISOString(),
+            internalLotNumber: rows[rows.length - 1].internalLotNumber,
             id: rows[rows.length - 1].id,
           }
         : null;
@@ -1577,7 +1601,7 @@ export class SampleQueryService {
         where: {
           status: { in: PENDING_STATUSES },
         },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
         select: DASHBOARD_SAMPLE_SELECT,
       }),
@@ -1585,7 +1609,7 @@ export class SampleQueryService {
         where: {
           status: { in: PRINT_PENDING_STATUSES },
         },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
         select: DASHBOARD_SAMPLE_SELECT,
       }),
@@ -1593,7 +1617,7 @@ export class SampleQueryService {
         where: {
           status: { in: CLASSIFICATION_PENDING_STATUSES },
         },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
         take: DASHBOARD_LIST_LIMIT,
         select: DASHBOARD_SAMPLE_SELECT,
       }),

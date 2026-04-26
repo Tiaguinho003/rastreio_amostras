@@ -1140,6 +1140,7 @@ if (!databaseUrl || !databaseReachable) {
           limit: '15',
           cursorCreatedAt: firstBatch.body.page.nextCursor.createdAt,
           cursorId: firstBatch.body.page.nextCursor.id,
+          cursorInternalLotNumber: firstBatch.body.page.nextCursor.internalLotNumber ?? '',
         },
       })
     );
@@ -1155,6 +1156,7 @@ if (!databaseUrl || !databaseReachable) {
           limit: '15',
           cursorCreatedAt: secondBatch.body.page.nextCursor.createdAt,
           cursorId: secondBatch.body.page.nextCursor.id,
+          cursorInternalLotNumber: secondBatch.body.page.nextCursor.internalLotNumber ?? '',
         },
       })
     );

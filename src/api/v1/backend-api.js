@@ -551,6 +551,7 @@ export function createBackendApiV1({
           page: readPageQuery(query.page),
           cursorCreatedAt: readOptionalQueryString(query.cursorCreatedAt),
           cursorId: readOptionalQueryString(query.cursorId),
+          cursorInternalLotNumber: readOptionalQueryString(query.cursorInternalLotNumber),
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
           buyer: readOptionalQueryString(query.buyer),
