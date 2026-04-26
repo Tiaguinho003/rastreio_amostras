@@ -194,6 +194,14 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
+    bulkCreateLegacySkeletons: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await commandService.bulkCreateLegacySkeletons(body, actor);
+        return { status: 200, body: result };
+      }),
+
     createSampleAndPreparePrint: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
