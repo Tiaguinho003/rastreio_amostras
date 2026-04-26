@@ -1392,7 +1392,7 @@ export class SampleQueryService {
               {
                 AND: [
                   { createdAt: cursor.createdAt },
-                  { internalLotNumber: { gt: cursor.internalLotNumber ?? '' } },
+                  { internalLotNumber: { lt: cursor.internalLotNumber ?? '' } },
                 ],
               },
               {
@@ -1411,7 +1411,7 @@ export class SampleQueryService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.sample.findMany({
         where: whereForRows,
-        orderBy: [{ createdAt: 'desc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
+        orderBy: [{ createdAt: 'desc' }, { internalLotNumber: 'desc' }, { id: 'asc' }],
         skip: resolvedOffset,
         take: safeLimit,
         include: SAMPLE_INCLUDE,
