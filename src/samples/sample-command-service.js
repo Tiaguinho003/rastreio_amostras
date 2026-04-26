@@ -1359,6 +1359,30 @@ function isInternalLotNumberUniqueConflict(error) {
   return message.includes('internal_lot_number') || message.includes('uq_sample_internal_lot');
 }
 
+const LEGACY_MIN_REGISTERED_AT = new Date('2020-01-01T00:00:00Z');
+
+function parseLegacyRegisteredAt(value, fieldName = 'registeredAt') {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new HttpError(422, `${fieldName} must be a non-empty ISO date string`);
+  }
+  const trimmed = value.trim();
+  const isoCandidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T00:00:00Z` : trimmed;
+  const date = new Date(isoCandidate);
+  if (Number.isNaN(date.getTime())) {
+    throw new HttpError(422, `${fieldName} is not a valid date`);
+  }
+  if (date < LEGACY_MIN_REGISTERED_AT) {
+    throw new HttpError(
+      422,
+      `${fieldName} must be after ${LEGACY_MIN_REGISTERED_AT.toISOString()}`
+    );
+  }
+  if (date.getTime() > Date.now()) {
+    throw new HttpError(422, `${fieldName} cannot be in the future`);
+  }
+  return date;
+}
+
 export class SampleCommandService {
   constructor({
     eventService,
@@ -1486,6 +1510,100 @@ export class SampleCommandService {
     });
 
     return this.eventService.appendEvent(event);
+  }
+
+  async bulkCreateLegacySkeletons(input, actorContext) {
+    const actor = requireUserActor(
+      actorContext,
+      [USER_ROLES.ADMIN],
+      'bulk create legacy skeletons'
+    );
+
+    const items = Array.isArray(input?.items) ? input.items : null;
+    if (!items || items.length === 0) {
+      throw new HttpError(422, 'items must be a non-empty array');
+    }
+    if (items.length > 1000) {
+      throw new HttpError(422, 'items batch size must be <= 1000');
+    }
+
+    const results = [];
+    for (const item of items) {
+      const rawNumber = item?.number;
+      try {
+        const number = normalizeRequiredInteger(rawNumber, 'number', 1);
+        const internalLotNumber = `A-${number}`;
+        const registeredAt = parseLegacyRegisteredAt(item?.registeredAt, 'registeredAt');
+        const occurredAt = registeredAt.toISOString();
+        const sampleId = buildDeterministicUuid(`legacy-skeleton:${internalLotNumber}`);
+        const idempotencyKey = `legacy-skeleton:${internalLotNumber}`;
+
+        const receivedEvent = buildEventEnvelope({
+          eventType: 'SAMPLE_RECEIVED',
+          sampleId,
+          payload: {
+            receivedChannel: 'legacy_backfill',
+            notes: null,
+            legacy: {
+              internalLotNumber,
+              source: 'LEGACY_BACKFILL',
+            },
+          },
+          fromStatus: null,
+          toStatus: 'PHYSICAL_RECEIVED',
+          module: 'registration',
+          actorContext: actor,
+          occurredAt,
+          idempotencyScope: 'LEGACY_SKELETON_CREATE',
+          idempotencyKey,
+        });
+
+        const received = await this.eventService.appendEvent(receivedEvent);
+
+        if (received.idempotent) {
+          results.push({
+            number,
+            internalLotNumber,
+            sampleId,
+            status: 'idempotent',
+          });
+          continue;
+        }
+
+        const startedEvent = buildEventEnvelope({
+          eventType: 'REGISTRATION_STARTED',
+          sampleId,
+          payload: { notes: null },
+          fromStatus: 'PHYSICAL_RECEIVED',
+          toStatus: 'REGISTRATION_IN_PROGRESS',
+          module: 'registration',
+          actorContext: actor,
+          occurredAt,
+        });
+
+        await this.eventService.appendEvent(startedEvent, {
+          expectedVersion: received.sample.version,
+        });
+
+        results.push({
+          number,
+          internalLotNumber,
+          sampleId,
+          status: 'created',
+        });
+      } catch (error) {
+        const status = error instanceof HttpError ? error.status : 500;
+        const message = error instanceof HttpError ? error.message : 'Internal error';
+        results.push({
+          number: typeof rawNumber === 'number' ? rawNumber : null,
+          status: 'error',
+          errorStatus: status,
+          errorMessage: message,
+        });
+      }
+    }
+
+    return { results };
   }
 
   async createSampleAndPreparePrint(input, actorContext) {
@@ -1835,11 +1953,17 @@ export class SampleCommandService {
     const declared = normalizeDeclaredFields(input.declared, {
       resolvedOwnerName: ownerBinding?.displayName ?? null,
     });
-    const maxRetries = input.sampleLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
+    const isLegacy = sample.source === 'LEGACY_BACKFILL';
+    const existingLotNumber = sample.internalLotNumber;
+    const lotNumberFixed = Boolean(existingLotNumber || input.sampleLotNumber);
+    const maxRetries = lotNumberFixed ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
+    const occurredAt = isLegacy ? new Date(sample.createdAt).toISOString() : undefined;
 
     for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       const sampleLotNumber =
-        input.sampleLotNumber ?? (await this.queryService.getNextInternalLotNumber());
+        existingLotNumber ??
+        input.sampleLotNumber ??
+        (await this.queryService.getNextInternalLotNumber());
 
       const event = buildEventEnvelope({
         eventType: 'REGISTRATION_CONFIRMED',
@@ -1856,18 +1980,26 @@ export class SampleCommandService {
         actorContext: actor,
         idempotencyScope: 'REGISTRATION_CONFIRM',
         idempotencyKey: input.idempotencyKey ?? randomUUID(),
+        ...(occurredAt ? { occurredAt } : {}),
       });
 
       try {
-        return await this.eventService.appendEvent(event, {
+        const result = await this.eventService.appendEvent(event, {
           expectedVersion: input.expectedVersion,
         });
+
+        if (isLegacy) {
+          result.sample = await this.skipQrPrintForLegacy({
+            sampleId: sample.id,
+            startVersion: result.sample.version,
+            occurredAt,
+            actor,
+          });
+        }
+
+        return result;
       } catch (error) {
-        if (
-          !input.sampleLotNumber &&
-          isInternalLotNumberUniqueConflict(error) &&
-          attempt < maxRetries
-        ) {
+        if (!lotNumberFixed && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
           continue;
         }
 
@@ -1876,6 +2008,50 @@ export class SampleCommandService {
     }
 
     throw new HttpError(409, 'Could not generate a unique sample lot number');
+  }
+
+  async skipQrPrintForLegacy({ sampleId, startVersion, occurredAt, actor }) {
+    const requestedEvent = buildEventEnvelope({
+      eventType: 'QR_PRINT_REQUESTED',
+      sampleId,
+      payload: {
+        printAction: 'PRINT',
+        attemptNumber: 1,
+        printerId: null,
+        legacy: { skipped: true },
+      },
+      fromStatus: 'REGISTRATION_CONFIRMED',
+      toStatus: 'QR_PENDING_PRINT',
+      module: 'print',
+      actorContext: actor,
+      occurredAt,
+      idempotencyScope: 'QR_PRINT',
+      idempotencyKey: `legacy-qr-print:${sampleId}`,
+    });
+    const requested = await this.eventService.appendEvent(requestedEvent, {
+      expectedVersion: startVersion,
+    });
+
+    const printedEvent = buildEventEnvelope({
+      eventType: 'QR_PRINTED',
+      sampleId,
+      payload: {
+        printAction: 'PRINT',
+        attemptNumber: 1,
+        printerId: null,
+        legacy: { skipped: true },
+      },
+      fromStatus: 'QR_PENDING_PRINT',
+      toStatus: 'QR_PRINTED',
+      module: 'print',
+      actorContext: actor,
+      occurredAt,
+    });
+    const printed = await this.eventService.appendEvent(printedEvent, {
+      expectedVersion: requested.sample.version,
+    });
+
+    return printed.sample;
   }
 
   async requestQrPrint(input, actorContext) {
@@ -2097,7 +2273,11 @@ export class SampleCommandService {
     if (!classificationPhoto) {
       throw new HttpError(409, 'Foto de classificacao e obrigatoria para completar');
     }
-    const classificationDate = buildBusinessDateStamp();
+    const isLegacy = sample.source === 'LEGACY_BACKFILL';
+    const legacyDate = isLegacy ? new Date(sample.createdAt) : null;
+    const classificationDate = isLegacy
+      ? buildBusinessDateStamp(legacyDate)
+      : buildBusinessDateStamp();
 
     const payload = {
       classificationPhotoId: classificationPhoto.id,
@@ -2143,6 +2323,7 @@ export class SampleCommandService {
       actorContext: actor,
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: input.idempotencyKey ?? randomUUID(),
+      ...(isLegacy ? { occurredAt: legacyDate.toISOString() } : {}),
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
