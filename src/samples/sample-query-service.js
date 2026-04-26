@@ -919,6 +919,7 @@ function mapSample(row) {
       snapshot: toObjectOrNull(row.classificationDraftData),
       completionPercent: row.classificationDraftCompletionPercent,
     },
+    source: row.source ?? 'LIVE',
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

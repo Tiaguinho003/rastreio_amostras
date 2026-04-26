@@ -43,6 +43,7 @@ enum IdempotencyScope {
   CLASSIFICATION_COMPLETE
   COMMERCIAL_STATUS_UPDATE
   INVALIDATE
+  LEGACY_SKELETON_CREATE
 }
 
 enum SampleEventType {
@@ -105,6 +106,11 @@ enum SampleMovementType {
 enum SampleMovementStatus {
   ACTIVE
   CANCELLED
+}
+
+enum SampleSource {
+  LIVE
+  LEGACY_BACKFILL
 }
 
 enum ClientAuditEventType {
@@ -216,6 +222,7 @@ model Sample {
   latestColorAspect           String?   @map("latest_color_aspect")
   latestNotes                 String?   @map("latest_notes")
   classifiedAt                DateTime? @db.Timestamptz(6) @map("classified_at")
+  source                      SampleSource @default(LIVE) @map("source")
   updatedAt                   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
   createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
 
@@ -238,6 +245,7 @@ model Sample {
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")
+  @@index([source], map: "idx_sample_source")
   @@map("sample")
 }
 
