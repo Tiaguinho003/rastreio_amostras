@@ -1853,7 +1853,12 @@ export class SampleCommandService {
       }
 
       let extraction = null;
-      if (this.extractionService && this.uploadService && !input.skipExtraction) {
+      if (
+        this.extractionService &&
+        this.uploadService &&
+        !input.skipExtraction &&
+        sample.source !== 'LEGACY_BACKFILL'
+      ) {
         try {
           const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
           const raw = await this.extractionService.extractClassificationFromPhoto(
