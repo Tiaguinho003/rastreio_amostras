@@ -69,7 +69,12 @@ function clearPersistedDraftId() {
 
 function buildHarvestPresets(): readonly string[] {
   const year = new Date().getFullYear() % 100;
-  return [`${year - 1}/${year}`, `${year}/${year + 1}`];
+  return [
+    `${year - 2}/${year - 1}`,
+    `${year - 1}/${year}`,
+    `${year}/${year + 1}`,
+    `${year + 1}/${year + 2}`,
+  ];
 }
 
 const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
