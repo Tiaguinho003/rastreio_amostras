@@ -3156,9 +3156,6 @@ export class SampleCommandService {
   async extractAndPrepareClassification(input, actorContext) {
     requireUserActor(actorContext, USER_ACTION_ROLES, 'extract and prepare classification');
 
-    if (!this.extractionService) {
-      throw new HttpError(503, 'Servico de extracao nao configurado');
-    }
     if (!this.uploadService) {
       throw new HttpError(503, 'Servico de upload nao configurado');
     }
@@ -3217,6 +3214,17 @@ export class SampleCommandService {
       }
     } else {
       throw new HttpError(422, 'Foto ou photoToken e obrigatorio');
+    }
+
+    if (!this.extractionService) {
+      return {
+        statusCode: 200,
+        extractedFields: {},
+        identification: { lote: null, sacas: null, safra: null, data: null },
+        photoToken,
+        formDetected,
+        processingTimeMs: 0,
+      };
     }
 
     try {
