@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { InactivateUserModal } from '../../components/users/InactivateUserModal';
 import {
   ApiError,
   createUser,
   getUser,
-  inactivateUser,
   listUsers,
   reactivateUser,
   resetUserPassword,
@@ -252,6 +252,7 @@ export default function UsersPage() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('');
+  const [inactivateOpen, setInactivateOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(blankCreateForm());
   const [editForm, setEditForm] = useState({
@@ -500,23 +501,10 @@ export default function UsersPage() {
     }
   }
 
-  async function handleInactivate() {
+  function openInactivateFlow() {
     if (!modal.user) return;
-    const reasonText = window.prompt('Informe o motivo da inativacao:');
-    if (!reasonText) return;
-
-    dispatchModal({ type: 'saving' });
-
-    try {
-      const response = await inactivateUser(session!, modal.user.id, reasonText);
-      dispatchModal({ type: 'actionSuccess', user: response.user, message: 'Usuario inativado.' });
-      refreshList();
-    } catch (cause) {
-      dispatchModal({
-        type: 'saveError',
-        message: cause instanceof ApiError ? cause.message : 'Falha ao inativar',
-      });
-    }
+    dispatchModal({ type: 'clearMessages' });
+    setInactivateOpen(true);
   }
 
   async function handleReactivate() {
@@ -874,7 +862,7 @@ export default function UsersPage() {
                         <button
                           type="button"
                           className="sdv-com-action-loss"
-                          onClick={handleInactivate}
+                          onClick={openInactivateFlow}
                           disabled={modal.saving}
                         >
                           Inativar
@@ -1096,6 +1084,24 @@ export default function UsersPage() {
             </form>
           </section>
         </div>
+      ) : null}
+
+      {inactivateOpen && modal.user ? (
+        <InactivateUserModal
+          open
+          user={modal.user}
+          session={session}
+          onSuccess={(updated, reassignedCount) => {
+            setInactivateOpen(false);
+            const message =
+              reassignedCount > 0
+                ? `Usuario inativado. ${reassignedCount} cliente(s) reatribuido(s).`
+                : 'Usuario inativado.';
+            dispatchModal({ type: 'actionSuccess', user: updated, message });
+            refreshList();
+          }}
+          onCancel={() => setInactivateOpen(false)}
+        />
       ) : null}
     </AppShell>
   );
