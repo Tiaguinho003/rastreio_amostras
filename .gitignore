@@ -30,6 +30,8 @@ rootCA.pem
 
 # Claude Code local settings (pode conter credenciais locais)
 .claude/settings.local.json
+# Lock runtime do agendador interno do Claude Code
+.claude/scheduled_tasks.lock
 
 # Fichas PDF geradas via `npm run generate:fichas` (nao versionado)
 /ficha-*.pdf
