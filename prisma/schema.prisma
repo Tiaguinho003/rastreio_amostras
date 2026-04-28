@@ -347,6 +347,7 @@ model User {
   auditEventsAsActor    UserAuditEvent[] @relation("UserAuditActor")
   clientAuditEventsAsActor    ClientAuditEvent[]    @relation("ClientAuditActor")
   commercialClients           Client[]              @relation("ClientCommercialUser")
+  commercialClientLinks       ClientCommercialUser[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
@@ -377,11 +378,26 @@ model Client {
   buyerMovements      SampleMovement[]   @relation("SampleMovementBuyerClient")
   auditEventsAsTarget ClientAuditEvent[] @relation("ClientAuditTarget")
   commercialUser      User?              @relation("ClientCommercialUser", fields: [commercialUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  commercialUsers     ClientCommercialUser[]
 
   @@index([status, code], map: "idx_client_status_code")
   @@index([createdAt, id], map: "idx_client_created_id")
   @@index([commercialUserId, code], map: "idx_client_commercial_user_id")
   @@map("client")
+}
+
+model ClientCommercialUser {
+  clientId  String   @db.Uuid @map("client_id")
+  userId    String   @db.Uuid @map("user_id")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([clientId, userId])
+  @@index([clientId, createdAt], map: "idx_ccu_client_created")
+  @@index([userId, createdAt], map: "idx_ccu_user_created")
+  @@map("client_commercial_user")
 }
 
 model ClientRegistration {
