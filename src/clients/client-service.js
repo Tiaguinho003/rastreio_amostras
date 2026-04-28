@@ -14,6 +14,8 @@ import {
   buildClientListPage,
   buildRegistrationAuditState,
   normalizeAuditListInput,
+  normalizeCommercialUserId,
+  normalizeCommercialUserIds,
   normalizeCreateClientInput,
   normalizeCreateRegistrationInput,
   normalizeListClientsInput,
@@ -603,16 +605,20 @@ export class ClientService {
   async listClients(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list clients');
 
-    const { page, limit, search, status, personType, isBuyer, isSeller, commercialUserId } =
+    const { page, limit, search, status, personType, isBuyer, isSeller, commercialUserIds } =
       normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
+    // Filtro multi-user: ANY (some) — clients onde QUALQUER um dos userIds da
+    // lista esta vinculado. Vazio = sem filtro.
     const baseWhere = {
       ...(status ? { status } : {}),
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
       ...(isSeller === null ? {} : { isSeller }),
-      ...(commercialUserId ? { commercialUsers: { some: { userId: commercialUserId } } } : {}),
+      ...(commercialUserIds.length > 0
+        ? { commercialUsers: { some: { userId: { in: commercialUserIds } } } }
+        : {}),
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);
@@ -705,11 +711,13 @@ export class ClientService {
 
   async createClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client');
-    const { data, commercialUserId } = normalizeCreateClientInput(input);
+    const { data, commercialUserIds } = normalizeCreateClientInput(input);
 
     return this.prisma.$transaction(async (tx) => {
       await this.assertDocumentAvailable(tx, data.documentCanonical);
-      await this.assertCommercialUserAssignable(tx, commercialUserId);
+      for (const userId of commercialUserIds) {
+        await this.assertCommercialUserAssignable(tx, userId);
+      }
 
       const createdRaw = await tx.client.create({
         data: {
@@ -719,12 +727,9 @@ export class ClientService {
         select: { id: true },
       });
 
-      if (commercialUserId) {
-        await tx.clientCommercialUser.create({
-          data: {
-            clientId: createdRaw.id,
-            userId: commercialUserId,
-          },
+      if (commercialUserIds.length > 0) {
+        await tx.clientCommercialUser.createMany({
+          data: commercialUserIds.map((userId) => ({ clientId: createdRaw.id, userId })),
         });
       }
 
@@ -753,7 +758,7 @@ export class ClientService {
 
     return this.prisma.$transaction(async (tx) => {
       const current = await this.requireClientForUpdate(tx, clientId);
-      const { data, reasonText, commercialUserIdInput } = normalizeUpdateClientInput(
+      const { data, reasonText, commercialUserIdsInput } = normalizeUpdateClientInput(
         input,
         current
       );
@@ -762,15 +767,27 @@ export class ClientService {
         excludeClientId: current.id,
       });
 
-      // Estado atual e proximo do vinculo comercial. Tri-state em commercialUserIdInput:
-      //   undefined -> nao mexer; null -> remover; string -> trocar/adicionar.
-      const previousCommercialUserId = current.commercialUsers?.[0]?.userId ?? null;
-      const nextCommercialUserId =
-        commercialUserIdInput === undefined ? previousCommercialUserId : commercialUserIdInput;
-      const commercialChanged = nextCommercialUserId !== previousCommercialUserId;
+      // commercialUserIdsInput:
+      //   undefined  -> nao mexer (mantem atual)
+      //   string[]   -> substitui a lista inteira; vazio em Client ACTIVE viola invariante
+      //                 (validamos em codigo para erro 409 amigavel; o trigger DB e a ultima linha)
+      const previousIds = (current.commercialUsers ?? []).map((entry) => entry.userId);
+      const nextIds = commercialUserIdsInput === undefined ? previousIds : commercialUserIdsInput;
 
-      if (commercialChanged && nextCommercialUserId !== null) {
-        await this.assertCommercialUserAssignable(tx, nextCommercialUserId);
+      const previousSet = new Set(previousIds);
+      const nextSet = new Set(nextIds);
+      const toAdd = nextIds.filter((id) => !previousSet.has(id));
+      const toRemove = previousIds.filter((id) => !nextSet.has(id));
+      const commercialChanged = toAdd.length > 0 || toRemove.length > 0;
+
+      if (commercialChanged && nextIds.length === 0 && current.status === CLIENT_STATUSES.ACTIVE) {
+        throw new HttpError(409, 'Active client must keep at least one commercial user', {
+          code: 'COMMERCIAL_USER_REQUIRED_FOR_ACTIVE',
+          field: 'commercialUserIds',
+        });
+      }
+      for (const userId of toAdd) {
+        await this.assertCommercialUserAssignable(tx, userId);
       }
 
       const before = buildClientAuditState(current);
@@ -779,7 +796,7 @@ export class ClientService {
         ...buildClientAuditState({
           ...current,
           ...data,
-          commercialUsers: nextCommercialUserId ? [{ userId: nextCommercialUserId }] : [],
+          commercialUsers: nextIds.map((userId) => ({ userId })),
         }),
       };
       const auditPayload = buildClientAuditPayload(before, afterCandidate);
@@ -796,17 +813,15 @@ export class ClientService {
         select: { id: true },
       });
 
-      if (commercialChanged) {
-        if (previousCommercialUserId) {
-          await tx.clientCommercialUser.deleteMany({
-            where: { clientId: updatedRaw.id, userId: previousCommercialUserId },
-          });
-        }
-        if (nextCommercialUserId) {
-          await tx.clientCommercialUser.create({
-            data: { clientId: updatedRaw.id, userId: nextCommercialUserId },
-          });
-        }
+      if (toRemove.length > 0) {
+        await tx.clientCommercialUser.deleteMany({
+          where: { clientId: updatedRaw.id, userId: { in: toRemove } },
+        });
+      }
+      if (toAdd.length > 0) {
+        await tx.clientCommercialUser.createMany({
+          data: toAdd.map((userId) => ({ clientId: updatedRaw.id, userId })),
+        });
       }
 
       const updated = await tx.client.findUniqueOrThrow({
@@ -1271,6 +1286,240 @@ export class ClientService {
     }
 
     return { unlinkedCount: clients.length };
+  }
+
+  async addCommercialUserToClient(clientId, userId, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'add commercial user to client');
+    const normalizedUserId = normalizeCommercialUserId(userId, 'userId');
+    if (!normalizedUserId) {
+      throw new HttpError(422, 'userId is required', {
+        code: 'VALIDATION_ERROR',
+        field: 'userId',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await this.requireClientForUpdate(tx, clientId);
+      await this.assertCommercialUserAssignable(tx, normalizedUserId);
+
+      const alreadyLinked = current.commercialUsers.some(
+        (entry) => entry.userId === normalizedUserId
+      );
+      if (alreadyLinked) {
+        throw new HttpError(409, 'User is already linked to this client', {
+          code: 'USER_ALREADY_LINKED',
+          field: 'userId',
+        });
+      }
+
+      await tx.clientCommercialUser.create({
+        data: { clientId: current.id, userId: normalizedUserId },
+      });
+
+      const updated = await tx.client.findUniqueOrThrow({
+        where: { id: current.id },
+        select: CLIENT_SUMMARY_SELECT,
+      });
+
+      const before = buildClientAuditState(current);
+      const after = buildClientAuditState(updated);
+      await this.recordAuditEvent(tx, {
+        targetClientId: updated.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
+        payload: buildClientAuditPayload(before, after),
+      });
+
+      return { client: mapClientRow(updated) };
+    });
+  }
+
+  async removeCommercialUserFromClient(clientId, userId, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'remove commercial user from client');
+    const normalizedUserId = normalizeCommercialUserId(userId, 'userId');
+    if (!normalizedUserId) {
+      throw new HttpError(422, 'userId is required', {
+        code: 'VALIDATION_ERROR',
+        field: 'userId',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await this.requireClientForUpdate(tx, clientId);
+      const existingLink = current.commercialUsers.find(
+        (entry) => entry.userId === normalizedUserId
+      );
+      if (!existingLink) {
+        throw new HttpError(404, 'User is not linked to this client', {
+          code: 'USER_NOT_LINKED',
+          field: 'userId',
+        });
+      }
+
+      // Validacao aplicacional para erro amigavel; o trigger DEFERRABLE no DB
+      // e a ultima linha de defesa.
+      if (current.status === CLIENT_STATUSES.ACTIVE && current.commercialUsers.length === 1) {
+        throw new HttpError(409, 'Cannot remove the last commercial user of an active client', {
+          code: 'LAST_COMMERCIAL_USER',
+          field: 'userId',
+        });
+      }
+
+      await tx.clientCommercialUser.delete({
+        where: {
+          clientId_userId: { clientId: current.id, userId: normalizedUserId },
+        },
+      });
+
+      const updated = await tx.client.findUniqueOrThrow({
+        where: { id: current.id },
+        select: CLIENT_SUMMARY_SELECT,
+      });
+
+      const before = buildClientAuditState(current);
+      const after = buildClientAuditState(updated);
+      await this.recordAuditEvent(tx, {
+        targetClientId: updated.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
+        payload: buildClientAuditPayload(before, after),
+      });
+
+      return { client: mapClientRow(updated) };
+    });
+  }
+
+  async bulkAddCommercialUser(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'bulk add commercial user');
+    const userId = normalizeCommercialUserId(input?.userId, 'userId');
+    if (!userId) {
+      throw new HttpError(422, 'userId is required', {
+        code: 'VALIDATION_ERROR',
+        field: 'userId',
+      });
+    }
+    const clientIds = normalizeCommercialUserIds(input?.clientIds, 'clientIds');
+    if (clientIds === undefined || clientIds.length === 0) {
+      throw new HttpError(422, 'clientIds must be a non-empty array of uuids', {
+        code: 'VALIDATION_ERROR',
+        field: 'clientIds',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.assertCommercialUserAssignable(tx, userId);
+
+      const existingClients = await tx.client.findMany({
+        where: { id: { in: clientIds } },
+        select: { id: true },
+      });
+      if (existingClients.length !== clientIds.length) {
+        throw new HttpError(422, 'one or more clientIds do not exist', {
+          code: 'CLIENTS_NOT_FOUND',
+          field: 'clientIds',
+        });
+      }
+
+      const existingLinks = await tx.clientCommercialUser.findMany({
+        where: { userId, clientId: { in: clientIds } },
+        select: { clientId: true },
+      });
+      const alreadyLinkedIds = new Set(existingLinks.map((l) => l.clientId));
+      const toAddIds = clientIds.filter((id) => !alreadyLinkedIds.has(id));
+
+      if (toAddIds.length > 0) {
+        await tx.clientCommercialUser.createMany({
+          data: toAddIds.map((clientId) => ({ clientId, userId })),
+        });
+
+        // 1 audit event por client efetivamente alterado.
+        for (const clientId of toAddIds) {
+          const beforeRow = await tx.client.findUniqueOrThrow({
+            where: { id: clientId },
+            select: CLIENT_SUMMARY_SELECT,
+          });
+          const before = {
+            ...buildClientAuditState(beforeRow),
+            commercialUserIds: beforeRow.commercialUsers
+              .map((e) => e.user?.id)
+              .filter((id) => id !== userId),
+          };
+          const after = buildClientAuditState(beforeRow);
+          await this.recordAuditEvent(tx, {
+            targetClientId: clientId,
+            actorContext: actor,
+            eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
+            payload: buildClientAuditPayload(before, after),
+          });
+        }
+      }
+
+      return {
+        userId,
+        totalRequested: clientIds.length,
+        added: toAddIds.length,
+        alreadyLinked: alreadyLinkedIds.size,
+      };
+    });
+  }
+
+  async getUserClientsImpact(userId, actorContext) {
+    assertAuthenticatedActor(actorContext, 'get user clients impact');
+    const normalizedUserId = normalizeCommercialUserId(userId, 'userId');
+    if (!normalizedUserId) {
+      throw new HttpError(422, 'userId is required', {
+        code: 'VALIDATION_ERROR',
+        field: 'userId',
+      });
+    }
+
+    const linkedClients = await this.prisma.client.findMany({
+      where: {
+        commercialUsers: { some: { userId: normalizedUserId } },
+      },
+      select: {
+        id: true,
+        code: true,
+        personType: true,
+        fullName: true,
+        legalName: true,
+        tradeName: true,
+        status: true,
+        commercialUsers: {
+          select: { user: { select: { id: true, fullName: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const soleCustodianOf = [];
+    const coCustodianOf = [];
+    for (const client of linkedClients) {
+      const summary = {
+        id: client.id,
+        code: client.code,
+        displayName: buildClientDisplayName(client),
+        status: client.status,
+      };
+      if (client.commercialUsers.length === 1) {
+        soleCustodianOf.push(summary);
+      } else {
+        coCustodianOf.push({
+          ...summary,
+          otherUsers: client.commercialUsers
+            .filter((entry) => entry.user.id !== normalizedUserId)
+            .map((entry) => ({ id: entry.user.id, fullName: entry.user.fullName })),
+        });
+      }
+    }
+
+    return {
+      userId: normalizedUserId,
+      totalLinks: linkedClients.length,
+      soleCustodianOf,
+      coCustodianOf,
+    };
   }
 
   async reactivateClient(clientId, input, actorContext) {

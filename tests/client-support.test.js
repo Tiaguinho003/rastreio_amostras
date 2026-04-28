@@ -34,7 +34,7 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
 });
 
 test('normalizeCreateClientInput enforces PF shape and canonical document', () => {
-  const { data, commercialUserId } = normalizeCreateClientInput({
+  const { data, commercialUserIds } = normalizeCreateClientInput({
     personType: 'PF',
     fullName: '  Francisco Sales Darcadia ',
     cpf: '016.179.708-32',
@@ -50,7 +50,7 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
   assert.equal(data.phone, '35999990000');
   assert.equal(data.legalName, null);
   assert.equal(data.cnpj, null);
-  assert.equal(commercialUserId, null);
+  assert.deepEqual(commercialUserIds, []);
 });
 
 test('normalizeCreateClientInput accepts PF clients without cpf', () => {

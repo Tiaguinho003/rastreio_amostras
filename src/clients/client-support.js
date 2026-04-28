@@ -219,6 +219,62 @@ export function normalizeCommercialUserId(value, fieldName = 'commercialUserId')
   return value.trim().toLowerCase();
 }
 
+// Normaliza lista de commercialUserIds. Tri-state:
+//   undefined -> nao foi fornecido
+//   array     -> normaliza cada id, deduplica preservando ordem, valida UUIDs
+//   outro     -> 422
+export function normalizeCommercialUserIds(value, fieldName = 'commercialUserIds') {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new HttpError(422, `${fieldName} must be an array of uuids`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+  const seen = new Set();
+  const result = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !UUID_PATTERN.test(entry.trim())) {
+      throw new HttpError(422, `${fieldName} must contain only valid uuids`, {
+        code: 'VALIDATION_ERROR',
+        field: fieldName,
+      });
+    }
+    const normalized = entry.trim().toLowerCase();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
+// Resolve singular vs plural com regra: ambos -> 422; senao retorna lista (ou undefined).
+function resolveCommercialUserIdsFromInput(input) {
+  const hasSingular = hasOwn(input, 'commercialUserId');
+  const hasPlural = hasOwn(input, 'commercialUserIds');
+  if (hasSingular && hasPlural) {
+    throw new HttpError(
+      422,
+      'provide either commercialUserId (legacy) or commercialUserIds, not both',
+      {
+        code: 'COMMERCIAL_USER_ID_AMBIGUOUS',
+      }
+    );
+  }
+  if (hasPlural) {
+    return normalizeCommercialUserIds(input.commercialUserIds);
+  }
+  if (hasSingular) {
+    const single = normalizeCommercialUserId(input.commercialUserId);
+    if (single === undefined) return undefined;
+    return single === null ? [] : [single];
+  }
+  return undefined;
+}
+
 function normalizeOptionalReasonText(value, fieldName = 'reasonText') {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -348,9 +404,12 @@ export function normalizeCreateClientInput(input) {
     isSeller: input.isSeller,
   });
 
-  const commercialUserId = normalizeCommercialUserId(input.commercialUserId) ?? null;
+  // Aceita tanto commercialUserId (legado, singular) quanto commercialUserIds
+  // (lista). Sempre retornamos uma lista (vazia se nada foi fornecido).
+  const fromInput = resolveCommercialUserIdsFromInput(input);
+  const commercialUserIds = fromInput === undefined ? [] : fromInput;
 
-  return { data, commercialUserId };
+  return { data, commercialUserIds };
 }
 
 export function normalizeUpdateClientInput(input, currentClient) {
@@ -381,18 +440,16 @@ export function normalizeUpdateClientInput(input, currentClient) {
     isSeller: nextIsSeller,
   });
 
-  // commercialUserIdInput segue um padrao tri-state:
-  //  - undefined  -> nao foi fornecido no PATCH (mantem atual)
-  //  - null       -> remover vinculo
-  //  - string     -> novo userId
-  const commercialUserIdInput = hasOwn(input, 'commercialUserId')
-    ? (normalizeCommercialUserId(input.commercialUserId) ?? null)
-    : undefined;
+  // commercialUserIdsInput tri-state:
+  //   undefined     -> nao foi fornecido no PATCH (mantem atual)
+  //   string[] (>=0) -> substitui a lista inteira (vazio = remover todos)
+  // Aceita compat com commercialUserId (legado): null vira [], string vira [string].
+  const commercialUserIdsInput = resolveCommercialUserIdsFromInput(input);
 
   return {
     reasonText: normalizeOptionalReasonText(input.reasonText),
     data,
-    commercialUserIdInput,
+    commercialUserIdsInput,
   };
 }
 
@@ -490,10 +547,22 @@ export function normalizeUpdateRegistrationInput(input, currentRegistration) {
 }
 
 export function normalizeListClientsInput(input) {
-  const normalizedCommercialUserId = normalizeCommercialUserId(
-    input.commercialUserId,
-    'commercialUserId'
-  );
+  // Aceita commercialUserId (singular legado) e commercialUserIds (lista, ANY).
+  // Quando ambos vierem, plural ganha. Em query strings, commercialUserIds pode
+  // chegar como string CSV "id1,id2" — tratamos os 2 formatos.
+  let commercialUserIdsList = null;
+  if (input.commercialUserIds !== undefined && input.commercialUserIds !== null) {
+    const raw = Array.isArray(input.commercialUserIds)
+      ? input.commercialUserIds
+      : String(input.commercialUserIds)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    commercialUserIdsList = normalizeCommercialUserIds(raw, 'commercialUserIds') ?? [];
+  } else {
+    const single = normalizeCommercialUserId(input.commercialUserId, 'commercialUserId');
+    commercialUserIdsList = single ? [single] : [];
+  }
 
   return {
     page: readPageQuery(input.page, 1),
@@ -506,7 +575,7 @@ export function normalizeListClientsInput(input) {
     personType: input.personType ? normalizeClientPersonType(input.personType) : null,
     isBuyer: normalizeOptionalBooleanQuery(input.isBuyer, 'isBuyer'),
     isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller'),
-    commercialUserId: normalizedCommercialUserId ?? null,
+    commercialUserIds: commercialUserIdsList,
   };
 }
 

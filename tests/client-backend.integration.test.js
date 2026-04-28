@@ -896,6 +896,280 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(stillInactive.status, 'INACTIVE');
   });
+
+  // === Fase 2: APIs N:N para multi-user ===
+
+  test('POST /clients aceita commercialUserIds (lista) e popula a join', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-create-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-create-b' });
+
+    const created = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'F2 Multi Create',
+          cnpj: '21.212.121/0001-21',
+          phone: '35 99999-2121',
+          isBuyer: true,
+          isSeller: true,
+          commercialUserIds: [userA.id, userB.id],
+        },
+      })
+    );
+
+    assert.equal(created.status, 201);
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    assert.equal(links.length, 2);
+    assert.deepEqual(links.map((l) => l.userId).sort(), [userA.id, userB.id].sort());
+  });
+
+  test('POST /clients rejeita commercialUserId e commercialUserIds simultaneos com 422', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-conflict-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-conflict-b' });
+
+    const result = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'F2 Conflict',
+          cnpj: '22.222.222/0001-22',
+          phone: '35 99999-2222',
+          isBuyer: true,
+          isSeller: true,
+          commercialUserId: userA.id,
+          commercialUserIds: [userB.id],
+        },
+      })
+    );
+
+    assert.equal(result.status, 422);
+    assert.equal(result.body.error.details.code, 'COMMERCIAL_USER_ID_AMBIGUOUS');
+  });
+
+  test('PATCH /clients com commercialUserIds substitui a lista inteira', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-patch-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-patch-b' });
+    const userC = await createTestUser('COMMERCIAL', { username: 'test-f2-patch-c' });
+
+    const created = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'F2 Patch',
+          cnpj: '23.232.323/0001-23',
+          phone: '35 99999-2323',
+          isBuyer: true,
+          isSeller: true,
+          commercialUserIds: [userA.id, userB.id],
+        },
+      })
+    );
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: { commercialUserIds: [userB.id, userC.id], reasonText: 'troca lista' },
+      })
+    );
+    assert.equal(updated.status, 200);
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.deepEqual(links.map((l) => l.userId).sort(), [userB.id, userC.id].sort());
+  });
+
+  test('PATCH /clients com commercialUserIds vazio em Client ACTIVE retorna 409', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-f2-empty-active' });
+    const created = await createPjClient({
+      legalName: 'F2 Empty Active',
+      cnpj: '24.242.424/0001-24',
+      commercialUserId: user.id,
+    });
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: { commercialUserIds: [], reasonText: 'limpar' },
+      })
+    );
+
+    assert.equal(updated.status, 409);
+    assert.equal(updated.body.error.details.code, 'COMMERCIAL_USER_REQUIRED_FOR_ACTIVE');
+  });
+
+  test('POST /clients/:id/users adiciona user e retorna 409 se ja vinculado', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-add-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-add-b' });
+    const created = await createPjClient({
+      legalName: 'F2 Add',
+      cnpj: '25.252.525/0001-25',
+      commercialUserId: userA.id,
+    });
+
+    const adddResult = await api.addCommercialUserToClient(
+      buildInput({ params: { clientId: created.body.client.id }, body: { userId: userB.id } })
+    );
+    assert.equal(adddResult.status, 201);
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 2);
+
+    // Tentar de novo deve dar 409 USER_ALREADY_LINKED.
+    const dup = await api.addCommercialUserToClient(
+      buildInput({ params: { clientId: created.body.client.id }, body: { userId: userB.id } })
+    );
+    assert.equal(dup.status, 409);
+    assert.equal(dup.body.error.details.code, 'USER_ALREADY_LINKED');
+  });
+
+  test('DELETE /clients/:id/users/:userId remove user (com 2 vinculados)', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-del-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-del-b' });
+    const created = await createPjClient({
+      legalName: 'F2 Delete',
+      cnpj: '26.262.626/0001-26',
+      commercialUserId: userA.id,
+    });
+    await prisma.clientCommercialUser.create({
+      data: { clientId: created.body.client.id, userId: userB.id },
+    });
+
+    const result = await api.removeCommercialUserFromClient(
+      buildInput({ params: { clientId: created.body.client.id, userId: userA.id } })
+    );
+    assert.equal(result.status, 200);
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 1);
+    assert.equal(links[0].userId, userB.id);
+  });
+
+  test('DELETE /clients/:id/users/:userId bloqueia remover ultimo de Client ACTIVE com 409', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-f2-del-last' });
+    const created = await createPjClient({
+      legalName: 'F2 Del Last',
+      cnpj: '27.272.727/0001-27',
+      commercialUserId: user.id,
+    });
+
+    const result = await api.removeCommercialUserFromClient(
+      buildInput({ params: { clientId: created.body.client.id, userId: user.id } })
+    );
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.details.code, 'LAST_COMMERCIAL_USER');
+  });
+
+  test('POST /clients/bulk-add-commercial-user adiciona em lote, tolera duplicatas', async () => {
+    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-f2-bulk' });
+    const baseUser = await createTestUser('COMMERCIAL', { username: 'test-f2-bulk-base' });
+
+    const c1 = await createPjClient({
+      legalName: 'Bulk C1',
+      cnpj: '28.282.828/0001-28',
+      commercialUserId: baseUser.id,
+    });
+    const c2 = await createPjClient({
+      legalName: 'Bulk C2',
+      cnpj: '28.282.828/0001-29',
+      commercialUserId: baseUser.id,
+    });
+    const c3 = await createPjClient({
+      legalName: 'Bulk C3',
+      cnpj: '28.282.828/0001-30',
+      commercialUserId: baseUser.id,
+    });
+    // c3 ja tem targetUser
+    await prisma.clientCommercialUser.create({
+      data: { clientId: c3.body.client.id, userId: targetUser.id },
+    });
+
+    const result = await api.bulkAddCommercialUser(
+      buildInput({
+        body: {
+          clientIds: [c1.body.client.id, c2.body.client.id, c3.body.client.id],
+          userId: targetUser.id,
+        },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.added, 2);
+    assert.equal(result.body.alreadyLinked, 1);
+    assert.equal(result.body.totalRequested, 3);
+
+    const targetLinks = await prisma.clientCommercialUser.findMany({
+      where: { userId: targetUser.id },
+    });
+    assert.equal(targetLinks.length, 3);
+  });
+
+  test('GET /users/:id/clients-impact separa sole vs co custodian', async () => {
+    const target = await createTestUser('COMMERCIAL', { username: 'test-f2-impact' });
+    const other = await createTestUser('COMMERCIAL', { username: 'test-f2-impact-other' });
+
+    const sole = await createPjClient({
+      legalName: 'Impact Sole',
+      cnpj: '29.292.929/0001-29',
+      commercialUserId: target.id,
+    });
+    const shared = await createPjClient({
+      legalName: 'Impact Shared',
+      cnpj: '29.292.929/0001-30',
+      commercialUserId: target.id,
+    });
+    await prisma.clientCommercialUser.create({
+      data: { clientId: shared.body.client.id, userId: other.id },
+    });
+
+    const impact = await api.getUserClientsImpact(buildInput({ params: { userId: target.id } }));
+
+    assert.equal(impact.status, 200);
+    assert.equal(impact.body.totalLinks, 2);
+    assert.equal(impact.body.soleCustodianOf.length, 1);
+    assert.equal(impact.body.soleCustodianOf[0].id, sole.body.client.id);
+    assert.equal(impact.body.coCustodianOf.length, 1);
+    assert.equal(impact.body.coCustodianOf[0].id, shared.body.client.id);
+    assert.equal(impact.body.coCustodianOf[0].otherUsers.length, 1);
+    assert.equal(impact.body.coCustodianOf[0].otherUsers[0].id, other.id);
+  });
+
+  test('GET /clients filtro commercialUserIds (CSV) retorna ANY (some)', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-f2-list-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-list-b' });
+    const userC = await createTestUser('COMMERCIAL', { username: 'test-f2-list-c' });
+
+    const ca = await createPjClient({
+      legalName: 'List A',
+      cnpj: '30.303.030/0001-30',
+      commercialUserId: userA.id,
+    });
+    const cb = await createPjClient({
+      legalName: 'List B',
+      cnpj: '30.303.030/0001-31',
+      commercialUserId: userB.id,
+    });
+    await createPjClient({
+      legalName: 'List C',
+      cnpj: '30.303.030/0001-32',
+      commercialUserId: userC.id,
+    });
+
+    const filtered = await api.listClients(
+      buildInput({ query: { commercialUserIds: `${userA.id},${userB.id}` } })
+    );
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.body.page.total, 2);
+    const ids = filtered.body.items.map((c) => c.id).sort();
+    assert.deepEqual(ids, [ca.body.client.id, cb.body.client.id].sort());
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

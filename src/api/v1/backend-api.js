@@ -972,6 +972,7 @@ export function createBackendApiV1({
             isBuyer: query.isBuyer,
             isSeller: query.isSeller,
             commercialUserId: query.commercialUserId,
+            commercialUserIds: query.commercialUserIds,
           },
           actor
         );
@@ -1031,21 +1032,21 @@ export function createBackendApiV1({
 
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
-        const result = await clientService.createClient(
-          {
-            personType: body.personType,
-            fullName: body.fullName,
-            legalName: body.legalName,
-            tradeName: body.tradeName,
-            cpf: body.cpf,
-            cnpj: body.cnpj,
-            phone: body.phone,
-            isBuyer: body.isBuyer,
-            isSeller: body.isSeller,
-            commercialUserId: body.commercialUserId,
-          },
-          actor
-        );
+        const createPayload = {
+          personType: body.personType,
+          fullName: body.fullName,
+          legalName: body.legalName,
+          tradeName: body.tradeName,
+          cpf: body.cpf,
+          cnpj: body.cnpj,
+          phone: body.phone,
+          isBuyer: body.isBuyer,
+          isSeller: body.isSeller,
+        };
+        assignIfDefined(createPayload, 'commercialUserId', body.commercialUserId);
+        assignIfDefined(createPayload, 'commercialUserIds', body.commercialUserIds);
+
+        const result = await clientService.createClient(createPayload, actor);
 
         return {
           status: 201,
@@ -1077,6 +1078,7 @@ export function createBackendApiV1({
         assignIfDefined(updatePayload, 'isBuyer', body.isBuyer);
         assignIfDefined(updatePayload, 'isSeller', body.isSeller);
         assignIfDefined(updatePayload, 'commercialUserId', body.commercialUserId);
+        assignIfDefined(updatePayload, 'commercialUserIds', body.commercialUserIds);
         assignIfDefined(updatePayload, 'reasonText', body.reasonText);
 
         const result = await clientService.updateClient(clientId, updatePayload, actor);
@@ -1193,6 +1195,67 @@ export function createBackendApiV1({
           status: 200,
           body: result,
         };
+      }),
+
+    addCommercialUserToClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        const body = readRequestBody(input);
+        const result = await clientService.addCommercialUserToClient(clientId, body?.userId, actor);
+        return { status: 201, body: result };
+      }),
+
+    removeCommercialUserFromClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        const userId = input?.params?.userId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+        const result = await clientService.removeCommercialUserFromClient(clientId, userId, actor);
+        return { status: 200, body: result };
+      }),
+
+    bulkAddCommercialUser: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await clientService.bulkAddCommercialUser(
+          { clientIds: body?.clientIds, userId: body?.userId },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    getUserClientsImpact: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const userId = input?.params?.userId;
+        if (typeof userId !== 'string' || userId.length === 0) {
+          throw new HttpError(422, 'userId path param is required');
+        }
+        const result = await clientService.getUserClientsImpact(userId, actor);
+        return { status: 200, body: result };
       }),
 
     inactivateClient: (input) =>

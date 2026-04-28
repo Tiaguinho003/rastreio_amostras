@@ -575,6 +575,9 @@ export class UserService {
         : {}),
     };
 
+    // Buscamos com fullName ASC e ordenamos COMMERCIAL primeiro em memoria.
+    // Como o limit maximo e 500, o custo e negligivel; e o Prisma + Postgres
+    // nao tem suporte direto a "ORDER BY CASE" sem raw SQL.
     const items = await this.prisma.user.findMany({
       where,
       orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
@@ -583,7 +586,15 @@ export class UserService {
         id: true,
         fullName: true,
         username: true,
+        role: true,
       },
+    });
+
+    items.sort((a, b) => {
+      const aPriority = a.role === USER_ROLES.COMMERCIAL ? 0 : 1;
+      const bPriority = b.role === USER_ROLES.COMMERCIAL ? 0 : 1;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return a.fullName.localeCompare(b.fullName);
     });
 
     return {
@@ -591,6 +602,7 @@ export class UserService {
         id: item.id,
         fullName: item.fullName,
         username: item.username,
+        role: item.role,
       })),
     };
   }
@@ -891,7 +903,45 @@ export class UserService {
       await this.invalidateEmailChangeRequests(tx, user.id, now);
 
       let unlinkedCount = 0;
+      // Mapa { recipientUserId -> { recipient: {email, fullName}, clients: [{code, displayName}] } }
+      // Coletado ANTES do unlink para enviar emails consolidados depois.
+      const handoverByRecipient = new Map();
       if (this.clientService) {
+        // Agrupar clients afetados pelos OUTROS users vinculados (co-custodians).
+        const linkedClients = await tx.client.findMany({
+          where: { commercialUsers: { some: { userId: user.id } } },
+          select: {
+            id: true,
+            code: true,
+            fullName: true,
+            legalName: true,
+            tradeName: true,
+            personType: true,
+            commercialUsers: {
+              where: { userId: { not: user.id } },
+              select: {
+                user: { select: { id: true, fullName: true, email: true } },
+              },
+            },
+          },
+          orderBy: { code: 'asc' },
+        });
+        for (const client of linkedClients) {
+          const displayName =
+            (client.personType === 'PF' ? client.fullName : client.legalName) ?? '(sem nome)';
+          for (const link of client.commercialUsers) {
+            const recipient = link.user;
+            if (!recipient) continue;
+            if (!handoverByRecipient.has(recipient.id)) {
+              handoverByRecipient.set(recipient.id, {
+                recipient: { email: recipient.email, fullName: recipient.fullName },
+                clients: [],
+              });
+            }
+            handoverByRecipient.get(recipient.id).clients.push({ code: client.code, displayName });
+          }
+        }
+
         const unlinkResult = await this.clientService.bulkUnlinkCommercialUser(
           tx,
           user.id,
@@ -905,6 +955,17 @@ export class UserService {
         to: updated.email,
         fullName: updated.fullName,
       });
+
+      // Email consolidado: 1 email por recipient com a lista de clients que ele
+      // assumiu (continua vinculado, mas o user inativado saiu).
+      for (const [, entry] of handoverByRecipient) {
+        await this.emailService.sendCommercialClientsAssumed({
+          to: entry.recipient.email,
+          fullName: entry.recipient.fullName,
+          inactivatedUserName: updated.fullName,
+          clients: entry.clients,
+        });
+      }
 
       await this.recordAuditEvent(tx, {
         targetUserId: updated.id,

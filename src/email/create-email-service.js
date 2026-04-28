@@ -223,6 +223,22 @@ export class AppEmailService {
     return this.delegate.sendMail({ to, subject, text, html });
   }
 
+  // Disparado quando um user comercial e inativado e o destinatario continua
+  // vinculado a clients que tambem estavam sob responsabilidade do inativado.
+  async sendCommercialClientsAssumed({ to, fullName, inactivatedUserName, clients }) {
+    const subject = 'Voce assumiu novos clientes comerciais';
+    const greeting = buildGreeting(fullName);
+    const intro = `Devido a inativacao do usuario ${inactivatedUserName}, voce passa a ser responsavel pelos seguintes clientes:`;
+    const lines = clients.map((c) => `- ${c.code ? `[${c.code}] ` : ''}${c.displayName}`);
+    const text = `${greeting}\n\n${intro}\n\n${lines.join('\n')}\n`;
+    const html = renderEmailHtml({
+      subject,
+      greeting,
+      bodyLines: [intro, ...lines],
+    });
+    return this.delegate.sendMail({ to, subject, text, html });
+  }
+
   async sendPasswordChangedNotice({ to, fullName }) {
     const subject = 'Sua senha foi alterada';
     const greeting = buildGreeting(fullName);
