@@ -559,9 +559,14 @@ export function buildClientDisplayName(client) {
 export function toClientSummary(client, options = {}) {
   const activeRegistrationCount = options.activeRegistrationCount ?? 0;
   const registrationCount = options.registrationCount ?? 0;
-  const commercialUser = client.commercialUser
-    ? { id: client.commercialUser.id, fullName: client.commercialUser.fullName }
-    : null;
+  // Em R1.2 a fonte preferida e a tabela join (client_commercial_user). Caimos
+  // de volta no campo singular legado quando a join nao tem entrada e o legado
+  // tem (cenario raro de dessincronia). Em R1.3 o fallback e removido junto
+  // com o drop da coluna client.commercial_user_id.
+  const fromJoin = Array.isArray(client.commercialUsers) ? client.commercialUsers[0]?.user : null;
+  const fromLegacy = client.commercialUser ?? null;
+  const sourceUser = fromJoin ?? fromLegacy;
+  const commercialUser = sourceUser ? { id: sourceUser.id, fullName: sourceUser.fullName } : null;
 
   return {
     id: client.id,

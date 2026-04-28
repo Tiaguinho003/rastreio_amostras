@@ -751,6 +751,66 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(links.length, 0);
   });
 
+  test('GET /clients le commercialUser via join (fonte preferida)', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-read-join' });
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    // Simula dessincronia: legado vazio, mas join permanece com a linha.
+    // toClientSummary deve preferir a join e ainda retornar o user.
+    await prisma.client.update({
+      where: { id: created.body.client.id },
+      data: { commercialUserId: null },
+    });
+
+    const detail = await api.getClient(
+      buildInput({ params: { clientId: created.body.client.id } })
+    );
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.client.commercialUser?.id, user.id);
+    assert.equal(detail.body.client.commercialUser?.fullName, user.fullName);
+  });
+
+  test('GET /clients faz fallback para commercialUserId legado quando join esta vazia', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-fallback-legacy' });
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    // Simula dessincronia inversa: join vazia, mas legado mantido.
+    // O fallback do R1.2 garante que o user ainda apareca.
+    await prisma.clientCommercialUser.deleteMany({
+      where: { clientId: created.body.client.id },
+    });
+
+    const detail = await api.getClient(
+      buildInput({ params: { clientId: created.body.client.id } })
+    );
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.client.commercialUser?.id, user.id);
+    assert.equal(detail.body.client.commercialUser?.fullName, user.fullName);
+  });
+
+  test('GET /clients filtra por commercialUserId via join OU legado', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-filter-or' });
+    // Cria 1 client somente com legacy (sem linha na join — simula client antigo
+    // que ainda nao foi tocado apos R1.0+R1.1).
+    const onlyLegacy = await createPjClient({ commercialUserId: user.id });
+    await prisma.clientCommercialUser.deleteMany({
+      where: { clientId: onlyLegacy.body.client.id },
+    });
+
+    // Cria outro client com dual-write completo (join + legado).
+    const dualWrite = await createPjClient({
+      legalName: 'Dual Write Co',
+      cnpj: '11.111.222/0001-11',
+      commercialUserId: user.id,
+    });
+
+    const filtered = await api.listClients(buildInput({ query: { commercialUserId: user.id } }));
+    assert.equal(filtered.status, 200);
+    const ids = filtered.body.items.map((c) => c.id).sort();
+    const expected = [onlyLegacy.body.client.id, dualWrite.body.client.id].sort();
+    assert.deepEqual(ids, expected);
+  });
+
   test('bulkUnlinkCommercialUser tambem remove linhas da join', async () => {
     const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-target' });
     const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-other' });

@@ -35,6 +35,13 @@ const COMMERCIAL_USER_SELECT = {
   },
 };
 
+const COMMERCIAL_USERS_SELECT = {
+  select: {
+    user: COMMERCIAL_USER_SELECT,
+  },
+  orderBy: { createdAt: 'asc' },
+};
+
 const CLIENT_SUMMARY_SELECT = {
   id: true,
   code: true,
@@ -52,6 +59,7 @@ const CLIENT_SUMMARY_SELECT = {
   createdAt: true,
   updatedAt: true,
   commercialUser: COMMERCIAL_USER_SELECT,
+  commercialUsers: COMMERCIAL_USERS_SELECT,
   registrations: {
     where: {
       status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
@@ -88,6 +96,7 @@ const CLIENT_DETAIL_SELECT = {
   createdAt: true,
   updatedAt: true,
   commercialUser: COMMERCIAL_USER_SELECT,
+  commercialUsers: COMMERCIAL_USERS_SELECT,
   registrations: {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   },
@@ -599,12 +608,21 @@ export class ClientService {
       normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
+    // R1.2: filtro por user comercial usa a tabela join (preferida) com OR
+    // para o campo legado (defesa contra dessincronia). Em R1.3 o OR e o
+    // campo legado saem e fica apenas commercialUsers.some.
+    const commercialUserFilter = commercialUserId
+      ? {
+          OR: [{ commercialUsers: { some: { userId: commercialUserId } } }, { commercialUserId }],
+        }
+      : {};
+
     const baseWhere = {
       ...(status ? { status } : {}),
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
       ...(isSeller === null ? {} : { isSeller }),
-      ...(commercialUserId ? { commercialUserId } : {}),
+      ...commercialUserFilter,
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);
@@ -703,22 +721,27 @@ export class ClientService {
       await this.assertDocumentAvailable(tx, normalized.documentCanonical);
       await this.assertCommercialUserAssignable(tx, normalized.commercialUserId);
 
-      const created = await tx.client.create({
+      const createdRaw = await tx.client.create({
         data: {
           id: randomUUID(),
           ...normalized,
         },
-        select: CLIENT_SUMMARY_SELECT,
+        select: { id: true, commercialUserId: true },
       });
 
-      if (created.commercialUserId) {
+      if (createdRaw.commercialUserId) {
         await tx.clientCommercialUser.create({
           data: {
-            clientId: created.id,
-            userId: created.commercialUserId,
+            clientId: createdRaw.id,
+            userId: createdRaw.commercialUserId,
           },
         });
       }
+
+      const created = await tx.client.findUniqueOrThrow({
+        where: { id: createdRaw.id },
+        select: CLIENT_SUMMARY_SELECT,
+      });
 
       await this.recordAuditEvent(tx, {
         targetClientId: created.id,
@@ -763,26 +786,34 @@ export class ClientService {
         throw new HttpError(409, 'No client changes detected');
       }
 
-      const updated = await tx.client.update({
+      // Atualiza o Client com select minimo; em seguida sincroniza a join e
+      // refaz o select final. Necessario porque CLIENT_SUMMARY_SELECT inclui
+      // commercialUsers (join) e o objeto retornado por update() seria pre-sync.
+      const updatedRaw = await tx.client.update({
         where: { id: current.id },
         data: normalized.data,
-        select: CLIENT_SUMMARY_SELECT,
+        select: { id: true, commercialUserId: true },
       });
 
       const previousCommercialUserId = current.commercialUserId ?? null;
-      const nextCommercialUserId = updated.commercialUserId ?? null;
+      const nextCommercialUserId = updatedRaw.commercialUserId ?? null;
       if (previousCommercialUserId !== nextCommercialUserId) {
         if (previousCommercialUserId) {
           await tx.clientCommercialUser.deleteMany({
-            where: { clientId: updated.id, userId: previousCommercialUserId },
+            where: { clientId: updatedRaw.id, userId: previousCommercialUserId },
           });
         }
         if (nextCommercialUserId) {
           await tx.clientCommercialUser.create({
-            data: { clientId: updated.id, userId: nextCommercialUserId },
+            data: { clientId: updatedRaw.id, userId: nextCommercialUserId },
           });
         }
       }
+
+      const updated = await tx.client.findUniqueOrThrow({
+        where: { id: updatedRaw.id },
+        select: CLIENT_SUMMARY_SELECT,
+      });
 
       const beforeDisplayName = buildClientDisplayName(current);
       const afterDisplayName = buildClientDisplayName(updated);
