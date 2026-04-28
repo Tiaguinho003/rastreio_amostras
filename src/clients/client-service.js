@@ -711,6 +711,15 @@ export class ClientService {
         select: CLIENT_SUMMARY_SELECT,
       });
 
+      if (created.commercialUserId) {
+        await tx.clientCommercialUser.create({
+          data: {
+            clientId: created.id,
+            userId: created.commercialUserId,
+          },
+        });
+      }
+
       await this.recordAuditEvent(tx, {
         targetClientId: created.id,
         actorContext: actor,
@@ -759,6 +768,21 @@ export class ClientService {
         data: normalized.data,
         select: CLIENT_SUMMARY_SELECT,
       });
+
+      const previousCommercialUserId = current.commercialUserId ?? null;
+      const nextCommercialUserId = updated.commercialUserId ?? null;
+      if (previousCommercialUserId !== nextCommercialUserId) {
+        if (previousCommercialUserId) {
+          await tx.clientCommercialUser.deleteMany({
+            where: { clientId: updated.id, userId: previousCommercialUserId },
+          });
+        }
+        if (nextCommercialUserId) {
+          await tx.clientCommercialUser.create({
+            data: { clientId: updated.id, userId: nextCommercialUserId },
+          });
+        }
+      }
 
       const beforeDisplayName = buildClientDisplayName(current);
       const afterDisplayName = buildClientDisplayName(updated);
@@ -1164,6 +1188,10 @@ export class ClientService {
     await tx.client.updateMany({
       where: { commercialUserId },
       data: { commercialUserId: null },
+    });
+
+    await tx.clientCommercialUser.deleteMany({
+      where: { userId: commercialUserId },
     });
 
     for (const client of clients) {

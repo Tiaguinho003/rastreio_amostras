@@ -40,7 +40,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, client_commercial_user, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
     await prisma.$executeRawUnsafe('DELETE FROM "app_user" WHERE "username" LIKE \'test-%\'');
   }
@@ -689,6 +689,112 @@ if (!databaseUrl || !databaseReachable) {
     const targetIds = events.map((e) => e.targetClientId).sort();
     const expectedIds = [linkedA.body.client.id, linkedB.body.client.id].sort();
     assert.deepEqual(targetIds, expectedIds);
+  });
+
+  test('POST /clients dual-write: insere linha em client_commercial_user', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-dual-create' });
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    assert.equal(created.status, 201);
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 1);
+    assert.equal(links[0].userId, user.id);
+  });
+
+  test('POST /clients sem commercialUserId nao cria linha em client_commercial_user', async () => {
+    const created = await createPjClient({});
+    assert.equal(created.status, 201);
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 0);
+  });
+
+  test('PATCH /clients trocando commercialUserId faz swap atomico na join', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-swap-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-swap-b' });
+
+    const created = await createPjClient({ commercialUserId: userA.id });
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: { commercialUserId: userB.id, reasonText: 'swap' },
+      })
+    );
+    assert.equal(updated.status, 200);
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 1);
+    assert.equal(links[0].userId, userB.id);
+  });
+
+  test('PATCH /clients com commercialUserId: null remove linha da join', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-unlink-join' });
+    const created = await createPjClient({ commercialUserId: user.id });
+
+    const updated = await api.updateClient(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: { commercialUserId: null, reasonText: 'unlink' },
+      })
+    );
+    assert.equal(updated.status, 200);
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 0);
+  });
+
+  test('bulkUnlinkCommercialUser tambem remove linhas da join', async () => {
+    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-target' });
+    const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-other' });
+
+    const linkedA = await createPjClient({
+      legalName: 'Bulk Join A',
+      cnpj: '70.777.888/0001-77',
+      commercialUserId: targetUser.id,
+    });
+    const linkedB = await createPjClient({
+      legalName: 'Bulk Join B',
+      cnpj: '80.888.999/0001-88',
+      commercialUserId: targetUser.id,
+    });
+    const untouched = await createPjClient({
+      legalName: 'Bulk Join Other',
+      cnpj: '90.999.000/0001-99',
+      commercialUserId: otherUser.id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await clientService.bulkUnlinkCommercialUser(tx, targetUser.id, actor, 'bulk join unlink');
+    });
+
+    const targetLinks = await prisma.clientCommercialUser.findMany({
+      where: { userId: targetUser.id },
+    });
+    assert.equal(targetLinks.length, 0);
+
+    const otherLinks = await prisma.clientCommercialUser.findMany({
+      where: { userId: otherUser.id },
+    });
+    assert.equal(otherLinks.length, 1);
+    assert.equal(otherLinks[0].clientId, untouched.body.client.id);
+
+    // Sanity: os dois targets nao tem linhas; o outro continua com linha
+    const aLinks = await prisma.clientCommercialUser.findMany({
+      where: { clientId: linkedA.body.client.id },
+    });
+    const bLinks = await prisma.clientCommercialUser.findMany({
+      where: { clientId: linkedB.body.client.id },
+    });
+    assert.equal(aLinks.length, 0);
+    assert.equal(bLinks.length, 0);
   });
 }
 

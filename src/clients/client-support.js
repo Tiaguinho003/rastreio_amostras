@@ -655,6 +655,7 @@ export function buildClientAuditPayload(before, after) {
 }
 
 export function buildClientAuditState(client) {
+  const commercialUserId = client.commercialUserId ?? null;
   return {
     code: client.code,
     personType: client.personType,
@@ -669,7 +670,8 @@ export function buildClientAuditState(client) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
-    commercialUserId: client.commercialUserId ?? null,
+    commercialUserId,
+    commercialUserIds: commercialUserId ? [commercialUserId] : [],
   };
 }
 
