@@ -19,7 +19,7 @@ description: Use this skill when working with the database, Prisma schema, migra
 - **SampleMovement** — vendas e perdas parciais, com snapshot de buyer.
 - **User** — conta com role, status, password hash (bcrypt), lockout.
 - **UserSession** — sessao JWT com expiracao e revogacao.
-- **Client** — PF/PJ com registrations (inscricoes estaduais). Tem N usuarios comerciais via `ClientCommercialUser` (join). Em transicao (Fase 1): campo legado `commercialUserId` (singular) coexiste com a join durante R1.0-R1.2 e sera removido em R1.3 junto com a constraint trigger que garante "Client ACTIVE tem >=1 entrada na join".
+- **Client** — PF/PJ com registrations (inscricoes estaduais). Tem N usuarios comerciais via `ClientCommercialUser` (join). Invariante "Client ACTIVE tem >=1 entrada na join" e garantida no banco por 2 triggers DEFERRABLE INITIALLY DEFERRED (ver "Triggers / invariantes"). API REST mantem campo singular `commercialUser` derivado da primeira entrada da join (compat ate Fase 2 expor multi-user).
 - **ClientCommercialUser** — join N:N entre Client e User. PK composta `(clientId, userId)`. Relacao plana (sem hierarquia/principal). Vinculos historicos sao registrados via `ClientAuditEvent` (a tabela mantem apenas vinculos ativos).
 - **ClientRegistration** — inscricoes vinculadas a clientes.
 - **UserAuditEvent** / **ClientAuditEvent** — audit trails append-only.
@@ -62,8 +62,15 @@ npm run prisma:migrate:deploy  # aplica migrations
 npm run db:seed          # seed inicial
 ```
 
+## Triggers / invariantes
+
+- **Append-only do event store**: `fn_prevent_sample_event_mutation` + triggers `trg_sample_event_prevent_update`/`trg_sample_event_prevent_delete` impedem UPDATE/DELETE em `sample_event`. Toda migration que tocar em `sample_event` deve preservar esses triggers.
+- **Client ACTIVE tem >=1 entrada na join** (R1.3): `fn_assert_client_has_commercial_user` + 2 triggers `CONSTRAINT TRIGGER ... DEFERRABLE INITIALLY DEFERRED`:
+  - `trg_assert_client_has_commercial_user_on_link` — em `client_commercial_user` AFTER DELETE OR UPDATE
+  - `trg_assert_client_has_commercial_user_on_status` — em `client` AFTER UPDATE OF status (apenas quando status passa para ACTIVE)
+  - Como sao DEFERRED, swap (DELETE old + INSERT new) na mesma tx funciona; a checagem so corre no commit.
+
 ## Regras criticas
 
-- O event store (SampleEvent) e **append-only**. A funcao `fn_prevent_sample_event_mutation` + triggers `trg_sample_event_prevent_update`/`trg_sample_event_prevent_delete` no banco impedem mutacao. Qualquer migration que toque em `sample_event` deve preservar esses triggers.
 - Concorrencia otimista via `version` + `expectedVersion` em Sample.
 - Idempotencia via `idempotencyScope` + `idempotencyKey` em SampleEvent.

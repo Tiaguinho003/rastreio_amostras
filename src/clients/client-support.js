@@ -348,10 +348,9 @@ export function normalizeCreateClientInput(input) {
     isSeller: input.isSeller,
   });
 
-  const commercialUserId = normalizeCommercialUserId(input.commercialUserId);
-  data.commercialUserId = commercialUserId === undefined ? null : commercialUserId;
+  const commercialUserId = normalizeCommercialUserId(input.commercialUserId) ?? null;
 
-  return data;
+  return { data, commercialUserId };
 }
 
 export function normalizeUpdateClientInput(input, currentClient) {
@@ -382,15 +381,18 @@ export function normalizeUpdateClientInput(input, currentClient) {
     isSeller: nextIsSeller,
   });
 
-  if (hasOwn(input, 'commercialUserId')) {
-    data.commercialUserId = normalizeCommercialUserId(input.commercialUserId) ?? null;
-  } else {
-    data.commercialUserId = currentClient.commercialUserId ?? null;
-  }
+  // commercialUserIdInput segue um padrao tri-state:
+  //  - undefined  -> nao foi fornecido no PATCH (mantem atual)
+  //  - null       -> remover vinculo
+  //  - string     -> novo userId
+  const commercialUserIdInput = hasOwn(input, 'commercialUserId')
+    ? (normalizeCommercialUserId(input.commercialUserId) ?? null)
+    : undefined;
 
   return {
     reasonText: normalizeOptionalReasonText(input.reasonText),
     data,
+    commercialUserIdInput,
   };
 }
 
@@ -559,13 +561,12 @@ export function buildClientDisplayName(client) {
 export function toClientSummary(client, options = {}) {
   const activeRegistrationCount = options.activeRegistrationCount ?? 0;
   const registrationCount = options.registrationCount ?? 0;
-  // Em R1.2 a fonte preferida e a tabela join (client_commercial_user). Caimos
-  // de volta no campo singular legado quando a join nao tem entrada e o legado
-  // tem (cenario raro de dessincronia). Em R1.3 o fallback e removido junto
-  // com o drop da coluna client.commercial_user_id.
-  const fromJoin = Array.isArray(client.commercialUsers) ? client.commercialUsers[0]?.user : null;
-  const fromLegacy = client.commercialUser ?? null;
-  const sourceUser = fromJoin ?? fromLegacy;
+  // Fonte unica: tabela join client_commercial_user. Para compat com a UI
+  // atual (singular), exposta a primeira entrada por createdAt asc. Multi-user
+  // sera exposto como array em Fase 2.
+  const sourceUser = Array.isArray(client.commercialUsers)
+    ? (client.commercialUsers[0]?.user ?? null)
+    : null;
   const commercialUser = sourceUser ? { id: sourceUser.id, fullName: sourceUser.fullName } : null;
 
   return {
@@ -583,7 +584,6 @@ export function toClientSummary(client, options = {}) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
-    commercialUserId: client.commercialUserId ?? null,
     commercialUser,
     registrationCount,
     activeRegistrationCount,
@@ -660,7 +660,14 @@ export function buildClientAuditPayload(before, after) {
 }
 
 export function buildClientAuditState(client) {
-  const commercialUserId = client.commercialUserId ?? null;
+  // Aceita formas variadas do select da tabela join:
+  //   - { commercialUsers: [{ userId }] } (select minimo)
+  //   - { commercialUsers: [{ user: { id, fullName } }] } (select detalhado)
+  const commercialUserIds = Array.isArray(client.commercialUsers)
+    ? client.commercialUsers
+        .map((entry) => entry?.userId ?? entry?.user?.id ?? null)
+        .filter(Boolean)
+    : [];
   return {
     code: client.code,
     personType: client.personType,
@@ -675,8 +682,7 @@ export function buildClientAuditState(client) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
-    commercialUserId,
-    commercialUserIds: commercialUserId ? [commercialUserId] : [],
+    commercialUserIds,
   };
 }
 

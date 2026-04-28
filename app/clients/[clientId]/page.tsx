@@ -107,7 +107,7 @@ function clientSummaryToForm(client: ClientSummary) {
     phone: maskPhoneInput(client.phone ?? ''),
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
-    commercialUserId: client.commercialUserId ?? (null as string | null),
+    commercialUserId: client.commercialUser?.id ?? (null as string | null),
     reasonText: '',
   };
 }

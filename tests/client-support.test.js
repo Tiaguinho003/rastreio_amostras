@@ -34,7 +34,7 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
 });
 
 test('normalizeCreateClientInput enforces PF shape and canonical document', () => {
-  const normalized = normalizeCreateClientInput({
+  const { data, commercialUserId } = normalizeCreateClientInput({
     personType: 'PF',
     fullName: '  Francisco Sales Darcadia ',
     cpf: '016.179.708-32',
@@ -43,17 +43,18 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
     isSeller: true,
   });
 
-  assert.equal(normalized.personType, 'PF');
-  assert.equal(normalized.fullName, 'Francisco Sales Darcadia');
-  assert.equal(normalized.cpf, '01617970832');
-  assert.equal(normalized.documentCanonical, '01617970832');
-  assert.equal(normalized.phone, '35999990000');
-  assert.equal(normalized.legalName, null);
-  assert.equal(normalized.cnpj, null);
+  assert.equal(data.personType, 'PF');
+  assert.equal(data.fullName, 'Francisco Sales Darcadia');
+  assert.equal(data.cpf, '01617970832');
+  assert.equal(data.documentCanonical, '01617970832');
+  assert.equal(data.phone, '35999990000');
+  assert.equal(data.legalName, null);
+  assert.equal(data.cnpj, null);
+  assert.equal(commercialUserId, null);
 });
 
 test('normalizeCreateClientInput accepts PF clients without cpf', () => {
-  const result = normalizeCreateClientInput({
+  const { data } = normalizeCreateClientInput({
     personType: 'PF',
     fullName: 'Francisco Sales Darcadia',
     phone: '35 99999-0000',
@@ -61,13 +62,13 @@ test('normalizeCreateClientInput accepts PF clients without cpf', () => {
     isSeller: true,
   });
 
-  assert.equal(result.cpf, null);
-  assert.equal(result.documentCanonical, null);
-  assert.equal(result.fullName, 'Francisco Sales Darcadia');
+  assert.equal(data.cpf, null);
+  assert.equal(data.documentCanonical, null);
+  assert.equal(data.fullName, 'Francisco Sales Darcadia');
 });
 
 test('normalizeCreateClientInput accepts PJ clients without cnpj', () => {
-  const result = normalizeCreateClientInput({
+  const { data } = normalizeCreateClientInput({
     personType: 'PJ',
     legalName: 'Coopercitrus',
     phone: '35 99999-0000',
@@ -75,9 +76,9 @@ test('normalizeCreateClientInput accepts PJ clients without cnpj', () => {
     isSeller: true,
   });
 
-  assert.equal(result.cnpj, null);
-  assert.equal(result.documentCanonical, null);
-  assert.equal(result.legalName, 'Coopercitrus');
+  assert.equal(data.cnpj, null);
+  assert.equal(data.documentCanonical, null);
+  assert.equal(data.legalName, 'Coopercitrus');
 });
 
 test('normalizeCreateClientInput still rejects malformed cpf', () => {
@@ -159,7 +160,7 @@ test('normalizeUpdateClientInput supports switching from PF to PJ', () => {
 });
 
 test('normalizeCreateClientInput accepts payload when both buyer and seller are false', () => {
-  const result = normalizeCreateClientInput({
+  const { data } = normalizeCreateClientInput({
     personType: 'PJ',
     legalName: 'Atlantica',
     cnpj: '03.936.815/0001-75',
@@ -167,8 +168,8 @@ test('normalizeCreateClientInput accepts payload when both buyer and seller are 
     isBuyer: false,
     isSeller: false,
   });
-  assert.equal(result.isBuyer, false);
-  assert.equal(result.isSeller, false);
+  assert.equal(data.isBuyer, false);
+  assert.equal(data.isSeller, false);
 });
 
 test('normalizeCreateRegistrationInput validates required address fields', () => {

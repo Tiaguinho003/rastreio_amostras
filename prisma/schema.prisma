@@ -346,7 +346,6 @@ model User {
   auditEventsAsTarget   UserAuditEvent[] @relation("UserAuditTarget")
   auditEventsAsActor    UserAuditEvent[] @relation("UserAuditActor")
   clientAuditEventsAsActor    ClientAuditEvent[]    @relation("ClientAuditActor")
-  commercialClients           Client[]              @relation("ClientCommercialUser")
   commercialClientLinks       ClientCommercialUser[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
@@ -369,7 +368,6 @@ model Client {
   isBuyer           Boolean           @default(false) @map("is_buyer")
   isSeller          Boolean           @default(false) @map("is_seller")
   status            ClientStatus      @default(ACTIVE)
-  commercialUserId  String?           @db.Uuid @map("commercial_user_id")
   createdAt         DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
   updatedAt         DateTime          @updatedAt @db.Timestamptz(6) @map("updated_at")
 
@@ -377,12 +375,10 @@ model Client {
   ownedSamples        Sample[]           @relation("SampleOwnerClient")
   buyerMovements      SampleMovement[]   @relation("SampleMovementBuyerClient")
   auditEventsAsTarget ClientAuditEvent[] @relation("ClientAuditTarget")
-  commercialUser      User?              @relation("ClientCommercialUser", fields: [commercialUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   commercialUsers     ClientCommercialUser[]
 
   @@index([status, code], map: "idx_client_status_code")
   @@index([createdAt, id], map: "idx_client_created_id")
-  @@index([commercialUserId, code], map: "idx_client_commercial_user_id")
   @@map("client")
 }
 

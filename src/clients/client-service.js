@@ -55,10 +55,8 @@ const CLIENT_SUMMARY_SELECT = {
   isBuyer: true,
   isSeller: true,
   status: true,
-  commercialUserId: true,
   createdAt: true,
   updatedAt: true,
-  commercialUser: COMMERCIAL_USER_SELECT,
   commercialUsers: COMMERCIAL_USERS_SELECT,
   registrations: {
     where: {
@@ -92,10 +90,8 @@ const CLIENT_DETAIL_SELECT = {
   isBuyer: true,
   isSeller: true,
   status: true,
-  commercialUserId: true,
   createdAt: true,
   updatedAt: true,
-  commercialUser: COMMERCIAL_USER_SELECT,
   commercialUsers: COMMERCIAL_USERS_SELECT,
   registrations: {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -487,9 +483,12 @@ export class ClientService {
         isBuyer: true,
         isSeller: true,
         status: true,
-        commercialUserId: true,
         createdAt: true,
         updatedAt: true,
+        commercialUsers: {
+          select: { userId: true },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -608,21 +607,12 @@ export class ClientService {
       normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
-    // R1.2: filtro por user comercial usa a tabela join (preferida) com OR
-    // para o campo legado (defesa contra dessincronia). Em R1.3 o OR e o
-    // campo legado saem e fica apenas commercialUsers.some.
-    const commercialUserFilter = commercialUserId
-      ? {
-          OR: [{ commercialUsers: { some: { userId: commercialUserId } } }, { commercialUserId }],
-        }
-      : {};
-
     const baseWhere = {
       ...(status ? { status } : {}),
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
       ...(isSeller === null ? {} : { isSeller }),
-      ...commercialUserFilter,
+      ...(commercialUserId ? { commercialUsers: { some: { userId: commercialUserId } } } : {}),
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);
@@ -715,25 +705,25 @@ export class ClientService {
 
   async createClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client');
-    const normalized = normalizeCreateClientInput(input);
+    const { data, commercialUserId } = normalizeCreateClientInput(input);
 
     return this.prisma.$transaction(async (tx) => {
-      await this.assertDocumentAvailable(tx, normalized.documentCanonical);
-      await this.assertCommercialUserAssignable(tx, normalized.commercialUserId);
+      await this.assertDocumentAvailable(tx, data.documentCanonical);
+      await this.assertCommercialUserAssignable(tx, commercialUserId);
 
       const createdRaw = await tx.client.create({
         data: {
           id: randomUUID(),
-          ...normalized,
+          ...data,
         },
-        select: { id: true, commercialUserId: true },
+        select: { id: true },
       });
 
-      if (createdRaw.commercialUserId) {
+      if (commercialUserId) {
         await tx.clientCommercialUser.create({
           data: {
             clientId: createdRaw.id,
-            userId: createdRaw.commercialUserId,
+            userId: commercialUserId,
           },
         });
       }
@@ -763,14 +753,24 @@ export class ClientService {
 
     return this.prisma.$transaction(async (tx) => {
       const current = await this.requireClientForUpdate(tx, clientId);
-      const normalized = normalizeUpdateClientInput(input, current);
+      const { data, reasonText, commercialUserIdInput } = normalizeUpdateClientInput(
+        input,
+        current
+      );
 
-      await this.assertDocumentAvailable(tx, normalized.data.documentCanonical, {
+      await this.assertDocumentAvailable(tx, data.documentCanonical, {
         excludeClientId: current.id,
       });
 
-      if (normalized.data.commercialUserId !== (current.commercialUserId ?? null)) {
-        await this.assertCommercialUserAssignable(tx, normalized.data.commercialUserId);
+      // Estado atual e proximo do vinculo comercial. Tri-state em commercialUserIdInput:
+      //   undefined -> nao mexer; null -> remover; string -> trocar/adicionar.
+      const previousCommercialUserId = current.commercialUsers?.[0]?.userId ?? null;
+      const nextCommercialUserId =
+        commercialUserIdInput === undefined ? previousCommercialUserId : commercialUserIdInput;
+      const commercialChanged = nextCommercialUserId !== previousCommercialUserId;
+
+      if (commercialChanged && nextCommercialUserId !== null) {
+        await this.assertCommercialUserAssignable(tx, nextCommercialUserId);
       }
 
       const before = buildClientAuditState(current);
@@ -778,7 +778,8 @@ export class ClientService {
         ...before,
         ...buildClientAuditState({
           ...current,
-          ...normalized.data,
+          ...data,
+          commercialUsers: nextCommercialUserId ? [{ userId: nextCommercialUserId }] : [],
         }),
       };
       const auditPayload = buildClientAuditPayload(before, afterCandidate);
@@ -786,18 +787,16 @@ export class ClientService {
         throw new HttpError(409, 'No client changes detected');
       }
 
-      // Atualiza o Client com select minimo; em seguida sincroniza a join e
-      // refaz o select final. Necessario porque CLIENT_SUMMARY_SELECT inclui
-      // commercialUsers (join) e o objeto retornado por update() seria pre-sync.
+      // Atualiza o Client e sincroniza a join. O findUniqueOrThrow final
+      // garante que CLIENT_SUMMARY_SELECT (que inclui commercialUsers) reflete
+      // o estado pos-sync.
       const updatedRaw = await tx.client.update({
         where: { id: current.id },
-        data: normalized.data,
-        select: { id: true, commercialUserId: true },
+        data,
+        select: { id: true },
       });
 
-      const previousCommercialUserId = current.commercialUserId ?? null;
-      const nextCommercialUserId = updatedRaw.commercialUserId ?? null;
-      if (previousCommercialUserId !== nextCommercialUserId) {
+      if (commercialChanged) {
         if (previousCommercialUserId) {
           await tx.clientCommercialUser.deleteMany({
             where: { clientId: updatedRaw.id, userId: previousCommercialUserId },
@@ -830,7 +829,7 @@ export class ClientService {
         targetClientId: updated.id,
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UPDATED,
-        reasonText: normalized.reasonText,
+        reasonText,
         payload: auditPayload,
       });
 
@@ -1207,8 +1206,42 @@ export class ClientService {
   }
 
   async bulkUnlinkCommercialUser(tx, commercialUserId, actorContext, reasonText) {
+    // R1.3: invariante "Client ACTIVE tem >=1 user na join" e garantida pelo
+    // trigger DEFERRABLE no banco. Antes de tentar desvincular, detectamos
+    // clients onde este user e o UNICO responsavel (sole custodian) e
+    // retornamos um 409 estruturado para a aplicacao chamadora reatribuir
+    // (a Fase 4 expoe a UI de reatribuicao em massa).
+    const linkedActiveClients = await tx.client.findMany({
+      where: {
+        status: CLIENT_STATUSES.ACTIVE,
+        commercialUsers: { some: { userId: commercialUserId } },
+      },
+      select: {
+        id: true,
+        code: true,
+        _count: { select: { commercialUsers: true } },
+      },
+    });
+
+    const soleCustodianOf = linkedActiveClients.filter(
+      (client) => client._count.commercialUsers === 1
+    );
+    if (soleCustodianOf.length > 0) {
+      throw new HttpError(
+        409,
+        'Cannot unlink commercial user: still the sole responsible for active clients',
+        {
+          code: 'COMMERCIAL_USER_HAS_SOLE_CUSTODIANS',
+          details: {
+            clientIds: soleCustodianOf.map((c) => c.id),
+            clientCodes: soleCustodianOf.map((c) => c.code),
+          },
+        }
+      );
+    }
+
     const clients = await tx.client.findMany({
-      where: { commercialUserId },
+      where: { commercialUsers: { some: { userId: commercialUserId } } },
       select: CLIENT_SUMMARY_SELECT,
     });
 
@@ -1216,18 +1249,16 @@ export class ClientService {
       return { unlinkedCount: 0 };
     }
 
-    await tx.client.updateMany({
-      where: { commercialUserId },
-      data: { commercialUserId: null },
-    });
-
     await tx.clientCommercialUser.deleteMany({
       where: { userId: commercialUserId },
     });
 
     for (const client of clients) {
       const before = buildClientAuditState(client);
-      const after = { ...before, commercialUserId: null };
+      const after = {
+        ...before,
+        commercialUserIds: before.commercialUserIds.filter((id) => id !== commercialUserId),
+      };
       const auditPayload = buildClientAuditPayload(before, after);
 
       await this.recordAuditEvent(tx, {

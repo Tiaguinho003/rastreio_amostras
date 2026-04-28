@@ -537,7 +537,6 @@ if (!databaseUrl || !databaseReachable) {
     const created = await createPjClient({ commercialUserId: user.id });
 
     assert.equal(created.status, 201);
-    assert.equal(created.body.client.commercialUserId, user.id);
     assert.deepEqual(created.body.client.commercialUser, {
       id: user.id,
       fullName: user.fullName,
@@ -582,7 +581,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(updated.status, 200);
-    assert.equal(updated.body.client.commercialUserId, secondUser.id);
+    assert.equal(updated.body.client.commercialUser.id, secondUser.id);
     assert.equal(updated.body.client.commercialUser.fullName, secondUser.fullName);
 
     const audit = await api.listClientAuditEvents(
@@ -592,13 +591,22 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(audit.status, 200);
     const updateEvent = audit.body.items.find((i) => i.eventType === 'CLIENT_UPDATED');
     assert.ok(updateEvent);
-    assert.equal(updateEvent.payload.diff.before.commercialUserId, firstUser.id);
-    assert.equal(updateEvent.payload.diff.after.commercialUserId, secondUser.id);
+    assert.deepEqual(updateEvent.payload.diff.before.commercialUserIds, [firstUser.id]);
+    assert.deepEqual(updateEvent.payload.diff.after.commercialUserIds, [secondUser.id]);
   });
 
-  test('PATCH /clients accepts null commercialUserId to unlink', async () => {
+  test('PATCH /clients accepts null commercialUserId to unlink (Client INACTIVE)', async () => {
     const user = await createTestUser('COMMERCIAL', { username: 'test-unlinkable' });
     const created = await createPjClient({ commercialUserId: user.id });
+
+    // Apos R1.3 a invariante "Client ACTIVE tem >=1 user na join" e
+    // garantida pelo trigger DEFERRABLE: desvincular o unico user de um
+    // Client ACTIVE viola o trigger. Para testar o caminho de unlink em
+    // PATCH, primeiro inativamos o Client.
+    await prisma.client.update({
+      where: { id: created.body.client.id },
+      data: { status: 'INACTIVE' },
+    });
 
     const updated = await api.updateClient(
       buildInput({
@@ -611,7 +619,6 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(updated.status, 200);
-    assert.equal(updated.body.client.commercialUserId, null);
     assert.equal(updated.body.client.commercialUser, null);
   });
 
@@ -641,24 +648,53 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(filtered.body.items[0].id, mine.body.client.id);
   });
 
-  test('bulkUnlinkCommercialUser nulls links and records one CLIENT_UPDATED per client', async () => {
-    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-target' });
-    const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-other' });
-
+  test('bulkUnlinkCommercialUser bloqueia quando user e sole custodian de Client ACTIVE', async () => {
+    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-sole' });
     const linkedA = await createPjClient({
-      legalName: 'Linked A',
+      legalName: 'Sole Custodian A',
       cnpj: '40.444.555/0001-44',
       commercialUserId: targetUser.id,
     });
-    const linkedB = await createPjClient({
-      legalName: 'Linked B',
-      cnpj: '50.555.666/0001-55',
+
+    await assert.rejects(
+      () =>
+        prisma.$transaction(async (tx) => {
+          await clientService.bulkUnlinkCommercialUser(
+            tx,
+            targetUser.id,
+            actor,
+            'tentando inativar'
+          );
+        }),
+      (err) => {
+        assert.equal(err.statusCode ?? err.status, 409);
+        assert.equal(err.details?.code, 'COMMERCIAL_USER_HAS_SOLE_CUSTODIANS');
+        assert.ok(err.details?.details?.clientIds?.includes(linkedA.body.client.id));
+        return true;
+      }
+    );
+
+    // Nada foi alterado: o link permanece intacto.
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { userId: targetUser.id },
+    });
+    assert.equal(links.length, 1);
+  });
+
+  test('bulkUnlinkCommercialUser permite desvincular quando Client tem outros users', async () => {
+    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-shared' });
+    const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-other2' });
+
+    const sharedClient = await createPjClient({
+      legalName: 'Shared Client',
+      cnpj: '40.444.555/0001-99',
       commercialUserId: targetUser.id,
     });
-    const untouched = await createPjClient({
-      legalName: 'Other User',
-      cnpj: '60.666.777/0001-66',
-      commercialUserId: otherUser.id,
+
+    // Adiciona segundo user direto na join (cenario que so existira via UI multi-user em Fase 2;
+    // aqui inserimos manualmente para validar o caminho onde nao ha sole custodian).
+    await prisma.clientCommercialUser.create({
+      data: { clientId: sharedClient.body.client.id, userId: otherUser.id },
     });
 
     await prisma.$transaction(async (tx) => {
@@ -666,29 +702,31 @@ if (!databaseUrl || !databaseReachable) {
         tx,
         targetUser.id,
         actor,
-        'Desvinculado automaticamente'
+        'desvinculado, outro user assume'
       );
-      assert.equal(result.unlinkedCount, 2);
+      assert.equal(result.unlinkedCount, 1);
     });
 
-    const afterA = await prisma.client.findUnique({ where: { id: linkedA.body.client.id } });
-    const afterB = await prisma.client.findUnique({ where: { id: linkedB.body.client.id } });
-    const afterUntouched = await prisma.client.findUnique({
-      where: { id: untouched.body.client.id },
+    const remaining = await prisma.clientCommercialUser.findMany({
+      where: { clientId: sharedClient.body.client.id },
     });
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].userId, otherUser.id);
 
-    assert.equal(afterA.commercialUserId, null);
-    assert.equal(afterB.commercialUserId, null);
-    assert.equal(afterUntouched.commercialUserId, otherUser.id);
-
+    // Audit event registrado para o client afetado.
     const events = await prisma.clientAuditEvent.findMany({
-      where: { eventType: 'CLIENT_UPDATED', reasonText: 'Desvinculado automaticamente' },
+      where: {
+        eventType: 'CLIENT_UPDATED',
+        targetClientId: sharedClient.body.client.id,
+        reasonText: 'desvinculado, outro user assume',
+      },
     });
-
-    assert.equal(events.length, 2);
-    const targetIds = events.map((e) => e.targetClientId).sort();
-    const expectedIds = [linkedA.body.client.id, linkedB.body.client.id].sort();
-    assert.deepEqual(targetIds, expectedIds);
+    assert.equal(events.length, 1);
+    assert.deepEqual(
+      events[0].payload.diff.before.commercialUserIds.sort(),
+      [otherUser.id, targetUser.id].sort()
+    );
+    assert.deepEqual(events[0].payload.diff.after.commercialUserIds, [otherUser.id]);
   });
 
   test('POST /clients dual-write: insere linha em client_commercial_user', async () => {
@@ -733,17 +771,92 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(links[0].userId, userB.id);
   });
 
-  test('PATCH /clients com commercialUserId: null remove linha da join', async () => {
-    const user = await createTestUser('COMMERCIAL', { username: 'test-unlink-join' });
-    const created = await createPjClient({ commercialUserId: user.id });
+  test('GET /clients filtra por commercialUserId via tabela join', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-filter-join-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-filter-join-b' });
 
-    const updated = await api.updateClient(
-      buildInput({
-        params: { clientId: created.body.client.id },
-        body: { commercialUserId: null, reasonText: 'unlink' },
-      })
+    const mine = await createPjClient({
+      legalName: 'Cliente Filtro A',
+      cnpj: '11.111.222/0001-11',
+      commercialUserId: userA.id,
+    });
+    await createPjClient({
+      legalName: 'Cliente Filtro B',
+      cnpj: '22.222.333/0001-22',
+      commercialUserId: userB.id,
+    });
+
+    const filtered = await api.listClients(buildInput({ query: { commercialUserId: userA.id } }));
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.body.page.total, 1);
+    assert.equal(filtered.body.items[0].id, mine.body.client.id);
+  });
+
+  // Triggers DEFERRABLE (R1.3): garantem invariante "Client ACTIVE tem >=1 user"
+
+  test('Trigger DEFERRABLE: swap (delete old + insert new) na mesma tx passa', async () => {
+    const userA = await createTestUser('COMMERCIAL', { username: 'test-trg-swap-a' });
+    const userB = await createTestUser('COMMERCIAL', { username: 'test-trg-swap-b' });
+    const created = await createPjClient({
+      legalName: 'Trigger Swap',
+      cnpj: '12.121.121/0001-12',
+      commercialUserId: userA.id,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.clientCommercialUser.deleteMany({
+        where: { clientId: created.body.client.id, userId: userA.id },
+      });
+      await tx.clientCommercialUser.create({
+        data: { clientId: created.body.client.id, userId: userB.id },
+      });
+    });
+
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 1);
+    assert.equal(links[0].userId, userB.id);
+  });
+
+  test('Trigger bloqueia delete unico do ultimo user de Client ACTIVE', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-trg-block' });
+    const created = await createPjClient({
+      legalName: 'Trigger Block',
+      cnpj: '13.131.313/0001-13',
+      commercialUserId: user.id,
+    });
+
+    await assert.rejects(
+      () =>
+        prisma.clientCommercialUser.deleteMany({
+          where: { clientId: created.body.client.id },
+        }),
+      /Active client cannot have zero commercial users/
     );
-    assert.equal(updated.status, 200);
+
+    // Verifica que nada mudou.
+    const links = await prisma.clientCommercialUser.findMany({
+      where: { clientId: created.body.client.id },
+    });
+    assert.equal(links.length, 1);
+  });
+
+  test('Trigger permite remover users quando Client e INACTIVE', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-trg-inactive' });
+    const created = await createPjClient({
+      legalName: 'Trigger Inactive',
+      cnpj: '14.141.414/0001-14',
+      commercialUserId: user.id,
+    });
+    await prisma.client.update({
+      where: { id: created.body.client.id },
+      data: { status: 'INACTIVE' },
+    });
+
+    await prisma.clientCommercialUser.deleteMany({
+      where: { clientId: created.body.client.id },
+    });
 
     const links = await prisma.clientCommercialUser.findMany({
       where: { clientId: created.body.client.id },
@@ -751,110 +864,37 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(links.length, 0);
   });
 
-  test('GET /clients le commercialUser via join (fonte preferida)', async () => {
-    const user = await createTestUser('COMMERCIAL', { username: 'test-read-join' });
-    const created = await createPjClient({ commercialUserId: user.id });
-
-    // Simula dessincronia: legado vazio, mas join permanece com a linha.
-    // toClientSummary deve preferir a join e ainda retornar o user.
-    await prisma.client.update({
-      where: { id: created.body.client.id },
-      data: { commercialUserId: null },
+  test('Trigger bloqueia reativacao de Client (INACTIVE -> ACTIVE) sem users', async () => {
+    const user = await createTestUser('COMMERCIAL', { username: 'test-trg-reactivate' });
+    const created = await createPjClient({
+      legalName: 'Trigger Reactivate',
+      cnpj: '15.151.515/0001-15',
+      commercialUserId: user.id,
     });
 
-    const detail = await api.getClient(
-      buildInput({ params: { clientId: created.body.client.id } })
-    );
-    assert.equal(detail.status, 200);
-    assert.equal(detail.body.client.commercialUser?.id, user.id);
-    assert.equal(detail.body.client.commercialUser?.fullName, user.fullName);
-  });
-
-  test('GET /clients faz fallback para commercialUserId legado quando join esta vazia', async () => {
-    const user = await createTestUser('COMMERCIAL', { username: 'test-fallback-legacy' });
-    const created = await createPjClient({ commercialUserId: user.id });
-
-    // Simula dessincronia inversa: join vazia, mas legado mantido.
-    // O fallback do R1.2 garante que o user ainda apareca.
+    // Inativa Client e remove todos os users (permitido em INACTIVE).
+    await prisma.client.update({
+      where: { id: created.body.client.id },
+      data: { status: 'INACTIVE' },
+    });
     await prisma.clientCommercialUser.deleteMany({
       where: { clientId: created.body.client.id },
     });
 
-    const detail = await api.getClient(
-      buildInput({ params: { clientId: created.body.client.id } })
+    // Tentar reativar deve falhar — Client passaria a ACTIVE sem users.
+    await assert.rejects(
+      () =>
+        prisma.client.update({
+          where: { id: created.body.client.id },
+          data: { status: 'ACTIVE' },
+        }),
+      /Active client cannot have zero commercial users/
     );
-    assert.equal(detail.status, 200);
-    assert.equal(detail.body.client.commercialUser?.id, user.id);
-    assert.equal(detail.body.client.commercialUser?.fullName, user.fullName);
-  });
 
-  test('GET /clients filtra por commercialUserId via join OU legado', async () => {
-    const user = await createTestUser('COMMERCIAL', { username: 'test-filter-or' });
-    // Cria 1 client somente com legacy (sem linha na join — simula client antigo
-    // que ainda nao foi tocado apos R1.0+R1.1).
-    const onlyLegacy = await createPjClient({ commercialUserId: user.id });
-    await prisma.clientCommercialUser.deleteMany({
-      where: { clientId: onlyLegacy.body.client.id },
+    const stillInactive = await prisma.client.findUnique({
+      where: { id: created.body.client.id },
     });
-
-    // Cria outro client com dual-write completo (join + legado).
-    const dualWrite = await createPjClient({
-      legalName: 'Dual Write Co',
-      cnpj: '11.111.222/0001-11',
-      commercialUserId: user.id,
-    });
-
-    const filtered = await api.listClients(buildInput({ query: { commercialUserId: user.id } }));
-    assert.equal(filtered.status, 200);
-    const ids = filtered.body.items.map((c) => c.id).sort();
-    const expected = [onlyLegacy.body.client.id, dualWrite.body.client.id].sort();
-    assert.deepEqual(ids, expected);
-  });
-
-  test('bulkUnlinkCommercialUser tambem remove linhas da join', async () => {
-    const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-target' });
-    const otherUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-join-other' });
-
-    const linkedA = await createPjClient({
-      legalName: 'Bulk Join A',
-      cnpj: '70.777.888/0001-77',
-      commercialUserId: targetUser.id,
-    });
-    const linkedB = await createPjClient({
-      legalName: 'Bulk Join B',
-      cnpj: '80.888.999/0001-88',
-      commercialUserId: targetUser.id,
-    });
-    const untouched = await createPjClient({
-      legalName: 'Bulk Join Other',
-      cnpj: '90.999.000/0001-99',
-      commercialUserId: otherUser.id,
-    });
-
-    await prisma.$transaction(async (tx) => {
-      await clientService.bulkUnlinkCommercialUser(tx, targetUser.id, actor, 'bulk join unlink');
-    });
-
-    const targetLinks = await prisma.clientCommercialUser.findMany({
-      where: { userId: targetUser.id },
-    });
-    assert.equal(targetLinks.length, 0);
-
-    const otherLinks = await prisma.clientCommercialUser.findMany({
-      where: { userId: otherUser.id },
-    });
-    assert.equal(otherLinks.length, 1);
-    assert.equal(otherLinks[0].clientId, untouched.body.client.id);
-
-    // Sanity: os dois targets nao tem linhas; o outro continua com linha
-    const aLinks = await prisma.clientCommercialUser.findMany({
-      where: { clientId: linkedA.body.client.id },
-    });
-    const bLinks = await prisma.clientCommercialUser.findMany({
-      where: { clientId: linkedB.body.client.id },
-    });
-    assert.equal(aLinks.length, 0);
-    assert.equal(bLinks.length, 0);
+    assert.equal(stillInactive.status, 'INACTIVE');
   });
 }
 
