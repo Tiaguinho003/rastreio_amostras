@@ -127,6 +127,10 @@ enum ClientAuditEventType {
   CLIENT_REGISTRATION_UPDATED
   CLIENT_REGISTRATION_INACTIVATED
   CLIENT_REGISTRATION_REACTIVATED
+  CLIENT_BRANCH_CREATED
+  CLIENT_BRANCH_UPDATED
+  CLIENT_BRANCH_INACTIVATED
+  CLIENT_BRANCH_REACTIVATED
 }
 
 enum ClassificationType {
@@ -372,9 +376,8 @@ model Client {
   cpf               String?
   cnpj              String?
   documentCanonical String?           @unique(map: "uq_client_document_canonical") @map("document_canonical")
-  // F5.0: cnpj_root e indexado mas NAO unique ainda (ha grupos COOPERCITRUS/COFCO).
-  // F5.1 funde via wizard e altera para UNIQUE.
-  cnpjRoot          String?           @map("cnpj_root") @db.VarChar(8)
+  // F5.1: cnpj_root agora e UNIQUE apos a fusao via wizard (COOPERCITRUS/COFCO).
+  cnpjRoot          String?           @unique(map: "uq_client_cnpj_root") @map("cnpj_root") @db.VarChar(8)
   phone             String?
   isBuyer           Boolean           @default(false) @map("is_buyer")
   isSeller          Boolean           @default(false) @map("is_seller")
@@ -391,7 +394,6 @@ model Client {
 
   @@index([status, code], map: "idx_client_status_code")
   @@index([createdAt, id], map: "idx_client_created_id")
-  @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@map("client")
 }
 

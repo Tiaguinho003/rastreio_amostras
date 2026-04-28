@@ -25,6 +25,11 @@ export const CLIENT_REGISTRATION_STATUSES = {
   INACTIVE: 'INACTIVE',
 };
 
+export const CLIENT_BRANCH_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
 export const CLIENT_AUDIT_EVENT_TYPES = {
   CLIENT_CREATED: 'CLIENT_CREATED',
   CLIENT_UPDATED: 'CLIENT_UPDATED',
@@ -34,6 +39,10 @@ export const CLIENT_AUDIT_EVENT_TYPES = {
   CLIENT_REGISTRATION_UPDATED: 'CLIENT_REGISTRATION_UPDATED',
   CLIENT_REGISTRATION_INACTIVATED: 'CLIENT_REGISTRATION_INACTIVATED',
   CLIENT_REGISTRATION_REACTIVATED: 'CLIENT_REGISTRATION_REACTIVATED',
+  CLIENT_BRANCH_CREATED: 'CLIENT_BRANCH_CREATED',
+  CLIENT_BRANCH_UPDATED: 'CLIENT_BRANCH_UPDATED',
+  CLIENT_BRANCH_INACTIVATED: 'CLIENT_BRANCH_INACTIVATED',
+  CLIENT_BRANCH_REACTIVATED: 'CLIENT_BRANCH_REACTIVATED',
 };
 
 export const CLIENT_LOOKUP_KINDS = {
@@ -630,6 +639,8 @@ export function buildClientDisplayName(client) {
 export function toClientSummary(client, options = {}) {
   const activeRegistrationCount = options.activeRegistrationCount ?? 0;
   const registrationCount = options.registrationCount ?? 0;
+  const activeBranchCount = options.activeBranchCount ?? 0;
+  const branchCount = options.branchCount ?? 0;
   // Fonte unica: tabela join client_commercial_user. Expose duas formas:
   //  - commercialUsers: lista completa (consumida pela UI multi-user da F3)
   //  - commercialUser: primeiro entry derivado (compat singular ate F3 ser
@@ -641,6 +652,11 @@ export function toClientSummary(client, options = {}) {
         .map((user) => ({ id: user.id, fullName: user.fullName }))
     : [];
   const commercialUser = commercialUsers[0] ?? null;
+  const branches = Array.isArray(client.branches)
+    ? client.branches.map((branch) =>
+        toClientBranchSummary({ ...branch, clientId: branch.clientId ?? client.id })
+      )
+    : [];
 
   return {
     id: client.id,
@@ -661,6 +677,9 @@ export function toClientSummary(client, options = {}) {
     commercialUsers,
     registrationCount,
     activeRegistrationCount,
+    branches,
+    branchCount,
+    activeBranchCount,
     primaryCity: options.primaryCity ?? null,
     primaryState: options.primaryState ?? null,
     createdAt: toIsoString(client.createdAt),
@@ -683,6 +702,32 @@ export function toClientRegistrationSummary(registration) {
     complement: registration.complement ?? null,
     createdAt: toIsoString(registration.createdAt),
     updatedAt: toIsoString(registration.updatedAt),
+  };
+}
+
+export function toClientBranchSummary(branch) {
+  return {
+    id: branch.id,
+    clientId: branch.clientId,
+    name: branch.name ?? null,
+    isPrimary: branch.isPrimary === true,
+    code: branch.code,
+    cnpj: branch.cnpj ?? null,
+    cnpjOrder: branch.cnpjOrder ?? null,
+    legalName: branch.legalName ?? null,
+    tradeName: branch.tradeName ?? null,
+    phone: branch.phone ?? null,
+    addressLine: branch.addressLine ?? null,
+    district: branch.district ?? null,
+    city: branch.city ?? null,
+    state: branch.state ?? null,
+    postalCode: branch.postalCode ?? null,
+    complement: branch.complement ?? null,
+    registrationNumber: branch.registrationNumber ?? null,
+    registrationType: branch.registrationType ?? null,
+    status: branch.status,
+    createdAt: toIsoString(branch.createdAt),
+    updatedAt: toIsoString(branch.updatedAt),
   };
 }
 

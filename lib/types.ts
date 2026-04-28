@@ -24,6 +24,7 @@ export type ClassificationType = 'PREPARADO' | 'LOW_CAFF' | 'BICA';
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientRegistrationStatus = 'ACTIVE' | 'INACTIVE';
+export type ClientBranchStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientLookupKind = 'owner' | 'buyer' | 'any';
 export type ClientAuditEventType =
   | 'CLIENT_CREATED'
@@ -173,8 +174,35 @@ export interface ClientSummary {
   commercialUsers: { id: string; fullName: string }[];
   registrationCount: number;
   activeRegistrationCount: number;
+  branches: ClientBranchSummary[];
+  branchCount: number;
+  activeBranchCount: number;
   primaryCity: string | null;
   primaryState: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface ClientBranchSummary {
+  id: string;
+  clientId: string;
+  name: string | null;
+  isPrimary: boolean;
+  code: number;
+  cnpj: string | null;
+  cnpjOrder: string | null;
+  legalName: string | null;
+  tradeName: string | null;
+  phone: string | null;
+  addressLine: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  complement: string | null;
+  registrationNumber: string | null;
+  registrationType: string | null;
+  status: ClientBranchStatus;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -218,6 +246,7 @@ export interface ClientLookupResponse {
 
 export interface ClientDetailResponse extends ClientResponse {
   registrations: ClientRegistrationSummary[];
+  branches: ClientBranchSummary[];
 }
 
 export interface ClientRegistrationMutationResponse {

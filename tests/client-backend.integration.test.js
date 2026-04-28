@@ -472,6 +472,275 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  // ----------------------------------------------------------------------
+  // F5.1 — dual-write registration <-> client_branch + leitura paralela
+  // ----------------------------------------------------------------------
+
+  test('F5.1: createRegistration dual-write cria branch com mesmo id e isPrimary correto', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const registration = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+
+    assert.equal(registration.status, 201);
+    const registrationId = registration.body.registration.id;
+
+    const branch = await prisma.clientBranch.findUnique({ where: { id: registrationId } });
+    assert.ok(branch, 'branch deve existir com mesmo id da registration');
+    assert.equal(branch.clientId, clientId);
+    assert.equal(branch.city, 'Varginha');
+    assert.equal(branch.state, 'MG');
+    assert.equal(branch.registrationNumber, '1100440010099');
+    assert.equal(branch.status, 'ACTIVE');
+    // primeira branch -> isPrimary true e code 1
+    assert.equal(branch.isPrimary, true);
+    assert.equal(branch.code, 1);
+  });
+
+  test('F5.1: segundo createRegistration cria branch nao-primary com code crescente', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const reg1 = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg1.status, 201);
+
+    const reg2 = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '2200550020088',
+          registrationType: 'estadual',
+          addressLine: 'Rua B, 2',
+          district: 'Centro',
+          city: 'Belo Horizonte',
+          state: 'MG',
+          postalCode: '30000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg2.status, 201);
+
+    const branches = await prisma.clientBranch.findMany({
+      where: { clientId },
+      orderBy: { code: 'asc' },
+    });
+    assert.equal(branches.length, 2);
+    assert.equal(branches[0].isPrimary, true);
+    assert.equal(branches[0].code, 1);
+    assert.equal(branches[1].isPrimary, false);
+    assert.equal(branches[1].code, 2);
+  });
+
+  test('F5.1: updateRegistration dual-write reflete mudancas na branch', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const reg = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg.status, 201);
+
+    const updated = await api.updateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: {
+          city: 'Tres Pontas',
+          district: 'Bairro Novo',
+          reasonText: 'mudanca de filial',
+        },
+      })
+    );
+    assert.equal(updated.status, 200);
+
+    const branch = await prisma.clientBranch.findUnique({
+      where: { id: reg.body.registration.id },
+    });
+    assert.equal(branch.city, 'Tres Pontas');
+    assert.equal(branch.district, 'Bairro Novo');
+  });
+
+  test('F5.1: inactivate/reactivate registration espelha status na branch', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const reg = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg.status, 201);
+
+    const inactivated = await api.inactivateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: { reasonText: 'teste de inativacao' },
+      })
+    );
+    assert.equal(inactivated.status, 200);
+
+    let branch = await prisma.clientBranch.findUnique({
+      where: { id: reg.body.registration.id },
+    });
+    assert.equal(branch.status, 'INACTIVE');
+
+    const reactivated = await api.reactivateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: { reasonText: 'reativando' },
+      })
+    );
+    assert.equal(reactivated.status, 200);
+
+    branch = await prisma.clientBranch.findUnique({
+      where: { id: reg.body.registration.id },
+    });
+    assert.equal(branch.status, 'ACTIVE');
+  });
+
+  test('F5.1: getClient retorna branches[] em paralelo a registrations[]', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const reg = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg.status, 201);
+
+    const detail = await api.getClient(buildInput({ params: { clientId } }));
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.registrations.length, 1);
+    assert.ok(Array.isArray(detail.body.branches), 'branches precisa estar no payload');
+    assert.equal(detail.body.branches.length, 1);
+    const branch = detail.body.branches[0];
+    assert.equal(branch.id, reg.body.registration.id);
+    assert.equal(branch.clientId, clientId);
+    assert.equal(branch.city, 'Varginha');
+    assert.equal(branch.state, 'MG');
+    assert.equal(branch.isPrimary, true);
+    assert.equal(branch.code, 1);
+
+    // ClientSummary tambem expoe branches/branchCount
+    assert.ok(Array.isArray(detail.body.client.branches));
+    assert.equal(detail.body.client.activeBranchCount, 1);
+    assert.equal(detail.body.client.branchCount, 1);
+  });
+
+  test('F5.1: dual-write registra eventos de audit CLIENT_BRANCH_*', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+
+    const reg = await api.createClientRegistration(
+      buildInput({
+        params: { clientId },
+        body: {
+          registrationNumber: '1100440010099',
+          registrationType: 'estadual',
+          addressLine: 'Rua A, 1',
+          district: 'Centro',
+          city: 'Varginha',
+          state: 'MG',
+          postalCode: '37000-000',
+          complement: null,
+        },
+      })
+    );
+    assert.equal(reg.status, 201);
+
+    await api.updateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: { city: 'Tres Pontas', reasonText: 'update' },
+      })
+    );
+
+    await api.inactivateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: { reasonText: 'inactivate' },
+      })
+    );
+
+    await api.reactivateClientRegistration(
+      buildInput({
+        params: { clientId, registrationId: reg.body.registration.id },
+        body: { reasonText: 'reactivate' },
+      })
+    );
+
+    const audit = await api.listClientAuditEvents(
+      buildInput({ params: { clientId }, query: { limit: 20 } })
+    );
+    assert.equal(audit.status, 200);
+    const eventTypes = audit.body.items.map((item) => item.eventType);
+    assert.ok(eventTypes.includes('CLIENT_BRANCH_CREATED'));
+    assert.ok(eventTypes.includes('CLIENT_BRANCH_UPDATED'));
+    assert.ok(eventTypes.includes('CLIENT_BRANCH_INACTIVATED'));
+    assert.ok(eventTypes.includes('CLIENT_BRANCH_REACTIVATED'));
+  });
+
   test('duplicate document and duplicate registration number return 409', async () => {
     const firstClient = await createPjClient();
     assert.equal(firstClient.status, 201);

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { HttpError } from '../contracts/errors.js';
 import {
   CLIENT_AUDIT_EVENT_TYPES,
+  CLIENT_BRANCH_STATUSES,
   CLIENT_LOOKUP_KINDS,
   CLIENT_REGISTRATION_STATUSES,
   CLIENT_STATUSES,
@@ -26,6 +27,7 @@ import {
   readLimitQuery,
   readPageQuery,
   toClientAuditEventResponse,
+  toClientBranchSummary,
   toClientRegistrationSummary,
   toClientSummary,
 } from './client-support.js';
@@ -42,6 +44,30 @@ const COMMERCIAL_USERS_SELECT = {
     user: COMMERCIAL_USER_SELECT,
   },
   orderBy: { createdAt: 'asc' },
+};
+
+const CLIENT_BRANCH_SUMMARY_SELECT = {
+  id: true,
+  clientId: true,
+  name: true,
+  isPrimary: true,
+  code: true,
+  cnpj: true,
+  cnpjOrder: true,
+  legalName: true,
+  tradeName: true,
+  phone: true,
+  addressLine: true,
+  district: true,
+  city: true,
+  state: true,
+  postalCode: true,
+  complement: true,
+  registrationNumber: true,
+  registrationType: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
 };
 
 const CLIENT_SUMMARY_SELECT = {
@@ -72,9 +98,15 @@ const CLIENT_SUMMARY_SELECT = {
     },
     orderBy: { createdAt: 'asc' },
   },
+  branches: {
+    where: { status: CLIENT_BRANCH_STATUSES.ACTIVE },
+    select: CLIENT_BRANCH_SUMMARY_SELECT,
+    orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
+  },
   _count: {
     select: {
       registrations: true,
+      branches: true,
     },
   },
 };
@@ -88,6 +120,7 @@ const CLIENT_DETAIL_SELECT = {
   tradeName: true,
   cpf: true,
   cnpj: true,
+  documentCanonical: true,
   phone: true,
   isBuyer: true,
   isSeller: true,
@@ -98,6 +131,16 @@ const CLIENT_DETAIL_SELECT = {
   registrations: {
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   },
+  branches: {
+    select: CLIENT_BRANCH_SUMMARY_SELECT,
+    orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
+  },
+  _count: {
+    select: {
+      registrations: true,
+      branches: true,
+    },
+  },
 };
 
 const REGISTRATION_SELECT = {
@@ -105,6 +148,7 @@ const REGISTRATION_SELECT = {
   clientId: true,
   status: true,
   registrationNumber: true,
+  registrationNumberCanonical: true,
   registrationType: true,
   addressLine: true,
   district: true,
@@ -115,6 +159,13 @@ const REGISTRATION_SELECT = {
   createdAt: true,
   updatedAt: true,
 };
+
+function deriveCnpjOrder(documentCanonical) {
+  if (typeof documentCanonical !== 'string' || documentCanonical.length !== 14) {
+    return null;
+  }
+  return documentCanonical.slice(8, 12);
+}
 
 function buildClientWhereFromSearch(search) {
   if (!search) {
@@ -173,9 +224,22 @@ function mapClientRow(row) {
         : 0;
   const primaryRegistration = activeRegistrations[0] ?? null;
 
+  const activeBranches = Array.isArray(row.branches)
+    ? row.branches.filter((branch) => branch.status === CLIENT_BRANCH_STATUSES.ACTIVE)
+    : [];
+  const activeBranchCount = activeBranches.length;
+  const branchCount =
+    typeof row?._count?.branches === 'number'
+      ? row._count.branches
+      : Array.isArray(row.branches)
+        ? row.branches.length
+        : 0;
+
   return toClientSummary(row, {
     activeRegistrationCount,
     registrationCount,
+    activeBranchCount,
+    branchCount,
     primaryCity: primaryRegistration?.city ?? null,
     primaryState: primaryRegistration?.state ?? null,
   });
@@ -546,6 +610,101 @@ export class ClientService {
     return registration;
   }
 
+  // F5.1: dual-write registration -> client_branch.
+  // O id do branch espelha o id da registration (convencao herdada do
+  // backfill F5.0). isPrimary so e marcado para o primeiro branch do
+  // client; subsequentes herdam isPrimary=false e code=max+1. cnpj e
+  // cnpjOrder vem do client (cada filial pode ter o proprio CNPJ no
+  // futuro, mas em F5.1 espelhamos o CNPJ do client).
+  async syncBranchFromRegistration(tx, client, registration, action) {
+    const branchId = registration.id;
+    const documentCanonical = client.documentCanonical ?? null;
+    const cnpjOrder = deriveCnpjOrder(documentCanonical);
+
+    if (action === 'create') {
+      const aggregate = await tx.clientBranch.aggregate({
+        where: { clientId: client.id },
+        _max: { code: true },
+        _count: { _all: true },
+      });
+      const isFirst = (aggregate._count?._all ?? 0) === 0;
+      const nextCode = (aggregate._max?.code ?? 0) + 1;
+
+      // Apenas a branch primaria herda o CNPJ do client (matriz). Filiais
+      // subsequentes ficam com cnpj nulo ate serem editadas via UI — o
+      // unique parcial uq_client_branch_cnpj nao tolera duplicatas.
+      return tx.clientBranch.create({
+        data: {
+          id: branchId,
+          clientId: client.id,
+          isPrimary: isFirst,
+          code: nextCode,
+          cnpj: isFirst ? (client.cnpj ?? null) : null,
+          cnpjOrder: isFirst ? cnpjOrder : null,
+          phone: client.phone ?? null,
+          addressLine: registration.addressLine,
+          district: registration.district,
+          city: registration.city,
+          state: registration.state,
+          postalCode: registration.postalCode,
+          complement: registration.complement ?? null,
+          registrationNumber: registration.registrationNumber,
+          registrationNumberCanonical: registration.registrationNumberCanonical,
+          registrationType: registration.registrationType,
+          status: registration.status,
+        },
+      });
+    }
+
+    if (action === 'update') {
+      // Se a branch existe (caso normal pos-backfill), atualiza os campos
+      // espelhados. Se nao existe (registration criada entre F5.0 e F5.1),
+      // cria defensivamente — wizard tambem cobre, mas dual-write resilientes.
+      const existing = await tx.clientBranch.findUnique({
+        where: { id: branchId },
+        select: { id: true },
+      });
+
+      const data = {
+        addressLine: registration.addressLine,
+        district: registration.district,
+        city: registration.city,
+        state: registration.state,
+        postalCode: registration.postalCode,
+        complement: registration.complement ?? null,
+        registrationNumber: registration.registrationNumber,
+        registrationNumberCanonical: registration.registrationNumberCanonical,
+        registrationType: registration.registrationType,
+      };
+
+      if (existing) {
+        return tx.clientBranch.update({ where: { id: branchId }, data });
+      }
+
+      return this.syncBranchFromRegistration(tx, client, registration, 'create');
+    }
+
+    if (action === 'inactivate' || action === 'reactivate') {
+      const targetStatus = action === 'inactivate' ? 'INACTIVE' : 'ACTIVE';
+      const result = await tx.clientBranch.updateMany({
+        where: { id: branchId },
+        data: { status: targetStatus },
+      });
+      if (result.count === 0) {
+        // Branch nao existe (caso defensivo) — cria com o status final.
+        return this.syncBranchFromRegistration(
+          tx,
+          client,
+          { ...registration, status: targetStatus },
+          'create'
+        );
+      }
+      return null;
+    }
+
+    return null;
+  }
+
   async assertDocumentAvailable(tx, documentCanonical, { excludeClientId = null } = {}) {
     if (!documentCanonical) {
       return;
@@ -705,6 +864,11 @@ export class ClientService {
         registrations: client.registrations.map((registration) =>
           toClientRegistrationSummary(registration)
         ),
+        branches: Array.isArray(client.branches)
+          ? client.branches.map((branch) =>
+              toClientBranchSummary({ ...branch, clientId: branch.clientId ?? client.id })
+            )
+          : [],
       };
     });
   }
@@ -1644,6 +1808,18 @@ export class ClientService {
         },
       });
 
+      const branch = await this.syncBranchFromRegistration(tx, client, created, 'create');
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_CREATED,
+        payload: {
+          branchId: branch.id,
+          registrationId: created.id,
+          after: toClientBranchSummary({ ...branch, clientId: client.id }),
+        },
+      });
+
       return {
         client: {
           id: client.id,
@@ -1692,6 +1868,19 @@ export class ClientService {
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_UPDATED,
         reasonText: normalized.reasonText,
         payload: auditPayload,
+      });
+
+      const branch = await this.syncBranchFromRegistration(tx, client, updated, 'update');
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_UPDATED,
+        reasonText: normalized.reasonText,
+        payload: {
+          branchId: branch?.id ?? updated.id,
+          registrationId: updated.id,
+          diff: auditPayload.diff,
+        },
       });
 
       return {
@@ -1743,6 +1932,20 @@ export class ClientService {
         },
       });
 
+      await this.syncBranchFromRegistration(tx, client, updated, 'inactivate');
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_INACTIVATED,
+        reasonText,
+        payload: {
+          branchId: updated.id,
+          registrationId: updated.id,
+          before: { status: 'ACTIVE' },
+          after: { status: 'INACTIVE' },
+        },
+      });
+
       return {
         client: {
           id: client.id,
@@ -1787,6 +1990,20 @@ export class ClientService {
           after: {
             status: updated.status,
           },
+        },
+      });
+
+      await this.syncBranchFromRegistration(tx, client, updated, 'reactivate');
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_REACTIVATED,
+        reasonText,
+        payload: {
+          branchId: updated.id,
+          registrationId: updated.id,
+          before: { status: 'INACTIVE' },
+          after: { status: 'ACTIVE' },
         },
       });
 
