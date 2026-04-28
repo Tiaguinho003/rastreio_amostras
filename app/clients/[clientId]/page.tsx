@@ -30,6 +30,7 @@ import {
 } from '../../../lib/client-field-formatters';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
+import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import type {
   ClientPersonType,
   ClientRegistrationSummary,
@@ -107,7 +108,7 @@ function clientSummaryToForm(client: ClientSummary) {
     phone: maskPhoneInput(client.phone ?? ''),
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
-    commercialUserId: client.commercialUser?.id ?? (null as string | null),
+    commercialUserIds: (client.commercialUsers ?? []).map((u) => u.id),
     reasonText: '',
   };
 }
@@ -203,8 +204,8 @@ export default function ClientDetailPage() {
       isBuyer: false,
       isSeller: true,
       status: 'ACTIVE',
-      commercialUserId: null,
       commercialUser: null,
+      commercialUsers: [],
     } as unknown as ClientSummary)
   );
   const [savingClient, setSavingClient] = useState(false);
@@ -704,7 +705,7 @@ export default function ClientDetailPage() {
         data.phone = null;
       }
 
-      data.commercialUserId = editClientForm.commercialUserId;
+      data.commercialUserIds = editClientForm.commercialUserIds;
 
       await updateClient(session, clientId, data);
       setEditClientSuccess(true);
@@ -1064,10 +1065,23 @@ export default function ClientDetailPage() {
                           </span>
                         </div>
                         <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Usuario responsavel</span>
-                          <span className="sdv-info-value">
-                            {client.commercialUser?.fullName ?? '\u2014'}
+                          <span className="sdv-info-label">
+                            Respons\u00e1veis comerciais
+                            {client.commercialUsers.length > 0
+                              ? ` (${client.commercialUsers.length})`
+                              : ''}
                           </span>
+                          <div className="sdv-commercial-users">
+                            {client.commercialUsers.length === 0 ? (
+                              <span className="sdv-info-value">{'\u2014'}</span>
+                            ) : (
+                              client.commercialUsers.map((u) => (
+                                <span key={u.id} className="sdv-commercial-user-chip">
+                                  {u.fullName}
+                                </span>
+                              ))
+                            )}
+                          </div>
                         </div>
                         <div className="sdv-info-sep" />
                         <div className="sdv-info-item is-full">
@@ -1638,33 +1652,20 @@ export default function ClientDetailPage() {
                   />
                 </label>
 
-                <label className="app-modal-field">
-                  <span className="app-modal-label">Usuario responsavel</span>
-                  <select
-                    className="app-modal-input"
-                    value={editClientForm.commercialUserId ?? ''}
-                    disabled={savingClient || loadingUsers}
-                    onChange={(e) =>
-                      setEditClientForm((c) => ({
-                        ...c,
-                        commercialUserId: e.target.value || null,
-                      }))
-                    }
-                  >
-                    <option value="">
-                      {loadingUsers ? 'Carregando usuarios...' : 'Sem vinculo'}
-                    </option>
-                    {editClientForm.commercialUserId &&
-                    !users.some((u) => u.id === editClientForm.commercialUserId) ? (
-                      <option value={editClientForm.commercialUserId}>Usuario indisponivel</option>
-                    ) : null}
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <UserMultiSelect
+                  label="Responsáveis comerciais"
+                  value={editClientForm.commercialUserIds}
+                  onChange={(next) => setEditClientForm((c) => ({ ...c, commercialUserIds: next }))}
+                  users={users}
+                  loading={loadingUsers}
+                  disabled={savingClient}
+                  placeholder="Selecione 1+ responsáveis comerciais"
+                  errorMessage={
+                    editClientForm.commercialUserIds.length === 0 && client?.status === 'ACTIVE'
+                      ? 'Cliente ativo precisa de pelo menos 1 responsável'
+                      : undefined
+                  }
+                />
 
                 <div className="client-detail-modal-flags">
                   <label className="client-detail-modal-flag">

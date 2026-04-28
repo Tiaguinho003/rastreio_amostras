@@ -4674,6 +4674,324 @@ button:disabled {
   line-height: 1;
 }
 
+/* === UserAvatarStack (Fase 3 multi-user) === */
+.user-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.user-avatar-stack-empty {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.user-avatar-stack__item {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--avatar-color, #1f5d43);
+  color: #fff;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.user-avatar-stack__item + .user-avatar-stack__item,
+.user-avatar-stack__item + .user-avatar-stack__overflow,
+.user-avatar-stack__overflow + .user-avatar-stack__item {
+  margin-left: -8px;
+}
+
+.user-avatar-stack__overflow {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  margin-left: -8px;
+}
+
+.user-avatar-stack.is-size-sm .user-avatar-stack__item,
+.user-avatar-stack.is-size-sm .user-avatar-stack__overflow {
+  width: 26px;
+  height: 26px;
+  font-size: 10px;
+}
+
+.user-avatar-stack.is-size-md .user-avatar-stack__item,
+.user-avatar-stack.is-size-md .user-avatar-stack__overflow {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.user-avatar-stack__initials {
+  line-height: 1;
+}
+
+/* === UserMultiSelect (Fase 3) === */
+.user-multi-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-multi-select {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.user-multi-select.is-open {
+  border-color: #1f5d43;
+  box-shadow: 0 0 0 3px rgba(31, 93, 67, 0.12);
+}
+
+.user-multi-select.is-field-error {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.user-multi-select.is-disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.user-multi-select__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 38px;
+  align-items: center;
+  cursor: text;
+}
+
+.user-multi-select__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #064e3b;
+  animation: user-multi-select-fade-in 0.18s ease-out;
+}
+
+@keyframes user-multi-select-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.user-multi-select__chip-label {
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-multi-select__chip-role {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.user-multi-select__chip-role.is-role-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.user-multi-select__chip-role.is-role-commercial {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.user-multi-select__chip-role.is-role-classifier {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.user-multi-select__chip-role.is-role-registration {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.user-multi-select__chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #064e3b;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.user-multi-select__chip-remove:hover {
+  background: rgba(6, 78, 59, 0.12);
+}
+
+.user-multi-select__chip-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.user-multi-select__input {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 14px;
+  padding: 4px 2px;
+  color: #1a1a1a;
+}
+
+.user-multi-select__input::placeholder {
+  color: #9ca3af;
+}
+
+.user-multi-select__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 50;
+}
+
+.user-multi-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  color: #1a1a1a;
+  transition: background 0.12s ease;
+}
+
+.user-multi-select__option:last-child {
+  border-bottom: 0;
+}
+
+.user-multi-select__option:hover,
+.user-multi-select__option:focus-visible {
+  background: #f9fafb;
+  outline: 0;
+}
+
+.user-multi-select__option-name {
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-multi-select__option-role {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 8px;
+  flex-shrink: 0;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.user-multi-select__option-role.is-role-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.user-multi-select__option-role.is-role-commercial {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.user-multi-select__option-role.is-role-classifier {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.user-multi-select__option-role.is-role-registration {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.user-multi-select__empty {
+  padding: 14px 12px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Chips no detalhe do client (modo view) */
+.sdv-commercial-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sdv-commercial-user-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #064e3b;
+}
+
 .cv2-card-content {
   flex: 1;
   min-width: 0;

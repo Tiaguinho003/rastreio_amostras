@@ -11,6 +11,7 @@ export interface UserLookupItem {
   id: string;
   fullName: string;
   username: string;
+  role?: UserRole;
 }
 
 export interface UserLookupResponse {
@@ -169,6 +170,7 @@ export interface ClientSummary {
   isSeller: boolean;
   status: ClientStatus;
   commercialUser: { id: string; fullName: string } | null;
+  commercialUsers: { id: string; fullName: string }[];
   registrationCount: number;
   activeRegistrationCount: number;
   primaryCity: string | null;

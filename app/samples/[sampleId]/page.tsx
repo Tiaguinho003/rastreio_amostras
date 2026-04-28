@@ -578,6 +578,7 @@ function mapSampleOwnerClientToSummary(
     isSeller: client.isSeller,
     status: client.status,
     commercialUser: null,
+    commercialUsers: [],
     registrationCount: 0,
     activeRegistrationCount: 0,
     primaryCity: null,

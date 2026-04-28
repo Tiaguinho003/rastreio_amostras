@@ -14,6 +14,7 @@ import {
 
 import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
+import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
@@ -725,6 +726,9 @@ function ClientsPage() {
                         ) : null}
                         {!client.isBuyer && !client.isSeller ? (
                           <span className="cv2-card-role is-none">Sem papel</span>
+                        ) : null}
+                        {client.commercialUsers && client.commercialUsers.length > 0 ? (
+                          <UserAvatarStack users={client.commercialUsers} size="sm" />
                         ) : null}
                       </div>
                     </div>

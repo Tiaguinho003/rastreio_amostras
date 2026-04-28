@@ -6,6 +6,7 @@ import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-c
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
+import { UserMultiSelect } from '../users/UserMultiSelect';
 
 type ClientQuickCreateModalProps = {
   session: SessionData;
@@ -40,7 +41,7 @@ function buildInitialForm({
     phone: '',
     isBuyer: initialIsBuyer,
     isSeller: initialIsSeller,
-    commercialUserId: null as string | null,
+    commercialUserIds: [] as string[],
   };
 }
 
@@ -136,9 +137,10 @@ export function ClientQuickCreateModal({
     form.phone.replace(/\D/g, '').length === 0 ||
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
+  const hasCommercialUser = form.commercialUserIds.length > 0;
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid;
-  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid]);
+    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid && hasCommercialUser;
+  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid, hasCommercialUser]);
 
   if (!open) {
     return null;
@@ -156,6 +158,7 @@ export function ClientQuickCreateModal({
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
+  const hasCommercialUserError = showFieldErrors && !hasCommercialUser;
 
   function handleCloseAndReset() {
     if (saving) {
@@ -197,7 +200,7 @@ export function ClientQuickCreateModal({
         phone: form.phone,
         isBuyer: form.isBuyer,
         isSeller: form.isSeller,
-        commercialUserId: form.commercialUserId,
+        commercialUserIds: form.commercialUserIds,
       });
 
       setSaving(false);
@@ -391,31 +394,25 @@ export function ClientQuickCreateModal({
                 id="client-quick-create-group-responsavel"
                 className="client-quick-create-group-title"
               >
-                Usuario responsavel
+                Responsáveis comerciais
               </p>
               <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className="client-quick-create-field">
-                  Usuario responsavel
-                  <select
-                    value={form.commercialUserId ?? ''}
-                    disabled={saving || loadingUsers}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        commercialUserId: event.target.value || null,
-                      }))
-                    }
-                  >
-                    <option value="">
-                      {loadingUsers ? 'Carregando usuarios...' : 'Sem vinculo'}
-                    </option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <UserMultiSelect
+                  label="Selecione 1 ou mais responsáveis"
+                  value={form.commercialUserIds}
+                  onChange={(next) =>
+                    setForm((current) => ({ ...current, commercialUserIds: next }))
+                  }
+                  users={users}
+                  loading={loadingUsers}
+                  disabled={saving}
+                  placeholder="Selecione 1+ responsáveis comerciais"
+                  errorMessage={
+                    hasCommercialUserError
+                      ? 'Selecione pelo menos 1 responsável comercial'
+                      : undefined
+                  }
+                />
               </div>
             </section>
 

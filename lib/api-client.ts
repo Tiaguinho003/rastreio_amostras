@@ -347,6 +347,7 @@ export function createClient(
     isBuyer: boolean;
     isSeller: boolean;
     commercialUserId?: string | null;
+    commercialUserIds?: string[];
   }
 ) {
   return request<ClientResponse>('/clients', {
@@ -370,6 +371,7 @@ export function updateClient(
     isBuyer?: boolean;
     isSeller?: boolean;
     commercialUserId?: string | null;
+    commercialUserIds?: string[];
     reasonText: string;
   }
 ) {
@@ -377,6 +379,59 @@ export function updateClient(
     method: 'PATCH',
     session,
     body: data,
+  });
+}
+
+export function addCommercialUserToClient(session: SessionData, clientId: string, userId: string) {
+  return request<ClientResponse>(`/clients/${clientId}/users`, {
+    method: 'POST',
+    session,
+    body: { userId },
+  });
+}
+
+export function removeCommercialUserFromClient(
+  session: SessionData,
+  clientId: string,
+  userId: string
+) {
+  return request<ClientResponse>(`/clients/${clientId}/users/${userId}`, {
+    method: 'DELETE',
+    session,
+  });
+}
+
+export function bulkAddCommercialUser(
+  session: SessionData,
+  data: { clientIds: string[]; userId: string }
+) {
+  return request<{
+    userId: string;
+    totalRequested: number;
+    added: number;
+    alreadyLinked: number;
+  }>('/clients/bulk-add-commercial-user', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function getUserClientsImpact(session: SessionData, userId: string) {
+  return request<{
+    userId: string;
+    totalLinks: number;
+    soleCustodianOf: { id: string; code: number; displayName: string; status: string }[];
+    coCustodianOf: {
+      id: string;
+      code: number;
+      displayName: string;
+      status: string;
+      otherUsers: { id: string; fullName: string }[];
+    }[];
+  }>(`/users/${userId}/clients-impact`, {
+    method: 'GET',
+    session,
   });
 }
 

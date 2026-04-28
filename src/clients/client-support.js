@@ -630,13 +630,17 @@ export function buildClientDisplayName(client) {
 export function toClientSummary(client, options = {}) {
   const activeRegistrationCount = options.activeRegistrationCount ?? 0;
   const registrationCount = options.registrationCount ?? 0;
-  // Fonte unica: tabela join client_commercial_user. Para compat com a UI
-  // atual (singular), exposta a primeira entrada por createdAt asc. Multi-user
-  // sera exposto como array em Fase 2.
-  const sourceUser = Array.isArray(client.commercialUsers)
-    ? (client.commercialUsers[0]?.user ?? null)
-    : null;
-  const commercialUser = sourceUser ? { id: sourceUser.id, fullName: sourceUser.fullName } : null;
+  // Fonte unica: tabela join client_commercial_user. Expose duas formas:
+  //  - commercialUsers: lista completa (consumida pela UI multi-user da F3)
+  //  - commercialUser: primeiro entry derivado (compat singular ate F3 ser
+  //    100% adotado em todos os consumidores; nao quebra UIs antigas).
+  const commercialUsers = Array.isArray(client.commercialUsers)
+    ? client.commercialUsers
+        .map((entry) => entry.user)
+        .filter(Boolean)
+        .map((user) => ({ id: user.id, fullName: user.fullName }))
+    : [];
+  const commercialUser = commercialUsers[0] ?? null;
 
   return {
     id: client.id,
@@ -654,6 +658,7 @@ export function toClientSummary(client, options = {}) {
     isSeller: client.isSeller,
     status: client.status,
     commercialUser,
+    commercialUsers,
     registrationCount,
     activeRegistrationCount,
     primaryCity: options.primaryCity ?? null,
