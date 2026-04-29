@@ -196,7 +196,7 @@ if (!databaseUrl || !databaseReachable) {
     return ownerClient;
   }
 
-  async function moveLegacySampleToRegistrationConfirmed(sampleId) {
+  async function seedRegistrationConfirmedNoOwner(sampleId) {
     await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
 
     await commandService.startRegistration(
@@ -724,9 +724,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(registrationConfirmed?.payload?.ownerBranchId, ownerRegistration.branch.id);
   });
 
-  test('POST /registration/update can attach structured owner to a legacy sample and clear previous registration on owner change', async () => {
+  test('POST /registration/update can attach structured owner to a registered sample and clear previous registration on owner change', async () => {
     const sampleId = randomUUID();
-    await moveLegacySampleToRegistrationConfirmed(sampleId);
+    await seedRegistrationConfirmedNoOwner(sampleId);
 
     const firstOwner = await createSellerClient();
     const firstRegistration = await createClientRegistration(firstOwner.client.id);
@@ -1885,7 +1885,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('POST /registration/update updates declared snapshot and enforces version conflict', async () => {
     const sampleId = randomUUID();
-    await moveLegacySampleToRegistrationConfirmed(sampleId);
+    await seedRegistrationConfirmedNoOwner(sampleId);
 
     const updated = await api.updateRegistration(
       buildInput({

@@ -43,6 +43,7 @@ enum IdempotencyScope {
   CLASSIFICATION_COMPLETE
   COMMERCIAL_STATUS_UPDATE
   INVALIDATE
+  /// deprecated F8 — dropped via cutover in next PR (F8B)
   LEGACY_SKELETON_CREATE
 }
 
@@ -108,6 +109,9 @@ enum SampleMovementStatus {
   CANCELLED
 }
 
+/// deprecated F8 — drop in next PR (F8B). Mantido apenas para compat
+/// do schema enquanto o Prisma Client da revisao em prod ainda referencia
+/// o tipo (campo Sample.source marcado como @ignore desde F8A).
 enum SampleSource {
   LIVE
   LEGACY_BACKFILL
@@ -236,7 +240,9 @@ model Sample {
   latestColorAspect           String?   @map("latest_color_aspect")
   latestNotes                 String?   @map("latest_notes")
   classifiedAt                DateTime? @db.Timestamptz(6) @map("classified_at")
-  source                      SampleSource @default(LIVE) @map("source")
+  /// deprecated F8 — drop in next PR (F8B). @ignore faz Prisma Client
+  /// nao incluir em SELECT/INSERT, evitando erro durante DROP COLUMN.
+  source                      SampleSource @default(LIVE) @map("source") @ignore
   updatedAt                   DateTime  @updatedAt @db.Timestamptz(6) @map("updated_at")
   createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
 

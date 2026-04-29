@@ -256,12 +256,6 @@ function buildSampleCreateData(event) {
     lastEventSequence: event.sequenceNumber,
   };
 
-  if (event.eventType === 'SAMPLE_RECEIVED' && event.payload?.legacy) {
-    data.source = event.payload.legacy.source;
-    data.internalLotNumber = event.payload.legacy.internalLotNumber;
-    data.createdAt = event.occurredAt;
-  }
-
   return data;
 }
 
@@ -529,13 +523,11 @@ export class EventContractDbService {
 
         const eventRecord = await tx.insertEvent(event);
 
-        const isLegacySkipped = event.payload?.legacy?.skipped === true;
-
-        if (PRINT_REQUEST_EVENTS.has(event.eventType) && !isLegacySkipped) {
+        if (PRINT_REQUEST_EVENTS.has(event.eventType)) {
           await tx.createPrintJobFromRequestedEvent(event, eventRecord.eventId);
         }
 
-        if (PRINT_RESULT_EVENTS.has(event.eventType) && !isLegacySkipped) {
+        if (PRINT_RESULT_EVENTS.has(event.eventType)) {
           const completedJob = await tx.completePrintJobFromResultEvent(event, eventRecord.eventId);
           if (!completedJob) {
             throw new HttpError(
