@@ -241,6 +241,23 @@ export class ClientService {
     });
   }
 
+  // F7.3: enforce PJ <= 1 active branch (regra F7). Espelhado no trigger DB
+  // F7.1B `enforce_pj_single_active_branch`. Aqui validamos antes de tocar o
+  // banco para devolver 409 amigavel em vez de check_violation generico.
+  async assertPjBranchLimit(tx, client, { excludeBranchId = null } = {}) {
+    if (!client || client.personType !== CLIENT_PERSON_TYPES.PJ) return;
+    const where = { clientId: client.id, status: CLIENT_BRANCH_STATUSES.ACTIVE };
+    if (excludeBranchId) where.id = { not: excludeBranchId };
+    const activeCount = await tx.clientBranch.count({ where });
+    if (activeCount >= 1) {
+      throw new HttpError(
+        409,
+        'Pessoa juridica admite apenas uma filial ativa. Inative ou exclua a existente antes de criar/reativar outra.',
+        { code: 'PJ_BRANCH_LIMIT' }
+      );
+    }
+  }
+
   // F5.2: owner binding agora valida ownerBranchId (req) + ownerClientId (req).
   // C2: ambos sao denormalizados; branch.clientId DEVE ser igual a ownerClientId.
   async resolveOwnerBinding({ ownerClientId, ownerBranchId = null }) {
@@ -711,6 +728,16 @@ export class ClientService {
   async createClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client');
     const { data, commercialUserIds, branches } = normalizeCreateClientInput(input);
+
+    // F7.3: PJ admite no maximo 1 branch (matriz). Para multiplos CNPJs do mesmo
+    // grupo empresarial, criar Clients distintos.
+    if (data.personType === CLIENT_PERSON_TYPES.PJ && branches.length > 1) {
+      throw new HttpError(
+        409,
+        'Pessoa juridica admite apenas uma filial (matriz). Crie um Client distinto para cada CNPJ.',
+        { code: 'PJ_BRANCH_LIMIT' }
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // F5.2: validacao de unicidade dividida — PF: cpf; PJ: cnpj_root.
@@ -1700,6 +1727,9 @@ export class ClientService {
     return this.prisma.$transaction(async (tx) => {
       const client = await this.requireClientById(tx, clientId);
 
+      // F7.3: PJ rejeita 2a branch ATIVA (regra espelhada no trigger F7.1B).
+      await this.assertPjBranchLimit(tx, client);
+
       if (data.cnpj) {
         await this.assertBranchCnpjAvailable(tx, data.cnpj);
       }
@@ -1969,6 +1999,9 @@ export class ClientService {
       if (current.status === CLIENT_BRANCH_STATUSES.ACTIVE) {
         throw new HttpError(409, 'Client branch is already active');
       }
+
+      // F7.3: reativacao em PJ exige zero outras ATIVAS.
+      await this.assertPjBranchLimit(tx, client, { excludeBranchId: current.id });
 
       const updated = await tx.clientBranch.update({
         where: { id: current.id },

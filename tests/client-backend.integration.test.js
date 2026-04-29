@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
 
@@ -86,6 +87,33 @@ if (!databaseUrl || !databaseReachable) {
         },
       })
     );
+  }
+
+  // F7.1B: o trigger enforce_pj_single_active_branch e a validacao service
+  // F7.3 bloqueiam criacao de >1 branch ATIVA em PJ. Para testar comportamentos
+  // que dependem desse estado pre-F7 (auto-promote em inactivate, etc.),
+  // este helper seede uma branch extra direto via Prisma usando o escape
+  // valve. NUNCA usar em codigo de aplicacao — somente em fixtures de teste.
+  async function seedExtraActiveBranchBypassingF7(clientId, data) {
+    const branchId = data.id ?? crypto.randomUUID();
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL app.allow_split_wizard = 'on'`);
+      const aggregate = await tx.clientBranch.aggregate({
+        where: { clientId },
+        _max: { code: true },
+      });
+      const nextCode = (aggregate._max?.code ?? 0) + 1;
+      return tx.clientBranch.create({
+        data: {
+          id: branchId,
+          clientId,
+          isPrimary: false,
+          code: nextCode,
+          status: 'ACTIVE',
+          ...data,
+        },
+      });
+    });
   }
 
   async function createPjClient(overrides = {}) {
@@ -382,7 +410,9 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('POST/PATCH client registrations manage same record and enforce ownership', async () => {
-    const created = await createPjClient();
+    // F7.3: PJ admite 1 branch ativa. Cria sem branches, deixa o createBranch
+    // do test virar a matriz.
+    const created = await createPjClient({ branches: [] });
 
     const registration = await api.createClientBranch(
       buildInput({
@@ -441,7 +471,9 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('GET /clients/:id returns registrations and audit includes registration events', async () => {
-    const created = await createPjClient();
+    // F7.3: PJ admite 1 branch ativa. Cria sem branches, deixa o createBranch
+    // do test virar a matriz.
+    const created = await createPjClient({ branches: [] });
     const registration = await api.createClientBranch(
       buildInput({
         params: { clientId: created.body.client.id },
@@ -536,7 +568,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(branch.code, 1);
   });
 
-  test('F5.1: segundo createRegistration cria branch nao-primary com code crescente', async () => {
+  test('F7.3: criar 2a branch ATIVA em PJ retorna 409 PJ_BRANCH_LIMIT', async () => {
     const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
@@ -572,17 +604,15 @@ if (!databaseUrl || !databaseReachable) {
         },
       })
     );
-    assert.equal(reg2.status, 201);
+    assert.equal(reg2.status, 409);
+    assert.equal(reg2.body?.error?.details?.code, 'PJ_BRANCH_LIMIT');
 
     const branches = await prisma.clientBranch.findMany({
       where: { clientId },
       orderBy: { code: 'asc' },
     });
-    assert.equal(branches.length, 2);
+    assert.equal(branches.length, 1);
     assert.equal(branches[0].isPrimary, true);
-    assert.equal(branches[0].code, 1);
-    assert.equal(branches[1].isPrimary, false);
-    assert.equal(branches[1].code, 2);
   });
 
   test('F5.1: updateRegistration dual-write reflete mudancas na branch', async () => {
@@ -773,21 +803,19 @@ if (!databaseUrl || !databaseReachable) {
     const created = await createPjClient(); // ja vem com matriz isPrimary code 1
     const clientId = created.body.client.id;
 
-    // Cria 2 branches adicionais (codes 2 e 3)
-    const b2 = await api.createClientBranch(
-      buildInput({
-        params: { clientId },
-        body: { cnpj: nextValidCnpj(), city: 'Belo Horizonte', state: 'MG' },
-      })
-    );
-    assert.equal(b2.status, 201);
-    const b3 = await api.createClientBranch(
-      buildInput({
-        params: { clientId },
-        body: { cnpj: nextValidCnpj(), city: 'Tres Pontas', state: 'MG' },
-      })
-    );
-    assert.equal(b3.status, 201);
+    // F7: o trigger F7.1B + validacao service impedem 2+ branches ATIVAS em
+    // PJ. Aqui simulamos dado pre-F7 via escape valve para validar que o
+    // auto-promote em inactivate continua funcionando como rede de seguranca.
+    const b2 = await seedExtraActiveBranchBypassingF7(clientId, {
+      cnpj: nextValidCnpj(),
+      city: 'Belo Horizonte',
+      state: 'MG',
+    });
+    await seedExtraActiveBranchBypassingF7(clientId, {
+      cnpj: nextValidCnpj(),
+      city: 'Tres Pontas',
+      state: 'MG',
+    });
 
     const matrizId = created.body.client.branches[0].id;
 
@@ -800,7 +828,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(result.status, 200);
     assert.ok(result.body.autoPromoted, 'autoPromoted nao deveria ser null');
-    assert.equal(result.body.autoPromoted.id, b2.body.branch.id);
+    assert.equal(result.body.autoPromoted.id, b2.id);
     assert.equal(result.body.autoPromoted.code, 2);
     assert.equal(result.body.autoPromoted.isPrimary, true);
 
@@ -810,14 +838,14 @@ if (!databaseUrl || !databaseReachable) {
       orderBy: { code: 'asc' },
     });
     const matriz = branchesAfter.find((b) => b.id === matrizId);
-    const promoted = branchesAfter.find((b) => b.id === b2.body.branch.id);
+    const promoted = branchesAfter.find((b) => b.id === b2.id);
     assert.equal(matriz.status, 'INACTIVE');
     assert.equal(matriz.isPrimary, false);
     assert.equal(promoted.isPrimary, true);
 
     // cnpjRoot do client foi atualizado pra raiz da nova matriz (root da b2)
     const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
-    assert.equal(clientAfter.cnpjRoot, b2.body.branch.cnpj.slice(0, 8));
+    assert.equal(clientAfter.cnpjRoot, b2.cnpj.slice(0, 8));
   });
 
   test('F6.0: inativar unica branch ACTIVE deixa client sem matriz (cnpjRoot=null)', async () => {
@@ -843,19 +871,15 @@ if (!databaseUrl || !databaseReachable) {
     const clientId = created.body.client.id;
     const matrizId = created.body.client.branches[0].id;
 
-    // Cria filial 2, depois inativa ela
-    const b2 = await api.createClientBranch(
-      buildInput({
-        params: { clientId },
-        body: { cnpj: nextValidCnpj() },
-      })
-    );
-    await api.inactivateClientBranch(
-      buildInput({
-        params: { clientId, branchId: b2.body.branch.id },
-        body: { reasonText: 'temp' },
-      })
-    );
+    // Cria filial 2 ja INACTIVE (atalho via escape valve para nao precisar
+    // do round-trip create+inactivate, que sob F7 violaria o trigger no create).
+    const b2 = await seedExtraActiveBranchBypassingF7(clientId, {
+      cnpj: nextValidCnpj(),
+    });
+    await prisma.clientBranch.update({
+      where: { id: b2.id },
+      data: { status: 'INACTIVE' },
+    });
 
     // Agora inativa a matriz — nao tem outra ACTIVE pra promover
     const result = await api.inactivateClientBranch(
@@ -876,15 +900,13 @@ if (!databaseUrl || !databaseReachable) {
     const clientId = created.body.client.id;
     const matrizId = created.body.client.branches[0].id;
 
-    const b2 = await api.createClientBranch(
-      buildInput({
-        params: { clientId },
-        body: { cnpj: nextValidCnpj() },
-      })
-    );
+    // Cenario pre-F7: 2 branches ATIVAS em PJ. Seed via escape valve.
+    const b2 = await seedExtraActiveBranchBypassingF7(clientId, {
+      cnpj: nextValidCnpj(),
+    });
     const result = await api.inactivateClientBranch(
       buildInput({
-        params: { clientId, branchId: b2.body.branch.id },
+        params: { clientId, branchId: b2.id },
         body: { reasonText: 'fechou filial' },
       })
     );

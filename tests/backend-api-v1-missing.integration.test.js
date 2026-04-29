@@ -126,24 +126,38 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
+  // F7.3: PJ admite no maximo 1 branch ATIVA. O helper antigo criava uma
+  // segunda branch via createBranch (vinha do tempo do dual-write F5.1) —
+  // hoje isso retorna 409. Reusamos a matriz ja criada por createSellerClient
+  // e aplicamos overrides com updateBranch quando o teste pede campos
+  // especificos. Devolve o mesmo shape `{ branch }` para minimizar diff.
   async function createClientRegistration(clientId, overrides = {}) {
     registrationSequence += 1;
-
-    return clientService.createBranch(
+    const primary = await prisma.clientBranch.findFirst({
+      where: { clientId, status: 'ACTIVE' },
+      orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
+    });
+    if (!primary) {
+      throw new Error(`createClientRegistration: client ${clientId} sem branch ATIVA`);
+    }
+    const updates = {
+      registrationNumber:
+        overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
+      registrationType: overrides.registrationType ?? 'estadual',
+      addressLine: overrides.addressLine ?? 'Av. Oliveira Rezende, 1397',
+      district: overrides.district ?? 'JD Bernadete',
+      city: overrides.city ?? 'Sao Sebastiao do Paraiso',
+      state: overrides.state ?? 'MG',
+      postalCode: overrides.postalCode ?? '37950-078',
+      complement: overrides.complement ?? null,
+    };
+    const updated = await clientService.updateBranch(
       clientId,
-      {
-        registrationNumber:
-          overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
-        registrationType: overrides.registrationType ?? 'estadual',
-        addressLine: overrides.addressLine ?? 'Av. Oliveira Rezende, 1397',
-        district: overrides.district ?? 'JD Bernadete',
-        city: overrides.city ?? 'Sao Sebastiao do Paraiso',
-        state: overrides.state ?? 'MG',
-        postalCode: overrides.postalCode ?? '37950-078',
-        complement: overrides.complement ?? null,
-      },
+      primary.id,
+      { ...updates, reasonText: 'fixture: setup registration data' },
       actorClassifier
     );
+    return updated;
   }
 
   async function moveSampleToRegistrationConfirmed(sampleId) {
