@@ -19,7 +19,9 @@ const MAINTENANCE_PATH = '/maintenance';
 const PUBLIC_PATH_PREFIXES = [
   MAINTENANCE_PATH,
   '/login',
-  '/api/auth',
+  // Rotas de auth ficam livres para que o ADMIN consiga logar mesmo
+  // quando o modo manutencao esta ativo. Path real: /api/v1/auth/...
+  '/api/v1/auth',
   '/api/health',
   '/_next',
   '/icon-',
