@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
 import { ClientService } from '../src/clients/client-service.js';
+import { generateValidCnpj } from './helpers/cnpj-generator.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
@@ -88,16 +89,9 @@ if (!databaseUrl || !databaseReachable) {
   let commandService;
   let sellerClientSequence = 0;
 
-  function nextSequenceDigits(sequence, length) {
-    // F5.2: cnpj_root e UNIQUE (8 primeiros digitos). Coloca a sequencia nos
-    // primeiros 8 digitos pra garantir roots distintos por sequence.
-    const base = String(10_000_000 + sequence);
-    return base.padEnd(length, '0').slice(0, length);
-  }
-
   async function createSellerClient(overrides = {}) {
     sellerClientSequence += 1;
-    const suffix = nextSequenceDigits(sellerClientSequence, 14);
+    const suffix = generateValidCnpj(sellerClientSequence);
     const defaultName = `Cliente Sprint ${sellerClientSequence} LTDA`;
 
     return clientService.createClient(

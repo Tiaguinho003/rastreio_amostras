@@ -6,6 +6,14 @@ import { PrismaClient } from '@prisma/client';
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { ClientService } from '../src/clients/client-service.js';
+import { generateValidCnpj, generateValidCpf } from './helpers/cnpj-generator.js';
+
+// F6.1: counter local pra gerar CNPJs validos sequenciais nos testes.
+let _cnpjSeed = 500;
+function nextValidCnpj() {
+  _cnpjSeed += 1;
+  return generateValidCnpj(_cnpjSeed);
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -228,7 +236,7 @@ if (!databaseUrl || !databaseReachable) {
     for (let index = 0; index < 31; index += 1) {
       const created = await createPfClient({
         fullName: `Cliente limite ${index + 1}`,
-        cpf: String(70000000000 + index),
+        cpf: generateValidCpf(200 + index),
       });
 
       assert.equal(created.status, 201);
@@ -266,7 +274,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyerOnly = await createPjClient({
       legalName: 'Comprador Export Ltda',
       tradeName: 'Comprador Export Ltda',
-      cnpj: '26.543.626/0001-38',
+      cnpj: nextValidCnpj(),
       isBuyer: true,
       isSeller: false,
     });
@@ -339,17 +347,18 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.body.client.displayName, 'G A S Comercio de Cafe Sociedade LTDA');
 
     // F5.2: document agora vem da primary branch. Adiciona uma e re-le.
+    const branchCnpj = nextValidCnpj();
     const branchRes = await api.createClientBranch(
       buildInput({
         params: { clientId: created.body.client.id },
-        body: { isPrimary: true, cnpj: '26.543.626/0001-38' },
+        body: { isPrimary: true, cnpj: branchCnpj },
       })
     );
     assert.equal(branchRes.status, 201);
     const detailAfterBranch = await api.getClient(
       buildInput({ params: { clientId: created.body.client.id } })
     );
-    assert.equal(detailAfterBranch.body.client.document, '26543626000138');
+    assert.equal(detailAfterBranch.body.client.document, branchCnpj);
 
     const detail = await api.getClient(
       buildInput({
@@ -768,14 +777,14 @@ if (!databaseUrl || !databaseReachable) {
     const b2 = await api.createClientBranch(
       buildInput({
         params: { clientId },
-        body: { cnpj: '11.111.111/0002-22', city: 'Belo Horizonte', state: 'MG' },
+        body: { cnpj: nextValidCnpj(), city: 'Belo Horizonte', state: 'MG' },
       })
     );
     assert.equal(b2.status, 201);
     const b3 = await api.createClientBranch(
       buildInput({
         params: { clientId },
-        body: { cnpj: '11.111.111/0003-33', city: 'Tres Pontas', state: 'MG' },
+        body: { cnpj: nextValidCnpj(), city: 'Tres Pontas', state: 'MG' },
       })
     );
     assert.equal(b3.status, 201);
@@ -806,9 +815,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(matriz.isPrimary, false);
     assert.equal(promoted.isPrimary, true);
 
-    // cnpjRoot do client foi atualizado pra raiz da nova matriz
+    // cnpjRoot do client foi atualizado pra raiz da nova matriz (root da b2)
     const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
-    assert.equal(clientAfter.cnpjRoot, '11111111');
+    assert.equal(clientAfter.cnpjRoot, b2.body.branch.cnpj.slice(0, 8));
   });
 
   test('F6.0: inativar unica branch ACTIVE deixa client sem matriz (cnpjRoot=null)', async () => {
@@ -838,7 +847,7 @@ if (!databaseUrl || !databaseReachable) {
     const b2 = await api.createClientBranch(
       buildInput({
         params: { clientId },
-        body: { cnpj: '22.222.222/0002-22' },
+        body: { cnpj: nextValidCnpj() },
       })
     );
     await api.inactivateClientBranch(
@@ -870,7 +879,7 @@ if (!databaseUrl || !databaseReachable) {
     const b2 = await api.createClientBranch(
       buildInput({
         params: { clientId },
-        body: { cnpj: '33.333.333/0002-22' },
+        body: { cnpj: nextValidCnpj() },
       })
     );
     const result = await api.inactivateClientBranch(
@@ -916,7 +925,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const created = await createPfClient({
       fullName: 'Produtor Unico',
-      cpf: '999.888.777-66',
+      cpf: generateValidCpf(300),
     });
 
     const firstRegistration = await api.createClientBranch(
@@ -940,7 +949,7 @@ if (!databaseUrl || !databaseReachable) {
     const otherClient = await createPjClient({
       legalName: 'Atlantica Dois S/A',
       tradeName: 'Atlantica Dois S/A',
-      cnpj: '11.222.333/0001-44',
+      cnpj: nextValidCnpj(),
     });
 
     const duplicateRegistration = await api.createClientBranch(
@@ -1059,17 +1068,17 @@ if (!databaseUrl || !databaseReachable) {
 
     const mine = await createPjClient({
       legalName: 'Cliente A',
-      cnpj: '10.111.222/0001-11',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
     await createPjClient({
       legalName: 'Cliente B',
-      cnpj: '20.222.333/0001-22',
+      cnpj: nextValidCnpj(),
       commercialUserId: userB.id,
     });
     await createPjClient({
       legalName: 'Cliente C',
-      cnpj: '30.333.444/0001-33',
+      cnpj: nextValidCnpj(),
     });
 
     const filtered = await api.listClients(buildInput({ query: { commercialUserId: userA.id } }));
@@ -1083,7 +1092,7 @@ if (!databaseUrl || !databaseReachable) {
     const targetUser = await createTestUser('COMMERCIAL', { username: 'test-bulk-sole' });
     const linkedA = await createPjClient({
       legalName: 'Sole Custodian A',
-      cnpj: '40.444.555/0001-44',
+      cnpj: nextValidCnpj(),
       commercialUserId: targetUser.id,
     });
 
@@ -1118,7 +1127,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const sharedClient = await createPjClient({
       legalName: 'Shared Client',
-      cnpj: '40.444.555/0001-99',
+      cnpj: nextValidCnpj(),
       commercialUserId: targetUser.id,
     });
 
@@ -1208,12 +1217,12 @@ if (!databaseUrl || !databaseReachable) {
 
     const mine = await createPjClient({
       legalName: 'Cliente Filtro A',
-      cnpj: '11.111.222/0001-11',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
     await createPjClient({
       legalName: 'Cliente Filtro B',
-      cnpj: '22.222.333/0001-22',
+      cnpj: nextValidCnpj(),
       commercialUserId: userB.id,
     });
 
@@ -1230,7 +1239,7 @@ if (!databaseUrl || !databaseReachable) {
     const userB = await createTestUser('COMMERCIAL', { username: 'test-trg-swap-b' });
     const created = await createPjClient({
       legalName: 'Trigger Swap',
-      cnpj: '12.121.121/0001-12',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
 
@@ -1254,7 +1263,7 @@ if (!databaseUrl || !databaseReachable) {
     const user = await createTestUser('COMMERCIAL', { username: 'test-trg-block' });
     const created = await createPjClient({
       legalName: 'Trigger Block',
-      cnpj: '13.131.313/0001-13',
+      cnpj: nextValidCnpj(),
       commercialUserId: user.id,
     });
 
@@ -1277,7 +1286,7 @@ if (!databaseUrl || !databaseReachable) {
     const user = await createTestUser('COMMERCIAL', { username: 'test-trg-inactive' });
     const created = await createPjClient({
       legalName: 'Trigger Inactive',
-      cnpj: '14.141.414/0001-14',
+      cnpj: nextValidCnpj(),
       commercialUserId: user.id,
     });
     await prisma.client.update({
@@ -1299,7 +1308,7 @@ if (!databaseUrl || !databaseReachable) {
     const user = await createTestUser('COMMERCIAL', { username: 'test-trg-reactivate' });
     const created = await createPjClient({
       legalName: 'Trigger Reactivate',
-      cnpj: '15.151.515/0001-15',
+      cnpj: nextValidCnpj(),
       commercialUserId: user.id,
     });
 
@@ -1339,7 +1348,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           personType: 'PJ',
           legalName: 'F2 Multi Create',
-          cnpj: '21.212.121/0001-21',
+          cnpj: nextValidCnpj(),
           phone: '35 99999-2121',
           isBuyer: true,
           isSeller: true,
@@ -1366,7 +1375,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           personType: 'PJ',
           legalName: 'F2 Conflict',
-          cnpj: '22.222.222/0001-22',
+          cnpj: nextValidCnpj(),
           phone: '35 99999-2222',
           isBuyer: true,
           isSeller: true,
@@ -1390,7 +1399,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           personType: 'PJ',
           legalName: 'F2 Patch',
-          cnpj: '23.232.323/0001-23',
+          cnpj: nextValidCnpj(),
           phone: '35 99999-2323',
           isBuyer: true,
           isSeller: true,
@@ -1417,7 +1426,7 @@ if (!databaseUrl || !databaseReachable) {
     const user = await createTestUser('COMMERCIAL', { username: 'test-f2-empty-active' });
     const created = await createPjClient({
       legalName: 'F2 Empty Active',
-      cnpj: '24.242.424/0001-24',
+      cnpj: nextValidCnpj(),
       commercialUserId: user.id,
     });
 
@@ -1437,7 +1446,7 @@ if (!databaseUrl || !databaseReachable) {
     const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-add-b' });
     const created = await createPjClient({
       legalName: 'F2 Add',
-      cnpj: '25.252.525/0001-25',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
 
@@ -1464,7 +1473,7 @@ if (!databaseUrl || !databaseReachable) {
     const userB = await createTestUser('COMMERCIAL', { username: 'test-f2-del-b' });
     const created = await createPjClient({
       legalName: 'F2 Delete',
-      cnpj: '26.262.626/0001-26',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
     await prisma.clientCommercialUser.create({
@@ -1487,7 +1496,7 @@ if (!databaseUrl || !databaseReachable) {
     const user = await createTestUser('COMMERCIAL', { username: 'test-f2-del-last' });
     const created = await createPjClient({
       legalName: 'F2 Del Last',
-      cnpj: '27.272.727/0001-27',
+      cnpj: nextValidCnpj(),
       commercialUserId: user.id,
     });
 
@@ -1504,17 +1513,17 @@ if (!databaseUrl || !databaseReachable) {
 
     const c1 = await createPjClient({
       legalName: 'Bulk C1',
-      cnpj: '28.282.828/0001-28',
+      cnpj: nextValidCnpj(),
       commercialUserId: baseUser.id,
     });
     const c2 = await createPjClient({
       legalName: 'Bulk C2',
-      cnpj: '38.282.828/0001-29',
+      cnpj: nextValidCnpj(),
       commercialUserId: baseUser.id,
     });
     const c3 = await createPjClient({
       legalName: 'Bulk C3',
-      cnpj: '48.282.828/0001-30',
+      cnpj: nextValidCnpj(),
       commercialUserId: baseUser.id,
     });
     // c3 ja tem targetUser
@@ -1548,12 +1557,12 @@ if (!databaseUrl || !databaseReachable) {
 
     const sole = await createPjClient({
       legalName: 'Impact Sole',
-      cnpj: '29.292.929/0001-29',
+      cnpj: nextValidCnpj(),
       commercialUserId: target.id,
     });
     const shared = await createPjClient({
       legalName: 'Impact Shared',
-      cnpj: '39.292.929/0001-30',
+      cnpj: nextValidCnpj(),
       commercialUserId: target.id,
     });
     await prisma.clientCommercialUser.create({
@@ -1579,17 +1588,17 @@ if (!databaseUrl || !databaseReachable) {
 
     const ca = await createPjClient({
       legalName: 'List A',
-      cnpj: '30.303.030/0001-30',
+      cnpj: nextValidCnpj(),
       commercialUserId: userA.id,
     });
     const cb = await createPjClient({
       legalName: 'List B',
-      cnpj: '40.404.040/0001-31',
+      cnpj: nextValidCnpj(),
       commercialUserId: userB.id,
     });
     await createPjClient({
       legalName: 'List C',
-      cnpj: '50.505.050/0001-32',
+      cnpj: nextValidCnpj(),
       commercialUserId: userC.id,
     });
 

@@ -13,7 +13,6 @@ import type {
   SessionData,
 } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import { ClientBranchSelect } from '../clients/ClientBranchSelect';
 
 type SampleMovementModalSubmitInput = {
   movementType: SampleMovementType;
@@ -278,35 +277,27 @@ export function SampleMovementModal({
 
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
-            <>
-              <div className="sdv-edit-field">
-                <ClientLookupField
-                  session={session}
-                  label="Comprador"
-                  kind="buyer"
-                  selectedClient={buyerClient}
-                  disabled={saving}
-                  compact
-                  onSelectClient={(client) => {
-                    setBuyerClient(client);
-                    setBuyerBranchId(null);
-                    setError(null);
-                  }}
-                  emptyMessage="Nenhum comprador encontrado."
-                />
-              </div>
-              {buyerClient ? (
-                <div className="sdv-edit-field">
-                  <ClientBranchSelect
-                    label="Filial"
-                    branches={buyerBranches}
-                    value={buyerBranchId}
-                    disabled={saving || loadingBranches}
-                    onChange={setBuyerBranchId}
-                  />
-                </div>
-              ) : null}
-            </>
+            <div className="sdv-edit-field">
+              <ClientLookupField
+                session={session}
+                label="Comprador / Filial"
+                kind="buyer"
+                selectedClient={buyerClient}
+                disabled={saving}
+                compact
+                onSelectClient={(client) => {
+                  setBuyerClient(client);
+                  if (!client) setBuyerBranchId(null);
+                  setError(null);
+                }}
+                onSelectBranch={(client, branch) => {
+                  setBuyerClient(client);
+                  setBuyerBranchId(branch?.id ?? null);
+                  setError(null);
+                }}
+                emptyMessage="Nenhum comprador encontrado."
+              />
+            </div>
           ) : (
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Motivo da perda</span>

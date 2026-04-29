@@ -134,6 +134,40 @@ function normalizeOptionalSearch(value, fieldName = 'search', maxLength = 200) {
   return normalizeOptionalText(value, fieldName, maxLength);
 }
 
+// F6.1: validacao com algoritmo da Receita Federal (digitos verificadores).
+// Rejeita sequencias homogeneas (00000000000, 11111111111, etc.) que passam
+// no checksum mas nao sao documentos reais.
+export function isValidCpfChecksum(digits) {
+  if (typeof digits !== 'string' || digits.length !== 11) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += Number(digits[i]) * (10 - i);
+  const d1 = ((sum * 10) % 11) % 10;
+  if (d1 !== Number(digits[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i += 1) sum += Number(digits[i]) * (11 - i);
+  const d2 = ((sum * 10) % 11) % 10;
+  return d2 === Number(digits[10]);
+}
+
+const CNPJ_WEIGHTS_1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+const CNPJ_WEIGHTS_2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+export function isValidCnpjChecksum(digits) {
+  if (typeof digits !== 'string' || digits.length !== 14) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i += 1) sum += Number(digits[i]) * CNPJ_WEIGHTS_1[i];
+  let mod = sum % 11;
+  const d1 = mod < 2 ? 0 : 11 - mod;
+  if (d1 !== Number(digits[12])) return false;
+  sum = 0;
+  for (let i = 0; i < 13; i += 1) sum += Number(digits[i]) * CNPJ_WEIGHTS_2[i];
+  mod = sum % 11;
+  const d2 = mod < 2 ? 0 : 11 - mod;
+  return d2 === Number(digits[13]);
+}
+
 function normalizeCpf(value, fieldName = 'cpf') {
   const text = normalizeOptionalText(value, fieldName, 32);
   if (!text) {
@@ -141,7 +175,7 @@ function normalizeCpf(value, fieldName = 'cpf') {
   }
 
   const normalized = normalizeDigits(text);
-  if (normalized.length !== 11) {
+  if (normalized.length !== 11 || !isValidCpfChecksum(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,
@@ -158,7 +192,7 @@ function normalizeCnpj(value, fieldName = 'cnpj') {
   }
 
   const normalized = normalizeDigits(text);
-  if (normalized.length !== 14) {
+  if (normalized.length !== 14 || !isValidCnpjChecksum(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,

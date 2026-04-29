@@ -242,6 +242,9 @@ export interface ClientsListResponse {
 
 export interface ClientLookupResponse {
   items: ClientSummary[];
+  // F6.1: smart resolve por 14 digitos — backend retorna o id da branch
+  // que casou exatamente com o CNPJ buscado (UI destaca essa linha).
+  matchedBranchId?: string;
 }
 
 export interface ClientDetailResponse extends ClientResponse {

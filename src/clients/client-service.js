@@ -641,6 +641,35 @@ export class ClientService {
     assertAuthenticatedActor(actorContext, 'lookup clients');
     const { search, kind, limit } = normalizeLookupClientsInput(input);
 
+    // F6.1 G1: smart resolve por CNPJ completo (14 digitos exatos).
+    // Se search for 14 digitos e bate com cnpj de uma branch, retorna o
+    // client owner como primeiro resultado (UI destaca a branch que casou).
+    const searchDigits = String(search ?? '').replace(/\D+/g, '');
+    if (searchDigits.length === 14) {
+      const branch = await this.prisma.clientBranch.findFirst({
+        where: { cnpj: searchDigits },
+        select: { clientId: true, id: true },
+      });
+      if (branch) {
+        const owner = await this.prisma.client.findUnique({
+          where: { id: branch.clientId },
+          select: CLIENT_SUMMARY_SELECT,
+        });
+        if (
+          owner &&
+          owner.status === CLIENT_STATUSES.ACTIVE &&
+          (kind === CLIENT_LOOKUP_KINDS.ANY ||
+            (kind === CLIENT_LOOKUP_KINDS.OWNER && owner.isSeller) ||
+            (kind === CLIENT_LOOKUP_KINDS.BUYER && owner.isBuyer))
+        ) {
+          return {
+            items: [mapClientRow(owner)],
+            matchedBranchId: branch.id,
+          };
+        }
+      }
+    }
+
     const where = {
       status: CLIENT_STATUSES.ACTIVE,
       ...(kind === CLIENT_LOOKUP_KINDS.OWNER

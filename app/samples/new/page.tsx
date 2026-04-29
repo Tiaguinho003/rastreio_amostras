@@ -8,7 +8,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
-import { ClientBranchSelect } from '../../../components/clients/ClientBranchSelect';
 import {
   ApiError,
   createSampleAndPreparePrint,
@@ -689,7 +688,7 @@ function NewSamplePageContent() {
               <div className="nsv2-grid-full">
                 <ClientLookupField
                   session={session}
-                  label="Proprietario"
+                  label="Proprietario / Filial"
                   kind="owner"
                   required
                   inputRef={ownerInputRef}
@@ -699,7 +698,16 @@ function NewSamplePageContent() {
                   onSelectClient={(client) => {
                     setSelectedOwnerClient(client);
                     setOwner(client?.displayName ?? '');
-                    setSelectedOwnerBranchId(null);
+                    if (!client) {
+                      setSelectedOwnerBranchId(null);
+                    }
+                    clearRequiredFieldError('owner');
+                    setError(null);
+                  }}
+                  onSelectBranch={(client, branch) => {
+                    setSelectedOwnerClient(client);
+                    setOwner(client.displayName ?? '');
+                    setSelectedOwnerBranchId(branch?.id ?? null);
                     clearRequiredFieldError('owner');
                     setError(null);
                   }}
@@ -709,19 +717,6 @@ function NewSamplePageContent() {
                   }}
                   createLabel="Cadastrar proprietario"
                 />
-              </div>
-
-              <div className="nsv2-grid-full">
-                <ClientBranchSelect
-                  label="Filial"
-                  branches={ownerBranches}
-                  value={selectedOwnerBranchId}
-                  disabled={!selectedOwnerClient || ownerBranchLoading || submitting}
-                  onChange={setSelectedOwnerBranchId}
-                />
-                {ownerBranchLoading ? (
-                  <span className="new-sample-select-spinner" aria-label="Carregando filiais" />
-                ) : null}
               </div>
 
               <div className="nsv2-grid-half">

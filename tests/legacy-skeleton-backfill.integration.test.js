@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
 import { ClientService } from '../src/clients/client-service.js';
+import { generateValidCnpj } from './helpers/cnpj-generator.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
@@ -80,10 +81,8 @@ if (!databaseUrl || !databaseReachable) {
   let cnpjCounter = 1;
   async function createSellerClient(overrides = {}) {
     cnpjCounter += 1;
-    // F5.2: cnpj_root UNIQUE — sequencia nos primeiros 8 digitos
-    const suffix = String(10_000_000 + cnpjCounter)
-      .padEnd(14, '0')
-      .slice(0, 14);
+    // F6.1: CNPJ valido por checksum (Receita Federal)
+    const suffix = generateValidCnpj(cnpjCounter);
     return clientService.createClient(
       {
         personType: 'PJ',

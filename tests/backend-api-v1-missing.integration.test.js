@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
 
+import { generateValidCnpj } from './helpers/cnpj-generator.js';
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { ClientService } from '../src/clients/client-service.js';
@@ -106,16 +107,9 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
-  function nextUniqueRoot(sequence) {
-    // Garante cnpj_root distinto por sequence (8 primeiros digitos).
-    return String(10_000_000 + sequence)
-      .padEnd(14, '0')
-      .slice(0, 14);
-  }
-
   async function createSellerClient(overrides = {}) {
     sellerClientSequence += 1;
-    const suffix = overrides.cnpj ?? nextUniqueRoot(sellerClientSequence);
+    const suffix = overrides.cnpj ?? generateValidCnpj(sellerClientSequence);
     const defaultName = `Cliente Seller ${sellerClientSequence} LTDA`;
 
     return clientService.createClient(
@@ -749,7 +743,7 @@ if (!databaseUrl || !databaseReachable) {
     const secondOwner = await createSellerClient({
       legalName: 'Cliente Segundo Proprietario LTDA',
       tradeName: 'Cliente Segundo Proprietario LTDA',
-      cnpj: '11.222.333/0001-44',
+      cnpj: generateValidCnpj(101),
     });
 
     const switched = await api.updateRegistration(
@@ -779,7 +773,7 @@ if (!databaseUrl || !databaseReachable) {
     const inactiveOwner = await createSellerClient({
       legalName: 'Cliente Inativo LTDA',
       tradeName: 'Cliente Inativo LTDA',
-      cnpj: '55.666.777/0001-88',
+      cnpj: generateValidCnpj(102),
     });
 
     await clientService.inactivateClient(
@@ -807,7 +801,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyerOnlyOwner = await createSellerClient({
       legalName: 'Comprador Apenas LTDA',
       tradeName: 'Comprador Apenas LTDA',
-      cnpj: '88.777.666/0001-55',
+      cnpj: generateValidCnpj(103),
       isBuyer: true,
       isSeller: false,
     });
@@ -829,12 +823,12 @@ if (!databaseUrl || !databaseReachable) {
     const ownerA = await createSellerClient({
       legalName: 'Proprietario A LTDA',
       tradeName: 'Proprietario A LTDA',
-      cnpj: '12.123.123/0001-12',
+      cnpj: generateValidCnpj(104),
     });
     const ownerB = await createSellerClient({
       legalName: 'Proprietario B LTDA',
       tradeName: 'Proprietario B LTDA',
-      cnpj: '13.123.123/0001-13',
+      cnpj: generateValidCnpj(105),
     });
     const ownerBRegistration = await createClientRegistration(ownerB.client.id, {
       registrationNumber: '998877665544',
@@ -860,7 +854,7 @@ if (!databaseUrl || !databaseReachable) {
     const ownerClient = await createSellerClient({
       legalName: 'Cliente Original LTDA',
       tradeName: 'Cliente Original LTDA',
-      cnpj: '99.888.777/0001-66',
+      cnpj: generateValidCnpj(106),
     });
 
     const created = await api.createSampleAndPreparePrint(
@@ -1296,7 +1290,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Comercial LTDA',
       tradeName: 'Comprador Comercial LTDA',
-      cnpj: '77.777.777/0001-77',
+      cnpj: generateValidCnpj(107),
       isBuyer: true,
       isSeller: false,
     });
@@ -1399,7 +1393,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Display OPEN LTDA',
       tradeName: 'Comprador Display OPEN LTDA',
-      cnpj: '88.888.888/0001-88',
+      cnpj: generateValidCnpj(108),
       isBuyer: true,
       isSeller: false,
     });
@@ -1470,7 +1464,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Display SOLD LTDA',
       tradeName: 'Comprador Display SOLD LTDA',
-      cnpj: '99.999.999/0001-99',
+      cnpj: generateValidCnpj(109),
       isBuyer: true,
       isSeller: false,
     });
@@ -1589,7 +1583,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Display INV LTDA',
       tradeName: 'Comprador Display INV LTDA',
-      cnpj: '11.111.111/0001-11',
+      cnpj: generateValidCnpj(110),
       isBuyer: true,
       isSeller: false,
     });
@@ -2160,7 +2154,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Parcial LTDA',
       tradeName: 'Comprador Parcial LTDA',
-      cnpj: '66.555.444/0001-33',
+      cnpj: generateValidCnpj(111),
       isBuyer: true,
       isSeller: false,
     });
@@ -2227,14 +2221,14 @@ if (!databaseUrl || !databaseReachable) {
     const buyerA = await createSellerClient({
       legalName: 'Comprador A LTDA',
       tradeName: 'Comprador A LTDA',
-      cnpj: '22.333.444/0001-55',
+      cnpj: generateValidCnpj(112),
       isBuyer: true,
       isSeller: false,
     });
     const buyerB = await createSellerClient({
       legalName: 'Comprador B LTDA',
       tradeName: 'Comprador B LTDA',
-      cnpj: '33.444.555/0001-66',
+      cnpj: generateValidCnpj(113),
       isBuyer: true,
       isSeller: false,
     });
@@ -2341,7 +2335,7 @@ if (!databaseUrl || !databaseReachable) {
     const inactiveBuyer = await createSellerClient({
       legalName: 'Comprador Inativo LTDA',
       tradeName: 'Comprador Inativo LTDA',
-      cnpj: '44.555.666/0001-77',
+      cnpj: generateValidCnpj(114),
       isBuyer: true,
       isSeller: false,
     });
@@ -2371,7 +2365,7 @@ if (!databaseUrl || !databaseReachable) {
     const sellerOnlyClient = await createSellerClient({
       legalName: 'Vendedor Somente LTDA',
       tradeName: 'Vendedor Somente LTDA',
-      cnpj: '55.666.777/0001-88',
+      cnpj: generateValidCnpj(102),
       isBuyer: false,
       isSeller: true,
     });
@@ -2398,7 +2392,7 @@ if (!databaseUrl || !databaseReachable) {
     const validBuyer = await createSellerClient({
       legalName: 'Comprador Valido LTDA',
       tradeName: 'Comprador Valido LTDA',
-      cnpj: '66.777.888/0001-99',
+      cnpj: generateValidCnpj(115),
       isBuyer: true,
       isSeller: false,
     });
@@ -2452,7 +2446,7 @@ if (!databaseUrl || !databaseReachable) {
     const buyer = await createSellerClient({
       legalName: 'Comprador Registro LTDA',
       tradeName: 'Comprador Registro LTDA',
-      cnpj: '77.888.999/0001-00',
+      cnpj: generateValidCnpj(116),
       isBuyer: true,
       isSeller: false,
     });

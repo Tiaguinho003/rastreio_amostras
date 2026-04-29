@@ -4,7 +4,12 @@ import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 
 import { ApiError, lookupClients } from '../../lib/api-client';
 import { formatClientDocument } from '../../lib/client-field-formatters';
-import type { ClientLookupKind, ClientSummary, SessionData } from '../../lib/types';
+import type {
+  ClientBranchSummary,
+  ClientLookupKind,
+  ClientSummary,
+  SessionData,
+} from '../../lib/types';
 
 type ClientLookupFieldProps = {
   session: SessionData;
@@ -12,6 +17,8 @@ type ClientLookupFieldProps = {
   kind: ClientLookupKind;
   selectedClient: ClientSummary | null;
   onSelectClient: (client: ClientSummary | null) => void;
+  /** F6.1 G1: callback opcional para modo hierarquico (cliente+filial em uma linha). */
+  onSelectBranch?: (client: ClientSummary, branch: ClientBranchSummary | null) => void;
   inputRef?: Ref<HTMLInputElement>;
   invalid?: boolean;
   invalidText?: string;
@@ -24,11 +31,50 @@ type ClientLookupFieldProps = {
   required?: boolean;
 };
 
+type LookupRow = {
+  key: string;
+  client: ClientSummary;
+  branch: ClientBranchSummary | null;
+  // sub: branch e filial nao primary; primary nao
+  isHierarchicalChild: boolean;
+};
+
 function getClientDocument(client: ClientSummary) {
   return formatClientDocument(
     client.document ?? (client.personType === 'PF' ? client.cpf : client.cnpj),
     client.personType
   );
+}
+
+function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
+  const rows: LookupRow[] = [];
+  for (const client of items) {
+    if (client.personType === 'PF' || !client.branches || client.branches.length === 0) {
+      rows.push({
+        key: client.id,
+        client,
+        branch: null,
+        isHierarchicalChild: false,
+      });
+      continue;
+    }
+    // PJ com branches — ordenadas com primary primeiro (backend ja ordena por isPrimary desc, code asc)
+    for (const branch of client.branches) {
+      rows.push({
+        key: `${client.id}:${branch.id}`,
+        client,
+        branch,
+        isHierarchicalChild: !branch.isPrimary,
+      });
+    }
+  }
+  return rows;
+}
+
+function buildBranchLabel(branch: ClientBranchSummary): string {
+  const tag = branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`;
+  const place = branch.city && branch.state ? ` · ${branch.city}/${branch.state}` : '';
+  return `${tag}${place}`;
 }
 
 export function ClientLookupField({
@@ -37,6 +83,7 @@ export function ClientLookupField({
   kind,
   selectedClient,
   onSelectClient,
+  onSelectBranch,
   inputRef,
   invalid = false,
   invalidText = 'Obrigatorio',
@@ -51,6 +98,7 @@ export function ClientLookupField({
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
   const [items, setItems] = useState<ClientSummary[]>([]);
+  const [matchedBranchId, setMatchedBranchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -58,6 +106,7 @@ export function ClientLookupField({
   const lastSelectedIdRef = useRef<string | null>(selectedClient?.id ?? null);
 
   const normalizedSearch = useMemo(() => search.trim(), [search]);
+  const isHierarchical = typeof onSelectBranch === 'function';
 
   useEffect(() => {
     const nextSelectedId = selectedClient?.id ?? null;
@@ -98,6 +147,7 @@ export function ClientLookupField({
 
     if (normalizedSearch.length < 1) {
       setItems([]);
+      setMatchedBranchId(null);
       setLoading(false);
       setError(null);
       return;
@@ -118,6 +168,7 @@ export function ClientLookupField({
           }
 
           setItems(response.items);
+          setMatchedBranchId(response.matchedBranchId ?? null);
         })
         .catch((cause) => {
           if (!active) {
@@ -125,6 +176,7 @@ export function ClientLookupField({
           }
 
           setItems([]);
+          setMatchedBranchId(null);
           setError(cause instanceof ApiError ? cause.message : 'Falha ao buscar clientes');
         })
         .finally(() => {
@@ -140,7 +192,7 @@ export function ClientLookupField({
     };
   }, [disabled, kind, normalizedSearch, open, session]);
 
-  function handleSelect(client: ClientSummary) {
+  function handleSelectClient(client: ClientSummary, branch: ClientBranchSummary | null) {
     lastSelectedIdRef.current = client.id;
     setSearch(client.displayName ?? '');
     setOpen(false);
@@ -149,7 +201,33 @@ export function ClientLookupField({
       document.activeElement.blur();
     }
     onSelectClient(client);
+    if (isHierarchical && onSelectBranch) {
+      onSelectBranch(client, branch);
+    }
   }
+
+  // Em modo hierarquico, expandimos cada client em N linhas (uma por branch).
+  const rows: LookupRow[] = useMemo(
+    () =>
+      isHierarchical
+        ? buildHierarchicalRows(items)
+        : items.map((client) => ({
+            key: client.id,
+            client,
+            branch: null,
+            isHierarchicalChild: false,
+          })),
+    [isHierarchical, items]
+  );
+
+  const hasTransient = useMemo(
+    () =>
+      isHierarchical &&
+      items.some(
+        (client) => client.personType === 'PJ' && (!client.branches || client.branches.length === 0)
+      ),
+    [isHierarchical, items]
+  );
 
   return (
     <div
@@ -181,6 +259,9 @@ export function ClientLookupField({
             if (selectedClient) {
               lastSelectedIdRef.current = null;
               onSelectClient(null);
+              // Modo hierarquico: pai recebe branch=null junto via onSelectBranch?
+              // Mantem a responsabilidade de limpar branch para o consumidor
+              // (samples/new ja faz isso em setSelectedOwnerClient).
             }
           }}
         />
@@ -194,6 +275,7 @@ export function ClientLookupField({
               lastSelectedIdRef.current = null;
               setSearch('');
               setItems([]);
+              setMatchedBranchId(null);
               setOpen(false);
               setError(null);
               onSelectClient(null);
@@ -212,7 +294,7 @@ export function ClientLookupField({
       {open && (loading || error || normalizedSearch.length >= 2) ? (
         <div className={`client-lookup-dropdown${compact ? ' is-compact' : ''}`}>
           {loading ? <p className="client-lookup-empty">Buscando clientes...</p> : null}
-          {!loading && normalizedSearch.length >= 2 && items.length === 0 && !error ? (
+          {!loading && normalizedSearch.length >= 2 && rows.length === 0 && !error ? (
             <div className="client-lookup-empty">
               <p style={{ margin: 0 }}>{emptyMessage}</p>
               {onRequestCreate ? (
@@ -230,29 +312,57 @@ export function ClientLookupField({
             </div>
           ) : null}
 
-          {!loading && items.length > 0 ? (
+          {!loading && rows.length > 0 ? (
             <ul className="client-lookup-list" role="listbox" aria-label={label}>
-              {items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className="client-lookup-option"
-                    onClick={() => handleSelect(item)}
-                  >
-                    <span className="client-lookup-option-title">
-                      {item.displayName ?? 'Sem nome'}
-                    </span>
-                    <span className="client-lookup-option-meta">
-                      Codigo {item.code} · {item.personType}
-                      {getClientDocument(item) ? ` · ${getClientDocument(item)}` : ''}
-                      {item.primaryCity
-                        ? ` · ${item.primaryCity}${item.primaryState ? `/${item.primaryState}` : ''}`
-                        : ''}
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {rows.map((row) => {
+                const transient =
+                  isHierarchical && row.client.personType === 'PJ' && row.branch === null;
+                const isMatched = matchedBranchId !== null && row.branch?.id === matchedBranchId;
+                return (
+                  <li key={row.key}>
+                    <button
+                      type="button"
+                      className={`client-lookup-option${row.isHierarchicalChild ? ' is-child' : ''}${transient ? ' is-disabled' : ''}${isMatched ? ' is-matched' : ''}`}
+                      onClick={() => {
+                        if (transient) return;
+                        handleSelectClient(row.client, row.branch);
+                      }}
+                      disabled={transient}
+                      title={transient ? 'Configure a matriz desta empresa primeiro' : undefined}
+                    >
+                      <span className="client-lookup-option-title">
+                        {row.client.displayName ?? 'Sem nome'}
+                        {row.branch ? (
+                          <span className="client-lookup-option-branch">
+                            {' · '}
+                            {buildBranchLabel(row.branch)}
+                          </span>
+                        ) : null}
+                        {isMatched ? (
+                          <span className="client-lookup-option-matched"> · CNPJ exato</span>
+                        ) : null}
+                      </span>
+                      <span className="client-lookup-option-meta">
+                        Codigo {row.client.code} · {row.client.personType}
+                        {row.branch?.cnpj
+                          ? ` · ${formatClientDocument(row.branch.cnpj, 'PJ')}`
+                          : getClientDocument(row.client)
+                            ? ` · ${getClientDocument(row.client)}`
+                            : ''}
+                        {transient ? ' · sem matriz configurada' : ''}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+          ) : null}
+
+          {hasTransient && !loading ? (
+            <p className="client-lookup-empty" style={{ fontSize: '0.85em' }}>
+              Empresas sem matriz aparecem desabilitadas — abra o cadastro do cliente para
+              configurar a matriz primeiro.
+            </p>
           ) : null}
         </div>
       ) : null}

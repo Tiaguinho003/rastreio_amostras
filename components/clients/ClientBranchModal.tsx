@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientBranchInput, ClientBranchSummary } from '../../lib/types';
 
@@ -100,10 +101,13 @@ export function ClientBranchModal({
 }: ClientBranchModalProps) {
   const focusTrapRef = useFocusTrap(open);
   const [form, setForm] = useState<FormState>(branchToForm(branch));
+  const cnpjMask = useDocumentMask('cnpj');
 
   useEffect(() => {
     if (!open) return;
     setForm(branchToForm(branch));
+    cnpjMask.setRaw(branch?.cnpj ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, branch]);
 
   if (!open) return null;
@@ -115,7 +119,7 @@ export function ClientBranchModal({
       : `Editar filial ${branch?.code ?? ''}`
     : 'Nova filial';
 
-  const submitDisabled = saving || (isEdit && !form.reasonText.trim());
+  const submitDisabled = saving || (isEdit && !form.reasonText.trim()) || !cnpjMask.isValid;
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -125,7 +129,9 @@ export function ClientBranchModal({
     event.preventDefault();
     if (saving) return;
     if (isEdit && !form.reasonText.trim()) return;
-    const input = formToInput(form);
+    if (!cnpjMask.isValid) return;
+    // F6.1: cnpj vem do hook (digitos crus); merge com resto do form
+    const input = { ...formToInput(form), cnpj: cnpjMask.digits || null };
     const reason = isEdit ? form.reasonText.trim() : null;
     await onSubmit(input, reason);
   }
@@ -203,13 +209,19 @@ export function ClientBranchModal({
           <label className="sdv-edit-field">
             <span className="sdv-edit-label">CNPJ</span>
             <input
-              className="sdv-edit-input"
-              value={form.cnpj}
+              className={`sdv-edit-input${cnpjMask.error ? ' has-error' : ''}`}
+              value={cnpjMask.masked}
               disabled={saving}
               inputMode="numeric"
-              onChange={(event) => update('cnpj', event.target.value)}
+              onChange={cnpjMask.onChange}
+              onBlur={cnpjMask.onBlur}
               placeholder="00.000.000/0000-00"
             />
+            {cnpjMask.error ? (
+              <span className="sdv-edit-error" role="alert">
+                {cnpjMask.error}
+              </span>
+            ) : null}
           </label>
           <div className="sdv-edit-row">
             <label className="sdv-edit-field">

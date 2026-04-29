@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
+import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-validation';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { UserMultiSelect } from '../users/UserMultiSelect';
@@ -120,15 +121,23 @@ export function ClientQuickCreateModal({
     };
   }, [open, session]);
 
-  const documentDigitCount = useMemo(() => {
+  const documentDigits = useMemo(() => {
     const raw = form.personType === 'PF' ? form.cpf : form.cnpj;
-    return raw.replace(/\D/g, '').length;
+    return raw.replace(/\D/g, '');
   }, [form.cpf, form.cnpj, form.personType]);
 
+  const documentDigitCount = documentDigits.length;
   const expectedDocumentDigits = form.personType === 'PF' ? 11 : 14;
   const isDocumentFilled = documentDigitCount > 0;
   const isDocumentComplete = documentDigitCount === expectedDocumentDigits;
-  const isDocumentValid = !isDocumentFilled || isDocumentComplete;
+  // F6.1: valida checksum (Receita Federal) alem do length
+  const isChecksumValid = useMemo(() => {
+    if (!isDocumentComplete) return false;
+    return form.personType === 'PF'
+      ? isValidCpfChecksum(documentDigits)
+      : isValidCnpjChecksum(documentDigits);
+  }, [isDocumentComplete, form.personType, documentDigits]);
+  const isDocumentValid = !isDocumentFilled || isChecksumValid;
 
   const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
   const isNameFilled = nameValue.trim().length > 0;
@@ -150,10 +159,12 @@ export function ClientQuickCreateModal({
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
 
   const showFieldErrors = submitted && !canSubmit;
-  const isDocumentInvalid = isDocumentFilled && !isDocumentComplete;
+  const isDocumentInvalid = isDocumentFilled && !isChecksumValid;
   const hasDocumentError = showFieldErrors && isDocumentInvalid;
   const documentHint = isDocumentInvalid
-    ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
+    ? !isDocumentComplete
+      ? `${documentLabel} deve ter ${expectedDocumentDigits} digitos (tem ${documentDigitCount})`
+      : `${documentLabel} invalido (digito verificador errado)`
     : null;
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
