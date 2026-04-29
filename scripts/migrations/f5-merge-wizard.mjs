@@ -215,10 +215,17 @@ function describeClient(c) {
   return `code ${c.code} "${name}" cnpj=${c.cnpj ?? '-'} doc=${c.documentCanonical ?? '-'}`;
 }
 
-async function buildPlan(tx) {
-  const autoGroups = await detectAutoGroups(tx);
-  const manualCandidates = await detectManualCandidates(tx, autoGroups);
+// Coleta auto-groups + candidatos manuais. So leitura — pode rodar fora de tx.
+async function gatherGroupsAndCandidates(client) {
+  const autoGroups = await detectAutoGroups(client);
+  const manualCandidates = await detectManualCandidates(client, autoGroups);
+  return { autoGroups, manualCandidates };
+}
 
+// Constroi o plano com prompts interativos. Nao toca o banco — recebe os
+// dados ja carregados via gatherGroupsAndCandidates(). Mantido separado da
+// transacao mutacional para nao consumir o timeout enquanto o usuario digita.
+async function confirmPlanInteractive({ autoGroups, manualCandidates }) {
   const plan = { groups: [], skipped: [] };
 
   if (autoGroups.length === 0) {
@@ -467,40 +474,52 @@ async function main() {
     log('totais ANTES:', totalsBefore);
   }
 
+  // Prompts interativos NAO podem rodar dentro de prisma.$transaction (timeout
+  // default 5s). Fluxo: snapshot fora -> prompts fora -> mutacao dentro da tx.
+  // Timeout da tx mutacional e bumpado para 2min, suficiente para fundir
+  // dezenas de clients + ~400 samples.
+  const TX_TIMEOUT_MS = 120_000;
+  const TX_MAX_WAIT_MS = 30_000;
+
   if (isApply) {
-    // Tudo dentro de uma unica transacao para ser atomico.
-    await prisma.$transaction(async (tx) => {
-      const rebackfilled = await rebackfillBranches(tx);
-      log(`re-backfill criou ${rebackfilled} branch(es) defensivos`);
+    const snapshot = await gatherGroupsAndCandidates(prisma);
+    const plan = await confirmPlanInteractive(snapshot);
 
-      const plan = await buildPlan(tx);
-      console.log('');
-      log('--- PLANO ---');
-      const summary = summarizePlan(plan);
-      console.log('');
+    console.log('');
+    log('--- PLANO ---');
+    const summary = summarizePlan(plan);
+    console.log('');
 
-      if (plan.groups.length === 0) {
-        log('nada a fundir. encerrando.');
-        return;
-      }
+    if (plan.groups.length === 0) {
+      log('nada a fundir. encerrando.');
+      return;
+    }
 
-      const proceed = await ask('aplicar fusao agora?', { defaultYes: false });
-      if (!proceed) {
-        throw new Error('usuario abortou — transacao revertida');
-      }
+    const proceed = await ask('aplicar fusao agora?', { defaultYes: false });
+    if (!proceed) {
+      log('abortado pelo usuario antes de aplicar.');
+      return;
+    }
 
-      const stats = await applyFusion(tx, plan);
-      log('fusao executada:', stats);
+    await prisma.$transaction(
+      async (tx) => {
+        const rebackfilled = await rebackfillBranches(tx);
+        log(`re-backfill criou ${rebackfilled} branch(es) defensivos`);
 
-      const issues = await validateInvariants(tx);
-      if (issues.length > 0) {
-        for (const i of issues) console.error('[wizard][INVARIANTE FALHOU]', i);
-        throw new Error('invariante pos-fusao falhou — transacao revertida');
-      }
-      log(
-        `invariantes OK — ${plan.groups.length} grupo(s) fundido(s), ${summary.totalAbsorbed} client(s) absorvido(s)`
-      );
-    });
+        const stats = await applyFusion(tx, plan);
+        log('fusao executada:', stats);
+
+        const issues = await validateInvariants(tx);
+        if (issues.length > 0) {
+          for (const i of issues) console.error('[wizard][INVARIANTE FALHOU]', i);
+          throw new Error('invariante pos-fusao falhou — transacao revertida');
+        }
+        log(
+          `invariantes OK — ${plan.groups.length} grupo(s) fundido(s), ${summary.totalAbsorbed} client(s) absorvido(s)`
+        );
+      },
+      { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS }
+    );
 
     const totalsAfter = {
       clients: await prisma.client.count(),
@@ -510,31 +529,36 @@ async function main() {
     };
     log('totais DEPOIS:', totalsAfter);
   } else {
-    // dry-run: usa transacao com rollback no final
+    // dry-run: prompts fora da tx; mutacao + validacao dentro com rollback forcado
+    const snapshot = await gatherGroupsAndCandidates(prisma);
+    const plan = await confirmPlanInteractive(snapshot);
+
+    console.log('');
+    log('--- PLANO (dry-run) ---');
+    summarizePlan(plan);
+    console.log('');
+
     await prisma
-      .$transaction(async (tx) => {
-        const rebackfilled = await rebackfillBranches(tx);
-        log(`re-backfill criaria ${rebackfilled} branch(es) defensivos`);
+      .$transaction(
+        async (tx) => {
+          const rebackfilled = await rebackfillBranches(tx);
+          log(`re-backfill criaria ${rebackfilled} branch(es) defensivos`);
 
-        const plan = await buildPlan(tx);
-        console.log('');
-        log('--- PLANO (dry-run) ---');
-        summarizePlan(plan);
-        console.log('');
-
-        if (plan.groups.length > 0) {
-          await applyFusion(tx, plan);
-          const issues = await validateInvariants(tx);
-          if (issues.length > 0) {
-            for (const i of issues) console.error('[wizard][INVARIANTE FALHARIA]', i);
-          } else {
-            log('invariantes OK em simulacao');
+          if (plan.groups.length > 0) {
+            await applyFusion(tx, plan);
+            const issues = await validateInvariants(tx);
+            if (issues.length > 0) {
+              for (const i of issues) console.error('[wizard][INVARIANTE FALHARIA]', i);
+            } else {
+              log('invariantes OK em simulacao');
+            }
           }
-        }
 
-        // forca rollback
-        throw new Error('__DRY_RUN_ROLLBACK__');
-      })
+          // forca rollback
+          throw new Error('__DRY_RUN_ROLLBACK__');
+        },
+        { timeout: TX_TIMEOUT_MS, maxWait: TX_MAX_WAIT_MS }
+      )
       .catch((err) => {
         if (err && err.message === '__DRY_RUN_ROLLBACK__') {
           log('dry-run completado (rollback forcado)');
