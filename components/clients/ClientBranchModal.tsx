@@ -5,11 +5,13 @@ import { createPortal } from 'react-dom';
 
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientBranchInput, ClientBranchSummary } from '../../lib/types';
+import type { ClientBranchInput, ClientBranchSummary, ClientPersonType } from '../../lib/types';
 
 type ClientBranchModalProps = {
   open: boolean;
   mode: 'create' | 'edit';
+  /** F7.4: contextualiza textos (PF -> "fazenda", PJ -> "filial"/"matriz"). */
+  personType: ClientPersonType;
   branch?: ClientBranchSummary | null;
   saving: boolean;
   errorMessage: string | null;
@@ -93,6 +95,7 @@ function formToInput(form: FormState): ClientBranchInput {
 export function ClientBranchModal({
   open,
   mode,
+  personType,
   branch = null,
   saving,
   errorMessage,
@@ -113,11 +116,19 @@ export function ClientBranchModal({
   if (!open) return null;
 
   const isEdit = mode === 'edit';
+  const isPf = personType === 'PF';
+  const branchTermSingular = isPf ? 'fazenda' : 'filial';
+  const matrixTermPj = 'matriz';
+
   const title = isEdit
-    ? branch?.isPrimary
-      ? 'Editar matriz'
-      : `Editar filial ${branch?.code ?? ''}`
-    : 'Nova filial';
+    ? isPf
+      ? `Editar fazenda ${branch?.code ?? ''}`.trim()
+      : branch?.isPrimary
+        ? 'Editar matriz'
+        : `Editar filial ${branch?.code ?? ''}`
+    : isPf
+      ? 'Nova fazenda'
+      : 'Nova filial';
 
   const submitDisabled = saving || (isEdit && !form.reasonText.trim()) || !cnpjMask.isValid;
 
@@ -149,9 +160,9 @@ export function ClientBranchModal({
         <div className="cdm-header">
           <h3 id="client-branch-modal-title" className="cdm-header-name">
             {title}
-            {branch?.isPrimary ? (
+            {!isPf && branch?.isPrimary ? (
               <span className="badge badge-success" style={{ marginLeft: 8 }}>
-                Matriz
+                {matrixTermPj.charAt(0).toUpperCase() + matrixTermPj.slice(1)}
               </span>
             ) : null}
           </h3>
@@ -181,7 +192,7 @@ export function ClientBranchModal({
               disabled={saving}
               maxLength={160}
               onChange={(event) => update('name', event.target.value)}
-              placeholder="Ex.: Filial Varginha"
+              placeholder={isPf ? 'Ex.: Fazenda Bom Retiro' : 'Ex.: Filial Varginha'}
             />
           </label>
           <label className="sdv-edit-field">
@@ -343,7 +354,11 @@ export function ClientBranchModal({
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar filial'}
+              {saving
+                ? 'Salvando...'
+                : isEdit
+                  ? 'Salvar alterações'
+                  : `Criar ${branchTermSingular}`}
             </button>
           </div>
         </form>

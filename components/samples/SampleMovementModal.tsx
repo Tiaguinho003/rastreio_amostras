@@ -227,6 +227,15 @@ export function SampleMovementModal({
       return;
     }
 
+    // F7.4: PJ sem matriz nao pode ser comprador. O lookup desabilita a
+    // selecao, mas defesa em profundidade impede submit por outras rotas.
+    if (showBuyerFields && buyerClient?.personType === 'PJ' && buyerBranches.length === 0) {
+      setError(
+        'Este comprador PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar a venda.'
+      );
+      return;
+    }
+
     if (mode === 'edit' && !reasonText.trim()) {
       setError('Informe o motivo da edicao da movimentacao.');
       return;

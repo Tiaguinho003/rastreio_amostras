@@ -82,6 +82,17 @@ function translateBranchError(cause: unknown): string {
   if (cause.status === 403) {
     return 'Sem permissao para esta acao.';
   }
+  // F7.3: regra "PJ admite no maximo 1 branch ATIVA". Backend devolve 409
+  // com details.code = 'PJ_BRANCH_LIMIT'. Mensagem ja vem em pt-BR do
+  // service; encaminhamos sem traducao.
+  if (
+    cause.status === 409 &&
+    cause.details &&
+    typeof cause.details === 'object' &&
+    (cause.details as { code?: string }).code === 'PJ_BRANCH_LIMIT'
+  ) {
+    return cause.message;
+  }
   const message = cause.message ?? '';
   if (message.includes('already exists')) {
     return 'Numero de inscricao ja esta cadastrado no sistema.';
@@ -632,6 +643,17 @@ export default function ClientDetailPage() {
     [activeBranchesList]
   );
 
+  // F7.4: terminologia contextualizada por personType.
+  //  - PJ: "filial"/"matriz"; admite no maximo 1 ATIVA (regra F7).
+  //  - PF: "fazenda"; admite 0..N (cada fazenda pode ter CNPJ/CAR/IE proprios).
+  const isPf = client?.personType === 'PF';
+  const isPj = client?.personType === 'PJ';
+  const branchSingular = isPf ? 'fazenda' : 'filial';
+  const branchPlural = isPf ? 'Fazendas' : 'Filiais';
+  // Pra PJ com 1 branch ATIVA, "Nova filial" violaria PJ_BRANCH_LIMIT no
+  // backend (F7.3). Esconder o botao previne erro 409 desnecessario.
+  const canAddBranch = isPf || activeBranchesList.length === 0;
+
   /* ================================================================ */
   /*  Edit client handlers                                            */
   /* ================================================================ */
@@ -737,16 +759,18 @@ export default function ClientDetailPage() {
     setBranchModalNotice(null);
 
     try {
+      // F7.4: terminologia contextual nos toasts (PF -> "fazenda", PJ -> "filial").
+      const term = client?.personType === 'PF' ? 'Fazenda' : 'Filial';
       if (branchModalMode === 'create') {
         await createClientBranch(session, clientId, data);
-        setBranchNotice({ kind: 'success', text: 'Filial criada com sucesso.' });
+        setBranchNotice({ kind: 'success', text: `${term} criada com sucesso.` });
       } else {
         if (!selectedBranch) return;
         await updateClientBranch(session, clientId, selectedBranch.id, {
           ...data,
           reasonText: reasonText ?? '',
         });
-        setBranchNotice({ kind: 'success', text: 'Filial atualizada com sucesso.' });
+        setBranchNotice({ kind: 'success', text: `${term} atualizada com sucesso.` });
       }
       void fetchData();
       setBranchModalOpen(false);
@@ -850,6 +874,9 @@ export default function ClientDetailPage() {
     setBranchStatusNotice(null);
 
     try {
+      // F7.4: terminologia contextual nos toasts.
+      const isPfClient = client?.personType === 'PF';
+      const termSingular = isPfClient ? 'Fazenda' : 'Filial';
       if (branchStatusAction === 'inactivate') {
         const result = await inactivateClientBranch(
           session,
@@ -857,13 +884,23 @@ export default function ClientDetailPage() {
           branchStatusBranchId,
           branchStatusReason
         );
-        const successText = result.autoPromoted
-          ? `Filial inativada. ${result.autoPromoted.name ?? `Filial ${result.autoPromoted.code}`} virou a nova matriz.`
-          : 'Filial inativada com sucesso.';
+        let successText: string;
+        if (result.autoPromoted) {
+          const promotedName =
+            result.autoPromoted.name ??
+            (isPfClient
+              ? `Fazenda ${result.autoPromoted.code}`
+              : `Filial ${result.autoPromoted.code}`);
+          successText = isPfClient
+            ? `Fazenda inativada. ${promotedName} virou a fazenda principal.`
+            : `Filial inativada. ${promotedName} virou a nova matriz.`;
+        } else {
+          successText = `${termSingular} inativada com sucesso.`;
+        }
         setBranchNotice({ kind: 'success', text: successText });
       } else if (branchStatusAction === 'reactivate') {
         await reactivateClientBranch(session, clientId, branchStatusBranchId, branchStatusReason);
-        setBranchNotice({ kind: 'success', text: 'Filial reativada com sucesso.' });
+        setBranchNotice({ kind: 'success', text: `${termSingular} reativada com sucesso.` });
       } else {
         // promote: usa updateClientBranch com isPrimary=true
         await updateClientBranch(session, clientId, branchStatusBranchId, {
@@ -1086,35 +1123,39 @@ export default function ClientDetailPage() {
                       <NoticeSlot notice={detailNotice} />
                     </div>
 
-                    {/* Card: Filiais (F6.0) */}
+                    {/* Card: Filiais/Fazendas (F6.0 + F7.4 terminologia) */}
                     <div className="sdv-card">
                       <div className="sdv-card-header">
                         <span className="sdv-card-title">
-                          Filiais ({visibleBranches.length}
+                          {branchPlural} ({visibleBranches.length}
                           {inactiveBranchesCount > 0
                             ? ` · ${inactiveBranchesCount} inativa(s)`
                             : ''}
                           )
                         </span>
-                        <button type="button" className="sdv-edit-btn" onClick={openBranchCreate}>
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 5v14" />
-                            <path d="M5 12h14" />
-                          </svg>
-                          <span>Nova filial</span>
-                        </button>
+                        {canAddBranch ? (
+                          <button type="button" className="sdv-edit-btn" onClick={openBranchCreate}>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
+                            </svg>
+                            <span>{isPf ? 'Nova fazenda' : 'Nova filial'}</span>
+                          </button>
+                        ) : null}
                       </div>
 
-                      {client.personType === 'PJ' && activeBranchesList.length === 0 ? (
+                      {isPj && activeBranchesList.length === 0 ? (
                         <div className="sdv-banner sdv-banner-warn">
-                          <strong>Esta empresa ainda não tem matriz configurada.</strong>
-                          <p>Adicione uma filial para começar a registrar amostras.</p>
+                          <strong>Esta empresa ainda não tem CNPJ cadastrado.</strong>
+                          <p>Cadastre o CNPJ desta empresa para começar a registrar amostras.</p>
                         </div>
                       ) : null}
 
                       {branches.length === 0 ? (
                         <div className="spv2-empty client-detail-empty-compact">
-                          <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                          <p className="spv2-empty-text">
+                            {isPf ? 'Nenhuma fazenda cadastrada' : 'Nenhuma filial cadastrada'}
+                          </p>
                         </div>
                       ) : (
                         <div className="sdv-branch-list">
@@ -1127,7 +1168,11 @@ export default function ClientDetailPage() {
                                 <span
                                   className={`sdv-branch-badge ${branch.isPrimary ? 'is-primary' : 'is-filial'}`}
                                 >
-                                  {branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`}
+                                  {isPf
+                                    ? `Fazenda ${branch.code}`
+                                    : branch.isPrimary
+                                      ? 'Matriz'
+                                      : `Filial ${branch.code}`}
                                 </span>
                                 {branch.status === 'INACTIVE' ? (
                                   <span className="sdv-branch-badge is-inactive">Inativa</span>
@@ -1165,7 +1210,7 @@ export default function ClientDetailPage() {
                                 >
                                   Editar
                                 </button>
-                                {!branch.isPrimary && branch.status === 'ACTIVE' ? (
+                                {!isPf && !branch.isPrimary && branch.status === 'ACTIVE' ? (
                                   <button
                                     type="button"
                                     className="sdv-edit-btn-small"
@@ -1744,10 +1789,11 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 2: Create/Edit Branch (F6.0) ========== */}
+      {/* ========== MODAL 2: Create/Edit Branch (F6.0/F7.4) ========== */}
       <ClientBranchModal
         open={branchModalOpen}
         mode={branchModalMode}
+        personType={client?.personType ?? 'PJ'}
         branch={selectedBranch}
         saving={savingBranch}
         errorMessage={branchModalNotice?.kind === 'error' ? branchModalNotice.text : null}

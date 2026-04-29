@@ -49,17 +49,31 @@ function getClientDocument(client: ClientSummary) {
 function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
   const rows: LookupRow[] = [];
   for (const client of items) {
-    if (client.personType === 'PF' || !client.branches || client.branches.length === 0) {
+    const branches = client.branches ?? [];
+
+    if (branches.length === 0) {
+      // Sem branches: PF sem fazendas (ainda) ou PJ transient (sem matriz).
+      // O caller marca transient via personType === 'PJ' && branch === null.
+      rows.push({ key: client.id, client, branch: null, isHierarchicalChild: false });
+      continue;
+    }
+
+    // F7: PJ tem exatamente 1 branch ATIVA (a matriz). Linha simples,
+    // nao hierarquica — a info da branch ja entra no cabecalho.
+    if (client.personType === 'PJ') {
+      const primary = branches.find((b) => b.isPrimary) ?? branches[0];
       rows.push({
-        key: client.id,
+        key: `${client.id}:${primary.id}`,
         client,
-        branch: null,
+        branch: primary,
         isHierarchicalChild: false,
       });
       continue;
     }
-    // PJ com branches — ordenadas com primary primeiro (backend ja ordena por isPrimary desc, code asc)
-    for (const branch of client.branches) {
+
+    // PF com 1+ fazendas: 1 linha por fazenda, com nesting visual nas
+    // nao-principais.
+    for (const branch of branches) {
       rows.push({
         key: `${client.id}:${branch.id}`,
         client,
@@ -71,8 +85,13 @@ function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
   return rows;
 }
 
-function buildBranchLabel(branch: ClientBranchSummary): string {
-  const tag = branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`;
+function buildBranchLabel(branch: ClientBranchSummary, personType: 'PF' | 'PJ'): string {
+  let tag: string;
+  if (personType === 'PF') {
+    tag = `Fazenda ${branch.code}`;
+  } else {
+    tag = branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`;
+  }
   const place = branch.city && branch.state ? ` · ${branch.city}/${branch.state}` : '';
   return `${tag}${place}`;
 }
@@ -335,7 +354,7 @@ export function ClientLookupField({
                         {row.branch ? (
                           <span className="client-lookup-option-branch">
                             {' · '}
-                            {buildBranchLabel(row.branch)}
+                            {buildBranchLabel(row.branch, row.client.personType)}
                           </span>
                         ) : null}
                         {isMatched ? (

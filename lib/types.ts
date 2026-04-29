@@ -206,6 +206,8 @@ export interface ClientBranchSummary {
 
 // F5.2: ClientBranchInput é o payload aceito por createClient.branches[]
 // e por POST /clients/:id/branches.
+// F7.3: backend rejeita 2ª branch ATIVA em PJ com 409 PJ_BRANCH_LIMIT
+// (PJ admite apenas a matriz). PF aceita 0..N (fazendas).
 export interface ClientBranchInput {
   name?: string | null;
   isPrimary?: boolean;

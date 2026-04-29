@@ -533,6 +533,16 @@ function NewSamplePageContent() {
       return;
     }
 
+    // F7.4: PJ sem matriz (transient) nao pode ser dono de amostra. O lookup
+    // ja desabilita a selecao, mas o estado pode ter sido carregado de
+    // rascunho ou via outra rota — defesa em profundidade.
+    if (selectedOwnerClient.personType === 'PJ' && ownerBranches.length === 0) {
+      setError(
+        'Este cliente PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar amostras.'
+      );
+      return;
+    }
+
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({
       owner,
       sacks,
