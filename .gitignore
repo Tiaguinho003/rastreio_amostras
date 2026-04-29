@@ -53,3 +53,6 @@ print-agent/logo-preview.png
 
 # Estado local do print-agent (jobs ja impressos nesta sessao)
 print-agent/.printed-jobs.json
+
+# Saidas de scripts de auditoria/wizard (relatorios, JSON dumps, undo SQL)
+/tmp/

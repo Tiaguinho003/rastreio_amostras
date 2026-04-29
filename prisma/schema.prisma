@@ -128,6 +128,9 @@ enum ClientAuditEventType {
   CLIENT_BRANCH_UPDATED
   CLIENT_BRANCH_INACTIVATED
   CLIENT_BRANCH_REACTIVATED
+  // F7.2: emitido pelo wizard de fissao quando uma branch sai de um PJ
+  // multi-filial e vira a matriz de um novo Client distinto.
+  CLIENT_SPLIT
 }
 
 enum ClassificationType {
