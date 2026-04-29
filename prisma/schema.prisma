@@ -128,9 +128,14 @@ enum ClientAuditEventType {
   CLIENT_BRANCH_UPDATED
   CLIENT_BRANCH_INACTIVATED
   CLIENT_BRANCH_REACTIVATED
-  // F7.2: emitido pelo wizard de fissao quando uma branch sai de um PJ
-  // multi-filial e vira a matriz de um novo Client distinto.
+  // F7.2: criado para o wizard de fissao mas nunca usado em runtime — a
+  // estrategia foi substituida por consolidacao destrutiva (F7.2'). Mantido
+  // no enum porque Postgres nao remove enum values; payload nao deve ser
+  // emitido por novo codigo.
   CLIENT_SPLIT
+  // F7.2': emitido pelo wizard de consolidacao quando branches secundarias
+  // de um PJ sao deletadas e samples/movements re-aimados para a matriz.
+  CLIENT_BRANCH_CONSOLIDATED
 }
 
 enum ClassificationType {
