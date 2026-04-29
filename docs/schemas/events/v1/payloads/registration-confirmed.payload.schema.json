@@ -24,7 +24,7 @@
       "type": ["string", "null"],
       "minLength": 1
     },
-    "ownerRegistrationId": {
+    "ownerBranchId": {
       "type": ["string", "null"],
       "minLength": 1
     }

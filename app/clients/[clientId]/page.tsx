@@ -12,10 +12,10 @@ import {
   updateClient,
   inactivateClient,
   reactivateClient,
-  createClientRegistration,
-  updateClientRegistration,
-  inactivateClientRegistration,
-  reactivateClientRegistration,
+  createClientBranch,
+  updateClientBranch,
+  inactivateClientBranch,
+  reactivateClientBranch,
   listClientSamples,
   listClientPurchases,
   getClientCommercialSummary,
@@ -33,7 +33,7 @@ import { useRequireAuth } from '../../../lib/use-auth';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import type {
   ClientPersonType,
-  ClientRegistrationSummary,
+  ClientBranchSummary,
   ClientSummary,
   ClientSampleItem,
   ClientPurchaseItem,
@@ -127,15 +127,15 @@ function blankRegistrationForm() {
   };
 }
 
-function registrationToForm(reg: ClientRegistrationSummary) {
+function registrationToForm(reg: ClientBranchSummary) {
   return {
-    registrationNumber: reg.registrationNumber,
-    registrationType: reg.registrationType,
-    addressLine: reg.addressLine,
-    district: reg.district,
-    city: reg.city,
-    state: reg.state,
-    postalCode: reg.postalCode,
+    registrationNumber: reg.registrationNumber ?? '',
+    registrationType: reg.registrationType ?? '',
+    addressLine: reg.addressLine ?? '',
+    district: reg.district ?? '',
+    city: reg.city ?? '',
+    state: reg.state ?? '',
+    postalCode: reg.postalCode ?? '',
     complement: reg.complement ?? '',
     reasonText: '',
   };
@@ -176,7 +176,7 @@ export default function ClientDetailPage() {
 
   /* ---- data ---- */
   const [client, setClient] = useState<ClientSummary | null>(null);
-  const [registrations, setRegistrations] = useState<ClientRegistrationSummary[]>([]);
+  const [branches, setBranches] = useState<ClientBranchSummary[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
 
   /* ---- notices (6 zones) ---- */
@@ -229,7 +229,7 @@ export default function ClientDetailPage() {
   const [statusImpact, setStatusImpact] = useState<{
     ownedSamples: number;
     activeMovements: number;
-    activeRegistrations: number;
+    activeBranches: number;
   } | null>(null);
   const [statusImpactLoading, setStatusImpactLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -333,7 +333,7 @@ export default function ClientDetailPage() {
         const response = await getClient(session, clientId, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setClient(response.client);
-        setRegistrations(response.registrations);
+        setBranches(response.branches);
       } catch (cause) {
         if (controller.signal.aborted) return;
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
@@ -739,7 +739,7 @@ export default function ClientDetailPage() {
     setRegModalOpen(true);
   }
 
-  function openRegEdit(reg: ClientRegistrationSummary) {
+  function openRegEdit(reg: ClientBranchSummary) {
     setRegModalMode('edit');
     setRegForm(registrationToForm(reg));
     setSelectedRegId(reg.id);
@@ -782,10 +782,10 @@ export default function ClientDetailPage() {
       };
 
       if (regModalMode === 'create') {
-        await createClientRegistration(session, clientId, payload);
+        await createClientBranch(session, clientId, payload);
       } else {
         if (!selectedRegId) return;
-        await updateClientRegistration(session, clientId, selectedRegId, {
+        await updateClientBranch(session, clientId, selectedRegId, {
           ...payload,
           reasonText: regForm.reasonText,
         });
@@ -872,7 +872,7 @@ export default function ClientDetailPage() {
   /*  Registration status handlers                                    */
   /* ================================================================ */
 
-  function openRegStatusModal(reg: ClientRegistrationSummary, action: 'inactivate' | 'reactivate') {
+  function openRegStatusModal(reg: ClientBranchSummary, action: 'inactivate' | 'reactivate') {
     setRegStatusRegId(reg.id);
     setRegStatusAction(action);
     setRegStatusReasonText('');
@@ -893,10 +893,10 @@ export default function ClientDetailPage() {
 
     try {
       if (regStatusAction === 'inactivate') {
-        await inactivateClientRegistration(session, clientId, regStatusRegId, regStatusReasonText);
+        await inactivateClientBranch(session, clientId, regStatusRegId, regStatusReasonText);
         setRegistrationNotice({ kind: 'success', text: 'Inscricao inativada com sucesso.' });
       } else {
-        await reactivateClientRegistration(session, clientId, regStatusRegId, regStatusReasonText);
+        await reactivateClientBranch(session, clientId, regStatusRegId, regStatusReasonText);
         setRegistrationNotice({ kind: 'success', text: 'Inscricao reativada com sucesso.' });
       }
 
@@ -1116,7 +1116,7 @@ export default function ClientDetailPage() {
                     {/* Card: Inscrições */}
                     <div className="sdv-card">
                       <div className="sdv-card-header">
-                        <span className="sdv-card-title">Inscricoes ({registrations.length})</span>
+                        <span className="sdv-card-title">Inscricoes ({branches.length})</span>
                         <button type="button" className="sdv-edit-btn" onClick={openRegCreate}>
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
@@ -1126,13 +1126,13 @@ export default function ClientDetailPage() {
                         </button>
                       </div>
 
-                      {registrations.length === 0 ? (
+                      {branches.length === 0 ? (
                         <div className="spv2-empty client-detail-empty-compact">
                           <p className="spv2-empty-text">Nenhuma inscricao cadastrada</p>
                         </div>
                       ) : (
                         <div className="sdv-com-movements">
-                          {registrations.map((reg) => (
+                          {branches.map((reg) => (
                             <div
                               key={reg.id}
                               className={`sdv-com-mov${reg.status === 'INACTIVE' ? ' is-cancelled' : ''}`}
@@ -2064,12 +2064,12 @@ export default function ClientDetailPage() {
                     {statusImpact.activeMovements > 0 ? (
                       <li>{statusImpact.activeMovements} movimentacao(oes) comercial(is)</li>
                     ) : null}
-                    {statusImpact.activeRegistrations > 0 ? (
-                      <li>{statusImpact.activeRegistrations} inscricao(oes) ativa(s)</li>
+                    {statusImpact.activeBranches > 0 ? (
+                      <li>{statusImpact.activeBranches} filial(is) ativa(s)</li>
                     ) : null}
                     {statusImpact.ownedSamples === 0 &&
                     statusImpact.activeMovements === 0 &&
-                    statusImpact.activeRegistrations === 0 ? (
+                    statusImpact.activeBranches === 0 ? (
                       <li>Nenhum vinculo ativo encontrado.</li>
                     ) : null}
                   </ul>

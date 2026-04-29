@@ -20,25 +20,19 @@ export const CLIENT_STATUSES = {
   INACTIVE: 'INACTIVE',
 };
 
-export const CLIENT_REGISTRATION_STATUSES = {
-  ACTIVE: 'ACTIVE',
-  INACTIVE: 'INACTIVE',
-};
-
 export const CLIENT_BRANCH_STATUSES = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
 };
 
+// F5.2: codigo so emite eventos CLIENT_* e CLIENT_BRANCH_*. Os enum values
+// CLIENT_REGISTRATION_* ainda existem no DB (historico) mas nao sao referenciados
+// aqui; basta enumerar como string ao deserializar event type para responses.
 export const CLIENT_AUDIT_EVENT_TYPES = {
   CLIENT_CREATED: 'CLIENT_CREATED',
   CLIENT_UPDATED: 'CLIENT_UPDATED',
   CLIENT_INACTIVATED: 'CLIENT_INACTIVATED',
   CLIENT_REACTIVATED: 'CLIENT_REACTIVATED',
-  CLIENT_REGISTRATION_CREATED: 'CLIENT_REGISTRATION_CREATED',
-  CLIENT_REGISTRATION_UPDATED: 'CLIENT_REGISTRATION_UPDATED',
-  CLIENT_REGISTRATION_INACTIVATED: 'CLIENT_REGISTRATION_INACTIVATED',
-  CLIENT_REGISTRATION_REACTIVATED: 'CLIENT_REGISTRATION_REACTIVATED',
   CLIENT_BRANCH_CREATED: 'CLIENT_BRANCH_CREATED',
   CLIENT_BRANCH_UPDATED: 'CLIENT_BRANCH_UPDATED',
   CLIENT_BRANCH_INACTIVATED: 'CLIENT_BRANCH_INACTIVATED',
@@ -87,18 +81,6 @@ function normalizeClientPersonType(value, fieldName = 'personType') {
 function normalizeClientStatus(value, fieldName = 'status') {
   const normalized = normalizeRequiredText(value, fieldName, 16).toUpperCase();
   if (!Object.values(CLIENT_STATUSES).includes(normalized)) {
-    throw new HttpError(422, `${fieldName} is invalid`, {
-      code: 'VALIDATION_ERROR',
-      field: fieldName,
-    });
-  }
-
-  return normalized;
-}
-
-function normalizeClientRegistrationStatus(value, fieldName = 'status') {
-  const normalized = normalizeRequiredText(value, fieldName, 16).toUpperCase();
-  if (!Object.values(CLIENT_REGISTRATION_STATUSES).includes(normalized)) {
     throw new HttpError(422, `${fieldName} is invalid`, {
       code: 'VALIDATION_ERROR',
       field: fieldName,
@@ -325,7 +307,9 @@ function normalizeClientFlags({ isBuyer, isSeller }) {
 }
 
 function assertProtectedClientFieldsAbsent(input) {
-  for (const field of ['code', 'status', 'documentCanonical']) {
+  // F5.2: cnpj e cnpjRoot nao mais aceitos a nivel de client. Sao definidos
+  // dentro de branches[]; cnpjRoot e auto-derivado da primeira branch (PJ).
+  for (const field of ['code', 'status', 'documentCanonical', 'cnpj', 'cnpjRoot']) {
     if (hasOwn(input, field)) {
       throw new HttpError(422, `${field} cannot be provided`, {
         code: 'VALIDATION_ERROR',
@@ -335,22 +319,25 @@ function assertProtectedClientFieldsAbsent(input) {
   }
 }
 
-function assertProtectedRegistrationFieldsAbsent(input) {
-  if (hasOwn(input, 'status')) {
-    throw new HttpError(422, 'status cannot be provided', {
-      code: 'VALIDATION_ERROR',
-      field: 'status',
-    });
+function assertProtectedBranchFieldsAbsent(input) {
+  for (const field of ['status', 'code', 'cnpjOrder']) {
+    if (hasOwn(input, field)) {
+      throw new HttpError(422, `${field} cannot be provided`, {
+        code: 'VALIDATION_ERROR',
+        field,
+      });
+    }
   }
 }
 
+// F5.2: client nao guarda mais cnpj nem documentCanonical. cnpj fica na branch.
+// cnpjRoot do client e derivado da primeira branch (primary), feito no service.
 function buildClientWriteData({
   personType,
   fullName,
   legalName,
   tradeName,
   cpf,
-  cnpj,
   phone,
   isBuyer,
   isSeller,
@@ -366,8 +353,6 @@ function buildClientWriteData({
       legalName: null,
       tradeName: null,
       cpf: normalizedCpf,
-      cnpj: null,
-      documentCanonical: normalizedCpf,
       phone: normalizeClientPhone(phone),
       ...flags,
     };
@@ -375,7 +360,6 @@ function buildClientWriteData({
 
   const normalizedLegalName = normalizeRequiredText(legalName, 'legalName', 200);
   const normalizedTradeName = normalizeOptionalText(tradeName, 'tradeName', 200);
-  const normalizedCnpj = normalizeCnpj(cnpj);
 
   return {
     personType,
@@ -383,8 +367,6 @@ function buildClientWriteData({
     legalName: normalizedLegalName,
     tradeName: normalizedTradeName,
     cpf: null,
-    cnpj: normalizedCnpj,
-    documentCanonical: normalizedCnpj,
     phone: normalizeClientPhone(phone),
     ...flags,
   };
@@ -407,7 +389,6 @@ export function normalizeCreateClientInput(input) {
     legalName: input.legalName,
     tradeName: input.tradeName,
     cpf: input.cpf,
-    cnpj: input.cnpj,
     phone: input.phone,
     isBuyer: input.isBuyer,
     isSeller: input.isSeller,
@@ -418,7 +399,62 @@ export function normalizeCreateClientInput(input) {
   const fromInput = resolveCommercialUserIdsFromInput(input);
   const commercialUserIds = fromInput === undefined ? [] : fromInput;
 
-  return { data, commercialUserIds };
+  // F5.2 (B3): branches[] inline opcional. Lista vazia -> client transient sem
+  // branches (UI mostra "configurar filiais" depois). Primeira branch sempre
+  // marcada isPrimary=true; se vier mais de uma com isPrimary=true, 422.
+  const branches = normalizeBranchListInput(input.branches, { context: 'createClient' });
+
+  return { data, commercialUserIds, branches };
+}
+
+// Normaliza lista de branches recebida em createClient.
+// Cada entry passa por buildBranchWriteData (mesma normalizacao de POST /branches).
+// Marca a primeira como isPrimary=true se nenhuma marcada.
+function normalizeBranchListInput(value, { context } = {}) {
+  if (value === undefined || value === null) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new HttpError(422, 'branches must be an array', {
+      code: 'VALIDATION_ERROR',
+      field: 'branches',
+    });
+  }
+
+  if (value.length === 0) {
+    return [];
+  }
+
+  const seenPrimary = value.filter((b) => b && b.isPrimary === true);
+  if (seenPrimary.length > 1) {
+    throw new HttpError(422, 'only one branch can be isPrimary=true', {
+      code: 'VALIDATION_ERROR',
+      field: 'branches',
+    });
+  }
+
+  const normalized = value.map((entry, idx) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new HttpError(422, `branches[${idx}] must be an object`, {
+        code: 'VALIDATION_ERROR',
+        field: `branches[${idx}]`,
+      });
+    }
+    assertProtectedBranchFieldsAbsent(entry);
+    const data = buildBranchWriteData(entry);
+    return {
+      ...data,
+      isPrimary: entry.isPrimary === true,
+      _ctx: context,
+    };
+  });
+
+  // Se nenhuma marcada como primary, a primeira vira primary.
+  if (seenPrimary.length === 0) {
+    normalized[0].isPrimary = true;
+  }
+
+  return normalized;
 }
 
 export function normalizeUpdateClientInput(input, currentClient) {
@@ -432,7 +468,6 @@ export function normalizeUpdateClientInput(input, currentClient) {
   const nextLegalName = hasOwn(input, 'legalName') ? input.legalName : currentClient.legalName;
   const nextTradeName = hasOwn(input, 'tradeName') ? input.tradeName : currentClient.tradeName;
   const nextCpf = hasOwn(input, 'cpf') ? input.cpf : currentClient.cpf;
-  const nextCnpj = hasOwn(input, 'cnpj') ? input.cnpj : currentClient.cnpj;
   const nextPhone = hasOwn(input, 'phone') ? input.phone : currentClient.phone;
   const nextIsBuyer = hasOwn(input, 'isBuyer') ? input.isBuyer : currentClient.isBuyer;
   const nextIsSeller = hasOwn(input, 'isSeller') ? input.isSeller : currentClient.isSeller;
@@ -443,7 +478,6 @@ export function normalizeUpdateClientInput(input, currentClient) {
     legalName: nextLegalName,
     tradeName: nextTradeName,
     cpf: nextCpf,
-    cnpj: nextCnpj,
     phone: nextPhone,
     isBuyer: nextIsBuyer,
     isSeller: nextIsSeller,
@@ -462,95 +496,111 @@ export function normalizeUpdateClientInput(input, currentClient) {
   };
 }
 
-function buildRegistrationWriteData({
-  registrationNumber,
-  registrationType,
-  addressLine,
-  district,
-  city,
-  state,
-  postalCode,
-  complement,
-}) {
-  const normalizedNumber = normalizeRequiredText(registrationNumber, 'registrationNumber', 80);
-  const canonical = normalizeRegistrationCanonical(normalizedNumber);
-  if (!canonical) {
-    throw new HttpError(422, 'registrationNumber is invalid', {
-      code: 'VALIDATION_ERROR',
-      field: 'registrationNumber',
-    });
-  }
-
-  return {
-    registrationNumber: normalizedNumber,
-    registrationNumberCanonical: canonical,
-    registrationType: normalizeRequiredText(registrationType, 'registrationType', 80),
-    addressLine: normalizeRequiredText(addressLine, 'addressLine', 200),
-    district: normalizeRequiredText(district, 'district', 120),
-    city: normalizeRequiredText(city, 'city', 120),
-    state: normalizeRequiredText(state, 'state', 2).toUpperCase(),
-    postalCode: normalizeRequiredText(postalCode, 'postalCode', 16),
-    complement: normalizeOptionalText(complement, 'complement', 120),
-  };
-}
-
-export function normalizeCreateRegistrationInput(input) {
-  assertProtectedRegistrationFieldsAbsent(input);
-  return buildRegistrationWriteData(input);
-}
-
-export function normalizeUpdateRegistrationInput(input, currentRegistration) {
-  assertProtectedRegistrationFieldsAbsent(input);
+// F5.2: write data para Branch. Aceita campos opcionais (createClient com branch
+// transient pode passar so cnpj + endereco basico). Normaliza CNPJ e cnpjOrder
+// derivado, alem de IE (registrationNumber/Type) opcional.
+function buildBranchWriteData(input) {
   const data = {};
 
-  if (hasOwn(input, 'registrationNumber')) {
-    const normalizedNumber = normalizeRequiredText(
-      input.registrationNumber,
-      'registrationNumber',
-      80
-    );
-    const canonical = normalizeRegistrationCanonical(normalizedNumber);
-    if (!canonical) {
-      throw new HttpError(422, 'registrationNumber is invalid', {
-        code: 'VALIDATION_ERROR',
-        field: 'registrationNumber',
-      });
-    }
-
-    data.registrationNumber = normalizedNumber;
-    data.registrationNumberCanonical = canonical;
+  if (hasOwn(input, 'name')) {
+    data.name = normalizeOptionalText(input.name, 'name', 160);
   }
 
-  if (hasOwn(input, 'registrationType')) {
-    data.registrationType = normalizeRequiredText(input.registrationType, 'registrationType', 80);
+  if (hasOwn(input, 'cnpj')) {
+    const normalizedCnpj = normalizeCnpj(input.cnpj);
+    data.cnpj = normalizedCnpj;
+    data.cnpjOrder = normalizedCnpj ? normalizedCnpj.slice(8, 12) : null;
+  }
+
+  if (hasOwn(input, 'legalName')) {
+    data.legalName = normalizeOptionalText(input.legalName, 'legalName', 200);
+  }
+
+  if (hasOwn(input, 'tradeName')) {
+    data.tradeName = normalizeOptionalText(input.tradeName, 'tradeName', 200);
+  }
+
+  if (hasOwn(input, 'phone')) {
+    data.phone = normalizeClientPhone(input.phone);
   }
 
   if (hasOwn(input, 'addressLine')) {
-    data.addressLine = normalizeRequiredText(input.addressLine, 'addressLine', 200);
+    data.addressLine = normalizeOptionalText(input.addressLine, 'addressLine', 200);
   }
 
   if (hasOwn(input, 'district')) {
-    data.district = normalizeRequiredText(input.district, 'district', 120);
+    data.district = normalizeOptionalText(input.district, 'district', 120);
   }
 
   if (hasOwn(input, 'city')) {
-    data.city = normalizeRequiredText(input.city, 'city', 120);
+    data.city = normalizeOptionalText(input.city, 'city', 120);
   }
 
   if (hasOwn(input, 'state')) {
-    data.state = normalizeRequiredText(input.state, 'state', 2).toUpperCase();
+    const state = normalizeOptionalText(input.state, 'state', 2);
+    data.state = state ? state.toUpperCase() : null;
   }
 
   if (hasOwn(input, 'postalCode')) {
-    data.postalCode = normalizeRequiredText(input.postalCode, 'postalCode', 16);
+    data.postalCode = normalizeOptionalText(input.postalCode, 'postalCode', 16);
   }
 
   if (hasOwn(input, 'complement')) {
     data.complement = normalizeOptionalText(input.complement, 'complement', 120);
   }
 
+  if (hasOwn(input, 'registrationNumber')) {
+    const numberText = normalizeOptionalText(input.registrationNumber, 'registrationNumber', 80);
+    if (numberText) {
+      const canonical = normalizeRegistrationCanonical(numberText);
+      if (!canonical) {
+        throw new HttpError(422, 'registrationNumber is invalid', {
+          code: 'VALIDATION_ERROR',
+          field: 'registrationNumber',
+        });
+      }
+      data.registrationNumber = numberText;
+      data.registrationNumberCanonical = canonical;
+    } else {
+      data.registrationNumber = null;
+      data.registrationNumberCanonical = null;
+    }
+  }
+
+  if (hasOwn(input, 'registrationType')) {
+    data.registrationType = normalizeOptionalText(input.registrationType, 'registrationType', 80);
+  }
+
+  return data;
+}
+
+export function normalizeCreateBranchInput(input) {
+  assertProtectedBranchFieldsAbsent(input);
+  const data = buildBranchWriteData(input);
+  return {
+    isPrimary: input.isPrimary === true,
+    data,
+  };
+}
+
+export function normalizeUpdateBranchInput(input) {
+  assertProtectedBranchFieldsAbsent(input);
+  const data = buildBranchWriteData(input);
+
+  let isPrimary;
+  if (hasOwn(input, 'isPrimary')) {
+    if (typeof input.isPrimary !== 'boolean') {
+      throw new HttpError(422, 'isPrimary must be boolean', {
+        code: 'VALIDATION_ERROR',
+        field: 'isPrimary',
+      });
+    }
+    isPrimary = input.isPrimary;
+  }
+
   return {
     reasonText: normalizeOptionalReasonText(input.reasonText),
+    isPrimary,
     data,
   };
 }
@@ -620,12 +670,19 @@ export function normalizeStatusReasonInput(input) {
   };
 }
 
+// F5.2: PF -> client.cpf. PJ -> primary branch CNPJ (passthrough). Se nenhuma
+// branch tem CNPJ ainda (transient state), retorna null.
 function buildClientDocument(client) {
   if (client.personType === CLIENT_PERSON_TYPES.PF) {
     return client.cpf ?? null;
   }
 
-  return client.cnpj ?? null;
+  if (Array.isArray(client.branches) && client.branches.length > 0) {
+    const primary = client.branches.find((b) => b?.isPrimary === true) ?? client.branches[0];
+    return primary?.cnpj ?? null;
+  }
+
+  return null;
 }
 
 export function buildClientDisplayName(client) {
@@ -637,8 +694,6 @@ export function buildClientDisplayName(client) {
 }
 
 export function toClientSummary(client, options = {}) {
-  const activeRegistrationCount = options.activeRegistrationCount ?? 0;
-  const registrationCount = options.registrationCount ?? 0;
   const activeBranchCount = options.activeBranchCount ?? 0;
   const branchCount = options.branchCount ?? 0;
   // Fonte unica: tabela join client_commercial_user. Expose duas formas:
@@ -658,6 +713,11 @@ export function toClientSummary(client, options = {}) {
       )
     : [];
 
+  // F5.2: cnpj exposto e passthrough da primary branch (PJ); para PF e null.
+  const primaryBranch = branches.find((b) => b.isPrimary) ?? branches[0] ?? null;
+  const exposedCnpj =
+    client.personType === CLIENT_PERSON_TYPES.PJ ? (primaryBranch?.cnpj ?? null) : null;
+
   return {
     id: client.id,
     code: client.code,
@@ -667,7 +727,7 @@ export function toClientSummary(client, options = {}) {
     legalName: client.legalName ?? null,
     tradeName: client.tradeName ?? null,
     cpf: client.cpf ?? null,
-    cnpj: client.cnpj ?? null,
+    cnpj: exposedCnpj,
     document: buildClientDocument(client),
     phone: client.phone ?? null,
     isBuyer: client.isBuyer,
@@ -675,33 +735,13 @@ export function toClientSummary(client, options = {}) {
     status: client.status,
     commercialUser,
     commercialUsers,
-    registrationCount,
-    activeRegistrationCount,
     branches,
     branchCount,
     activeBranchCount,
-    primaryCity: options.primaryCity ?? null,
-    primaryState: options.primaryState ?? null,
+    primaryCity: options.primaryCity ?? primaryBranch?.city ?? null,
+    primaryState: options.primaryState ?? primaryBranch?.state ?? null,
     createdAt: toIsoString(client.createdAt),
     updatedAt: toIsoString(client.updatedAt),
-  };
-}
-
-export function toClientRegistrationSummary(registration) {
-  return {
-    id: registration.id,
-    clientId: registration.clientId,
-    status: registration.status,
-    registrationNumber: registration.registrationNumber,
-    registrationType: registration.registrationType,
-    addressLine: registration.addressLine,
-    district: registration.district,
-    city: registration.city,
-    state: registration.state,
-    postalCode: registration.postalCode,
-    complement: registration.complement ?? null,
-    createdAt: toIsoString(registration.createdAt),
-    updatedAt: toIsoString(registration.updatedAt),
   };
 }
 
@@ -754,12 +794,15 @@ export function toClientAuditEventResponse(event) {
           personType: event.targetClient.personType,
         }
       : null,
-    targetRegistration: event.targetRegistration
+    targetBranch: event.targetBranch
       ? {
-          id: event.targetRegistration.id,
-          registrationNumber: event.targetRegistration.registrationNumber,
-          registrationType: event.targetRegistration.registrationType,
-          status: event.targetRegistration.status,
+          id: event.targetBranch.id,
+          name: event.targetBranch.name ?? null,
+          code: event.targetBranch.code,
+          isPrimary: event.targetBranch.isPrimary === true,
+          cnpj: event.targetBranch.cnpj ?? null,
+          legalName: event.targetBranch.legalName ?? null,
+          status: event.targetBranch.status,
         }
       : null,
     metadata: {
@@ -795,7 +838,6 @@ export function buildClientAuditState(client) {
     legalName: client.legalName ?? null,
     tradeName: client.tradeName ?? null,
     cpf: client.cpf ?? null,
-    cnpj: client.cnpj ?? null,
     document: buildClientDocument(client),
     phone: client.phone ?? null,
     isBuyer: client.isBuyer,
@@ -805,17 +847,24 @@ export function buildClientAuditState(client) {
   };
 }
 
-export function buildRegistrationAuditState(registration) {
+export function buildBranchAuditState(branch) {
   return {
-    status: registration.status,
-    registrationNumber: registration.registrationNumber,
-    registrationType: registration.registrationType,
-    addressLine: registration.addressLine,
-    district: registration.district,
-    city: registration.city,
-    state: registration.state,
-    postalCode: registration.postalCode,
-    complement: registration.complement ?? null,
+    name: branch.name ?? null,
+    isPrimary: branch.isPrimary === true,
+    code: branch.code,
+    cnpj: branch.cnpj ?? null,
+    legalName: branch.legalName ?? null,
+    tradeName: branch.tradeName ?? null,
+    phone: branch.phone ?? null,
+    addressLine: branch.addressLine ?? null,
+    district: branch.district ?? null,
+    city: branch.city ?? null,
+    state: branch.state ?? null,
+    postalCode: branch.postalCode ?? null,
+    complement: branch.complement ?? null,
+    registrationNumber: branch.registrationNumber ?? null,
+    registrationType: branch.registrationType ?? null,
+    status: branch.status,
   };
 }
 
@@ -840,7 +889,6 @@ export {
   buildAuditContext,
   hasOwn,
   normalizeClientPersonType,
-  normalizeClientRegistrationStatus,
   normalizeClientStatus,
   normalizeReasonText,
   normalizeBooleanLike,

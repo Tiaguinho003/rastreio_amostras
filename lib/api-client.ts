@@ -6,7 +6,7 @@ import type {
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
-  ClientRegistrationMutationResponse,
+  ClientBranchMutationResponse,
   ClientResponse,
   ClientSamplesListResponse,
   ClientsListResponse,
@@ -438,7 +438,7 @@ export function getUserClientsImpact(session: SessionData, userId: string) {
 export function getClientImpact(session: SessionData, clientId: string) {
   return request<{
     client: { id: string; displayName: string; status: string };
-    usage: { ownedSamples: number; activeMovements: number; activeRegistrations: number };
+    usage: { ownedSamples: number; activeMovements: number; activeBranches: number };
   }>(`/clients/${clientId}/impact`, { session });
 }
 
@@ -556,61 +556,70 @@ export function listClientAuditEvents(
   });
 }
 
-export function createClientRegistration(
+export function createClientBranch(
   session: SessionData,
   clientId: string,
   data: {
-    registrationNumber: string;
-    registrationType: string;
-    addressLine: string;
-    district: string;
-    city: string;
-    state: string;
-    postalCode: string;
+    name?: string | null;
+    isPrimary?: boolean;
+    cnpj?: string | null;
+    legalName?: string | null;
+    tradeName?: string | null;
+    phone?: string | null;
+    addressLine?: string | null;
+    district?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
     complement?: string | null;
+    registrationNumber?: string | null;
+    registrationType?: string | null;
   }
 ) {
-  return request<ClientRegistrationMutationResponse>(`/clients/${clientId}/registrations`, {
+  return request<ClientBranchMutationResponse>(`/clients/${clientId}/branches`, {
     method: 'POST',
     session,
     body: data,
   });
 }
 
-export function updateClientRegistration(
+export function updateClientBranch(
   session: SessionData,
   clientId: string,
-  registrationId: string,
+  branchId: string,
   data: {
-    registrationNumber?: string;
-    registrationType?: string;
-    addressLine?: string;
-    district?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
+    name?: string | null;
+    isPrimary?: boolean;
+    cnpj?: string | null;
+    legalName?: string | null;
+    tradeName?: string | null;
+    phone?: string | null;
+    addressLine?: string | null;
+    district?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
     complement?: string | null;
-    reasonText: string;
+    registrationNumber?: string | null;
+    registrationType?: string | null;
+    reasonText?: string;
   }
 ) {
-  return request<ClientRegistrationMutationResponse>(
-    `/clients/${clientId}/registrations/${registrationId}`,
-    {
-      method: 'PATCH',
-      session,
-      body: data,
-    }
-  );
+  return request<ClientBranchMutationResponse>(`/clients/${clientId}/branches/${branchId}`, {
+    method: 'PATCH',
+    session,
+    body: data,
+  });
 }
 
-export function inactivateClientRegistration(
+export function inactivateClientBranch(
   session: SessionData,
   clientId: string,
-  registrationId: string,
+  branchId: string,
   reasonText: string
 ) {
-  return request<ClientRegistrationMutationResponse>(
-    `/clients/${clientId}/registrations/${registrationId}/inactivate`,
+  return request<ClientBranchMutationResponse>(
+    `/clients/${clientId}/branches/${branchId}/inactivate`,
     {
       method: 'POST',
       session,
@@ -619,14 +628,14 @@ export function inactivateClientRegistration(
   );
 }
 
-export function reactivateClientRegistration(
+export function reactivateClientBranch(
   session: SessionData,
   clientId: string,
-  registrationId: string,
+  branchId: string,
   reasonText: string
 ) {
-  return request<ClientRegistrationMutationResponse>(
-    `/clients/${clientId}/registrations/${registrationId}/reactivate`,
+  return request<ClientBranchMutationResponse>(
+    `/clients/${clientId}/branches/${branchId}/reactivate`,
     {
       method: 'POST',
       session,
@@ -855,7 +864,7 @@ export function createSampleAndPreparePrint(
     clientDraftId: string;
     owner: string;
     ownerClientId?: string | null;
-    ownerRegistrationId?: string | null;
+    ownerBranchId?: string | null;
     sacks: number;
     harvest: string;
     originLot?: string | null;
@@ -872,7 +881,7 @@ export function createSampleAndPreparePrint(
       clientDraftId: data.clientDraftId,
       owner: data.owner,
       ownerClientId: data.ownerClientId ?? null,
-      ownerRegistrationId: data.ownerRegistrationId ?? null,
+      ownerBranchId: data.ownerBranchId ?? null,
       sacks: data.sacks,
       harvest: data.harvest,
       originLot: data.originLot ?? null,
@@ -1144,7 +1153,7 @@ export function confirmRegistration(
   data: {
     expectedVersion: number;
     ownerClientId?: string | null;
-    ownerRegistrationId?: string | null;
+    ownerBranchId?: string | null;
     declared: {
       owner: string;
       sacks: number;
@@ -1160,7 +1169,7 @@ export function confirmRegistration(
     body: {
       expectedVersion: data.expectedVersion,
       ownerClientId: data.ownerClientId ?? null,
-      ownerRegistrationId: data.ownerRegistrationId ?? null,
+      ownerBranchId: data.ownerBranchId ?? null,
       declared: data.declared,
     },
   });
@@ -1559,7 +1568,7 @@ export function createSampleMovement(
     expectedVersion: number;
     movementType: 'SALE' | 'LOSS';
     buyerClientId?: string | null;
-    buyerRegistrationId?: string | null;
+    buyerBranchId?: string | null;
     quantitySacks: number;
     movementDate: string;
     notes?: string | null;

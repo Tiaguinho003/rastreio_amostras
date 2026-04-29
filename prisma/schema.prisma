@@ -93,11 +93,6 @@ enum ClientStatus {
   INACTIVE
 }
 
-enum ClientRegistrationStatus {
-  ACTIVE
-  INACTIVE
-}
-
 enum ClientBranchStatus {
   ACTIVE
   INACTIVE
@@ -123,6 +118,8 @@ enum ClientAuditEventType {
   CLIENT_UPDATED
   CLIENT_INACTIVATED
   CLIENT_REACTIVATED
+  // F5.0/F5.1 legacy — Postgres nao remove enum value; mantidos para
+  // deserializar audit events historicos. Codigo nao emite mais.
   CLIENT_REGISTRATION_CREATED
   CLIENT_REGISTRATION_UPDATED
   CLIENT_REGISTRATION_INACTIVATED
@@ -211,7 +208,6 @@ model Sample {
   version                     Int       @default(0)
   lastEventSequence           Int       @default(0) @map("last_event_sequence")
   ownerClientId               String?   @db.Uuid @map("owner_client_id")
-  ownerRegistrationId         String?   @db.Uuid @map("owner_registration_id")
   ownerBranchId               String?   @db.Uuid @map("owner_branch_id")
   declaredOwner               String?   @map("declared_owner")
   declaredSacks               Int?      @map("declared_sacks")
@@ -237,7 +233,6 @@ model Sample {
   createdAt                   DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
 
   ownerClient       Client?             @relation("SampleOwnerClient", fields: [ownerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  ownerRegistration ClientRegistration? @relation("SampleOwnerRegistration", fields: [ownerRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   ownerBranch       ClientBranch?       @relation("SampleOwnerBranch", fields: [ownerBranchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   events            SampleEvent[]
   attachments       SampleAttachment[]
@@ -252,7 +247,6 @@ model Sample {
   @@index([declaredHarvest], map: "idx_sample_declared_harvest")
   @@index([createdAt], map: "idx_sample_created_at")
   @@index([ownerClientId], map: "idx_sample_owner_client")
-  @@index([ownerRegistrationId], map: "idx_sample_owner_registration")
   @@index([ownerBranchId], map: "idx_sample_owner_branch")
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
@@ -373,9 +367,9 @@ model Client {
   fullName          String?           @map("full_name")
   legalName         String?           @map("legal_name")
   tradeName         String?           @map("trade_name")
-  cpf               String?
-  cnpj              String?
-  documentCanonical String?           @unique(map: "uq_client_document_canonical") @map("document_canonical")
+  // F5.2: cpf e UNIQUE parcial (PF only). cnpj/document_canonical foram
+  // movidos para ClientBranch (PJ) e renomeados como *_deprecated_2026q2 no DB.
+  cpf               String?           @unique(map: "uq_client_cpf")
   // F5.1B: cnpj_root e UNIQUE apos a fusao via wizard (COOPERCITRUS/COFCO).
   cnpjRoot          String?           @unique(map: "uq_client_cnpj_root") @map("cnpj_root") @db.VarChar(8)
   phone             String?
@@ -385,7 +379,6 @@ model Client {
   createdAt         DateTime          @default(now()) @db.Timestamptz(6) @map("created_at")
   updatedAt         DateTime          @updatedAt @db.Timestamptz(6) @map("updated_at")
 
-  registrations       ClientRegistration[]
   branches            ClientBranch[]
   ownedSamples        Sample[]           @relation("SampleOwnerClient")
   buyerMovements      SampleMovement[]   @relation("SampleMovementBuyerClient")
@@ -424,6 +417,7 @@ model ClientBranch {
   client                      Client              @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   ownedSamples                Sample[]            @relation("SampleOwnerBranch")
   buyerMovements              SampleMovement[]    @relation("SampleMovementBuyerBranch")
+  auditEventsAsTarget         ClientAuditEvent[]  @relation("ClientAuditTargetBranch")
 
   @@unique([clientId, code], map: "uq_client_branch_client_code")
   @@unique([cnpj], map: "uq_client_branch_cnpj")
@@ -447,36 +441,14 @@ model ClientCommercialUser {
   @@map("client_commercial_user")
 }
 
-model ClientRegistration {
-  id                         String                   @id @db.Uuid
-  clientId                   String                   @db.Uuid @map("client_id")
-  status                     ClientRegistrationStatus @default(ACTIVE)
-  registrationNumber         String                   @map("registration_number")
-  registrationNumberCanonical String                  @unique(map: "uq_client_registration_number_canonical") @map("registration_number_canonical")
-  registrationType           String                   @map("registration_type")
-  addressLine                String                   @map("address_line")
-  district                   String
-  city                       String
-  state                      String                   @db.VarChar(2)
-  postalCode                 String                   @map("postal_code")
-  complement                 String?
-  createdAt                  DateTime                 @default(now()) @db.Timestamptz(6) @map("created_at")
-  updatedAt                  DateTime                 @updatedAt @db.Timestamptz(6) @map("updated_at")
-
-  client                      Client             @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  ownerSamples                Sample[]           @relation("SampleOwnerRegistration")
-  buyerMovements              SampleMovement[]   @relation("SampleMovementBuyerRegistration")
-  auditEventsAsTarget         ClientAuditEvent[] @relation("ClientAuditTargetRegistration")
-
-  @@unique([id, clientId], map: "uq_client_registration_id_client")
-  @@index([clientId, status, createdAt], map: "idx_client_registration_client_status_created")
-  @@map("client_registration")
-}
+// F5.2: ClientRegistration model removido. A tabela continua no DB como
+// `client_registration_deprecated_2026q2` (rename via migration), drop
+// definitivo em Phase 10. Para mutations, usar ClientBranch.
 
 model ClientAuditEvent {
   eventId              String               @id @db.Uuid @map("event_id")
   targetClientId       String?              @db.Uuid @map("target_client_id")
-  targetRegistrationId String?              @db.Uuid @map("target_registration_id")
+  targetBranchId       String?              @db.Uuid @map("target_branch_id")
   actorUserId          String?              @db.Uuid @map("actor_user_id")
   eventType            ClientAuditEventType @map("event_type")
   payload              Json
@@ -487,12 +459,12 @@ model ClientAuditEvent {
   metadataUserAgent    String?              @map("metadata_user_agent")
   createdAt            DateTime             @default(now()) @db.Timestamptz(6) @map("created_at")
 
-  targetClient       Client?             @relation("ClientAuditTarget", fields: [targetClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  targetRegistration ClientRegistration? @relation("ClientAuditTargetRegistration", fields: [targetRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  actorUser          User?               @relation("ClientAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  targetClient Client?       @relation("ClientAuditTarget", fields: [targetClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  targetBranch ClientBranch? @relation("ClientAuditTargetBranch", fields: [targetBranchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actorUser    User?         @relation("ClientAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([targetClientId, createdAt], map: "idx_client_audit_target_created")
-  @@index([targetRegistrationId, createdAt], map: "idx_client_audit_registration_created")
+  @@index([targetBranchId, createdAt], map: "idx_client_audit_branch_created")
   @@index([actorUserId, createdAt], map: "idx_client_audit_actor_created")
   @@index([eventType, createdAt], map: "idx_client_audit_event_type_created")
   @@index([createdAt], map: "idx_client_audit_created")
@@ -505,14 +477,12 @@ model SampleMovement {
   movementType             SampleMovementType   @map("movement_type")
   status                   SampleMovementStatus @default(ACTIVE)
   buyerClientId            String?              @db.Uuid @map("buyer_client_id")
-  buyerRegistrationId      String?              @db.Uuid @map("buyer_registration_id")
   buyerBranchId            String?              @db.Uuid @map("buyer_branch_id")
   quantitySacks            Int                  @map("quantity_sacks")
   movementDate             DateTime             @db.Date @map("movement_date")
   notes                    String?
   reasonText               String?              @map("reason_text")
   buyerClientSnapshot      Json?                @map("buyer_client_snapshot")
-  buyerRegistrationSnapshot Json?               @map("buyer_registration_snapshot")
   buyerBranchSnapshot      Json?                @map("buyer_branch_snapshot")
   version                  Int                  @default(0)
   cancelledAt              DateTime?            @db.Timestamptz(6) @map("cancelled_at")
@@ -521,7 +491,6 @@ model SampleMovement {
 
   sample            Sample              @relation(fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   buyerClient       Client?             @relation("SampleMovementBuyerClient", fields: [buyerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  buyerRegistration ClientRegistration? @relation("SampleMovementBuyerRegistration", fields: [buyerRegistrationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   buyerBranch       ClientBranch?       @relation("SampleMovementBuyerBranch", fields: [buyerBranchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([sampleId, status, movementDate, id], map: "idx_sample_movement_sample_status_date_id")

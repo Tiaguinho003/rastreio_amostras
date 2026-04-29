@@ -5,30 +5,29 @@ import {
   CLIENT_AUDIT_EVENT_TYPES,
   CLIENT_BRANCH_STATUSES,
   CLIENT_LOOKUP_KINDS,
-  CLIENT_REGISTRATION_STATUSES,
   CLIENT_STATUSES,
+  CLIENT_PERSON_TYPES,
   assertAuthenticatedActor,
   buildAuditContext,
+  buildBranchAuditState,
   buildClientAuditPayload,
   buildClientAuditState,
   buildClientDisplayName,
   buildClientListPage,
-  buildRegistrationAuditState,
   normalizeAuditListInput,
   normalizeCommercialUserId,
   normalizeCommercialUserIds,
+  normalizeCreateBranchInput,
   normalizeCreateClientInput,
-  normalizeCreateRegistrationInput,
   normalizeListClientsInput,
   normalizeLookupClientsInput,
   normalizeStatusReasonInput,
+  normalizeUpdateBranchInput,
   normalizeUpdateClientInput,
-  normalizeUpdateRegistrationInput,
   readLimitQuery,
   readPageQuery,
   toClientAuditEventResponse,
   toClientBranchSummary,
-  toClientRegistrationSummary,
   toClientSummary,
 } from './client-support.js';
 
@@ -78,7 +77,7 @@ const CLIENT_SUMMARY_SELECT = {
   legalName: true,
   tradeName: true,
   cpf: true,
-  cnpj: true,
+  cnpjRoot: true,
   phone: true,
   isBuyer: true,
   isSeller: true,
@@ -86,18 +85,6 @@ const CLIENT_SUMMARY_SELECT = {
   createdAt: true,
   updatedAt: true,
   commercialUsers: COMMERCIAL_USERS_SELECT,
-  registrations: {
-    where: {
-      status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
-    },
-    select: {
-      id: true,
-      status: true,
-      city: true,
-      state: true,
-    },
-    orderBy: { createdAt: 'asc' },
-  },
   branches: {
     where: { status: CLIENT_BRANCH_STATUSES.ACTIVE },
     select: CLIENT_BRANCH_SUMMARY_SELECT,
@@ -105,7 +92,6 @@ const CLIENT_SUMMARY_SELECT = {
   },
   _count: {
     select: {
-      registrations: true,
       branches: true,
     },
   },
@@ -119,8 +105,7 @@ const CLIENT_DETAIL_SELECT = {
   legalName: true,
   tradeName: true,
   cpf: true,
-  cnpj: true,
-  documentCanonical: true,
+  cnpjRoot: true,
   phone: true,
   isBuyer: true,
   isSeller: true,
@@ -128,44 +113,16 @@ const CLIENT_DETAIL_SELECT = {
   createdAt: true,
   updatedAt: true,
   commercialUsers: COMMERCIAL_USERS_SELECT,
-  registrations: {
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-  },
   branches: {
     select: CLIENT_BRANCH_SUMMARY_SELECT,
     orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
   },
   _count: {
     select: {
-      registrations: true,
       branches: true,
     },
   },
 };
-
-const REGISTRATION_SELECT = {
-  id: true,
-  clientId: true,
-  status: true,
-  registrationNumber: true,
-  registrationNumberCanonical: true,
-  registrationType: true,
-  addressLine: true,
-  district: true,
-  city: true,
-  state: true,
-  postalCode: true,
-  complement: true,
-  createdAt: true,
-  updatedAt: true,
-};
-
-function deriveCnpjOrder(documentCanonical) {
-  if (typeof documentCanonical !== 'string' || documentCanonical.length !== 14) {
-    return null;
-  }
-  return documentCanonical.slice(8, 12);
-}
 
 function buildClientWhereFromSearch(search) {
   if (!search) {
@@ -175,14 +132,20 @@ function buildClientWhereFromSearch(search) {
   const numericSearch = Number.parseInt(search, 10);
   const digits = String(search).replace(/\D+/g, '');
 
+  // F5.2: cnpj e documentCanonical foram movidos para client_branch / cnpj_root.
+  // Search agora cobre cpf no Client e cnpj/cnpjRoot via branch (some).
+  const cnpjDigits = digits.length > 0 ? digits : null;
   const or = [
     { fullName: { contains: search, mode: 'insensitive' } },
     { legalName: { contains: search, mode: 'insensitive' } },
     { tradeName: { contains: search, mode: 'insensitive' } },
-    { cpf: { contains: search } },
-    { cnpj: { contains: search } },
-    { documentCanonical: { contains: digits.length > 0 ? digits : search.toLowerCase() } },
+    { cpf: { contains: digits.length > 0 ? digits : search } },
   ];
+
+  if (cnpjDigits) {
+    or.push({ cnpjRoot: { startsWith: cnpjDigits.slice(0, 8) } });
+    or.push({ branches: { some: { cnpj: { contains: cnpjDigits } } } });
+  }
 
   if (Number.isInteger(numericSearch) && String(numericSearch) === search.trim()) {
     or.push({ code: numericSearch });
@@ -210,20 +173,6 @@ function parseExactCodeSearch(search) {
 }
 
 function mapClientRow(row) {
-  const activeRegistrations = Array.isArray(row.registrations)
-    ? row.registrations.filter(
-        (registration) => registration.status === CLIENT_REGISTRATION_STATUSES.ACTIVE
-      )
-    : [];
-  const activeRegistrationCount = activeRegistrations.length;
-  const registrationCount =
-    typeof row?._count?.registrations === 'number'
-      ? row._count.registrations
-      : Array.isArray(row.registrations)
-        ? row.registrations.length
-        : 0;
-  const primaryRegistration = activeRegistrations[0] ?? null;
-
   const activeBranches = Array.isArray(row.branches)
     ? row.branches.filter((branch) => branch.status === CLIENT_BRANCH_STATUSES.ACTIVE)
     : [];
@@ -234,14 +183,14 @@ function mapClientRow(row) {
       : Array.isArray(row.branches)
         ? row.branches.length
         : 0;
+  const primaryBranch =
+    activeBranches.find((b) => b.isPrimary === true) ?? activeBranches[0] ?? null;
 
   return toClientSummary(row, {
-    activeRegistrationCount,
-    registrationCount,
     activeBranchCount,
     branchCount,
-    primaryCity: primaryRegistration?.city ?? null,
-    primaryState: primaryRegistration?.state ?? null,
+    primaryCity: primaryBranch?.city ?? null,
+    primaryState: primaryBranch?.state ?? null,
   });
 }
 
@@ -279,7 +228,7 @@ export class ClientService {
       data: {
         eventId: input.eventId ?? randomUUID(),
         targetClientId: input.targetClientId ?? null,
-        targetRegistrationId: input.targetRegistrationId ?? null,
+        targetBranchId: input.targetBranchId ?? null,
         actorUserId: actorUserId ?? null,
         eventType: input.eventType,
         payload: input.payload ?? {},
@@ -292,7 +241,9 @@ export class ClientService {
     });
   }
 
-  async resolveOwnerBinding({ ownerClientId, ownerRegistrationId = null }) {
+  // F5.2: owner binding agora valida ownerBranchId (req) + ownerClientId (req).
+  // C2: ambos sao denormalizados; branch.clientId DEVE ser igual a ownerClientId.
+  async resolveOwnerBinding({ ownerClientId, ownerBranchId = null }) {
     if (typeof ownerClientId !== 'string' || ownerClientId.length === 0) {
       throw new HttpError(422, 'ownerClientId is required for structured owner binding', {
         code: 'OWNER_CLIENT_REQUIRED',
@@ -301,20 +252,7 @@ export class ClientService {
 
     const client = await this.prisma.client.findUnique({
       where: { id: ownerClientId },
-      select: {
-        id: true,
-        code: true,
-        personType: true,
-        fullName: true,
-        legalName: true,
-        tradeName: true,
-        cpf: true,
-        cnpj: true,
-        phone: true,
-        isBuyer: true,
-        isSeller: true,
-        status: true,
-      },
+      select: CLIENT_SUMMARY_SELECT,
     });
 
     if (!client) {
@@ -338,53 +276,38 @@ export class ClientService {
       });
     }
 
-    let registration = null;
-    if (ownerRegistrationId !== null && ownerRegistrationId !== undefined) {
-      registration = await this.prisma.clientRegistration.findFirst({
-        where: {
-          id: ownerRegistrationId,
-          clientId: client.id,
-        },
-        select: {
-          id: true,
-          clientId: true,
-          status: true,
-          registrationNumber: true,
-          registrationType: true,
-          addressLine: true,
-          district: true,
-          city: true,
-          state: true,
-          postalCode: true,
-          complement: true,
-        },
+    let branch = null;
+    if (ownerBranchId !== null && ownerBranchId !== undefined) {
+      branch = await this.prisma.clientBranch.findFirst({
+        where: { id: ownerBranchId, clientId: client.id },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
 
-      if (!registration) {
-        throw new HttpError(422, 'ownerRegistrationId must belong to ownerClientId', {
-          code: 'OWNER_REGISTRATION_MISMATCH',
-          field: 'ownerRegistrationId',
+      if (!branch) {
+        throw new HttpError(422, 'ownerBranchId must belong to ownerClientId', {
+          code: 'OWNER_BRANCH_MISMATCH',
+          field: 'ownerBranchId',
         });
       }
 
-      if (registration.status !== CLIENT_REGISTRATION_STATUSES.ACTIVE) {
-        throw new HttpError(422, 'ownerRegistrationId must reference an active registration', {
-          code: 'OWNER_REGISTRATION_INACTIVE',
-          field: 'ownerRegistrationId',
+      if (branch.status !== CLIENT_BRANCH_STATUSES.ACTIVE) {
+        throw new HttpError(422, 'ownerBranchId must reference an active branch', {
+          code: 'OWNER_BRANCH_INACTIVE',
+          field: 'ownerBranchId',
         });
       }
     }
 
     return {
       ownerClientId: client.id,
-      ownerRegistrationId: registration?.id ?? null,
+      ownerBranchId: branch?.id ?? null,
       displayName: buildClientDisplayName(client),
-      ownerClient: toClientSummary(client),
-      ownerRegistration: registration ? toClientRegistrationSummary(registration) : null,
+      ownerClient: mapClientRow(client),
+      ownerBranch: branch ? toClientBranchSummary(branch) : null,
     };
   }
 
-  async resolveBuyerBinding({ buyerClientId, buyerRegistrationId = null }) {
+  async resolveBuyerBinding({ buyerClientId, buyerBranchId = null }) {
     if (typeof buyerClientId !== 'string' || buyerClientId.length === 0) {
       throw new HttpError(422, 'buyerClientId is required for sale movement', {
         code: 'BUYER_CLIENT_REQUIRED',
@@ -393,20 +316,7 @@ export class ClientService {
 
     const client = await this.prisma.client.findUnique({
       where: { id: buyerClientId },
-      select: {
-        id: true,
-        code: true,
-        personType: true,
-        fullName: true,
-        legalName: true,
-        tradeName: true,
-        cpf: true,
-        cnpj: true,
-        phone: true,
-        isBuyer: true,
-        isSeller: true,
-        status: true,
-      },
+      select: CLIENT_SUMMARY_SELECT,
     });
 
     if (!client) {
@@ -430,48 +340,33 @@ export class ClientService {
       });
     }
 
-    let registration = null;
-    if (buyerRegistrationId !== null && buyerRegistrationId !== undefined) {
-      registration = await this.prisma.clientRegistration.findFirst({
-        where: {
-          id: buyerRegistrationId,
-          clientId: client.id,
-        },
-        select: {
-          id: true,
-          clientId: true,
-          status: true,
-          registrationNumber: true,
-          registrationType: true,
-          addressLine: true,
-          district: true,
-          city: true,
-          state: true,
-          postalCode: true,
-          complement: true,
-        },
+    let branch = null;
+    if (buyerBranchId !== null && buyerBranchId !== undefined) {
+      branch = await this.prisma.clientBranch.findFirst({
+        where: { id: buyerBranchId, clientId: client.id },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
 
-      if (!registration) {
-        throw new HttpError(422, 'buyerRegistrationId must belong to buyerClientId', {
-          code: 'BUYER_REGISTRATION_MISMATCH',
-          field: 'buyerRegistrationId',
+      if (!branch) {
+        throw new HttpError(422, 'buyerBranchId must belong to buyerClientId', {
+          code: 'BUYER_BRANCH_MISMATCH',
+          field: 'buyerBranchId',
         });
       }
 
-      if (registration.status !== CLIENT_REGISTRATION_STATUSES.ACTIVE) {
-        throw new HttpError(422, 'buyerRegistrationId must reference an active registration', {
-          code: 'BUYER_REGISTRATION_INACTIVE',
-          field: 'buyerRegistrationId',
+      if (branch.status !== CLIENT_BRANCH_STATUSES.ACTIVE) {
+        throw new HttpError(422, 'buyerBranchId must reference an active branch', {
+          code: 'BUYER_BRANCH_INACTIVE',
+          field: 'buyerBranchId',
         });
       }
     }
 
     return {
       buyerClientId: client.id,
-      buyerRegistrationId: registration?.id ?? null,
-      buyerClient: toClientSummary(client),
-      buyerRegistration: registration ? toClientRegistrationSummary(registration) : null,
+      buyerBranchId: branch?.id ?? null,
+      buyerClient: mapClientRow(client),
+      buyerBranch: branch ? toClientBranchSummary(branch) : null,
     };
   }
 
@@ -543,8 +438,7 @@ export class ClientService {
         legalName: true,
         tradeName: true,
         cpf: true,
-        cnpj: true,
-        documentCanonical: true,
+        cnpjRoot: true,
         phone: true,
         isBuyer: true,
         isSeller: true,
@@ -554,6 +448,10 @@ export class ClientService {
         commercialUsers: {
           select: { userId: true },
           orderBy: { createdAt: 'asc' },
+        },
+        branches: {
+          select: CLIENT_BRANCH_SUMMARY_SELECT,
+          orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
         },
       },
     });
@@ -592,171 +490,82 @@ export class ClientService {
     }
   }
 
-  async requireRegistrationById(tx, clientId, registrationId) {
-    const registration = await tx.clientRegistration.findFirst({
-      where: {
-        id: registrationId,
-        clientId,
-      },
-      select: REGISTRATION_SELECT,
+  async requireBranchById(tx, clientId, branchId) {
+    const branch = await tx.clientBranch.findFirst({
+      where: { id: branchId, clientId },
+      select: CLIENT_BRANCH_SUMMARY_SELECT,
     });
 
-    if (!registration) {
-      throw new HttpError(404, 'Client registration not found', {
-        code: 'CLIENT_REGISTRATION_NOT_FOUND',
+    if (!branch) {
+      throw new HttpError(404, 'Client branch not found', {
+        code: 'CLIENT_BRANCH_NOT_FOUND',
       });
     }
 
-    return registration;
+    return branch;
   }
 
-  // F5.1: dual-write registration -> client_branch.
-  // O id do branch espelha o id da registration (convencao herdada do
-  // backfill F5.0). isPrimary so e marcado para o primeiro branch do
-  // client; subsequentes herdam isPrimary=false e code=max+1. cnpj e
-  // cnpjOrder vem do client (cada filial pode ter o proprio CNPJ no
-  // futuro, mas em F5.1 espelhamos o CNPJ do client).
-  async syncBranchFromRegistration(tx, client, registration, action) {
-    const branchId = registration.id;
-    const documentCanonical = client.documentCanonical ?? null;
-    const cnpjOrder = deriveCnpjOrder(documentCanonical);
-
-    if (action === 'create') {
-      const aggregate = await tx.clientBranch.aggregate({
-        where: { clientId: client.id },
-        _max: { code: true },
-        _count: { _all: true },
-      });
-      const isFirst = (aggregate._count?._all ?? 0) === 0;
-      const nextCode = (aggregate._max?.code ?? 0) + 1;
-
-      // Apenas a branch primaria herda o CNPJ do client (matriz). Filiais
-      // subsequentes ficam com cnpj nulo ate serem editadas via UI — o
-      // unique parcial uq_client_branch_cnpj nao tolera duplicatas.
-      return tx.clientBranch.create({
-        data: {
-          id: branchId,
-          clientId: client.id,
-          isPrimary: isFirst,
-          code: nextCode,
-          cnpj: isFirst ? (client.cnpj ?? null) : null,
-          cnpjOrder: isFirst ? cnpjOrder : null,
-          phone: client.phone ?? null,
-          addressLine: registration.addressLine,
-          district: registration.district,
-          city: registration.city,
-          state: registration.state,
-          postalCode: registration.postalCode,
-          complement: registration.complement ?? null,
-          registrationNumber: registration.registrationNumber,
-          registrationNumberCanonical: registration.registrationNumberCanonical,
-          registrationType: registration.registrationType,
-          status: registration.status,
-        },
-      });
-    }
-
-    if (action === 'update') {
-      // Se a branch existe (caso normal pos-backfill), atualiza os campos
-      // espelhados. Se nao existe (registration criada entre F5.0 e F5.1),
-      // cria defensivamente — wizard tambem cobre, mas dual-write resilientes.
-      const existing = await tx.clientBranch.findUnique({
-        where: { id: branchId },
-        select: { id: true },
-      });
-
-      const data = {
-        addressLine: registration.addressLine,
-        district: registration.district,
-        city: registration.city,
-        state: registration.state,
-        postalCode: registration.postalCode,
-        complement: registration.complement ?? null,
-        registrationNumber: registration.registrationNumber,
-        registrationNumberCanonical: registration.registrationNumberCanonical,
-        registrationType: registration.registrationType,
-      };
-
-      if (existing) {
-        return tx.clientBranch.update({ where: { id: branchId }, data });
-      }
-
-      return this.syncBranchFromRegistration(tx, client, registration, 'create');
-    }
-
-    if (action === 'inactivate' || action === 'reactivate') {
-      const targetStatus = action === 'inactivate' ? 'INACTIVE' : 'ACTIVE';
-      const result = await tx.clientBranch.updateMany({
-        where: { id: branchId },
-        data: { status: targetStatus },
-      });
-      if (result.count === 0) {
-        // Branch nao existe (caso defensivo) — cria com o status final.
-        return this.syncBranchFromRegistration(
-          tx,
-          client,
-          { ...registration, status: targetStatus },
-          'create'
-        );
-      }
-      return null;
-    }
-
-    return null;
-  }
-
-  async assertDocumentAvailable(tx, documentCanonical, { excludeClientId = null } = {}) {
-    if (!documentCanonical) {
-      return;
-    }
-
+  // F5.2: PF -> uniqueness em client.cpf. PJ -> uniqueness em client.cnpj_root.
+  async assertCpfAvailable(tx, cpf, { excludeClientId = null } = {}) {
+    if (!cpf) return;
     const existing = await tx.client.findFirst({
       where: {
-        documentCanonical,
-        ...(excludeClientId
-          ? {
-              id: {
-                not: excludeClientId,
-              },
-            }
-          : {}),
+        cpf,
+        ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
-
     if (existing) {
-      throw new HttpError(409, 'Document already exists for another client', {
+      throw new HttpError(409, 'CPF already exists for another client', {
         code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
       });
     }
   }
 
-  async assertRegistrationAvailable(
-    tx,
-    registrationNumberCanonical,
-    { excludeRegistrationId = null } = {}
-  ) {
-    const existing = await tx.clientRegistration.findFirst({
+  async assertCnpjRootAvailable(tx, cnpjRoot, { excludeClientId = null } = {}) {
+    if (!cnpjRoot) return;
+    const existing = await tx.client.findFirst({
       where: {
-        registrationNumberCanonical,
-        ...(excludeRegistrationId
-          ? {
-              id: {
-                not: excludeRegistrationId,
-              },
-            }
-          : {}),
+        cnpjRoot,
+        ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
+    if (existing) {
+      throw new HttpError(409, 'CNPJ root already exists for another client', {
+        code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
+      });
+    }
+  }
 
+  async assertBranchCnpjAvailable(tx, cnpj, { excludeBranchId = null } = {}) {
+    if (!cnpj) return;
+    const existing = await tx.clientBranch.findFirst({
+      where: {
+        cnpj,
+        ...(excludeBranchId ? { id: { not: excludeBranchId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new HttpError(409, 'CNPJ already exists for another branch', {
+        code: 'CLIENT_BRANCH_CNPJ_ALREADY_EXISTS',
+      });
+    }
+  }
+
+  async assertBranchRegistrationCanonicalAvailable(tx, canonical, { excludeBranchId = null } = {}) {
+    if (!canonical) return;
+    const existing = await tx.clientBranch.findFirst({
+      where: {
+        registrationNumberCanonical: canonical,
+        ...(excludeBranchId ? { id: { not: excludeBranchId } } : {}),
+      },
+      select: { id: true },
+    });
     if (existing) {
       throw new HttpError(409, 'Registration number already exists', {
-        code: 'CLIENT_REGISTRATION_ALREADY_EXISTS',
+        code: 'CLIENT_BRANCH_REGISTRATION_ALREADY_EXISTS',
       });
     }
   }
@@ -861,9 +670,6 @@ export class ClientService {
       const client = await this.requireClientById(tx, clientId);
       return {
         client: mapClientRow(client),
-        registrations: client.registrations.map((registration) =>
-          toClientRegistrationSummary(registration)
-        ),
         branches: Array.isArray(client.branches)
           ? client.branches.map((branch) =>
               toClientBranchSummary({ ...branch, clientId: branch.clientId ?? client.id })
@@ -875,18 +681,42 @@ export class ClientService {
 
   async createClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client');
-    const { data, commercialUserIds } = normalizeCreateClientInput(input);
+    const { data, commercialUserIds, branches } = normalizeCreateClientInput(input);
 
     return this.prisma.$transaction(async (tx) => {
-      await this.assertDocumentAvailable(tx, data.documentCanonical);
+      // F5.2: validacao de unicidade dividida — PF: cpf; PJ: cnpj_root.
+      // cnpjRoot e derivado da primeira branch com cnpj.
+      const primaryBranchInput = branches.find((b) => b.isPrimary === true) ?? branches[0] ?? null;
+      const cnpjRoot =
+        primaryBranchInput?.cnpj && data.personType === CLIENT_PERSON_TYPES.PJ
+          ? primaryBranchInput.cnpj.slice(0, 8)
+          : null;
+
+      if (data.personType === CLIENT_PERSON_TYPES.PF) {
+        await this.assertCpfAvailable(tx, data.cpf);
+      } else if (cnpjRoot) {
+        await this.assertCnpjRootAvailable(tx, cnpjRoot);
+      }
+
       for (const userId of commercialUserIds) {
         await this.assertCommercialUserAssignable(tx, userId);
+      }
+
+      // Pre-checa unicidade de cnpj e registrationNumberCanonical de cada branch
+      for (const b of branches) {
+        if (b.cnpj) {
+          await this.assertBranchCnpjAvailable(tx, b.cnpj);
+        }
+        if (b.registrationNumberCanonical) {
+          await this.assertBranchRegistrationCanonicalAvailable(tx, b.registrationNumberCanonical);
+        }
       }
 
       const createdRaw = await tx.client.create({
         data: {
           id: randomUUID(),
           ...data,
+          cnpjRoot,
         },
         select: { id: true },
       });
@@ -895,6 +725,38 @@ export class ClientService {
         await tx.clientCommercialUser.createMany({
           data: commercialUserIds.map((userId) => ({ clientId: createdRaw.id, userId })),
         });
+      }
+
+      // Cria branches inline (B3): pode ser lista vazia (transient state).
+      const createdBranches = [];
+      let nextCode = 1;
+      for (const b of branches) {
+        const created = await tx.clientBranch.create({
+          data: {
+            id: randomUUID(),
+            clientId: createdRaw.id,
+            isPrimary: b.isPrimary === true,
+            code: nextCode,
+            name: b.name ?? null,
+            cnpj: b.cnpj ?? null,
+            cnpjOrder: b.cnpjOrder ?? null,
+            legalName: b.legalName ?? null,
+            tradeName: b.tradeName ?? null,
+            phone: b.phone ?? null,
+            addressLine: b.addressLine ?? null,
+            district: b.district ?? null,
+            city: b.city ?? null,
+            state: b.state ?? null,
+            postalCode: b.postalCode ?? null,
+            complement: b.complement ?? null,
+            registrationNumber: b.registrationNumber ?? null,
+            registrationNumberCanonical: b.registrationNumberCanonical ?? null,
+            registrationType: b.registrationType ?? null,
+            status: 'ACTIVE',
+          },
+        });
+        createdBranches.push(created);
+        nextCode++;
       }
 
       const created = await tx.client.findUniqueOrThrow({
@@ -908,8 +770,20 @@ export class ClientService {
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_CREATED,
         payload: {
           after: buildClientAuditState(created),
+          branches: createdBranches.map((b) => buildBranchAuditState(b)),
         },
       });
+
+      // Audit individual de cada branch criada inline
+      for (const branch of createdBranches) {
+        await this.recordAuditEvent(tx, {
+          targetClientId: created.id,
+          targetBranchId: branch.id,
+          actorContext: actor,
+          eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_CREATED,
+          payload: { after: buildBranchAuditState(branch) },
+        });
+      }
 
       return {
         client: mapClientRow(created),
@@ -927,9 +801,12 @@ export class ClientService {
         current
       );
 
-      await this.assertDocumentAvailable(tx, data.documentCanonical, {
-        excludeClientId: current.id,
-      });
+      // F5.2: PF -> assertCpfAvailable. PJ -> uniqueness ja na branch.cnpj
+      // (cnpj_root e derivado da primary branch — no updateClient nao mexemos
+      // diretamente em cnpjRoot; isso fica para POST /branches ou updateBranch).
+      if (data.personType === CLIENT_PERSON_TYPES.PF) {
+        await this.assertCpfAvailable(tx, data.cpf, { excludeClientId: current.id });
+      }
 
       // commercialUserIdsInput:
       //   undefined  -> nao mexer (mantem atual)
@@ -1019,28 +896,28 @@ export class ClientService {
   }
 
   async countClientUsage(tx, clientId) {
-    const [ownedSamples, activeMovements, activeRegistrations] = await Promise.all([
+    const [ownedSamples, activeMovements, activeBranches] = await Promise.all([
       tx.sample.count({
         where: { ownerClientId: clientId, status: { not: 'INVALIDATED' } },
       }),
       tx.sampleMovement.count({
         where: { buyerClientId: clientId, status: 'ACTIVE' },
       }),
-      tx.clientRegistration.count({
+      tx.clientBranch.count({
         where: { clientId, status: 'ACTIVE' },
       }),
     ]);
 
-    return { ownedSamples, activeMovements, activeRegistrations };
+    return { ownedSamples, activeMovements, activeBranches };
   }
 
-  async countRegistrationUsage(tx, registrationId) {
+  async countBranchUsage(tx, branchId) {
     const [linkedSamples, linkedMovements] = await Promise.all([
       tx.sample.count({
-        where: { ownerRegistrationId: registrationId, status: { not: 'INVALIDATED' } },
+        where: { ownerBranchId: branchId, status: { not: 'INVALIDATED' } },
       }),
       tx.sampleMovement.count({
-        where: { buyerRegistrationId: registrationId, status: 'ACTIVE' },
+        where: { buyerBranchId: branchId, status: 'ACTIVE' },
       }),
     ]);
 
@@ -1758,11 +1635,14 @@ export class ClientService {
               status: true,
             },
           },
-          targetRegistration: {
+          targetBranch: {
             select: {
               id: true,
-              registrationNumber: true,
-              registrationType: true,
+              name: true,
+              code: true,
+              isPrimary: true,
+              cnpj: true,
+              legalName: true,
               status: true,
             },
           },
@@ -1781,106 +1661,66 @@ export class ClientService {
     };
   }
 
-  async createRegistration(clientId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'create client registration');
-    const normalized = normalizeCreateRegistrationInput(input);
+  // F5.2: createBranch substitui createRegistration. Branch e fonte unica.
+  // Re-deriva client.cnpjRoot a partir da primary se a branch criada for primary
+  // ou se for a primeira branch do client (PJ).
+  async createBranch(clientId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'create client branch');
+    const { isPrimary, data } = normalizeCreateBranchInput(input);
 
     return this.prisma.$transaction(async (tx) => {
       const client = await this.requireClientById(tx, clientId);
-      await this.assertRegistrationAvailable(tx, normalized.registrationNumberCanonical);
 
-      const created = await tx.clientRegistration.create({
-        data: {
-          id: randomUUID(),
-          clientId: client.id,
-          ...normalized,
-        },
-        select: REGISTRATION_SELECT,
+      if (data.cnpj) {
+        await this.assertBranchCnpjAvailable(tx, data.cnpj);
+      }
+      if (data.registrationNumberCanonical) {
+        await this.assertBranchRegistrationCanonicalAvailable(tx, data.registrationNumberCanonical);
+      }
+
+      const aggregate = await tx.clientBranch.aggregate({
+        where: { clientId: client.id },
+        _max: { code: true },
+        _count: { _all: true },
       });
+      const isFirst = (aggregate._count?._all ?? 0) === 0;
+      const nextCode = (aggregate._max?.code ?? 0) + 1;
+      const finalIsPrimary = isPrimary || isFirst;
 
-      await this.recordAuditEvent(tx, {
-        targetClientId: client.id,
-        targetRegistrationId: created.id,
-        actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_CREATED,
-        payload: {
-          after: buildRegistrationAuditState(created),
-        },
-      });
-
-      const branch = await this.syncBranchFromRegistration(tx, client, created, 'create');
-      await this.recordAuditEvent(tx, {
-        targetClientId: client.id,
-        actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_CREATED,
-        payload: {
-          branchId: branch.id,
-          registrationId: created.id,
-          after: toClientBranchSummary({ ...branch, clientId: client.id }),
-        },
-      });
-
-      return {
-        client: {
-          id: client.id,
-          code: client.code,
-          displayName: buildClientDisplayName(client),
-        },
-        registration: toClientRegistrationSummary(created),
-      };
-    });
-  }
-
-  async updateRegistration(clientId, registrationId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'update client registration');
-
-    return this.prisma.$transaction(async (tx) => {
-      const client = await this.requireClientById(tx, clientId);
-      const current = await this.requireRegistrationById(tx, clientId, registrationId);
-      const normalized = normalizeUpdateRegistrationInput(input, current);
-
-      if (normalized.data.registrationNumberCanonical) {
-        await this.assertRegistrationAvailable(tx, normalized.data.registrationNumberCanonical, {
-          excludeRegistrationId: current.id,
+      // Se este branch sera primary, demote os outros primary do mesmo client
+      if (finalIsPrimary && !isFirst) {
+        await tx.clientBranch.updateMany({
+          where: { clientId: client.id, isPrimary: true },
+          data: { isPrimary: false },
         });
       }
 
-      const before = buildRegistrationAuditState(current);
-      const afterCandidate = buildRegistrationAuditState({
-        ...current,
-        ...normalized.data,
+      const created = await tx.clientBranch.create({
+        data: {
+          id: randomUUID(),
+          clientId: client.id,
+          isPrimary: finalIsPrimary,
+          code: nextCode,
+          status: 'ACTIVE',
+          ...data,
+        },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
-      const auditPayload = buildClientAuditPayload(before, afterCandidate);
-      if (Object.keys(auditPayload.diff.after).length === 0) {
-        throw new HttpError(409, 'No client registration changes detected');
+
+      // Se PJ e primary mudou, atualiza cnpjRoot do client
+      if (finalIsPrimary && client.personType === CLIENT_PERSON_TYPES.PJ && created.cnpj) {
+        await tx.client.update({
+          where: { id: client.id },
+          data: { cnpjRoot: created.cnpj.slice(0, 8) },
+        });
       }
 
-      const updated = await tx.clientRegistration.update({
-        where: { id: current.id },
-        data: normalized.data,
-        select: REGISTRATION_SELECT,
-      });
-
       await this.recordAuditEvent(tx, {
         targetClientId: client.id,
-        targetRegistrationId: updated.id,
+        targetBranchId: created.id,
         actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_UPDATED,
-        reasonText: normalized.reasonText,
-        payload: auditPayload,
-      });
-
-      const branch = await this.syncBranchFromRegistration(tx, client, updated, 'update');
-      await this.recordAuditEvent(tx, {
-        targetClientId: client.id,
-        actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_UPDATED,
-        reasonText: normalized.reasonText,
-        payload: {
-          branchId: branch?.id ?? updated.id,
-          registrationId: updated.id,
-          diff: auditPayload.diff,
-        },
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_CREATED,
+        payload: { after: buildBranchAuditState(created) },
       });
 
       return {
@@ -1889,60 +1729,126 @@ export class ClientService {
           code: client.code,
           displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(updated),
+        branch: toClientBranchSummary({ ...created, clientId: client.id }),
       };
     });
   }
 
-  async inactivateRegistration(clientId, registrationId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'inactivate client registration');
+  async updateBranch(clientId, branchId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'update client branch');
+    const { reasonText, isPrimary, data } = normalizeUpdateBranchInput(input);
+
+    return this.prisma.$transaction(async (tx) => {
+      const client = await this.requireClientById(tx, clientId);
+      const current = await this.requireBranchById(tx, clientId, branchId);
+
+      if (data.cnpj && data.cnpj !== current.cnpj) {
+        await this.assertBranchCnpjAvailable(tx, data.cnpj, { excludeBranchId: current.id });
+      }
+      if (
+        data.registrationNumberCanonical &&
+        data.registrationNumberCanonical !== current.registrationNumberCanonical
+      ) {
+        await this.assertBranchRegistrationCanonicalAvailable(
+          tx,
+          data.registrationNumberCanonical,
+          {
+            excludeBranchId: current.id,
+          }
+        );
+      }
+
+      const before = buildBranchAuditState(current);
+      const afterCandidate = buildBranchAuditState({ ...current, ...data });
+      if (isPrimary !== undefined) {
+        afterCandidate.isPrimary = isPrimary;
+      }
+      const auditPayload = buildClientAuditPayload(before, afterCandidate);
+      if (Object.keys(auditPayload.diff.after).length === 0) {
+        throw new HttpError(409, 'No client branch changes detected');
+      }
+
+      // Se promovendo outra branch a primary, demote a atual primary primeiro
+      if (isPrimary === true && current.isPrimary !== true) {
+        await tx.clientBranch.updateMany({
+          where: { clientId: client.id, isPrimary: true },
+          data: { isPrimary: false },
+        });
+      }
+
+      const updated = await tx.clientBranch.update({
+        where: { id: current.id },
+        data: {
+          ...data,
+          ...(isPrimary !== undefined ? { isPrimary } : {}),
+        },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
+      });
+
+      // Re-derivar cnpjRoot do client se a branch atual ou a nova primary mudou cnpj
+      if (client.personType === CLIENT_PERSON_TYPES.PJ) {
+        const primary = await tx.clientBranch.findFirst({
+          where: { clientId: client.id, isPrimary: true },
+          select: { cnpj: true },
+        });
+        const nextRoot = primary?.cnpj ? primary.cnpj.slice(0, 8) : null;
+        if (nextRoot !== client.cnpjRoot) {
+          await tx.client.update({
+            where: { id: client.id },
+            data: { cnpjRoot: nextRoot },
+          });
+        }
+      }
+
+      await this.recordAuditEvent(tx, {
+        targetClientId: client.id,
+        targetBranchId: updated.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_UPDATED,
+        reasonText,
+        payload: auditPayload,
+      });
+
+      return {
+        client: {
+          id: client.id,
+          code: client.code,
+          displayName: buildClientDisplayName(client),
+        },
+        branch: toClientBranchSummary({ ...updated, clientId: client.id }),
+      };
+    });
+  }
+
+  async inactivateBranch(clientId, branchId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'inactivate client branch');
     const { reasonText } = normalizeStatusReasonInput(input);
 
     return this.prisma.$transaction(async (tx) => {
       const client = await this.requireClientById(tx, clientId);
-      const current = await this.requireRegistrationById(tx, clientId, registrationId);
-      if (current.status === CLIENT_REGISTRATION_STATUSES.INACTIVE) {
-        throw new HttpError(409, 'Client registration is already inactive');
+      const current = await this.requireBranchById(tx, clientId, branchId);
+      if (current.status === CLIENT_BRANCH_STATUSES.INACTIVE) {
+        throw new HttpError(409, 'Client branch is already inactive');
       }
 
-      const usage = await this.countRegistrationUsage(tx, current.id);
+      const usage = await this.countBranchUsage(tx, current.id);
 
-      const updated = await tx.clientRegistration.update({
+      const updated = await tx.clientBranch.update({
         where: { id: current.id },
-        data: {
-          status: CLIENT_REGISTRATION_STATUSES.INACTIVE,
-        },
-        select: REGISTRATION_SELECT,
+        data: { status: CLIENT_BRANCH_STATUSES.INACTIVE },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
         targetClientId: client.id,
-        targetRegistrationId: updated.id,
-        actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_INACTIVATED,
-        reasonText,
-        payload: {
-          before: {
-            status: current.status,
-          },
-          after: {
-            status: updated.status,
-          },
-          impact: usage,
-        },
-      });
-
-      await this.syncBranchFromRegistration(tx, client, updated, 'inactivate');
-      await this.recordAuditEvent(tx, {
-        targetClientId: client.id,
+        targetBranchId: updated.id,
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_INACTIVATED,
         reasonText,
         payload: {
-          branchId: updated.id,
-          registrationId: updated.id,
-          before: { status: 'ACTIVE' },
-          after: { status: 'INACTIVE' },
+          before: { status: current.status },
+          after: { status: updated.status },
+          impact: usage,
         },
       });
 
@@ -1952,58 +1858,38 @@ export class ClientService {
           code: client.code,
           displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(updated),
+        branch: toClientBranchSummary({ ...updated, clientId: client.id }),
         impact: usage,
       };
     });
   }
 
-  async reactivateRegistration(clientId, registrationId, input, actorContext) {
-    const actor = assertAuthenticatedActor(actorContext, 'reactivate client registration');
+  async reactivateBranch(clientId, branchId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'reactivate client branch');
     const { reasonText } = normalizeStatusReasonInput(input);
 
     return this.prisma.$transaction(async (tx) => {
       const client = await this.requireClientById(tx, clientId);
-      const current = await this.requireRegistrationById(tx, clientId, registrationId);
-      if (current.status === CLIENT_REGISTRATION_STATUSES.ACTIVE) {
-        throw new HttpError(409, 'Client registration is already active');
+      const current = await this.requireBranchById(tx, clientId, branchId);
+      if (current.status === CLIENT_BRANCH_STATUSES.ACTIVE) {
+        throw new HttpError(409, 'Client branch is already active');
       }
 
-      const updated = await tx.clientRegistration.update({
+      const updated = await tx.clientBranch.update({
         where: { id: current.id },
-        data: {
-          status: CLIENT_REGISTRATION_STATUSES.ACTIVE,
-        },
-        select: REGISTRATION_SELECT,
+        data: { status: CLIENT_BRANCH_STATUSES.ACTIVE },
+        select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
 
       await this.recordAuditEvent(tx, {
         targetClientId: client.id,
-        targetRegistrationId: updated.id,
-        actorContext: actor,
-        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_REGISTRATION_REACTIVATED,
-        reasonText,
-        payload: {
-          before: {
-            status: current.status,
-          },
-          after: {
-            status: updated.status,
-          },
-        },
-      });
-
-      await this.syncBranchFromRegistration(tx, client, updated, 'reactivate');
-      await this.recordAuditEvent(tx, {
-        targetClientId: client.id,
+        targetBranchId: updated.id,
         actorContext: actor,
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_REACTIVATED,
         reasonText,
         payload: {
-          branchId: updated.id,
-          registrationId: updated.id,
-          before: { status: 'INACTIVE' },
-          after: { status: 'ACTIVE' },
+          before: { status: current.status },
+          after: { status: updated.status },
         },
       });
 
@@ -2013,7 +1899,7 @@ export class ClientService {
           code: client.code,
           displayName: buildClientDisplayName(client),
         },
-        registration: toClientRegistrationSummary(updated),
+        branch: toClientBranchSummary({ ...updated, clientId: client.id }),
       };
     });
   }

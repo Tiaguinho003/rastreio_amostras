@@ -94,7 +94,7 @@ test('registration confirmed accepts optional structured owner binding', () => {
     registrationConfirmedEvent(sampleId, {
       payload: {
         ownerClientId: randomUUID(),
-        ownerRegistrationId: randomUUID(),
+        ownerBranchId: randomUUID(),
       },
     }),
     { expectedVersion: 2 }
@@ -102,7 +102,7 @@ test('registration confirmed accepts optional structured owner binding', () => {
 
   assert.equal(confirmed.statusCode, 201);
   assert.equal(confirmed.event.payload.ownerClientId !== undefined, true);
-  assert.equal(confirmed.event.payload.ownerRegistrationId !== undefined, true);
+  assert.equal(confirmed.event.payload.ownerBranchId !== undefined, true);
 });
 
 test('idempotency returns same event and does not duplicate history', () => {

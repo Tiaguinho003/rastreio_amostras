@@ -8,7 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
-import { ClientRegistrationSelect } from '../../../components/clients/ClientRegistrationSelect';
+import { ClientBranchSelect } from '../../../components/clients/ClientBranchSelect';
 import {
   ApiError,
   createSampleAndPreparePrint,
@@ -19,7 +19,7 @@ import {
 import { useRegisterDirtyState } from '../../../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import type {
-  ClientRegistrationSummary,
+  ClientBranchSummary,
   ClientSummary,
   CreateSampleAndPreparePrintResponse,
 } from '../../../lib/types';
@@ -88,7 +88,7 @@ interface PendingDraftPayload {
   clientDraftId: string;
   owner: string;
   ownerClientId: string | null;
-  ownerRegistrationId: string | null;
+  ownerBranchId: string | null;
   sacks: number;
   harvest: string;
   originLot: string | null;
@@ -149,11 +149,9 @@ function NewSamplePageContent() {
   const [clientDraftId, setClientDraftId] = useState(loadOrCreateDraftId);
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerRegistrations, setOwnerRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [selectedOwnerRegistrationId, setSelectedOwnerRegistrationId] = useState<string | null>(
-    null
-  );
-  const [ownerRegistrationLoading, setOwnerRegistrationLoading] = useState(false);
+  const [ownerBranches, setOwnerBranches] = useState<ClientBranchSummary[]>([]);
+  const [selectedOwnerBranchId, setSelectedOwnerBranchId] = useState<string | null>(null);
+  const [ownerBranchLoading, setOwnerBranchLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
@@ -211,15 +209,15 @@ function NewSamplePageContent() {
 
   useEffect(() => {
     if (!session || !selectedOwnerClient) {
-      setOwnerRegistrations([]);
-      setSelectedOwnerRegistrationId(null);
-      setOwnerRegistrationLoading(false);
+      setOwnerBranches([]);
+      setSelectedOwnerBranchId(null);
+      setOwnerBranchLoading(false);
       setOwner(selectedOwnerClient?.displayName ?? '');
       return;
     }
 
     let active = true;
-    setOwnerRegistrationLoading(true);
+    setOwnerBranchLoading(true);
     setError(null);
     setOwner(selectedOwnerClient.displayName ?? '');
 
@@ -229,12 +227,10 @@ function NewSamplePageContent() {
           return;
         }
 
-        const activeRegistrations = response.registrations.filter(
-          (registration) => registration.status === 'ACTIVE'
-        );
-        setOwnerRegistrations(activeRegistrations);
-        setSelectedOwnerRegistrationId((current) =>
-          activeRegistrations.some((registration) => registration.id === current) ? current : null
+        const activeBranches = response.branches.filter((branch) => branch.status === 'ACTIVE');
+        setOwnerBranches(activeBranches);
+        setSelectedOwnerBranchId((current) =>
+          activeBranches.some((branch) => branch.id === current) ? current : null
         );
       })
       .catch((cause) => {
@@ -242,15 +238,15 @@ function NewSamplePageContent() {
           return;
         }
 
-        setOwnerRegistrations([]);
-        setSelectedOwnerRegistrationId(null);
+        setOwnerBranches([]);
+        setSelectedOwnerBranchId(null);
         setError(
-          cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do proprietario'
+          cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do proprietario'
         );
       })
       .finally(() => {
         if (active) {
-          setOwnerRegistrationLoading(false);
+          setOwnerBranchLoading(false);
         }
       });
 
@@ -441,9 +437,9 @@ function NewSamplePageContent() {
     setClientDraftId(renewDraftId());
     setOwner('');
     setSelectedOwnerClient(null);
-    setOwnerRegistrations([]);
-    setSelectedOwnerRegistrationId(null);
-    setOwnerRegistrationLoading(false);
+    setOwnerBranches([]);
+    setSelectedOwnerBranchId(null);
+    setOwnerBranchLoading(false);
     setQuickCreateOpen(false);
     setQuickCreateSeed('');
     setSacks('');
@@ -576,7 +572,7 @@ function NewSamplePageContent() {
       clientDraftId,
       owner: parsed.data.owner,
       ownerClientId: selectedOwnerClient?.id ?? null,
-      ownerRegistrationId: selectedOwnerRegistrationId ?? null,
+      ownerBranchId: selectedOwnerBranchId ?? null,
       sacks: parsed.data.sacks,
       harvest: parsed.data.harvest,
       originLot: parsed.data.originLot ?? null,
@@ -602,7 +598,7 @@ function NewSamplePageContent() {
         clientDraftId: pendingDraft.clientDraftId,
         owner: pendingDraft.owner,
         ownerClientId: pendingDraft.ownerClientId,
-        ownerRegistrationId: pendingDraft.ownerRegistrationId,
+        ownerBranchId: pendingDraft.ownerBranchId,
         sacks: pendingDraft.sacks,
         harvest: pendingDraft.harvest,
         originLot: pendingDraft.originLot,
@@ -703,7 +699,7 @@ function NewSamplePageContent() {
                   onSelectClient={(client) => {
                     setSelectedOwnerClient(client);
                     setOwner(client?.displayName ?? '');
-                    setSelectedOwnerRegistrationId(null);
+                    setSelectedOwnerBranchId(null);
                     clearRequiredFieldError('owner');
                     setError(null);
                   }}
@@ -716,15 +712,15 @@ function NewSamplePageContent() {
               </div>
 
               <div className="nsv2-grid-full">
-                <ClientRegistrationSelect
-                  label="Inscricao"
-                  registrations={ownerRegistrations}
-                  value={selectedOwnerRegistrationId}
-                  disabled={!selectedOwnerClient || ownerRegistrationLoading || submitting}
-                  onChange={setSelectedOwnerRegistrationId}
+                <ClientBranchSelect
+                  label="Filial"
+                  branches={ownerBranches}
+                  value={selectedOwnerBranchId}
+                  disabled={!selectedOwnerClient || ownerBranchLoading || submitting}
+                  onChange={setSelectedOwnerBranchId}
                 />
-                {ownerRegistrationLoading ? (
-                  <span className="new-sample-select-spinner" aria-label="Carregando inscricoes" />
+                {ownerBranchLoading ? (
+                  <span className="new-sample-select-spinner" aria-label="Carregando filiais" />
                 ) : null}
               </div>
 
@@ -1083,7 +1079,7 @@ function NewSamplePageContent() {
           setQuickCreateOpen(false);
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setSelectedOwnerRegistrationId(null);
+          setSelectedOwnerBranchId(null);
           clearRequiredFieldError('owner');
           setMessage('Cliente criado e selecionado para a amostra.');
         }}

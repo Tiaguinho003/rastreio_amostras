@@ -168,72 +168,53 @@ function mapRecentActivityRow(row) {
   };
 }
 
+const CLIENT_INCLUDE_SELECT = {
+  id: true,
+  code: true,
+  personType: true,
+  fullName: true,
+  legalName: true,
+  tradeName: true,
+  cpf: true,
+  cnpjRoot: true,
+  phone: true,
+  isBuyer: true,
+  isSeller: true,
+  status: true,
+};
+
+const BRANCH_INCLUDE_SELECT = {
+  id: true,
+  clientId: true,
+  name: true,
+  isPrimary: true,
+  code: true,
+  cnpj: true,
+  cnpjOrder: true,
+  legalName: true,
+  tradeName: true,
+  phone: true,
+  addressLine: true,
+  district: true,
+  city: true,
+  state: true,
+  postalCode: true,
+  complement: true,
+  registrationNumber: true,
+  registrationType: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 const SAMPLE_OWNER_INCLUDE = {
-  ownerClient: {
-    select: {
-      id: true,
-      code: true,
-      personType: true,
-      fullName: true,
-      legalName: true,
-      tradeName: true,
-      cpf: true,
-      cnpj: true,
-      phone: true,
-      isBuyer: true,
-      isSeller: true,
-      status: true,
-    },
-  },
-  ownerRegistration: {
-    select: {
-      id: true,
-      clientId: true,
-      status: true,
-      registrationNumber: true,
-      registrationType: true,
-      addressLine: true,
-      district: true,
-      city: true,
-      state: true,
-      postalCode: true,
-      complement: true,
-    },
-  },
+  ownerClient: { select: CLIENT_INCLUDE_SELECT },
+  ownerBranch: { select: BRANCH_INCLUDE_SELECT },
 };
 const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
-  buyerClient: {
-    select: {
-      id: true,
-      code: true,
-      personType: true,
-      fullName: true,
-      legalName: true,
-      tradeName: true,
-      cpf: true,
-      cnpj: true,
-      phone: true,
-      isBuyer: true,
-      isSeller: true,
-      status: true,
-    },
-  },
-  buyerRegistration: {
-    select: {
-      id: true,
-      clientId: true,
-      status: true,
-      registrationNumber: true,
-      registrationType: true,
-      addressLine: true,
-      district: true,
-      city: true,
-      state: true,
-      postalCode: true,
-      complement: true,
-    },
-  },
+  buyerClient: { select: CLIENT_INCLUDE_SELECT },
+  buyerBranch: { select: BRANCH_INCLUDE_SELECT },
 };
 
 function tryDecodeURIComponent(value) {
@@ -718,8 +699,10 @@ function buildBuyerMovementFilter(buyer) {
       },
     });
     clientOr.push({
-      cnpj: {
-        contains: digits,
+      branches: {
+        some: {
+          cnpj: { contains: digits },
+        },
       },
     });
   }
@@ -762,7 +745,7 @@ function mapOwnerClient(ownerClient) {
     legalName: ownerClient.legalName ?? null,
     tradeName: ownerClient.tradeName ?? null,
     cpf: ownerClient.cpf ?? null,
-    cnpj: ownerClient.cnpj ?? null,
+    cnpj: null, // F5.2: cnpj agora vem da primary branch
     phone: ownerClient.phone ?? null,
     isBuyer: ownerClient.isBuyer,
     isSeller: ownerClient.isSeller,
@@ -770,23 +753,33 @@ function mapOwnerClient(ownerClient) {
   };
 }
 
-function mapOwnerRegistration(ownerRegistration) {
-  if (!ownerRegistration) {
+function mapOwnerBranch(ownerBranch) {
+  if (!ownerBranch) {
     return null;
   }
 
   return {
-    id: ownerRegistration.id,
-    clientId: ownerRegistration.clientId,
-    status: ownerRegistration.status,
-    registrationNumber: ownerRegistration.registrationNumber,
-    registrationType: ownerRegistration.registrationType,
-    addressLine: ownerRegistration.addressLine,
-    district: ownerRegistration.district,
-    city: ownerRegistration.city,
-    state: ownerRegistration.state,
-    postalCode: ownerRegistration.postalCode,
-    complement: ownerRegistration.complement ?? null,
+    id: ownerBranch.id,
+    clientId: ownerBranch.clientId,
+    name: ownerBranch.name ?? null,
+    isPrimary: ownerBranch.isPrimary === true,
+    code: ownerBranch.code,
+    cnpj: ownerBranch.cnpj ?? null,
+    cnpjOrder: ownerBranch.cnpjOrder ?? null,
+    legalName: ownerBranch.legalName ?? null,
+    tradeName: ownerBranch.tradeName ?? null,
+    phone: ownerBranch.phone ?? null,
+    addressLine: ownerBranch.addressLine ?? null,
+    district: ownerBranch.district ?? null,
+    city: ownerBranch.city ?? null,
+    state: ownerBranch.state ?? null,
+    postalCode: ownerBranch.postalCode ?? null,
+    complement: ownerBranch.complement ?? null,
+    registrationNumber: ownerBranch.registrationNumber ?? null,
+    registrationType: ownerBranch.registrationType ?? null,
+    status: ownerBranch.status,
+    createdAt: ownerBranch.createdAt ? ownerBranch.createdAt.toISOString() : null,
+    updatedAt: ownerBranch.updatedAt ? ownerBranch.updatedAt.toISOString() : null,
   };
 }
 
@@ -801,19 +794,19 @@ function mapSampleMovement(row) {
     movementType: row.movementType,
     status: row.status,
     buyerClientId: row.buyerClientId ?? null,
-    buyerRegistrationId: row.buyerRegistrationId ?? null,
+    buyerBranchId: row.buyerBranchId ?? null,
     quantitySacks: row.quantitySacks,
     movementDate: new Date(row.movementDate).toISOString().slice(0, 10),
     notes: row.notes ?? null,
     lossReasonText: row.reasonText ?? null,
     buyerClientSnapshot: toObjectOrNull(row.buyerClientSnapshot),
-    buyerRegistrationSnapshot: toObjectOrNull(row.buyerRegistrationSnapshot),
+    buyerBranchSnapshot: toObjectOrNull(row.buyerBranchSnapshot),
     version: row.version,
     cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     buyerClient: mapOwnerClient(row.buyerClient),
-    buyerRegistration: mapOwnerRegistration(row.buyerRegistration),
+    buyerBranch: mapOwnerBranch(row.buyerBranch),
   };
 }
 
@@ -891,7 +884,7 @@ function mapSample(row) {
     version: row.version,
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
-    ownerRegistrationId: row.ownerRegistrationId ?? null,
+    ownerBranchId: row.ownerBranchId ?? null,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:
@@ -906,7 +899,7 @@ function mapSample(row) {
       location: row.declaredLocation ?? null,
     },
     ownerClient: mapOwnerClient(row.ownerClient),
-    ownerRegistration: mapOwnerRegistration(row.ownerRegistration),
+    ownerBranch: mapOwnerBranch(row.ownerBranch),
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,

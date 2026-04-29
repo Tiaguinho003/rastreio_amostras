@@ -23,7 +23,6 @@ export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'C
 export type ClassificationType = 'PREPARADO' | 'LOW_CAFF' | 'BICA';
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
-export type ClientRegistrationStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientBranchStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientLookupKind = 'owner' | 'buyer' | 'any';
 export type ClientAuditEventType =
@@ -172,8 +171,6 @@ export interface ClientSummary {
   status: ClientStatus;
   commercialUser: { id: string; fullName: string } | null;
   commercialUsers: { id: string; fullName: string }[];
-  registrationCount: number;
-  activeRegistrationCount: number;
   branches: ClientBranchSummary[];
   branchCount: number;
   activeBranchCount: number;
@@ -207,20 +204,23 @@ export interface ClientBranchSummary {
   updatedAt: string | null;
 }
 
-export interface ClientRegistrationSummary {
-  id: string;
-  clientId: string;
-  status: ClientRegistrationStatus;
-  registrationNumber: string;
-  registrationType: string;
-  addressLine: string;
-  district: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  complement: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
+// F5.2: ClientBranchInput é o payload aceito por createClient.branches[]
+// e por POST /clients/:id/branches.
+export interface ClientBranchInput {
+  name?: string | null;
+  isPrimary?: boolean;
+  cnpj?: string | null;
+  legalName?: string | null;
+  tradeName?: string | null;
+  phone?: string | null;
+  addressLine?: string | null;
+  district?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  complement?: string | null;
+  registrationNumber?: string | null;
+  registrationType?: string | null;
 }
 
 export interface ClientResponse {
@@ -245,17 +245,16 @@ export interface ClientLookupResponse {
 }
 
 export interface ClientDetailResponse extends ClientResponse {
-  registrations: ClientRegistrationSummary[];
   branches: ClientBranchSummary[];
 }
 
-export interface ClientRegistrationMutationResponse {
+export interface ClientBranchMutationResponse {
   client: {
     id: string;
     code: number;
     displayName: string | null;
   };
-  registration: ClientRegistrationSummary;
+  branch: ClientBranchSummary;
 }
 
 export interface ClientSampleItem {
@@ -344,11 +343,14 @@ export interface ClientAuditEventResponse {
     status: ClientStatus;
     personType: ClientPersonType;
   } | null;
-  targetRegistration: {
+  targetBranch: {
     id: string;
-    registrationNumber: string;
-    registrationType: string;
-    status: ClientRegistrationStatus;
+    name: string | null;
+    code: number;
+    isPrimary: boolean;
+    cnpj: string | null;
+    legalName: string | null;
+    status: ClientBranchStatus;
   } | null;
   metadata: {
     ip: string | null;
@@ -392,7 +394,7 @@ export interface SampleSnapshot {
   version: number;
   lastEventSequence: number;
   ownerClientId?: string | null;
-  ownerRegistrationId?: string | null;
+  ownerBranchId?: string | null;
   declared: {
     owner: string | null;
     sacks: number | null;
@@ -415,19 +417,7 @@ export interface SampleSnapshot {
     isSeller: boolean;
     status: ClientStatus;
   } | null;
-  ownerRegistration?: {
-    id: string;
-    clientId: string;
-    status: ClientRegistrationStatus;
-    registrationNumber: string;
-    registrationType: string;
-    addressLine: string;
-    district: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    complement: string | null;
-  } | null;
+  ownerBranch?: ClientBranchSummary | null;
   soldSacks?: number;
   lostSacks?: number;
   availableSacks?: number | null;
@@ -510,19 +500,19 @@ export interface SampleMovement {
   movementType: SampleMovementType;
   status: SampleMovementStatus;
   buyerClientId: string | null;
-  buyerRegistrationId: string | null;
+  buyerBranchId: string | null;
   quantitySacks: number;
   movementDate: string;
   notes: string | null;
   lossReasonText: string | null;
   buyerClientSnapshot: Record<string, unknown> | null;
-  buyerRegistrationSnapshot: Record<string, unknown> | null;
+  buyerBranchSnapshot: Record<string, unknown> | null;
   version: number;
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
   buyerClient: SampleSnapshot['ownerClient'] | null;
-  buyerRegistration: SampleSnapshot['ownerRegistration'] | null;
+  buyerBranch: ClientBranchSummary | null;
 }
 
 export interface SampleMovementsResponse {

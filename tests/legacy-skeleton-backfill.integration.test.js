@@ -73,23 +73,26 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
   let cnpjCounter = 1;
   async function createSellerClient(overrides = {}) {
     cnpjCounter += 1;
-    const suffix = String(cnpjCounter).padStart(14, '0');
+    // F5.2: cnpj_root UNIQUE — sequencia nos primeiros 8 digitos
+    const suffix = String(10_000_000 + cnpjCounter)
+      .padEnd(14, '0')
+      .slice(0, 14);
     return clientService.createClient(
       {
         personType: 'PJ',
         legalName: overrides.legalName ?? `Fazenda Test ${suffix}`,
         tradeName: overrides.tradeName ?? `Fazenda Test ${suffix}`,
-        cnpj: suffix,
         phone: '35 99999-0000',
         isBuyer: true,
         isSeller: true,
+        branches: [{ isPrimary: true, cnpj: suffix }],
       },
       actorAdmin
     );

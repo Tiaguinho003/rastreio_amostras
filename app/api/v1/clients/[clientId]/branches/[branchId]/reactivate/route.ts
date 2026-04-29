@@ -5,12 +5,12 @@ import { executeBackend, readJsonBody } from '../../../../../_lib/adapter';
 type RouteContext = {
   params: Promise<{
     clientId: string;
-    registrationId: string;
+    branchId: string;
   }>;
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const body = await readJsonBody(request);
-  return executeBackend('inactivateClientRegistration', request, { params, body });
+  return executeBackend('reactivateClientBranch', request, { params, body });
 }

@@ -282,8 +282,8 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.internalLotNumber = event.payload.sampleLotNumber;
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
-      updateData.ownerRegistrationId = hasOwn(event.payload, 'ownerRegistrationId')
-        ? (event.payload.ownerRegistrationId ?? null)
+      updateData.ownerBranchId = hasOwn(event.payload, 'ownerBranchId')
+        ? (event.payload.ownerBranchId ?? null)
         : null;
     }
     updateData.declaredOwner = event.payload.declared.owner;
@@ -299,8 +299,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const declaredAfter = after.declared ?? {};
 
     if (hasOwn(after, 'ownerClientId')) updateData.ownerClientId = after.ownerClientId;
-    if (hasOwn(after, 'ownerRegistrationId'))
-      updateData.ownerRegistrationId = after.ownerRegistrationId;
+    if (hasOwn(after, 'ownerBranchId')) updateData.ownerBranchId = after.ownerBranchId;
 
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;
     if (hasOwn(after, 'sacks')) updateData.declaredSacks = after.sacks;

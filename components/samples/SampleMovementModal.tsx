@@ -6,19 +6,19 @@ import { createPortal } from 'react-dom';
 import { ApiError, getClient } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
-  ClientRegistrationSummary,
+  ClientBranchSummary,
   ClientSummary,
   SampleMovement,
   SampleMovementType,
   SessionData,
 } from '../../lib/types';
 import { ClientLookupField } from '../clients/ClientLookupField';
-import { ClientRegistrationSelect } from '../clients/ClientRegistrationSelect';
+import { ClientBranchSelect } from '../clients/ClientBranchSelect';
 
 type SampleMovementModalSubmitInput = {
   movementType: SampleMovementType;
   buyerClientId: string | null;
-  buyerRegistrationId: string | null;
+  buyerBranchId: string | null;
   quantitySacks: number;
   movementDate: string;
   notes: string | null;
@@ -62,8 +62,6 @@ function toClientSummary(client: SampleMovement['buyerClient']): ClientSummary |
     status: client.status,
     commercialUser: null,
     commercialUsers: [],
-    registrationCount: 0,
-    activeRegistrationCount: 0,
     branches: [],
     branchCount: 0,
     activeBranchCount: 0,
@@ -102,16 +100,16 @@ export function SampleMovementModal({
   const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(
     toClientSummary(movement?.buyerClient ?? null)
   );
-  const [buyerRegistrations, setBuyerRegistrations] = useState<ClientRegistrationSummary[]>([]);
-  const [buyerRegistrationId, setBuyerRegistrationId] = useState<string | null>(
-    movement?.buyerRegistrationId ?? null
+  const [buyerBranches, setBuyerBranches] = useState<ClientBranchSummary[]>([]);
+  const [buyerBranchId, setBuyerBranchId] = useState<string | null>(
+    movement?.buyerBranchId ?? null
   );
   const [quantitySacks, setQuantitySacks] = useState(String(movement?.quantitySacks ?? ''));
   const [movementDate, setMovementDate] = useState(movement?.movementDate ?? todayAsInputDate());
   const [notes, setNotes] = useState(movement?.notes ?? '');
   const [lossReasonText, setLossReasonText] = useState(movement?.lossReasonText ?? '');
   const [reasonText, setReasonText] = useState('');
-  const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const showBuyerFields = movementType === 'SALE';
@@ -125,7 +123,7 @@ export function SampleMovementModal({
 
     setMovementType(movement?.movementType ?? initialMovementType);
     setBuyerClient(toClientSummary(movement?.buyerClient ?? null));
-    setBuyerRegistrationId(movement?.buyerRegistrationId ?? null);
+    setBuyerBranchId(movement?.buyerBranchId ?? null);
     setQuantitySacks(movement?.quantitySacks ? String(movement.quantitySacks) : '');
     setMovementDate(movement?.movementDate ?? todayAsInputDate());
     setNotes(movement?.notes ?? '');
@@ -136,16 +134,16 @@ export function SampleMovementModal({
 
   useEffect(() => {
     if (!open || !buyerClient) {
-      setBuyerRegistrations([]);
-      setLoadingRegistrations(false);
+      setBuyerBranches([]);
+      setLoadingBranches(false);
       if (movementType === 'SALE') {
-        setBuyerRegistrationId(null);
+        setBuyerBranchId(null);
       }
       return;
     }
 
     const controller = new AbortController();
-    setLoadingRegistrations(true);
+    setLoadingBranches(true);
 
     getClient(session, buyerClient.id, { signal: controller.signal })
       .then((response) => {
@@ -153,25 +151,23 @@ export function SampleMovementModal({
           return;
         }
 
-        const activeRegistrations = response.registrations.filter(
-          (registration) => registration.status === 'ACTIVE'
-        );
-        setBuyerRegistrations(activeRegistrations);
+        const activeBranches = response.branches.filter((branch) => branch.status === 'ACTIVE');
+        setBuyerBranches(activeBranches);
       })
       .catch((cause) => {
         if (controller.signal.aborted) {
           return;
         }
 
-        setBuyerRegistrations([]);
-        setBuyerRegistrationId(null);
+        setBuyerBranches([]);
+        setBuyerBranchId(null);
         setError(
-          cause instanceof ApiError ? cause.message : 'Falha ao carregar inscricoes do comprador'
+          cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do comprador'
         );
       })
       .finally(() => {
         if (!controller.signal.aborted) {
-          setLoadingRegistrations(false);
+          setLoadingBranches(false);
         }
       });
 
@@ -241,7 +237,7 @@ export function SampleMovementModal({
     await onSubmit({
       movementType,
       buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
-      buyerRegistrationId: showBuyerFields ? buyerRegistrationId : null,
+      buyerBranchId: showBuyerFields ? buyerBranchId : null,
       quantitySacks: parsedQuantity,
       movementDate,
       notes: notes.trim() ? notes.trim() : null,
@@ -282,22 +278,35 @@ export function SampleMovementModal({
 
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
-            <div className="sdv-edit-field">
-              <ClientLookupField
-                session={session}
-                label="Comprador"
-                kind="buyer"
-                selectedClient={buyerClient}
-                disabled={saving}
-                compact
-                onSelectClient={(client) => {
-                  setBuyerClient(client);
-                  setBuyerRegistrationId(null);
-                  setError(null);
-                }}
-                emptyMessage="Nenhum comprador encontrado."
-              />
-            </div>
+            <>
+              <div className="sdv-edit-field">
+                <ClientLookupField
+                  session={session}
+                  label="Comprador"
+                  kind="buyer"
+                  selectedClient={buyerClient}
+                  disabled={saving}
+                  compact
+                  onSelectClient={(client) => {
+                    setBuyerClient(client);
+                    setBuyerBranchId(null);
+                    setError(null);
+                  }}
+                  emptyMessage="Nenhum comprador encontrado."
+                />
+              </div>
+              {buyerClient ? (
+                <div className="sdv-edit-field">
+                  <ClientBranchSelect
+                    label="Filial"
+                    branches={buyerBranches}
+                    value={buyerBranchId}
+                    disabled={saving || loadingBranches}
+                    onChange={setBuyerBranchId}
+                  />
+                </div>
+              ) : null}
+            </>
           ) : (
             <label className="sdv-edit-field">
               <span className="sdv-edit-label">Motivo da perda</span>

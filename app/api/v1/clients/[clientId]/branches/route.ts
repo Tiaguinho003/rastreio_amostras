@@ -11,5 +11,5 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const body = await readJsonBody(request);
-  return executeBackend('createClientRegistration', request, { params, body });
+  return executeBackend('createClientBranch', request, { params, body });
 }

@@ -37,7 +37,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -123,19 +123,21 @@ if (!databaseUrl || !databaseReachable) {
         personType: 'PJ',
         legalName: 'Atlantica Exportacao e Importacao S/A',
         tradeName: 'Atlantica Exportacao e Importacao S/A',
-        cnpj: '03936815000175',
-        documentCanonical: '03936815000175',
+        cnpjRoot: '03936815',
         isBuyer: true,
         isSeller: true,
         status: 'ACTIVE',
       },
     });
 
-    await prisma.clientRegistration.create({
+    await prisma.clientBranch.create({
       data: {
         id: registrationId,
         clientId,
-        status: 'ACTIVE',
+        isPrimary: true,
+        code: 1,
+        cnpj: '03936815000175',
+        cnpjOrder: '0001',
         registrationNumber: '3940945840042',
         registrationNumberCanonical: '3940945840042',
         registrationType: 'estadual',
@@ -144,6 +146,7 @@ if (!databaseUrl || !databaseReachable) {
         city: 'Varginha',
         state: 'MG',
         postalCode: '37062-447',
+        status: 'ACTIVE',
       },
     });
 
@@ -153,7 +156,7 @@ if (!databaseUrl || !databaseReachable) {
       registrationConfirmedEvent(sampleId, {
         payload: {
           ownerClientId: clientId,
-          ownerRegistrationId: registrationId,
+          ownerBranchId: registrationId,
           declared: {
             owner: 'Atlantica Exportacao e Importacao S/A',
             sacks: 10,
@@ -167,7 +170,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sample.ownerClientId, clientId);
-    assert.equal(sample.ownerRegistrationId, registrationId);
+    assert.equal(sample.ownerBranchId, registrationId);
     assert.equal(sample.declaredOwner, 'Atlantica Exportacao e Importacao S/A');
   });
 
@@ -515,8 +518,7 @@ if (!databaseUrl || !databaseReachable) {
         personType: 'PJ',
         legalName: 'Comprador Inicial LTDA',
         tradeName: 'Comprador Inicial LTDA',
-        cnpj: '10101010000110',
-        documentCanonical: '10101010000110',
+        cnpjRoot: '10101010',
         isBuyer: true,
         isSeller: false,
         status: 'ACTIVE',
@@ -529,8 +531,7 @@ if (!databaseUrl || !databaseReachable) {
         personType: 'PJ',
         legalName: 'Comprador Atualizado LTDA',
         tradeName: 'Comprador Atualizado LTDA',
-        cnpj: '20202020000120',
-        documentCanonical: '20202020000120',
+        cnpjRoot: '20202020',
         isBuyer: true,
         isSeller: false,
         status: 'ACTIVE',
@@ -611,7 +612,7 @@ if (!databaseUrl || !databaseReachable) {
           before: {
             movementType: 'SALE',
             buyerClientId,
-            buyerRegistrationId: null,
+            buyerBranchId: null,
             quantitySacks: 5,
             movementDate: '2026-03-19',
             notes: 'venda parcial',
@@ -620,13 +621,13 @@ if (!databaseUrl || !databaseReachable) {
               id: buyerClientId,
               displayName: 'Comprador Inicial LTDA',
             },
-            buyerRegistrationSnapshot: null,
+            buyerBranchSnapshot: null,
             status: 'ACTIVE',
           },
           after: {
             movementType: 'SALE',
             buyerClientId: updatedBuyerClientId,
-            buyerRegistrationId: null,
+            buyerBranchId: null,
             quantitySacks: 6,
             movementDate: '2026-03-20',
             notes: 'venda editada',
@@ -635,7 +636,7 @@ if (!databaseUrl || !databaseReachable) {
               id: updatedBuyerClientId,
               displayName: 'Comprador Atualizado LTDA',
             },
-            buyerRegistrationSnapshot: null,
+            buyerBranchSnapshot: null,
             status: 'ACTIVE',
           },
         },

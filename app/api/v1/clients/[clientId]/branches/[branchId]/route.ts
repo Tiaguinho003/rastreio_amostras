@@ -5,12 +5,12 @@ import { executeBackend, readJsonBody } from '../../../../_lib/adapter';
 type RouteContext = {
   params: Promise<{
     clientId: string;
-    registrationId: string;
+    branchId: string;
   }>;
 };
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const body = await readJsonBody(request);
-  return executeBackend('updateClientRegistration', request, { params, body });
+  return executeBackend('updateClientBranch', request, { params, body });
 }

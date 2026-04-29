@@ -212,7 +212,7 @@ export function createBackendApiV1({
             clientDraftId: body.clientDraftId,
             owner: body.owner,
             ownerClientId: body.ownerClientId,
-            ownerRegistrationId: body.ownerRegistrationId,
+            ownerBranchId: body.ownerBranchId,
             sacks: body.sacks,
             harvest: body.harvest,
             originLot: body.originLot,
@@ -284,7 +284,7 @@ export function createBackendApiV1({
             sampleLotNumber: body.sampleLotNumber,
             declared: body.declared,
             ownerClientId: body.ownerClientId,
-            ownerRegistrationId: body.ownerRegistrationId,
+            ownerBranchId: body.ownerBranchId,
             idempotencyKey: body.idempotencyKey,
           },
           actor
@@ -822,7 +822,7 @@ export function createBackendApiV1({
             expectedVersion: body.expectedVersion,
             movementType: body.movementType,
             buyerClientId: body.buyerClientId,
-            buyerRegistrationId: body.buyerRegistrationId,
+            buyerBranchId: body.buyerBranchId,
             quantitySacks: body.quantitySacks,
             movementDate: body.movementDate,
             notes: body.notes ?? null,
@@ -1038,13 +1038,13 @@ export function createBackendApiV1({
           legalName: body.legalName,
           tradeName: body.tradeName,
           cpf: body.cpf,
-          cnpj: body.cnpj,
           phone: body.phone,
           isBuyer: body.isBuyer,
           isSeller: body.isSeller,
         };
         assignIfDefined(createPayload, 'commercialUserId', body.commercialUserId);
         assignIfDefined(createPayload, 'commercialUserIds', body.commercialUserIds);
+        assignIfDefined(createPayload, 'branches', body.branches);
 
         const result = await clientService.createClient(createPayload, actor);
 
@@ -1073,7 +1073,6 @@ export function createBackendApiV1({
         assignIfDefined(updatePayload, 'legalName', body.legalName);
         assignIfDefined(updatePayload, 'tradeName', body.tradeName);
         assignIfDefined(updatePayload, 'cpf', body.cpf);
-        assignIfDefined(updatePayload, 'cnpj', body.cnpj);
         assignIfDefined(updatePayload, 'phone', body.phone);
         assignIfDefined(updatePayload, 'isBuyer', body.isBuyer);
         assignIfDefined(updatePayload, 'isSeller', body.isSeller);
@@ -1339,7 +1338,7 @@ export function createBackendApiV1({
         };
       }),
 
-    createClientRegistration: (input) =>
+    createClientBranch: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {
           throw new HttpError(501, 'Client service is not configured');
@@ -1352,20 +1351,7 @@ export function createBackendApiV1({
         }
         const body = readRequestBody(input);
 
-        const result = await clientService.createRegistration(
-          clientId,
-          {
-            registrationNumber: body.registrationNumber,
-            registrationType: body.registrationType,
-            addressLine: body.addressLine,
-            district: body.district,
-            city: body.city,
-            state: body.state,
-            postalCode: body.postalCode,
-            complement: body.complement,
-          },
-          actor
-        );
+        const result = await clientService.createBranch(clientId, body, actor);
 
         return {
           status: 201,
@@ -1373,7 +1359,7 @@ export function createBackendApiV1({
         };
       }),
 
-    updateClientRegistration: (input) =>
+    updateClientBranch: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {
           throw new HttpError(501, 'Client service is not configured');
@@ -1381,29 +1367,44 @@ export function createBackendApiV1({
 
         const actor = await resolveActorContext(input, authService);
         const clientId = input?.params?.clientId;
-        const registrationId = input?.params?.registrationId;
+        const branchId = input?.params?.branchId;
         if (typeof clientId !== 'string' || clientId.length === 0) {
           throw new HttpError(422, 'clientId path param is required');
         }
-        if (typeof registrationId !== 'string' || registrationId.length === 0) {
-          throw new HttpError(422, 'registrationId path param is required');
+        if (typeof branchId !== 'string' || branchId.length === 0) {
+          throw new HttpError(422, 'branchId path param is required');
         }
         const body = readRequestBody(input);
-        const updatePayload = {};
-        assignIfDefined(updatePayload, 'registrationNumber', body.registrationNumber);
-        assignIfDefined(updatePayload, 'registrationType', body.registrationType);
-        assignIfDefined(updatePayload, 'addressLine', body.addressLine);
-        assignIfDefined(updatePayload, 'district', body.district);
-        assignIfDefined(updatePayload, 'city', body.city);
-        assignIfDefined(updatePayload, 'state', body.state);
-        assignIfDefined(updatePayload, 'postalCode', body.postalCode);
-        assignIfDefined(updatePayload, 'complement', body.complement);
-        assignIfDefined(updatePayload, 'reasonText', body.reasonText);
 
-        const result = await clientService.updateRegistration(
+        const result = await clientService.updateBranch(clientId, branchId, body, actor);
+
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
+    inactivateClientBranch: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        const branchId = input?.params?.branchId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        if (typeof branchId !== 'string' || branchId.length === 0) {
+          throw new HttpError(422, 'branchId path param is required');
+        }
+        const body = readRequestBody(input);
+
+        const result = await clientService.inactivateBranch(
           clientId,
-          registrationId,
-          updatePayload,
+          branchId,
+          { reasonText: body.reasonText },
           actor
         );
 
@@ -1413,7 +1414,7 @@ export function createBackendApiV1({
         };
       }),
 
-    inactivateClientRegistration: (input) =>
+    reactivateClientBranch: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {
           throw new HttpError(501, 'Client service is not configured');
@@ -1421,53 +1422,19 @@ export function createBackendApiV1({
 
         const actor = await resolveActorContext(input, authService);
         const clientId = input?.params?.clientId;
-        const registrationId = input?.params?.registrationId;
+        const branchId = input?.params?.branchId;
         if (typeof clientId !== 'string' || clientId.length === 0) {
           throw new HttpError(422, 'clientId path param is required');
         }
-        if (typeof registrationId !== 'string' || registrationId.length === 0) {
-          throw new HttpError(422, 'registrationId path param is required');
+        if (typeof branchId !== 'string' || branchId.length === 0) {
+          throw new HttpError(422, 'branchId path param is required');
         }
         const body = readRequestBody(input);
 
-        const result = await clientService.inactivateRegistration(
+        const result = await clientService.reactivateBranch(
           clientId,
-          registrationId,
-          {
-            reasonText: body.reasonText,
-          },
-          actor
-        );
-
-        return {
-          status: 200,
-          body: result,
-        };
-      }),
-
-    reactivateClientRegistration: (input) =>
-      executeApiForInput(input, async () => {
-        if (!clientService) {
-          throw new HttpError(501, 'Client service is not configured');
-        }
-
-        const actor = await resolveActorContext(input, authService);
-        const clientId = input?.params?.clientId;
-        const registrationId = input?.params?.registrationId;
-        if (typeof clientId !== 'string' || clientId.length === 0) {
-          throw new HttpError(422, 'clientId path param is required');
-        }
-        if (typeof registrationId !== 'string' || registrationId.length === 0) {
-          throw new HttpError(422, 'registrationId path param is required');
-        }
-        const body = readRequestBody(input);
-
-        const result = await clientService.reactivateRegistration(
-          clientId,
-          registrationId,
-          {
-            reasonText: body.reasonText,
-          },
+          branchId,
+          { reasonText: body.reasonText },
           actor
         );
 

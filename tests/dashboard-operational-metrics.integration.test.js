@@ -25,7 +25,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 

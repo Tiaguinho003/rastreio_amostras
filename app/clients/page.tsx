@@ -19,7 +19,7 @@ import { ApiError, getClient, listClients, lookupUsersForReference } from '../..
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type {
-  ClientRegistrationSummary,
+  ClientBranchSummary,
   ClientStatus,
   ClientSummary,
   UserLookupItem,
@@ -119,7 +119,7 @@ function formatClientCardSummary(client: ClientSummary) {
 
 function formatClientCardMeta(client: ClientSummary) {
   const phone = formatPhone(client.phone) ?? 'Sem telefone';
-  return `Cod. ${client.code} | ${phone} | Insc. ${client.activeRegistrationCount}/${client.registrationCount}`;
+  return `Cod. ${client.code} | ${phone} | Insc. ${client.activeBranchCount}/${client.branchCount}`;
 }
 
 function clientStatusBadgeClass(status: ClientStatus) {
@@ -134,7 +134,7 @@ function getClientStatusThemeClass(status: ClientStatus): string {
   return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
 }
 
-function registrationStatusBadgeClass(status: ClientRegistrationSummary['status']) {
+function registrationStatusBadgeClass(status: ClientBranchSummary['status']) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
 }
 
@@ -149,7 +149,7 @@ interface ClientsListState {
   error: string | null;
   selectedId: string | null;
   detail: ClientSummary | null;
-  registrations: ClientRegistrationSummary[];
+  branches: ClientBranchSummary[];
   detailOpen: boolean;
   detailLoading: boolean;
   detailError: string | null;
@@ -171,7 +171,7 @@ type ClientsListAction =
   | { type: 'openDetail' }
   | { type: 'closeDetail' }
   | { type: 'fetchDetail' }
-  | { type: 'detailSuccess'; client: ClientSummary; registrations: ClientRegistrationSummary[] }
+  | { type: 'detailSuccess'; client: ClientSummary; branches: ClientBranchSummary[] }
   | { type: 'detailError'; message: string };
 
 const CLIENTS_INITIAL: ClientsListState = {
@@ -185,7 +185,7 @@ const CLIENTS_INITIAL: ClientsListState = {
   error: null,
   selectedId: null,
   detail: null,
-  registrations: [],
+  branches: [],
   detailOpen: false,
   detailLoading: false,
   detailError: null,
@@ -215,7 +215,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
     case 'openDetail':
       return { ...state, detailOpen: true, detailError: null };
     case 'closeDetail':
-      return { ...state, detailOpen: false, detail: null, registrations: [], detailError: null };
+      return { ...state, detailOpen: false, detail: null, branches: [], detailError: null };
     case 'fetchDetail':
       return { ...state, detailLoading: true, detailError: null };
     case 'detailSuccess':
@@ -223,7 +223,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         ...state,
         detailLoading: false,
         detail: action.client,
-        registrations: action.registrations,
+        branches: action.branches,
         detailError: null,
       };
     case 'detailError':
@@ -414,7 +414,7 @@ function ClientsPage() {
         dispatchClients({
           type: 'detailSuccess',
           client: response.client,
-          registrations: response.registrations,
+          branches: response.branches,
         });
       })
       .catch((cause) => {

@@ -40,7 +40,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, client_commercial_user, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, client_commercial_user, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
     await prisma.$executeRawUnsafe('DELETE FROM "app_user" WHERE "username" LIKE \'test-%\'');
   }
@@ -81,17 +81,21 @@ if (!databaseUrl || !databaseReachable) {
   }
 
   async function createPjClient(overrides = {}) {
+    const { cnpj, branches, ...rest } = overrides;
+    const branchCnpj =
+      cnpj !== undefined ? cnpj : branches?.[0]?.cnpj !== undefined ? null : '03.936.815/0001-75';
+    const finalBranches = branches ?? (branchCnpj ? [{ isPrimary: true, cnpj: branchCnpj }] : []);
     return api.createClient(
       buildInput({
         body: {
           personType: 'PJ',
           legalName: 'Atlantica Exportacao e Importacao S/A',
           tradeName: 'Atlantica Exportacao e Importacao S/A',
-          cnpj: '03.936.815/0001-75',
           phone: '35 3222-0495',
           isBuyer: true,
           isSeller: true,
-          ...overrides,
+          ...rest,
+          branches: finalBranches,
         },
       })
     );
@@ -323,7 +327,6 @@ if (!databaseUrl || !databaseReachable) {
           personType: 'PJ',
           legalName: 'G A S Comercio de Cafe Sociedade LTDA',
           tradeName: 'G A S Comercio de Cafe Sociedade LTDA',
-          cnpj: '26.543.626/0001-38',
           isBuyer: true,
           isSeller: true,
           reasonText: 'corrigir cadastro',
@@ -334,7 +337,19 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.status, 200);
     assert.equal(updated.body.client.personType, 'PJ');
     assert.equal(updated.body.client.displayName, 'G A S Comercio de Cafe Sociedade LTDA');
-    assert.equal(updated.body.client.document, '26543626000138');
+
+    // F5.2: document agora vem da primary branch. Adiciona uma e re-le.
+    const branchRes = await api.createClientBranch(
+      buildInput({
+        params: { clientId: created.body.client.id },
+        body: { isPrimary: true, cnpj: '26.543.626/0001-38' },
+      })
+    );
+    assert.equal(branchRes.status, 201);
+    const detailAfterBranch = await api.getClient(
+      buildInput({ params: { clientId: created.body.client.id } })
+    );
+    assert.equal(detailAfterBranch.body.client.document, '26543626000138');
 
     const detail = await api.getClient(
       buildInput({
@@ -352,14 +367,15 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(audit.status, 200);
-    assert.equal(audit.body.items[0].eventType, 'CLIENT_UPDATED');
-    assert.equal(audit.body.items[0].reasonText, 'corrigir cadastro');
+    const updatedEvent = audit.body.items.find((it) => it.eventType === 'CLIENT_UPDATED');
+    assert.ok(updatedEvent, 'CLIENT_UPDATED event esperado');
+    assert.equal(updatedEvent.reasonText, 'corrigir cadastro');
   });
 
   test('POST/PATCH client registrations manage same record and enforce ownership', async () => {
     const created = await createPjClient();
 
-    const registration = await api.createClientRegistration(
+    const registration = await api.createClientBranch(
       buildInput({
         params: { clientId: created.body.client.id },
         body: {
@@ -376,13 +392,13 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(registration.status, 201);
-    assert.equal(registration.body.registration.registrationNumber, '0028640150010');
+    assert.equal(registration.body.branch.registrationNumber, '0028640150010');
 
-    const updatedRegistration = await api.updateClientRegistration(
+    const updatedRegistration = await api.updateClientBranch(
       buildInput({
         params: {
           clientId: created.body.client.id,
-          registrationId: registration.body.registration.id,
+          branchId: registration.body.branch.id,
         },
         body: {
           district: 'Centro',
@@ -392,18 +408,18 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(updatedRegistration.status, 200);
-    assert.equal(updatedRegistration.body.registration.district, 'Centro');
+    assert.equal(updatedRegistration.body.branch.district, 'Centro');
 
     const otherClient = await createPfClient({
       fullName: 'Outro Cliente',
       cpf: '123.456.789-09',
     });
 
-    const wrongOwner = await api.updateClientRegistration(
+    const wrongOwner = await api.updateClientBranch(
       buildInput({
         params: {
           clientId: otherClient.body.client.id,
-          registrationId: registration.body.registration.id,
+          branchId: registration.body.branch.id,
         },
         body: {
           district: 'Bairro X',
@@ -417,7 +433,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('GET /clients/:id returns registrations and audit includes registration events', async () => {
     const created = await createPjClient();
-    const registration = await api.createClientRegistration(
+    const registration = await api.createClientBranch(
       buildInput({
         params: { clientId: created.body.client.id },
         body: {
@@ -433,11 +449,11 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    await api.inactivateClientRegistration(
+    await api.inactivateClientBranch(
       buildInput({
         params: {
           clientId: created.body.client.id,
-          registrationId: registration.body.registration.id,
+          branchId: registration.body.branch.id,
         },
         body: {
           reasonText: 'teste',
@@ -452,8 +468,8 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(detail.status, 200);
-    assert.equal(detail.body.registrations.length, 1);
-    assert.equal(detail.body.registrations[0].status, 'INACTIVE');
+    const inactiveBranches = detail.body.branches.filter((b) => b.status === 'INACTIVE');
+    assert.equal(inactiveBranches.length, 1);
 
     const audit = await api.listClientAuditEvents(
       buildInput({
@@ -463,11 +479,11 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(audit.status, 200);
     assert.equal(
-      audit.body.items.some((item) => item.eventType === 'CLIENT_REGISTRATION_CREATED'),
+      audit.body.items.some((item) => item.eventType === 'CLIENT_BRANCH_CREATED'),
       true
     );
     assert.equal(
-      audit.body.items.some((item) => item.eventType === 'CLIENT_REGISTRATION_INACTIVATED'),
+      audit.body.items.some((item) => item.eventType === 'CLIENT_BRANCH_INACTIVATED'),
       true
     );
   });
@@ -477,10 +493,10 @@ if (!databaseUrl || !databaseReachable) {
   // ----------------------------------------------------------------------
 
   test('F5.1: createRegistration dual-write cria branch com mesmo id e isPrimary correto', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const registration = await api.createClientRegistration(
+    const registration = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -497,7 +513,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(registration.status, 201);
-    const registrationId = registration.body.registration.id;
+    const registrationId = registration.body.branch.id;
 
     const branch = await prisma.clientBranch.findUnique({ where: { id: registrationId } });
     assert.ok(branch, 'branch deve existir com mesmo id da registration');
@@ -512,10 +528,10 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('F5.1: segundo createRegistration cria branch nao-primary com code crescente', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const reg1 = await api.createClientRegistration(
+    const reg1 = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -532,7 +548,7 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(reg1.status, 201);
 
-    const reg2 = await api.createClientRegistration(
+    const reg2 = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -561,10 +577,10 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('F5.1: updateRegistration dual-write reflete mudancas na branch', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const reg = await api.createClientRegistration(
+    const reg = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -581,9 +597,9 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(reg.status, 201);
 
-    const updated = await api.updateClientRegistration(
+    const updated = await api.updateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: {
           city: 'Tres Pontas',
           district: 'Bairro Novo',
@@ -594,17 +610,17 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.status, 200);
 
     const branch = await prisma.clientBranch.findUnique({
-      where: { id: reg.body.registration.id },
+      where: { id: reg.body.branch.id },
     });
     assert.equal(branch.city, 'Tres Pontas');
     assert.equal(branch.district, 'Bairro Novo');
   });
 
   test('F5.1: inactivate/reactivate registration espelha status na branch', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const reg = await api.createClientRegistration(
+    const reg = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -621,38 +637,38 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(reg.status, 201);
 
-    const inactivated = await api.inactivateClientRegistration(
+    const inactivated = await api.inactivateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: { reasonText: 'teste de inativacao' },
       })
     );
     assert.equal(inactivated.status, 200);
 
     let branch = await prisma.clientBranch.findUnique({
-      where: { id: reg.body.registration.id },
+      where: { id: reg.body.branch.id },
     });
     assert.equal(branch.status, 'INACTIVE');
 
-    const reactivated = await api.reactivateClientRegistration(
+    const reactivated = await api.reactivateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: { reasonText: 'reativando' },
       })
     );
     assert.equal(reactivated.status, 200);
 
     branch = await prisma.clientBranch.findUnique({
-      where: { id: reg.body.registration.id },
+      where: { id: reg.body.branch.id },
     });
     assert.equal(branch.status, 'ACTIVE');
   });
 
   test('F5.1: getClient retorna branches[] em paralelo a registrations[]', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const reg = await api.createClientRegistration(
+    const reg = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -671,11 +687,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await api.getClient(buildInput({ params: { clientId } }));
     assert.equal(detail.status, 200);
-    assert.equal(detail.body.registrations.length, 1);
     assert.ok(Array.isArray(detail.body.branches), 'branches precisa estar no payload');
     assert.equal(detail.body.branches.length, 1);
     const branch = detail.body.branches[0];
-    assert.equal(branch.id, reg.body.registration.id);
+    assert.equal(branch.id, reg.body.branch.id);
     assert.equal(branch.clientId, clientId);
     assert.equal(branch.city, 'Varginha');
     assert.equal(branch.state, 'MG');
@@ -689,10 +704,10 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('F5.1: dual-write registra eventos de audit CLIENT_BRANCH_*', async () => {
-    const created = await createPjClient();
+    const created = await createPjClient({ branches: [] });
     const clientId = created.body.client.id;
 
-    const reg = await api.createClientRegistration(
+    const reg = await api.createClientBranch(
       buildInput({
         params: { clientId },
         body: {
@@ -709,23 +724,23 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(reg.status, 201);
 
-    await api.updateClientRegistration(
+    await api.updateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: { city: 'Tres Pontas', reasonText: 'update' },
       })
     );
 
-    await api.inactivateClientRegistration(
+    await api.inactivateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: { reasonText: 'inactivate' },
       })
     );
 
-    await api.reactivateClientRegistration(
+    await api.reactivateClientBranch(
       buildInput({
-        params: { clientId, registrationId: reg.body.registration.id },
+        params: { clientId, branchId: reg.body.branch.id },
         body: { reasonText: 'reactivate' },
       })
     );
@@ -757,7 +772,7 @@ if (!databaseUrl || !databaseReachable) {
       cpf: '999.888.777-66',
     });
 
-    const firstRegistration = await api.createClientRegistration(
+    const firstRegistration = await api.createClientBranch(
       buildInput({
         params: { clientId: created.body.client.id },
         body: {
@@ -781,7 +796,7 @@ if (!databaseUrl || !databaseReachable) {
       cnpj: '11.222.333/0001-44',
     });
 
-    const duplicateRegistration = await api.createClientRegistration(
+    const duplicateRegistration = await api.createClientBranch(
       buildInput({
         params: { clientId: otherClient.body.client.id },
         body: {
@@ -1347,12 +1362,12 @@ if (!databaseUrl || !databaseReachable) {
     });
     const c2 = await createPjClient({
       legalName: 'Bulk C2',
-      cnpj: '28.282.828/0001-29',
+      cnpj: '38.282.828/0001-29',
       commercialUserId: baseUser.id,
     });
     const c3 = await createPjClient({
       legalName: 'Bulk C3',
-      cnpj: '28.282.828/0001-30',
+      cnpj: '48.282.828/0001-30',
       commercialUserId: baseUser.id,
     });
     // c3 ja tem targetUser
@@ -1391,7 +1406,7 @@ if (!databaseUrl || !databaseReachable) {
     });
     const shared = await createPjClient({
       legalName: 'Impact Shared',
-      cnpj: '29.292.929/0001-30',
+      cnpj: '39.292.929/0001-30',
       commercialUserId: target.id,
     });
     await prisma.clientCommercialUser.create({
@@ -1422,12 +1437,12 @@ if (!databaseUrl || !databaseReachable) {
     });
     const cb = await createPjClient({
       legalName: 'List B',
-      cnpj: '30.303.030/0001-31',
+      cnpj: '40.404.040/0001-31',
       commercialUserId: userB.id,
     });
     await createPjClient({
       legalName: 'List C',
-      cnpj: '30.303.030/0001-32',
+      cnpj: '50.505.050/0001-32',
       commercialUserId: userC.id,
     });
 

@@ -102,13 +102,20 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_registration, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
+  }
+
+  function nextUniqueRoot(sequence) {
+    // Garante cnpj_root distinto por sequence (8 primeiros digitos).
+    return String(10_000_000 + sequence)
+      .padEnd(14, '0')
+      .slice(0, 14);
   }
 
   async function createSellerClient(overrides = {}) {
     sellerClientSequence += 1;
-    const suffix = nextSequenceDigits(sellerClientSequence, 14);
+    const suffix = overrides.cnpj ?? nextUniqueRoot(sellerClientSequence);
     const defaultName = `Cliente Seller ${sellerClientSequence} LTDA`;
 
     return clientService.createClient(
@@ -116,10 +123,10 @@ if (!databaseUrl || !databaseReachable) {
         personType: 'PJ',
         legalName: overrides.legalName ?? defaultName,
         tradeName: overrides.tradeName ?? overrides.legalName ?? defaultName,
-        cnpj: overrides.cnpj ?? suffix,
         phone: overrides.phone ?? '35 3531-4046',
         isBuyer: overrides.isBuyer ?? true,
         isSeller: overrides.isSeller ?? true,
+        branches: [{ isPrimary: true, cnpj: suffix }],
       },
       actorClassifier
     );
@@ -128,7 +135,7 @@ if (!databaseUrl || !databaseReachable) {
   async function createClientRegistration(clientId, overrides = {}) {
     registrationSequence += 1;
 
-    return clientService.createRegistration(
+    return clientService.createBranch(
       clientId,
       {
         registrationNumber:
@@ -683,7 +690,7 @@ if (!databaseUrl || !databaseReachable) {
           clientDraftId: randomUUID(),
           owner: 'Texto legado divergente',
           ownerClientId: ownerClient.client.id,
-          ownerRegistrationId: ownerRegistration.registration.id,
+          ownerBranchId: ownerRegistration.branch.id,
           sacks: 12,
           harvest: '25/26',
           originLot: 'ORIG-OWNER-LINKED',
@@ -694,22 +701,19 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(created.body.sample.ownerRegistrationId, ownerRegistration.registration.id);
+    assert.equal(created.body.sample.ownerBranchId, ownerRegistration.branch.id);
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
 
     const detail = await queryService.getSampleDetail(created.body.sample.id, { eventLimit: 20 });
     assert.equal(detail.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(detail.sample.ownerRegistrationId, ownerRegistration.registration.id);
+    assert.equal(detail.sample.ownerBranchId, ownerRegistration.branch.id);
     assert.equal(detail.sample.declared.owner, ownerClient.client.displayName);
 
     const registrationConfirmed = detail.events.find(
       (event) => event.eventType === 'REGISTRATION_CONFIRMED'
     );
     assert.equal(registrationConfirmed?.payload?.ownerClientId, ownerClient.client.id);
-    assert.equal(
-      registrationConfirmed?.payload?.ownerRegistrationId,
-      ownerRegistration.registration.id
-    );
+    assert.equal(registrationConfirmed?.payload?.ownerBranchId, ownerRegistration.branch.id);
   });
 
   test('POST /registration/update can attach structured owner to a legacy sample and clear previous registration on owner change', async () => {
@@ -726,7 +730,7 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 3,
           after: {
             ownerClientId: firstOwner.client.id,
-            ownerRegistrationId: firstRegistration.registration.id,
+            ownerBranchId: firstRegistration.branch.id,
           },
           reasonCode: 'DATA_FIX',
           reasonText: 'vincular cliente',
@@ -739,7 +743,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const attachedSample = await queryService.requireSample(sampleId);
     assert.equal(attachedSample.ownerClientId, firstOwner.client.id);
-    assert.equal(attachedSample.ownerRegistrationId, firstRegistration.registration.id);
+    assert.equal(attachedSample.ownerBranchId, firstRegistration.branch.id);
     assert.equal(attachedSample.declared.owner, firstOwner.client.displayName);
 
     const secondOwner = await createSellerClient({
@@ -767,7 +771,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const switchedSample = await queryService.requireSample(sampleId);
     assert.equal(switchedSample.ownerClientId, secondOwner.client.id);
-    assert.equal(switchedSample.ownerRegistrationId, null);
+    assert.equal(switchedSample.ownerBranchId, null);
     assert.equal(switchedSample.declared.owner, secondOwner.client.displayName);
   });
 
@@ -841,7 +845,7 @@ if (!databaseUrl || !databaseReachable) {
         body: {
           clientDraftId: randomUUID(),
           ownerClientId: ownerA.client.id,
-          ownerRegistrationId: ownerBRegistration.registration.id,
+          ownerBranchId: ownerBRegistration.branch.id,
           sacks: 10,
           harvest: '25/26',
           originLot: 'ORIG-MISMATCH',
