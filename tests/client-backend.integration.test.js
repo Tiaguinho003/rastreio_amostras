@@ -353,14 +353,17 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(inactiveLookup.body.items.length, 0);
   });
 
-  test('PATCH /clients updates same client, including person type/document change, and records audit', async () => {
-    const created = await createPfClient();
+  test('PATCH /clients updates client fields, adds primary branch and records audit', async () => {
+    // L3: troca de personType (PF<->PJ) e bloqueada (CLIENT_PERSON_TYPE_LOCKED).
+    // Este teste cobre o caminho feliz: edicao de campos do mesmo personType +
+    // criacao de branch primaria + propagacao de document via primary branch.
+    const created = await createPjClient({ branches: [] });
+    const clientId = created.body.client.id;
 
     const updated = await api.updateClient(
       buildInput({
-        params: { clientId: created.body.client.id },
+        params: { clientId },
         body: {
-          personType: 'PJ',
           legalName: 'G A S Comercio de Cafe Sociedade LTDA',
           tradeName: 'G A S Comercio de Cafe Sociedade LTDA',
           isBuyer: true,
@@ -378,31 +381,15 @@ if (!databaseUrl || !databaseReachable) {
     const branchCnpj = nextValidCnpj();
     const branchRes = await api.createClientBranch(
       buildInput({
-        params: { clientId: created.body.client.id },
+        params: { clientId },
         body: { isPrimary: true, cnpj: branchCnpj },
       })
     );
     assert.equal(branchRes.status, 201);
-    const detailAfterBranch = await api.getClient(
-      buildInput({ params: { clientId: created.body.client.id } })
-    );
+    const detailAfterBranch = await api.getClient(buildInput({ params: { clientId } }));
     assert.equal(detailAfterBranch.body.client.document, branchCnpj);
 
-    const detail = await api.getClient(
-      buildInput({
-        params: { clientId: created.body.client.id },
-      })
-    );
-
-    assert.equal(detail.status, 200);
-    assert.equal(detail.body.client.personType, 'PJ');
-
-    const audit = await api.listClientAuditEvents(
-      buildInput({
-        params: { clientId: created.body.client.id },
-      })
-    );
-
+    const audit = await api.listClientAuditEvents(buildInput({ params: { clientId } }));
     assert.equal(audit.status, 200);
     const updatedEvent = audit.body.items.find((it) => it.eventType === 'CLIENT_UPDATED');
     assert.ok(updatedEvent, 'CLIENT_UPDATED event esperado');
@@ -613,6 +600,32 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(branches.length, 1);
     assert.equal(branches[0].isPrimary, true);
+  });
+
+  test('L3: updateClient rejeita troca de personType com 422 CLIENT_PERSON_TYPE_LOCKED', async () => {
+    const created = await createPfClient();
+    const clientId = created.body.client.id;
+
+    const result = await api.updateClient(
+      buildInput({
+        params: { clientId },
+        body: {
+          personType: 'PJ',
+          legalName: 'Tentativa de virar empresa',
+          isBuyer: false,
+          isSeller: true,
+          phone: '35999990000',
+          reasonText: 'mudar tipo',
+        },
+      })
+    );
+    assert.equal(result.status, 422);
+    assert.equal(result.body?.error?.details?.code, 'CLIENT_PERSON_TYPE_LOCKED');
+    assert.equal(result.body?.error?.details?.field, 'personType');
+
+    // Cliente continua PF intacto
+    const detail = await api.getClient(buildInput({ params: { clientId } }));
+    assert.equal(detail.body.client.personType, 'PF');
   });
 
   test('F5.1: updateRegistration dual-write reflete mudancas na branch', async () => {

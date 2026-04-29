@@ -857,6 +857,18 @@ export class ClientService {
         current
       );
 
+      // L3: bloqueia troca de personType (PF<->PJ). Identidades fiscais
+      // (CPF da pessoa vs CNPJ da empresa) sao entidades distintas e nao
+      // devem compartilhar o mesmo Client. Workaround: inativar este
+      // cliente e cadastrar um novo do tipo correto.
+      if (data.personType !== undefined && data.personType !== current.personType) {
+        throw new HttpError(
+          422,
+          'Nao e permitido alterar o tipo de pessoa (PF/PJ) de um cliente existente. Para converter, inative este cliente e cadastre um novo do tipo correto — o historico fiscal e preservado em ambos.',
+          { code: 'CLIENT_PERSON_TYPE_LOCKED', field: 'personType' }
+        );
+      }
+
       // F5.2: PF -> assertCpfAvailable. PJ -> uniqueness ja na branch.cnpj
       // (cnpj_root e derivado da primary branch — no updateClient nao mexemos
       // diretamente em cnpjRoot; isso fica para POST /branches ou updateBranch).
