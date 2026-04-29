@@ -38,16 +38,16 @@ fica para depois que a base de clientes estiver consistente.
 
 Snapshot capturado antes do inicio (referencia para validacao pos-execucao):
 
-| Tabela | Linhas |
-|---|---|
-| `client` | 36 (30 PJ + 6 PF) |
-| `client_branch` ATIVAS | 35 |
-| `sample` | 58 (todas LIVE; A-5562 → A-5619) |
-| `sample_event` | 489 |
-| `sample_attachment` | 44 (fotos de classificacao) |
-| `print_job` | 85 |
-| `sample_movement` | 0 |
-| `client_audit_event` | varios (manter em backup mental) |
+| Tabela                 | Linhas                           |
+| ---------------------- | -------------------------------- |
+| `client`               | 36 (30 PJ + 6 PF)                |
+| `client_branch` ATIVAS | 35                               |
+| `sample`               | 58 (todas LIVE; A-5562 → A-5619) |
+| `sample_event`         | 489                              |
+| `sample_attachment`    | 44 (fotos de classificacao)      |
+| `print_job`            | 85                               |
+| `sample_movement`      | 0                                |
+| `client_audit_event`   | varios (manter em backup mental) |
 
 Ultima revisao em prod no momento do plano: `7880571`.
 
@@ -107,6 +107,7 @@ herdar o mesmo problema apos a planilha entrar.
 ### Entregaveis
 
 Documento em prosa (~400-600 palavras, no chat) com:
+
 - Pontos solidos confirmados.
 - Inconsistencias reais detectadas (com gravidade: bloqueante / atencao /
   cosmetico).
@@ -146,7 +147,7 @@ manual.
    (sem `attachments`); para abrir no Excel.
 3. **`tmp/samples-backup-attachments.csv`** — uma linha por foto:
    `sampleId, internalLotNumber, attachmentId, kind, storagePath,
-   originalName`.
+originalName`.
 4. **`tmp/gsutil-download-script.sh`** — script pronto com `gsutil cp` por
    foto (referenciando o bucket de prod). Usuario executa local com
    credencial dele para baixar fotos para uma pasta `~/amostras-backup/`.
@@ -276,9 +277,11 @@ em pasta ja vazia retorna no-op (apenas warning).
 ### Alternativa mais conservadora
 
 Se preferir manter cache temporario:
+
 ```bash
 gsutil -m rm gs://safras-amostras-prod-runtime/uploads/samples/**
 ```
+
 Apaga arquivos mas mantem hierarquia de pastas (sem `-r`).
 
 ### Criterio de done
@@ -305,23 +308,23 @@ idempotente (rerun = no-op).
 Usuario filtra a planilha mestre (~600 linhas) para os principais e exporta
 um CSV. Colunas minimas:
 
-| Coluna | Tipo | Obrigatoria | Observacao |
-|---|---|---|---|
-| `personType` | `PF` ou `PJ` | sim | ditado pela presenca de CPF vs CNPJ |
-| `fullName` | string | so PF | |
-| `legalName` | string | so PJ | |
-| `tradeName` | string | nao | |
-| `cpf` | XXX.XXX.XXX-XX ou 11 digitos | so PF (opcional na regra atual) | |
-| `cnpj` | XX.XXX.XXX/XXXX-XX ou 14 digitos | so PJ (vai pra `client_branch.cnpj`) | |
-| `phone` | string | sim | 10 ou 11 digitos |
-| `isBuyer` | bool | sim | |
-| `isSeller` | bool | sim | |
-| `branchAddressLine` | string | nao | |
-| `branchDistrict` | string | nao | |
-| `branchCity` | string | nao | |
-| `branchState` | UF | nao | |
-| `branchPostalCode` | CEP | nao | |
-| `branchRegistrationNumber` | IE | nao | |
+| Coluna                     | Tipo                             | Obrigatoria                          | Observacao                          |
+| -------------------------- | -------------------------------- | ------------------------------------ | ----------------------------------- |
+| `personType`               | `PF` ou `PJ`                     | sim                                  | ditado pela presenca de CPF vs CNPJ |
+| `fullName`                 | string                           | so PF                                |                                     |
+| `legalName`                | string                           | so PJ                                |                                     |
+| `tradeName`                | string                           | nao                                  |                                     |
+| `cpf`                      | XXX.XXX.XXX-XX ou 11 digitos     | so PF (opcional na regra atual)      |                                     |
+| `cnpj`                     | XX.XXX.XXX/XXXX-XX ou 14 digitos | so PJ (vai pra `client_branch.cnpj`) |                                     |
+| `phone`                    | string                           | sim                                  | 10 ou 11 digitos                    |
+| `isBuyer`                  | bool                             | sim                                  |                                     |
+| `isSeller`                 | bool                             | sim                                  |                                     |
+| `branchAddressLine`        | string                           | nao                                  |                                     |
+| `branchDistrict`           | string                           | nao                                  |                                     |
+| `branchCity`               | string                           | nao                                  |                                     |
+| `branchState`              | UF                               | nao                                  |                                     |
+| `branchPostalCode`         | CEP                              | nao                                  |                                     |
+| `branchRegistrationNumber` | IE                               | nao                                  |                                     |
 
 A definicao final do schema do CSV sera fechada com o usuario antes de
 codar o wizard (a planilha mestre pode ter campos extras).
@@ -350,15 +353,15 @@ codar o wizard (a planilha mestre pode ter campos extras).
 
 ## 8. Riscos e mitigacoes
 
-| Risco | Quando | Mitigacao |
-|---|---|---|
-| Auditoria L1 detecta bug critico | L1 | Pausa o plano, abre PR de correcao antes de L3 |
-| Backup L2 nao cobre tudo | L2 | Pre-validacao do JSON/CSV pelo usuario antes de L3 |
-| Permissao bloqueia dump em L2 | L2 | Usuario aprova caso a caso (precedente F8A) |
-| DELETE em L3 erra ordem | L3 | Migration testada local com DB de dev; backup do `_prisma_migrations` antes |
-| Wizard L4 cria duplicatas | L4 | Idempotencia por CPF/CNPJ; dry-run obrigatorio antes de `--apply` |
-| Fotos nao sao baixadas | L2 | Verificar com usuario que `gsutil cp` funcionou em pelo menos 1 foto antes de L3 |
-| Sequences ficam altas pos-DELETE | L3 | Decidir explicitamente se reseta com `RESTART` |
+| Risco                            | Quando | Mitigacao                                                                        |
+| -------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| Auditoria L1 detecta bug critico | L1     | Pausa o plano, abre PR de correcao antes de L3                                   |
+| Backup L2 nao cobre tudo         | L2     | Pre-validacao do JSON/CSV pelo usuario antes de L3                               |
+| Permissao bloqueia dump em L2    | L2     | Usuario aprova caso a caso (precedente F8A)                                      |
+| DELETE em L3 erra ordem          | L3     | Migration testada local com DB de dev; backup do `_prisma_migrations` antes      |
+| Wizard L4 cria duplicatas        | L4     | Idempotencia por CPF/CNPJ; dry-run obrigatorio antes de `--apply`                |
+| Fotos nao sao baixadas           | L2     | Verificar com usuario que `gsutil cp` funcionou em pelo menos 1 foto antes de L3 |
+| Sequences ficam altas pos-DELETE | L3     | Decidir explicitamente se reseta com `RESTART`                                   |
 
 ### Plano de rollback
 
@@ -424,14 +427,14 @@ adicionado ao indice (nao foi — documento temporario nao entra no indice).
 
 ## 12. Tracking (atualizar conforme avancarmos)
 
-| Fase | Status | Commit/Deploy |
-|---|---|---|
-| L1 — Auditoria | ✅ concluida | sem commit (read-only) |
-| L2 — Backup | ✅ concluida | sem commit (artefatos em tmp/, gitignored) |
-| L3 — Reset | em andamento | — |
-| L3.5 — GCS cleanup | pendente | — |
-| L4 — Import | pendente | — |
-| Limpeza | pendente | — |
+| Fase               | Status       | Commit/Deploy                              |
+| ------------------ | ------------ | ------------------------------------------ |
+| L1 — Auditoria     | ✅ concluida | sem commit (read-only)                     |
+| L2 — Backup        | ✅ concluida | sem commit (artefatos em tmp/, gitignored) |
+| L3 — Reset         | em andamento | —                                          |
+| L3.5 — GCS cleanup | pendente     | —                                          |
+| L4 — Import        | pendente     | —                                          |
+| Limpeza            | pendente     | —                                          |
 
 ## 13. Decisoes fechadas pos-L1
 
@@ -442,7 +445,7 @@ inclusao no PR do L3:
    auditoria). Service rejeita 422 com mensagem em pt-BR quando o request
    tenta alterar `personType` de cliente existente. Workaround documentado:
    inativar cliente e criar novo do tipo correto. Custo: ~5 linhas service
-   + 1 teste integration.
+   - 1 teste integration.
 2. **Dropar tabelas/colunas `*_deprecated_2026q2`** na mesma migration L3
    (encerra a Phase 10 do plano F5.2). Inclui:
    - `DROP TABLE client_registration_deprecated_2026q2`
@@ -453,6 +456,7 @@ inclusao no PR do L3:
    - `ALTER TABLE sample_movement DROP COLUMN buyer_registration_snapshot_deprecated_2026q2`
 
 Recusados/postpostos:
+
 - ❌ Modal guiado para conversao PF↔PJ (custo alto, frequencia baixa,
   workaround simples ja existe). Pode virar feature futura `M_x` se uso real
   justificar.
