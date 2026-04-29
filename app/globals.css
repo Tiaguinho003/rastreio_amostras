@@ -20601,3 +20601,100 @@ button:disabled {
 .app-modal-submit.is-danger:hover:not(:disabled) {
   background: linear-gradient(180deg, #ef4444, #c41a1a);
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   M1 — Página de manutenção (modo maintenance ON, usuários não-ADMIN)
+   Reaproveita gradient do login e card creme do design system.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.maintenance-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  margin: 0;
+  padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
+    calc(env(safe-area-inset-bottom) + clamp(20px, 6vw, 32px));
+  background: linear-gradient(
+    160deg,
+    var(--brand-green-deep) 0%,
+    var(--brand-green-strong) 40%,
+    var(--brand-green) 80%,
+    var(--brand-green-soft) 100%
+  );
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.maintenance-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(440px, 100%);
+  background: var(--brand-cream-soft);
+  border-radius: clamp(18px, 4vw, 24px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: clamp(28px, 7vw, 44px) clamp(24px, 6vw, 36px);
+  pointer-events: none;
+  animation: maintenance-card-entrance 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes maintenance-card-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.maintenance-logo {
+  width: clamp(140px, 36vw, 180px);
+  height: auto;
+  margin-bottom: clamp(12px, 3vw, 18px);
+  filter: brightness(0) saturate(100%) invert(20%) sepia(35%) saturate(680%) hue-rotate(105deg)
+    brightness(95%) contrast(90%);
+}
+
+.maintenance-divider {
+  width: clamp(48px, 12vw, 64px);
+  height: 3px;
+  background: var(--brand-green);
+  border-radius: 2px;
+  margin: clamp(8px, 2vw, 12px) 0 clamp(18px, 4vw, 24px);
+}
+
+.maintenance-title {
+  font-size: clamp(22px, 5vw, 28px);
+  font-weight: 600;
+  color: var(--brand-green-ink);
+  margin: 0 0 clamp(12px, 3vw, 16px);
+  line-height: 1.2;
+}
+
+.maintenance-message {
+  font-size: clamp(15px, 3.5vw, 17px);
+  color: var(--brand-green-ink);
+  margin: 0 0 clamp(8px, 2vw, 10px);
+  line-height: 1.5;
+  max-width: 36ch;
+}
+
+.maintenance-footer {
+  font-size: clamp(13px, 3vw, 14px);
+  color: var(--brand-muted);
+  margin: clamp(16px, 4vw, 20px) 0 0;
+  font-style: italic;
+}

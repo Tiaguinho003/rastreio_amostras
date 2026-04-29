@@ -252,6 +252,73 @@ funciona via UI (smoke manual: criar 1 cliente PJ + 1 PF).
 
 ---
 
+## 6.4. Fase M1 — Modo manutencao (entre L3 e L3.5)
+
+### Objetivo
+
+Apos L3 deixar o DB sem clientes/amostras e antes do reimport L4 fechar
+a base, todos os usuarios nao-ADMIN devem ver uma **pagina de manutencao**
+amigavel ao tentar acessar o app, com **bloqueio total de interacao** por
+touch/clique. ADMIN continua acessando normalmente para operar o reimport.
+
+### Implementacao
+
+1. **Pagina** `app/maintenance/page.tsx`: tela estatica com tema do design
+   system (gradient verde de fundo, card creme central, logo Measy/Tubaiba),
+   mensagem amigavel "Estamos atualizando o sistema. Voltaremos em breve.",
+   sem botoes ou links — apenas conteudo informativo. CSS especifico bloqueia
+   touch/scroll/seleccao via `touch-action: none`, `user-select: none`,
+   `overflow: hidden` no body.
+2. **Middleware Next.js** (`middleware.ts` na raiz): intercepta todas as
+   requisicoes. Quando `process.env.MAINTENANCE_MODE === 'true'`:
+   - Permite passar livre: `/maintenance`, `/login`, `/api/auth/*`,
+     `/api/health/*`, assets `/_next/*`, `/icon-*`, `/favicon.ico`,
+     `/manifest.json`, `/sw.js`, `/workbox-*`.
+   - Decodifica o JWT do cookie `rastreio_session` (base64url puro, sem
+     verificacao — apenas para checar role; verificacao real fica nas
+     APIs server-side). Se `payload.role === 'ADMIN'` → segue normal.
+   - Senao → 307 redirect para `/maintenance`.
+   - Cookie ausente / decode falha → tratar como nao-ADMIN.
+3. **CSS** em `app/globals.css`: classes `.maintenance-page`, `.maintenance-card`,
+   `.maintenance-icon`, `.maintenance-title`, `.maintenance-message`,
+   `.maintenance-footer` reaproveitando tokens do tema (gradient
+   `--brand-green-*`, surface `--brand-cream-soft`, ink `--brand-green-ink`).
+
+### Como ativar / desativar
+
+- **Ativar**: `gcloud run services update rastreio-prod-app --update-env-vars=MAINTENANCE_MODE=true --project=safras-amostras-prod --region=southamerica-east1` (~30s, sem rebuild de imagem).
+- **Desativar**: `gcloud run services update rastreio-prod-app --remove-env-vars=MAINTENANCE_MODE --project=safras-amostras-prod --region=southamerica-east1`.
+
+### Sequencia operacional
+
+1. Implementar M1 (commit + push + CI verde + build + deploy canary +
+   migrate no-op + smoke + promote — modo manutencao **ainda OFF**).
+2. **Ativar manutencao** via `gcloud run services update --update-env-vars`.
+3. Confirmar com smoke: usuario nao-ADMIN ve `/maintenance`; ADMIN navega
+   normal.
+4. **Prosseguir com L3.5 (GCS cleanup) e L4 (import wizard)** com o app
+   protegido.
+5. Apos L4 finalizar, **desativar manutencao** via
+   `gcloud run services update --remove-env-vars`.
+
+### Criterio de done (ativacao)
+
+- Login como ADMIN: app navega normal, todas as paginas renderizam.
+- Login como CLASSIFIER (ou outro role): qualquer URL redireciona para
+  `/maintenance` com bloqueio de touch/click/scroll.
+- Login deslogado: tenta acessar / → redireciona para `/maintenance`
+  (nem chega na `/login`). **Ajuste**: mantemos `/login` na whitelist
+  para que o ADMIN consiga logar; ja deslogado.
+
+### Riscos
+
+- **Edge runtime do middleware** nao suporta libs Node-native; decode
+  JWT precisa ser puro (base64url manual + JSON.parse). OK para
+  esse uso (verificacao real fica nas APIs).
+- **Falsa sensacao de seguranca**: o middleware so protege a UI, nao a
+  API. Nao-ADMIN ainda pode chamar a API direto se tiver sessao valida.
+  Aceitavel para manutencao temporaria; nao substitui autorizacao.
+
 ## 6.5. Fase L3.5 — Limpeza das fotos orfas no GCS
 
 ### Objetivo
@@ -427,14 +494,16 @@ adicionado ao indice (nao foi — documento temporario nao entra no indice).
 
 ## 12. Tracking (atualizar conforme avancarmos)
 
-| Fase               | Status       | Commit/Deploy                              |
-| ------------------ | ------------ | ------------------------------------------ |
-| L1 — Auditoria     | ✅ concluida | sem commit (read-only)                     |
-| L2 — Backup        | ✅ concluida | sem commit (artefatos em tmp/, gitignored) |
-| L3 — Reset         | em andamento | —                                          |
-| L3.5 — GCS cleanup | pendente     | —                                          |
-| L4 — Import        | pendente     | —                                          |
-| Limpeza            | pendente     | —                                          |
+| Fase                      | Status       | Commit/Deploy                              |
+| ------------------------- | ------------ | ------------------------------------------ |
+| L1 — Auditoria            | ✅ concluida | sem commit (read-only)                     |
+| L2 — Backup               | ✅ concluida | sem commit (artefatos em tmp/, gitignored) |
+| L3 — Reset                | ✅ concluida | `1b85620` em prod                          |
+| M1 — Manutencao           | em andamento | —                                          |
+| L3.5 — GCS cleanup        | pendente     | —                                          |
+| L4 — Import               | pendente     | —                                          |
+| M2 — Desativar manutencao | pendente     | —                                          |
+| Limpeza                   | pendente     | —                                          |
 
 ## 13. Decisoes fechadas pos-L1
 
