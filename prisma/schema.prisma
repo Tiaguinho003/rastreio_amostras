@@ -376,9 +376,8 @@ model Client {
   cpf               String?
   cnpj              String?
   documentCanonical String?           @unique(map: "uq_client_document_canonical") @map("document_canonical")
-  // F5.0/F5.1A: cnpj_root e indexado mas NAO UNIQUE ainda (ha grupos COOPERCITRUS/COFCO).
-  // Wizard F5.1 funde via apply, depois a migration F5.1B promove para UNIQUE.
-  cnpjRoot          String?           @map("cnpj_root") @db.VarChar(8)
+  // F5.1B: cnpj_root e UNIQUE apos a fusao via wizard (COOPERCITRUS/COFCO).
+  cnpjRoot          String?           @unique(map: "uq_client_cnpj_root") @map("cnpj_root") @db.VarChar(8)
   phone             String?
   isBuyer           Boolean           @default(false) @map("is_buyer")
   isSeller          Boolean           @default(false) @map("is_seller")
@@ -395,7 +394,6 @@ model Client {
 
   @@index([status, code], map: "idx_client_status_code")
   @@index([createdAt, id], map: "idx_client_created_id")
-  @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@map("client")
 }
 
