@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
+import { ClientBranchModal } from '../../../components/clients/ClientBranchModal';
 import {
   ApiError,
   getClient,
@@ -68,7 +69,7 @@ const REG_FIELD_LABELS: Record<string, string> = {
   complement: 'Complemento',
 };
 
-function translateRegistrationError(cause: unknown): string {
+function translateBranchError(cause: unknown): string {
   if (!(cause instanceof ApiError)) {
     return 'Falha ao salvar inscricao. Tente novamente.';
   }
@@ -109,34 +110,6 @@ function clientSummaryToForm(client: ClientSummary) {
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     commercialUserIds: (client.commercialUsers ?? []).map((u) => u.id),
-    reasonText: '',
-  };
-}
-
-function blankRegistrationForm() {
-  return {
-    registrationNumber: '',
-    registrationType: '',
-    addressLine: '',
-    district: '',
-    city: '',
-    state: 'MG',
-    postalCode: '',
-    complement: '',
-    reasonText: '',
-  };
-}
-
-function registrationToForm(reg: ClientBranchSummary) {
-  return {
-    registrationNumber: reg.registrationNumber ?? '',
-    registrationType: reg.registrationType ?? '',
-    addressLine: reg.addressLine ?? '',
-    district: reg.district ?? '',
-    city: reg.city ?? '',
-    state: reg.state ?? '',
-    postalCode: reg.postalCode ?? '',
-    complement: reg.complement ?? '',
     reasonText: '',
   };
 }
@@ -182,16 +155,15 @@ export default function ClientDetailPage() {
   /* ---- notices (6 zones) ---- */
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [detailNotice, setDetailNotice] = useState<Notice>(null);
-  const [registrationNotice, setRegistrationNotice] = useState<Notice>(null);
+  const [branchNotice, setBranchNotice] = useState<Notice>(null);
   const [editClientModalNotice, setEditClientModalNotice] = useState<Notice>(null);
-  const [registrationModalNotice, setRegistrationModalNotice] = useState<Notice>(null);
+  const [branchModalNotice, setBranchModalNotice] = useState<Notice>(null);
   const [statusModalNotice, setStatusModalNotice] = useState<Notice>(null);
-  const [regStatusNotice, setRegStatusNotice] = useState<Notice>(null);
+  const [branchStatusNotice, setBranchStatusNotice] = useState<Notice>(null);
 
   /* ---- edit client modal ---- */
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [editClientSuccess, setEditClientSuccess] = useState(false);
-  const [regSuccess, setRegSuccess] = useState(false);
   const [editClientForm, setEditClientForm] = useState(() =>
     clientSummaryToForm({
       personType: 'PJ',
@@ -213,14 +185,12 @@ export default function ClientDetailPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const editClientTrapRef = useFocusTrap(editClientOpen);
 
-  /* ---- registration modal (create + edit) ---- */
-  const [regModalOpen, setRegModalOpen] = useState(false);
-  const [regModalMode, setRegModalMode] = useState<'create' | 'edit'>('create');
-  const [regForm, setRegForm] = useState(blankRegistrationForm());
-  const [selectedRegId, setSelectedRegId] = useState<string | null>(null);
-  const [savingReg, setSavingReg] = useState(false);
-  const [regSubmitted, setRegSubmitted] = useState(false);
-  const regTrapRef = useFocusTrap(regModalOpen);
+  /* ---- branch modal (create + edit) — F6.0: usa ClientBranchModal extraido ---- */
+  const [branchModalOpen, setBranchModalOpen] = useState(false);
+  const [branchModalMode, setBranchModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedBranch, setSelectedBranch] = useState<ClientBranchSummary | null>(null);
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [showInactiveBranches, setShowInactiveBranches] = useState(false);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -236,12 +206,14 @@ export default function ClientDetailPage() {
   const statusTrapRef = useFocusTrap(statusModalOpen);
 
   /* ---- registration status modal (inactivate/reactivate registration) ---- */
-  const [regStatusModalOpen, setRegStatusModalOpen] = useState(false);
-  const [regStatusAction, setRegStatusAction] = useState<'inactivate' | 'reactivate'>('inactivate');
-  const [regStatusRegId, setRegStatusRegId] = useState<string | null>(null);
-  const [regStatusReasonText, setRegStatusReasonText] = useState('');
-  const [savingRegStatus, setSavingRegStatus] = useState(false);
-  const regStatusTrapRef = useFocusTrap(regStatusModalOpen);
+  const [branchStatusModalOpen, setBranchStatusModalOpen] = useState(false);
+  const [branchStatusAction, setBranchStatusAction] = useState<
+    'inactivate' | 'reactivate' | 'promote'
+  >('inactivate');
+  const [branchStatusBranchId, setBranchStatusBranchId] = useState<string | null>(null);
+  const [branchStatusReason, setBranchStatusReason] = useState('');
+  const [savingBranchStatus, setSavingBranchStatus] = useState(false);
+  const branchStatusTrapRef = useFocusTrap(branchStatusModalOpen);
 
   /* ---- commercial tab ---- */
   const [clientSection, setClientSection] = useState<ClientDetailSection>('GENERAL');
@@ -641,16 +613,23 @@ export default function ClientDetailPage() {
     return nameOk && phoneOk && docOk;
   }, [editClientForm]);
 
-  const canSaveReg = useMemo(
-    () =>
-      regForm.registrationNumber.trim().length > 0 &&
-      regForm.registrationType.trim().length > 0 &&
-      regForm.addressLine.trim().length > 0 &&
-      regForm.district.trim().length > 0 &&
-      regForm.city.trim().length > 0 &&
-      regForm.state.trim().length > 0 &&
-      regForm.postalCode.trim().length > 0,
-    [regForm]
+  // F6.0: derived branches lists for cards section
+  const activeBranchesList = useMemo(
+    () => branches.filter((b) => b.status === 'ACTIVE'),
+    [branches]
+  );
+  const inactiveBranchesCount = useMemo(
+    () => branches.filter((b) => b.status === 'INACTIVE').length,
+    [branches]
+  );
+  const visibleBranches = useMemo(
+    () => (showInactiveBranches ? branches : activeBranchesList),
+    [showInactiveBranches, branches, activeBranchesList]
+  );
+  // Próxima filial ACTIVE não-primary (auto-promote candidate)
+  const autoPromoteCandidate = useMemo(
+    () => activeBranchesList.find((b) => !b.isPrimary) ?? null,
+    [activeBranchesList]
   );
 
   /* ================================================================ */
@@ -696,7 +675,7 @@ export default function ClientDetailPage() {
       } else {
         data.legalName = editClientForm.legalName;
         data.tradeName = editClientForm.tradeName || null;
-        data.cnpj = editClientForm.cnpj.replace(/\D/g, '');
+        // F5.2: cnpj agora vive nas branches; updateClient nao aceita cnpj
       }
 
       if (editClientForm.phone.replace(/\D/g, '').length > 0) {
@@ -725,85 +704,59 @@ export default function ClientDetailPage() {
   }
 
   /* ================================================================ */
-  /*  Registration CRUD handlers                                      */
+  /*  Branch CRUD handlers (F6.0 — usa ClientBranchModal extraido)    */
   /* ================================================================ */
 
-  function openRegCreate() {
-    setRegModalMode('create');
-    setRegForm(blankRegistrationForm());
-    setSelectedRegId(null);
-    setRegistrationModalNotice(null);
-    setRegSubmitted(false);
-    setSavingReg(false);
-    setRegSuccess(false);
-    setRegModalOpen(true);
+  function openBranchCreate() {
+    setBranchModalMode('create');
+    setSelectedBranch(null);
+    setBranchModalNotice(null);
+    setSavingBranch(false);
+    setBranchModalOpen(true);
   }
 
-  function openRegEdit(reg: ClientBranchSummary) {
-    setRegModalMode('edit');
-    setRegForm(registrationToForm(reg));
-    setSelectedRegId(reg.id);
-    setRegistrationModalNotice(null);
-    setRegSubmitted(false);
-    setSavingReg(false);
-    setRegSuccess(false);
-    setRegModalOpen(true);
+  function openBranchEdit(branch: ClientBranchSummary) {
+    setBranchModalMode('edit');
+    setSelectedBranch(branch);
+    setBranchModalNotice(null);
+    setSavingBranch(false);
+    setBranchModalOpen(true);
   }
 
-  function closeRegModal() {
-    if (savingReg) return;
-    setRegModalOpen(false);
+  function closeBranchModal() {
+    if (savingBranch) return;
+    setBranchModalOpen(false);
   }
 
-  async function handleRegSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setRegSubmitted(true);
+  async function handleBranchSubmit(
+    data: import('../../../lib/types').ClientBranchInput,
+    reasonText: string | null
+  ) {
     if (!session || !clientId) return;
-    if (!canSaveReg) {
-      setRegistrationModalNotice({
-        kind: 'error',
-        text: 'Preencha os campos obrigatorios destacados.',
-      });
-      return;
-    }
-    setSavingReg(true);
-    setRegistrationModalNotice(null);
+    setSavingBranch(true);
+    setBranchModalNotice(null);
 
     try {
-      const payload = {
-        registrationNumber: regForm.registrationNumber,
-        registrationType: regForm.registrationType,
-        addressLine: regForm.addressLine,
-        district: regForm.district,
-        city: regForm.city,
-        state: regForm.state,
-        postalCode: regForm.postalCode,
-        complement: regForm.complement || null,
-      };
-
-      if (regModalMode === 'create') {
-        await createClientBranch(session, clientId, payload);
+      if (branchModalMode === 'create') {
+        await createClientBranch(session, clientId, data);
+        setBranchNotice({ kind: 'success', text: 'Filial criada com sucesso.' });
       } else {
-        if (!selectedRegId) return;
-        await updateClientBranch(session, clientId, selectedRegId, {
-          ...payload,
-          reasonText: regForm.reasonText,
+        if (!selectedBranch) return;
+        await updateClientBranch(session, clientId, selectedBranch.id, {
+          ...data,
+          reasonText: reasonText ?? '',
         });
+        setBranchNotice({ kind: 'success', text: 'Filial atualizada com sucesso.' });
       }
-
-      setRegSuccess(true);
       void fetchData();
-      window.setTimeout(() => {
-        setRegModalOpen(false);
-        setRegSuccess(false);
-      }, 1000);
+      setBranchModalOpen(false);
     } catch (cause) {
-      setRegistrationModalNotice({
+      setBranchModalNotice({
         kind: 'error',
-        text: translateRegistrationError(cause),
+        text: translateBranchError(cause),
       });
     } finally {
-      setSavingReg(false);
+      setSavingBranch(false);
     }
   }
 
@@ -872,43 +825,63 @@ export default function ClientDetailPage() {
   /*  Registration status handlers                                    */
   /* ================================================================ */
 
-  function openRegStatusModal(reg: ClientBranchSummary, action: 'inactivate' | 'reactivate') {
-    setRegStatusRegId(reg.id);
-    setRegStatusAction(action);
-    setRegStatusReasonText('');
-    setRegStatusNotice(null);
-    setRegStatusModalOpen(true);
+  function openBranchStatusModal(
+    branch: ClientBranchSummary,
+    action: 'inactivate' | 'reactivate' | 'promote'
+  ) {
+    setSelectedBranch(branch);
+    setBranchStatusBranchId(branch.id);
+    setBranchStatusAction(action);
+    setBranchStatusReason('');
+    setBranchStatusNotice(null);
+    setBranchStatusModalOpen(true);
   }
 
-  function closeRegStatusModal() {
-    if (savingRegStatus) return;
-    setRegStatusModalOpen(false);
+  function closeBranchStatusModal() {
+    if (savingBranchStatus) return;
+    setBranchStatusModalOpen(false);
   }
 
-  async function handleRegStatusSubmit(event: React.FormEvent) {
+  async function handleBranchStatusSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!session || !clientId || !regStatusRegId || regStatusReasonText.trim().length === 0) return;
-    setSavingRegStatus(true);
-    setRegStatusNotice(null);
+    if (!session || !clientId || !branchStatusBranchId || branchStatusReason.trim().length === 0)
+      return;
+    setSavingBranchStatus(true);
+    setBranchStatusNotice(null);
 
     try {
-      if (regStatusAction === 'inactivate') {
-        await inactivateClientBranch(session, clientId, regStatusRegId, regStatusReasonText);
-        setRegistrationNotice({ kind: 'success', text: 'Inscricao inativada com sucesso.' });
+      if (branchStatusAction === 'inactivate') {
+        const result = await inactivateClientBranch(
+          session,
+          clientId,
+          branchStatusBranchId,
+          branchStatusReason
+        );
+        const successText = result.autoPromoted
+          ? `Filial inativada. ${result.autoPromoted.name ?? `Filial ${result.autoPromoted.code}`} virou a nova matriz.`
+          : 'Filial inativada com sucesso.';
+        setBranchNotice({ kind: 'success', text: successText });
+      } else if (branchStatusAction === 'reactivate') {
+        await reactivateClientBranch(session, clientId, branchStatusBranchId, branchStatusReason);
+        setBranchNotice({ kind: 'success', text: 'Filial reativada com sucesso.' });
       } else {
-        await reactivateClientBranch(session, clientId, regStatusRegId, regStatusReasonText);
-        setRegistrationNotice({ kind: 'success', text: 'Inscricao reativada com sucesso.' });
+        // promote: usa updateClientBranch com isPrimary=true
+        await updateClientBranch(session, clientId, branchStatusBranchId, {
+          isPrimary: true,
+          reasonText: branchStatusReason,
+        });
+        setBranchNotice({ kind: 'success', text: 'Nova matriz definida com sucesso.' });
       }
 
-      setRegStatusModalOpen(false);
+      setBranchStatusModalOpen(false);
       void fetchData();
     } catch (cause) {
-      setRegStatusNotice({
+      setBranchStatusNotice({
         kind: 'error',
         text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status da inscricao.',
       });
     } finally {
-      setSavingRegStatus(false);
+      setSavingBranchStatus(false);
     }
   }
 
@@ -1113,88 +1086,126 @@ export default function ClientDetailPage() {
                       <NoticeSlot notice={detailNotice} />
                     </div>
 
-                    {/* Card: Inscrições */}
+                    {/* Card: Filiais (F6.0) */}
                     <div className="sdv-card">
                       <div className="sdv-card-header">
-                        <span className="sdv-card-title">Inscricoes ({branches.length})</span>
-                        <button type="button" className="sdv-edit-btn" onClick={openRegCreate}>
+                        <span className="sdv-card-title">
+                          Filiais ({visibleBranches.length}
+                          {inactiveBranchesCount > 0
+                            ? ` · ${inactiveBranchesCount} inativa(s)`
+                            : ''}
+                          )
+                        </span>
+                        <button type="button" className="sdv-edit-btn" onClick={openBranchCreate}>
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 5v14" />
                             <path d="M5 12h14" />
                           </svg>
-                          <span>Nova</span>
+                          <span>Nova filial</span>
                         </button>
                       </div>
 
+                      {client.personType === 'PJ' && activeBranchesList.length === 0 ? (
+                        <div className="sdv-banner sdv-banner-warn">
+                          <strong>Esta empresa ainda não tem matriz configurada.</strong>
+                          <p>Adicione uma filial para começar a registrar amostras.</p>
+                        </div>
+                      ) : null}
+
                       {branches.length === 0 ? (
                         <div className="spv2-empty client-detail-empty-compact">
-                          <p className="spv2-empty-text">Nenhuma inscricao cadastrada</p>
+                          <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
                         </div>
                       ) : (
-                        <div className="sdv-com-movements">
-                          {branches.map((reg) => (
+                        <div className="sdv-branch-list">
+                          {visibleBranches.map((branch) => (
                             <div
-                              key={reg.id}
-                              className={`sdv-com-mov${reg.status === 'INACTIVE' ? ' is-cancelled' : ''}`}
+                              key={branch.id}
+                              className={`sdv-branch-card${branch.status === 'INACTIVE' ? ' is-inactive' : ''}${branch.isPrimary ? ' is-primary' : ''}`}
                             >
-                              <div className="sdv-com-mov-content">
-                                <div className="sdv-com-mov-top">
-                                  <span className="sdv-com-mov-qty">{reg.registrationNumber}</span>
-                                  <span
-                                    className={`sdv-com-mov-badge ${reg.status === 'ACTIVE' ? 'is-sale' : 'is-cancelled'}`}
-                                  >
-                                    {reg.status === 'ACTIVE' ? 'Ativa' : 'Inativa'}
-                                  </span>
-                                </div>
-                                <div className="sdv-com-mov-bottom">
-                                  <span>
-                                    {reg.registrationType} · {reg.city}/{reg.state}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="sdv-com-mov-actions">
-                                <button
-                                  type="button"
-                                  className="sdv-com-mov-act"
-                                  onClick={() => openRegEdit(reg)}
-                                  disabled={savingReg}
+                              <div className="sdv-branch-card-header">
+                                <span
+                                  className={`sdv-branch-badge ${branch.isPrimary ? 'is-primary' : 'is-filial'}`}
                                 >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                                  </svg>
-                                </button>
+                                  {branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`}
+                                </span>
+                                {branch.status === 'INACTIVE' ? (
+                                  <span className="sdv-branch-badge is-inactive">Inativa</span>
+                                ) : null}
+                                <span className="sdv-branch-name">
+                                  {branch.name ?? branch.legalName ?? 'Sem nome'}
+                                </span>
+                              </div>
+                              <div className="sdv-branch-card-body">
+                                {branch.cnpj ? (
+                                  <div>
+                                    <span className="sdv-branch-label">CNPJ:</span> {branch.cnpj}
+                                  </div>
+                                ) : null}
+                                {branch.city && branch.state ? (
+                                  <div>
+                                    <span className="sdv-branch-label">Local:</span> {branch.city}/
+                                    {branch.state}
+                                  </div>
+                                ) : null}
+                                {branch.registrationNumber ? (
+                                  <div>
+                                    <span className="sdv-branch-label">IE:</span>{' '}
+                                    {branch.registrationNumber}
+                                    {branch.registrationType ? ` (${branch.registrationType})` : ''}
+                                  </div>
+                                ) : null}
+                              </div>
+                              <div className="sdv-branch-card-actions">
                                 <button
                                   type="button"
-                                  className={`sdv-com-mov-act${reg.status === 'ACTIVE' ? ' is-danger' : ''}`}
+                                  className="sdv-edit-btn-small"
+                                  onClick={() => openBranchEdit(branch)}
+                                  disabled={savingBranch}
+                                >
+                                  Editar
+                                </button>
+                                {!branch.isPrimary && branch.status === 'ACTIVE' ? (
+                                  <button
+                                    type="button"
+                                    className="sdv-edit-btn-small"
+                                    onClick={() => openBranchStatusModal(branch, 'promote')}
+                                    disabled={savingBranchStatus}
+                                  >
+                                    Tornar matriz
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className={`sdv-edit-btn-small${branch.status === 'ACTIVE' ? ' is-danger' : ''}`}
                                   onClick={() =>
-                                    openRegStatusModal(
-                                      reg,
-                                      reg.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
+                                    openBranchStatusModal(
+                                      branch,
+                                      branch.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
                                     )
                                   }
-                                  disabled={savingRegStatus}
+                                  disabled={savingBranchStatus}
                                 >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    {reg.status === 'ACTIVE' ? (
-                                      <>
-                                        <circle cx="12" cy="12" r="8" />
-                                        <path d="m8.6 15.4 6.8-6.8" />
-                                      </>
-                                    ) : (
-                                      <>
-                                        <circle cx="12" cy="12" r="8" />
-                                        <path d="m9 12 2 2 4-4" />
-                                      </>
-                                    )}
-                                  </svg>
+                                  {branch.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
                                 </button>
                               </div>
                             </div>
                           ))}
+
+                          {inactiveBranchesCount > 0 ? (
+                            <button
+                              type="button"
+                              className="sdv-edit-btn-small"
+                              onClick={() => setShowInactiveBranches((v) => !v)}
+                            >
+                              {showInactiveBranches
+                                ? 'Esconder inativas'
+                                : `Mostrar ${inactiveBranchesCount} inativa(s)`}
+                            </button>
+                          ) : null}
                         </div>
                       )}
-                      <NoticeSlot notice={registrationNotice} />
+                      <NoticeSlot notice={branchNotice} />
                     </div>
                   </section>
                 ) : null}
@@ -1733,288 +1744,16 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 2: Create/Edit Registration ========== */}
-      {regModalOpen ? (
-        <div className="app-modal-backdrop">
-          <section
-            ref={regTrapRef}
-            className="app-modal client-reg-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reg-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {regSuccess ? (
-              <div className="client-create-success-overlay" aria-live="polite">
-                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
-                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-                  <path
-                    fill="none"
-                    stroke="#2f8a3e"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 27l7 7 15-15"
-                  />
-                </svg>
-              </div>
-            ) : null}
-
-            <div className="client-modal-header client-reg-modal-header">
-              <div className="client-reg-modal-copy">
-                <h3 id="reg-modal-title" style={{ margin: 0 }}>
-                  {regModalMode === 'create' ? 'Nova inscricao' : 'Editar inscricao'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close client-reg-modal-close"
-                onClick={closeRegModal}
-                disabled={savingReg || regSuccess}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-
-            <form className="client-reg-modal-form" onSubmit={handleRegSubmit}>
-              <div className="client-reg-modal-body">
-                <NoticeSlot notice={registrationModalNotice} />
-
-                <section
-                  className="client-reg-modal-group"
-                  aria-labelledby="reg-group-identificacao"
-                >
-                  <p id="reg-group-identificacao" className="client-reg-modal-group-title">
-                    Identificacao da inscricao
-                  </p>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.registrationNumber.trim() ? ' is-field-error' : ''}`}
-                    >
-                      Numero da inscricao
-                      <input
-                        value={regForm.registrationNumber}
-                        maxLength={80}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.registrationNumber.trim()
-                            ? 'cqc-input-error'
-                            : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({
-                            ...c,
-                            registrationNumber: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        placeholder={
-                          regSubmitted && !regForm.registrationNumber.trim() ? 'Obrigatorio' : ''
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.registrationType.trim() ? ' is-field-error' : ''}`}
-                    >
-                      Tipo
-                      <input
-                        value={regForm.registrationType}
-                        maxLength={80}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.registrationType.trim()
-                            ? 'cqc-input-error'
-                            : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({
-                            ...c,
-                            registrationType: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        placeholder={
-                          regSubmitted && !regForm.registrationType.trim()
-                            ? 'Obrigatorio'
-                            : 'Ex: Produtor Rural, Inscricao Estadual'
-                        }
-                      />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="client-reg-modal-group" aria-labelledby="reg-group-endereco">
-                  <p id="reg-group-endereco" className="client-reg-modal-group-title">
-                    Endereco
-                  </p>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.addressLine.trim() ? ' is-field-error' : ''}`}
-                    >
-                      Logradouro
-                      <input
-                        value={regForm.addressLine}
-                        maxLength={200}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.addressLine.trim()
-                            ? 'cqc-input-error'
-                            : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({
-                            ...c,
-                            addressLine: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        placeholder={
-                          regSubmitted && !regForm.addressLine.trim() ? 'Obrigatorio' : ''
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-double">
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.district.trim() ? ' is-field-error' : ''}`}
-                    >
-                      Bairro
-                      <input
-                        value={regForm.district}
-                        maxLength={120}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.district.trim() ? 'cqc-input-error' : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({ ...c, district: e.target.value.toUpperCase() }))
-                        }
-                        placeholder={regSubmitted && !regForm.district.trim() ? 'Obrigatorio' : ''}
-                      />
-                    </label>
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.city.trim() ? ' is-field-error' : ''}`}
-                    >
-                      Cidade
-                      <input
-                        value={regForm.city}
-                        maxLength={120}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.city.trim() ? 'cqc-input-error' : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({ ...c, city: e.target.value.toUpperCase() }))
-                        }
-                        placeholder={regSubmitted && !regForm.city.trim() ? 'Obrigatorio' : ''}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-uf-cep">
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.state.trim() ? ' is-field-error' : ''}`}
-                    >
-                      UF
-                      <input
-                        value={regForm.state}
-                        maxLength={2}
-                        disabled={savingReg}
-                        className={
-                          regSubmitted && !regForm.state.trim() ? 'cqc-input-error' : undefined
-                        }
-                        onChange={(e) =>
-                          setRegForm((c) => ({ ...c, state: e.target.value.toUpperCase() }))
-                        }
-                        placeholder={regSubmitted && !regForm.state.trim() ? 'Obrig.' : ''}
-                      />
-                    </label>
-                    <label
-                      className={`client-reg-modal-field${regSubmitted && !regForm.postalCode.trim() ? ' is-field-error' : ''}`}
-                    >
-                      CEP
-                      <input
-                        value={regForm.postalCode}
-                        maxLength={16}
-                        disabled={savingReg}
-                        inputMode="numeric"
-                        className={
-                          regSubmitted && !regForm.postalCode.trim() ? 'cqc-input-error' : undefined
-                        }
-                        onChange={(e) => setRegForm((c) => ({ ...c, postalCode: e.target.value }))}
-                        placeholder={
-                          regSubmitted && !regForm.postalCode.trim() ? 'Obrigatorio' : ''
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="client-reg-modal-grid client-reg-modal-grid-single">
-                    <label className="client-reg-modal-field">
-                      Complemento
-                      <input
-                        value={regForm.complement}
-                        maxLength={120}
-                        disabled={savingReg}
-                        onChange={(e) =>
-                          setRegForm((c) => ({
-                            ...c,
-                            complement: e.target.value.toUpperCase(),
-                          }))
-                        }
-                        placeholder="Ex: Fazenda Santa Maria (opcional)"
-                      />
-                    </label>
-                  </div>
-                </section>
-
-                {regModalMode === 'edit' ? (
-                  <section className="client-reg-modal-group" aria-labelledby="reg-group-motivo">
-                    <p id="reg-group-motivo" className="client-reg-modal-group-title">
-                      Motivo da edicao
-                    </p>
-                    <div className="client-reg-modal-grid client-reg-modal-grid-single">
-                      <label className="client-reg-modal-field">
-                        Motivo
-                        <input
-                          value={regForm.reasonText}
-                          maxLength={300}
-                          disabled={savingReg}
-                          onChange={(e) =>
-                            setRegForm((c) => ({
-                              ...c,
-                              reasonText: e.target.value.toUpperCase(),
-                            }))
-                          }
-                          placeholder="Opcional"
-                        />
-                      </label>
-                    </div>
-                  </section>
-                ) : null}
-              </div>
-
-              <div className="client-reg-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={closeRegModal}
-                  disabled={savingReg}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="app-modal-submit" disabled={savingReg}>
-                  {savingReg ? 'Salvando...' : regModalMode === 'create' ? 'Cadastrar' : 'Salvar'}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      {/* ========== MODAL 2: Create/Edit Branch (F6.0) ========== */}
+      <ClientBranchModal
+        open={branchModalOpen}
+        mode={branchModalMode}
+        branch={selectedBranch}
+        saving={savingBranch}
+        errorMessage={branchModalNotice?.kind === 'error' ? branchModalNotice.text : null}
+        onClose={closeBranchModal}
+        onSubmit={handleBranchSubmit}
+      />
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}
       {statusModalOpen ? (
@@ -2117,65 +1856,102 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 4: Inactivate/Reactivate Registration ========== */}
-      {regStatusModalOpen ? (
+      {/* ========== MODAL 4: Inactivate/Reactivate/Promote Branch (F6.0) ========== */}
+      {branchStatusModalOpen ? (
         <div className="app-modal-backdrop">
           <section
-            ref={regStatusTrapRef}
+            ref={branchStatusTrapRef}
             className="app-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="reg-status-modal-title"
+            aria-labelledby="branch-status-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
-                <h3 id="reg-status-modal-title" className="app-modal-title">
-                  {regStatusAction === 'inactivate' ? 'Inativar inscricao' : 'Reativar inscricao'}
+                <h3 id="branch-status-modal-title" className="app-modal-title">
+                  {branchStatusAction === 'inactivate'
+                    ? 'Inativar filial'
+                    : branchStatusAction === 'reactivate'
+                      ? 'Reativar filial'
+                      : 'Tornar matriz'}
                 </h3>
               </div>
               <button
                 type="button"
                 className="app-modal-close"
-                onClick={closeRegStatusModal}
-                disabled={savingRegStatus}
+                onClick={closeBranchStatusModal}
+                disabled={savingBranchStatus}
                 aria-label="Fechar"
               >
                 <span aria-hidden="true">&times;</span>
               </button>
             </header>
 
-            <form className="app-modal-content" onSubmit={handleRegStatusSubmit}>
+            <form className="app-modal-content" onSubmit={handleBranchStatusSubmit}>
+              {/* Aviso para promover a matriz (B1) */}
+              {branchStatusAction === 'promote' && selectedBranch ? (
+                <div className="sdv-banner sdv-banner-info">
+                  <strong>
+                    {activeBranchesList.find((b) => b.isPrimary)?.name ??
+                      `Filial ${activeBranchesList.find((b) => b.isPrimary)?.code}`}
+                  </strong>{' '}
+                  vai virar uma filial comum.{' '}
+                  <strong>{selectedBranch.name ?? `Filial ${selectedBranch.code}`}</strong> vira a
+                  nova matriz desta empresa.
+                </div>
+              ) : null}
+
+              {/* Aviso para inativar a matriz (3B) */}
+              {branchStatusAction === 'inactivate' && selectedBranch?.isPrimary ? (
+                <div className="sdv-banner sdv-banner-warn">
+                  <strong>Atenção:</strong> esta é a matriz desta empresa.{' '}
+                  {autoPromoteCandidate ? (
+                    <>
+                      Ao inativar,{' '}
+                      <strong>
+                        {autoPromoteCandidate.name ?? `Filial ${autoPromoteCandidate.code}`}
+                      </strong>{' '}
+                      vai virar a nova matriz automaticamente.
+                    </>
+                  ) : (
+                    <>Esta empresa ficará sem matriz cadastrada até você reativar uma filial.</>
+                  )}
+                </div>
+              ) : null}
+
               <label className="app-modal-field">
                 <span className="app-modal-label">Motivo</span>
                 <input
                   className="app-modal-input"
-                  value={regStatusReasonText}
-                  disabled={savingRegStatus}
-                  onChange={(e) => setRegStatusReasonText(e.target.value.toUpperCase())}
+                  value={branchStatusReason}
+                  disabled={savingBranchStatus}
+                  onChange={(e) => setBranchStatusReason(e.target.value.toUpperCase())}
                   placeholder="Informe o motivo"
                 />
               </label>
 
-              <NoticeSlot notice={regStatusNotice} />
+              <NoticeSlot notice={branchStatusNotice} />
 
               <div className="app-modal-actions">
                 <button
                   type="submit"
                   className="app-modal-submit"
-                  disabled={savingRegStatus || regStatusReasonText.trim().length === 0}
+                  disabled={savingBranchStatus || branchStatusReason.trim().length === 0}
                 >
-                  {savingRegStatus
+                  {savingBranchStatus
                     ? 'Processando...'
-                    : regStatusAction === 'inactivate'
-                      ? 'Confirmar inativacao'
-                      : 'Confirmar reativacao'}
+                    : branchStatusAction === 'inactivate'
+                      ? 'Confirmar inativação'
+                      : branchStatusAction === 'reactivate'
+                        ? 'Confirmar reativação'
+                        : 'Tornar matriz'}
                 </button>
                 <button
                   type="button"
                   className="app-modal-secondary"
-                  onClick={closeRegStatusModal}
-                  disabled={savingRegStatus}
+                  onClick={closeBranchStatusModal}
+                  disabled={savingBranchStatus}
                 >
                   Cancelar
                 </button>

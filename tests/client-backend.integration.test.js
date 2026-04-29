@@ -756,6 +756,153 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(eventTypes.includes('CLIENT_BRANCH_REACTIVATED'));
   });
 
+  // ----------------------------------------------------------------------
+  // F6.0 — auto-promote ao inativar matriz + transient state
+  // ----------------------------------------------------------------------
+
+  test('F6.0: inativar matriz com 2+ branches ACTIVE auto-promove proxima por code asc', async () => {
+    const created = await createPjClient(); // ja vem com matriz isPrimary code 1
+    const clientId = created.body.client.id;
+
+    // Cria 2 branches adicionais (codes 2 e 3)
+    const b2 = await api.createClientBranch(
+      buildInput({
+        params: { clientId },
+        body: { cnpj: '11.111.111/0002-22', city: 'Belo Horizonte', state: 'MG' },
+      })
+    );
+    assert.equal(b2.status, 201);
+    const b3 = await api.createClientBranch(
+      buildInput({
+        params: { clientId },
+        body: { cnpj: '11.111.111/0003-33', city: 'Tres Pontas', state: 'MG' },
+      })
+    );
+    assert.equal(b3.status, 201);
+
+    const matrizId = created.body.client.branches[0].id;
+
+    // Inativa matriz
+    const result = await api.inactivateClientBranch(
+      buildInput({
+        params: { clientId, branchId: matrizId },
+        body: { reasonText: 'mudanca de sede' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.ok(result.body.autoPromoted, 'autoPromoted nao deveria ser null');
+    assert.equal(result.body.autoPromoted.id, b2.body.branch.id);
+    assert.equal(result.body.autoPromoted.code, 2);
+    assert.equal(result.body.autoPromoted.isPrimary, true);
+
+    // Confirma no DB
+    const branchesAfter = await prisma.clientBranch.findMany({
+      where: { clientId },
+      orderBy: { code: 'asc' },
+    });
+    const matriz = branchesAfter.find((b) => b.id === matrizId);
+    const promoted = branchesAfter.find((b) => b.id === b2.body.branch.id);
+    assert.equal(matriz.status, 'INACTIVE');
+    assert.equal(matriz.isPrimary, false);
+    assert.equal(promoted.isPrimary, true);
+
+    // cnpjRoot do client foi atualizado pra raiz da nova matriz
+    const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
+    assert.equal(clientAfter.cnpjRoot, '11111111');
+  });
+
+  test('F6.0: inativar unica branch ACTIVE deixa client sem matriz (cnpjRoot=null)', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+    const matrizId = created.body.client.branches[0].id;
+
+    const result = await api.inactivateClientBranch(
+      buildInput({
+        params: { clientId, branchId: matrizId },
+        body: { reasonText: 'fechou' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.autoPromoted, null);
+
+    const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
+    assert.equal(clientAfter.cnpjRoot, null);
+  });
+
+  test('F6.0: inativar matriz quando outras filiais estao INACTIVE nao promove inativas', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+    const matrizId = created.body.client.branches[0].id;
+
+    // Cria filial 2, depois inativa ela
+    const b2 = await api.createClientBranch(
+      buildInput({
+        params: { clientId },
+        body: { cnpj: '22.222.222/0002-22' },
+      })
+    );
+    await api.inactivateClientBranch(
+      buildInput({
+        params: { clientId, branchId: b2.body.branch.id },
+        body: { reasonText: 'temp' },
+      })
+    );
+
+    // Agora inativa a matriz — nao tem outra ACTIVE pra promover
+    const result = await api.inactivateClientBranch(
+      buildInput({
+        params: { clientId, branchId: matrizId },
+        body: { reasonText: 'fim' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.autoPromoted, null);
+
+    const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
+    assert.equal(clientAfter.cnpjRoot, null);
+  });
+
+  test('F6.0: inativar filial nao-matriz nao toca em isPrimary nem cnpjRoot', async () => {
+    const created = await createPjClient();
+    const clientId = created.body.client.id;
+    const matrizId = created.body.client.branches[0].id;
+
+    const b2 = await api.createClientBranch(
+      buildInput({
+        params: { clientId },
+        body: { cnpj: '33.333.333/0002-22' },
+      })
+    );
+    const result = await api.inactivateClientBranch(
+      buildInput({
+        params: { clientId, branchId: b2.body.branch.id },
+        body: { reasonText: 'fechou filial' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.autoPromoted, null);
+
+    // Matriz continua matriz
+    const matriz = await prisma.clientBranch.findUnique({ where: { id: matrizId } });
+    assert.equal(matriz.isPrimary, true);
+
+    // cnpjRoot continua o original
+    const clientAfter = await prisma.client.findUnique({ where: { id: clientId } });
+    assert.equal(clientAfter.cnpjRoot, '03936815');
+  });
+
+  test('F6.0: createClient com branches=[] cria PJ transient (cnpjRoot null)', async () => {
+    const created = await createPjClient({ branches: [] });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.client.activeBranchCount, 0);
+    assert.equal(created.body.client.branchCount, 0);
+
+    const clientAfter = await prisma.client.findUnique({
+      where: { id: created.body.client.id },
+    });
+    assert.equal(clientAfter.cnpjRoot, null);
+  });
+
   test('duplicate document and duplicate registration number return 409', async () => {
     const firstClient = await createPjClient();
     assert.equal(firstClient.status, 201);

@@ -257,6 +257,16 @@ export interface ClientBranchMutationResponse {
   branch: ClientBranchSummary;
 }
 
+// F6.0: response de inactivateBranch inclui autoPromoted quando matriz e
+// inativada com filiais ACTIVE existentes.
+export interface ClientBranchInactivateResponse extends ClientBranchMutationResponse {
+  impact: {
+    linkedSamples: number;
+    linkedMovements: number;
+  };
+  autoPromoted: ClientBranchSummary | null;
+}
+
 export interface ClientSampleItem {
   id: string;
   internalLotNumber: string | null;

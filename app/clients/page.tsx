@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   type FormEvent,
   Suspense,
@@ -16,6 +17,7 @@ import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type {
@@ -243,6 +245,8 @@ export default function ClientsPageWrapper() {
 
 function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
+  const router = useRouter();
+  const toast = useToast();
 
   const [clientsState, dispatchClients] = useReducer(clientsListReducer, CLIENTS_INITIAL);
   const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
@@ -916,6 +920,17 @@ function ClientsPage() {
         onClose={() => setClientQuickCreateOpen(false)}
         onCreated={async (client) => {
           setClientQuickCreateOpen(false);
+          // F6.0/D2: se PJ transient (sem matriz), redireciona para /clients/:id
+          // com toast guiando o usuario a configurar a matriz
+          if (client.personType === 'PJ' && client.activeBranchCount === 0) {
+            toast.success({
+              title: 'Cliente criado',
+              description: 'Adicione a matriz desta empresa quando tiver os dados.',
+            });
+            router.push(`/clients/${client.id}`);
+            return;
+          }
+          // PF ou PJ ja com matriz: comportamento original (painel lateral)
           setClientSearchInput('');
           setAppliedClientSearch('');
           dispatchClients({ type: 'setPage', page: 1 });

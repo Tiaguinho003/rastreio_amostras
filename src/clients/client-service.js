@@ -1833,11 +1833,73 @@ export class ClientService {
 
       const usage = await this.countBranchUsage(tx, current.id);
 
+      // F6.0: se inativando a matriz, auto-promove a proxima ACTIVE por code asc
+      // (excluindo a propria que esta sendo inativada). Atualiza cnpjRoot do
+      // client a partir do CNPJ da nova matriz. Se nenhuma outra ACTIVE existe,
+      // client fica em estado transient (cnpjRoot null).
+      let autoPromotedBranch = null;
+      if (current.isPrimary === true) {
+        autoPromotedBranch = await tx.clientBranch.findFirst({
+          where: {
+            clientId: client.id,
+            status: CLIENT_BRANCH_STATUSES.ACTIVE,
+            id: { not: current.id },
+          },
+          orderBy: [{ code: 'asc' }],
+          select: CLIENT_BRANCH_SUMMARY_SELECT,
+        });
+      }
+
+      // Atualiza branch atual para INACTIVE primeiro (e demote isPrimary se era
+      // matriz) — garante que nao ha colisao com uq_client_branch_primary_per_client
+      // ao promover a proxima.
       const updated = await tx.clientBranch.update({
         where: { id: current.id },
-        data: { status: CLIENT_BRANCH_STATUSES.INACTIVE },
+        data: {
+          status: CLIENT_BRANCH_STATUSES.INACTIVE,
+          ...(current.isPrimary === true ? { isPrimary: false } : {}),
+        },
         select: CLIENT_BRANCH_SUMMARY_SELECT,
       });
+
+      if (current.isPrimary === true) {
+        if (autoPromotedBranch) {
+          // Promove a proxima ACTIVE
+          await tx.clientBranch.update({
+            where: { id: autoPromotedBranch.id },
+            data: { isPrimary: true },
+          });
+          // Atualiza cnpjRoot do client se PJ e nova primary tem cnpj
+          if (client.personType === CLIENT_PERSON_TYPES.PJ) {
+            const newRoot = autoPromotedBranch.cnpj ? autoPromotedBranch.cnpj.slice(0, 8) : null;
+            if (newRoot !== client.cnpjRoot) {
+              await tx.client.update({
+                where: { id: client.id },
+                data: { cnpjRoot: newRoot },
+              });
+            }
+          }
+          // Audit event de promocao automatica
+          await this.recordAuditEvent(tx, {
+            targetClientId: client.id,
+            targetBranchId: autoPromotedBranch.id,
+            actorContext: actor,
+            eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_UPDATED,
+            payload: {
+              before: { isPrimary: false },
+              after: { isPrimary: true },
+              autoPromoted: true,
+              triggeredBy: { branchId: current.id, action: 'inactivate' },
+            },
+          });
+        } else if (client.personType === CLIENT_PERSON_TYPES.PJ && client.cnpjRoot) {
+          // Nenhuma outra ACTIVE — zera cnpjRoot (transient)
+          await tx.client.update({
+            where: { id: client.id },
+            data: { cnpjRoot: null },
+          });
+        }
+      }
 
       await this.recordAuditEvent(tx, {
         targetClientId: client.id,
@@ -1846,9 +1908,10 @@ export class ClientService {
         eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_BRANCH_INACTIVATED,
         reasonText,
         payload: {
-          before: { status: current.status },
-          after: { status: updated.status },
+          before: { status: current.status, isPrimary: current.isPrimary === true },
+          after: { status: updated.status, isPrimary: false },
           impact: usage,
+          autoPromotedBranchId: autoPromotedBranch?.id ?? null,
         },
       });
 
@@ -1860,6 +1923,9 @@ export class ClientService {
         },
         branch: toClientBranchSummary({ ...updated, clientId: client.id }),
         impact: usage,
+        autoPromoted: autoPromotedBranch
+          ? toClientBranchSummary({ ...autoPromotedBranch, isPrimary: true, clientId: client.id })
+          : null,
       };
     });
   }

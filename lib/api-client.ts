@@ -6,6 +6,7 @@ import type {
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
+  ClientBranchInactivateResponse,
   ClientBranchMutationResponse,
   ClientResponse,
   ClientSamplesListResponse,
@@ -342,18 +343,18 @@ export function createClient(
     legalName?: string;
     tradeName?: string | null;
     cpf?: string | null;
-    cnpj?: string | null;
     phone?: string | null;
     isBuyer: boolean;
     isSeller: boolean;
     commercialUserId?: string | null;
     commercialUserIds?: string[];
+    branches?: import('./types').ClientBranchInput[];
   }
 ) {
   return request<ClientResponse>('/clients', {
     method: 'POST',
     session,
-    body: data,
+    body: data as unknown as JsonValue,
   });
 }
 
@@ -366,7 +367,6 @@ export function updateClient(
     legalName?: string;
     tradeName?: string | null;
     cpf?: string;
-    cnpj?: string;
     phone?: string | null;
     isBuyer?: boolean;
     isSeller?: boolean;
@@ -618,7 +618,7 @@ export function inactivateClientBranch(
   branchId: string,
   reasonText: string
 ) {
-  return request<ClientBranchMutationResponse>(
+  return request<ClientBranchInactivateResponse>(
     `/clients/${clientId}/branches/${branchId}/inactivate`,
     {
       method: 'POST',
