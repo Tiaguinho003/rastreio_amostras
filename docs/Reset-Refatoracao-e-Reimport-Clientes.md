@@ -947,18 +947,60 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 
 ### Status de execucao (Q-21)
 
-| #   | Etapa                                                                     | Status                                               |
-| --- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ implementado, gates verdes, **aguardando commit** |
-| 2   | Q-11 — aviso incompleto na UI (helper + badge + checklist)                | pendente                                             |
-| 3   | Q-24 — CEP lookup nos forms                                               | pendente                                             |
-| 4   | Q-01 — `?onlyActive=true` query param                                     | pendente                                             |
-| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | pendente                                             |
-| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                        | pendente                                             |
-| 7   | (gating) Q-18 + Q-19 — fechar planilha                                    | depende de excerpt                                   |
-| 8   | L4 — wizard de import                                                     | depende de #7                                        |
-| 9   | L3.5 — apagar fotos no GCS                                                | requer confirmacao                                   |
-| 10  | M2 + cleanup final                                                        | encerra ciclo                                        |
+| #   | Etapa                                                                     | Status                                                                                                                                            |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ **deployado em prod 2026-04-30** (revisao `rastreio-prod-app-00177-hij`, commits `e65d30d` + `0453882`, migrate `rastreio-prod-migrate-pzrmb`) |
+| 2   | Q-11 — aviso incompleto na UI (helper + badge + checklist)                | proximo (helper `src/clients/client-helpers.js` ja existe; falta TS espelho em `lib/`, badge, checklist, filtro)                                  |
+| 3   | Q-24 — CEP lookup nos forms                                               | pendente                                                                                                                                          |
+| 4   | Q-01 — `?onlyActive=true` query param                                     | pendente                                                                                                                                          |
+| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | pendente                                                                                                                                          |
+| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                        | pendente                                                                                                                                          |
+| 7   | (gating) Q-18 + Q-19 — fechar planilha                                    | depende de excerpt da planilha real                                                                                                               |
+| 8   | L4 — wizard de import                                                     | depende de #7                                                                                                                                     |
+| 9   | L3.5 — apagar fotos no GCS                                                | requer confirmacao usuario (44 fotos baixadas localmente)                                                                                         |
+| 10  | M2 + cleanup final                                                        | encerra ciclo                                                                                                                                     |
+
+### Estado atual do prod (snapshot 2026-04-30 pos-L5)
+
+- **Modo manutencao (M1) ATIVO**: apenas ADMIN navega o app.
+- **DB**: vazio (L3 zerou + L5 reorganizou schema). Pronto para reimport via L4.
+- **Schema novo**:
+  - `client` ganhou 11 campos (`cnpj`, `cnpj_order`, `registration_number`,
+    `registration_number_canonical`, `address_line`, `district`, `city`,
+    `state`, `postal_code`, `complement`, `email`).
+  - `client_branch` renomeado para `client_unit`. Drop: `is_primary`,
+    `registration_type`, `cnpj_order`. ADD: `car`. `name` virou NOT NULL.
+  - `sample.owner_branch_id` -> `owner_unit_id`. Idem
+    `sample_movement.buyer_branch_id` -> `buyer_unit_id`,
+    `client_audit_event.target_branch_id` -> `target_unit_id`.
+- **Audit enum** `ClientAuditEventType`: 8 valores apos cutover (4 sobre
+  Client + 4 sobre ClientUnit). Sem deprecated.
+- **Triggers ativos**: `enforce_pj_zero_units` (rejeita unit em PJ);
+  `chk_client_person_type_fields` (PF rejeita campos PJ; PJ exige cnpj NOT NULL).
+- **Escape valves removidas**: `app.allow_audit_mutation` (F5.1 wizard) e
+  `app.allow_split_wizard` (F7.1B).
+- **Codigo deletado**: `scripts/migrations/f7-pj-consolidate-wizard.mjs` e
+  `scripts/audits/f7-prod-audit.mjs`.
+
+### Como retomar na proxima sessao
+
+1. Confirmar: `git status` limpo, `git log -1` mostra `0453882` ou commit
+   posterior.
+2. Continuar com **#2 — Q-11 (aviso incompleto na UI)**:
+   - Criar `lib/clients/client-completeness.ts` (espelho TS do helper
+     backend; criado e descartado nesta sessao para limpar working tree
+     antes do deploy — recriar).
+   - Criar `components/clients/ClientCompleteBadge.tsx` (emoji 🟠 + tooltip
+     com contagem de campos faltando).
+   - Criar `components/clients/ClientCompleteChecklist.tsx` (card no topo
+     da detail page com checklist clicavel).
+   - Plugar em `app/clients/page.tsx` (badge nos cards + filtro
+     "Mostrar so incompletos" + contador no header).
+   - Plugar em `app/clients/[clientId]/page.tsx` (checklist no topo).
+   - Plugar em `components/clients/ClientLookupField.tsx` (icone discreto).
+   - Backend: adicionar query param `?completeness=incomplete` em
+     `listClients` (Prisma where com OR das regras de completude).
+3. Quality gates + commit + push + deploy seguindo o mesmo padrao de #1.
 
 ---
 
