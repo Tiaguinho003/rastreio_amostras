@@ -947,18 +947,18 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 
 ### Status de execucao (Q-21)
 
-| # | Etapa | Status |
-| - | ----- | ------ |
-| 1 | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ implementado, gates verdes, **aguardando commit** |
-| 2 | Q-11 — aviso incompleto na UI (helper + badge + checklist) | pendente |
-| 3 | Q-24 — CEP lookup nos forms | pendente |
-| 4 | Q-01 — `?onlyActive=true` query param | pendente |
-| 5 | Q-02 + Q-25 — Idempotency-Key middleware + tabela | pendente |
-| 6 | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal | pendente |
-| 7 | (gating) Q-18 + Q-19 — fechar planilha | depende de excerpt |
-| 8 | L4 — wizard de import | depende de #7 |
-| 9 | L3.5 — apagar fotos no GCS | requer confirmacao |
-| 10 | M2 + cleanup final | encerra ciclo |
+| #   | Etapa                                                                     | Status                                               |
+| --- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ implementado, gates verdes, **aguardando commit** |
+| 2   | Q-11 — aviso incompleto na UI (helper + badge + checklist)                | pendente                                             |
+| 3   | Q-24 — CEP lookup nos forms                                               | pendente                                             |
+| 4   | Q-01 — `?onlyActive=true` query param                                     | pendente                                             |
+| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | pendente                                             |
+| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                        | pendente                                             |
+| 7   | (gating) Q-18 + Q-19 — fechar planilha                                    | depende de excerpt                                   |
+| 8   | L4 — wizard de import                                                     | depende de #7                                        |
+| 9   | L3.5 — apagar fotos no GCS                                                | requer confirmacao                                   |
+| 10  | M2 + cleanup final                                                        | encerra ciclo                                        |
 
 ---
 
