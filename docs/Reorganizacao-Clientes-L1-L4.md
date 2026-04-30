@@ -436,10 +436,65 @@ responder na proxima rodada.
 - **Definir em Q-09**: se essa regra vale para "rascunho" (provavel
   decisao: nao ha rascunho).
 
-### Q-07 — Reset das sequences `code` antes de reimport ⏸️
+### Q-07 — Reset das sequences `code` antes de reimport ✅
 
-- **Pendente**: usuario pediu explicacao mais simples. Re-perguntada
-  como Q-07b (ver §9).
+- **Decisao**: `RESTART` das sequences de `client.code` e
+  `client_branch.code` antes do reimport. Primeiro cliente novo recebe
+  `code=1`.
+- **Justificativa**: numeros baixos sao mais legiveis em conversas,
+  relatorios e laudos. Como o DB foi totalmente zerado em L3, nao ha
+  conflito com dados antigos.
+- **Implementacao**: pequena migration L4-pre (ou bloco no proprio
+  wizard L4) com:
+  ```sql
+  ALTER SEQUENCE client_code_seq RESTART WITH 1;
+  ALTER SEQUENCE client_branch_code_seq RESTART WITH 1;
+  ```
+  Idempotente — rerun em DB vazio nao causa efeito colateral.
+
+### Q-08 — Definicao de "amostra ativa" + status pos-cascade (sugestao)
+
+- **Sugestao** (aguardando confirmacao do usuario):
+  - **"Amostra ativa" para o aviso** = `status NOT IN ('INVALIDATED')`.
+    Inclui: `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`,
+    `REGISTRATION_CONFIRMED`, `QR_PENDING_PRINT`, `QR_PRINTED`,
+    `CLASSIFICATION_IN_PROGRESS`, `CLASSIFIED`. (qualquer amostra que
+    nao foi descartada).
+  - **Status final pos-cascade** = `INVALIDATED` (status terminal ja
+    existente no schema; nao precisa criar enum novo).
+  - **Audit**: emite `SAMPLE_INVALIDATED` em cada amostra com payload
+    `{ reason: 'OWNER_INACTIVATED', inactivatedClientId, inactivatedClientName, batchId }`,
+    e `CLIENT_INACTIVATED` no cliente com payload listando os
+    `cascadedSampleIds`.
+- **Justificativa**: reusar `INVALIDATED` evita schema novo. O motivo
+  fica explicito no payload pra distinguir de outras invalidacoes
+  (ex: amostra defeituosa, devolvida).
+- **Implementacao prevista**: novo metodo
+  `inactivateClientWithCascade(clientId, sampleIds, reasonText, actor)`
+  no service, transacional. Endpoint
+  `POST /clients/:id/inactivate-with-cascade` chamado pelo modal Q-05.
+
+### Q-09 — PJ exige CNPJ obrigatorio (banco + app) ✅
+
+- **Decisao**: PJ NUNCA pode existir sem ao menos 1 branch com CNPJ.
+  Validacao em **dois niveis**: (a) service (422 amigavel ja
+  implementado em Q-06); (b) trigger no banco (defesa em profundidade,
+  protege contra qualquer codigo que tente burlar).
+- **Justificativa**: identidade fiscal de PJ depende do CNPJ. Sem ele,
+  o cliente nao consegue ser referenciado em nota fiscal nem em
+  processos comerciais.
+- **Implementacao prevista**:
+  - Trigger DB `fn_assert_pj_has_cnpj_branch()` em estilo similar ao
+    R1.3 (CONSTRAINT TRIGGER DEFERRABLE INITIALLY DEFERRED). Dispara
+    em INSERT/UPDATE de `client` (apenas quando `person_type='PJ'`)
+    e em DELETE/UPDATE de `client_branch` (quando branch sai do PJ).
+    Verifica que existe ao menos 1 ClientBranch com `cnpj IS NOT NULL`
+    para o client. Se nao, RAISE EXCEPTION.
+  - DEFERRED garante que `INSERT client + INSERT branch` na mesma tx
+    nao gera falso-positivo (validacao corre no commit).
+  - Migration nova `<TS>_pj_requires_cnpj_branch_trigger`.
+  - Service ja implementa o 422 (Q-06). Wizard L4 valida no parse do
+    CSV antes de tentar inserir.
 
 ---
 
