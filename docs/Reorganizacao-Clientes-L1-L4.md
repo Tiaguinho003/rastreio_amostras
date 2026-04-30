@@ -75,6 +75,11 @@ Ultima revisao em prod no momento do plano: `7880571`.
 5. **Quality gates obrigatorios** antes de cada commit/deploy: `lint`,
    `format:check`, `typecheck`, `build`, `validate:schemas`,
    `test:contracts`, `test:unit`, `test:integration:db`.
+6. **Toda pergunta e resposta da analise profunda fica gravada no doc.**
+   Cada Q-XX feita ao usuario vai em §9 (com contexto e opcoes); cada
+   resposta vai em §10 (com decisao tomada + justificativa breve +
+   implementacao prevista). Isso garante rastreabilidade das decisoes
+   sem precisar reler o chat.
 
 ---
 
@@ -329,21 +334,112 @@ responder na proxima rodada.
 | Q-06 | PJ transient (sem branch) e estado valido. Cliente sem CNPJ pode existir.     | Manter como hoje (usado pelo fluxo "criar e configurar depois") ou exigir CNPJ inline em todo `POST /clients` PJ?             |
 | Q-07 | `code` autoincrement de Client e ClientBranch nao foi resetado em L3.         | Resetar para 1 antes do reimport (`ALTER SEQUENCE … RESTART`), ou continuar do proximo numero (numeros altos pos-L3)?         |
 
+### Perguntas derivadas (Q-08 a Q-11) — pendentes
+
+| ID   | Tema                                      | Pergunta                                                                                                                                                                                   |
+| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Q-08 | Definir "amostra ativa" para cascade Q-05 | Sample "ativa" para o aviso = `status NOT IN ('INVALIDATED')` em qualquer outro estado? E o status final pos-cascade = `INVALIDATED` com payload de motivo "owner_inactivated"?            |
+| Q-09 | PJ exige CNPJ — modo rascunho?            | Aplicar regra desde a criacao (`POST /clients` PJ sempre exige CNPJ inline) ou aceitar PJ "rascunho" sem CNPJ ate o usuario completar (com aviso de incompleto)? Recomendo: sempre exigir. |
+| Q-10 | Politica de completude — quais campos?    | Quais campos disparam aviso de "cadastro incompleto"? Sugestao: PF (telefone, endereco, CPF se ausente, CAR se fazenda); PJ (telefone, endereco, IE, email se decidirmos adicionar).       |
+| Q-11 | Politica de completude — onde aparece?    | Como o aviso e exibido? Combinacoes possiveis: (a) badge "incompleto" no card da lista, (b) banner amarelo no detail, (c) coluna especial de % na lista, (d) filtro "so incompletos".      |
+
 ### 🔴 Mudar — pendente confirmacao
 
 (Nenhum item bloqueante remanescente apos as decisoes de §20.)
 
 ---
 
-## 10. Decisoes pos-analise (a preencher conforme respostas)
+## 10. Decisoes pos-analise (gravadas conforme respostas)
 
-> Esta secao sera preenchida conforme o usuario responder as perguntas Q-01
-> a Q-07 da §9. Cada decisao deve ter:
->
-> - ID da pergunta correspondente.
-> - Decisao tomada.
-> - Justificativa breve.
-> - Implementacao prevista (codigo + teste + doc).
+> Cada decisao traz: ID da pergunta, decisao tomada, justificativa, e
+> implementacao prevista. Conforme §3.6, toda Q&A vai aqui.
+
+### Q-01 — `getClient` filtro de branches ✅
+
+- **Decisao**: aceitar query param `?onlyActive=true` em `GET /clients/:id`
+  e em `GET /clients/:id/branches`.
+- **Justificativa**: listagens "limpas" sem precisar filtrar no frontend;
+  comportamento explicito.
+- **Implementacao**: `getClient` no service ganha opcao
+  `{ onlyActiveBranches?: boolean }`. Route handler le query param.
+  Retrocompativel (default = `false`, retorna tudo).
+
+### Q-02 — Idempotencia por requestId em `POST /clients` ✅
+
+- **Decisao**: adicionar suporte a header `Idempotency-Key` em
+  `POST /clients` (e tambem em `POST /clients/:id/branches`).
+- **Justificativa**: protege contra retry duplo (rede instavel, click
+  duplo no front). Wizard L4 ja tem idempotencia propria por CPF/CNPJ,
+  mas o caminho UI tambem deve ser seguro.
+- **Implementacao**: tabela nova `idempotency_record` (clientId
+  opcional, scope = endpoint, key = header, status, createdAt) ou
+  reuso do mecanismo de eventos. Decidir antes de codar; documentar
+  em `docs/API-e-Contratos.md`.
+
+### Q-03 — Tests E2E para terminologia visual ⏸️
+
+- **Decisao**: nao adicionar agora. So sob demanda especifica (ex:
+  "quero garantir que o botao 'Nova fazenda' aparece em PF").
+- **Justificativa**: coverage de logica via integration tests ja e alto;
+  tests E2E (Playwright) sao caros de manter.
+- **Implementacao**: nenhuma agora. Skill `tests` continua sem mencionar
+  Playwright; quando o usuario pedir um caso especifico, adicionamos
+  pontual.
+
+### Q-04 — CPF opcional em PF ✅
+
+- **Decisao**: manter CPF opcional em PF (status quo).
+- **Justificativa**: alguns produtores nao tem CPF cadastrado e ainda
+  precisam aparecer no sistema; politica de completude (Q-10/11) cobre
+  o aviso para o responsavel completar depois.
+- **Implementacao**: nenhuma mudanca de schema. Schema de validacao
+  da importacao (L4) aceita PF sem CPF, marca como "incompleto".
+
+### Q-05 — Inativar cliente com amostras ATIVAS ✅
+
+- **Decisao**: bloquear inativacao direta. UI mostra modal explicando
+  as amostras vinculadas, com 2 acoes:
+  - **Cancelar** (nao faz nada).
+  - **Confirmar** (inativa cliente E inativa em cascata as amostras
+    listadas, com audit em ambos os lados).
+- **Justificativa**: evitar inativacao "silenciosa" que deixa amostras
+  orfas de cliente ativo.
+- **Implementacao**:
+  - Backend: `inactivateClient` ganha endpoint paralelo
+    `POST /clients/:id/inactivate-with-cascade` que recebe
+    `{ confirmedSampleIds: string[] }`. Service valida que ids batem
+    com amostras ATIVAS do cliente, inativa cliente + amostras numa
+    transacao com audit em ambos.
+  - Endpoint atual `POST /clients/:id/inactivate` passa a retornar 409
+    `code='CLIENT_HAS_ACTIVE_SAMPLES'` com `details.activeSampleIds`
+    quando ha amostras ativas.
+  - Frontend: detail do cliente intercepta 409, abre modal listando
+    as amostras (link clicavel, nome do lote, data), e em "Confirmar"
+    chama o endpoint cascade.
+- **Definir em Q-08**: o que exatamente conta como "amostra ativa".
+
+### Q-06 — PJ exige CNPJ obrigatorio ✅
+
+- **Decisao**: PJ NAO pode existir sem CNPJ (nem transient).
+- **Justificativa**: identidade fiscal de PJ depende do CNPJ; cliente sem
+  CNPJ nao tem como ser referenciado em nota fiscal.
+- **Implementacao**:
+  - Service `createClient`: rejeita 422
+    `code='PJ_REQUIRES_CNPJ'` se `personType === 'PJ'` e
+    `branches.length === 0` ou primeira branch sem `cnpj`.
+  - Frontend `ClientQuickCreateModal`: campo CNPJ vira obrigatorio
+    para PJ; remove o caminho "criar transient e configurar depois".
+  - Banner empty-state "Esta empresa ainda nao tem CNPJ" some (estado
+    nao existira mais).
+  - L3 ja zerou o DB; nao ha PJs em prod sem CNPJ. Sem migracao de
+    dados necessaria.
+- **Definir em Q-09**: se essa regra vale para "rascunho" (provavel
+  decisao: nao ha rascunho).
+
+### Q-07 — Reset das sequences `code` antes de reimport ⏸️
+
+- **Pendente**: usuario pediu explicacao mais simples. Re-perguntada
+  como Q-07b (ver §9).
 
 ---
 
