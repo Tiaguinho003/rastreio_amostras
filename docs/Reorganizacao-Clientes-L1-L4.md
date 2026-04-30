@@ -334,14 +334,90 @@ responder na proxima rodada.
 | Q-06 | PJ transient (sem branch) e estado valido. Cliente sem CNPJ pode existir.     | Manter como hoje (usado pelo fluxo "criar e configurar depois") ou exigir CNPJ inline em todo `POST /clients` PJ?             |
 | Q-07 | `code` autoincrement de Client e ClientBranch nao foi resetado em L3.         | Resetar para 1 antes do reimport (`ALTER SEQUENCE … RESTART`), ou continuar do proximo numero (numeros altos pos-L3)?         |
 
-### Perguntas derivadas (Q-08 a Q-11) — pendentes
+### Perguntas derivadas — em andamento
 
-| ID   | Tema                                      | Pergunta                                                                                                                                                                                   |
-| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Q-08 | Definir "amostra ativa" para cascade Q-05 | Sample "ativa" para o aviso = `status NOT IN ('INVALIDATED')` em qualquer outro estado? E o status final pos-cascade = `INVALIDATED` com payload de motivo "owner_inactivated"?            |
-| Q-09 | PJ exige CNPJ — modo rascunho?            | Aplicar regra desde a criacao (`POST /clients` PJ sempre exige CNPJ inline) ou aceitar PJ "rascunho" sem CNPJ ate o usuario completar (com aviso de incompleto)? Recomendo: sempre exigir. |
-| Q-10 | Politica de completude — quais campos?    | Quais campos disparam aviso de "cadastro incompleto"? Sugestao: PF (telefone, endereco, CPF se ausente, CAR se fazenda); PJ (telefone, endereco, IE, email se decidirmos adicionar).       |
-| Q-11 | Politica de completude — onde aparece?    | Como o aviso e exibido? Combinacoes possiveis: (a) badge "incompleto" no card da lista, (b) banner amarelo no detail, (c) coluna especial de % na lista, (d) filtro "so incompletos".      |
+**Status**: Q-07/Q-08/Q-09 ja respondidas/sugeridas (ver §10).
+Q-10 expandida em Q-10a–Q-10f abaixo (mapeamento exaustivo de campos
+antes de definir politica de completude). Q-11 adiada ate Q-10
+fechar.
+
+#### Q-10a — Mapeamento exaustivo dos campos de Cliente/Filial/Fazenda
+
+Antes de decidir quais campos disparam aviso de "incompleto" (Q-10
+original), o usuario pediu **revisar exaustivamente todos os campos**
+existentes hoje, identificar lacunas, e so depois decidir.
+
+**Campos atuais em `Client`** (todos os personTypes):
+
+| Campo        | Tipo      | Obrigatorio hoje | Notas                                      |
+| ------------ | --------- | ---------------- | ------------------------------------------ |
+| `id`         | UUID      | sistema          | gerado                                     |
+| `code`       | int       | sistema          | autoincrement                              |
+| `personType` | PF \| PJ  | ✅ sim           | imutavel pos-criacao (L3)                  |
+| `fullName`   | string    | so PF (CHECK)    |                                            |
+| `legalName`  | string    | so PJ (CHECK)    |                                            |
+| `tradeName`  | string    | nao              | "fantasia" da PJ                           |
+| `cpf`        | string    | opcional (Q-04)  | UNIQUE parcial (PF)                        |
+| `cnpjRoot`   | string    | sistema          | derivado dos 8 primeiros do CNPJ da matriz |
+| `phone`      | string    | ✅ sim           | 10 ou 11 digitos                           |
+| `isBuyer`    | bool      | ✅ sim           | role flag                                  |
+| `isSeller`   | bool      | ✅ sim           | role flag (CHECK: ao menos um true)        |
+| `status`     | ACT/INACT | sistema          | default ACTIVE                             |
+| `createdAt`  | timestamp | sistema          |                                            |
+| `updatedAt`  | timestamp | sistema          |                                            |
+
+**Campos atuais em `ClientBranch`** (matriz PJ ou fazenda PF):
+
+| Campo                         | Tipo      | Obrigatorio hoje     | Notas                                               |
+| ----------------------------- | --------- | -------------------- | --------------------------------------------------- |
+| `id`                          | UUID      | sistema              |                                                     |
+| `clientId`                    | UUID FK   | sistema              | Restrict                                            |
+| `code`                        | int       | sistema              | sequencial por client                               |
+| `isPrimary`                   | bool      | sistema              | UNIQUE parcial: 1 primary por client                |
+| `name`                        | string    | nao                  | apelido interno (ex: "Fazenda Boa Vista")           |
+| `cnpj`                        | string    | PJ matriz: ✅ (Q-09) | UNIQUE parcial; PF opcional (CNPJ produtor)         |
+| `cnpjOrder`                   | string    | sistema              | 4 digitos do meio do CNPJ (derivado)                |
+| `legalName`                   | string    | nao                  | razao social da branch (geralmente igual ao client) |
+| `tradeName`                   | string    | nao                  | fantasia da branch                                  |
+| `phone`                       | string    | nao                  | telefone da branch                                  |
+| `addressLine`                 | string    | nao                  | logradouro                                          |
+| `district`                    | string    | nao                  | bairro                                              |
+| `city`                        | string    | nao                  |                                                     |
+| `state`                       | UF (2)    | nao                  |                                                     |
+| `postalCode`                  | string    | nao                  | CEP                                                 |
+| `complement`                  | string    | nao                  |                                                     |
+| `registrationNumber`          | string    | nao                  | IE estadual ou CAR (rural)                          |
+| `registrationNumberCanonical` | string    | sistema              | UNIQUE parcial; derivado de `registrationNumber`    |
+| `registrationType`            | string    | nao                  | ex: "estadual", "municipal", "CAR"                  |
+| `status`                      | ACT/INACT | sistema              |                                                     |
+| `createdAt`                   | timestamp | sistema              |                                                     |
+| `updatedAt`                   | timestamp | sistema              |                                                     |
+
+**Campos que NAO existem hoje mas podem ser uteis** (a decidir):
+
+- `email` (no Client e/ou Branch) — para notificacoes e contato.
+- Campo explicito de `car` (Cadastro Ambiental Rural) separado do
+  `registrationNumber`/`registrationType` — facilita filtro/relatorio.
+- Campo de `municipalRegistration` (IM) separado da IE.
+- Capacidade de armazenagem da fazenda/matriz (sacas).
+- Socio responsavel / representante legal.
+
+**Perguntas pontuais para fechar Q-10**:
+
+| ID    | Pergunta                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q-10a | A tabela acima representa todos os campos? Falta algum? (email? CAR explicito? IM? capacidade? representante?)                                          |
+| Q-10b | **PF (Client)**: alem de `fullName` + `phone` + `isBuyer/isSeller` (ja obrigatorios), quais campos ficam OBRIGATORIOS no cadastro (rejeita salvar sem)? |
+| Q-10c | **PF (Client)**: quais campos ficam RECOMENDADOS (salva mas dispara aviso de incompleto)?                                                               |
+| Q-10d | **PF Fazenda (ClientBranch)**: quais campos sao obrigatorios? Quais sao recomendados? (PF pode ter 0 fazendas — nesse caso o aviso e zero?)             |
+| Q-10e | **PJ (Client)**: alem de `legalName` + `phone` + `isBuyer/isSeller` + CNPJ na matriz (Q-09), quais campos ficam obrigatorios? Quais recomendados?       |
+| Q-10f | **PJ Matriz (ClientBranch primary)**: alem de CNPJ (Q-09), quais campos sao obrigatorios? Quais recomendados?                                           |
+
+#### Q-11 — Onde aparece o aviso (ADIADA)
+
+Usuario adiou ate fechar Q-10. Direcao tentativa: filtros + emoji + cor
+diferente no card. Sera reaberta apos a politica de completude estar
+definida.
 
 ### 🔴 Mudar — pendente confirmacao
 
