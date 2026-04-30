@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { ApiError, getClient } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientSummary,
   SampleMovement,
   SampleMovementType,
@@ -17,7 +17,7 @@ import { ClientLookupField } from '../clients/ClientLookupField';
 type SampleMovementModalSubmitInput = {
   movementType: SampleMovementType;
   buyerClientId: string | null;
-  buyerBranchId: string | null;
+  buyerUnitId: string | null;
   quantitySacks: number;
   movementDate: string;
   notes: string | null;
@@ -56,14 +56,22 @@ function toClientSummary(client: SampleMovement['buyerClient']): ClientSummary |
     cnpj: client.cnpj,
     document: client.personType === 'PF' ? client.cpf : client.cnpj,
     phone: client.phone,
+    email: null,
+    addressLine: null,
+    district: null,
+    city: null,
+    state: null,
+    postalCode: null,
+    complement: null,
+    registrationNumber: null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
     commercialUser: null,
     commercialUsers: [],
-    branches: [],
-    branchCount: 0,
-    activeBranchCount: 0,
+    units: [],
+    unitCount: 0,
+    activeUnitCount: 0,
     primaryCity: null,
     primaryState: null,
     createdAt: null,
@@ -99,16 +107,14 @@ export function SampleMovementModal({
   const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(
     toClientSummary(movement?.buyerClient ?? null)
   );
-  const [buyerBranches, setBuyerBranches] = useState<ClientBranchSummary[]>([]);
-  const [buyerBranchId, setBuyerBranchId] = useState<string | null>(
-    movement?.buyerBranchId ?? null
-  );
+  const [buyerUnits, setBuyerUnits] = useState<ClientUnitSummary[]>([]);
+  const [buyerUnitId, setBuyerUnitId] = useState<string | null>(movement?.buyerUnitId ?? null);
   const [quantitySacks, setQuantitySacks] = useState(String(movement?.quantitySacks ?? ''));
   const [movementDate, setMovementDate] = useState(movement?.movementDate ?? todayAsInputDate());
   const [notes, setNotes] = useState(movement?.notes ?? '');
   const [lossReasonText, setLossReasonText] = useState(movement?.lossReasonText ?? '');
   const [reasonText, setReasonText] = useState('');
-  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingUnits, setLoadingUnits] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const showBuyerFields = movementType === 'SALE';
@@ -122,7 +128,7 @@ export function SampleMovementModal({
 
     setMovementType(movement?.movementType ?? initialMovementType);
     setBuyerClient(toClientSummary(movement?.buyerClient ?? null));
-    setBuyerBranchId(movement?.buyerBranchId ?? null);
+    setBuyerUnitId(movement?.buyerUnitId ?? null);
     setQuantitySacks(movement?.quantitySacks ? String(movement.quantitySacks) : '');
     setMovementDate(movement?.movementDate ?? todayAsInputDate());
     setNotes(movement?.notes ?? '');
@@ -133,16 +139,16 @@ export function SampleMovementModal({
 
   useEffect(() => {
     if (!open || !buyerClient) {
-      setBuyerBranches([]);
-      setLoadingBranches(false);
+      setBuyerUnits([]);
+      setLoadingUnits(false);
       if (movementType === 'SALE') {
-        setBuyerBranchId(null);
+        setBuyerUnitId(null);
       }
       return;
     }
 
     const controller = new AbortController();
-    setLoadingBranches(true);
+    setLoadingUnits(true);
 
     getClient(session, buyerClient.id, { signal: controller.signal })
       .then((response) => {
@@ -150,23 +156,23 @@ export function SampleMovementModal({
           return;
         }
 
-        const activeBranches = response.branches.filter((branch) => branch.status === 'ACTIVE');
-        setBuyerBranches(activeBranches);
+        const activeUnits = response.units.filter((unit) => unit.status === 'ACTIVE');
+        setBuyerUnits(activeUnits);
       })
       .catch((cause) => {
         if (controller.signal.aborted) {
           return;
         }
 
-        setBuyerBranches([]);
-        setBuyerBranchId(null);
+        setBuyerUnits([]);
+        setBuyerUnitId(null);
         setError(
           cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do comprador'
         );
       })
       .finally(() => {
         if (!controller.signal.aborted) {
-          setLoadingBranches(false);
+          setLoadingUnits(false);
         }
       });
 
@@ -229,7 +235,7 @@ export function SampleMovementModal({
 
     // F7.4: PJ sem matriz nao pode ser comprador. O lookup desabilita a
     // selecao, mas defesa em profundidade impede submit por outras rotas.
-    if (showBuyerFields && buyerClient?.personType === 'PJ' && buyerBranches.length === 0) {
+    if (showBuyerFields && buyerClient?.personType === 'PJ' && buyerUnits.length === 0) {
       setError(
         'Este comprador PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar a venda.'
       );
@@ -245,7 +251,7 @@ export function SampleMovementModal({
     await onSubmit({
       movementType,
       buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
-      buyerBranchId: showBuyerFields ? buyerBranchId : null,
+      buyerUnitId: showBuyerFields ? buyerUnitId : null,
       quantitySacks: parsedQuantity,
       movementDate,
       notes: notes.trim() ? notes.trim() : null,
@@ -296,12 +302,12 @@ export function SampleMovementModal({
                 compact
                 onSelectClient={(client) => {
                   setBuyerClient(client);
-                  if (!client) setBuyerBranchId(null);
+                  if (!client) setBuyerUnitId(null);
                   setError(null);
                 }}
-                onSelectBranch={(client, branch) => {
+                onSelectUnit={(client, unit) => {
                   setBuyerClient(client);
-                  setBuyerBranchId(branch?.id ?? null);
+                  setBuyerUnitId(unit?.id ?? null);
                   setError(null);
                 }}
                 emptyMessage="Nenhum comprador encontrado."

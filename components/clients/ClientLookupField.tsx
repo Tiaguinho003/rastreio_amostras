@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import { ApiError, lookupClients } from '../../lib/api-client';
 import { formatClientDocument } from '../../lib/client-field-formatters';
 import type {
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientLookupKind,
   ClientSummary,
   SessionData,
@@ -17,8 +17,8 @@ type ClientLookupFieldProps = {
   kind: ClientLookupKind;
   selectedClient: ClientSummary | null;
   onSelectClient: (client: ClientSummary | null) => void;
-  /** F6.1 G1: callback opcional para modo hierarquico (cliente+filial em uma linha). */
-  onSelectBranch?: (client: ClientSummary, branch: ClientBranchSummary | null) => void;
+  /** L5: callback opcional para modo hierarquico — apenas PF tem fazendas. */
+  onSelectUnit?: (client: ClientSummary, unit: ClientUnitSummary | null) => void;
   inputRef?: Ref<HTMLInputElement>;
   invalid?: boolean;
   invalidText?: string;
@@ -34,8 +34,7 @@ type ClientLookupFieldProps = {
 type LookupRow = {
   key: string;
   client: ClientSummary;
-  branch: ClientBranchSummary | null;
-  // sub: branch e filial nao primary; primary nao
+  unit: ClientUnitSummary | null;
   isHierarchicalChild: boolean;
 };
 
@@ -49,51 +48,38 @@ function getClientDocument(client: ClientSummary) {
 function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
   const rows: LookupRow[] = [];
   for (const client of items) {
-    const branches = client.branches ?? [];
-
-    if (branches.length === 0) {
-      // Sem branches: PF sem fazendas (ainda) ou PJ transient (sem matriz).
-      // O caller marca transient via personType === 'PJ' && branch === null.
-      rows.push({ key: client.id, client, branch: null, isHierarchicalChild: false });
-      continue;
-    }
-
-    // F7: PJ tem exatamente 1 branch ATIVA (a matriz). Linha simples,
-    // nao hierarquica — a info da branch ja entra no cabecalho.
+    // L5: PJ guarda dados direto no Client (nao tem units). Linha simples.
     if (client.personType === 'PJ') {
-      const primary = branches.find((b) => b.isPrimary) ?? branches[0];
-      rows.push({
-        key: `${client.id}:${primary.id}`,
-        client,
-        branch: primary,
-        isHierarchicalChild: false,
-      });
+      rows.push({ key: client.id, client, unit: null, isHierarchicalChild: false });
       continue;
     }
 
-    // PF com 1+ fazendas: 1 linha por fazenda, com nesting visual nas
-    // nao-principais.
-    for (const branch of branches) {
+    // PF: 0 ou N fazendas. Sem fazendas -> linha simples (sem nesting).
+    const units = client.units ?? [];
+    if (units.length === 0) {
+      rows.push({ key: client.id, client, unit: null, isHierarchicalChild: false });
+      continue;
+    }
+
+    // PF com fazendas: 1 linha-pai (cliente) + N linhas-filhas (cada fazenda).
+    rows.push({ key: client.id, client, unit: null, isHierarchicalChild: false });
+    for (const unit of units) {
       rows.push({
-        key: `${client.id}:${branch.id}`,
+        key: `${client.id}:${unit.id}`,
         client,
-        branch,
-        isHierarchicalChild: !branch.isPrimary,
+        unit,
+        isHierarchicalChild: true,
       });
     }
   }
   return rows;
 }
 
-function buildBranchLabel(branch: ClientBranchSummary, personType: 'PF' | 'PJ'): string {
-  let tag: string;
-  if (personType === 'PF') {
-    tag = `Fazenda ${branch.code}`;
-  } else {
-    tag = branch.isPrimary ? 'Matriz' : `Filial ${branch.code}`;
-  }
-  const place = branch.city && branch.state ? ` · ${branch.city}/${branch.state}` : '';
-  return `${tag}${place}`;
+function buildUnitLabel(unit: ClientUnitSummary): string {
+  const tag = `Fazenda ${unit.code}`;
+  const place = unit.city && unit.state ? ` · ${unit.city}/${unit.state}` : '';
+  const name = unit.name ? ` — ${unit.name}` : '';
+  return `${tag}${name}${place}`;
 }
 
 export function ClientLookupField({
@@ -102,7 +88,7 @@ export function ClientLookupField({
   kind,
   selectedClient,
   onSelectClient,
-  onSelectBranch,
+  onSelectUnit,
   inputRef,
   invalid = false,
   invalidText = 'Obrigatorio',
@@ -117,7 +103,7 @@ export function ClientLookupField({
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
   const [items, setItems] = useState<ClientSummary[]>([]);
-  const [matchedBranchId, setMatchedBranchId] = useState<string | null>(null);
+  const [matchedUnitId, setMatchedUnitId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -125,7 +111,7 @@ export function ClientLookupField({
   const lastSelectedIdRef = useRef<string | null>(selectedClient?.id ?? null);
 
   const normalizedSearch = useMemo(() => search.trim(), [search]);
-  const isHierarchical = typeof onSelectBranch === 'function';
+  const isHierarchical = typeof onSelectUnit === 'function';
 
   useEffect(() => {
     const nextSelectedId = selectedClient?.id ?? null;
@@ -166,7 +152,7 @@ export function ClientLookupField({
 
     if (normalizedSearch.length < 1) {
       setItems([]);
-      setMatchedBranchId(null);
+      setMatchedUnitId(null);
       setLoading(false);
       setError(null);
       return;
@@ -187,7 +173,7 @@ export function ClientLookupField({
           }
 
           setItems(response.items);
-          setMatchedBranchId(response.matchedBranchId ?? null);
+          setMatchedUnitId(response.matchedUnitId ?? null);
         })
         .catch((cause) => {
           if (!active) {
@@ -195,7 +181,7 @@ export function ClientLookupField({
           }
 
           setItems([]);
-          setMatchedBranchId(null);
+          setMatchedUnitId(null);
           setError(cause instanceof ApiError ? cause.message : 'Falha ao buscar clientes');
         })
         .finally(() => {
@@ -211,7 +197,7 @@ export function ClientLookupField({
     };
   }, [disabled, kind, normalizedSearch, open, session]);
 
-  function handleSelectClient(client: ClientSummary, branch: ClientBranchSummary | null) {
+  function handleSelectClient(client: ClientSummary, unit: ClientUnitSummary | null) {
     lastSelectedIdRef.current = client.id;
     setSearch(client.displayName ?? '');
     setOpen(false);
@@ -220,12 +206,11 @@ export function ClientLookupField({
       document.activeElement.blur();
     }
     onSelectClient(client);
-    if (isHierarchical && onSelectBranch) {
-      onSelectBranch(client, branch);
+    if (isHierarchical && onSelectUnit) {
+      onSelectUnit(client, unit);
     }
   }
 
-  // Em modo hierarquico, expandimos cada client em N linhas (uma por branch).
   const rows: LookupRow[] = useMemo(
     () =>
       isHierarchical
@@ -233,18 +218,9 @@ export function ClientLookupField({
         : items.map((client) => ({
             key: client.id,
             client,
-            branch: null,
+            unit: null,
             isHierarchicalChild: false,
           })),
-    [isHierarchical, items]
-  );
-
-  const hasTransient = useMemo(
-    () =>
-      isHierarchical &&
-      items.some(
-        (client) => client.personType === 'PJ' && (!client.branches || client.branches.length === 0)
-      ),
     [isHierarchical, items]
   );
 
@@ -278,9 +254,6 @@ export function ClientLookupField({
             if (selectedClient) {
               lastSelectedIdRef.current = null;
               onSelectClient(null);
-              // Modo hierarquico: pai recebe branch=null junto via onSelectBranch?
-              // Mantem a responsabilidade de limpar branch para o consumidor
-              // (samples/new ja faz isso em setSelectedOwnerClient).
             }
           }}
         />
@@ -294,7 +267,7 @@ export function ClientLookupField({
               lastSelectedIdRef.current = null;
               setSearch('');
               setItems([]);
-              setMatchedBranchId(null);
+              setMatchedUnitId(null);
               setOpen(false);
               setError(null);
               onSelectClient(null);
@@ -334,27 +307,20 @@ export function ClientLookupField({
           {!loading && rows.length > 0 ? (
             <ul className="client-lookup-list" role="listbox" aria-label={label}>
               {rows.map((row) => {
-                const transient =
-                  isHierarchical && row.client.personType === 'PJ' && row.branch === null;
-                const isMatched = matchedBranchId !== null && row.branch?.id === matchedBranchId;
+                const isMatched = matchedUnitId !== null && row.unit?.id === matchedUnitId;
                 return (
                   <li key={row.key}>
                     <button
                       type="button"
-                      className={`client-lookup-option${row.isHierarchicalChild ? ' is-child' : ''}${transient ? ' is-disabled' : ''}${isMatched ? ' is-matched' : ''}`}
-                      onClick={() => {
-                        if (transient) return;
-                        handleSelectClient(row.client, row.branch);
-                      }}
-                      disabled={transient}
-                      title={transient ? 'Configure a matriz desta empresa primeiro' : undefined}
+                      className={`client-lookup-option${row.isHierarchicalChild ? ' is-child' : ''}${isMatched ? ' is-matched' : ''}`}
+                      onClick={() => handleSelectClient(row.client, row.unit)}
                     >
                       <span className="client-lookup-option-title">
                         {row.client.displayName ?? 'Sem nome'}
-                        {row.branch ? (
+                        {row.unit ? (
                           <span className="client-lookup-option-branch">
                             {' · '}
-                            {buildBranchLabel(row.branch, row.client.personType)}
+                            {buildUnitLabel(row.unit)}
                           </span>
                         ) : null}
                         {isMatched ? (
@@ -363,25 +329,17 @@ export function ClientLookupField({
                       </span>
                       <span className="client-lookup-option-meta">
                         Codigo {row.client.code} · {row.client.personType}
-                        {row.branch?.cnpj
-                          ? ` · ${formatClientDocument(row.branch.cnpj, 'PJ')}`
+                        {row.unit?.cnpj
+                          ? ` · ${formatClientDocument(row.unit.cnpj, 'PJ')}`
                           : getClientDocument(row.client)
                             ? ` · ${getClientDocument(row.client)}`
                             : ''}
-                        {transient ? ' · sem matriz configurada' : ''}
                       </span>
                     </button>
                   </li>
                 );
               })}
             </ul>
-          ) : null}
-
-          {hasTransient && !loading ? (
-            <p className="client-lookup-empty" style={{ fontSize: '0.85em' }}>
-              Empresas sem matriz aparecem desabilitadas — abra o cadastro do cliente para
-              configurar a matriz primeiro.
-            </p>
           ) : null}
         </div>
       ) : null}

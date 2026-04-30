@@ -1,4 +1,4 @@
-# Reorganizacao de Clientes (TEMPORARIO)
+# Reset, Refatoracao e Reimport de Clientes (TEMPORARIO)
 
 Status: Temporario — **DELETAR ao concluir todas as fases de Clientes**
 Escopo: planejamento, analise profunda, decisoes e acompanhamento da
@@ -590,21 +590,23 @@ definida.
   `pf.branches.length === 0 → incompleto`. Aviso na UI; no backend o
   helper retorna `missing: ['farms']`.
 
-### Q-10e/f — Estrutura matriz separada para PJ → reorganizar (L5)
+### Q-10e/f — Estrutura matriz separada para PJ → reorganizar (L5) ✅
 
 - **Pergunta original**: quais campos da matriz PJ sao obrigatorios e
   quais sao recomendados.
-- **Insight do usuario**: sob F7 (PJ admite 1 branch ATIVA), manter
-  `Client` e `ClientBranch matriz` separados duplica dados (legalName,
-  tradeName, phone) e cria UX confusa. Faz mais sentido ter todos os
-  dados de PJ direto no `Client`.
-- **Concordo**: simplificar agora, antes do L4 reimport, e o momento
-  ideal — DB esta vazio (L3 zerou), wizard fica mais simples, UX fica
-  natural.
-- **Decisao**: criar fase **L5 — Simplificacao da estrutura PJ** antes
-  do L4 (ver §13.5 nova).
+- **Insight surgido na revisao**: sob F7 (PJ admite 1 branch ATIVA),
+  manter `Client` e `ClientBranch matriz` separados duplica dados
+  (legalName, tradeName, phone) e cria UX confusa. Faz mais sentido ter
+  todos os dados de PJ direto no `Client`.
+- **Decisao do usuario** (confirmada): seguir caminho A — simplificar
+  agora, antes do L4 reimport. Momento ideal: DB esta vazio (L3 zerou),
+  wizard fica mais simples, UX fica natural.
 - **Pos-L5**: PJ tem todos os dados em `Client` direto; `ClientBranch`
-  serve apenas para fazendas PF.
+  serve apenas para fazendas PF. Detalhes de implementacao em §12.5.
+- **Q-10f extinta**: nao existe mais "matriz PJ" como branch separada.
+- **Q-10e re-aberta sob L5**: precisa redefinir obrigatorios/
+  recomendados de `Client` PJ pos-L5 (campos novos: cnpj, endereco,
+  IE, email). Ver D1 abaixo.
 
 ### Q-09 — PJ exige CNPJ obrigatorio (banco + app) ✅
 
@@ -627,6 +629,336 @@ definida.
   - Migration nova `<TS>_pj_requires_cnpj_branch_trigger`.
   - Service ja implementa o 422 (Q-06). Wizard L4 valida no parse do
     CSV antes de tentar inserir.
+  - **Pos-L5**: trigger simplifica para verificar
+    `client.cnpj IS NOT NULL` quando `personType='PJ'` (CNPJ vai estar
+    direto no `Client`, nao mais em branch separada). Detalhes em §12.5.
+
+### Q-12 — Obrigatorios / recomendados em `Client` PJ pos-L5 ✅
+
+- **Decisao**: dos campos novos (cnpjOrder e cnpjRoot derivados ja
+  existem como sistema):
+  - **Obrigatorios** (CHECK no DB, ja existentes ou ja decididos):
+    `legalName`, `phone`, `cnpj` (Q-09), `isBuyer`/`isSeller`. Nenhum
+    novo obrigatorio.
+  - **Recomendados** (salva, mas marca cliente como incompleto + aviso
+    UI): `tradeName`, `registrationNumber` (IE), `addressLine`,
+    `district`, `city`, `state`, `postalCode`, `complement`, `email`.
+  - **Opcionais puros** (sem aviso): nenhum.
+- **Campo dropado da proposta L5**: `registrationType`. Justificativa:
+  como o unico tipo de inscricao em PJ sera Inscricao Estadual (IE),
+  o `registrationType` vira redundante; `registrationNumber` ja
+  carrega a IE. Schema final do `Client` PJ nao tem essa coluna.
+- **Justificativa geral**: cadastro rapido (ninguem fica preso por
+  campo opcional faltando), mas todos os campos relevantes contam pro
+  helper `isClientComplete`. Politica conservadora — o usuario sera
+  notificado pra completar tudo, sem bloquear o fluxo.
+- **Implementacao prevista**:
+  - Migration L5: `ALTER TABLE client ADD COLUMN` para os 9 campos
+    recomendados (todos NULLABLE; sem CHECK adicional alem do
+    `chk_client_person_type_fields`).
+  - Helper `isClientComplete`: PJ esta incompleto se qualquer um dos
+    9 recomendados for NULL.
+  - **NAO adicionar**: `registrationType` (decisao acima).
+- **Atualiza §12.5**: schema-alvo de `Client` reflete decisao acima.
+
+### Q-13 — Obrigatorios / recomendados em `ClientBranch` (fazenda PF) pos-L5 ✅
+
+- **Decisao** (campos da fazenda PF):
+  - **Obrigatorios** (CHECK no DB):
+    - `name` (apelido — ex "Fazenda Boa Vista"). Justificativa: quando
+      PF tem mais de uma fazenda, distinguir vira critico; quando tem
+      uma so, o nome ainda e dado fundamental do imovel rural.
+    - `clientId` (FK ja existente).
+  - **Recomendados** (salva, mas marca PF como incompleto):
+    `cnpj`, `phone`, `addressLine`, `district`, `city`, `state`,
+    `postalCode`, `registrationNumber` (IE), `car`.
+  - **Opcionais puros**: `legalName`, `tradeName`, `complement`.
+- **Campo dropado**: `registrationType`. Mesma justificativa de Q-12 —
+  unico tipo de inscricao sera IE. Como a coluna ja existe em
+  `client_branch`, a migration L5 fara `DROP COLUMN registration_type`
+  (DB vazio = sem perda de dado).
+- **Decisao adicional sobre `cnpj` em fazenda PF**: classificado como
+  **recomendado**, mesmo sendo raro produtor PF ter CNPJ. Razao: quando
+  existe, e dado fiscal importante; o helper `isClientComplete`
+  apontara que falta, e o usuario decide se preenche ou nao.
+- **`isPrimary`**: tratamento decidido em Q-15 (proxima).
+- **Implementacao prevista**:
+  - Migration L5:
+    - `ALTER TABLE client_branch ADD COLUMN car` (nullable).
+    - `ALTER TABLE client_branch DROP COLUMN registration_type`.
+    - `ALTER TABLE client_branch ALTER COLUMN name SET NOT NULL` +
+      atualizar `chk_client_person_type_fields` ou novo CHECK
+      garantindo `name` nao vazio.
+  - Helper `isClientComplete`: PF incompleto se qualquer das 9
+    recomendadas faltarem em **alguma** fazenda OU PF tiver 0
+    fazendas (Q-10d) OU campo recomendado de Client faltar (Q-10c).
+
+### Q-14 — Renomear `ClientBranch` → `ClientUnit` ("Unidade") ✅
+
+- **Decisao**: renomear `ClientBranch` para `ClientUnit` (rotulo PT-BR:
+  **Unidade**). O termo "branch" (filial) era correto sob F5/F6 mas
+  perdeu sentido pos-L5 (PJ nao tem mais branch e PF tem fazendas).
+  "Unidade" cobre fazenda, sitio, gleba, lote — vocabulario do
+  produtor rural sem forcar o rotulo "fazenda".
+- **Justificativa**: clareza semantica permanente. DB vazio +
+  L5 ja toca tudo = momento ideal. PT-BR alinhado com codigo.
+- **Escopo do rename**:
+  - **DB**: `client_branch` → `client_unit`; indexes/constraints
+    renomeados (`uq_client_branch_*` → `uq_client_unit_*`); FK
+    columns: `sample.owner_branch_id` → `sample.owner_unit_id`;
+    `sample_movement.buyer_branch_id` → `sample_movement.buyer_unit_id`;
+    `client_audit_event.target_branch_id` →
+    `client_audit_event.target_unit_id`.
+  - **Schema Prisma**: model `ClientBranch` → `ClientUnit`; enum
+    `ClientBranchStatus` → `ClientUnitStatus`; relations renomeadas
+    (`Sample.ownerBranch` → `Sample.ownerUnit`, etc.).
+  - **Service**: `createBranch` → `createUnit`,
+    `inactivateBranch` → `inactivateUnit`, etc.
+  - **API**: `/clients/:id/branches` → `/clients/:id/units`;
+    `/clients/:id/branches/:branchId` →
+    `/clients/:id/units/:unitId`.
+  - **Frontend**: `ClientBranchModal` → `ClientUnitModal`;
+    rotulos UI "Filial"/"Fazenda" → "Unidade" onde aplicavel
+    (terminologia contextual F7.4 mantem "Fazenda" so onde o
+    contexto e PF rural).
+  - **Audit events**: enum `ClientAuditEventType` ja tem
+    `CLIENT_BRANCH_CREATED/UPDATED/INACTIVATED/REACTIVATED`. Postgres
+    nao remove enum value — adicionar
+    `CLIENT_UNIT_CREATED/UPDATED/INACTIVATED/REACTIVATED`; deprecar
+    os antigos (mantidos no enum so para deserializar audits
+    historicos; novo codigo so emite os novos).
+  - **Tests + fixtures**: `createBranchFixture` → `createUnitFixture`;
+    todas as references a `branches` → `units`.
+- **Decisao sobre rotulagem PT-BR na UI**:
+  - Termo padrao no codigo, audit, API: "unidade" / "Unit".
+  - F7.4 (terminologia contextual): mantem "Fazenda" como label
+    visual para PF rural quando faz sentido (ex: botao "Nova
+    Fazenda" em PF). O backend recebe/devolve `unit`; o frontend
+    pode rotular como "Fazenda" no contexto certo. Decisao final
+    de copy fica no momento da implementacao.
+
+### Q-15 — `isPrimary` em `ClientUnit` ✅
+
+- **Decisao**: dropar o campo `isPrimary` (e a UNIQUE parcial
+  `uq_client_branch_one_primary` que o mantinha exclusivo por
+  cliente).
+- **Justificativa**: o caso de uso forte era marcar a matriz de PJ;
+  pos-L5 PJ nao tem mais unidade. Para PF, o conceito "principal" e
+  ambiguo (sede? endereco de cobranca? favorita?) e adiciona logica
+  (UNIQUE parcial, auto-promote F6.0, validacao no service) sem
+  retorno real.
+- **Implicacoes**:
+  - Migration L5: `ALTER TABLE client_unit DROP COLUMN is_primary` +
+    drop UNIQUE parcial.
+  - Service: remover `autoPromotePrimaryOnInactivate` (F6.0) e toda
+    logica de primary handling em `client-service.js`.
+  - Frontend: form de criar/editar unidade nao tem checkbox
+    "principal"; listagem ordena por nome ou data.
+  - Tests: remover assertions sobre primary.
+- **UX alternativa**: form de criar amostra lista todas as unidades
+  ativas em ordem alfabetica; usuario escolhe sem default
+  automatico.
+
+### Q-16 — Cutover do enum `ClientAuditEventType` ✅
+
+- **Decisao**: opcao B — cutover para estado limpo.
+- **Justificativa**: `client_audit_event` esta vazio (L3 zerou),
+  cutover e gratuito (sem conversao de dado). Limpa cruft acumulado
+  (F5 registration, F7.2 split, F7.2' consolidated, branch deprecated).
+  Precedente: F8B fez cutover identico em `IdempotencyScope`.
+- **Estado final do enum** (8 valores):
+  ```
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  CLIENT_INACTIVATED
+  CLIENT_REACTIVATED
+  CLIENT_UNIT_CREATED
+  CLIENT_UNIT_UPDATED
+  CLIENT_UNIT_INACTIVATED
+  CLIENT_UNIT_REACTIVATED
+  ```
+- **Implementacao prevista**: migration L5 inclui bloco de cutover:
+  1. `CREATE TYPE "ClientAuditEventType_new" AS ENUM (...8 valores...)`.
+  2. `ALTER TABLE client_audit_event ALTER COLUMN event_type TYPE
+"ClientAuditEventType_new" USING ...::text::"ClientAuditEventType_new"`.
+  3. `DROP TYPE "ClientAuditEventType"`.
+  4. `ALTER TYPE "ClientAuditEventType_new" RENAME TO
+"ClientAuditEventType"`.
+- Schema Prisma: enum `ClientAuditEventType` reduz para 8 valores;
+  todas as referencias a `CLIENT_BRANCH_*`, `CLIENT_REGISTRATION_*`,
+  `CLIENT_SPLIT`, `CLIENT_BRANCH_CONSOLIDATED` sao removidas do
+  codigo.
+
+### Q-17 — `Sample.ownerUnitId` em PJ (confirmacao trivial) ✅
+
+- **Decisao**: campo `Sample.ownerUnitId` continua nullable; PF
+  preenche com a unidade, PJ deixa NULL. Mesma logica para
+  `SampleMovement.buyerUnitId` e
+  `ClientAuditEvent.targetUnitId`.
+- **Justificativa**: consequencia direta de L5 + Q-14. Sem decisao
+  arquitetural nova.
+- **Implicacao UI**: F7.4 (terminologia contextual) ja trata —
+  listagem mostra "Cliente — Unidade" para PF e so "Cliente" para PJ.
+
+### Q-11 — Onde aparece o aviso "incompleto" ✅
+
+- **Decisao**: aviso passivo (nao bloqueia fluxo) em 4 lugares.
+- **Listagem `/clients`**:
+  - Emoji 🟠 (ou icone Lucide `AlertCircle` cor laranja) na linha
+    do card.
+  - Borda esquerda laranja sutil no card (cor `--brand-warning`
+    ou similar; design-system define o token exato).
+  - Toggle "Mostrar so incompletos" no filtro lateral.
+  - Contador no header: "X clientes · Y incompletos".
+- **Detail page `/clients/[id]`**:
+  - Card no topo (fundo laranja sutil) listando os campos faltando
+    como checklist.
+  - Cada campo e link para abrir o form/modal de edicao do campo
+    relevante (Client ou Unit).
+  - Card desaparece quando `isClientComplete` retorna `complete=true`.
+- **Lookup field** (ao buscar cliente em form de amostra etc.):
+  - Emoji 🟠 discreto na linha. Nao chama atencao excessiva — usuario
+    pode ainda usar o cliente normalmente; aviso so informa.
+- **Sem aviso modal/intrusivo**: usuario escolhe quando completar.
+  Cadastro rapido continua valendo (Q-10b/c/Q-12/Q-13).
+- **Implementacao prevista**:
+  - Helper `isClientComplete(client)` em `src/clients/client-helpers.js`
+    (compartilhado backend/frontend) retorna
+    `{ complete: boolean, missing: string[] }` onde `missing` lista
+    chaves canonicas (`cpf`, `email`, `units`, `cnpj`, etc.).
+  - Frontend: novo componente `ClientCompleteBadge` (emoji + tooltip
+    com contagem) usado em listagem e lookup; novo componente
+    `ClientCompleteChecklist` na detail page.
+  - Backend: nada a expor alem do helper; campos existentes ja
+    permitem o calculo no client-side.
+  - Filtro: `GET /clients?completeness=incomplete` query param novo.
+
+### Q-23 — `email` UNIQUE em `Client`? ✅
+
+- **Decisao**: NAO UNIQUE. Permite repetir email entre clientes.
+- **Justificativa**: cenarios validos onde email se repete: PJ usa
+  email generico (contato@empresa.com.br) que pode ser o mesmo de
+  varios cadastros; PF familia compartilha email; produtor e
+  intermediario sob mesmo dominio. Identidade do cliente vem de
+  CPF/CNPJ, nao de email.
+- **Implementacao prevista**: schema Prisma `email String?` sem
+  `@unique`; sem index UNIQUE no DB.
+
+### Q-24 — CEP lookup automatico no form de cadastro ✅
+
+- **Decisao**: ativar CEP lookup automatico **apenas no form de
+  cadastro/edicao** de cliente (PJ ou PF) e de unidade (PF). Ao
+  digitar CEP completo, preencher automaticamente `addressLine`,
+  `district`, `city`, `state`. Usuario pode editar os campos
+  preenchidos.
+- **Justificativa**: reduz fricao de cadastro e erros de digitacao
+  em UF/cidade. Padrao de mercado.
+- **Onde NAO usar**: nao roda em listagem, busca, detail page —
+  so na entrada de dados.
+- **Implementacao prevista**:
+  - API externa: ViaCEP (`https://viacep.com.br/ws/<cep>/json/`).
+    Servico publico, sem auth, sem rate limit relevante.
+  - Hook React `useCepLookup(cep)` debounced; chama ao detectar
+    CEP completo (8 digitos sem mascara).
+  - Loading state discreto (spinner pequeno no campo CEP).
+  - Erro silencioso (CEP invalido / API down) — usuario digita
+    manualmente; sem alert/banner.
+  - Aplicar em: `ClientQuickCreateModal` (PJ + PF), `ClientUnitModal`
+    (criar/editar fazenda PF), `ClientEditModal` (editar enderecos).
+- **NAO afeta**: wizard L4 (importa CSV ja preenchido).
+
+### Q-25 — Implementacao do Idempotency-Key (fecha Q-02) ✅
+
+- **Decisao**: opcao A — tabela nova `idempotency_record` dedicada,
+  independente de `SampleEvent`.
+- **Justificativa**: Cloud Run multi-instancia descarta in-memory;
+  `SampleEvent` e specifico de samples (reuso conceitualmente errado).
+  Tabela dedicada deixa o concern isolado e facilita expiracao.
+- **Schema previsto** (a confirmar no commit de implementacao):
+
+  ```prisma
+  model IdempotencyRecord {
+    id           String   @id @db.Uuid
+    scope        String                    // "POST /clients"
+    key          String                    // valor do header
+    statusCode   Int
+    responseBody Json
+    createdAt    DateTime @default(now()) @db.Timestamptz(6)
+    expiresAt    DateTime @db.Timestamptz(6)
+
+    @@unique([scope, key], map: "uq_idempotency_scope_key")
+    @@index([expiresAt], map: "idx_idempotency_expires")
+    @@map("idempotency_record")
+  }
+  ```
+
+- **Implementacao prevista**:
+  - Middleware Next.js (ou helper proxy) intercepta requests com
+    header `Idempotency-Key` em `POST /clients` e
+    `POST /clients/:id/units`.
+  - Lookup por `(scope, key)`: hit cached → retorna response;
+    miss → executa, salva resultado, retorna.
+  - TTL: 24h (`expiresAt = createdAt + 24h`).
+  - Cleanup: cron job (Cloud Run job ou simples DELETE em
+    migration/health) deleta `WHERE expiresAt < NOW()`.
+- **Documentacao**: registrar no `docs/API-e-Contratos.md` o uso
+  do header e contrato de resposta.
+
+### Q-20 / Q-21 / Q-22 — Estrategia de execucao ✅
+
+- **Q-20 (commit strategy)**: L5 = 1 commit atomico (schema +
+  migration + service + API + frontend + tests). Cada Q-XX
+  subsequente = commit dedicado.
+- **Q-21 (ordem)**:
+  1. **L5 atomico** — base do refactor (Q-12, Q-13, Q-14, Q-15, Q-16,
+     Q-17, Q-23 incorporados; estrutura final do dominio Cliente).
+  2. **Q-11** — aviso incompleto na UI (helper + badge + checklist +
+     filtro listagem).
+  3. **Q-24** — CEP lookup nos forms.
+  4. **Q-01** — `?onlyActive=true` query param.
+  5. **Q-02 + Q-25** — Idempotency-Key middleware + tabela.
+  6. **Q-05 + Q-08** — endpoint `inactivate-with-cascade` + UI modal.
+  7. **(gating)** Q-18 + Q-19 — fechar planilha (analise mais
+     profunda; depende do excerpt da planilha real).
+  8. **L4** — wizard de import.
+  9. **L3.5** — apagar fotos no GCS (ops, requer confirmacao).
+  10. **M2 + cleanup final** — desativar manutencao, deletar doc
+      temporario e artefatos `tmp/`.
+- **Q-22 (docs canonicos)**: `Clientes-e-Movimentacoes-Especificacao.md`
+  e `API-e-Contratos.md` atualizados **no mesmo commit** que o feature
+  relevante. Sem commit "spec antes de codar".
+- **Objetivo do ciclo atual**: ate o #6. Apos isso, pausa pra analise
+  da planilha (#7) antes de retomar com #8.
+
+### Metodologia de execucao por etapa (acordada)
+
+Para cada # da ordem (Q-21), seguir 5 passos:
+
+1. **Analise das decisoes** — revisar tudo o que ja foi decidido
+   relevante para esse #.
+2. **Analisar estado atual** — ler codigo/schema/tests existentes pra
+   saber o que muda.
+3. **Verificar decisoes adicionais** — identificar micro-decisoes que
+   nao apareceram na revisao geral mas sao necessarias para
+   implementar com qualidade.
+4. **Construir plano de acao** — lista de arquivos a tocar, ordem,
+   quality gates, validacoes.
+5. **Implementar** — codar, rodar gates, commitar.
+
+### Status de execucao (Q-21)
+
+| # | Etapa | Status |
+| - | ----- | ------ |
+| 1 | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ implementado, gates verdes, **aguardando commit** |
+| 2 | Q-11 — aviso incompleto na UI (helper + badge + checklist) | pendente |
+| 3 | Q-24 — CEP lookup nos forms | pendente |
+| 4 | Q-01 — `?onlyActive=true` query param | pendente |
+| 5 | Q-02 + Q-25 — Idempotency-Key middleware + tabela | pendente |
+| 6 | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal | pendente |
+| 7 | (gating) Q-18 + Q-19 — fechar planilha | depende de excerpt |
+| 8 | L4 — wizard de import | depende de #7 |
+| 9 | L3.5 — apagar fotos no GCS | requer confirmacao |
+| 10 | M2 + cleanup final | encerra ciclo |
 
 ---
 
@@ -676,111 +1008,224 @@ vazio.
 - **Irreversivel sem backup local**: requer confirmacao explicita
   (auto mode regra 5).
 
-## 12.5. L5 — Simplificacao da estrutura PJ (antes do L4)
+## 12.5. L5 — Simplificacao da estrutura PJ + rename para Unidade (antes do L4)
 
 ### Objetivo
 
 Mover todos os dados de identidade/contato/endereco de PJ do
-`ClientBranch` matriz para o proprio `Client`. Pos-L5, `ClientBranch`
-serve apenas para fazendas PF; PJ nao tem branch.
+`ClientBranch` matriz para o proprio `Client`. Pos-L5, `ClientUnit`
+(novo nome de `ClientBranch`, decisao Q-14) serve apenas para
+unidades de PF (fazendas/sitios/glebas); PJ nao tem unidade.
 
 ### Motivacao
 
 Pos-F7 (PJ admite 1 branch ATIVA), a separacao `Client` + `Branch
 matriz` virou redundancia: legalName, tradeName, phone aparecem em 2
 lugares; UX confusa (2 cards para editar 1 empresa). Como o DB esta
-vazio apos L3, este e o momento mais barato para reorganizar.
+vazio apos L3, este e o momento mais barato para reorganizar **e**
+renomear o conceito (Q-14): "branch"/"filial" deixa de fazer sentido,
+"Unidade" cobre fazenda/sitio/gleba sem forcar rotulo.
 
 ### Schema-alvo
 
 **`Client`** (apenas PJ ganha campos):
 
-| Campo                       | PF              | PJ            |
-| --------------------------- | --------------- | ------------- |
-| `id`                        | sistema         | sistema       |
-| `code`                      | sistema         | sistema       |
-| `personType`                | PF              | PJ            |
-| `fullName`                  | ✅ obr          | NULL          |
-| `legalName`                 | NULL            | ✅ obr        |
-| `tradeName`                 | NULL            | opcional      |
-| `cpf`                       | opcional (Q-04) | NULL          |
-| `cnpj` (NOVO)               | NULL            | ✅ obr (Q-09) |
-| `cnpjOrder` (NOVO)          | NULL            | derivado      |
-| `cnpjRoot`                  | NULL            | derivado      |
-| `registrationNumber` (NOVO) | NULL            | opcional (IE) |
-| `registrationType` (NOVO)   | NULL            | opcional      |
-| `addressLine` (NOVO)        | NULL            | opcional      |
-| `district` (NOVO)           | NULL            | opcional      |
-| `city` (NOVO)               | NULL            | opcional      |
-| `state` (NOVO)              | NULL            | opcional      |
-| `postalCode` (NOVO)         | NULL            | opcional      |
-| `complement` (NOVO)         | NULL            | opcional      |
-| `phone`                     | ✅ obr          | ✅ obr        |
-| `email` (NOVO Q-10a)        | opcional        | opcional      |
-| `isBuyer` / `isSeller`      | obr             | obr           |
-| `status`                    | sistema         | sistema       |
+Legenda: **obr** = obrigatorio (CHECK no DB) · **rec** = recomendado
+(salva, mas conta para `isClientComplete`) · **opc** = opcional puro
+(sem aviso) · **sis** = derivado pelo sistema.
 
-**`ClientBranch`** (apenas PF fazendas):
+| Campo                       | PF          | PJ              |
+| --------------------------- | ----------- | --------------- |
+| `id`                        | sis         | sis             |
+| `code`                      | sis         | sis             |
+| `personType`                | PF          | PJ              |
+| `fullName`                  | ✅ obr      | NULL            |
+| `legalName`                 | NULL        | ✅ obr          |
+| `tradeName`                 | NULL        | rec (Q-12)      |
+| `cpf`                       | rec (Q-10c) | NULL            |
+| `cnpj` (NOVO)               | NULL        | ✅ obr (Q-09)   |
+| `cnpjOrder` (NOVO)          | NULL        | sis (derivado)  |
+| `cnpjRoot`                  | NULL        | sis (derivado)  |
+| `registrationNumber` (NOVO) | NULL        | rec — IE (Q-12) |
+| `addressLine` (NOVO)        | NULL        | rec (Q-12)      |
+| `district` (NOVO)           | NULL        | rec (Q-12)      |
+| `city` (NOVO)               | NULL        | rec (Q-12)      |
+| `state` (NOVO)              | NULL        | rec (Q-12)      |
+| `postalCode` (NOVO)         | NULL        | rec (Q-12)      |
+| `complement` (NOVO)         | NULL        | rec (Q-12)      |
+| `phone`                     | ✅ obr      | ✅ obr          |
+| `email` (NOVO Q-10a)        | rec (Q-10c) | rec (Q-12)      |
 
-Estrutura atual mantida, **com adicao de**:
+| `isBuyer` / `isSeller` | ✅ obr (CHECK) | ✅ obr (CHECK) |
+| `status` | sis | sis |
+| `createdAt` / `updatedAt` | sis | sis |
 
-- `car` (NOVO Q-10a) — texto opcional, separado de
-  `registrationNumber`.
+**Campo dropado da proposta inicial**: `registrationType`. Como em PJ
+o unico tipo de inscricao sera IE, o tipo vira redundante. A coluna
+`registrationNumber` carrega a IE direto. Q-12 fechou essa decisao.
+
+**`ClientUnit`** (novo nome de `ClientBranch` — Q-14; apenas para
+unidades de PF — pos-L5 e Q-13):
+
+| Campo                         | Categoria      |
+| ----------------------------- | -------------- |
+| `id`                          | sis            |
+| `clientId`                    | ✅ obr (FK)    |
+| `code`                        | sis            |
+| `name`                        | ✅ obr (Q-13)  |
+| `cnpj`                        | rec (Q-13)     |
+| `legalName`                   | opc            |
+| `tradeName`                   | opc            |
+| `phone`                       | rec (Q-13)     |
+| `addressLine`                 | rec (Q-13)     |
+| `district`                    | rec (Q-13)     |
+| `city`                        | rec (Q-13)     |
+| `state`                       | rec (Q-13)     |
+| `postalCode`                  | rec (Q-13)     |
+| `complement`                  | opc            |
+| `registrationNumber` (IE)     | rec (Q-13)     |
+| `registrationNumberCanonical` | sis (derivado) |
+| `car` (NOVO Q-10a)            | rec (Q-13)     |
+| `status`, timestamps          | sis            |
+
+**Campo dropado**: `registrationType` (mesma logica de Q-12 — unico
+tipo sera IE). DB vazio = drop sem perda. Migration: `DROP COLUMN`.
+
+**Outros campos dropados (passo 3 do workflow #1):**
+
+- `cnpjOrder` em `ClientUnit` (D-C) — coluna existia em PJ filial pra
+  distinguir matriz/filial; pos-L5, ClientUnit e so PF e nao tem
+  semantica de "ordem". `cnpjOrder` continua existindo em `Client`
+  (PJ ainda usa pra derivar do CNPJ).
+
+**Constraints adicionais decididos no passo 3:**
+
+- `ClientUnit.cnpj` UNIQUE GLOBAL parcial mantido (D-A) — `WHERE
+cnpj IS NOT NULL`.
+- `ClientUnit.name` UNIQUE por cliente (D-B) — `UNIQUE (client_id,
+lower(name)) WHERE status='ACTIVE'`. Evita PF com 2 fazendas
+  ATIVAS com mesmo nome.
+- `ClientUnit.registrationNumberCanonical` UNIQUE GLOBAL parcial
+  mantido (D-G) — status quo.
+
+**Validacao no service (passo 3):**
+
+- Email — regex simples `/^[^@\s]+@[^@\s]+\.[^@\s]+$/` no service
+  (D-D); rejeita 422 se invalido.
+
+**Triggers e escape valves (passo 3):**
+
+- `fn_assert_pj_has_cnpj` (Q-09) — **omitido** (D-H). O CHECK
+  `chk_client_person_type_fields` ja garante `cnpj NOT NULL` em PJ;
+  trigger separado seria redundante.
+- `enforce_pj_zero_units` (substitui F7.1B) — **sem escape valve**
+  (D-I). O escape valve antigo `app.allow_split_wizard='on'` era pro
+  wizard F7.2' que sai junto.
+- `app.allow_audit_mutation='wizard_f51'` escape valve — **dropar**
+  (D-E). Era pro wizard F5.1 de consolidacao que sai junto.
+
+**Cleanup F7.2' completo (D-J):**
+
+- Deletar `scripts/migrations/f7-pj-consolidate-wizard.mjs`.
+- Deletar `scripts/audits/f7-prod-audit.mjs`.
+- Remover codigo que emite `CLIENT_SPLIT` ou
+  `CLIENT_BRANCH_CONSOLIDATED` (cutover Q-16 ja remove os enum
+  values).
+
+**Outros (D-K, D-L, D-M):**
+
+- `code` autoincrement em ClientUnit (sequencial por cliente) — mantem.
+- Helper `isClientComplete` — `src/clients/client-helpers.js` shared.
+- Migration: arquivo unico `<TS>_l5_simplify_pj_and_rename_branch_to_unit/migration.sql`.
 
 ### Mudancas necessarias
 
-1. **Migration nova** (timestamp pos-L4-prep):
-   - `ALTER TABLE client ADD COLUMN cnpj`, `cnpj_order`,
-     `registration_number`, `registration_type`, `address_line`,
-     `district`, `city`, `state`, `postal_code`, `complement`, `email`.
-   - `CREATE UNIQUE INDEX uq_client_cnpj ON client(cnpj) WHERE cnpj IS NOT NULL`.
-   - `CREATE INDEX uq_client_registration_canonical ON client(registration_number_canonical) WHERE ...`.
-   - `ALTER TABLE client_branch ADD COLUMN car`.
-   - Atualizar `chk_client_person_type_fields`: PF rejeita campos PJ
-     (cnpj, IE, endereco PJ); PJ rejeita fullName/cpf.
-   - Trigger F7.1B: ajustar para rejeitar **qualquer** branch em PJ
-     (nao mais "1 ATIVA"; ZERO).
-   - Trigger novo `fn_assert_pj_has_cnpj` (Q-09): verifica
-     `client.cnpj IS NOT NULL` quando personType=PJ. CONSTRAINT TRIGGER
-     DEFERRABLE.
-   - Drop `uq_client_branch_cnpj` (CNPJ migra para client).
+1. **Migration nova** (timestamp pos-L4-prep) — bloco A
+   (campos novos no Client) + bloco B (rename Q-14):
+   - **A. Campos novos no Client (L5 + Q-12)**:
+     - `ALTER TABLE client ADD COLUMN cnpj`, `cnpj_order`,
+       `registration_number`, `registration_number_canonical`,
+       `address_line`, `district`, `city`, `state`, `postal_code`,
+       `complement`, `email`. **Sem** `registration_type` (Q-12).
+     - `CREATE UNIQUE INDEX uq_client_cnpj ON client(cnpj) WHERE cnpj IS NOT NULL`.
+     - `CREATE UNIQUE INDEX uq_client_registration_canonical ON client(registration_number_canonical) WHERE registration_number_canonical IS NOT NULL`.
+     - Atualizar `chk_client_person_type_fields`: PF rejeita campos
+       PJ (cnpj, IE, endereco PJ); PJ rejeita fullName/cpf.
+     - Trigger novo `fn_assert_pj_has_cnpj` (Q-09): verifica
+       `client.cnpj IS NOT NULL` quando personType=PJ.
+       CONSTRAINT TRIGGER DEFERRABLE.
+   - **B. Ajustes em client_branch + rename para client_unit (Q-13 + Q-14)**:
+     - `ALTER TABLE client_branch ADD COLUMN car` (nullable, Q-13).
+     - `ALTER TABLE client_branch DROP COLUMN registration_type` (Q-13;
+       DB vazio = sem perda).
+     - `ALTER TABLE client_branch ALTER COLUMN name SET NOT NULL` +
+       CHECK `btrim(name) <> ''` (Q-13).
+     - `ALTER TABLE client_branch DROP COLUMN is_primary` (Q-15) +
+       drop UNIQUE parcial `uq_client_branch_one_primary`.
+     - Drop `uq_client_branch_cnpj` (CNPJ migra para client).
+     - Drop trigger `trg_enforce_pj_single_active_branch` (F7.1B);
+       sera recriado como `trg_enforce_pj_zero_units` apos rename.
+     - **Rename (Q-14)**:
+       - `ALTER TABLE client_branch RENAME TO client_unit`.
+       - Renomear indexes/constraints: `uq_client_branch_*` →
+         `uq_client_unit_*`; `idx_client_branch_*` → `idx_client_unit_*`;
+         `chk_client_branch_*` → `chk_client_unit_*` (se houver).
+       - `ALTER TABLE sample RENAME COLUMN owner_branch_id TO owner_unit_id`
+         - renomear FK + index.
+       - `ALTER TABLE sample_movement RENAME COLUMN buyer_branch_id TO buyer_unit_id`.
+       - `ALTER TABLE client_audit_event RENAME COLUMN target_branch_id TO target_unit_id`.
+     - Recriar trigger `enforce_pj_zero_units` em `client_unit`
+       (rejeita qualquer INSERT em client_unit se Client e PJ).
+   - **C. Audit event enum (Q-14)**:
+     - `ALTER TYPE "ClientAuditEventType" ADD VALUE 'CLIENT_UNIT_CREATED'`
+       e similares para UPDATED/INACTIVATED/REACTIVATED.
+     - Valores antigos `CLIENT_BRANCH_*` ficam no enum como
+       deprecated — Postgres nao remove enum value; novo codigo nao
+       emite mais.
 
-2. **Schema Prisma**: ajustar models `Client` e `ClientBranch`.
+2. **Schema Prisma**: model `ClientBranch` → `ClientUnit`; enum
+   `ClientBranchStatus` → `ClientUnitStatus`; relations renomeadas
+   (`Sample.ownerBranch` → `Sample.ownerUnit`, etc.); ClientAuditEvent
+   `targetBranch` → `targetUnit`.
 
 3. **Service** `client-service.js`:
-   - `createClient` PJ aceita `cnpj`, `registrationNumber`,
-     `registrationType`, endereco direto (sem `branches[]`).
+   - `createClient` PJ aceita `cnpj`, `registrationNumber` (IE),
+     endereco e demais recomendados direto (sem `branches[]`).
    - `createClient` PF aceita `branches[]` apenas para fazendas.
    - `createBranch`: rejeita 422 se `client.personType === 'PJ'`.
-   - `inactivateBranch`/`reactivateBranch`/`updateBranch`: rejeita PJ.
-   - `assertPjBranchLimit` removido (PJ nao tem branch).
+   - `createUnit`/`inactivateUnit`/`reactivateUnit`/`updateUnit`
+     (renomeados — Q-14): rejeitam PJ (422).
+   - `assertPjBranchLimit` removido (PJ nao tem unidade).
    - `lookupClients`: PJ retorna 1 linha simples (ja era assim no
      frontend; backend simplifica).
 
-4. **API routes**:
-   - `POST /clients/:id/branches` rejeita PJ (404 ou 422).
+4. **API routes** (paths renomeados — Q-14):
+   - `POST /clients/:id/units` rejeita PJ (404 ou 422).
    - `GET /clients/:id` retorna o Client com todos os campos PJ
-     direto; sem `branches` para PJ (ou `branches: []` por compat).
+     direto; sem `units` para PJ (ou `units: []` por compat).
 
-5. **Frontend**:
-   - `ClientBranchModal` so abre para PF.
+5. **Frontend** (componentes renomeados — Q-14):
+   - `ClientUnitModal` (ex `ClientBranchModal`) so abre para PF.
    - `ClientQuickCreateModal` PJ pede CNPJ + endereco inline (sem
      "configure depois").
    - `ClientLookupField`: PJ ja era 1 linha simples; PF mantem
-     hierarquico.
+     hierarquico (cliente → unidade).
    - Detail page `/clients/[id]` PJ: card "Empresa" mostra TUDO
-     direto; aba "Filiais" some completamente.
-   - Detail page PF: aba "Fazendas" mantem.
+     direto; aba "Unidades" some completamente.
+   - Detail page PF: aba "Unidades" (rotulo PT-BR pode ser
+     "Fazendas" no contexto rural — F7.4 contextual).
 
 6. **Tests**:
    - Atualizar fixtures: `createPjClient` passa cnpj/endereco no client
      direto; remove `branches: []` para PJ.
    - Tests existentes que testavam branch matriz PJ → adaptar para
      campos no Client.
+   - Renomear: `createBranchFixture` → `createUnitFixture`;
+     references a `branches` → `units` (Q-14).
 
 7. **Wizard L4**:
-   - CSV PJ vai direto para `Client` (sem coluna branch separada).
-   - CSV PF mantem coluna por fazenda (multi-row se mais de uma).
+   - CSV PJ vai direto para `Client` (sem coluna unidade separada).
+   - CSV PF mantem coluna por unidade (multi-row se mais de uma).
 
 ### Riscos
 
@@ -865,7 +1310,7 @@ Apos L4 finalizar e validar smoke completo do reimport.
 Ao concluir todas as fases, fazer no mesmo commit:
 
 ```bash
-git rm docs/Reorganizacao-Clientes-L1-L4.md
+git rm docs/Reset-Refatoracao-e-Reimport-Clientes.md
 rm -rf tmp/samples-backup.json tmp/samples-backup.csv
 rm -rf tmp/samples-backup-attachments.csv tmp/gsutil-download-script.sh
 rm -rf tmp/l4-import-report-*.json

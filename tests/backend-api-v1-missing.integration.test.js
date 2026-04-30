@@ -103,7 +103,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -112,52 +112,43 @@ if (!databaseUrl || !databaseReachable) {
     const suffix = overrides.cnpj ?? generateValidCnpj(sellerClientSequence);
     const defaultName = `Cliente Seller ${sellerClientSequence} LTDA`;
 
+    // L5: PJ guarda dados fiscais/endereco direto no Client (sem units).
     return clientService.createClient(
       {
         personType: 'PJ',
         legalName: overrides.legalName ?? defaultName,
         tradeName: overrides.tradeName ?? overrides.legalName ?? defaultName,
+        cnpj: suffix,
+        addressLine: overrides.addressLine ?? 'Av. Princesa do Sul, 1885',
+        district: overrides.district ?? 'Rezende',
+        city: overrides.city ?? 'Varginha',
+        state: overrides.state ?? 'MG',
+        postalCode: overrides.postalCode ?? '37062-447',
         phone: overrides.phone ?? '35 3531-4046',
         isBuyer: overrides.isBuyer ?? true,
         isSeller: overrides.isSeller ?? true,
-        branches: [{ isPrimary: true, cnpj: suffix }],
       },
       actorClassifier
     );
   }
 
-  // F7.3: PJ admite no maximo 1 branch ATIVA. O helper antigo criava uma
-  // segunda branch via createBranch (vinha do tempo do dual-write F5.1) —
-  // hoje isso retorna 409. Reusamos a matriz ja criada por createSellerClient
-  // e aplicamos overrides com updateBranch quando o teste pede campos
-  // especificos. Devolve o mesmo shape `{ branch }` para minimizar diff.
+  // L5: PJ guarda dados fiscais/endereco direto em Client. O helper antigo
+  // de "registration" virou um update do proprio Client.
   async function createClientRegistration(clientId, overrides = {}) {
     registrationSequence += 1;
-    const primary = await prisma.clientBranch.findFirst({
-      where: { clientId, status: 'ACTIVE' },
-      orderBy: [{ isPrimary: 'desc' }, { code: 'asc' }],
-    });
-    if (!primary) {
-      throw new Error(`createClientRegistration: client ${clientId} sem branch ATIVA`);
-    }
     const updates = {
       registrationNumber:
         overrides.registrationNumber ?? nextSequenceDigits(registrationSequence, 13),
-      registrationType: overrides.registrationType ?? 'estadual',
       addressLine: overrides.addressLine ?? 'Av. Oliveira Rezende, 1397',
       district: overrides.district ?? 'JD Bernadete',
       city: overrides.city ?? 'Sao Sebastiao do Paraiso',
       state: overrides.state ?? 'MG',
       postalCode: overrides.postalCode ?? '37950-078',
       complement: overrides.complement ?? null,
+      reasonText: 'fixture: setup registration data',
     };
-    const updated = await clientService.updateBranch(
-      clientId,
-      primary.id,
-      { ...updates, reasonText: 'fixture: setup registration data' },
-      actorClassifier
-    );
-    return updated;
+    const updated = await clientService.updateClient(clientId, updates, actorClassifier);
+    return { client: updated.client };
   }
 
   async function moveSampleToRegistrationConfirmed(sampleId) {
@@ -698,7 +689,7 @@ if (!databaseUrl || !databaseReachable) {
           clientDraftId: randomUUID(),
           owner: 'Texto legado divergente',
           ownerClientId: ownerClient.client.id,
-          ownerBranchId: ownerRegistration.branch.id,
+          ownerUnitId: null,
           sacks: 12,
           harvest: '25/26',
           originLot: 'ORIG-OWNER-LINKED',
@@ -709,19 +700,19 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(created.body.sample.ownerBranchId, ownerRegistration.branch.id);
+    assert.equal(created.body.sample.ownerUnitId, null);
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
 
     const detail = await queryService.getSampleDetail(created.body.sample.id, { eventLimit: 20 });
     assert.equal(detail.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(detail.sample.ownerBranchId, ownerRegistration.branch.id);
+    assert.equal(detail.sample.ownerUnitId, null);
     assert.equal(detail.sample.declared.owner, ownerClient.client.displayName);
 
     const registrationConfirmed = detail.events.find(
       (event) => event.eventType === 'REGISTRATION_CONFIRMED'
     );
     assert.equal(registrationConfirmed?.payload?.ownerClientId, ownerClient.client.id);
-    assert.equal(registrationConfirmed?.payload?.ownerBranchId, ownerRegistration.branch.id);
+    assert.equal(registrationConfirmed?.payload?.ownerUnitId, null);
   });
 
   test('POST /registration/update can attach structured owner to a registered sample and clear previous registration on owner change', async () => {
@@ -738,7 +729,7 @@ if (!databaseUrl || !databaseReachable) {
           expectedVersion: 3,
           after: {
             ownerClientId: firstOwner.client.id,
-            ownerBranchId: firstRegistration.branch.id,
+            ownerUnitId: null,
           },
           reasonCode: 'DATA_FIX',
           reasonText: 'vincular cliente',
@@ -751,7 +742,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const attachedSample = await queryService.requireSample(sampleId);
     assert.equal(attachedSample.ownerClientId, firstOwner.client.id);
-    assert.equal(attachedSample.ownerBranchId, firstRegistration.branch.id);
+    assert.equal(attachedSample.ownerUnitId, null);
     assert.equal(attachedSample.declared.owner, firstOwner.client.displayName);
 
     const secondOwner = await createSellerClient({
@@ -779,7 +770,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const switchedSample = await queryService.requireSample(sampleId);
     assert.equal(switchedSample.ownerClientId, secondOwner.client.id);
-    assert.equal(switchedSample.ownerBranchId, null);
+    assert.equal(switchedSample.ownerUnitId, null);
     assert.equal(switchedSample.declared.owner, secondOwner.client.displayName);
   });
 
@@ -834,34 +825,8 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(buyerOnlyResult.status, 422);
 
-    const ownerA = await createSellerClient({
-      legalName: 'Proprietario A LTDA',
-      tradeName: 'Proprietario A LTDA',
-      cnpj: generateValidCnpj(104),
-    });
-    const ownerB = await createSellerClient({
-      legalName: 'Proprietario B LTDA',
-      tradeName: 'Proprietario B LTDA',
-      cnpj: generateValidCnpj(105),
-    });
-    const ownerBRegistration = await createClientRegistration(ownerB.client.id, {
-      registrationNumber: '998877665544',
-    });
-
-    const mismatchedRegistration = await api.createSampleAndPreparePrint(
-      buildInput({
-        body: {
-          clientDraftId: randomUUID(),
-          ownerClientId: ownerA.client.id,
-          ownerBranchId: ownerBRegistration.branch.id,
-          sacks: 10,
-          harvest: '25/26',
-          originLot: 'ORIG-MISMATCH',
-        },
-      })
-    );
-
-    assert.equal(mismatchedRegistration.status, 422);
+    // L5: mismatched owner unit case nao mais aplicavel (PJ nao tem unit;
+    // mismatch passa a depender de PF, coberto em outros testes).
   });
 
   test('updating owner client display name synchronizes declared owner on linked samples without bumping sample version', async () => {

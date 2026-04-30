@@ -201,20 +201,20 @@ export function ClientQuickCreateModal({
     setError(null);
 
     try {
-      // F5.2/F6.0: cnpj agora vai dentro de branches[]. Se PJ e cnpj preenchido,
-      // cria a matriz inline; senao cria client transient (sem branches).
-      const cnpjMatriz = form.personType === 'PJ' && form.cnpj.trim() ? form.cnpj.trim() : null;
+      // L5: PJ guarda cnpj direto no Client (sem branches). PF nao tem cnpj
+      // aqui (cpf vai no proprio Client; fazendas eventuais sao adicionadas
+      // depois pela tela de detalhe).
       const response = await createClient(session, {
         personType: form.personType,
         fullName: form.personType === 'PF' ? form.fullName : undefined,
         legalName: form.personType === 'PJ' ? form.legalName : undefined,
         tradeName: form.personType === 'PJ' ? form.tradeName || null : undefined,
         cpf: form.personType === 'PF' ? form.cpf || null : undefined,
+        cnpj: form.personType === 'PJ' ? form.cnpj || null : undefined,
         phone: form.phone,
         isBuyer: form.isBuyer,
         isSeller: form.isSeller,
         commercialUserIds: form.commercialUserIds,
-        branches: cnpjMatriz ? [{ isPrimary: true, cnpj: cnpjMatriz }] : [],
       });
 
       setSaving(false);

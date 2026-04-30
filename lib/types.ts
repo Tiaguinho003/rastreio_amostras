@@ -23,17 +23,18 @@ export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'C
 export type ClassificationType = 'PREPARADO' | 'LOW_CAFF' | 'BICA';
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
-export type ClientBranchStatus = 'ACTIVE' | 'INACTIVE';
+export type ClientUnitStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientLookupKind = 'owner' | 'buyer' | 'any';
+// L5: enum reduzido a 8 valores. Audit de unit usa CLIENT_UNIT_*.
 export type ClientAuditEventType =
   | 'CLIENT_CREATED'
   | 'CLIENT_UPDATED'
   | 'CLIENT_INACTIVATED'
   | 'CLIENT_REACTIVATED'
-  | 'CLIENT_REGISTRATION_CREATED'
-  | 'CLIENT_REGISTRATION_UPDATED'
-  | 'CLIENT_REGISTRATION_INACTIVATED'
-  | 'CLIENT_REGISTRATION_REACTIVATED';
+  | 'CLIENT_UNIT_CREATED'
+  | 'CLIENT_UNIT_UPDATED'
+  | 'CLIENT_UNIT_INACTIVATED'
+  | 'CLIENT_UNIT_REACTIVATED';
 
 export type SampleStatus =
   | 'PHYSICAL_RECEIVED'
@@ -166,28 +167,35 @@ export interface ClientSummary {
   cnpj: string | null;
   document: string | null;
   phone: string | null;
+  email: string | null;
+  // L5: PJ guarda endereco/IE direto no Client.
+  addressLine: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  complement: string | null;
+  registrationNumber: string | null;
   isBuyer: boolean;
   isSeller: boolean;
   status: ClientStatus;
   commercialUser: { id: string; fullName: string } | null;
   commercialUsers: { id: string; fullName: string }[];
-  branches: ClientBranchSummary[];
-  branchCount: number;
-  activeBranchCount: number;
+  units: ClientUnitSummary[];
+  unitCount: number;
+  activeUnitCount: number;
   primaryCity: string | null;
   primaryState: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
 
-export interface ClientBranchSummary {
+export interface ClientUnitSummary {
   id: string;
   clientId: string;
   name: string | null;
-  isPrimary: boolean;
   code: number;
   cnpj: string | null;
-  cnpjOrder: string | null;
   legalName: string | null;
   tradeName: string | null;
   phone: string | null;
@@ -198,19 +206,17 @@ export interface ClientBranchSummary {
   postalCode: string | null;
   complement: string | null;
   registrationNumber: string | null;
-  registrationType: string | null;
-  status: ClientBranchStatus;
+  car: string | null;
+  status: ClientUnitStatus;
   createdAt: string | null;
   updatedAt: string | null;
 }
 
-// F5.2: ClientBranchInput é o payload aceito por createClient.branches[]
-// e por POST /clients/:id/branches.
-// F7.3: backend rejeita 2ª branch ATIVA em PJ com 409 PJ_BRANCH_LIMIT
-// (PJ admite apenas a matriz). PF aceita 0..N (fazendas).
-export interface ClientBranchInput {
-  name?: string | null;
-  isPrimary?: boolean;
+// L5: ClientUnitInput so e aceito em createClient.units[] de PF
+// e em POST /clients/:id/units (apenas PF).
+// PJ NAO aceita units; backend rejeita com 422 CLIENT_PJ_HAS_NO_UNITS.
+export interface ClientUnitInput {
+  name: string;
   cnpj?: string | null;
   legalName?: string | null;
   tradeName?: string | null;
@@ -222,7 +228,7 @@ export interface ClientBranchInput {
   postalCode?: string | null;
   complement?: string | null;
   registrationNumber?: string | null;
-  registrationType?: string | null;
+  car?: string | null;
 }
 
 export interface ClientResponse {
@@ -244,32 +250,30 @@ export interface ClientsListResponse {
 
 export interface ClientLookupResponse {
   items: ClientSummary[];
-  // F6.1: smart resolve por 14 digitos — backend retorna o id da branch
-  // que casou exatamente com o CNPJ buscado (UI destaca essa linha).
-  matchedBranchId?: string;
+  // L5: smart resolve por 14 digitos pode bater em Client (PJ) ou ClientUnit
+  // (fazenda PF). Quando o match e via unit, a UI destaca essa linha.
+  matchedUnitId?: string | null;
 }
 
 export interface ClientDetailResponse extends ClientResponse {
-  branches: ClientBranchSummary[];
+  units: ClientUnitSummary[];
 }
 
-export interface ClientBranchMutationResponse {
+export interface ClientUnitMutationResponse {
   client: {
     id: string;
     code: number;
     displayName: string | null;
   };
-  branch: ClientBranchSummary;
+  unit: ClientUnitSummary;
 }
 
-// F6.0: response de inactivateBranch inclui autoPromoted quando matriz e
-// inativada com filiais ACTIVE existentes.
-export interface ClientBranchInactivateResponse extends ClientBranchMutationResponse {
+// L5: inactivateUnit nao tem auto-promote. PJ nao aceita units.
+export interface ClientUnitInactivateResponse extends ClientUnitMutationResponse {
   impact: {
     linkedSamples: number;
     linkedMovements: number;
   };
-  autoPromoted: ClientBranchSummary | null;
 }
 
 export interface ClientSampleItem {
@@ -358,14 +362,13 @@ export interface ClientAuditEventResponse {
     status: ClientStatus;
     personType: ClientPersonType;
   } | null;
-  targetBranch: {
+  targetUnit: {
     id: string;
     name: string | null;
     code: number;
-    isPrimary: boolean;
     cnpj: string | null;
     legalName: string | null;
-    status: ClientBranchStatus;
+    status: ClientUnitStatus;
   } | null;
   metadata: {
     ip: string | null;
@@ -409,7 +412,7 @@ export interface SampleSnapshot {
   version: number;
   lastEventSequence: number;
   ownerClientId?: string | null;
-  ownerBranchId?: string | null;
+  ownerUnitId?: string | null;
   declared: {
     owner: string | null;
     sacks: number | null;
@@ -432,7 +435,7 @@ export interface SampleSnapshot {
     isSeller: boolean;
     status: ClientStatus;
   } | null;
-  ownerBranch?: ClientBranchSummary | null;
+  ownerUnit?: ClientUnitSummary | null;
   soldSacks?: number;
   lostSacks?: number;
   availableSacks?: number | null;
@@ -515,19 +518,19 @@ export interface SampleMovement {
   movementType: SampleMovementType;
   status: SampleMovementStatus;
   buyerClientId: string | null;
-  buyerBranchId: string | null;
+  buyerUnitId: string | null;
   quantitySacks: number;
   movementDate: string;
   notes: string | null;
   lossReasonText: string | null;
   buyerClientSnapshot: Record<string, unknown> | null;
-  buyerBranchSnapshot: Record<string, unknown> | null;
+  buyerUnitSnapshot: Record<string, unknown> | null;
   version: number;
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
   buyerClient: SampleSnapshot['ownerClient'] | null;
-  buyerBranch: ClientBranchSummary | null;
+  buyerUnit: ClientUnitSummary | null;
 }
 
 export interface SampleMovementsResponse {

@@ -99,15 +99,10 @@ if (!databaseUrl || !databaseReachable) {
         personType: 'PJ',
         legalName: overrides.legalName ?? defaultName,
         tradeName: overrides.tradeName ?? overrides.legalName ?? defaultName,
+        cnpj: overrides.cnpj ?? suffix,
         phone: overrides.phone ?? '35 99999-0000',
         isBuyer: overrides.isBuyer ?? true,
         isSeller: overrides.isSeller ?? true,
-        branches: [
-          {
-            isPrimary: true,
-            cnpj: overrides.cnpj ?? suffix,
-          },
-        ],
       },
       actorClassifier
     );
@@ -115,7 +110,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 

@@ -136,7 +136,7 @@ export class EventContractService {
           commercialStatus: 'OPEN',
           version: 1,
           ownerClientId: null,
-          ownerBranchId: null,
+          ownerUnitId: null,
           declared: {
             owner: null,
             sacks: null,
@@ -165,12 +165,12 @@ export class EventContractService {
           )
             ? (event.payload.ownerClientId ?? null)
             : (sample.ownerClientId ?? null);
-          nextSample.ownerBranchId = Object.prototype.hasOwnProperty.call(
+          nextSample.ownerUnitId = Object.prototype.hasOwnProperty.call(
             event.payload,
-            'ownerBranchId'
+            'ownerUnitId'
           )
-            ? (event.payload.ownerBranchId ?? null)
-            : (sample.ownerBranchId ?? null);
+            ? (event.payload.ownerUnitId ?? null)
+            : (sample.ownerUnitId ?? null);
           nextSample.declared = {
             owner: event.payload.declared?.owner ?? null,
             sacks: event.payload.declared?.sacks ?? null,
@@ -186,8 +186,8 @@ export class EventContractService {
           if (Object.prototype.hasOwnProperty.call(after, 'ownerClientId')) {
             nextSample.ownerClientId = after.ownerClientId ?? null;
           }
-          if (Object.prototype.hasOwnProperty.call(after, 'ownerBranchId')) {
-            nextSample.ownerBranchId = after.ownerBranchId ?? null;
+          if (Object.prototype.hasOwnProperty.call(after, 'ownerUnitId')) {
+            nextSample.ownerUnitId = after.ownerUnitId ?? null;
           }
 
           nextSample.declared = {

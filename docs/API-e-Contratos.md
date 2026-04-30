@@ -88,6 +88,47 @@ Validacoes criticas nessas rotas:
 5. `GET /api/v1/dashboard/pending`
    Resume filas operacionais do dashboard.
 
+## Rotas de clientes (L5)
+
+### CRUD de cliente
+
+1. `GET /api/v1/clients`
+   Lista paginada com busca por nome, documento, codigo. Filtra por `personType`, `isBuyer`, `isSeller`, `commercialUserIds[]`.
+2. `POST /api/v1/clients`
+   Cria cliente. Para PJ exige `cnpj` direto no body (e aceita `addressLine`/`city`/`state`/`registrationNumber`/etc.). Para PF aceita `units[]` (fazendas opcionais com `name` obrigatorio + `cnpj`/`car`/endereco). PJ rejeita `units[]` com 422 `PJ_HAS_NO_UNITS`.
+3. `GET /api/v1/clients/lookup`
+   Smart resolve: 14 digitos batem CNPJ direto em Client (PJ) ou em ClientUnit (fazenda PF). Retorna `matchedUnitId` quando o match e via unit.
+4. `GET /api/v1/clients/:clientId`
+   Detalhe + lista de `units` (PF; PJ retorna `units: []`).
+5. `PATCH /api/v1/clients/:clientId`
+   Atualiza fields. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Exige `reasonText`.
+6. `POST /api/v1/clients/:clientId/inactivate`
+7. `POST /api/v1/clients/:clientId/reactivate`
+   Reativacao de cliente ACTIVE exige >= 1 user comercial vinculado.
+
+### Unidades (PF — fazendas)
+
+PJ rejeita TODAS as rotas abaixo com 422 `CLIENT_PJ_HAS_NO_UNITS`.
+
+1. `POST /api/v1/clients/:clientId/units`
+   Cria fazenda. Body aceita `name` (obrigatorio), `cnpj` opcional (UNIQUE), `addressLine`/`city`/`state`/etc., `registrationNumber` (UNIQUE canonico), `car` (Cadastro Ambiental Rural).
+2. `PATCH /api/v1/clients/:clientId/units/:unitId`
+   Atualiza. Exige `reasonText`.
+3. `POST /api/v1/clients/:clientId/units/:unitId/inactivate`
+4. `POST /api/v1/clients/:clientId/units/:unitId/reactivate`
+
+### Joins comerciais
+
+1. `POST /api/v1/clients/:clientId/users`
+2. `DELETE /api/v1/clients/:clientId/users/:userId`
+3. `POST /api/v1/clients/bulk-add-commercial-user`
+4. `GET /api/v1/clients/:clientId/audit`
+
+### Bindings de owner/buyer em sample
+
+1. `Sample.ownerClientId` e obrigatorio em registration confirm; `Sample.ownerUnitId` e opcional (apenas PF, e a fazenda deve pertencer ao mesmo owner). PJ sempre tem `ownerUnitId=null`.
+2. `SampleMovement.buyerClientId` e obrigatorio em SALE; `buyerUnitId` segue mesma regra (so PF, opcional).
+
 ## Rotas de usuarios
 
 ### Administracao

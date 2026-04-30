@@ -120,7 +120,7 @@ const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
 const MOVEMENT_UPDATE_EDITABLE_FIELDS = new Set([
   'movementType',
   'buyerClientId',
-  'buyerBranchId',
+  'buyerUnitId',
   'quantitySacks',
   'movementDate',
   'notes',
@@ -300,17 +300,17 @@ function buildBuyerSnapshot(binding) {
   if (!binding) {
     return {
       buyerClientId: null,
-      buyerBranchId: null,
+      buyerUnitId: null,
       buyerClientSnapshot: null,
-      buyerBranchSnapshot: null,
+      buyerUnitSnapshot: null,
     };
   }
 
   return {
     buyerClientId: binding.buyerClientId,
-    buyerBranchId: binding.buyerBranchId,
+    buyerUnitId: binding.buyerUnitId,
     buyerClientSnapshot: binding.buyerClient,
-    buyerBranchSnapshot: binding.buyerBranch,
+    buyerUnitSnapshot: binding.buyerUnit,
   };
 }
 
@@ -318,13 +318,13 @@ function formatMovementSnapshot(movement) {
   return {
     movementType: movement.movementType,
     buyerClientId: movement.buyerClientId ?? null,
-    buyerBranchId: movement.buyerBranchId ?? null,
+    buyerUnitId: movement.buyerUnitId ?? null,
     quantitySacks: movement.quantitySacks,
     movementDate: movement.movementDate,
     notes: movement.notes ?? null,
     lossReasonText: movement.lossReasonText ?? null,
     buyerClientSnapshot: movement.buyerClientSnapshot ?? null,
-    buyerBranchSnapshot: movement.buyerBranchSnapshot ?? null,
+    buyerUnitSnapshot: movement.buyerUnitSnapshot ?? null,
     status: movement.status,
   };
 }
@@ -513,7 +513,7 @@ function parseRegistrationUpdatePatch(after) {
     ...REGISTRATION_EDITABLE_FIELDS,
     'declared',
     'ownerClientId',
-    'ownerBranchId',
+    'ownerUnitId',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
 
@@ -542,15 +542,15 @@ function parseRegistrationUpdatePatch(after) {
     patch.ownerClientId = normalizeNullableUuid(after.ownerClientId, 'after.ownerClientId');
   }
 
-  if (hasOwn(after, 'ownerBranchId')) {
-    patch.hasOwnerBranchId = true;
-    patch.ownerBranchId = normalizeNullableUuid(after.ownerBranchId, 'after.ownerBranchId');
+  if (hasOwn(after, 'ownerUnitId')) {
+    patch.hasOwnerUnitId = true;
+    patch.ownerUnitId = normalizeNullableUuid(after.ownerUnitId, 'after.ownerUnitId');
   }
 
   if (
     Object.keys(patch.declared).length === 0 &&
     patch.hasOwnerClientId !== true &&
-    patch.hasOwnerBranchId !== true
+    patch.hasOwnerUnitId !== true
   ) {
     throw new HttpError(422, 'after must include at least one editable registration field');
   }
@@ -820,8 +820,8 @@ function parseMovementUpdatePatch(after) {
   if (hasOwn(after, 'buyerClientId')) {
     patch.buyerClientId = normalizeNullableUuid(after.buyerClientId, 'after.buyerClientId');
   }
-  if (hasOwn(after, 'buyerBranchId')) {
-    patch.buyerBranchId = normalizeNullableUuid(after.buyerBranchId, 'after.buyerBranchId');
+  if (hasOwn(after, 'buyerUnitId')) {
+    patch.buyerUnitId = normalizeNullableUuid(after.buyerUnitId, 'after.buyerUnitId');
   }
   if (hasOwn(after, 'quantitySacks')) {
     patch.quantitySacks = normalizeMovementQuantity(after.quantitySacks, 'after.quantitySacks');
@@ -848,11 +848,11 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
   const beforeDeclared = {};
   const afterDeclared = {};
   const hasStructuredPatch =
-    parsedPatch.hasOwnerClientId === true || parsedPatch.hasOwnerBranchId === true;
+    parsedPatch.hasOwnerClientId === true || parsedPatch.hasOwnerUnitId === true;
   const currentOwnerClientId = sample.ownerClientId ?? null;
-  const currentOwnerBranchId = sample.ownerBranchId ?? null;
+  const currentOwnerUnitId = sample.ownerUnitId ?? null;
   const nextOwnerClientId = parsedPatch.resolvedOwnerBinding?.ownerClientId ?? null;
-  const nextOwnerBranchId = parsedPatch.resolvedOwnerBinding?.ownerBranchId ?? null;
+  const nextOwnerUnitId = parsedPatch.resolvedOwnerBinding?.ownerUnitId ?? null;
   const nextOwnerDisplayName = parsedPatch.resolvedOwnerBinding?.displayName ?? null;
   const before = {};
   const after = {};
@@ -882,9 +882,9 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
       after.ownerClientId = nextOwnerClientId;
     }
 
-    if (!valuesEqual(currentOwnerBranchId, nextOwnerBranchId)) {
-      before.ownerBranchId = currentOwnerBranchId;
-      after.ownerBranchId = nextOwnerBranchId;
+    if (!valuesEqual(currentOwnerUnitId, nextOwnerUnitId)) {
+      before.ownerUnitId = currentOwnerUnitId;
+      after.ownerUnitId = nextOwnerUnitId;
     }
 
     const currentOwnerValue = hasOwn(currentDeclared, 'owner') ? currentDeclared.owner : null;
@@ -912,14 +912,14 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
 async function resolveStructuredOwnerForWrite({
   sample,
   inputOwnerClientId,
-  inputOwnerBranchId,
+  inputOwnerUnitId,
   hasOwnerClientId = false,
-  hasOwnerBranchId = false,
+  hasOwnerUnitId = false,
   clientService,
   mode,
 }) {
   const currentOwnerClientId = sample?.ownerClientId ?? null;
-  const currentOwnerBranchId = sample?.ownerBranchId ?? null;
+  const currentOwnerUnitId = sample?.ownerUnitId ?? null;
 
   if (!clientService) {
     if (mode === 'create' || mode === 'confirm') {
@@ -928,9 +928,9 @@ async function resolveStructuredOwnerForWrite({
 
     if (
       (inputOwnerClientId !== undefined && inputOwnerClientId !== null) ||
-      (inputOwnerBranchId !== undefined && inputOwnerBranchId !== null)
+      (inputOwnerUnitId !== undefined && inputOwnerUnitId !== null)
     ) {
-      throw new Error('clientService is required for ownerClientId/ownerBranchId support');
+      throw new Error('clientService is required for ownerClientId/ownerUnitId support');
     }
 
     return null;
@@ -938,8 +938,8 @@ async function resolveStructuredOwnerForWrite({
 
   if (mode === 'create' || mode === 'confirm') {
     if (inputOwnerClientId === undefined || inputOwnerClientId === null) {
-      if (inputOwnerBranchId !== undefined && inputOwnerBranchId !== null) {
-        throw new HttpError(422, 'ownerBranchId requires ownerClientId');
+      if (inputOwnerUnitId !== undefined && inputOwnerUnitId !== null) {
+        throw new HttpError(422, 'ownerUnitId requires ownerClientId');
       }
 
       throw new HttpError(422, 'ownerClientId is required');
@@ -947,12 +947,12 @@ async function resolveStructuredOwnerForWrite({
 
     return clientService.resolveOwnerBinding({
       ownerClientId: inputOwnerClientId,
-      ownerBranchId: inputOwnerBranchId ?? null,
+      ownerUnitId: inputOwnerUnitId ?? null,
     });
   }
 
   let nextOwnerClientId = currentOwnerClientId;
-  let nextOwnerBranchId = currentOwnerBranchId;
+  let nextOwnerUnitId = currentOwnerUnitId;
   let touched = false;
 
   if (hasOwnerClientId) {
@@ -963,25 +963,25 @@ async function resolveStructuredOwnerForWrite({
       }
 
       nextOwnerClientId = null;
-      nextOwnerBranchId = null;
+      nextOwnerUnitId = null;
     } else {
       const ownerChanged = inputOwnerClientId !== currentOwnerClientId;
       nextOwnerClientId = inputOwnerClientId;
 
       if (ownerChanged) {
-        nextOwnerBranchId = hasOwnerBranchId ? (inputOwnerBranchId ?? null) : null;
-      } else if (hasOwnerBranchId) {
-        nextOwnerBranchId = inputOwnerBranchId ?? null;
+        nextOwnerUnitId = hasOwnerUnitId ? (inputOwnerUnitId ?? null) : null;
+      } else if (hasOwnerUnitId) {
+        nextOwnerUnitId = inputOwnerUnitId ?? null;
       }
     }
-  } else if (hasOwnerBranchId) {
+  } else if (hasOwnerUnitId) {
     touched = true;
     if (!currentOwnerClientId) {
-      throw new HttpError(422, 'ownerBranchId requires ownerClientId');
+      throw new HttpError(422, 'ownerUnitId requires ownerClientId');
     }
 
     nextOwnerClientId = currentOwnerClientId;
-    nextOwnerBranchId = inputOwnerBranchId ?? null;
+    nextOwnerUnitId = inputOwnerUnitId ?? null;
   }
 
   if (!touched) {
@@ -994,18 +994,18 @@ async function resolveStructuredOwnerForWrite({
 
   return clientService.resolveOwnerBinding({
     ownerClientId: nextOwnerClientId,
-    ownerBranchId: nextOwnerBranchId,
+    ownerUnitId: nextOwnerUnitId,
   });
 }
 
-async function resolveBuyerBindingForMovement({ clientService, buyerClientId, buyerBranchId }) {
+async function resolveBuyerBindingForMovement({ clientService, buyerClientId, buyerUnitId }) {
   if (!clientService) {
     throw new Error('clientService is required for sale movements');
   }
 
   return clientService.resolveBuyerBinding({
     buyerClientId,
-    buyerBranchId,
+    buyerUnitId,
   });
 }
 
@@ -1483,7 +1483,7 @@ export class SampleCommandService {
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample: null,
       inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
-      inputOwnerBranchId: normalizeNullableUuid(input.ownerBranchId, 'ownerBranchId'),
+      inputOwnerUnitId: normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId'),
       clientService: this.clientService,
       mode: 'create',
     });
@@ -1559,7 +1559,7 @@ export class SampleCommandService {
               expectedVersion: sample.version,
               declared,
               ownerClientId: ownerBinding?.ownerClientId ?? null,
-              ownerBranchId: ownerBinding?.ownerBranchId ?? null,
+              ownerUnitId: ownerBinding?.ownerUnitId ?? null,
               idempotencyKey: `draft:${clientDraftId}:registration-confirm`,
             },
             actor
@@ -1810,7 +1810,7 @@ export class SampleCommandService {
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,
       inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
-      inputOwnerBranchId: normalizeNullableUuid(input.ownerBranchId, 'ownerBranchId'),
+      inputOwnerUnitId: normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId'),
       clientService: this.clientService,
       mode: 'confirm',
     });
@@ -1834,7 +1834,7 @@ export class SampleCommandService {
           sampleLotNumber,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerBranchId: ownerBinding?.ownerBranchId ?? null,
+          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
         },
         fromStatus: 'REGISTRATION_IN_PROGRESS',
         toStatus: 'REGISTRATION_CONFIRMED',
@@ -2154,9 +2154,9 @@ export class SampleCommandService {
     const ownerBinding = await resolveStructuredOwnerForWrite({
       sample,
       inputOwnerClientId: parsedPatch.ownerClientId,
-      inputOwnerBranchId: parsedPatch.ownerBranchId,
+      inputOwnerUnitId: parsedPatch.ownerUnitId,
       hasOwnerClientId: parsedPatch.hasOwnerClientId === true,
-      hasOwnerBranchId: parsedPatch.hasOwnerBranchId === true,
+      hasOwnerUnitId: parsedPatch.hasOwnerUnitId === true,
       clientService: this.clientService,
       mode: 'update',
     });
@@ -2317,14 +2317,14 @@ export class SampleCommandService {
     let lossReasonText = null;
     if (movementType === MOVEMENT_TYPES.SALE) {
       const buyerClientId = normalizeNullableUuid(input.buyerClientId, 'buyerClientId');
-      const buyerBranchId = normalizeNullableUuid(input.buyerBranchId, 'buyerBranchId');
+      const buyerUnitId = normalizeNullableUuid(input.buyerUnitId, 'buyerUnitId');
       if (!buyerClientId) {
         throw new HttpError(422, 'buyerClientId is required for SALE');
       }
       buyerBinding = await resolveBuyerBindingForMovement({
         clientService: this.clientService,
         buyerClientId,
-        buyerBranchId: buyerBranchId ?? null,
+        buyerUnitId: buyerUnitId ?? null,
       });
       if (input.lossReasonText !== undefined && input.lossReasonText !== null) {
         throw new HttpError(422, 'lossReasonText is not allowed for SALE');
@@ -2333,8 +2333,8 @@ export class SampleCommandService {
       if (input.buyerClientId !== undefined && input.buyerClientId !== null) {
         throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
       }
-      if (input.buyerBranchId !== undefined && input.buyerBranchId !== null) {
-        throw new HttpError(422, 'buyerBranchId is not allowed for LOSS');
+      if (input.buyerUnitId !== undefined && input.buyerUnitId !== null) {
+        throw new HttpError(422, 'buyerUnitId is not allowed for LOSS');
       }
       lossReasonText = normalizeLossReasonText(input.lossReasonText);
     }
@@ -2409,23 +2409,23 @@ export class SampleCommandService {
 
     let buyerBinding = null;
     let nextBuyerClientId = null;
-    let nextBuyerBranchId = null;
+    let nextBuyerUnitId = null;
     let nextLossReasonText = null;
 
     if (nextMovementType === MOVEMENT_TYPES.SALE) {
       const shouldRebindBuyer =
         movement.movementType !== MOVEMENT_TYPES.SALE ||
         patch.buyerClientId !== undefined ||
-        patch.buyerBranchId !== undefined ||
+        patch.buyerUnitId !== undefined ||
         patch.movementType !== undefined;
       const nextClientId =
         patch.buyerClientId !== undefined ? patch.buyerClientId : movement.buyerClientId;
-      const nextBranchIdInput =
-        patch.buyerBranchId !== undefined
-          ? patch.buyerBranchId
+      const nextUnitIdInput =
+        patch.buyerUnitId !== undefined
+          ? patch.buyerUnitId
           : patch.buyerClientId !== undefined && patch.buyerClientId !== movement.buyerClientId
             ? null
-            : movement.buyerBranchId;
+            : movement.buyerUnitId;
 
       if (!nextClientId) {
         throw new HttpError(422, 'buyerClientId is required for SALE');
@@ -2435,24 +2435,24 @@ export class SampleCommandService {
         buyerBinding = await resolveBuyerBindingForMovement({
           clientService: this.clientService,
           buyerClientId: nextClientId,
-          buyerBranchId: nextBranchIdInput,
+          buyerUnitId: nextUnitIdInput,
         });
         nextBuyerClientId = buyerBinding.buyerClientId;
-        nextBuyerBranchId = buyerBinding.buyerBranchId;
+        nextBuyerUnitId = buyerBinding.buyerUnitId;
       } else {
         nextBuyerClientId = movement.buyerClientId;
-        nextBuyerBranchId = movement.buyerBranchId;
+        nextBuyerUnitId = movement.buyerUnitId;
       }
       nextLossReasonText = null;
     } else {
       if (patch.buyerClientId !== undefined && patch.buyerClientId !== null) {
         throw new HttpError(422, 'buyerClientId is not allowed for LOSS');
       }
-      if (patch.buyerBranchId !== undefined && patch.buyerBranchId !== null) {
-        throw new HttpError(422, 'buyerBranchId is not allowed for LOSS');
+      if (patch.buyerUnitId !== undefined && patch.buyerUnitId !== null) {
+        throw new HttpError(422, 'buyerUnitId is not allowed for LOSS');
       }
       nextBuyerClientId = null;
-      nextBuyerBranchId = null;
+      nextBuyerUnitId = null;
       nextLossReasonText =
         patch.lossReasonText !== undefined ? patch.lossReasonText : movement.lossReasonText;
     }
@@ -2461,7 +2461,7 @@ export class SampleCommandService {
     const afterSnapshot = {
       movementType: nextMovementType,
       buyerClientId: nextBuyerClientId,
-      buyerBranchId: nextBuyerBranchId,
+      buyerUnitId: nextBuyerUnitId,
       quantitySacks: nextQuantitySacks,
       movementDate: nextMovementDate,
       notes: nextNotes ?? null,
@@ -2470,9 +2470,9 @@ export class SampleCommandService {
         nextMovementType === MOVEMENT_TYPES.SALE
           ? (buyerBinding?.buyerClient ?? movement.buyerClientSnapshot ?? null)
           : null,
-      buyerBranchSnapshot:
+      buyerUnitSnapshot:
         nextMovementType === MOVEMENT_TYPES.SALE
-          ? (buyerBinding?.buyerBranch ?? movement.buyerBranchSnapshot ?? null)
+          ? (buyerBinding?.buyerUnit ?? movement.buyerUnitSnapshot ?? null)
           : null,
       status: movement.status,
     };

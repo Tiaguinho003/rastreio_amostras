@@ -1,27 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  type FormEvent,
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from 'react';
+import { type FormEvent, Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
-import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
 import type {
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientStatus,
   ClientSummary,
   UserLookupItem,
@@ -121,7 +110,7 @@ function formatClientCardSummary(client: ClientSummary) {
 
 function formatClientCardMeta(client: ClientSummary) {
   const phone = formatPhone(client.phone) ?? 'Sem telefone';
-  return `Cod. ${client.code} | ${phone} | Insc. ${client.activeBranchCount}/${client.branchCount}`;
+  return `Cod. ${client.code} | ${phone} | Insc. ${client.activeUnitCount}/${client.unitCount}`;
 }
 
 function clientStatusBadgeClass(status: ClientStatus) {
@@ -136,7 +125,7 @@ function getClientStatusThemeClass(status: ClientStatus): string {
   return status === 'ACTIVE' ? 'is-status-success' : 'is-status-danger';
 }
 
-function registrationStatusBadgeClass(status: ClientBranchSummary['status']) {
+function registrationStatusBadgeClass(status: ClientUnitSummary['status']) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
 }
 
@@ -151,7 +140,7 @@ interface ClientsListState {
   error: string | null;
   selectedId: string | null;
   detail: ClientSummary | null;
-  branches: ClientBranchSummary[];
+  units: ClientUnitSummary[];
   detailOpen: boolean;
   detailLoading: boolean;
   detailError: string | null;
@@ -173,7 +162,7 @@ type ClientsListAction =
   | { type: 'openDetail' }
   | { type: 'closeDetail' }
   | { type: 'fetchDetail' }
-  | { type: 'detailSuccess'; client: ClientSummary; branches: ClientBranchSummary[] }
+  | { type: 'detailSuccess'; client: ClientSummary; units: ClientUnitSummary[] }
   | { type: 'detailError'; message: string };
 
 const CLIENTS_INITIAL: ClientsListState = {
@@ -187,7 +176,7 @@ const CLIENTS_INITIAL: ClientsListState = {
   error: null,
   selectedId: null,
   detail: null,
-  branches: [],
+  units: [],
   detailOpen: false,
   detailLoading: false,
   detailError: null,
@@ -217,7 +206,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
     case 'openDetail':
       return { ...state, detailOpen: true, detailError: null };
     case 'closeDetail':
-      return { ...state, detailOpen: false, detail: null, branches: [], detailError: null };
+      return { ...state, detailOpen: false, detail: null, units: [], detailError: null };
     case 'fetchDetail':
       return { ...state, detailLoading: true, detailError: null };
     case 'detailSuccess':
@@ -225,7 +214,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         ...state,
         detailLoading: false,
         detail: action.client,
-        branches: action.branches,
+        units: action.units,
         detailError: null,
       };
     case 'detailError':
@@ -245,8 +234,6 @@ export default function ClientsPageWrapper() {
 
 function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
-  const router = useRouter();
-  const toast = useToast();
 
   const [clientsState, dispatchClients] = useReducer(clientsListReducer, CLIENTS_INITIAL);
   const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
@@ -418,7 +405,7 @@ function ClientsPage() {
         dispatchClients({
           type: 'detailSuccess',
           client: response.client,
-          branches: response.branches,
+          units: response.units,
         });
       })
       .catch((cause) => {
@@ -920,17 +907,8 @@ function ClientsPage() {
         onClose={() => setClientQuickCreateOpen(false)}
         onCreated={async (client) => {
           setClientQuickCreateOpen(false);
-          // F6.0/D2: se PJ transient (sem matriz), redireciona para /clients/:id
-          // com toast guiando o usuario a configurar a matriz
-          if (client.personType === 'PJ' && client.activeBranchCount === 0) {
-            toast.success({
-              title: 'Cliente criado',
-              description: 'Adicione a matriz desta empresa quando tiver os dados.',
-            });
-            router.push(`/clients/${client.id}`);
-            return;
-          }
-          // PF ou PJ ja com matriz: comportamento original (painel lateral)
+          // L5: PJ ja vem completo do quick-create (sem branches). PF pode
+          // adicionar fazendas depois. Sem rota especial pra "configurar matriz".
           setClientSearchInput('');
           setAppliedClientSearch('');
           dispatchClients({ type: 'setPage', page: 1 });

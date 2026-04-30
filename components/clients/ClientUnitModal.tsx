@@ -5,18 +5,17 @@ import { createPortal } from 'react-dom';
 
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientBranchInput, ClientBranchSummary, ClientPersonType } from '../../lib/types';
+import type { ClientUnitInput, ClientUnitSummary } from '../../lib/types';
 
-type ClientBranchModalProps = {
+// L5: ClientUnit so existe em PF (fazenda). PJ guarda dados direto em Client.
+type ClientUnitModalProps = {
   open: boolean;
   mode: 'create' | 'edit';
-  /** F7.4: contextualiza textos (PF -> "fazenda", PJ -> "filial"/"matriz"). */
-  personType: ClientPersonType;
-  branch?: ClientBranchSummary | null;
+  unit?: ClientUnitSummary | null;
   saving: boolean;
   errorMessage: string | null;
   onClose: () => void;
-  onSubmit: (data: ClientBranchInput, reasonText: string | null) => Promise<void> | void;
+  onSubmit: (data: ClientUnitInput, reasonText: string | null) => Promise<void> | void;
 };
 
 type FormState = {
@@ -32,7 +31,7 @@ type FormState = {
   postalCode: string;
   complement: string;
   registrationNumber: string;
-  registrationType: string;
+  car: string;
   reasonText: string;
 };
 
@@ -49,34 +48,34 @@ const EMPTY_FORM: FormState = {
   postalCode: '',
   complement: '',
   registrationNumber: '',
-  registrationType: '',
+  car: '',
   reasonText: '',
 };
 
-function branchToForm(branch: ClientBranchSummary | null | undefined): FormState {
-  if (!branch) return { ...EMPTY_FORM };
+function unitToForm(unit: ClientUnitSummary | null | undefined): FormState {
+  if (!unit) return { ...EMPTY_FORM };
   return {
-    name: branch.name ?? '',
-    cnpj: branch.cnpj ?? '',
-    legalName: branch.legalName ?? '',
-    tradeName: branch.tradeName ?? '',
-    phone: branch.phone ?? '',
-    addressLine: branch.addressLine ?? '',
-    district: branch.district ?? '',
-    city: branch.city ?? '',
-    state: branch.state ?? '',
-    postalCode: branch.postalCode ?? '',
-    complement: branch.complement ?? '',
-    registrationNumber: branch.registrationNumber ?? '',
-    registrationType: branch.registrationType ?? '',
+    name: unit.name ?? '',
+    cnpj: unit.cnpj ?? '',
+    legalName: unit.legalName ?? '',
+    tradeName: unit.tradeName ?? '',
+    phone: unit.phone ?? '',
+    addressLine: unit.addressLine ?? '',
+    district: unit.district ?? '',
+    city: unit.city ?? '',
+    state: unit.state ?? '',
+    postalCode: unit.postalCode ?? '',
+    complement: unit.complement ?? '',
+    registrationNumber: unit.registrationNumber ?? '',
+    car: unit.car ?? '',
     reasonText: '',
   };
 }
 
-function formToInput(form: FormState): ClientBranchInput {
+function formToInput(form: FormState): ClientUnitInput {
   const trim = (v: string) => (v.trim() ? v.trim() : null);
   return {
-    name: trim(form.name),
+    name: form.name.trim(),
     cnpj: trim(form.cnpj),
     legalName: trim(form.legalName),
     tradeName: trim(form.tradeName),
@@ -88,49 +87,41 @@ function formToInput(form: FormState): ClientBranchInput {
     postalCode: trim(form.postalCode),
     complement: trim(form.complement),
     registrationNumber: trim(form.registrationNumber),
-    registrationType: trim(form.registrationType),
+    car: trim(form.car),
   };
 }
 
-export function ClientBranchModal({
+export function ClientUnitModal({
   open,
   mode,
-  personType,
-  branch = null,
+  unit = null,
   saving,
   errorMessage,
   onClose,
   onSubmit,
-}: ClientBranchModalProps) {
+}: ClientUnitModalProps) {
   const focusTrapRef = useFocusTrap(open);
-  const [form, setForm] = useState<FormState>(branchToForm(branch));
+  const [form, setForm] = useState<FormState>(unitToForm(unit));
   const cnpjMask = useDocumentMask('cnpj');
 
   useEffect(() => {
     if (!open) return;
-    setForm(branchToForm(branch));
-    cnpjMask.setRaw(branch?.cnpj ?? '');
+    setForm(unitToForm(unit));
+    cnpjMask.setRaw(unit?.cnpj ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, branch]);
+  }, [open, unit]);
 
   if (!open) return null;
 
   const isEdit = mode === 'edit';
-  const isPf = personType === 'PF';
-  const branchTermSingular = isPf ? 'fazenda' : 'filial';
-  const matrixTermPj = 'matriz';
 
-  const title = isEdit
-    ? isPf
-      ? `Editar fazenda ${branch?.code ?? ''}`.trim()
-      : branch?.isPrimary
-        ? 'Editar matriz'
-        : `Editar filial ${branch?.code ?? ''}`
-    : isPf
-      ? 'Nova fazenda'
-      : 'Nova filial';
+  const title = isEdit ? `Editar fazenda ${unit?.code ?? ''}`.trim() : 'Nova fazenda';
 
-  const submitDisabled = saving || (isEdit && !form.reasonText.trim()) || !cnpjMask.isValid;
+  const submitDisabled =
+    saving ||
+    !form.name.trim() ||
+    (isEdit && !form.reasonText.trim()) ||
+    (cnpjMask.digits.length > 0 && !cnpjMask.isValid);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -139,9 +130,9 @@ export function ClientBranchModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    if (!form.name.trim()) return;
     if (isEdit && !form.reasonText.trim()) return;
-    if (!cnpjMask.isValid) return;
-    // F6.1: cnpj vem do hook (digitos crus); merge com resto do form
+    if (cnpjMask.digits.length > 0 && !cnpjMask.isValid) return;
     const input = { ...formToInput(form), cnpj: cnpjMask.digits || null };
     const reason = isEdit ? form.reasonText.trim() : null;
     await onSubmit(input, reason);
@@ -154,17 +145,12 @@ export function ClientBranchModal({
         className="app-modal cdm-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="client-branch-modal-title"
+        aria-labelledby="client-unit-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="cdm-header">
-          <h3 id="client-branch-modal-title" className="cdm-header-name">
+          <h3 id="client-unit-modal-title" className="cdm-header-name">
             {title}
-            {!isPf && branch?.isPrimary ? (
-              <span className="badge badge-success" style={{ marginLeft: 8 }}>
-                {matrixTermPj.charAt(0).toUpperCase() + matrixTermPj.slice(1)}
-              </span>
-            ) : null}
           </h3>
           <button
             type="button"
@@ -185,14 +171,15 @@ export function ClientBranchModal({
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           <h4 className="sdv-edit-section">Identificação</h4>
           <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Nome (apelido interno)</span>
+            <span className="sdv-edit-label">Nome (obrigatório)</span>
             <input
               className="sdv-edit-input"
               value={form.name}
               disabled={saving}
               maxLength={160}
+              required
               onChange={(event) => update('name', event.target.value)}
-              placeholder={isPf ? 'Ex.: Fazenda Bom Retiro' : 'Ex.: Filial Varginha'}
+              placeholder="Ex.: Fazenda Bom Retiro"
             />
           </label>
           <label className="sdv-edit-field">
@@ -218,7 +205,7 @@ export function ClientBranchModal({
 
           <h4 className="sdv-edit-section">Documentos</h4>
           <label className="sdv-edit-field">
-            <span className="sdv-edit-label">CNPJ</span>
+            <span className="sdv-edit-label">CNPJ (opcional)</span>
             <input
               className={`sdv-edit-input${cnpjMask.error ? ' has-error' : ''}`}
               value={cnpjMask.masked}
@@ -236,7 +223,7 @@ export function ClientBranchModal({
           </label>
           <div className="sdv-edit-row">
             <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Inscrição estadual (número)</span>
+              <span className="sdv-edit-label">Inscrição estadual</span>
               <input
                 className="sdv-edit-input"
                 value={form.registrationNumber}
@@ -245,13 +232,13 @@ export function ClientBranchModal({
               />
             </label>
             <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Tipo (estadual / municipal)</span>
+              <span className="sdv-edit-label">CAR (Cadastro Ambiental Rural)</span>
               <input
                 className="sdv-edit-input"
-                value={form.registrationType}
+                value={form.car}
                 disabled={saving}
-                onChange={(event) => update('registrationType', event.target.value)}
-                placeholder="estadual"
+                maxLength={80}
+                onChange={(event) => update('car', event.target.value)}
               />
             </label>
           </div>
@@ -354,11 +341,7 @@ export function ClientBranchModal({
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving
-                ? 'Salvando...'
-                : isEdit
-                  ? 'Salvar alterações'
-                  : `Criar ${branchTermSingular}`}
+              {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar fazenda'}
             </button>
           </div>
         </form>

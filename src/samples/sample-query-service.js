@@ -183,14 +183,12 @@ const CLIENT_INCLUDE_SELECT = {
   status: true,
 };
 
-const BRANCH_INCLUDE_SELECT = {
+const UNIT_INCLUDE_SELECT = {
   id: true,
   clientId: true,
   name: true,
-  isPrimary: true,
   code: true,
   cnpj: true,
-  cnpjOrder: true,
   legalName: true,
   tradeName: true,
   phone: true,
@@ -201,7 +199,7 @@ const BRANCH_INCLUDE_SELECT = {
   postalCode: true,
   complement: true,
   registrationNumber: true,
-  registrationType: true,
+  car: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -209,12 +207,12 @@ const BRANCH_INCLUDE_SELECT = {
 
 const SAMPLE_OWNER_INCLUDE = {
   ownerClient: { select: CLIENT_INCLUDE_SELECT },
-  ownerBranch: { select: BRANCH_INCLUDE_SELECT },
+  ownerUnit: { select: UNIT_INCLUDE_SELECT },
 };
 const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
   buyerClient: { select: CLIENT_INCLUDE_SELECT },
-  buyerBranch: { select: BRANCH_INCLUDE_SELECT },
+  buyerUnit: { select: UNIT_INCLUDE_SELECT },
 };
 
 function tryDecodeURIComponent(value) {
@@ -698,8 +696,12 @@ function buildBuyerMovementFilter(buyer) {
         contains: digits,
       },
     });
+    // L5: cnpj vive direto em Client (PJ) e em ClientUnit (fazendas PF).
     clientOr.push({
-      branches: {
+      cnpj: { contains: digits },
+    });
+    clientOr.push({
+      units: {
         some: {
           cnpj: { contains: digits },
         },
@@ -745,7 +747,8 @@ function mapOwnerClient(ownerClient) {
     legalName: ownerClient.legalName ?? null,
     tradeName: ownerClient.tradeName ?? null,
     cpf: ownerClient.cpf ?? null,
-    cnpj: null, // F5.2: cnpj agora vem da primary branch
+    // L5: cnpj vive direto em Client (PJ).
+    cnpj: ownerClient.cnpj ?? null,
     phone: ownerClient.phone ?? null,
     isBuyer: ownerClient.isBuyer,
     isSeller: ownerClient.isSeller,
@@ -753,33 +756,31 @@ function mapOwnerClient(ownerClient) {
   };
 }
 
-function mapOwnerBranch(ownerBranch) {
-  if (!ownerBranch) {
+function mapOwnerUnit(ownerUnit) {
+  if (!ownerUnit) {
     return null;
   }
 
   return {
-    id: ownerBranch.id,
-    clientId: ownerBranch.clientId,
-    name: ownerBranch.name ?? null,
-    isPrimary: ownerBranch.isPrimary === true,
-    code: ownerBranch.code,
-    cnpj: ownerBranch.cnpj ?? null,
-    cnpjOrder: ownerBranch.cnpjOrder ?? null,
-    legalName: ownerBranch.legalName ?? null,
-    tradeName: ownerBranch.tradeName ?? null,
-    phone: ownerBranch.phone ?? null,
-    addressLine: ownerBranch.addressLine ?? null,
-    district: ownerBranch.district ?? null,
-    city: ownerBranch.city ?? null,
-    state: ownerBranch.state ?? null,
-    postalCode: ownerBranch.postalCode ?? null,
-    complement: ownerBranch.complement ?? null,
-    registrationNumber: ownerBranch.registrationNumber ?? null,
-    registrationType: ownerBranch.registrationType ?? null,
-    status: ownerBranch.status,
-    createdAt: ownerBranch.createdAt ? ownerBranch.createdAt.toISOString() : null,
-    updatedAt: ownerBranch.updatedAt ? ownerBranch.updatedAt.toISOString() : null,
+    id: ownerUnit.id,
+    clientId: ownerUnit.clientId,
+    name: ownerUnit.name ?? null,
+    code: ownerUnit.code,
+    cnpj: ownerUnit.cnpj ?? null,
+    legalName: ownerUnit.legalName ?? null,
+    tradeName: ownerUnit.tradeName ?? null,
+    phone: ownerUnit.phone ?? null,
+    addressLine: ownerUnit.addressLine ?? null,
+    district: ownerUnit.district ?? null,
+    city: ownerUnit.city ?? null,
+    state: ownerUnit.state ?? null,
+    postalCode: ownerUnit.postalCode ?? null,
+    complement: ownerUnit.complement ?? null,
+    registrationNumber: ownerUnit.registrationNumber ?? null,
+    car: ownerUnit.car ?? null,
+    status: ownerUnit.status,
+    createdAt: ownerUnit.createdAt ? ownerUnit.createdAt.toISOString() : null,
+    updatedAt: ownerUnit.updatedAt ? ownerUnit.updatedAt.toISOString() : null,
   };
 }
 
@@ -794,19 +795,19 @@ function mapSampleMovement(row) {
     movementType: row.movementType,
     status: row.status,
     buyerClientId: row.buyerClientId ?? null,
-    buyerBranchId: row.buyerBranchId ?? null,
+    buyerUnitId: row.buyerUnitId ?? null,
     quantitySacks: row.quantitySacks,
     movementDate: new Date(row.movementDate).toISOString().slice(0, 10),
     notes: row.notes ?? null,
     lossReasonText: row.reasonText ?? null,
     buyerClientSnapshot: toObjectOrNull(row.buyerClientSnapshot),
-    buyerBranchSnapshot: toObjectOrNull(row.buyerBranchSnapshot),
+    buyerUnitSnapshot: toObjectOrNull(row.buyerUnitSnapshot),
     version: row.version,
     cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     buyerClient: mapOwnerClient(row.buyerClient),
-    buyerBranch: mapOwnerBranch(row.buyerBranch),
+    buyerUnit: mapOwnerUnit(row.buyerUnit),
   };
 }
 
@@ -884,7 +885,7 @@ function mapSample(row) {
     version: row.version,
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
-    ownerBranchId: row.ownerBranchId ?? null,
+    ownerUnitId: row.ownerUnitId ?? null,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:
@@ -899,7 +900,7 @@ function mapSample(row) {
       location: row.declaredLocation ?? null,
     },
     ownerClient: mapOwnerClient(row.ownerClient),
-    ownerBranch: mapOwnerBranch(row.ownerBranch),
+    ownerUnit: mapOwnerUnit(row.ownerUnit),
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,

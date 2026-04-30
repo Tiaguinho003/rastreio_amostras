@@ -6,8 +6,8 @@ import type {
   ClientLookupKind,
   ClientLookupResponse,
   ClientPurchasesListResponse,
-  ClientBranchInactivateResponse,
-  ClientBranchMutationResponse,
+  ClientUnitInactivateResponse,
+  ClientUnitMutationResponse,
   ClientResponse,
   ClientSamplesListResponse,
   ClientsListResponse,
@@ -343,12 +343,22 @@ export function createClient(
     legalName?: string;
     tradeName?: string | null;
     cpf?: string | null;
+    // L5: PJ guarda cnpj/endereco/IE/email direto no Client.
+    cnpj?: string | null;
+    registrationNumber?: string | null;
+    addressLine?: string | null;
+    district?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    complement?: string | null;
+    email?: string | null;
     phone?: string | null;
     isBuyer: boolean;
     isSeller: boolean;
     commercialUserId?: string | null;
     commercialUserIds?: string[];
-    branches?: import('./types').ClientBranchInput[];
+    units?: import('./types').ClientUnitInput[];
   }
 ) {
   return request<ClientResponse>('/clients', {
@@ -367,6 +377,15 @@ export function updateClient(
     legalName?: string;
     tradeName?: string | null;
     cpf?: string;
+    cnpj?: string | null;
+    registrationNumber?: string | null;
+    addressLine?: string | null;
+    district?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    complement?: string | null;
+    email?: string | null;
     phone?: string | null;
     isBuyer?: boolean;
     isSeller?: boolean;
@@ -438,7 +457,7 @@ export function getUserClientsImpact(session: SessionData, userId: string) {
 export function getClientImpact(session: SessionData, clientId: string) {
   return request<{
     client: { id: string; displayName: string; status: string };
-    usage: { ownedSamples: number; activeMovements: number; activeBranches: number };
+    usage: { ownedSamples: number; activeMovements: number; activeUnits: number };
   }>(`/clients/${clientId}/impact`, { session });
 }
 
@@ -556,12 +575,11 @@ export function listClientAuditEvents(
   });
 }
 
-export function createClientBranch(
+export function createClientUnit(
   session: SessionData,
   clientId: string,
   data: {
-    name?: string | null;
-    isPrimary?: boolean;
+    name: string;
     cnpj?: string | null;
     legalName?: string | null;
     tradeName?: string | null;
@@ -573,23 +591,22 @@ export function createClientBranch(
     postalCode?: string | null;
     complement?: string | null;
     registrationNumber?: string | null;
-    registrationType?: string | null;
+    car?: string | null;
   }
 ) {
-  return request<ClientBranchMutationResponse>(`/clients/${clientId}/branches`, {
+  return request<ClientUnitMutationResponse>(`/clients/${clientId}/units`, {
     method: 'POST',
     session,
     body: data,
   });
 }
 
-export function updateClientBranch(
+export function updateClientUnit(
   session: SessionData,
   clientId: string,
-  branchId: string,
+  unitId: string,
   data: {
     name?: string | null;
-    isPrimary?: boolean;
     cnpj?: string | null;
     legalName?: string | null;
     tradeName?: string | null;
@@ -601,47 +618,41 @@ export function updateClientBranch(
     postalCode?: string | null;
     complement?: string | null;
     registrationNumber?: string | null;
-    registrationType?: string | null;
+    car?: string | null;
     reasonText?: string;
   }
 ) {
-  return request<ClientBranchMutationResponse>(`/clients/${clientId}/branches/${branchId}`, {
+  return request<ClientUnitMutationResponse>(`/clients/${clientId}/units/${unitId}`, {
     method: 'PATCH',
     session,
     body: data,
   });
 }
 
-export function inactivateClientBranch(
+export function inactivateClientUnit(
   session: SessionData,
   clientId: string,
-  branchId: string,
+  unitId: string,
   reasonText: string
 ) {
-  return request<ClientBranchInactivateResponse>(
-    `/clients/${clientId}/branches/${branchId}/inactivate`,
-    {
-      method: 'POST',
-      session,
-      body: { reasonText },
-    }
-  );
+  return request<ClientUnitInactivateResponse>(`/clients/${clientId}/units/${unitId}/inactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText },
+  });
 }
 
-export function reactivateClientBranch(
+export function reactivateClientUnit(
   session: SessionData,
   clientId: string,
-  branchId: string,
+  unitId: string,
   reasonText: string
 ) {
-  return request<ClientBranchMutationResponse>(
-    `/clients/${clientId}/branches/${branchId}/reactivate`,
-    {
-      method: 'POST',
-      session,
-      body: { reasonText },
-    }
-  );
+  return request<ClientUnitMutationResponse>(`/clients/${clientId}/units/${unitId}/reactivate`, {
+    method: 'POST',
+    session,
+    body: { reasonText },
+  });
 }
 
 export function getUser(session: SessionData, userId: string) {
@@ -864,7 +875,7 @@ export function createSampleAndPreparePrint(
     clientDraftId: string;
     owner: string;
     ownerClientId?: string | null;
-    ownerBranchId?: string | null;
+    ownerUnitId?: string | null;
     sacks: number;
     harvest: string;
     originLot?: string | null;
@@ -881,7 +892,7 @@ export function createSampleAndPreparePrint(
       clientDraftId: data.clientDraftId,
       owner: data.owner,
       ownerClientId: data.ownerClientId ?? null,
-      ownerBranchId: data.ownerBranchId ?? null,
+      ownerUnitId: data.ownerUnitId ?? null,
       sacks: data.sacks,
       harvest: data.harvest,
       originLot: data.originLot ?? null,
@@ -1153,7 +1164,7 @@ export function confirmRegistration(
   data: {
     expectedVersion: number;
     ownerClientId?: string | null;
-    ownerBranchId?: string | null;
+    ownerUnitId?: string | null;
     declared: {
       owner: string;
       sacks: number;
@@ -1169,7 +1180,7 @@ export function confirmRegistration(
     body: {
       expectedVersion: data.expectedVersion,
       ownerClientId: data.ownerClientId ?? null,
-      ownerBranchId: data.ownerBranchId ?? null,
+      ownerUnitId: data.ownerUnitId ?? null,
       declared: data.declared,
     },
   });
@@ -1568,7 +1579,7 @@ export function createSampleMovement(
     expectedVersion: number;
     movementType: 'SALE' | 'LOSS';
     buyerClientId?: string | null;
-    buyerBranchId?: string | null;
+    buyerUnitId?: string | null;
     quantitySacks: number;
     movementDate: string;
     notes?: string | null;

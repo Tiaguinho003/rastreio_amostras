@@ -350,7 +350,7 @@ export function SampleMovementsPanel({
               expectedVersion: sample.version,
               movementType: data.movementType,
               buyerClientId: data.buyerClientId,
-              buyerBranchId: data.buyerBranchId,
+              buyerUnitId: data.buyerUnitId,
               quantitySacks: data.quantitySacks,
               movementDate: data.movementDate,
               notes: data.notes,
@@ -404,7 +404,7 @@ export function SampleMovementsPanel({
 
             if (editMovement.movementType === 'SALE') {
               after.buyerClientId = data.buyerClientId;
-              after.buyerBranchId = data.buyerBranchId;
+              after.buyerUnitId = data.buyerUnitId;
             } else {
               after.lossReasonText = data.lossReasonText;
             }

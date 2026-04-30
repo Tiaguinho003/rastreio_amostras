@@ -25,7 +25,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, sample_movement, client_branch, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, sample_movement, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
     );
   }
 
@@ -35,12 +35,16 @@ if (!databaseUrl || !databaseReachable) {
   async function ensureBuyerClient() {
     if (buyerClientId) return buyerClientId;
     buyerClientId = randomUUID();
+    // L5: CHECK chk_client_person_type_fields exige PJ ter cnpj/cnpjRoot.
     await prisma.client.create({
       data: {
         id: buyerClientId,
         personType: 'PJ',
         legalName: 'Comprador Teste LTDA',
         tradeName: 'Comprador Teste',
+        cnpj: '03936815000175',
+        cnpjOrder: '0001',
+        cnpjRoot: '03936815',
         isBuyer: true,
       },
     });

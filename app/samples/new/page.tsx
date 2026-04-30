@@ -18,7 +18,7 @@ import {
 import { useRegisterDirtyState } from '../../../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
 import type {
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientSummary,
   CreateSampleAndPreparePrintResponse,
 } from '../../../lib/types';
@@ -87,7 +87,7 @@ interface PendingDraftPayload {
   clientDraftId: string;
   owner: string;
   ownerClientId: string | null;
-  ownerBranchId: string | null;
+  ownerUnitId: string | null;
   sacks: number;
   harvest: string;
   originLot: string | null;
@@ -148,9 +148,9 @@ function NewSamplePageContent() {
   const [clientDraftId, setClientDraftId] = useState(loadOrCreateDraftId);
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerBranches, setOwnerBranches] = useState<ClientBranchSummary[]>([]);
-  const [selectedOwnerBranchId, setSelectedOwnerBranchId] = useState<string | null>(null);
-  const [ownerBranchLoading, setOwnerBranchLoading] = useState(false);
+  const [ownerUnits, setOwnerUnits] = useState<ClientUnitSummary[]>([]);
+  const [selectedOwnerUnitId, setSelectedOwnerUnitId] = useState<string | null>(null);
+  const [ownerUnitLoading, setOwnerUnitLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
@@ -208,15 +208,15 @@ function NewSamplePageContent() {
 
   useEffect(() => {
     if (!session || !selectedOwnerClient) {
-      setOwnerBranches([]);
-      setSelectedOwnerBranchId(null);
-      setOwnerBranchLoading(false);
+      setOwnerUnits([]);
+      setSelectedOwnerUnitId(null);
+      setOwnerUnitLoading(false);
       setOwner(selectedOwnerClient?.displayName ?? '');
       return;
     }
 
     let active = true;
-    setOwnerBranchLoading(true);
+    setOwnerUnitLoading(true);
     setError(null);
     setOwner(selectedOwnerClient.displayName ?? '');
 
@@ -226,10 +226,10 @@ function NewSamplePageContent() {
           return;
         }
 
-        const activeBranches = response.branches.filter((branch) => branch.status === 'ACTIVE');
-        setOwnerBranches(activeBranches);
-        setSelectedOwnerBranchId((current) =>
-          activeBranches.some((branch) => branch.id === current) ? current : null
+        const activeUnits = response.units.filter((unit) => unit.status === 'ACTIVE');
+        setOwnerUnits(activeUnits);
+        setSelectedOwnerUnitId((current) =>
+          activeUnits.some((unit) => unit.id === current) ? current : null
         );
       })
       .catch((cause) => {
@@ -237,15 +237,15 @@ function NewSamplePageContent() {
           return;
         }
 
-        setOwnerBranches([]);
-        setSelectedOwnerBranchId(null);
+        setOwnerUnits([]);
+        setSelectedOwnerUnitId(null);
         setError(
           cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do proprietario'
         );
       })
       .finally(() => {
         if (active) {
-          setOwnerBranchLoading(false);
+          setOwnerUnitLoading(false);
         }
       });
 
@@ -436,9 +436,9 @@ function NewSamplePageContent() {
     setClientDraftId(renewDraftId());
     setOwner('');
     setSelectedOwnerClient(null);
-    setOwnerBranches([]);
-    setSelectedOwnerBranchId(null);
-    setOwnerBranchLoading(false);
+    setOwnerUnits([]);
+    setSelectedOwnerUnitId(null);
+    setOwnerUnitLoading(false);
     setQuickCreateOpen(false);
     setQuickCreateSeed('');
     setSacks('');
@@ -536,7 +536,7 @@ function NewSamplePageContent() {
     // F7.4: PJ sem matriz (transient) nao pode ser dono de amostra. O lookup
     // ja desabilita a selecao, mas o estado pode ter sido carregado de
     // rascunho ou via outra rota — defesa em profundidade.
-    if (selectedOwnerClient.personType === 'PJ' && ownerBranches.length === 0) {
+    if (selectedOwnerClient.personType === 'PJ' && ownerUnits.length === 0) {
       setError(
         'Este cliente PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar amostras.'
       );
@@ -581,7 +581,7 @@ function NewSamplePageContent() {
       clientDraftId,
       owner: parsed.data.owner,
       ownerClientId: selectedOwnerClient?.id ?? null,
-      ownerBranchId: selectedOwnerBranchId ?? null,
+      ownerUnitId: selectedOwnerUnitId ?? null,
       sacks: parsed.data.sacks,
       harvest: parsed.data.harvest,
       originLot: parsed.data.originLot ?? null,
@@ -607,7 +607,7 @@ function NewSamplePageContent() {
         clientDraftId: pendingDraft.clientDraftId,
         owner: pendingDraft.owner,
         ownerClientId: pendingDraft.ownerClientId,
-        ownerBranchId: pendingDraft.ownerBranchId,
+        ownerUnitId: pendingDraft.ownerUnitId,
         sacks: pendingDraft.sacks,
         harvest: pendingDraft.harvest,
         originLot: pendingDraft.originLot,
@@ -709,15 +709,15 @@ function NewSamplePageContent() {
                     setSelectedOwnerClient(client);
                     setOwner(client?.displayName ?? '');
                     if (!client) {
-                      setSelectedOwnerBranchId(null);
+                      setSelectedOwnerUnitId(null);
                     }
                     clearRequiredFieldError('owner');
                     setError(null);
                   }}
-                  onSelectBranch={(client, branch) => {
+                  onSelectUnit={(client, unit) => {
                     setSelectedOwnerClient(client);
                     setOwner(client.displayName ?? '');
-                    setSelectedOwnerBranchId(branch?.id ?? null);
+                    setSelectedOwnerUnitId(unit?.id ?? null);
                     clearRequiredFieldError('owner');
                     setError(null);
                   }}
@@ -1084,7 +1084,7 @@ function NewSamplePageContent() {
           setQuickCreateOpen(false);
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setSelectedOwnerBranchId(null);
+          setSelectedOwnerUnitId(null);
           clearRequiredFieldError('owner');
           setMessage('Cliente criado e selecionado para a amostra.');
         }}

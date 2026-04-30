@@ -275,13 +275,13 @@ class PrismaEventStoreTx {
         movementType: payload.movementType,
         status: 'ACTIVE',
         buyerClientId: payload.buyerClientId ?? null,
-        buyerBranchId: payload.buyerBranchId ?? null,
+        buyerUnitId: payload.buyerUnitId ?? null,
         quantitySacks: payload.quantitySacks,
         movementDate: new Date(payload.movementDate),
         notes: payload.notes ?? null,
         reasonText: payload.lossReasonText ?? null,
         buyerClientSnapshot: payload.buyerClientSnapshot ?? null,
-        buyerBranchSnapshot: payload.buyerBranchSnapshot ?? null,
+        buyerUnitSnapshot: payload.buyerUnitSnapshot ?? null,
         version: 1,
         cancelledAt: null,
       },
@@ -305,8 +305,8 @@ class PrismaEventStoreTx {
       ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientId')
         ? { buyerClientId: after.buyerClientId ?? null }
         : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'buyerBranchId')
-        ? { buyerBranchId: after.buyerBranchId ?? null }
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerUnitId')
+        ? { buyerUnitId: after.buyerUnitId ?? null }
         : {}),
       ...(Object.prototype.hasOwnProperty.call(after, 'quantitySacks')
         ? { quantitySacks: after.quantitySacks }
@@ -323,8 +323,8 @@ class PrismaEventStoreTx {
       ...(Object.prototype.hasOwnProperty.call(after, 'buyerClientSnapshot')
         ? { buyerClientSnapshot: after.buyerClientSnapshot ?? null }
         : {}),
-      ...(Object.prototype.hasOwnProperty.call(after, 'buyerBranchSnapshot')
-        ? { buyerBranchSnapshot: after.buyerBranchSnapshot ?? null }
+      ...(Object.prototype.hasOwnProperty.call(after, 'buyerUnitSnapshot')
+        ? { buyerUnitSnapshot: after.buyerUnitSnapshot ?? null }
         : {}),
       version: { increment: 1 },
     };

@@ -8,7 +8,7 @@ import { AppShell } from '../../../components/AppShell';
 import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
-import { ClientBranchSelect } from '../../../components/clients/ClientBranchSelect';
+import { ClientUnitSelect } from '../../../components/clients/ClientUnitSelect';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import {
   ApiError,
@@ -44,7 +44,7 @@ import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ClassifierSnapshot,
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientSummary,
   CommercialStatus,
   ExtractionResult,
@@ -574,14 +574,22 @@ function mapSampleOwnerClientToSummary(
     cnpj: client.cnpj,
     document: client.personType === 'PF' ? client.cpf : client.cnpj,
     phone: client.phone,
+    email: null,
+    addressLine: null,
+    district: null,
+    city: null,
+    state: null,
+    postalCode: null,
+    complement: null,
+    registrationNumber: null,
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     status: client.status,
     commercialUser: null,
     commercialUsers: [],
-    branches: [],
-    branchCount: 0,
-    activeBranchCount: 0,
+    units: [],
+    unitCount: 0,
+    activeUnitCount: 0,
     primaryCity: null,
     primaryState: null,
     createdAt: null,
@@ -642,9 +650,9 @@ export default function SampleDetailPage() {
 
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerBranches, setOwnerBranches] = useState<ClientBranchSummary[]>([]);
-  const [selectedOwnerBranchId, setSelectedOwnerBranchId] = useState<string | null>(null);
-  const [ownerBranchLoading, setOwnerBranchLoading] = useState(false);
+  const [ownerUnits, setOwnerUnits] = useState<ClientUnitSummary[]>([]);
+  const [selectedOwnerUnitId, setSelectedOwnerUnitId] = useState<string | null>(null);
+  const [ownerUnitLoading, setOwnerUnitLoading] = useState(false);
   const [ownerQuickCreateOpen, setOwnerQuickCreateOpen] = useState(false);
   const [ownerQuickCreateSeed, setOwnerQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
@@ -765,7 +773,7 @@ export default function SampleDetailPage() {
           setSelectedOwnerClient(
             mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null)
           );
-          setSelectedOwnerBranchId(response.sample.ownerBranchId ?? null);
+          setSelectedOwnerUnitId(response.sample.ownerUnitId ?? null);
           setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
           setHarvest(response.sample.declared.harvest ?? '');
           setOriginLot(response.sample.declared.originLot ?? '');
@@ -807,15 +815,15 @@ export default function SampleDetailPage() {
 
   useEffect(() => {
     if (!session || !selectedOwnerClient) {
-      setOwnerBranches([]);
-      setOwnerBranchLoading(false);
-      setSelectedOwnerBranchId(null);
+      setOwnerUnits([]);
+      setOwnerUnitLoading(false);
+      setSelectedOwnerUnitId(null);
       setOwner(selectedOwnerClient?.displayName ?? detailRef.current?.sample.declared.owner ?? '');
       return;
     }
 
     let active = true;
-    setOwnerBranchLoading(true);
+    setOwnerUnitLoading(true);
     setOwner(selectedOwnerClient.displayName ?? '');
 
     getClient(session, selectedOwnerClient.id)
@@ -824,16 +832,16 @@ export default function SampleDetailPage() {
           return;
         }
 
-        const activeBranches = response.branches.filter((b) => b.status === 'ACTIVE');
-        setOwnerBranches(activeBranches);
+        const activeUnits = response.units.filter((u) => u.status === 'ACTIVE');
+        setOwnerUnits(activeUnits);
       })
       .catch((cause) => {
         if (!active) {
           return;
         }
 
-        setOwnerBranches([]);
-        setSelectedOwnerBranchId(null);
+        setOwnerUnits([]);
+        setSelectedOwnerUnitId(null);
         setGeneralNotice({
           kind: 'error',
           text:
@@ -842,7 +850,7 @@ export default function SampleDetailPage() {
       })
       .finally(() => {
         if (active) {
-          setOwnerBranchLoading(false);
+          setOwnerUnitLoading(false);
         }
       });
 
@@ -896,9 +904,9 @@ export default function SampleDetailPage() {
     setActiveMovements(null);
     setActiveMovementsError(null);
     setSelectedOwnerClient(null);
-    setOwnerBranches([]);
-    setSelectedOwnerBranchId(null);
-    setOwnerBranchLoading(false);
+    setOwnerUnits([]);
+    setSelectedOwnerUnitId(null);
+    setOwnerUnitLoading(false);
     setOwnerQuickCreateOpen(false);
     setOwnerQuickCreateSeed('');
     setClassificationSelectedPhoto(null);
@@ -1472,7 +1480,7 @@ export default function SampleDetailPage() {
       await confirmRegistration(session, sampleId, {
         expectedVersion: detail.sample.version,
         ownerClientId: selectedOwnerClient.id,
-        ownerBranchId: selectedOwnerBranchId,
+        ownerUnitId: selectedOwnerUnitId,
         declared: parsed.data,
       });
       registrationEditModeRef.current = false;
@@ -1922,7 +1930,7 @@ export default function SampleDetailPage() {
 
     setOwner(detail.sample.declared.owner ?? '');
     setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
-    setSelectedOwnerBranchId(detail.sample.ownerBranchId ?? null);
+    setSelectedOwnerUnitId(detail.sample.ownerUnitId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -1941,7 +1949,7 @@ export default function SampleDetailPage() {
 
     setOwner(detail.sample.declared.owner ?? '');
     setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
-    setSelectedOwnerBranchId(detail.sample.ownerBranchId ?? null);
+    setSelectedOwnerUnitId(detail.sample.ownerUnitId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -2003,7 +2011,7 @@ export default function SampleDetailPage() {
       } = {
         declared: parsedForm.data,
         ownerClientId: selectedOwnerClient.id,
-        ownerBranchId: selectedOwnerBranchId,
+        ownerUnitId: selectedOwnerUnitId,
       };
 
       await updateRegistration(session, sampleId, {
@@ -2650,7 +2658,7 @@ export default function SampleDetailPage() {
                           <span className="sdv-info-label">Inscricao</span>
                           <span className="sdv-info-value">
                             {buildReadableValue(
-                              detail.sample.ownerBranch?.registrationNumber ?? null
+                              detail.sample.ownerUnit?.registrationNumber ?? null
                             )}
                           </span>
                         </div>
@@ -3292,7 +3300,7 @@ export default function SampleDetailPage() {
           setOwnerQuickCreateOpen(false);
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setSelectedOwnerBranchId(null);
+          setSelectedOwnerUnitId(null);
           setGeneralNotice({
             kind: 'success',
             text: 'Cliente proprietario criado e selecionado com sucesso.',
@@ -3342,7 +3350,7 @@ export default function SampleDetailPage() {
                   onSelectClient={(client) => {
                     setSelectedOwnerClient(client);
                     setOwner(client?.displayName ?? '');
-                    setSelectedOwnerBranchId(null);
+                    setSelectedOwnerUnitId(null);
                     setGeneralNotice(null);
                   }}
                   onRequestCreate={(searchTerm) => {
@@ -3353,12 +3361,12 @@ export default function SampleDetailPage() {
                 />
               </div>
               <div className="sdv-edit-field">
-                <ClientBranchSelect
+                <ClientUnitSelect
                   label="Inscricao"
-                  branches={ownerBranches}
-                  value={selectedOwnerBranchId}
-                  disabled={!selectedOwnerClient || ownerBranchLoading || registrationUpdating}
-                  onChange={setSelectedOwnerBranchId}
+                  units={ownerUnits}
+                  value={selectedOwnerUnitId}
+                  disabled={!selectedOwnerClient || ownerUnitLoading || registrationUpdating}
+                  onChange={setSelectedOwnerUnitId}
                   placeholder="Selecionar"
                   compact
                 />

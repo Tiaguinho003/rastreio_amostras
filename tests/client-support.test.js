@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildClientDisplayName,
-  normalizeCreateBranchInput,
+  normalizeCreateUnitInput,
   normalizeCreateClientInput,
   normalizeLookupClientsInput,
   normalizeRegistrationCanonical,
@@ -34,7 +34,7 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
 });
 
 test('normalizeCreateClientInput enforces PF shape and canonical document', () => {
-  const { data, commercialUserIds, branches } = normalizeCreateClientInput({
+  const { data, commercialUserIds, units } = normalizeCreateClientInput({
     personType: 'PF',
     fullName: '  Francisco Sales Darcadia ',
     cpf: '016.179.708-32',
@@ -49,7 +49,7 @@ test('normalizeCreateClientInput enforces PF shape and canonical document', () =
   assert.equal(data.phone, '35999990000');
   assert.equal(data.legalName, null);
   assert.deepEqual(commercialUserIds, []);
-  assert.deepEqual(branches, []);
+  assert.deepEqual(units, []);
 });
 
 test('normalizeCreateClientInput accepts PF clients without cpf', () => {
@@ -65,59 +65,33 @@ test('normalizeCreateClientInput accepts PF clients without cpf', () => {
   assert.equal(data.fullName, 'Francisco Sales Darcadia');
 });
 
-test('normalizeCreateClientInput accepts PJ clients without branches (transient state)', () => {
-  const { data, branches } = normalizeCreateClientInput({
+test('L5: PJ create stores cnpj/endereco/IE direct in Client', () => {
+  const { data, units } = normalizeCreateClientInput({
     personType: 'PJ',
     legalName: 'Coopercitrus',
+    cnpj: '03.936.815/0001-75',
+    addressLine: 'Av. das Acacias, 100',
+    city: 'Belo Horizonte',
+    state: 'mg',
+    registrationNumber: '0028640150010',
     phone: '35 99999-0000',
+    email: 'comercial@coopercitrus.com.br',
     isBuyer: true,
     isSeller: true,
   });
 
   assert.equal(data.legalName, 'Coopercitrus');
-  assert.deepEqual(branches, []);
+  assert.equal(data.cnpj, '03936815000175');
+  assert.equal(data.cnpjRoot, '03936815');
+  assert.equal(data.cnpjOrder, '0001');
+  assert.equal(data.city, 'Belo Horizonte');
+  assert.equal(data.state, 'MG');
+  assert.equal(data.registrationNumberCanonical, '0028640150010');
+  assert.equal(data.email, 'comercial@coopercitrus.com.br');
+  assert.deepEqual(units, []);
 });
 
-test('normalizeCreateClientInput accepts PJ with branches[] inline (B3)', () => {
-  const { data, branches } = normalizeCreateClientInput({
-    personType: 'PJ',
-    legalName: 'Coopercitrus',
-    phone: '35 99999-0000',
-    isBuyer: true,
-    isSeller: true,
-    branches: [
-      { isPrimary: true, cnpj: '03.936.815/0001-75' },
-      { cnpj: '03.936.815/0002-56', city: 'Belo Horizonte', state: 'MG' },
-    ],
-  });
-
-  assert.equal(data.legalName, 'Coopercitrus');
-  assert.equal(branches.length, 2);
-  assert.equal(branches[0].isPrimary, true);
-  assert.equal(branches[0].cnpj, '03936815000175');
-  assert.equal(branches[1].isPrimary, false);
-  assert.equal(branches[1].cnpj, '03936815000256');
-});
-
-test('normalizeCreateClientInput rejects branches[] with multiple isPrimary=true', () => {
-  assert.throws(
-    () =>
-      normalizeCreateClientInput({
-        personType: 'PJ',
-        legalName: 'Coopercitrus',
-        phone: '35 99999-0000',
-        isBuyer: true,
-        isSeller: true,
-        branches: [
-          { isPrimary: true, cnpj: '03.936.815/0001-75' },
-          { isPrimary: true, cnpj: '03.936.815/0002-56' },
-        ],
-      }),
-    /only one branch can be isPrimary/
-  );
-});
-
-test('normalizeCreateClientInput rejects cnpj at client level (F5.2)', () => {
+test('L5: PJ create rejects units[]', () => {
   assert.throws(
     () =>
       normalizeCreateClientInput({
@@ -127,8 +101,77 @@ test('normalizeCreateClientInput rejects cnpj at client level (F5.2)', () => {
         phone: '35 99999-0000',
         isBuyer: true,
         isSeller: true,
+        units: [{ name: 'Filial 1' }],
       }),
-    /cnpj cannot be provided/
+    /PJ_HAS_NO_UNITS|PJ clients do not have units/
+  );
+});
+
+test('L5: PJ create rejects without cnpj', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PJ',
+        legalName: 'Coopercitrus',
+        phone: '35 99999-0000',
+        isBuyer: true,
+        isSeller: true,
+      }),
+    /cnpj is required for PJ|PJ_REQUIRES_CNPJ/
+  );
+});
+
+test('L5: PF create accepts units[] (fazendas) without isPrimary', () => {
+  const { data, units } = normalizeCreateClientInput({
+    personType: 'PF',
+    fullName: 'Francisco Sales',
+    cpf: '016.179.708-32',
+    phone: '35 99999-0000',
+    isBuyer: false,
+    isSeller: true,
+    units: [
+      { name: 'Fazenda Sao Joao', city: 'Sao Sebastiao', state: 'mg', car: 'MG-12345' },
+      { name: 'Fazenda Bom Retiro' },
+    ],
+  });
+
+  assert.equal(data.fullName, 'Francisco Sales');
+  assert.equal(units.length, 2);
+  assert.equal(units[0].name, 'Fazenda Sao Joao');
+  assert.equal(units[0].state, 'MG');
+  assert.equal(units[0].car, 'MG-12345');
+  assert.equal(units[1].name, 'Fazenda Bom Retiro');
+});
+
+test('L5: PF unit rejects isPrimary in input', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PF',
+        fullName: 'Francisco Sales',
+        cpf: '016.179.708-32',
+        phone: '35 99999-0000',
+        isBuyer: false,
+        isSeller: true,
+        units: [{ name: 'Fazenda', isPrimary: true }],
+      }),
+    /isPrimary cannot be provided/
+  );
+});
+
+test('L5: PF unit requires name', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PF',
+        fullName: 'Francisco Sales',
+        cpf: '016.179.708-32',
+        phone: '35 99999-0000',
+        isBuyer: false,
+        isSeller: true,
+        units: [{ city: 'Sao Sebastiao' }],
+      }),
+    /name is required/
   );
 });
 
@@ -162,40 +205,51 @@ test('normalizeCreateClientInput rejects invalid phone lengths', () => {
   );
 });
 
-test('normalizeUpdateClientInput supports switching from PF to PJ (cnpj fica em branch)', () => {
-  const result = normalizeUpdateClientInput(
-    {
-      personType: 'PJ',
-      legalName: 'G A S Comercio de Cafe Sociedade LTDA',
-      tradeName: 'G A S Comercio de Cafe Sociedade LTDA',
-      isBuyer: true,
-      isSeller: true,
-      reasonText: 'corrigir cadastro',
-    },
-    {
-      personType: 'PF',
-      fullName: 'Cliente Antigo',
-      legalName: null,
-      tradeName: null,
-      cpf: '01617970832',
-      phone: null,
-      isBuyer: false,
-      isSeller: true,
-    }
+test('L5: rejects malformed email at create', () => {
+  assert.throws(
+    () =>
+      normalizeCreateClientInput({
+        personType: 'PJ',
+        legalName: 'Coopercitrus',
+        cnpj: '03.936.815/0001-75',
+        phone: '35 99999-0000',
+        email: 'naoeumemail',
+        isBuyer: true,
+        isSeller: true,
+      }),
+    /email is invalid/
   );
+});
 
-  assert.equal(result.reasonText, 'corrigir cadastro');
-  assert.equal(result.data.personType, 'PJ');
-  assert.equal(result.data.legalName, 'G A S Comercio de Cafe Sociedade LTDA');
-  assert.equal(result.data.tradeName, 'G A S Comercio de Cafe Sociedade LTDA');
-  assert.equal(result.data.fullName, null);
-  assert.equal(result.data.cpf, null);
+test('L5: normalizeUpdateClientInput LOCKS personType (no PF<->PJ switch)', () => {
+  assert.throws(
+    () =>
+      normalizeUpdateClientInput(
+        {
+          personType: 'PJ',
+          legalName: 'G A S Comercio',
+          isBuyer: true,
+          isSeller: true,
+          reasonText: 'tentando trocar',
+        },
+        {
+          personType: 'PF',
+          fullName: 'Cliente Antigo',
+          cpf: '01617970832',
+          phone: null,
+          isBuyer: false,
+          isSeller: true,
+        }
+      ),
+    /personType cannot be changed|CLIENT_PERSON_TYPE_LOCKED/
+  );
 });
 
 test('normalizeCreateClientInput accepts payload when both buyer and seller are false', () => {
   const { data } = normalizeCreateClientInput({
     personType: 'PJ',
     legalName: 'Atlantica',
+    cnpj: '03.936.815/0001-75',
     phone: '(35) 99999-0000',
     isBuyer: false,
     isSeller: false,
@@ -204,10 +258,11 @@ test('normalizeCreateClientInput accepts payload when both buyer and seller are 
   assert.equal(data.isSeller, false);
 });
 
-test('normalizeCreateBranchInput validates address fields and canonicaliza registration', () => {
-  const { data } = normalizeCreateBranchInput({
+test('L5: normalizeCreateUnitInput validates address fields, canonicaliza registration, accepts car', () => {
+  const { data } = normalizeCreateUnitInput({
+    name: 'Fazenda Sao Joao',
     registrationNumber: '0028640150010',
-    registrationType: 'estadual',
+    car: 'MG-9876',
     addressLine: 'Av. Oliveira Rezende, 1397',
     district: 'JD Bernadete',
     city: 'Sao Sebastiao do Paraiso',
@@ -216,9 +271,33 @@ test('normalizeCreateBranchInput validates address fields and canonicaliza regis
     complement: '',
   });
 
+  assert.equal(data.name, 'Fazenda Sao Joao');
   assert.equal(data.registrationNumberCanonical, '0028640150010');
+  assert.equal(data.car, 'MG-9876');
   assert.equal(data.state, 'MG');
   assert.equal(data.complement, null);
+});
+
+test('L5: normalizeCreateUnitInput rejects registrationType (dropped under L5)', () => {
+  assert.throws(
+    () =>
+      normalizeCreateUnitInput({
+        name: 'Fazenda',
+        registrationType: 'estadual',
+      }),
+    /registrationType cannot be provided/
+  );
+});
+
+test('L5: normalizeCreateUnitInput rejects cnpjOrder (dropped under L5)', () => {
+  assert.throws(
+    () =>
+      normalizeCreateUnitInput({
+        name: 'Fazenda',
+        cnpjOrder: '0001',
+      }),
+    /cnpjOrder cannot be provided/
+  );
 });
 
 test('normalizeLookupClientsInput enforces minimum search length and fixed limit', () => {

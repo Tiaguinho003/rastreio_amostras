@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
-import { ClientBranchModal } from '../../../components/clients/ClientBranchModal';
+import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import {
   ApiError,
   getClient,
@@ -13,10 +13,10 @@ import {
   updateClient,
   inactivateClient,
   reactivateClient,
-  createClientBranch,
-  updateClientBranch,
-  inactivateClientBranch,
-  reactivateClientBranch,
+  createClientUnit,
+  updateClientUnit,
+  inactivateClientUnit,
+  reactivateClientUnit,
   listClientSamples,
   listClientPurchases,
   getClientCommercialSummary,
@@ -34,7 +34,7 @@ import { useRequireAuth } from '../../../lib/use-auth';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import type {
   ClientPersonType,
-  ClientBranchSummary,
+  ClientUnitSummary,
   ClientSummary,
   ClientSampleItem,
   ClientPurchaseItem,
@@ -60,7 +60,7 @@ function NoticeSlot({ notice }: { notice: Notice }) {
 
 const REG_FIELD_LABELS: Record<string, string> = {
   registrationNumber: 'Numero da inscricao',
-  registrationType: 'Tipo',
+  car: 'CAR',
   addressLine: 'Endereco',
   district: 'Bairro',
   city: 'Cidade',
@@ -69,7 +69,7 @@ const REG_FIELD_LABELS: Record<string, string> = {
   complement: 'Complemento',
 };
 
-function translateBranchError(cause: unknown): string {
+function translateUnitError(cause: unknown): string {
   if (!(cause instanceof ApiError)) {
     return 'Falha ao salvar inscricao. Tente novamente.';
   }
@@ -82,14 +82,13 @@ function translateBranchError(cause: unknown): string {
   if (cause.status === 403) {
     return 'Sem permissao para esta acao.';
   }
-  // F7.3: regra "PJ admite no maximo 1 branch ATIVA". Backend devolve 409
-  // com details.code = 'PJ_BRANCH_LIMIT'. Mensagem ja vem em pt-BR do
-  // service; encaminhamos sem traducao.
+  // L5: PJ rejeita unit com 422 CLIENT_PJ_HAS_NO_UNITS. Mensagem ja vem
+  // em pt-BR do service.
   if (
-    cause.status === 409 &&
+    cause.status === 422 &&
     cause.details &&
     typeof cause.details === 'object' &&
-    (cause.details as { code?: string }).code === 'PJ_BRANCH_LIMIT'
+    (cause.details as { code?: string }).code === 'CLIENT_PJ_HAS_NO_UNITS'
   ) {
     return cause.message;
   }
@@ -160,17 +159,17 @@ export default function ClientDetailPage() {
 
   /* ---- data ---- */
   const [client, setClient] = useState<ClientSummary | null>(null);
-  const [branches, setBranches] = useState<ClientBranchSummary[]>([]);
+  const [units, setUnits] = useState<ClientUnitSummary[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
 
   /* ---- notices (6 zones) ---- */
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [detailNotice, setDetailNotice] = useState<Notice>(null);
-  const [branchNotice, setBranchNotice] = useState<Notice>(null);
+  const [unitNotice, setUnitNotice] = useState<Notice>(null);
   const [editClientModalNotice, setEditClientModalNotice] = useState<Notice>(null);
-  const [branchModalNotice, setBranchModalNotice] = useState<Notice>(null);
+  const [unitModalNotice, setUnitModalNotice] = useState<Notice>(null);
   const [statusModalNotice, setStatusModalNotice] = useState<Notice>(null);
-  const [branchStatusNotice, setBranchStatusNotice] = useState<Notice>(null);
+  const [unitStatusNotice, setUnitStatusNotice] = useState<Notice>(null);
 
   /* ---- edit client modal ---- */
   const [editClientOpen, setEditClientOpen] = useState(false);
@@ -196,12 +195,12 @@ export default function ClientDetailPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const editClientTrapRef = useFocusTrap(editClientOpen);
 
-  /* ---- branch modal (create + edit) — F6.0: usa ClientBranchModal extraido ---- */
-  const [branchModalOpen, setBranchModalOpen] = useState(false);
-  const [branchModalMode, setBranchModalMode] = useState<'create' | 'edit'>('create');
-  const [selectedBranch, setSelectedBranch] = useState<ClientBranchSummary | null>(null);
-  const [savingBranch, setSavingBranch] = useState(false);
-  const [showInactiveBranches, setShowInactiveBranches] = useState(false);
+  /* ---- unit modal (create + edit) — usa ClientUnitModal ---- */
+  const [unitModalOpen, setUnitModalOpen] = useState(false);
+  const [unitModalMode, setUnitModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedUnit, setSelectedUnit] = useState<ClientUnitSummary | null>(null);
+  const [savingUnit, setSavingUnit] = useState(false);
+  const [showInactiveUnits, setShowInactiveUnits] = useState(false);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -210,21 +209,21 @@ export default function ClientDetailPage() {
   const [statusImpact, setStatusImpact] = useState<{
     ownedSamples: number;
     activeMovements: number;
-    activeBranches: number;
+    activeUnits: number;
   } | null>(null);
   const [statusImpactLoading, setStatusImpactLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const statusTrapRef = useFocusTrap(statusModalOpen);
 
   /* ---- registration status modal (inactivate/reactivate registration) ---- */
-  const [branchStatusModalOpen, setBranchStatusModalOpen] = useState(false);
-  const [branchStatusAction, setBranchStatusAction] = useState<
-    'inactivate' | 'reactivate' | 'promote'
-  >('inactivate');
-  const [branchStatusBranchId, setBranchStatusBranchId] = useState<string | null>(null);
-  const [branchStatusReason, setBranchStatusReason] = useState('');
-  const [savingBranchStatus, setSavingBranchStatus] = useState(false);
-  const branchStatusTrapRef = useFocusTrap(branchStatusModalOpen);
+  const [unitStatusModalOpen, setUnitStatusModalOpen] = useState(false);
+  const [unitStatusAction, setUnitStatusAction] = useState<'inactivate' | 'reactivate'>(
+    'inactivate'
+  );
+  const [unitStatusUnitId, setUnitStatusUnitId] = useState<string | null>(null);
+  const [unitStatusReason, setUnitStatusReason] = useState('');
+  const [savingUnitStatus, setSavingUnitStatus] = useState(false);
+  const unitStatusTrapRef = useFocusTrap(unitStatusModalOpen);
 
   /* ---- commercial tab ---- */
   const [clientSection, setClientSection] = useState<ClientDetailSection>('GENERAL');
@@ -316,7 +315,7 @@ export default function ClientDetailPage() {
         const response = await getClient(session, clientId, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setClient(response.client);
-        setBranches(response.branches);
+        setUnits(response.units);
       } catch (cause) {
         if (controller.signal.aborted) return;
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
@@ -624,35 +623,23 @@ export default function ClientDetailPage() {
     return nameOk && phoneOk && docOk;
   }, [editClientForm]);
 
-  // F6.0: derived branches lists for cards section
-  const activeBranchesList = useMemo(
-    () => branches.filter((b) => b.status === 'ACTIVE'),
-    [branches]
+  // L5: derived units lists for cards section
+  const activeUnitsList = useMemo(() => units.filter((u) => u.status === 'ACTIVE'), [units]);
+  const inactiveUnitsCount = useMemo(
+    () => units.filter((u) => u.status === 'INACTIVE').length,
+    [units]
   );
-  const inactiveBranchesCount = useMemo(
-    () => branches.filter((b) => b.status === 'INACTIVE').length,
-    [branches]
+  const visibleUnits = useMemo(
+    () => (showInactiveUnits ? units : activeUnitsList),
+    [showInactiveUnits, units, activeUnitsList]
   );
-  const visibleBranches = useMemo(
-    () => (showInactiveBranches ? branches : activeBranchesList),
-    [showInactiveBranches, branches, activeBranchesList]
-  );
-  // Próxima filial ACTIVE não-primary (auto-promote candidate)
-  const autoPromoteCandidate = useMemo(
-    () => activeBranchesList.find((b) => !b.isPrimary) ?? null,
-    [activeBranchesList]
-  );
-
-  // F7.4: terminologia contextualizada por personType.
-  //  - PJ: "filial"/"matriz"; admite no maximo 1 ATIVA (regra F7).
-  //  - PF: "fazenda"; admite 0..N (cada fazenda pode ter CNPJ/CAR/IE proprios).
+  // L5: PJ nao tem units (dados ficam no Client direto). PF tem fazendas.
   const isPf = client?.personType === 'PF';
   const isPj = client?.personType === 'PJ';
-  const branchSingular = isPf ? 'fazenda' : 'filial';
-  const branchPlural = isPf ? 'Fazendas' : 'Filiais';
-  // Pra PJ com 1 branch ATIVA, "Nova filial" violaria PJ_BRANCH_LIMIT no
-  // backend (F7.3). Esconder o botao previne erro 409 desnecessario.
-  const canAddBranch = isPf || activeBranchesList.length === 0;
+  const unitSingular = 'fazenda';
+  const unitPlural = 'Fazendas';
+  // Backend rejeita unit em PJ com 422 CLIENT_PJ_HAS_NO_UNITS.
+  const canAddUnit = isPf;
 
   /* ================================================================ */
   /*  Edit client handlers                                            */
@@ -695,9 +682,10 @@ export default function ClientDetailPage() {
         data.fullName = editClientForm.fullName;
         data.cpf = editClientForm.cpf.replace(/\D/g, '');
       } else {
+        // L5: PJ guarda cnpj direto no Client.
         data.legalName = editClientForm.legalName;
         data.tradeName = editClientForm.tradeName || null;
-        // F5.2: cnpj agora vive nas branches; updateClient nao aceita cnpj
+        data.cnpj = editClientForm.cnpj.replace(/\D/g, '') || null;
       }
 
       if (editClientForm.phone.replace(/\D/g, '').length > 0) {
@@ -726,61 +714,61 @@ export default function ClientDetailPage() {
   }
 
   /* ================================================================ */
-  /*  Branch CRUD handlers (F6.0 — usa ClientBranchModal extraido)    */
+  /*  Unit CRUD handlers — L5 (apenas PF)                            */
   /* ================================================================ */
 
-  function openBranchCreate() {
-    setBranchModalMode('create');
-    setSelectedBranch(null);
-    setBranchModalNotice(null);
-    setSavingBranch(false);
-    setBranchModalOpen(true);
+  function openUnitCreate() {
+    setUnitModalMode('create');
+    setSelectedUnit(null);
+    setUnitModalNotice(null);
+    setSavingUnit(false);
+    setUnitModalOpen(true);
   }
 
-  function openBranchEdit(branch: ClientBranchSummary) {
-    setBranchModalMode('edit');
-    setSelectedBranch(branch);
-    setBranchModalNotice(null);
-    setSavingBranch(false);
-    setBranchModalOpen(true);
+  function openUnitEdit(unit: ClientUnitSummary) {
+    setUnitModalMode('edit');
+    setSelectedUnit(unit);
+    setUnitModalNotice(null);
+    setSavingUnit(false);
+    setUnitModalOpen(true);
   }
 
-  function closeBranchModal() {
-    if (savingBranch) return;
-    setBranchModalOpen(false);
+  function closeUnitModal() {
+    if (savingUnit) return;
+    setUnitModalOpen(false);
   }
 
-  async function handleBranchSubmit(
-    data: import('../../../lib/types').ClientBranchInput,
+  async function handleUnitSubmit(
+    data: import('../../../lib/types').ClientUnitInput,
     reasonText: string | null
   ) {
     if (!session || !clientId) return;
-    setSavingBranch(true);
-    setBranchModalNotice(null);
+    setSavingUnit(true);
+    setUnitModalNotice(null);
 
     try {
       // F7.4: terminologia contextual nos toasts (PF -> "fazenda", PJ -> "filial").
       const term = client?.personType === 'PF' ? 'Fazenda' : 'Filial';
-      if (branchModalMode === 'create') {
-        await createClientBranch(session, clientId, data);
-        setBranchNotice({ kind: 'success', text: `${term} criada com sucesso.` });
+      if (unitModalMode === 'create') {
+        await createClientUnit(session, clientId, data);
+        setUnitNotice({ kind: 'success', text: `${term} criada com sucesso.` });
       } else {
-        if (!selectedBranch) return;
-        await updateClientBranch(session, clientId, selectedBranch.id, {
+        if (!selectedUnit) return;
+        await updateClientUnit(session, clientId, selectedUnit.id, {
           ...data,
           reasonText: reasonText ?? '',
         });
-        setBranchNotice({ kind: 'success', text: `${term} atualizada com sucesso.` });
+        setUnitNotice({ kind: 'success', text: `${term} atualizada com sucesso.` });
       }
       void fetchData();
-      setBranchModalOpen(false);
+      setUnitModalOpen(false);
     } catch (cause) {
-      setBranchModalNotice({
+      setUnitModalNotice({
         kind: 'error',
-        text: translateBranchError(cause),
+        text: translateUnitError(cause),
       });
     } finally {
-      setSavingBranch(false);
+      setSavingUnit(false);
     }
   }
 
@@ -849,76 +837,45 @@ export default function ClientDetailPage() {
   /*  Registration status handlers                                    */
   /* ================================================================ */
 
-  function openBranchStatusModal(
-    branch: ClientBranchSummary,
-    action: 'inactivate' | 'reactivate' | 'promote'
-  ) {
-    setSelectedBranch(branch);
-    setBranchStatusBranchId(branch.id);
-    setBranchStatusAction(action);
-    setBranchStatusReason('');
-    setBranchStatusNotice(null);
-    setBranchStatusModalOpen(true);
+  function openUnitStatusModal(unit: ClientUnitSummary, action: 'inactivate' | 'reactivate') {
+    setSelectedUnit(unit);
+    setUnitStatusUnitId(unit.id);
+    setUnitStatusAction(action);
+    setUnitStatusReason('');
+    setUnitStatusNotice(null);
+    setUnitStatusModalOpen(true);
   }
 
-  function closeBranchStatusModal() {
-    if (savingBranchStatus) return;
-    setBranchStatusModalOpen(false);
+  function closeUnitStatusModal() {
+    if (savingUnitStatus) return;
+    setUnitStatusModalOpen(false);
   }
 
-  async function handleBranchStatusSubmit(event: React.FormEvent) {
+  async function handleUnitStatusSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!session || !clientId || !branchStatusBranchId || branchStatusReason.trim().length === 0)
-      return;
-    setSavingBranchStatus(true);
-    setBranchStatusNotice(null);
+    if (!session || !clientId || !unitStatusUnitId || unitStatusReason.trim().length === 0) return;
+    setSavingUnitStatus(true);
+    setUnitStatusNotice(null);
 
     try {
-      // F7.4: terminologia contextual nos toasts.
-      const isPfClient = client?.personType === 'PF';
-      const termSingular = isPfClient ? 'Fazenda' : 'Filial';
-      if (branchStatusAction === 'inactivate') {
-        const result = await inactivateClientBranch(
-          session,
-          clientId,
-          branchStatusBranchId,
-          branchStatusReason
-        );
-        let successText: string;
-        if (result.autoPromoted) {
-          const promotedName =
-            result.autoPromoted.name ??
-            (isPfClient
-              ? `Fazenda ${result.autoPromoted.code}`
-              : `Filial ${result.autoPromoted.code}`);
-          successText = isPfClient
-            ? `Fazenda inativada. ${promotedName} virou a fazenda principal.`
-            : `Filial inativada. ${promotedName} virou a nova matriz.`;
-        } else {
-          successText = `${termSingular} inativada com sucesso.`;
-        }
-        setBranchNotice({ kind: 'success', text: successText });
-      } else if (branchStatusAction === 'reactivate') {
-        await reactivateClientBranch(session, clientId, branchStatusBranchId, branchStatusReason);
-        setBranchNotice({ kind: 'success', text: `${termSingular} reativada com sucesso.` });
+      // L5: ClientUnit so existe pra PF (fazenda).
+      if (unitStatusAction === 'inactivate') {
+        await inactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
+        setUnitNotice({ kind: 'success', text: 'Fazenda inativada com sucesso.' });
       } else {
-        // promote: usa updateClientBranch com isPrimary=true
-        await updateClientBranch(session, clientId, branchStatusBranchId, {
-          isPrimary: true,
-          reasonText: branchStatusReason,
-        });
-        setBranchNotice({ kind: 'success', text: 'Nova matriz definida com sucesso.' });
+        await reactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
+        setUnitNotice({ kind: 'success', text: 'Fazenda reativada com sucesso.' });
       }
 
-      setBranchStatusModalOpen(false);
+      setUnitStatusModalOpen(false);
       void fetchData();
     } catch (cause) {
-      setBranchStatusNotice({
+      setUnitStatusNotice({
         kind: 'error',
-        text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status da inscricao.',
+        text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status da fazenda.',
       });
     } finally {
-      setSavingBranchStatus(false);
+      setSavingUnitStatus(false);
     }
   }
 
@@ -1127,14 +1084,11 @@ export default function ClientDetailPage() {
                     <div className="sdv-card">
                       <div className="sdv-card-header">
                         <span className="sdv-card-title">
-                          {branchPlural} ({visibleBranches.length}
-                          {inactiveBranchesCount > 0
-                            ? ` · ${inactiveBranchesCount} inativa(s)`
-                            : ''}
-                          )
+                          {unitPlural} ({visibleUnits.length}
+                          {inactiveUnitsCount > 0 ? ` · ${inactiveUnitsCount} inativa(s)` : ''})
                         </span>
-                        {canAddBranch ? (
-                          <button type="button" className="sdv-edit-btn" onClick={openBranchCreate}>
+                        {canAddUnit ? (
+                          <button type="button" className="sdv-edit-btn" onClick={openUnitCreate}>
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                               <path d="M12 5v14" />
                               <path d="M5 12h14" />
@@ -1144,113 +1098,99 @@ export default function ClientDetailPage() {
                         ) : null}
                       </div>
 
-                      {isPj && activeBranchesList.length === 0 ? (
-                        <div className="sdv-banner sdv-banner-warn">
-                          <strong>Esta empresa ainda não tem CNPJ cadastrado.</strong>
-                          <p>Cadastre o CNPJ desta empresa para começar a registrar amostras.</p>
-                        </div>
-                      ) : null}
-
-                      {branches.length === 0 ? (
-                        <div className="spv2-empty client-detail-empty-compact">
-                          <p className="spv2-empty-text">
-                            {isPf ? 'Nenhuma fazenda cadastrada' : 'Nenhuma filial cadastrada'}
+                      {isPj ? (
+                        <div className="sdv-banner sdv-banner-info">
+                          <strong>Empresa (PJ).</strong>
+                          <p>
+                            Os dados fiscais e de endereço ficam no próprio cliente — sem unidades.
                           </p>
                         </div>
+                      ) : units.length === 0 ? (
+                        <div className="spv2-empty client-detail-empty-compact">
+                          <p className="spv2-empty-text">Nenhuma fazenda cadastrada</p>
+                        </div>
                       ) : (
-                        <div className="sdv-branch-list">
-                          {visibleBranches.map((branch) => (
+                        <div className="sdv-unit-list">
+                          {visibleUnits.map((unit) => (
                             <div
-                              key={branch.id}
-                              className={`sdv-branch-card${branch.status === 'INACTIVE' ? ' is-inactive' : ''}${branch.isPrimary ? ' is-primary' : ''}`}
+                              key={unit.id}
+                              className={`sdv-unit-card${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
                             >
-                              <div className="sdv-branch-card-header">
-                                <span
-                                  className={`sdv-branch-badge ${branch.isPrimary ? 'is-primary' : 'is-filial'}`}
-                                >
-                                  {isPf
-                                    ? `Fazenda ${branch.code}`
-                                    : branch.isPrimary
-                                      ? 'Matriz'
-                                      : `Filial ${branch.code}`}
+                              <div className="sdv-unit-card-header">
+                                <span className="sdv-unit-badge is-filial">
+                                  Fazenda {unit.code}
                                 </span>
-                                {branch.status === 'INACTIVE' ? (
-                                  <span className="sdv-branch-badge is-inactive">Inativa</span>
+                                {unit.status === 'INACTIVE' ? (
+                                  <span className="sdv-unit-badge is-inactive">Inativa</span>
                                 ) : null}
-                                <span className="sdv-branch-name">
-                                  {branch.name ?? branch.legalName ?? 'Sem nome'}
+                                <span className="sdv-unit-name">
+                                  {unit.name ?? unit.legalName ?? 'Sem nome'}
                                 </span>
                               </div>
-                              <div className="sdv-branch-card-body">
-                                {branch.cnpj ? (
+                              <div className="sdv-unit-card-body">
+                                {unit.cnpj ? (
                                   <div>
-                                    <span className="sdv-branch-label">CNPJ:</span> {branch.cnpj}
+                                    <span className="sdv-unit-label">CNPJ:</span> {unit.cnpj}
                                   </div>
                                 ) : null}
-                                {branch.city && branch.state ? (
+                                {unit.city && unit.state ? (
                                   <div>
-                                    <span className="sdv-branch-label">Local:</span> {branch.city}/
-                                    {branch.state}
+                                    <span className="sdv-unit-label">Local:</span> {unit.city}/
+                                    {unit.state}
                                   </div>
                                 ) : null}
-                                {branch.registrationNumber ? (
+                                {unit.registrationNumber ? (
                                   <div>
-                                    <span className="sdv-branch-label">IE:</span>{' '}
-                                    {branch.registrationNumber}
-                                    {branch.registrationType ? ` (${branch.registrationType})` : ''}
+                                    <span className="sdv-unit-label">IE:</span>{' '}
+                                    {unit.registrationNumber}
+                                  </div>
+                                ) : null}
+                                {unit.car ? (
+                                  <div>
+                                    <span className="sdv-unit-label">CAR:</span> {unit.car}
                                   </div>
                                 ) : null}
                               </div>
-                              <div className="sdv-branch-card-actions">
+                              <div className="sdv-unit-card-actions">
                                 <button
                                   type="button"
                                   className="sdv-edit-btn-small"
-                                  onClick={() => openBranchEdit(branch)}
-                                  disabled={savingBranch}
+                                  onClick={() => openUnitEdit(unit)}
+                                  disabled={savingUnit}
                                 >
                                   Editar
                                 </button>
-                                {!isPf && !branch.isPrimary && branch.status === 'ACTIVE' ? (
-                                  <button
-                                    type="button"
-                                    className="sdv-edit-btn-small"
-                                    onClick={() => openBranchStatusModal(branch, 'promote')}
-                                    disabled={savingBranchStatus}
-                                  >
-                                    Tornar matriz
-                                  </button>
-                                ) : null}
                                 <button
                                   type="button"
-                                  className={`sdv-edit-btn-small${branch.status === 'ACTIVE' ? ' is-danger' : ''}`}
+                                  className={`sdv-edit-btn-small${unit.status === 'ACTIVE' ? ' is-danger' : ''}`}
                                   onClick={() =>
-                                    openBranchStatusModal(
-                                      branch,
-                                      branch.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
+                                    openUnitStatusModal(
+                                      unit,
+                                      unit.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
                                     )
                                   }
-                                  disabled={savingBranchStatus}
+                                  disabled={savingUnitStatus}
                                 >
-                                  {branch.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                                  {unit.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
                                 </button>
                               </div>
                             </div>
                           ))}
 
-                          {inactiveBranchesCount > 0 ? (
+                          {inactiveUnitsCount > 0 ? (
                             <button
                               type="button"
                               className="sdv-edit-btn-small"
-                              onClick={() => setShowInactiveBranches((v) => !v)}
+                              onClick={() => setShowInactiveUnits((v) => !v)}
                             >
-                              {showInactiveBranches
+                              {showInactiveUnits
                                 ? 'Esconder inativas'
-                                : `Mostrar ${inactiveBranchesCount} inativa(s)`}
+                                : `Mostrar ${inactiveUnitsCount} inativa(s)`}
                             </button>
                           ) : null}
                         </div>
                       )}
-                      <NoticeSlot notice={branchNotice} />
+                      <NoticeSlot notice={unitNotice} />
                     </div>
                   </section>
                 ) : null}
@@ -1789,16 +1729,15 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 2: Create/Edit Branch (F6.0/F7.4) ========== */}
-      <ClientBranchModal
-        open={branchModalOpen}
-        mode={branchModalMode}
-        personType={client?.personType ?? 'PJ'}
-        branch={selectedBranch}
-        saving={savingBranch}
-        errorMessage={branchModalNotice?.kind === 'error' ? branchModalNotice.text : null}
-        onClose={closeBranchModal}
-        onSubmit={handleBranchSubmit}
+      {/* ========== MODAL 2: Create/Edit Unit (PF only — fazendas L5) ========== */}
+      <ClientUnitModal
+        open={unitModalOpen}
+        mode={unitModalMode}
+        unit={selectedUnit}
+        saving={savingUnit}
+        errorMessage={unitModalNotice?.kind === 'error' ? unitModalNotice.text : null}
+        onClose={closeUnitModal}
+        onSubmit={handleUnitSubmit}
       />
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}
@@ -1849,12 +1788,12 @@ export default function ClientDetailPage() {
                     {statusImpact.activeMovements > 0 ? (
                       <li>{statusImpact.activeMovements} movimentacao(oes) comercial(is)</li>
                     ) : null}
-                    {statusImpact.activeBranches > 0 ? (
-                      <li>{statusImpact.activeBranches} filial(is) ativa(s)</li>
+                    {statusImpact.activeUnits > 0 ? (
+                      <li>{statusImpact.activeUnits} filial(is) ativa(s)</li>
                     ) : null}
                     {statusImpact.ownedSamples === 0 &&
                     statusImpact.activeMovements === 0 &&
-                    statusImpact.activeBranches === 0 ? (
+                    statusImpact.activeUnits === 0 ? (
                       <li>Nenhum vinculo ativo encontrado.</li>
                     ) : null}
                   </ul>
@@ -1902,102 +1841,65 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 4: Inactivate/Reactivate/Promote Branch (F6.0) ========== */}
-      {branchStatusModalOpen ? (
+      {/* ========== MODAL 4: Inactivate/Reactivate Unit (L5 — PF) ========== */}
+      {unitStatusModalOpen ? (
         <div className="app-modal-backdrop">
           <section
-            ref={branchStatusTrapRef}
+            ref={unitStatusTrapRef}
             className="app-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="branch-status-modal-title"
+            aria-labelledby="unit-status-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
-                <h3 id="branch-status-modal-title" className="app-modal-title">
-                  {branchStatusAction === 'inactivate'
-                    ? 'Inativar filial'
-                    : branchStatusAction === 'reactivate'
-                      ? 'Reativar filial'
-                      : 'Tornar matriz'}
+                <h3 id="unit-status-modal-title" className="app-modal-title">
+                  {unitStatusAction === 'inactivate' ? 'Inativar fazenda' : 'Reativar fazenda'}
                 </h3>
               </div>
               <button
                 type="button"
                 className="app-modal-close"
-                onClick={closeBranchStatusModal}
-                disabled={savingBranchStatus}
+                onClick={closeUnitStatusModal}
+                disabled={savingUnitStatus}
                 aria-label="Fechar"
               >
                 <span aria-hidden="true">&times;</span>
               </button>
             </header>
 
-            <form className="app-modal-content" onSubmit={handleBranchStatusSubmit}>
-              {/* Aviso para promover a matriz (B1) */}
-              {branchStatusAction === 'promote' && selectedBranch ? (
-                <div className="sdv-banner sdv-banner-info">
-                  <strong>
-                    {activeBranchesList.find((b) => b.isPrimary)?.name ??
-                      `Filial ${activeBranchesList.find((b) => b.isPrimary)?.code}`}
-                  </strong>{' '}
-                  vai virar uma filial comum.{' '}
-                  <strong>{selectedBranch.name ?? `Filial ${selectedBranch.code}`}</strong> vira a
-                  nova matriz desta empresa.
-                </div>
-              ) : null}
-
-              {/* Aviso para inativar a matriz (3B) */}
-              {branchStatusAction === 'inactivate' && selectedBranch?.isPrimary ? (
-                <div className="sdv-banner sdv-banner-warn">
-                  <strong>Atenção:</strong> esta é a matriz desta empresa.{' '}
-                  {autoPromoteCandidate ? (
-                    <>
-                      Ao inativar,{' '}
-                      <strong>
-                        {autoPromoteCandidate.name ?? `Filial ${autoPromoteCandidate.code}`}
-                      </strong>{' '}
-                      vai virar a nova matriz automaticamente.
-                    </>
-                  ) : (
-                    <>Esta empresa ficará sem matriz cadastrada até você reativar uma filial.</>
-                  )}
-                </div>
-              ) : null}
-
+            <form className="app-modal-content" onSubmit={handleUnitStatusSubmit}>
               <label className="app-modal-field">
                 <span className="app-modal-label">Motivo</span>
                 <input
                   className="app-modal-input"
-                  value={branchStatusReason}
-                  disabled={savingBranchStatus}
-                  onChange={(e) => setBranchStatusReason(e.target.value.toUpperCase())}
+                  value={unitStatusReason}
+                  disabled={savingUnitStatus}
+                  onChange={(e) => setUnitStatusReason(e.target.value.toUpperCase())}
                   placeholder="Informe o motivo"
                 />
               </label>
 
-              <NoticeSlot notice={branchStatusNotice} />
+              <NoticeSlot notice={unitStatusNotice} />
 
               <div className="app-modal-actions">
                 <button
                   type="submit"
                   className="app-modal-submit"
-                  disabled={savingBranchStatus || branchStatusReason.trim().length === 0}
+                  disabled={savingUnitStatus || unitStatusReason.trim().length === 0}
                 >
-                  {savingBranchStatus
+                  {savingUnitStatus
                     ? 'Processando...'
-                    : branchStatusAction === 'inactivate'
+                    : unitStatusAction === 'inactivate'
                       ? 'Confirmar inativação'
-                      : branchStatusAction === 'reactivate'
-                        ? 'Confirmar reativação'
-                        : 'Tornar matriz'}
+                      : 'Confirmar reativação'}
                 </button>
                 <button
                   type="button"
                   className="app-modal-secondary"
-                  onClick={closeBranchStatusModal}
-                  disabled={savingBranchStatus}
+                  onClick={closeUnitStatusModal}
+                  disabled={savingUnitStatus}
                 >
                   Cancelar
                 </button>

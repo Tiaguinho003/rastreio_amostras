@@ -21,19 +21,32 @@ Ele funciona como referencia unica para as proximas etapas de implementacao.
 ## Conceitos principais
 
 1. `Cliente`
-   Cadastro mestre usado tanto para proprietario quanto para comprador.
+   Cadastro mestre usado tanto para proprietario quanto para comprador. Pode ser PF (pessoa fisica) ou PJ (pessoa juridica).
 2. `Proprietario`
    Cliente vinculado a amostra como dono da amostra.
 3. `Comprador`
    Cliente vinculado a uma movimentacao de venda.
-4. `Inscricao`
-   Registro fiscal ligado a um cliente. Um cliente pode ter varias inscricoes e cada inscricao pode ter endereco proprio.
+4. `Unidade` (ClientUnit, fazenda)
+   Unidade fisica/operacional ligada ao cliente. Pos-L5, **so PF possui unidades** (cada PF pode ter zero ou varias fazendas, com endereco/CNPJ/IE/CAR proprios). PJ guarda os dados fiscais e de endereco direto no proprio cliente — sem unidades.
 5. `Movimentacao`
    Registro comercial da amostra. Na primeira versao, os tipos previstos sao `SALE` e `LOSS`.
 6. `Venda`
    Movimentacao que reduz o saldo disponivel da amostra e exige comprador.
 7. `Perda`
    Movimentacao que reduz o saldo disponivel da amostra, sem comprador, com motivo em texto livre.
+
+### Modelagem PF vs PJ (L5)
+
+| Campo                                       | PF (`personType=PF`)             | PJ (`personType=PJ`)                                                         |
+| ------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| Identidade fiscal                           | `cpf` no Client (UNIQUE)         | `cnpj` + `cnpjOrder` + `cnpjRoot` no Client (UNIQUE em `cnpj` e `cnpjRoot`)  |
+| Endereco / IE                               | em cada `ClientUnit` (fazenda)   | direto no Client (`addressLine`, `city`, `state`, `registrationNumber`, ...) |
+| `email` no Client                           | opcional, NAO unique (Q-23)      | opcional, NAO unique                                                         |
+| `units[]` em `POST /clients`                | aceito (zero ou varias fazendas) | rejeitado com 422 `PJ_HAS_NO_UNITS`                                          |
+| `POST /clients/:id/units`                   | aceito                           | rejeitado com 422 `CLIENT_PJ_HAS_NO_UNITS`                                   |
+| `ClientUnit.car` (Cadastro Ambiental Rural) | opcional                         | n/a                                                                          |
+
+Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|UPDATED|INACTIVATED|REACTIVATED` + `CLIENT_UNIT_CREATED|UPDATED|INACTIVATED|REACTIVATED`). `CLIENT_BRANCH_*`, `CLIENT_REGISTRATION_*` e `CLIENT_SPLIT` foram removidos junto com a tabela `client_branch` (renomeada para `client_unit`).
 
 ## Regras fechadas de negocio
 
