@@ -528,27 +528,83 @@ definida.
   ```
   Idempotente — rerun em DB vazio nao causa efeito colateral.
 
-### Q-08 — Definicao de "amostra ativa" + status pos-cascade (sugestao)
+### Q-08 — Definicao de "amostra ativa" + status pos-cascade ✅
 
-- **Sugestao** (aguardando confirmacao do usuario):
+- **Decisao**:
   - **"Amostra ativa" para o aviso** = `status NOT IN ('INVALIDATED')`.
     Inclui: `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`,
     `REGISTRATION_CONFIRMED`, `QR_PENDING_PRINT`, `QR_PRINTED`,
-    `CLASSIFICATION_IN_PROGRESS`, `CLASSIFIED`. (qualquer amostra que
-    nao foi descartada).
+    `CLASSIFICATION_IN_PROGRESS`, `CLASSIFIED`.
   - **Status final pos-cascade** = `INVALIDATED` (status terminal ja
-    existente no schema; nao precisa criar enum novo).
-  - **Audit**: emite `SAMPLE_INVALIDATED` em cada amostra com payload
-    `{ reason: 'OWNER_INACTIVATED', inactivatedClientId, inactivatedClientName, batchId }`,
-    e `CLIENT_INACTIVATED` no cliente com payload listando os
+    existente).
+  - **Audit**: `SAMPLE_INVALIDATED` em cada amostra com payload
+    `{ reason: 'OWNER_INACTIVATED', inactivatedClientId, inactivatedClientName, batchId }`;
+    `CLIENT_INACTIVATED` no cliente com payload listando
     `cascadedSampleIds`.
-- **Justificativa**: reusar `INVALIDATED` evita schema novo. O motivo
-  fica explicito no payload pra distinguir de outras invalidacoes
-  (ex: amostra defeituosa, devolvida).
-- **Implementacao prevista**: novo metodo
+- **Justificativa**: reusa `INVALIDATED` (sem schema novo); motivo
+  no payload distingue de outras invalidacoes.
+- **Implementacao prevista**: metodo
   `inactivateClientWithCascade(clientId, sampleIds, reasonText, actor)`
-  no service, transacional. Endpoint
-  `POST /clients/:id/inactivate-with-cascade` chamado pelo modal Q-05.
+  no service; endpoint
+  `POST /clients/:id/inactivate-with-cascade`.
+
+### Q-10a — Campos novos a adicionar ao schema ✅
+
+- **Decisao**: adicionar **2 campos novos**:
+  - `email` em `Client` (texto opcional). Util para PF e PJ.
+  - `car` em `ClientBranch` (texto opcional, separado de
+    `registrationNumber`). Especifico para fazendas PF; PJ matriz nao
+    precisa.
+- **Justificativa**: email e canal de contato moderno; CAR e legalmente
+  diferente de IE/IM e deve ter campo proprio para filtro/relatorio.
+- **Implementacao prevista**: migration nova adicionando colunas (ambas
+  nullable; sem CHECK).
+
+### Q-10b — Obrigatorios em PF (Client) ✅
+
+- **Decisao**: apenas `fullName` e `phone` permanecem obrigatorios no
+  cadastro (status quo). `isBuyer`/`isSeller` ja eram obrigatorios via
+  CHECK.
+- **Justificativa**: usuario quer cadastro rapido; demais campos viram
+  recomendados (ver Q-10c/d).
+- **Implementacao**: nenhuma mudanca de schema (status quo).
+
+### Q-10c — Recomendados em PF (Client) — quando avisar incompleto ✅
+
+- **Decisao**: nao avisar durante o cadastro. Apos o registro, avisar
+  quando estiver incompleto.
+- **Lista de campos recomendados em PF Client**: `cpf`, `email`,
+  qualquer dado adicional do PF (a fechar com Q-11). Por enquanto:
+  PF e considerado "incompleto" se faltar **qualquer um** desses.
+- **Implementacao prevista**: helper `isClientComplete(client)` em
+  backend e frontend que retorna `{ complete: boolean, missing: string[] }`.
+
+### Q-10d — Fazendas em PF + completude ✅
+
+- **Decisao**: PF aceita 0..N fazendas (regra F7 mantida). Mas PF **sem
+  nenhuma fazenda e considerado INCOMPLETO**. Aviso aparece no detail
+  do cliente.
+- **Justificativa**: produtor PF sem fazenda nao tem onde produzir; a
+  ausencia indica cadastro pendente.
+- **Implementacao prevista**: regra de completude
+  `pf.branches.length === 0 → incompleto`. Aviso na UI; no backend o
+  helper retorna `missing: ['farms']`.
+
+### Q-10e/f — Estrutura matriz separada para PJ → reorganizar (L5)
+
+- **Pergunta original**: quais campos da matriz PJ sao obrigatorios e
+  quais sao recomendados.
+- **Insight do usuario**: sob F7 (PJ admite 1 branch ATIVA), manter
+  `Client` e `ClientBranch matriz` separados duplica dados (legalName,
+  tradeName, phone) e cria UX confusa. Faz mais sentido ter todos os
+  dados de PJ direto no `Client`.
+- **Concordo**: simplificar agora, antes do L4 reimport, e o momento
+  ideal — DB esta vazio (L3 zerou), wizard fica mais simples, UX fica
+  natural.
+- **Decisao**: criar fase **L5 — Simplificacao da estrutura PJ** antes
+  do L4 (ver §13.5 nova).
+- **Pos-L5**: PJ tem todos os dados em `Client` direto; `ClientBranch`
+  serve apenas para fazendas PF.
 
 ### Q-09 — PJ exige CNPJ obrigatorio (banco + app) ✅
 
@@ -619,6 +675,130 @@ vazio.
 
 - **Irreversivel sem backup local**: requer confirmacao explicita
   (auto mode regra 5).
+
+## 12.5. L5 — Simplificacao da estrutura PJ (antes do L4)
+
+### Objetivo
+
+Mover todos os dados de identidade/contato/endereco de PJ do
+`ClientBranch` matriz para o proprio `Client`. Pos-L5, `ClientBranch`
+serve apenas para fazendas PF; PJ nao tem branch.
+
+### Motivacao
+
+Pos-F7 (PJ admite 1 branch ATIVA), a separacao `Client` + `Branch
+matriz` virou redundancia: legalName, tradeName, phone aparecem em 2
+lugares; UX confusa (2 cards para editar 1 empresa). Como o DB esta
+vazio apos L3, este e o momento mais barato para reorganizar.
+
+### Schema-alvo
+
+**`Client`** (apenas PJ ganha campos):
+
+| Campo                       | PF              | PJ            |
+| --------------------------- | --------------- | ------------- |
+| `id`                        | sistema         | sistema       |
+| `code`                      | sistema         | sistema       |
+| `personType`                | PF              | PJ            |
+| `fullName`                  | ✅ obr          | NULL          |
+| `legalName`                 | NULL            | ✅ obr        |
+| `tradeName`                 | NULL            | opcional      |
+| `cpf`                       | opcional (Q-04) | NULL          |
+| `cnpj` (NOVO)               | NULL            | ✅ obr (Q-09) |
+| `cnpjOrder` (NOVO)          | NULL            | derivado      |
+| `cnpjRoot`                  | NULL            | derivado      |
+| `registrationNumber` (NOVO) | NULL            | opcional (IE) |
+| `registrationType` (NOVO)   | NULL            | opcional      |
+| `addressLine` (NOVO)        | NULL            | opcional      |
+| `district` (NOVO)           | NULL            | opcional      |
+| `city` (NOVO)               | NULL            | opcional      |
+| `state` (NOVO)              | NULL            | opcional      |
+| `postalCode` (NOVO)         | NULL            | opcional      |
+| `complement` (NOVO)         | NULL            | opcional      |
+| `phone`                     | ✅ obr          | ✅ obr        |
+| `email` (NOVO Q-10a)        | opcional        | opcional      |
+| `isBuyer` / `isSeller`      | obr             | obr           |
+| `status`                    | sistema         | sistema       |
+
+**`ClientBranch`** (apenas PF fazendas):
+
+Estrutura atual mantida, **com adicao de**:
+
+- `car` (NOVO Q-10a) — texto opcional, separado de
+  `registrationNumber`.
+
+### Mudancas necessarias
+
+1. **Migration nova** (timestamp pos-L4-prep):
+   - `ALTER TABLE client ADD COLUMN cnpj`, `cnpj_order`,
+     `registration_number`, `registration_type`, `address_line`,
+     `district`, `city`, `state`, `postal_code`, `complement`, `email`.
+   - `CREATE UNIQUE INDEX uq_client_cnpj ON client(cnpj) WHERE cnpj IS NOT NULL`.
+   - `CREATE INDEX uq_client_registration_canonical ON client(registration_number_canonical) WHERE ...`.
+   - `ALTER TABLE client_branch ADD COLUMN car`.
+   - Atualizar `chk_client_person_type_fields`: PF rejeita campos PJ
+     (cnpj, IE, endereco PJ); PJ rejeita fullName/cpf.
+   - Trigger F7.1B: ajustar para rejeitar **qualquer** branch em PJ
+     (nao mais "1 ATIVA"; ZERO).
+   - Trigger novo `fn_assert_pj_has_cnpj` (Q-09): verifica
+     `client.cnpj IS NOT NULL` quando personType=PJ. CONSTRAINT TRIGGER
+     DEFERRABLE.
+   - Drop `uq_client_branch_cnpj` (CNPJ migra para client).
+
+2. **Schema Prisma**: ajustar models `Client` e `ClientBranch`.
+
+3. **Service** `client-service.js`:
+   - `createClient` PJ aceita `cnpj`, `registrationNumber`,
+     `registrationType`, endereco direto (sem `branches[]`).
+   - `createClient` PF aceita `branches[]` apenas para fazendas.
+   - `createBranch`: rejeita 422 se `client.personType === 'PJ'`.
+   - `inactivateBranch`/`reactivateBranch`/`updateBranch`: rejeita PJ.
+   - `assertPjBranchLimit` removido (PJ nao tem branch).
+   - `lookupClients`: PJ retorna 1 linha simples (ja era assim no
+     frontend; backend simplifica).
+
+4. **API routes**:
+   - `POST /clients/:id/branches` rejeita PJ (404 ou 422).
+   - `GET /clients/:id` retorna o Client com todos os campos PJ
+     direto; sem `branches` para PJ (ou `branches: []` por compat).
+
+5. **Frontend**:
+   - `ClientBranchModal` so abre para PF.
+   - `ClientQuickCreateModal` PJ pede CNPJ + endereco inline (sem
+     "configure depois").
+   - `ClientLookupField`: PJ ja era 1 linha simples; PF mantem
+     hierarquico.
+   - Detail page `/clients/[id]` PJ: card "Empresa" mostra TUDO
+     direto; aba "Filiais" some completamente.
+   - Detail page PF: aba "Fazendas" mantem.
+
+6. **Tests**:
+   - Atualizar fixtures: `createPjClient` passa cnpj/endereco no client
+     direto; remove `branches: []` para PJ.
+   - Tests existentes que testavam branch matriz PJ → adaptar para
+     campos no Client.
+
+7. **Wizard L4**:
+   - CSV PJ vai direto para `Client` (sem coluna branch separada).
+   - CSV PF mantem coluna por fazenda (multi-row se mais de uma).
+
+### Riscos
+
+- **Schema migration grande** (~10 ALTER TABLE). DB vazio mitiga risco
+  total.
+- **Code refactor amplo** (~30 arquivos). Compense com tests.
+- **Compat com frontend**: detail page atual tem aba Filiais para PJ —
+  vai sumir. F7.4 ja escondia muita coisa, mas componentes especificos
+  podem precisar deletar.
+
+### Criterio de done
+
+- Migration aplicada local e em prod (DB vazio = no-op de dado).
+- 133+ tests integration passando.
+- `createClient` PJ funciona sem `branches[]`.
+- `createBranch` em PJ retorna 422.
+- Frontend nao mostra aba "Filiais" em PJ.
+- L4 wizard refatorado para o novo formato.
 
 ## 13. L4 — Wizard de import via planilha
 
