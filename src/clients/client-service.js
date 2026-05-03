@@ -1464,6 +1464,45 @@ export class ClientService {
 
       const usage = await this.countClientUsage(tx, current.id);
 
+      // #6/Q-05 (E1): cliente com samples ATIVAS NAO pode ser inativado
+      // direto. Front intercepta esse 409 e abre modal pedindo confirmacao
+      // explicita via /inactivate-with-cascade.
+      if (usage.ownedSamples > 0) {
+        const activeSamples = await tx.sample.findMany({
+          where: { ownerClientId: current.id, status: { not: 'INVALIDATED' } },
+          select: {
+            id: true,
+            internalLotNumber: true,
+            status: true,
+            declaredOwner: true,
+            soldSacks: true,
+            lostSacks: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        throw new HttpError(
+          409,
+          'Cliente possui amostras ativas. Use POST /clients/:id/inactivate-with-cascade para inativar em cascata.',
+          {
+            code: 'CLIENT_HAS_ACTIVE_SAMPLES',
+            details: {
+              activeSampleCount: usage.ownedSamples,
+              activeSampleIds: activeSamples.map((s) => s.id),
+              activeSamples: activeSamples.map((s) => ({
+                id: s.id,
+                internalLotNumber: s.internalLotNumber,
+                status: s.status,
+                declaredOwner: s.declaredOwner,
+                soldSacks: s.soldSacks,
+                lostSacks: s.lostSacks,
+                createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
+              })),
+            },
+          }
+        );
+      }
+
       const updated = await tx.client.update({
         where: { id: current.id },
         data: {
@@ -1491,6 +1530,181 @@ export class ClientService {
       return {
         client: mapClientRow(updated),
         impact: usage,
+      };
+    });
+  }
+
+  // #6/Q-05+Q-08: inativacao em cascata. Cliente + samples confirmados.
+  // Decisoes:
+  //   A1 — silencioso para confirmedSampleIds que ja nao estao ATIVOS
+  //   B1 — reativar cliente NAO reativa samples (status terminal)
+  //   C1 — falha 409 se algum sample tem soldSacks>0 ou lostSacks>0
+  //   D2 — reasonText opcional
+  //   T1 — $transaction unica
+  //   T2 — invalida samples primeiro, cliente por ultimo
+  //   T3 — batchId UUID v4 ligando todos os audits
+  //   T6 — payload do CLIENT_INACTIVATED inclui cascade { batchId, ... }
+  async inactivateClientWithCascade(clientId, input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'inactivate client with cascade');
+    const reasonText =
+      input?.reasonText !== undefined && input?.reasonText !== null
+        ? String(input.reasonText).trim() || null
+        : null;
+    const confirmedSampleIds = Array.isArray(input?.confirmedSampleIds)
+      ? input.confirmedSampleIds.filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await this.requireClientForUpdate(tx, clientId);
+      if (current.status === CLIENT_STATUSES.INACTIVE) {
+        throw new HttpError(409, 'Client is already inactive');
+      }
+
+      // Carrega samples ATIVAS atuais do cliente para A1/C1.
+      const activeSamples = await tx.sample.findMany({
+        where: { ownerClientId: current.id, status: { not: 'INVALIDATED' } },
+        select: {
+          id: true,
+          internalLotNumber: true,
+          status: true,
+          version: true,
+          lastEventSequence: true,
+          soldSacks: true,
+          lostSacks: true,
+        },
+      });
+      const activeMap = new Map(activeSamples.map((s) => [s.id, s]));
+
+      // A1 (silencioso): IDs confirmados que nao estao mais ATIVOS sao
+      // simplesmente pulados (nao sao erro).
+      const samplesToInvalidate = [];
+      const skippedSampleIds = [];
+      for (const id of confirmedSampleIds) {
+        const sample = activeMap.get(id);
+        if (sample) {
+          samplesToInvalidate.push(sample);
+        } else {
+          skippedSampleIds.push(id);
+        }
+      }
+
+      // C1: pre-valida que nenhuma sample a invalidar tem movements ativas.
+      // invalidateSample existente tambem rejeita 409 nesse caso; aqui
+      // agregamos pra dar erro unico com lista completa.
+      const blockedByMovements = samplesToInvalidate.filter(
+        (s) => (s.soldSacks ?? 0) > 0 || (s.lostSacks ?? 0) > 0
+      );
+      if (blockedByMovements.length > 0) {
+        throw new HttpError(
+          409,
+          'Algumas amostras tem movimentacoes comerciais ativas (vendas ou perdas). Cancele as movimentacoes antes de inativar em cascata.',
+          {
+            code: 'SAMPLES_HAVE_ACTIVE_MOVEMENTS',
+            details: {
+              sampleIds: blockedByMovements.map((s) => s.id),
+              samples: blockedByMovements.map((s) => ({
+                id: s.id,
+                internalLotNumber: s.internalLotNumber,
+                soldSacks: s.soldSacks,
+                lostSacks: s.lostSacks,
+              })),
+            },
+          }
+        );
+      }
+
+      const batchId = randomUUID();
+      const occurredAt = new Date();
+      const requestId = actor.requestId ?? randomUUID();
+      const inactivatedClientName = buildClientDisplayName(current);
+
+      // T2: invalida samples primeiro (direto via Prisma para manter
+      // atomicidade na $transaction unica). SAMPLE_INVALIDATED audit emitido
+      // tambem aqui via tx.sampleEvent.create — o trigger append-only nao
+      // bloqueia INSERT, so UPDATE/DELETE. Idempotency por (sampleId, scope, key).
+      const cascadedSampleIds = [];
+      for (const sample of samplesToInvalidate) {
+        const fromStatus = sample.status;
+        const nextSequence = (sample.lastEventSequence ?? 0) + 1;
+
+        await tx.sample.update({
+          where: { id: sample.id },
+          data: {
+            status: 'INVALIDATED',
+            lastEventSequence: nextSequence,
+            version: (sample.version ?? 0) + 1,
+          },
+        });
+
+        // Prisma enums (SourceType, ModuleType) usam constantes UPPERCASE
+        // que mapeiam para snake_case no DB via @map.
+        const sourceEnum = (actor.source ?? 'web').toString().toUpperCase();
+        await tx.sampleEvent.create({
+          data: {
+            eventId: randomUUID(),
+            sampleId: sample.id,
+            sequenceNumber: nextSequence,
+            eventType: 'SAMPLE_INVALIDATED',
+            schemaVersion: 1,
+            occurredAt,
+            actorType: 'USER',
+            actorUserId: actor.actorUserId ?? null,
+            source: ['WEB', 'API', 'WORKER'].includes(sourceEnum) ? sourceEnum : 'WEB',
+            payload: {
+              reason: 'OWNER_INACTIVATED',
+              inactivatedClientId: current.id,
+              inactivatedClientName,
+              batchId,
+              reasonText: reasonText ?? null,
+            },
+            requestId,
+            correlationId: actor.correlationId ?? null,
+            fromStatus,
+            toStatus: 'INVALIDATED',
+            metadataModule: 'REGISTRATION',
+            metadataIp: actor.ip ?? null,
+            metadataUserAgent: actor.userAgent ?? null,
+            idempotencyScope: 'INVALIDATE',
+            idempotencyKey: `cascade:${batchId}:${sample.id}`,
+          },
+        });
+
+        cascadedSampleIds.push(sample.id);
+      }
+
+      // T2: cliente atualizado por ultimo, dentro da mesma tx.
+      const updated = await tx.client.update({
+        where: { id: current.id },
+        data: { status: CLIENT_STATUSES.INACTIVE },
+        select: CLIENT_SUMMARY_SELECT,
+      });
+
+      // T6: audit do cliente inclui cascade detalhe.
+      await this.recordAuditEvent(tx, {
+        targetClientId: updated.id,
+        actorContext: actor,
+        eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_INACTIVATED,
+        reasonText,
+        payload: {
+          before: { status: current.status },
+          after: { status: updated.status },
+          cascade: {
+            batchId,
+            cascadedSampleIds,
+            cascadedSampleCount: cascadedSampleIds.length,
+            skippedSampleIds,
+          },
+        },
+      });
+
+      return {
+        client: mapClientRow(updated),
+        cascade: {
+          batchId,
+          cascadedSampleIds,
+          cascadedSampleCount: cascadedSampleIds.length,
+          skippedSampleIds,
+        },
       };
     });
   }

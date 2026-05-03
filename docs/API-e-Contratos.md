@@ -105,7 +105,10 @@ Validacoes criticas nessas rotas:
 5. `PATCH /api/v1/clients/:clientId`
    Atualiza fields. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Exige `reasonText`.
 6. `POST /api/v1/clients/:clientId/inactivate`
-7. `POST /api/v1/clients/:clientId/reactivate`
+   Inativa cliente. **#6/Q-05 (E1): rejeita 409 `CLIENT_HAS_ACTIVE_SAMPLES`** se o cliente tem amostras ATIVAS (`status NOT IN ('INVALIDATED')`). Body `{ reasonText: string }` (obrigatorio). Resposta 409 inclui `details.code = 'CLIENT_HAS_ACTIVE_SAMPLES'` + `details.details.activeSampleIds`/`activeSamples` para o front abrir o modal de cascata.
+7. `POST /api/v1/clients/:clientId/inactivate-with-cascade`
+   **#6/Q-05+Q-08**: inativacao em cascata. Body `{ confirmedSampleIds: string[], reasonText?: string }`. Pre-valida que nenhuma sample tem `soldSacks>0` ou `lostSacks>0` (retorna 409 `SAMPLES_HAVE_ACTIVE_MOVEMENTS` se houver). Numa unica transacao, invalida cada sample (status=INVALIDATED + audit `SAMPLE_INVALIDATED` com payload `{ reason: 'OWNER_INACTIVATED', batchId, ... }`) e inativa o cliente (audit `CLIENT_INACTIVATED` com `cascade.{ batchId, cascadedSampleIds, skippedSampleIds }`). IDs ja INVALIDATED sao silenciosamente pulados (A1). reasonText opcional (D2). Reativar cliente NAO reativa samples — status terminal (B1).
+8. `POST /api/v1/clients/:clientId/reactivate`
    Reativacao de cliente ACTIVE exige >= 1 user comercial vinculado.
 
 ### Unidades (PF — fazendas)

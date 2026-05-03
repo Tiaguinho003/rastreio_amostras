@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
 
@@ -810,6 +811,235 @@ if (!databaseUrl || !databaseReachable) {
       where: { clientId: pf.body.client.id },
     });
     assert.equal(count, 1);
+  });
+
+  // ============================================================
+  // #6 — Q-05 + Q-08: inativacao em cascata
+  // ============================================================
+
+  // Helper: cria sample diretamente no DB vinculada ao cliente. Insere
+  // tambem o evento inicial SAMPLE_RECEIVED para satisfazer o trigger
+  // append-only de sample_event ("first event must be SAMPLE_RECEIVED").
+  async function createSampleForClient(
+    clientId,
+    { status = 'CLASSIFIED', soldSacks = 0, lostSacks = 0 } = {}
+  ) {
+    const id = randomUUID();
+    await prisma.sample.create({
+      data: {
+        id,
+        ownerClientId: clientId,
+        status,
+        declaredOwner: 'Test Owner',
+        declaredSacks: 50,
+        soldSacks,
+        lostSacks,
+        lastEventSequence: status === 'INVALIDATED' ? 0 : 1,
+      },
+    });
+    // Trigger append-only de sample_event exige SAMPLE_RECEIVED como primeiro
+    // evento. Para samples ja INVALIDATED no setup de tests, nao podemos
+    // inserir eventos posteriormente (trigger rejeita "cannot append events
+    // to INVALIDATED"). Pulamos o seed de evento — esses samples sao usados
+    // apenas como "ja terminais" no cascade, nao recebem novos eventos.
+    if (status !== 'INVALIDATED') {
+      await prisma.sampleEvent.create({
+        data: {
+          eventId: randomUUID(),
+          sampleId: id,
+          sequenceNumber: 1,
+          eventType: 'SAMPLE_RECEIVED',
+          schemaVersion: 1,
+          occurredAt: new Date(),
+          actorType: 'USER',
+          actorUserId: actor.actorUserId,
+          source: 'WEB',
+          payload: { receivedChannel: 'in_person' },
+          requestId: randomUUID(),
+          toStatus: 'PHYSICAL_RECEIVED',
+          metadataModule: 'REGISTRATION',
+        },
+      });
+    }
+    return id;
+  }
+
+  test('#6 E1: inactivateClient rejeita 409 CLIENT_HAS_ACTIVE_SAMPLES quando ha samples ativas', async () => {
+    const pf = await createPfClient();
+    await createSampleForClient(pf.body.client.id, { status: 'CLASSIFIED' });
+    await createSampleForClient(pf.body.client.id, { status: 'REGISTRATION_CONFIRMED' });
+
+    const result = await api.inactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'fim de relacionamento' },
+      })
+    );
+
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.details.code, 'CLIENT_HAS_ACTIVE_SAMPLES');
+    assert.equal(result.body.error.details.details.activeSampleCount, 2);
+    assert.equal(result.body.error.details.details.activeSamples.length, 2);
+  });
+
+  test('#6 E1: inactivateClient ainda funciona sem samples ativas', async () => {
+    const pf = await createPfClient();
+    const result = await api.inactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'sem samples' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.client.status, 'INACTIVE');
+  });
+
+  test('#6 happy path: inactivateClientWithCascade invalida samples + cliente', async () => {
+    const pf = await createPfClient();
+    const s1 = await createSampleForClient(pf.body.client.id, { status: 'CLASSIFIED' });
+    const s2 = await createSampleForClient(pf.body.client.id, { status: 'REGISTRATION_CONFIRMED' });
+
+    const result = await api.inactivateClientWithCascade(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { confirmedSampleIds: [s1, s2], reasonText: 'fim do produtor' },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.client.status, 'INACTIVE');
+    assert.equal(result.body.cascade.cascadedSampleCount, 2);
+    assert.deepEqual(result.body.cascade.cascadedSampleIds.sort(), [s1, s2].sort());
+    assert.deepEqual(result.body.cascade.skippedSampleIds, []);
+    assert.ok(result.body.cascade.batchId, 'batchId presente');
+
+    // Confirma DB: ambas samples INVALIDATED.
+    const samples = await prisma.sample.findMany({
+      where: { id: { in: [s1, s2] } },
+      select: { id: true, status: true },
+    });
+    assert.equal(samples.filter((s) => s.status === 'INVALIDATED').length, 2);
+
+    // Audit SAMPLE_INVALIDATED criado pra cada sample.
+    const events = await prisma.sampleEvent.findMany({
+      where: { sampleId: { in: [s1, s2] }, eventType: 'SAMPLE_INVALIDATED' },
+      select: { sampleId: true, payload: true },
+    });
+    assert.equal(events.length, 2);
+    for (const evt of events) {
+      assert.equal(evt.payload.reason, 'OWNER_INACTIVATED');
+      assert.equal(evt.payload.batchId, result.body.cascade.batchId);
+    }
+  });
+
+  test('#6 A1 silencioso: confirmedSampleIds com ID ja INVALIDATED e pulado', async () => {
+    const pf = await createPfClient();
+    const s1 = await createSampleForClient(pf.body.client.id, { status: 'CLASSIFIED' });
+    const s2 = await createSampleForClient(pf.body.client.id, { status: 'INVALIDATED' });
+
+    const result = await api.inactivateClientWithCascade(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { confirmedSampleIds: [s1, s2] },
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.cascade.cascadedSampleCount, 1);
+    assert.deepEqual(result.body.cascade.cascadedSampleIds, [s1]);
+    assert.deepEqual(result.body.cascade.skippedSampleIds, [s2]);
+  });
+
+  test('#6 C1: cascade rejeita 409 se algum sample tem soldSacks > 0', async () => {
+    const pf = await createPfClient();
+    const s1 = await createSampleForClient(pf.body.client.id, { status: 'CLASSIFIED' });
+    const s2 = await createSampleForClient(pf.body.client.id, {
+      status: 'CLASSIFIED',
+      soldSacks: 10,
+    });
+
+    const result = await api.inactivateClientWithCascade(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { confirmedSampleIds: [s1, s2] },
+      })
+    );
+
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.details.code, 'SAMPLES_HAVE_ACTIVE_MOVEMENTS');
+    assert.deepEqual(result.body.error.details.details.sampleIds, [s2]);
+
+    // Confirma que NADA foi alterado (transacao rollback).
+    const sampleAfter = await prisma.sample.findUnique({
+      where: { id: s1 },
+      select: { status: true },
+    });
+    assert.equal(sampleAfter.status, 'CLASSIFIED');
+    const clientAfter = await prisma.client.findUnique({
+      where: { id: pf.body.client.id },
+      select: { status: true },
+    });
+    assert.equal(clientAfter.status, 'ACTIVE');
+  });
+
+  test('#6 D2: reasonText opcional no cascade', async () => {
+    const pf = await createPfClient();
+    const s1 = await createSampleForClient(pf.body.client.id);
+
+    const result = await api.inactivateClientWithCascade(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { confirmedSampleIds: [s1] }, // sem reasonText
+      })
+    );
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.client.status, 'INACTIVE');
+  });
+
+  test('#6 B1: reactivateClient NAO reativa samples invalidadas pelo cascade', async () => {
+    // Cliente PF com user comercial — pre-requisito do trigger pra reativar.
+    const user = await createTestUser('COMMERCIAL');
+    const created = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PF',
+          fullName: 'Cliente Teste B1',
+          cpf: generateValidCpf(800),
+          phone: '35 99911-8089',
+          isBuyer: false,
+          isSeller: true,
+          commercialUserIds: [user.id],
+        },
+      })
+    );
+    assert.equal(created.status, 201);
+    const clientId = created.body.client.id;
+    const s1 = await createSampleForClient(clientId);
+
+    await api.inactivateClientWithCascade(
+      buildInput({
+        params: { clientId },
+        body: { confirmedSampleIds: [s1], reasonText: 'pausa' },
+      })
+    );
+
+    const reactivated = await api.reactivateClient(
+      buildInput({
+        params: { clientId },
+        body: { reasonText: 'voltou' },
+      })
+    );
+
+    assert.equal(reactivated.status, 200);
+    assert.equal(reactivated.body.client.status, 'ACTIVE');
+
+    // Sample continua INVALIDATED — terminal (B1).
+    const sample = await prisma.sample.findUnique({
+      where: { id: s1 },
+      select: { status: true },
+    });
+    assert.equal(sample.status, 'INVALIDATED');
   });
 }
 

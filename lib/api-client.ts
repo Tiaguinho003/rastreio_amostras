@@ -556,6 +556,37 @@ export function reactivateClient(session: SessionData, clientId: string, reasonT
   });
 }
 
+// #6/Q-05+Q-08: inativacao em cascata.
+export type ClientInactivateCascadeResponse = {
+  client: {
+    id: string;
+    code: number;
+    status: string;
+    [key: string]: unknown;
+  };
+  cascade: {
+    batchId: string;
+    cascadedSampleIds: string[];
+    cascadedSampleCount: number;
+    skippedSampleIds: string[];
+  };
+};
+
+export function inactivateClientWithCascade(
+  session: SessionData,
+  clientId: string,
+  data: { confirmedSampleIds: string[]; reasonText?: string | null }
+) {
+  return request<ClientInactivateCascadeResponse>(`/clients/${clientId}/inactivate-with-cascade`, {
+    method: 'POST',
+    session,
+    body: {
+      confirmedSampleIds: data.confirmedSampleIds,
+      reasonText: data.reasonText ?? null,
+    },
+  });
+}
+
 export function listClientAuditEvents(
   session: SessionData,
   clientId: string,

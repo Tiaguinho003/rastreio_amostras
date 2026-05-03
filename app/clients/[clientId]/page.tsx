@@ -6,6 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
 import { ClientCompleteChecklist } from '../../../components/clients/ClientCompleteChecklist';
+import {
+  ClientInactivateWithCascadeModal,
+  type CascadeSample,
+} from '../../../components/clients/ClientInactivateWithCascadeModal';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import {
   ApiError,
@@ -13,6 +17,7 @@ import {
   getClientImpact,
   updateClient,
   inactivateClient,
+  inactivateClientWithCascade,
   reactivateClient,
   createClientUnit,
   updateClientUnit,
@@ -215,6 +220,12 @@ export default function ClientDetailPage() {
   const [statusImpactLoading, setStatusImpactLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const statusTrapRef = useFocusTrap(statusModalOpen);
+
+  /* ---- cascade modal (inactivate-with-cascade quando ha samples ativas) ---- */
+  const [cascadeOpen, setCascadeOpen] = useState(false);
+  const [cascadeSamples, setCascadeSamples] = useState<CascadeSample[]>([]);
+  const [cascadeSaving, setCascadeSaving] = useState(false);
+  const [cascadeError, setCascadeError] = useState<string | null>(null);
 
   /* ---- registration status modal (inactivate/reactivate registration) ---- */
   const [unitStatusModalOpen, setUnitStatusModalOpen] = useState(false);
@@ -825,12 +836,60 @@ export default function ClientDetailPage() {
       setStatusModalOpen(false);
       void fetchData();
     } catch (cause) {
-      setStatusModalNotice({
-        kind: 'error',
-        text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status do cliente.',
-      });
+      // #6/Q-05 (E1): backend rejeita 409 quando ha samples ATIVAS. Detalhes
+      // contem `activeSamples`; abrimos o modal de cascade pra confirmacao.
+      if (
+        cause instanceof ApiError &&
+        cause.status === 409 &&
+        statusAction === 'inactivate' &&
+        cause.details &&
+        typeof cause.details === 'object' &&
+        (cause.details as { code?: string }).code === 'CLIENT_HAS_ACTIVE_SAMPLES'
+      ) {
+        const detailPayload = (cause.details as { details?: { activeSamples?: CascadeSample[] } })
+          .details;
+        const samples = Array.isArray(detailPayload?.activeSamples)
+          ? detailPayload.activeSamples
+          : [];
+        setCascadeSamples(samples);
+        setCascadeError(null);
+        setStatusModalOpen(false);
+        setCascadeOpen(true);
+      } else {
+        setStatusModalNotice({
+          kind: 'error',
+          text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status do cliente.',
+        });
+      }
     } finally {
       setSavingStatus(false);
+    }
+  }
+
+  async function handleCascadeConfirm(
+    confirmedSampleIds: string[],
+    reasonText: string | null
+  ): Promise<void> {
+    if (!session || !clientId) return;
+    setCascadeSaving(true);
+    setCascadeError(null);
+    try {
+      const result = await inactivateClientWithCascade(session, clientId, {
+        confirmedSampleIds,
+        reasonText,
+      });
+      setDetailNotice({
+        kind: 'success',
+        text: `Cliente inativado. ${result.cascade.cascadedSampleCount} amostra${result.cascade.cascadedSampleCount === 1 ? '' : 's'} invalidada${result.cascade.cascadedSampleCount === 1 ? '' : 's'} em cascata.`,
+      });
+      setCascadeOpen(false);
+      void fetchData();
+    } catch (cause) {
+      setCascadeError(
+        cause instanceof ApiError ? cause.message : 'Falha ao inativar cliente em cascata.'
+      );
+    } finally {
+      setCascadeSaving(false);
     }
   }
 
@@ -1741,6 +1800,19 @@ export default function ClientDetailPage() {
         errorMessage={unitModalNotice?.kind === 'error' ? unitModalNotice.text : null}
         onClose={closeUnitModal}
         onSubmit={handleUnitSubmit}
+      />
+
+      {/* ========== MODAL 2.5: Cascade Inactivate (#6/Q-05) ========== */}
+      <ClientInactivateWithCascadeModal
+        open={cascadeOpen}
+        clientName={client?.displayName ?? 'Cliente'}
+        activeSamples={cascadeSamples}
+        saving={cascadeSaving}
+        errorMessage={cascadeError}
+        onCancel={() => {
+          if (!cascadeSaving) setCascadeOpen(false);
+        }}
+        onConfirm={handleCascadeConfirm}
       />
 
       {/* ========== MODAL 3: Inactivate/Reactivate Client ========== */}

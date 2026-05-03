@@ -1313,6 +1313,36 @@ export function createBackendApiV1({
         };
       }),
 
+    // #6/Q-05+Q-08: inativacao em cascata. Confirma os IDs das samples
+    // ATIVAS que serao invalidadas junto. Body: { confirmedSampleIds, reasonText? }.
+    inactivateClientWithCascade: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await clientService.inactivateClientWithCascade(
+          clientId,
+          {
+            confirmedSampleIds: body.confirmedSampleIds,
+            reasonText: body.reasonText,
+          },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     reactivateClient: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {
