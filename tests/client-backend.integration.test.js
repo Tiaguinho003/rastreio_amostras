@@ -297,6 +297,45 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updated.body.unit.city, 'Tres Pontas');
   });
 
+  test('Q-01: getClient com onlyActive=true filtra unidades inativas', async () => {
+    const pf = await createPfClient();
+    const u1 = await api.createClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { name: 'Fazenda Ativa' },
+      })
+    );
+    const u2 = await api.createClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { name: 'Fazenda Inativa' },
+      })
+    );
+    await api.inactivateClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id, unitId: u2.body.unit.id },
+        body: { reasonText: 'pausa' },
+      })
+    );
+
+    // Sem param: retorna todas (legado)
+    const allUnits = await api.getClient(buildInput({ params: { clientId: pf.body.client.id } }));
+    assert.equal(allUnits.status, 200);
+    assert.equal(allUnits.body.units.length, 2);
+
+    // Com onlyActive=true: filtra inativas
+    const activeOnly = await api.getClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        query: { onlyActive: 'true' },
+      })
+    );
+    assert.equal(activeOnly.status, 200);
+    assert.equal(activeOnly.body.units.length, 1);
+    assert.equal(activeOnly.body.units[0].id, u1.body.unit.id);
+    assert.equal(activeOnly.body.units[0].status, 'ACTIVE');
+  });
+
   test('L5: PF inactivateUnit + reactivateUnit work', async () => {
     const pf = await createPfClient();
     const created = await api.createClientUnit(

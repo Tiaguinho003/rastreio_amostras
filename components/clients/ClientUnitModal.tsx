@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useCepLookup } from '../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientUnitInput, ClientUnitSummary } from '../../lib/types';
@@ -103,13 +104,29 @@ export function ClientUnitModal({
   const focusTrapRef = useFocusTrap(open);
   const [form, setForm] = useState<FormState>(unitToForm(unit));
   const cnpjMask = useDocumentMask('cnpj');
+  const cep = useCepLookup(open ? form.postalCode : '');
 
   useEffect(() => {
     if (!open) return;
     setForm(unitToForm(unit));
     cnpjMask.setRaw(unit?.cnpj ?? '');
+    cep.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, unit]);
+
+  // Q-24: ao receber dados do CEP, preenche endereco. Sobrescreve mesmo
+  // se ja havia conteudo (acao deliberada do usuario). Complemento NAO
+  // e tocado.
+  useEffect(() => {
+    if (!cep.data) return;
+    setForm((prev) => ({
+      ...prev,
+      addressLine: cep.data!.addressLine || prev.addressLine,
+      district: cep.data!.district || prev.district,
+      city: cep.data!.city || prev.city,
+      state: cep.data!.state || prev.state,
+    }));
+  }, [cep.data]);
 
   if (!open) return null;
 
@@ -286,12 +303,22 @@ export function ClientUnitModal({
           </div>
           <div className="sdv-edit-row">
             <label className="sdv-edit-field">
-              <span className="sdv-edit-label">CEP</span>
+              <span className="sdv-edit-label">
+                CEP
+                {cep.loading ? (
+                  <span className="sdv-cep-spinner" aria-hidden="true">
+                    {' '}
+                    ⌛
+                  </span>
+                ) : null}
+              </span>
               <input
                 className="sdv-edit-input"
                 value={form.postalCode}
                 disabled={saving}
+                inputMode="numeric"
                 onChange={(event) => update('postalCode', event.target.value)}
+                placeholder="00000-000"
               />
             </label>
             <label className="sdv-edit-field">

@@ -99,7 +99,9 @@ Validacoes criticas nessas rotas:
 3. `GET /api/v1/clients/lookup`
    Smart resolve: 14 digitos batem CNPJ direto em Client (PJ) ou em ClientUnit (fazenda PF). Retorna `matchedUnitId` quando o match e via unit.
 4. `GET /api/v1/clients/:clientId`
-   Detalhe + lista de `units` (PF; PJ retorna `units: []`).
+   Detalhe + lista de `units` (PF; PJ retorna `units: []`). Aceita query
+   param **`?onlyActive=true`** (Q-01) que filtra unidades inativas do
+   payload retornado. Default `false` (retrocompativel).
 5. `PATCH /api/v1/clients/:clientId`
    Atualiza fields. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Exige `reasonText`.
 6. `POST /api/v1/clients/:clientId/inactivate`

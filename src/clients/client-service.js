@@ -860,18 +860,23 @@ export class ClientService {
     };
   }
 
-  async getClient(clientId, actorContext) {
+  // Q-01: aceita `{ onlyActiveUnits }` para filtrar units inativas no payload
+  // retornado. Default `false` mantem comportamento legado (retorna todas).
+  async getClient(clientId, actorContext, options = {}) {
     assertAuthenticatedActor(actorContext, 'get client');
+    const onlyActiveUnits = options.onlyActiveUnits === true;
 
     return this.prisma.$transaction(async (tx) => {
       const client = await this.requireClientById(tx, clientId);
+      const allUnits = Array.isArray(client.units) ? client.units : [];
+      const visibleUnits = onlyActiveUnits
+        ? allUnits.filter((u) => u.status === CLIENT_UNIT_STATUSES.ACTIVE)
+        : allUnits;
       return {
         client: mapClientRow(client),
-        units: Array.isArray(client.units)
-          ? client.units.map((unit) =>
-              toClientUnitSummary({ ...unit, clientId: unit.clientId ?? client.id })
-            )
-          : [],
+        units: visibleUnits.map((unit) =>
+          toClientUnitSummary({ ...unit, clientId: unit.clientId ?? client.id })
+        ),
       };
     });
   }

@@ -326,9 +326,11 @@ export function lookupClients(
 export function getClient(
   session: SessionData,
   clientId: string,
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal; onlyActive?: boolean } = {}
 ) {
-  return request<ClientDetailResponse>(`/clients/${clientId}`, {
+  // Q-01: onlyActive=true filtra units inativas no payload retornado.
+  const path = options.onlyActive ? `/clients/${clientId}?onlyActive=true` : `/clients/${clientId}`;
+  return request<ClientDetailResponse>(path, {
     method: 'GET',
     session,
     signal: options.signal,

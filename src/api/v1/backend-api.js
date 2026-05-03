@@ -1010,7 +1010,12 @@ export function createBackendApiV1({
           throw new HttpError(422, 'clientId path param is required');
         }
 
-        const result = await clientService.getClient(clientId, actor);
+        // Q-01: query param `onlyActive=true` filtra units inativas do
+        // payload retornado. Aceita 'true' (string) ou true (boolean).
+        const onlyActiveRaw = input?.query?.onlyActive;
+        const onlyActiveUnits = onlyActiveRaw === true || onlyActiveRaw === 'true';
+
+        const result = await clientService.getClient(clientId, actor, { onlyActiveUnits });
         return {
           status: 200,
           body: result,
