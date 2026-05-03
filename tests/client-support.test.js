@@ -71,7 +71,7 @@ test('Q-26: buildClientDisplayName em PJ prefere tradeName quando existe', () =>
   );
 });
 
-test('Q-11: isClientComplete marca PJ incompleto se faltar qualquer recomendado', () => {
+test('Q-11/Q-27: isClientComplete marca PJ incompleto se faltar qualquer recomendado (email NAO conta)', () => {
   const completePj = {
     personType: 'PJ',
     legalName: 'Empresa Completa LTDA',
@@ -84,44 +84,73 @@ test('Q-11: isClientComplete marca PJ incompleto se faltar qualquer recomendado'
     state: 'SP',
     postalCode: '01000000',
     complement: 'Sala 1',
-    email: 'contato@completa.com',
+    // email omitido — Q-27 confirma 100% opcional, sem aviso de incompleto
   };
   const result = isClientComplete(completePj);
   assert.equal(result.complete, true);
   assert.deepEqual(result.missing, []);
 
-  const incompletePj = { ...completePj, email: null, complement: '' };
+  // Q-27: email null/vazio NAO marca PJ como incompleto
+  const noEmailPj = { ...completePj, email: null };
+  const noEmailResult = isClientComplete(noEmailPj);
+  assert.equal(noEmailResult.complete, true);
+  assert.ok(!noEmailResult.missing.includes('email'));
+
+  // Outros recomendados continuam disparando incompleto
+  const incompletePj = { ...completePj, complement: '' };
   const result2 = isClientComplete(incompletePj);
   assert.equal(result2.complete, false);
-  assert.ok(result2.missing.includes('email'));
   assert.ok(result2.missing.includes('complement'));
+  assert.ok(!result2.missing.includes('email'), 'email NAO eh recomendado pos-Q-27');
 });
 
-test('Q-11: isClientComplete marca PF incompleto se cpf/email faltar OU sem unidade', () => {
-  // PF sem cpf nem email — incompleto
+test('Q-11/Q-27: isClientComplete marca PF incompleto so por cpf/units (email NAO conta)', () => {
+  // PF sem cpf — incompleto. email NAO consta nas missing.
   const r1 = isClientComplete({ personType: 'PF', fullName: 'Joao' });
   assert.equal(r1.complete, false);
   assert.ok(r1.missing.includes('cpf'));
-  assert.ok(r1.missing.includes('email'));
   assert.ok(r1.missing.includes('units'));
+  assert.ok(!r1.missing.includes('email'), 'Q-27: email opcional em PF tambem');
 
-  // PF com cpf+email mas sem unidade — incompleto
+  // PF com cpf mas sem unidade — incompleto pelas units
   const r2 = isClientComplete({
     personType: 'PF',
     fullName: 'Joao',
     cpf: '12345678901',
-    email: 'joao@example.com',
     units: [],
   });
   assert.equal(r2.complete, false);
   assert.deepEqual(r2.missing, ['units']);
+
+  // PF com cpf + 1 unidade ATIVA completa = COMPLETO (sem email)
+  const r2b = isClientComplete({
+    personType: 'PF',
+    fullName: 'Joao',
+    cpf: '12345678901',
+    units: [
+      {
+        id: 'unit-1',
+        status: 'ACTIVE',
+        name: 'Fazenda Boa Vista',
+        cnpj: '12345678000199',
+        phone: '35999990000',
+        addressLine: 'Estrada Rural',
+        district: 'Zona Rural',
+        city: 'Varginha',
+        state: 'MG',
+        postalCode: '37000000',
+        registrationNumber: 'IE-1',
+        car: 'CAR-1',
+      },
+    ],
+  });
+  assert.equal(r2b.complete, true);
 
   // PF com 1 unidade ATIVA mas faltando recomendados na unidade — incompleto
   const r3 = isClientComplete({
     personType: 'PF',
     fullName: 'Joao',
     cpf: '12345678901',
-    email: 'joao@example.com',
     units: [
       {
         id: 'unit-1',
@@ -140,7 +169,6 @@ test('Q-11: isClientComplete marca PF incompleto se cpf/email faltar OU sem unid
     personType: 'PF',
     fullName: 'Joao',
     cpf: '12345678901',
-    email: 'joao@example.com',
     units: [{ id: 'u', status: 'INACTIVE', name: 'Fazenda' }],
   });
   assert.equal(r4.complete, false);

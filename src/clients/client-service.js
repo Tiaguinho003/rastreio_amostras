@@ -179,6 +179,9 @@ function buildClientWhereFromSearch(search) {
 
 // Q-11: regras de completude espelhadas em src/clients/client-helpers.js.
 // Aplicadas como WHERE Prisma para suportar pagination + filtro server-side.
+// Q-27 (override de Q-12 e Q-10c): `email` removido dos recomendados.
+// Manter sincronizado com src/clients/client-helpers.js e
+// lib/clients/client-completeness.ts.
 const PJ_RECOMMENDED_FIELDS = [
   'tradeName',
   'registrationNumber',
@@ -188,9 +191,8 @@ const PJ_RECOMMENDED_FIELDS = [
   'state',
   'postalCode',
   'complement',
-  'email',
 ];
-const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf', 'email'];
+const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'];
 const PF_UNIT_RECOMMENDED_FIELDS = [
   'cnpj',
   'phone',

@@ -950,6 +950,36 @@ ${afterDisplayName} WHERE owner_client_id = ${clientId}`). Como
   `buildClientAuditState` (que captura `legalName` + `tradeName` +
   `displayName` antes e depois). Comportamento intencional.
 
+### Q-27 — `email` 100% opcional (override de Q-12 e Q-10c) ✅
+
+- **Decisao**: o campo `email` deixa de constar nas listas de
+  recomendados de Q-12 (Client PJ) e Q-10c (Client PF). Cliente sem
+  email **NAO** eh marcado como incompleto na UI; sem badge laranja
+  na listagem; sem entrada na checklist da detail page; sem entrada
+  no filtro `?completeness=incomplete`.
+- **Justificativa**: durante a montagem da planilha de import (70 PJs
+  reais), constatou-se que email **nao eh informacao comum** entre
+  clientes do dominio (cooperativas, armazens gerais, exportadoras
+  tradicionais). For-ar como recomendado geraria 100% dos clientes
+  com badge "incompleto" — ruido visual permanente sem valor
+  acionavel.
+- **Schema permanece intacto**: a coluna `email` continua existindo
+  em `Client` (nao UNIQUE, nao obrigatoria). Quem tiver email pode
+  preencher; quem nao tiver, fica vazio sem aviso.
+- **Implementacao** (commit pos-Q-26):
+  - `src/clients/client-helpers.js` — remove `'email'` das listas
+    `PJ_RECOMMENDED_FIELDS` e `PF_CLIENT_RECOMMENDED_FIELDS`.
+  - `lib/clients/client-completeness.ts` — espelho TS, mesmo update.
+  - `src/clients/client-service.js` `buildCompletenessWhere` —
+    terceira copia local da lista, mesmo update. (As 3 copias estao
+    listadas no scope de Commit B futuro para deduplicacao.)
+  - `tests/client-support.test.js` — assercoes ajustadas: PJ sem
+    email permanece **completo**; PF sem email permanece **completo**
+    quando os outros recomendados (cpf + units) estao OK.
+- **L4 wizard**: planilha **NAO precisa** de coluna `email` para os
+  clientes existentes. Mantem-se como campo opcional (CSV pode incluir
+  ou nao).
+
 ### Q-20 / Q-21 / Q-22 — Estrategia de execucao ✅
 
 - **Q-20 (commit strategy)**: L5 = 1 commit atomico (schema +

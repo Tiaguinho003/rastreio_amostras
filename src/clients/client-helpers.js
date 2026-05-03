@@ -14,6 +14,11 @@ import { CLIENT_PERSON_TYPES } from './client-support.js';
 // como `units` (zero unidades) e `units[<id>].<campo>` (campo faltando
 // em unidade especifica).
 
+// Q-27 (override de Q-12 e Q-10c): `email` foi RETIRADO da lista de
+// recomendados. Cliente sem email NAO eh marcado incompleto. Decisao
+// pratica: nao eh comum clientes (especialmente cooperativas e
+// armazens) terem email cadastrado; for-ar como recomendado gerava
+// ruido visual permanente sem valor.
 const PJ_RECOMMENDED_FIELDS = [
   'tradeName',
   'registrationNumber',
@@ -23,10 +28,9 @@ const PJ_RECOMMENDED_FIELDS = [
   'state',
   'postalCode',
   'complement',
-  'email',
 ];
 
-const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf', 'email'];
+const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'];
 
 const PF_UNIT_RECOMMENDED_FIELDS = [
   'cnpj',
