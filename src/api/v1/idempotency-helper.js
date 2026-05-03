@@ -70,12 +70,18 @@ export class IdempotencyStore {
     return record;
   }
 
-  /** Insere o cache. Em UNIQUE violation (race condition), le e retorna o
-   * record existente. */
+  /** Insere o cache. Retorna `{ ...record, replay: boolean }`:
+   *  - `replay: false` quando o INSERT bem-sucedido (este request foi o
+   *    primeiro a gravar)
+   *  - `replay: true` em UNIQUE violation (P2002 fallback) — outro
+   *    request gravou primeiro; retornamos o existente.
+   *  Caller usa o flag `replay` para decidir entre devolver `result`
+   *  do handler ou o `responseBody` cached (B3 fix do post-#5: comparar
+   *  por status code falha quando ambos coincidem mas bodies diferem). */
   async put(scope, key, statusCode, responseBody, ttlMs = IDEMPOTENCY_TTL_MS) {
     const expiresAt = new Date(Date.now() + ttlMs);
     try {
-      return await this.prisma.idempotencyRecord.create({
+      const created = await this.prisma.idempotencyRecord.create({
         data: {
           id: randomUUID(),
           scope,
@@ -85,13 +91,14 @@ export class IdempotencyStore {
           expiresAt,
         },
       });
+      return { ...created, replay: false };
     } catch (err) {
       if (err && err.code === 'P2002') {
         // Race: outro request ja gravou. Le e retorna o cached.
         const existing = await this.prisma.idempotencyRecord.findUnique({
           where: { scope_key: { scope, key } },
         });
-        if (existing) return existing;
+        if (existing) return { ...existing, replay: true };
       }
       throw err;
     }
@@ -138,10 +145,14 @@ export async function withIdempotency({ store, scope, headers, handler }) {
     typeof result.status === 'number' &&
     Object.prototype.hasOwnProperty.call(result, 'body')
   ) {
-    const stored = await store.put(scope, key, result.status, result.body ?? null);
-    // Se put retornou um record diferente (race condition resolvida),
-    // retorna o cached para consistencia.
-    if (stored && stored.statusCode !== result.status) {
+    // B4 fix do post-#5: schema responseBody e NOT NULL — fallback {}
+    // protege contra handler futuro que retorne body undefined.
+    const stored = await store.put(scope, key, result.status, result.body ?? {});
+    // B3 fix do post-#5: race condition (P2002) detectada pela flag
+    // `replay: true` retornada pelo store. Comparar por statusCode
+    // falhava quando ambos requests retornavam mesmo status mas bodies
+    // diferentes — devolvia o body do request perdedor da race.
+    if (stored && stored.replay) {
       return {
         status: stored.statusCode,
         body: stored.responseBody,

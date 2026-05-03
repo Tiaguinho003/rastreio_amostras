@@ -433,6 +433,68 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(second.status, 409);
   });
 
+  test('B1 (#post-5): dois PJ com mesma cnpjRoot coexistem (F7.1A nao bloqueia)', async () => {
+    // Cenario real: Coopercitrus matriz (CNPJ XXXXXXXX/0001-XX) +
+    // filial (CNPJ XXXXXXXX/0002-XX) sao Clients PJ DISTINTOS pos-L5.
+    // Ambos tem mesma cnpjRoot (8 primeiros digitos). F7.1A dropou o
+    // UNIQUE em cnpjRoot exatamente para suportar esse cenario.
+    // generateValidCnpj(seed, branchSeq) gera CNPJs com mesma raiz e
+    // sequencia de filial diferente — checksum valido pra ambos.
+    const seed = 8800;
+    const cnpjMatriz = generateValidCnpj(seed, 1);
+    const cnpjFilial = generateValidCnpj(seed, 2);
+    const cnpjRootEsperado = cnpjMatriz.slice(0, 8);
+
+    const matriz = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Grupo Empresarial Matriz LTDA',
+          tradeName: 'Grupo Matriz',
+          cnpj: cnpjMatriz,
+          phone: '35 3222-9001',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    assert.equal(matriz.status, 201);
+
+    const filial = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Grupo Empresarial Filial Patos LTDA',
+          tradeName: 'Grupo Filial Patos',
+          cnpj: cnpjFilial,
+          phone: '35 3222-9002',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    assert.equal(filial.status, 201, 'segundo PJ com mesma cnpjRoot deve ser permitido pos-F7.1A');
+    assert.notEqual(filial.body.client.id, matriz.body.client.id);
+    assert.notEqual(filial.body.client.cnpj, matriz.body.client.cnpj);
+
+    // Confirma cnpjRoot no DB (toClientSummary nao expoe esse campo —
+    // verificamos direto na fonte da verdade).
+    const matrizDb = await prisma.client.findUnique({
+      where: { id: matriz.body.client.id },
+      select: { cnpjRoot: true },
+    });
+    const filialDb = await prisma.client.findUnique({
+      where: { id: filial.body.client.id },
+      select: { cnpjRoot: true },
+    });
+    assert.equal(matrizDb.cnpjRoot, cnpjRootEsperado);
+    assert.equal(
+      filialDb.cnpjRoot,
+      cnpjRootEsperado,
+      'matriz e filial compartilham cnpjRoot — nao ha UNIQUE em cnpjRoot pos-F7.1A'
+    );
+  });
+
   test('L5: PATCH /clients rejects switching personType (PF<->PJ)', async () => {
     const pf = await createPfClient();
     const result = await api.updateClient(
@@ -778,6 +840,61 @@ if (!databaseUrl || !databaseReachable) {
       `scope inclui actorUserId, recebido: ${records[0].scope}`
     );
     assert.ok(records[0].scope.startsWith('POST /clients:'), 'scope tem prefixo de rota');
+  });
+
+  test('B3 (#post-5): pre-populando idempotency_record exercita cache hit (replay path)', async () => {
+    // Simula o cenario de "outro request ja gravou primeiro" populando
+    // diretamente a tabela idempotency_record antes do api call. O caminho
+    // exercitado e store.get hit (linha withIdempotency:117) que retorna
+    // o cached sem chamar o handler. Garante que o body cacheado ganha
+    // mesmo se for completamente diferente do que o handler retornaria.
+    const key = 'b3-prepopulated-' + Math.random().toString(36).slice(2);
+    const scope = `POST /clients:user-${actor.actorUserId}`;
+    const cachedBody = {
+      client: {
+        id: '00000000-0000-4000-8000-000000000999',
+        code: 9999,
+        legalName: 'PRE-POPULATED FROM CACHE',
+      },
+    };
+    await prisma.idempotencyRecord.create({
+      data: {
+        id: randomUUID(),
+        scope,
+        key,
+        statusCode: 201,
+        responseBody: cachedBody,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+
+    // Tenta criar com mesma key + body completamente novo. Cache hit
+    // antes do handler executar — handler nao roda, body cacheado retorna.
+    const r = await api.createClient(
+      buildInput({
+        headers: { ...authHeaders, 'idempotency-key': key },
+        body: {
+          personType: 'PJ',
+          legalName: 'Body Novo Que Nao Sera Usado LTDA',
+          tradeName: 'Body Novo',
+          cnpj: nextValidCnpj(),
+          phone: '35 3333-9999',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+
+    assert.equal(r.status, 201);
+    assert.equal(r.body.client.id, '00000000-0000-4000-8000-000000000999');
+    assert.equal(r.body.client.legalName, 'PRE-POPULATED FROM CACHE');
+    assert.equal(r.idempotent, true);
+
+    // Confirma que NENHUM cliente novo foi criado pelo handler.
+    const count = await prisma.client.count({
+      where: { legalName: 'Body Novo Que Nao Sera Usado LTDA' },
+    });
+    assert.equal(count, 0, 'handler nao deve ter rodado — cache hit');
   });
 
   test('#5 Q-02: POST /clients/:id/units com Idempotency-Key — segunda chamada retorna cached', async () => {

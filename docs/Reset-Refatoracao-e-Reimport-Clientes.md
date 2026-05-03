@@ -936,6 +936,20 @@ definida.
   - Audit payloads: registrar `legalName` explicitamente (alem de
     `displayName`) para preservar nome formal historicamente.
 
+- **Side effect documentado (B2 do post-#5 review)**: `updateClient`
+  propaga mudanca de `displayName` para `sample.declared_owner` em
+  todas as samples do cliente (`UPDATE sample SET declared_owner =
+${afterDisplayName} WHERE owner_client_id = ${clientId}`). Como
+  `displayName` em PJ pos-Q-26 vira `tradeName ?? legalName`,
+  alterar o `tradeName` (ou o `legalName` quando `tradeName` e
+  null) **reescreve `declared_owner` em todas as samples antigas
+  desse cliente**. **Trade-off**: UX consistente (relatorios mostram
+  sempre o nome curto atual) versus snapshot historico nao
+  preservado em `sample.declared_owner`. **Historico fiscal completo
+  permanece** em `client_audit_event.payload.before/after` via
+  `buildClientAuditState` (que captura `legalName` + `tradeName` +
+  `displayName` antes e depois). Comportamento intencional.
+
 ### Q-20 / Q-21 / Q-22 — Estrategia de execucao ✅
 
 - **Q-20 (commit strategy)**: L5 = 1 commit atomico (schema +

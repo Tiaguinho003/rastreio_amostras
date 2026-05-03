@@ -646,22 +646,6 @@ export class ClientService {
     }
   }
 
-  async assertCnpjRootAvailable(tx, cnpjRoot, { excludeClientId = null } = {}) {
-    if (!cnpjRoot) return;
-    const existing = await tx.client.findFirst({
-      where: {
-        cnpjRoot,
-        ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new HttpError(409, 'CNPJ root already exists for another client', {
-        code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
-      });
-    }
-  }
-
   async assertClientRegistrationCanonicalAvailable(tx, canonical, { excludeClientId = null } = {}) {
     if (!canonical) return;
     const existing = await tx.client.findFirst({
@@ -887,16 +871,15 @@ export class ClientService {
 
     return this.prisma.$transaction(async (tx) => {
       // L5: validacao de unicidade
-      // PF -> client.cpf
-      // PJ -> client.cnpj + client.cnpjRoot + client.registrationNumberCanonical
+      //   PF -> client.cpf
+      //   PJ -> client.cnpj + client.registrationNumberCanonical
+      //         (cnpjRoot NAO eh UNIQUE — F7.1A; matriz/filial do mesmo
+      //          grupo empresarial coexistem como Clients PJ distintos)
       // Todos os campos PJ ja estao em `data` (vindos de buildClientWriteData).
       if (data.personType === CLIENT_PERSON_TYPES.PF) {
         await this.assertCpfAvailable(tx, data.cpf);
       } else {
         await this.assertClientCnpjAvailable(tx, data.cnpj);
-        if (data.cnpjRoot) {
-          await this.assertCnpjRootAvailable(tx, data.cnpjRoot);
-        }
         if (data.registrationNumberCanonical) {
           await this.assertClientRegistrationCanonicalAvailable(
             tx,
@@ -1019,16 +1002,14 @@ export class ClientService {
       }
 
       // L5: PF -> uniqueness em client.cpf. PJ -> client.cnpj +
-      // client.cnpjRoot + client.registrationNumberCanonical, todos no
-      // proprio Client (nao mais derivados de branches).
+      // client.registrationNumberCanonical, todos no proprio Client.
+      // (cnpjRoot NAO eh UNIQUE — F7.1A; matriz/filial do mesmo grupo
+      // empresarial coexistem como Clients PJ distintos.)
       if (data.personType === CLIENT_PERSON_TYPES.PF) {
         await this.assertCpfAvailable(tx, data.cpf, { excludeClientId: current.id });
       } else {
         if (data.cnpj && data.cnpj !== current.cnpj) {
           await this.assertClientCnpjAvailable(tx, data.cnpj, { excludeClientId: current.id });
-        }
-        if (data.cnpjRoot && data.cnpjRoot !== current.cnpjRoot) {
-          await this.assertCnpjRootAvailable(tx, data.cnpjRoot, { excludeClientId: current.id });
         }
         if (
           data.registrationNumberCanonical &&
