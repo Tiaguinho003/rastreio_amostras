@@ -982,7 +982,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | #   | Etapa                                                                     | Status                                                                                                                                            |
 | --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ **deployado em prod 2026-04-30** (revisao `rastreio-prod-app-00177-hij`, commits `e65d30d` + `0453882`, migrate `rastreio-prod-migrate-pzrmb`) |
-| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName      | ✅ implementado, gates verdes (152 unit + 104 integration), **aguardando push + deploy**                                                          |
+| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName      | ✅ implementado, gates verdes (152 unit + 104 integration), commit `ff2e253` pushado, **aguardando CI verde + deploy**                            |
 | 3   | Q-24 — CEP lookup nos forms                                               | pendente                                                                                                                                          |
 | 4   | Q-01 — `?onlyActive=true` query param                                     | pendente                                                                                                                                          |
 | 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | pendente                                                                                                                                          |
@@ -1016,23 +1016,12 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 
 ### Como retomar na proxima sessao
 
-1. Confirmar: `git status` limpo, `git log -1` mostra `0453882` ou commit
+1. Confirmar: `git status` limpo, `git log -1` mostra `ff2e253` ou commit
    posterior.
-2. Continuar com **#2 — Q-11 (aviso incompleto na UI)**:
-   - Criar `lib/clients/client-completeness.ts` (espelho TS do helper
-     backend; criado e descartado nesta sessao para limpar working tree
-     antes do deploy — recriar).
-   - Criar `components/clients/ClientCompleteBadge.tsx` (emoji 🟠 + tooltip
-     com contagem de campos faltando).
-   - Criar `components/clients/ClientCompleteChecklist.tsx` (card no topo
-     da detail page com checklist clicavel).
-   - Plugar em `app/clients/page.tsx` (badge nos cards + filtro
-     "Mostrar so incompletos" + contador no header).
-   - Plugar em `app/clients/[clientId]/page.tsx` (checklist no topo).
-   - Plugar em `components/clients/ClientLookupField.tsx` (icone discreto).
-   - Backend: adicionar query param `?completeness=incomplete` em
-     `listClients` (Prisma where com OR das regras de completude).
-3. Quality gates + commit + push + deploy seguindo o mesmo padrao de #1.
+2. Conferir CI verde do `ff2e253` e fazer deploy do #2 (canary +
+   migrate-job mesmo sem migration nova + smoke + promote-traffic).
+3. Continuar com **#3 — Q-24 (CEP lookup nos forms)** seguindo
+   metodologia em §10 (5 passos).
 
 ---
 
