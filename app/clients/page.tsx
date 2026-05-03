@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { type FormEvent, Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { ClientCompleteBadge } from '../../components/clients/ClientCompleteBadge';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
+import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import { formatClientDocument, formatPhone } from '../../lib/client-field-formatters';
@@ -245,6 +247,7 @@ function ClientsPage() {
   const [sortAZ, setSortAZ] = useState(true);
   const [activeClientChip, setActiveClientChip] = useState<ClientChipFilter>('all');
   const [commercialUserFilter, setCommercialUserFilter] = useState<string>('');
+  const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false);
   const [users, setUsers] = useState<UserLookupItem[]>([]);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -261,8 +264,13 @@ function ClientsPage() {
     return counts;
   }, [clientsState.items]);
 
+  // Q-11: contagem de incompletos na pagina atual.
+  const incompleteCount = useMemo(() => {
+    return clientsState.items.reduce((acc, c) => acc + (isClientComplete(c).complete ? 0 : 1), 0);
+  }, [clientsState.items]);
+
   const displayClients = useMemo(() => {
-    const filtered =
+    let filtered =
       activeClientChip === 'all'
         ? clientsState.items
         : clientsState.items.filter((c) => {
@@ -270,12 +278,15 @@ function ClientsPage() {
             if (activeClientChip === 'seller') return c.isSeller;
             return true;
           });
+    if (showOnlyIncomplete) {
+      filtered = filtered.filter((c) => !isClientComplete(c).complete);
+    }
     return [...filtered].sort((a, b) => {
       const na = clientDisplayName(a).toLowerCase();
       const nb = clientDisplayName(b).toLowerCase();
       return sortAZ ? na.localeCompare(nb) : nb.localeCompare(na);
     });
-  }, [clientsState.items, activeClientChip, sortAZ]);
+  }, [clientsState.items, activeClientChip, sortAZ, showOnlyIncomplete]);
 
   // Debounce effect for client search
   useEffect(() => {
@@ -642,17 +653,34 @@ function ClientsPage() {
             })}
           </div>
 
-          {/* Count + Sort */}
+          {/* Count + Filters + Sort */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{displayClients.length} clientes</span>
-            <button type="button" className="spv2-sort-btn" onClick={() => setSortAZ((v) => !v)}>
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M4 12h10" />
-                <path d="M4 18h6" />
-              </svg>
-              <span>{sortAZ ? 'A–Z' : 'Z–A'}</span>
-            </button>
+            <span className="spv2-list-count">
+              {displayClients.length} clientes
+              {incompleteCount > 0 ? ` · ${incompleteCount} incompletos` : null}
+            </span>
+            <div className="spv2-list-meta-actions">
+              {incompleteCount > 0 ? (
+                <button
+                  type="button"
+                  className={`spv2-toggle-btn${showOnlyIncomplete ? ' is-active' : ''}`}
+                  onClick={() => setShowOnlyIncomplete((v) => !v)}
+                  aria-pressed={showOnlyIncomplete}
+                  title="Mostrar somente clientes incompletos"
+                >
+                  <span aria-hidden="true">🟠</span>
+                  <span>{showOnlyIncomplete ? 'Mostrando incompletos' : 'Só incompletos'}</span>
+                </button>
+              ) : null}
+              <button type="button" className="spv2-sort-btn" onClick={() => setSortAZ((v) => !v)}>
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M4 6h16" />
+                  <path d="M4 12h10" />
+                  <path d="M4 18h6" />
+                </svg>
+                <span>{sortAZ ? 'A–Z' : 'Z–A'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Card list */}
@@ -683,11 +711,12 @@ function ClientsPage() {
                 const name = clientDisplayName(client);
                 const avatarColor = getAvatarColor(name);
                 const initials = getClientInitials(name);
+                const incomplete = !isClientComplete(client).complete;
                 return (
                   <button
                     key={client.id}
                     type="button"
-                    className="cv2-card"
+                    className={`cv2-card${incomplete ? ' is-incomplete' : ''}`}
                     style={
                       {
                         animationDelay: `${i * 0.04}s`,
@@ -701,7 +730,12 @@ function ClientsPage() {
                     </span>
                     <div className="cv2-card-content">
                       <div className="cv2-card-top">
-                        <span className="cv2-card-name">{name}</span>
+                        <span className="cv2-card-name">
+                          {name}
+                          {incomplete ? (
+                            <ClientCompleteBadge client={client} variant="icon-only" />
+                          ) : null}
+                        </span>
                         <span
                           className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
                         >

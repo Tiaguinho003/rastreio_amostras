@@ -177,6 +177,60 @@ function buildClientWhereFromSearch(search) {
   return { OR: or };
 }
 
+// Q-11: regras de completude espelhadas em src/clients/client-helpers.js.
+// Aplicadas como WHERE Prisma para suportar pagination + filtro server-side.
+const PJ_RECOMMENDED_FIELDS = [
+  'tradeName',
+  'registrationNumber',
+  'addressLine',
+  'district',
+  'city',
+  'state',
+  'postalCode',
+  'complement',
+  'email',
+];
+const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf', 'email'];
+const PF_UNIT_RECOMMENDED_FIELDS = [
+  'cnpj',
+  'phone',
+  'addressLine',
+  'district',
+  'city',
+  'state',
+  'postalCode',
+  'registrationNumber',
+  'car',
+];
+
+function fieldNullOrEmpty(field) {
+  return { OR: [{ [field]: null }, { [field]: '' }] };
+}
+
+function buildCompletenessWhere(mode) {
+  // mode: 'incomplete' | 'complete'
+  const pjMissingAny = { OR: PJ_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };
+  const pfClientMissingAny = { OR: PF_CLIENT_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };
+  const pfNoActiveUnits = { units: { none: { status: 'ACTIVE' } } };
+  const pfUnitMissingAny = {
+    units: {
+      some: {
+        status: 'ACTIVE',
+        OR: PF_UNIT_RECOMMENDED_FIELDS.map(fieldNullOrEmpty),
+      },
+    },
+  };
+
+  const incomplete = {
+    OR: [
+      { personType: 'PJ', AND: [pjMissingAny] },
+      { personType: 'PF', OR: [pfClientMissingAny, pfNoActiveUnits, pfUnitMissingAny] },
+    ],
+  };
+
+  return mode === 'complete' ? { NOT: incomplete } : incomplete;
+}
+
 function parseExactCodeSearch(search) {
   if (typeof search !== 'string') {
     return null;
@@ -659,8 +713,17 @@ export class ClientService {
   async listClients(input, actorContext) {
     assertAuthenticatedActor(actorContext, 'list clients');
 
-    const { page, limit, search, status, personType, isBuyer, isSeller, commercialUserIds } =
-      normalizeListClientsInput(input);
+    const {
+      page,
+      limit,
+      search,
+      status,
+      personType,
+      isBuyer,
+      isSeller,
+      commercialUserIds,
+      completeness,
+    } = normalizeListClientsInput(input);
     const skip = (page - 1) * limit;
 
     // Filtro multi-user: ANY (some) — clients onde QUALQUER um dos userIds da
@@ -673,6 +736,7 @@ export class ClientService {
       ...(commercialUserIds.length > 0
         ? { commercialUsers: { some: { userId: { in: commercialUserIds } } } }
         : {}),
+      ...(completeness ? buildCompletenessWhere(completeness) : {}),
     };
 
     const exactCodeSearch = parseExactCodeSearch(search);

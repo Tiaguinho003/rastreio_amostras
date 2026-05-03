@@ -756,6 +756,24 @@ export function normalizeListClientsInput(input) {
     commercialUserIdsList = single ? [single] : [];
   }
 
+  // Q-11: filtro de completude — 'incomplete' restringe a clientes com
+  // pelo menos um recomendado faltando (regras Q-10c/Q-10d/Q-12/Q-13).
+  let completeness = null;
+  if (
+    input.completeness !== undefined &&
+    input.completeness !== null &&
+    input.completeness !== ''
+  ) {
+    const v = String(input.completeness).trim().toLowerCase();
+    if (v !== 'incomplete' && v !== 'complete') {
+      throw new HttpError(422, 'completeness must be "incomplete" or "complete"', {
+        code: 'VALIDATION_ERROR',
+        field: 'completeness',
+      });
+    }
+    completeness = v;
+  }
+
   return {
     page: readPageQuery(input.page, 1),
     limit: readLimitQuery(input.limit, {
@@ -768,6 +786,7 @@ export function normalizeListClientsInput(input) {
     isBuyer: normalizeOptionalBooleanQuery(input.isBuyer, 'isBuyer'),
     isSeller: normalizeOptionalBooleanQuery(input.isSeller, 'isSeller'),
     commercialUserIds: commercialUserIdsList,
+    completeness,
   };
 }
 
@@ -811,7 +830,19 @@ function buildClientDocument(client) {
   return client.cnpj ?? null;
 }
 
+// Q-26: nome curto pra UX (listagem, lookup, dropdown). Em PJ usa
+// tradeName quando existe, senao cai pra legalName. PF mantem fullName.
 export function buildClientDisplayName(client) {
+  if (client.personType === CLIENT_PERSON_TYPES.PF) {
+    return client.fullName ?? null;
+  }
+
+  return client.tradeName ?? client.legalName ?? null;
+}
+
+// Q-26: nome legal completo. Usar em audit, contratos, fechamentos,
+// relatorios oficiais. PF nao tem distincao (retorna fullName).
+export function buildClientLegalName(client) {
   if (client.personType === CLIENT_PERSON_TYPES.PF) {
     return client.fullName ?? null;
   }

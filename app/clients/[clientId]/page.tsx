@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
+import { ClientCompleteChecklist } from '../../../components/clients/ClientCompleteChecklist';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import {
   ApiError,
@@ -966,6 +967,8 @@ export default function ClientDetailPage() {
             </header>
 
             <NoticeSlot notice={pageNotice} />
+
+            <ClientCompleteChecklist client={client} />
 
             {/* Abas */}
             <div className="sdv-tabs" role="tablist" aria-label="Secoes do cliente">

@@ -965,6 +965,7 @@ export function createBackendApiV1({
             isSeller: query.isSeller,
             commercialUserId: query.commercialUserId,
             commercialUserIds: query.commercialUserIds,
+            completeness: query.completeness,
           },
           actor
         );

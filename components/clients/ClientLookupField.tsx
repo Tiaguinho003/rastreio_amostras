@@ -10,6 +10,7 @@ import type {
   ClientSummary,
   SessionData,
 } from '../../lib/types';
+import { ClientCompleteBadge } from './ClientCompleteBadge';
 
 type ClientLookupFieldProps = {
   session: SessionData;
@@ -325,6 +326,9 @@ export function ClientLookupField({
                         ) : null}
                         {isMatched ? (
                           <span className="client-lookup-option-matched"> · CNPJ exato</span>
+                        ) : null}
+                        {!row.isHierarchicalChild ? (
+                          <ClientCompleteBadge client={row.client} variant="icon-only" />
                         ) : null}
                       </span>
                       <span className="client-lookup-option-meta">

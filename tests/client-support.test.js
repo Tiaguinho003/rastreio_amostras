@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 
 import {
   buildClientDisplayName,
+  buildClientLegalName,
   normalizeCreateUnitInput,
   normalizeCreateClientInput,
   normalizeLookupClientsInput,
   normalizeRegistrationCanonical,
   normalizeUpdateClientInput,
 } from '../src/clients/client-support.js';
+import { isClientComplete } from '../src/clients/client-helpers.js';
 
 test('normalizeRegistrationCanonical removes formatting and lowercases content', () => {
   assert.equal(normalizeRegistrationCanonical(' 00.2864/015-0010 '), '0028640150010');
@@ -31,6 +33,118 @@ test('buildClientDisplayName resolves PF and PJ names correctly', () => {
     }),
     'Atlantica Exportacao e Importacao S/A'
   );
+});
+
+test('Q-26: buildClientDisplayName em PJ prefere tradeName quando existe', () => {
+  assert.equal(
+    buildClientDisplayName({
+      personType: 'PJ',
+      legalName: 'COOPERCITRUS COOPERATIVA DE PRODUTORES RURAIS LTDA',
+      tradeName: 'Coopercitrus',
+    }),
+    'Coopercitrus'
+  );
+
+  assert.equal(
+    buildClientDisplayName({
+      personType: 'PJ',
+      legalName: 'Empresa Sem Fantasia LTDA',
+      tradeName: null,
+    }),
+    'Empresa Sem Fantasia LTDA'
+  );
+
+  assert.equal(
+    buildClientLegalName({
+      personType: 'PJ',
+      legalName: 'COOPERCITRUS COOPERATIVA DE PRODUTORES RURAIS LTDA',
+      tradeName: 'Coopercitrus',
+    }),
+    'COOPERCITRUS COOPERATIVA DE PRODUTORES RURAIS LTDA',
+    'buildClientLegalName ignora tradeName e retorna razao social'
+  );
+
+  assert.equal(
+    buildClientLegalName({ personType: 'PF', fullName: 'Joao Silva' }),
+    'Joao Silva',
+    'PF: legalName helper retorna fullName (sem distincao)'
+  );
+});
+
+test('Q-11: isClientComplete marca PJ incompleto se faltar qualquer recomendado', () => {
+  const completePj = {
+    personType: 'PJ',
+    legalName: 'Empresa Completa LTDA',
+    tradeName: 'Completa',
+    cnpj: '12345678000199',
+    registrationNumber: '123456789',
+    addressLine: 'Rua Principal, 100',
+    district: 'Centro',
+    city: 'Sao Paulo',
+    state: 'SP',
+    postalCode: '01000000',
+    complement: 'Sala 1',
+    email: 'contato@completa.com',
+  };
+  const result = isClientComplete(completePj);
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.missing, []);
+
+  const incompletePj = { ...completePj, email: null, complement: '' };
+  const result2 = isClientComplete(incompletePj);
+  assert.equal(result2.complete, false);
+  assert.ok(result2.missing.includes('email'));
+  assert.ok(result2.missing.includes('complement'));
+});
+
+test('Q-11: isClientComplete marca PF incompleto se cpf/email faltar OU sem unidade', () => {
+  // PF sem cpf nem email — incompleto
+  const r1 = isClientComplete({ personType: 'PF', fullName: 'Joao' });
+  assert.equal(r1.complete, false);
+  assert.ok(r1.missing.includes('cpf'));
+  assert.ok(r1.missing.includes('email'));
+  assert.ok(r1.missing.includes('units'));
+
+  // PF com cpf+email mas sem unidade — incompleto
+  const r2 = isClientComplete({
+    personType: 'PF',
+    fullName: 'Joao',
+    cpf: '12345678901',
+    email: 'joao@example.com',
+    units: [],
+  });
+  assert.equal(r2.complete, false);
+  assert.deepEqual(r2.missing, ['units']);
+
+  // PF com 1 unidade ATIVA mas faltando recomendados na unidade — incompleto
+  const r3 = isClientComplete({
+    personType: 'PF',
+    fullName: 'Joao',
+    cpf: '12345678901',
+    email: 'joao@example.com',
+    units: [
+      {
+        id: 'unit-1',
+        status: 'ACTIVE',
+        name: 'Fazenda Boa Vista',
+        // sem nenhum recomendado preenchido
+      },
+    ],
+  });
+  assert.equal(r3.complete, false);
+  assert.ok(r3.missing.some((m) => m.startsWith('units[unit-1].cnpj')));
+  assert.ok(r3.missing.some((m) => m.startsWith('units[unit-1].car')));
+
+  // PF com unidade INATIVA conta como sem unidade ATIVA
+  const r4 = isClientComplete({
+    personType: 'PF',
+    fullName: 'Joao',
+    cpf: '12345678901',
+    email: 'joao@example.com',
+    units: [{ id: 'u', status: 'INACTIVE', name: 'Fazenda' }],
+  });
+  assert.equal(r4.complete, false);
+  assert.ok(r4.missing.includes('units'));
 });
 
 test('normalizeCreateClientInput enforces PF shape and canonical document', () => {

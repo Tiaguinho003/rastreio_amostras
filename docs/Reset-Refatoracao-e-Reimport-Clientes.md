@@ -904,6 +904,38 @@ definida.
 - **Documentacao**: registrar no `docs/API-e-Contratos.md` o uso
   do header e contrato de resposta.
 
+### Q-26 — Convencao de uso de `legalName` vs `tradeName` em PJ ✅
+
+- **Decisao**: separar **nome legal** (audit, contratos, fechamentos
+  futuros, relatorios oficiais) do **nome curto** (UX do app: listagem,
+  busca, lookup, badge, dropdown, cabecalho de card).
+- **Mapeamento**:
+  - `legalName` (Razao Social) — **sempre obrigatorio em PJ** (ja era
+    via CHECK). Usado em: fechamentos de negocio, contratos, NF-e,
+    relatorios oficiais, audit logs.
+  - `tradeName` (Nome Fantasia) — **opcional/recomendado** (Q-12). Usado
+    em: toda UI de selecao/listagem do app.
+  - **Fallback**: quando `tradeName` vazio, UI cai para `legalName`.
+- **Justificativa**: empresas com razao social longa (ex
+  "COOPERCITRUS COOPERATIVA DE PRODUTORES RURAIS LTDA") sao impraticaveis
+  de selecionar em listagens; o nome fantasia ("Coopercitrus") resolve.
+  Fechamentos futuros precisam do nome legal exato — manter os 2
+  campos separados deixa o sistema flexivel.
+- **Implementacao prevista** (entra no commit do #2):
+  - Backend `src/clients/client-support.js`:
+    `buildClientDisplayName` para PJ retorna
+    `client.tradeName ?? client.legalName` (era so `legalName`). PF
+    nao muda (continua `fullName`).
+  - Novo helper `buildClientLegalName(client)` para uso em
+    audit/contratos quando precisar do nome formal explicitamente.
+  - Frontend: `ClientSummary.displayName` ja vira o curto (backend
+    deriva); UI nao precisa mudar comportamento alem do helper.
+  - Wizard L4: planilha tem 2 colunas (`legalName` obrigatoria,
+    `tradeName` opcional). Rotulos PT-BR: "Razao Social" / "Nome
+    Fantasia".
+  - Audit payloads: registrar `legalName` explicitamente (alem de
+    `displayName`) para preservar nome formal historicamente.
+
 ### Q-20 / Q-21 / Q-22 — Estrategia de execucao ✅
 
 - **Q-20 (commit strategy)**: L5 = 1 commit atomico (schema +
@@ -950,7 +982,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | #   | Etapa                                                                     | Status                                                                                                                                            |
 | --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ **deployado em prod 2026-04-30** (revisao `rastreio-prod-app-00177-hij`, commits `e65d30d` + `0453882`, migrate `rastreio-prod-migrate-pzrmb`) |
-| 2   | Q-11 — aviso incompleto na UI (helper + badge + checklist)                | proximo (helper `src/clients/client-helpers.js` ja existe; falta TS espelho em `lib/`, badge, checklist, filtro)                                  |
+| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName      | ✅ implementado, gates verdes (152 unit + 104 integration), **aguardando push + deploy**                                                          |
 | 3   | Q-24 — CEP lookup nos forms                                               | pendente                                                                                                                                          |
 | 4   | Q-01 — `?onlyActive=true` query param                                     | pendente                                                                                                                                          |
 | 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | pendente                                                                                                                                          |
