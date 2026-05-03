@@ -95,7 +95,7 @@ Validacoes criticas nessas rotas:
 1. `GET /api/v1/clients`
    Lista paginada com busca por nome, documento, codigo. Filtra por `personType`, `isBuyer`, `isSeller`, `commercialUserIds[]`.
 2. `POST /api/v1/clients`
-   Cria cliente. Para PJ exige `cnpj` direto no body (e aceita `addressLine`/`city`/`state`/`registrationNumber`/etc.). Para PF aceita `units[]` (fazendas opcionais com `name` obrigatorio + `cnpj`/`car`/endereco). PJ rejeita `units[]` com 422 `PJ_HAS_NO_UNITS`.
+   Cria cliente. Para PJ exige `cnpj` direto no body (e aceita `addressLine`/`city`/`state`/`registrationNumber`/etc.). Para PF aceita `units[]` (fazendas opcionais com `name` obrigatorio + `cnpj`/`car`/endereco). PJ rejeita `units[]` com 422 `PJ_HAS_NO_UNITS`. **Suporta header opcional `Idempotency-Key` (#5/Q-02)** — duas chamadas com a mesma key (e mesmo escopo + actor) retornam a resposta da primeira sem criar duplicata. Cache 24h. Cache TUDO (sucessos e erros).
 3. `GET /api/v1/clients/lookup`
    Smart resolve: 14 digitos batem CNPJ direto em Client (PJ) ou em ClientUnit (fazenda PF). Retorna `matchedUnitId` quando o match e via unit.
 4. `GET /api/v1/clients/:clientId`
@@ -113,7 +113,7 @@ Validacoes criticas nessas rotas:
 PJ rejeita TODAS as rotas abaixo com 422 `CLIENT_PJ_HAS_NO_UNITS`.
 
 1. `POST /api/v1/clients/:clientId/units`
-   Cria fazenda. Body aceita `name` (obrigatorio), `cnpj` opcional (UNIQUE), `addressLine`/`city`/`state`/etc., `registrationNumber` (UNIQUE canonico), `car` (Cadastro Ambiental Rural).
+   Cria fazenda. Body aceita `name` (obrigatorio), `cnpj` opcional (UNIQUE), `addressLine`/`city`/`state`/etc., `registrationNumber` (UNIQUE canonico), `car` (Cadastro Ambiental Rural). **Suporta header opcional `Idempotency-Key` (#5/Q-02)** — mesma key + mesmo actor retorna resposta cached. Cache 24h.
 2. `PATCH /api/v1/clients/:clientId/units/:unitId`
    Atualiza. Exige `reasonText`.
 3. `POST /api/v1/clients/:clientId/units/:unitId/inactivate`

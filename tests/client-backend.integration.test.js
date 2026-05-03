@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
 
 import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
+import { IdempotencyStore } from '../src/api/v1/idempotency-helper.js';
 import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { ClientService } from '../src/clients/client-service.js';
 import { generateValidCnpj, generateValidCpf } from './helpers/cnpj-generator.js';
@@ -48,7 +49,7 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE client_audit_event, client_commercial_user, sample_movement, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE client_audit_event, client_commercial_user, sample_movement, client_unit, client, print_job, sample_attachment, sample_event, sample, idempotency_record RESTART IDENTITY CASCADE'
     );
     await prisma.$executeRawUnsafe('DELETE FROM "app_user" WHERE "username" LIKE \'test-%\'');
   }
@@ -154,6 +155,7 @@ if (!databaseUrl || !databaseReachable) {
         },
       },
       reportService: null,
+      idempotencyStore: new IdempotencyStore({ prisma }),
     });
   });
 
@@ -575,6 +577,239 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
     assert.equal(withOrder.status, 422);
+  });
+
+  // ============================================================
+  // #5 — Q-02 + Q-25: Idempotency-Key middleware
+  // ============================================================
+
+  test('#5 Q-02: POST /clients sem Idempotency-Key — sem cache, executa duas vezes', async () => {
+    // Sem header, 2 chamadas com mesmo CNPJ — segunda falha por UNIQUE.
+    const cnpj1 = nextValidCnpj();
+    const r1 = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Sem Header LTDA',
+          tradeName: 'Sem Header',
+          cnpj: cnpj1,
+          phone: '35 3333-1111',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    assert.equal(r1.status, 201);
+    const r2 = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Sem Header LTDA',
+          tradeName: 'Sem Header',
+          cnpj: cnpj1,
+          phone: '35 3333-1111',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    // Sem cache, segundo INSERT colide com UNIQUE de cnpj.
+    assert.equal(r2.status, 409);
+  });
+
+  test('#5 Q-02: POST /clients com mesma Idempotency-Key — segunda chamada retorna cached', async () => {
+    const key = 'idem-key-create-client-' + Math.random().toString(36).slice(2);
+    const cnpj = nextValidCnpj();
+    const headersWithKey = { ...authHeaders, 'idempotency-key': key };
+
+    const r1 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Idempotente LTDA',
+          tradeName: 'Idem',
+          cnpj,
+          phone: '35 3333-2222',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+    assert.equal(r1.status, 201);
+    const firstId = r1.body.client.id;
+
+    // Segunda chamada — mesma key, mesmo body → cached.
+    const r2 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Idempotente LTDA',
+          tradeName: 'Idem',
+          cnpj,
+          phone: '35 3333-2222',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+    assert.equal(r2.status, 201);
+    assert.equal(r2.body.client.id, firstId, 'cache hit retorna mesmo ID');
+    assert.equal(r2.idempotent, true, 'flag idempotent setada');
+
+    // Confirma que so existe 1 cliente no DB para esse CNPJ.
+    const count = await prisma.client.count({ where: { cnpj } });
+    assert.equal(count, 1);
+  });
+
+  test('#5 A1: mesma key + body diferente → retorna cached do primeiro body', async () => {
+    const key = 'idem-key-body-diff-' + Math.random().toString(36).slice(2);
+    const cnpj1 = nextValidCnpj();
+    const cnpj2 = nextValidCnpj();
+    const headersWithKey = { ...authHeaders, 'idempotency-key': key };
+
+    const r1 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Body Original LTDA',
+          tradeName: 'Original',
+          cnpj: cnpj1,
+          phone: '35 3333-3333',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+    assert.equal(r1.status, 201);
+
+    const r2 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Body Diferente LTDA',
+          tradeName: 'Diferente',
+          cnpj: cnpj2,
+          phone: '99 9999-9999',
+          isBuyer: false,
+          isSeller: false,
+        },
+      })
+    );
+    // A1: ignora body, retorna cached do primeiro.
+    assert.equal(r2.status, 201);
+    assert.equal(r2.body.client.legalName, 'Body Original LTDA');
+    assert.equal(r2.body.client.cnpj, cnpj1);
+  });
+
+  test('#5 B1: erros 4xx tambem sao cacheados', async () => {
+    const key = 'idem-key-error-cache-' + Math.random().toString(36).slice(2);
+    const headersWithKey = { ...authHeaders, 'idempotency-key': key };
+
+    // Primeira chamada: PJ sem cnpj → 422 PJ_REQUIRES_CNPJ
+    const r1 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Sem CNPJ Ltda',
+          tradeName: 'Sem CNPJ',
+          phone: '35 3333-4444',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+    assert.equal(r1.status, 422);
+
+    // Segunda chamada — mesma key, body completamente diferente (validacao
+    // passaria) — mas B1 cache TUDO, entao retorna o 422 cached.
+    const r2 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Com CNPJ LTDA',
+          tradeName: 'Com',
+          cnpj: nextValidCnpj(),
+          phone: '35 3333-4444',
+          isBuyer: true,
+          isSeller: true,
+        },
+      })
+    );
+    assert.equal(r2.status, 422, 'erro cacheado retorna mesmo status');
+    assert.equal(r2.idempotent, true);
+  });
+
+  test('#5 T8: scope persiste actorUserId — record gravado contem user no scope', async () => {
+    const key = 'idem-key-scope-' + Math.random().toString(36).slice(2);
+    const cnpj = nextValidCnpj();
+    const headersWithKey = { ...authHeaders, 'idempotency-key': key };
+
+    const r1 = await api.createClient(
+      buildInput({
+        headers: headersWithKey,
+        body: {
+          personType: 'PJ',
+          legalName: 'Scope Check LTDA',
+          tradeName: 'Scope',
+          cnpj,
+          phone: '35 3333-5555',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    assert.equal(r1.status, 201);
+
+    // T8: scope deve incluir actor.actorUserId no formato
+    // 'POST /clients:user-<actorUserId>'.
+    const records = await prisma.idempotencyRecord.findMany({
+      where: { key },
+    });
+    assert.equal(records.length, 1, 'um record persistido');
+    assert.ok(
+      records[0].scope.includes(`user-${actor.actorUserId}`),
+      `scope inclui actorUserId, recebido: ${records[0].scope}`
+    );
+    assert.ok(records[0].scope.startsWith('POST /clients:'), 'scope tem prefixo de rota');
+  });
+
+  test('#5 Q-02: POST /clients/:id/units com Idempotency-Key — segunda chamada retorna cached', async () => {
+    const pf = await createPfClient();
+    const key = 'idem-key-create-unit-' + Math.random().toString(36).slice(2);
+    const headersWithKey = { ...authHeaders, 'idempotency-key': key };
+
+    const r1 = await api.createClientUnit(
+      buildInput({
+        headers: headersWithKey,
+        params: { clientId: pf.body.client.id },
+        body: { name: 'Fazenda Idempotente' },
+      })
+    );
+    assert.equal(r1.status, 201);
+    const firstUnitId = r1.body.unit.id;
+
+    const r2 = await api.createClientUnit(
+      buildInput({
+        headers: headersWithKey,
+        params: { clientId: pf.body.client.id },
+        body: { name: 'Fazenda Idempotente' },
+      })
+    );
+    assert.equal(r2.status, 201);
+    assert.equal(r2.body.unit.id, firstUnitId);
+    assert.equal(r2.idempotent, true);
+
+    // Confirma que so 1 unit foi criada.
+    const count = await prisma.clientUnit.count({
+      where: { clientId: pf.body.client.id },
+    });
+    assert.equal(count, 1);
   });
 }
 

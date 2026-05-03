@@ -587,3 +587,20 @@ model UserAuditEvent {
   @@index([createdAt], map: "idx_user_audit_created")
   @@map("user_audit_event")
 }
+
+// #5 (Q-02 + Q-25): suporte a header Idempotency-Key em POST /clients e
+// POST /clients/:id/units. Cache (scope, key) -> resposta da 1a chamada.
+// TTL 24h (D2: cleanup deferido). Header opcional (C1).
+model IdempotencyRecord {
+  id           String   @id @db.Uuid
+  scope        String
+  key          String
+  statusCode   Int      @map("status_code")
+  responseBody Json     @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@unique([scope, key], map: "uq_idempotency_scope_key")
+  @@index([expiresAt], map: "idx_idempotency_expires")
+  @@map("idempotency_record")
+}

@@ -4,6 +4,7 @@ import { HttpError } from '../../contracts/errors.js';
 import { readSessionTokenFromCookieHeader } from '../../auth/session-cookie.js';
 import { createRateLimiter } from '../../auth/rate-limiter.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
+import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotency-helper.js';
 
 const loginRateLimiter = createRateLimiter({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
@@ -122,6 +123,7 @@ export function createBackendApiV1({
   commandService,
   queryService,
   reportService = null,
+  idempotencyStore = null,
 }) {
   return {
     health: () =>
@@ -1029,37 +1031,46 @@ export function createBackendApiV1({
         }
 
         const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const createPayload = {
-          personType: body.personType,
-          fullName: body.fullName,
-          legalName: body.legalName,
-          tradeName: body.tradeName,
-          cpf: body.cpf,
-          phone: body.phone,
-          isBuyer: body.isBuyer,
-          isSeller: body.isSeller,
-        };
-        // L5: PJ guarda cnpj/endereco/IE direto no Client.
-        assignIfDefined(createPayload, 'cnpj', body.cnpj);
-        assignIfDefined(createPayload, 'registrationNumber', body.registrationNumber);
-        assignIfDefined(createPayload, 'addressLine', body.addressLine);
-        assignIfDefined(createPayload, 'district', body.district);
-        assignIfDefined(createPayload, 'city', body.city);
-        assignIfDefined(createPayload, 'state', body.state);
-        assignIfDefined(createPayload, 'postalCode', body.postalCode);
-        assignIfDefined(createPayload, 'complement', body.complement);
-        assignIfDefined(createPayload, 'email', body.email);
-        assignIfDefined(createPayload, 'commercialUserId', body.commercialUserId);
-        assignIfDefined(createPayload, 'commercialUserIds', body.commercialUserIds);
-        assignIfDefined(createPayload, 'units', body.units);
 
-        const result = await clientService.createClient(createPayload, actor);
+        // #5/Q-02: idempotency-key wrap. Scope inclui actorUserId (T8).
+        return withIdempotency({
+          store: idempotencyStore,
+          scope: buildScopeKey(IDEMPOTENCY_SCOPES.CREATE_CLIENT, actor?.actorUserId),
+          headers: input?.headers,
+          handler: async () => {
+            const body = readRequestBody(input);
+            const createPayload = {
+              personType: body.personType,
+              fullName: body.fullName,
+              legalName: body.legalName,
+              tradeName: body.tradeName,
+              cpf: body.cpf,
+              phone: body.phone,
+              isBuyer: body.isBuyer,
+              isSeller: body.isSeller,
+            };
+            // L5: PJ guarda cnpj/endereco/IE direto no Client.
+            assignIfDefined(createPayload, 'cnpj', body.cnpj);
+            assignIfDefined(createPayload, 'registrationNumber', body.registrationNumber);
+            assignIfDefined(createPayload, 'addressLine', body.addressLine);
+            assignIfDefined(createPayload, 'district', body.district);
+            assignIfDefined(createPayload, 'city', body.city);
+            assignIfDefined(createPayload, 'state', body.state);
+            assignIfDefined(createPayload, 'postalCode', body.postalCode);
+            assignIfDefined(createPayload, 'complement', body.complement);
+            assignIfDefined(createPayload, 'email', body.email);
+            assignIfDefined(createPayload, 'commercialUserId', body.commercialUserId);
+            assignIfDefined(createPayload, 'commercialUserIds', body.commercialUserIds);
+            assignIfDefined(createPayload, 'units', body.units);
 
-        return {
-          status: 201,
-          body: result,
-        };
+            const result = await clientService.createClient(createPayload, actor);
+
+            return {
+              status: 201,
+              body: result,
+            };
+          },
+        });
       }),
 
     updateClient: (input) =>
@@ -1367,14 +1378,21 @@ export function createBackendApiV1({
         if (typeof clientId !== 'string' || clientId.length === 0) {
           throw new HttpError(422, 'clientId path param is required');
         }
-        const body = readRequestBody(input);
 
-        const result = await clientService.createUnit(clientId, body, actor);
-
-        return {
-          status: 201,
-          body: result,
-        };
+        // #5/Q-02: idempotency-key wrap. Scope inclui actorUserId (T8).
+        return withIdempotency({
+          store: idempotencyStore,
+          scope: buildScopeKey(IDEMPOTENCY_SCOPES.CREATE_CLIENT_UNIT, actor?.actorUserId),
+          headers: input?.headers,
+          handler: async () => {
+            const body = readRequestBody(input);
+            const result = await clientService.createUnit(clientId, body, actor);
+            return {
+              status: 201,
+              body: result,
+            };
+          },
+        });
       }),
 
     updateClientUnit: (input) =>

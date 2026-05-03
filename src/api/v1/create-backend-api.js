@@ -11,6 +11,7 @@ import { ClientService } from '../../clients/client-service.js';
 import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
 import { FormDetectionService } from '../../samples/form-detection-service.js';
 import { createBackendApiV1 } from './backend-api.js';
+import { IdempotencyStore } from './idempotency-helper.js';
 
 function isProductionEnv() {
   return (process.env.NODE_ENV ?? 'development').toLowerCase() === 'production';
@@ -75,6 +76,8 @@ export function createBackendApiV1FromEnv() {
     userService,
   });
 
+  const idempotencyStore = new IdempotencyStore({ prisma });
+
   return createBackendApiV1({
     authService,
     userService,
@@ -82,5 +85,6 @@ export function createBackendApiV1FromEnv() {
     commandService,
     queryService,
     reportService,
+    idempotencyStore,
   });
 }
