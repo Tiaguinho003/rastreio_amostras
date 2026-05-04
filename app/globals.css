@@ -1219,7 +1219,7 @@ body {
 
 .app-modal-submit:disabled {
   opacity: 0.84;
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .app-modal-secondary {

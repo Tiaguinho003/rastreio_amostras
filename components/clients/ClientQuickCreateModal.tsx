@@ -169,7 +169,9 @@ export function ClientQuickCreateModal({
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
-  const hasCommercialUserError = showFieldErrors && !hasCommercialUser;
+  // Mostra erro imediato (sem esperar submitted) — sinaliza ao usuario o
+  // motivo de o botao Cadastrar ficar disabled.
+  const hasCommercialUserError = !loadingUsers && !hasCommercialUser;
 
   function handleCloseAndReset() {
     if (saving) {
@@ -421,11 +423,7 @@ export function ClientQuickCreateModal({
                   loading={loadingUsers}
                   disabled={saving}
                   placeholder="Selecione 1+ responsáveis comerciais"
-                  errorMessage={
-                    hasCommercialUserError
-                      ? 'Selecione pelo menos 1 responsável comercial'
-                      : undefined
-                  }
+                  errorMessage={hasCommercialUserError ? 'Obrigatório' : undefined}
                 />
               </div>
             </section>
