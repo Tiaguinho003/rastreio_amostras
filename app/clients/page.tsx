@@ -14,6 +14,7 @@ import {
 
 import { AppShell } from '../../components/AppShell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
+import { ClientUserFilterButton } from '../../components/clients/ClientUserFilterButton';
 import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { isClientComplete } from '../../lib/clients/client-completeness';
@@ -682,35 +683,8 @@ function ClientsPage() {
 
         {/* Sheet */}
         <section className="clients-v2-sheet">
-          {/* Filter por usuario responsavel */}
-          <div className="spv2-list-meta" style={{ marginBottom: '0.5rem' }}>
-            <label
-              className="sdv-edit-field"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}
-            >
-              <span className="sdv-edit-label" style={{ margin: 0 }}>
-                Usuario responsavel
-              </span>
-              <select
-                className="sdv-edit-input"
-                value={commercialUserFilter}
-                onChange={(event) => {
-                  setCommercialUserFilter(event.target.value);
-                }}
-              >
-                <option value="">Todos</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {/* 14.4.A: chips Todos/Comprador/Vendedor removidos. */}
-
-          {/* Count + Filtro de incompletos (14.4.B) */}
+          {/* 14.6.B: filtros em uma unica linha — contador esq + chips dir
+             (incompletos + responsavel via botao icone azul ancorado). */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{clientsState.total} clientes</span>
             <div className="spv2-list-meta-actions">
@@ -729,6 +703,11 @@ function ClientsPage() {
                 <IncompleteIcon className="cv2-filter-incomplete-icon" />
                 <span className="cv2-filter-incomplete-count">{clientsState.incompleteTotal}</span>
               </button>
+              <ClientUserFilterButton
+                users={users}
+                selectedUserId={commercialUserFilter}
+                onChange={setCommercialUserFilter}
+              />
             </div>
           </div>
 
