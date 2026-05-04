@@ -378,6 +378,9 @@ model Client {
   status                      ClientStatus     @default(ACTIVE)
   createdAt                   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // 14.6.C: GENERATED ALWAYS AS column em PG (migration manual).
+  // Prisma le mas nao escreve — nao passar em create/update.
+  displayNameLower            String?          @map("display_name_lower") @db.Text
 
   units               ClientUnit[]
   ownedSamples        Sample[]               @relation("SampleOwnerClient")
@@ -388,6 +391,7 @@ model Client {
   @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@index([status, code], map: "idx_client_status_code")
   @@index([createdAt, id], map: "idx_client_created_id")
+  @@index([displayNameLower, id], map: "idx_client_display_name_lower_id")
   @@map("client")
 }
 

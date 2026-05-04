@@ -968,6 +968,11 @@ export function createBackendApiV1({
             commercialUserId: query.commercialUserId,
             commercialUserIds: query.commercialUserIds,
             completeness: query.completeness,
+            // 14.6.C: cursor alfabetico (substitui cursorCreatedAt de 14.4.A
+            // que nunca chegou aqui — bug latente, scroll infinito do
+            // /clients re-baixava a primeira pagina sempre).
+            cursorDisplayName: readOptionalQueryString(query.cursorDisplayName),
+            cursorId: readOptionalQueryString(query.cursorId),
           },
           actor
         );

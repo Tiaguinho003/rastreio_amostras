@@ -1158,6 +1158,140 @@ if (!databaseUrl || !databaseReachable) {
     });
     assert.equal(sample.status, 'INVALIDATED');
   });
+
+  // 14.6.C: sort alfabetico server-side + cursor alfabetico (displayName, id).
+  test('14.6.C: listClients retorna em ordem alfabetica de displayName', async () => {
+    // PFs com nomes determinados em ordem nao-alfabetica de criacao.
+    const seedNames = ['Eduardo', 'Bruno', 'Daniel', 'Ana', 'Carlos'];
+    for (const name of seedNames) {
+      await api.createClient(
+        buildInput({
+          body: {
+            personType: 'PF',
+            fullName: name,
+            cpf: generateValidCpf(seedNames.indexOf(name) + 100),
+            phone: '35 99000-0000',
+            isBuyer: false,
+            isSeller: true,
+          },
+        })
+      );
+    }
+
+    const result = await api.listClients(buildInput({ query: { limit: '10' } }));
+    assert.equal(result.status, 200);
+    const names = result.body.items.map((c) => c.fullName);
+    assert.deepEqual(names, ['Ana', 'Bruno', 'Carlos', 'Daniel', 'Eduardo']);
+  });
+
+  test('14.6.C: cursor alfabetico avanca corretamente entre paginas', async () => {
+    const seedNames = ['Ana', 'Bruno', 'Carlos', 'Daniel', 'Eduardo'];
+    for (let idx = 0; idx < seedNames.length; idx += 1) {
+      await api.createClient(
+        buildInput({
+          body: {
+            personType: 'PF',
+            fullName: seedNames[idx],
+            cpf: generateValidCpf(idx + 200),
+            phone: '35 99000-0000',
+            isBuyer: false,
+            isSeller: true,
+          },
+        })
+      );
+    }
+
+    const page1 = await api.listClients(buildInput({ query: { limit: '2' } }));
+    assert.equal(page1.status, 200);
+    assert.deepEqual(
+      page1.body.items.map((c) => c.fullName),
+      ['Ana', 'Bruno']
+    );
+    assert.ok(page1.body.page.nextCursor);
+    assert.equal(typeof page1.body.page.nextCursor.displayName, 'string');
+    assert.equal(typeof page1.body.page.nextCursor.id, 'string');
+
+    const page2 = await api.listClients(
+      buildInput({
+        query: {
+          limit: '2',
+          cursorDisplayName: page1.body.page.nextCursor.displayName,
+          cursorId: page1.body.page.nextCursor.id,
+        },
+      })
+    );
+    assert.equal(page2.status, 200);
+    assert.deepEqual(
+      page2.body.items.map((c) => c.fullName),
+      ['Carlos', 'Daniel']
+    );
+    assert.ok(page2.body.page.nextCursor);
+
+    const page3 = await api.listClients(
+      buildInput({
+        query: {
+          limit: '2',
+          cursorDisplayName: page2.body.page.nextCursor.displayName,
+          cursorId: page2.body.page.nextCursor.id,
+        },
+      })
+    );
+    assert.equal(page3.status, 200);
+    assert.deepEqual(
+      page3.body.items.map((c) => c.fullName),
+      ['Eduardo']
+    );
+    assert.equal(page3.body.page.nextCursor, null);
+  });
+
+  test('14.6.C: empate de displayName desempata por id (cursor estavel)', async () => {
+    // 2 PFs com mesmo fullName — backend deve desempatar por id ASC.
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PF',
+          fullName: 'Joao Silva',
+          cpf: generateValidCpf(300),
+          phone: '35 99000-0000',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PF',
+          fullName: 'Joao Silva',
+          cpf: generateValidCpf(301),
+          phone: '35 99000-0001',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+
+    const page1 = await api.listClients(buildInput({ query: { limit: '1' } }));
+    assert.equal(page1.status, 200);
+    assert.equal(page1.body.items.length, 1);
+    const firstId = page1.body.items[0].id;
+
+    const page2 = await api.listClients(
+      buildInput({
+        query: {
+          limit: '1',
+          cursorDisplayName: page1.body.page.nextCursor.displayName,
+          cursorId: page1.body.page.nextCursor.id,
+        },
+      })
+    );
+    assert.equal(page2.status, 200);
+    assert.equal(page2.body.items.length, 1);
+    const secondId = page2.body.items[0].id;
+    assert.notEqual(firstId, secondId);
+    // ids vem em ordem ASC pra empate alfabetico
+    assert.ok(firstId < secondId, `expected ${firstId} < ${secondId}`);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

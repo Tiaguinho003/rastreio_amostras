@@ -97,6 +97,8 @@ const CLIENT_SUMMARY_SELECT = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  // 14.6.C: necessario para construir nextCursor alfabetico em listClients.
+  displayNameLower: true,
   commercialUsers: COMMERCIAL_USERS_SELECT,
   units: {
     where: { status: CLIENT_UNIT_STATUSES.ACTIVE },
@@ -712,14 +714,16 @@ export class ClientService {
       completeness,
     } = normalizeListClientsInput(input);
 
-    // 14.4.A: scroll infinito por cursor (createdAt DESC, id DESC). Mesmo
-    // padrao de listSamples. take = limit + 1 para detectar se ha mais
-    // paginas sem fazer count adicional na continuacao.
+    // 14.6.C: scroll infinito por cursor alfabetico (displayNameLower ASC,
+    // id ASC) — substitui o cursor cronologico de 14.4.A. Frontend nao
+    // precisa mais re-ordenar client-side, e novos batches sao concat
+    // direto no final visual (sem reshuffling alfabetico). take = limit + 1
+    // detecta se ha mais paginas sem count adicional na continuacao.
     const cursorWhere = cursor
       ? {
           OR: [
-            { createdAt: { lt: new Date(cursor.createdAt) } },
-            { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } },
+            { displayNameLower: { gt: cursor.displayName } },
+            { displayNameLower: cursor.displayName, id: { gt: cursor.id } },
           ],
         }
       : null;
@@ -747,7 +751,7 @@ export class ClientService {
       ...(cursorWhere ?? {}),
     };
 
-    const orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
+    const orderBy = [{ displayNameLower: 'asc' }, { id: 'asc' }];
 
     function extractNextCursor(rows) {
       if (rows.length <= limit) return { items: rows, nextCursor: null };
@@ -755,7 +759,7 @@ export class ClientService {
       const last = taken[taken.length - 1];
       return {
         items: taken,
-        nextCursor: { createdAt: last.createdAt.toISOString(), id: last.id },
+        nextCursor: { displayName: last.displayNameLower ?? '', id: last.id },
       };
     }
 

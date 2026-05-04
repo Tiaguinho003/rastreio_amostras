@@ -241,7 +241,7 @@ export interface ClientsListResponse {
     limit: number;
     total: number;
     incompleteTotal: number;
-    nextCursor: { createdAt: string; id: string } | null;
+    nextCursor: { displayName: string; id: string } | null;
   };
 }
 

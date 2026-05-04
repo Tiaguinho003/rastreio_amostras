@@ -30,7 +30,9 @@ import type {
 import { useRequireAuth } from '../../lib/use-auth';
 
 const CLIENT_PAGE_LIMIT = 60;
-const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v1';
+// 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
+// v1 antigos no browser ficam orfaos; proximo save sobrescreve com v2.
+const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v2';
 const CLIENTS_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const CLIENT_LOAD_MORE_ROOT_MARGIN = '200px';
 
@@ -132,7 +134,8 @@ function registrationStatusBadgeClass(status: ClientUnitSummary['status']) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
 }
 
-type ClientCursor = { createdAt: string; id: string };
+// 14.6.C: cursor alfabetico (substitui o cronologico de 14.4.A).
+type ClientCursor = { displayName: string; id: string };
 type ClientsListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 
 interface ClientsListState {
@@ -291,18 +294,12 @@ function ClientsPage() {
   // total real respeitando filtros server-side. Removido o useMemo client-side
   // que somava sobre items carregados (numero subia conforme scroll).
 
-  // 14.4.B: ordenacao FIXA em alfabetico (toggle "Mais recentes" removido).
-  // Filtro client-side: chip '⚠️ N' (incompletos).
+  // 14.6.C: backend agora paginate por cursor alfabetico (displayName ASC,
+  // id ASC) — items ja vem ordenados. Sort client-side removido. So aplica
+  // filtro client-side de incompletos via chip.
   const displayClients = useMemo(() => {
-    let filtered = clientsState.items;
-    if (showOnlyIncomplete) {
-      filtered = filtered.filter((c) => !isClientComplete(c).complete);
-    }
-    return [...filtered].sort((a, b) => {
-      const na = clientDisplayName(a).toLowerCase();
-      const nb = clientDisplayName(b).toLowerCase();
-      return na.localeCompare(nb);
-    });
+    if (!showOnlyIncomplete) return clientsState.items;
+    return clientsState.items.filter((c) => !isClientComplete(c).complete);
   }, [clientsState.items, showOnlyIncomplete]);
 
   // 14.4.B: agrupa cards por inicial para divisores alfabeticos (mobile-only;
@@ -434,7 +431,7 @@ function ClientsPage() {
         search: appliedClientSearch || undefined,
         commercialUserId: commercialUserFilter || undefined,
         limit: CLIENT_PAGE_LIMIT,
-        cursorCreatedAt: cursor.createdAt,
+        cursorDisplayName: cursor.displayName,
         cursorId: cursor.id,
       })
         .then((response) => {

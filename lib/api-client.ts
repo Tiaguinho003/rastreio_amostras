@@ -284,7 +284,7 @@ export function listClients(
     isSeller?: boolean;
     commercialUserId?: string;
     limit?: number;
-    cursorCreatedAt?: string;
+    cursorDisplayName?: string;
     cursorId?: string;
   } = {},
   options: { signal?: AbortSignal } = {}
@@ -297,7 +297,9 @@ export function listClients(
   if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
   if (query.commercialUserId) params.set('commercialUserId', query.commercialUserId);
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
-  if (query.cursorCreatedAt) params.set('cursorCreatedAt', query.cursorCreatedAt);
+  if (typeof query.cursorDisplayName === 'string') {
+    params.set('cursorDisplayName', query.cursorDisplayName);
+  }
   if (query.cursorId) params.set('cursorId', query.cursorId);
   const suffix = params.size ? `?${params.toString()}` : '';
 

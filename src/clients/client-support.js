@@ -776,14 +776,17 @@ export function normalizeListClientsInput(input) {
     completeness = v;
   }
 
-  // 14.4.A: cursor opcional para scroll infinito (createdAt DESC, id DESC).
-  // Se ausente, retorna a primeira pagina. Se presente, busca itens
-  // posteriores ao cursor (em ordem cronologica decrescente).
-  const cursorCreatedAtRaw =
-    typeof input.cursorCreatedAt === 'string' ? input.cursorCreatedAt.trim() : null;
+  // 14.6.C: cursor alfabetico opcional (displayName ASC, id ASC). Se
+  // ausente, retorna a primeira pagina. Se presente, busca itens
+  // posteriores ao cursor em ordem alfabetica. Substitui o cursor
+  // cronologico de 14.4.A.
+  const cursorDisplayNameRaw =
+    typeof input.cursorDisplayName === 'string' ? input.cursorDisplayName.trim() : null;
   const cursorIdRaw = typeof input.cursorId === 'string' ? input.cursorId.trim() : null;
   const cursor =
-    cursorCreatedAtRaw && cursorIdRaw ? { createdAt: cursorCreatedAtRaw, id: cursorIdRaw } : null;
+    cursorDisplayNameRaw !== null && cursorIdRaw
+      ? { displayName: cursorDisplayNameRaw, id: cursorIdRaw }
+      : null;
 
   return {
     page: readPageQuery(input.page, 1),
