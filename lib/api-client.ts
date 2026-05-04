@@ -283,8 +283,9 @@ export function listClients(
     isBuyer?: boolean;
     isSeller?: boolean;
     commercialUserId?: string;
-    page?: number;
     limit?: number;
+    cursorCreatedAt?: string;
+    cursorId?: string;
   } = {},
   options: { signal?: AbortSignal } = {}
 ) {
@@ -295,8 +296,9 @@ export function listClients(
   if (typeof query.isBuyer === 'boolean') params.set('isBuyer', String(query.isBuyer));
   if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
   if (query.commercialUserId) params.set('commercialUserId', query.commercialUserId);
-  if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.cursorCreatedAt) params.set('cursorCreatedAt', query.cursorCreatedAt);
+  if (query.cursorId) params.set('cursorId', query.cursorId);
   const suffix = params.size ? `?${params.toString()}` : '';
 
   return request<ClientsListResponse>(`/clients${suffix}`, {

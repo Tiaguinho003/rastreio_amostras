@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent, Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { ClientCompleteBadge } from '../../components/clients/ClientCompleteBadge';
@@ -19,7 +28,10 @@ import type {
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
-const CLIENT_PAGE_LIMIT = 15;
+const CLIENT_PAGE_LIMIT = 30;
+const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v1';
+const CLIENTS_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+const CLIENT_LOAD_MORE_ROOT_MARGIN = '200px';
 
 function clientDocument(client: ClientSummary | null) {
   if (!client) {
@@ -50,18 +62,6 @@ function clientRoleSummary(client: ClientSummary | null) {
   }
   return 'Sem papel operacional';
 }
-
-type ClientChipFilter = 'all' | 'buyer' | 'seller';
-
-const CLIENT_CHIP_DEFINITIONS: ReadonlyArray<{
-  id: ClientChipFilter;
-  label: string;
-  color: string | null;
-}> = [
-  { id: 'all', label: 'Todos', color: null },
-  { id: 'buyer', label: 'Comprador', color: '#2980B9' },
-  { id: 'seller', label: 'Vendedor', color: '#27AE60' },
-];
 
 // brand-green / brand-green-soft / brand-green-deep (paleta Safras)
 const AVATAR_COLORS = [
@@ -131,14 +131,14 @@ function registrationStatusBadgeClass(status: ClientUnitSummary['status']) {
   return status === 'ACTIVE' ? 'status-badge-success' : 'status-badge-muted';
 }
 
+type ClientCursor = { createdAt: string; id: string };
+type ClientsListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
+
 interface ClientsListState {
   items: ClientSummary[];
   total: number;
-  totalPages: number;
-  currentPage: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  loading: boolean;
+  nextCursor: ClientCursor | null;
+  status: ClientsListStatus;
   error: string | null;
   selectedId: string | null;
   detail: ClientSummary | null;
@@ -149,32 +149,38 @@ interface ClientsListState {
 }
 
 type ClientsListAction =
-  | { type: 'fetch' }
+  | { type: 'fetch-initial' }
+  | { type: 'fetch-more' }
   | {
-      type: 'success';
+      type: 'success-initial';
       items: ClientSummary[];
       total: number;
-      totalPages: number;
-      hasPrev: boolean;
-      hasNext: boolean;
+      nextCursor: ClientCursor | null;
+    }
+  | {
+      type: 'success-more';
+      items: ClientSummary[];
+      nextCursor: ClientCursor | null;
     }
   | { type: 'error'; message: string }
-  | { type: 'setPage'; page: number }
   | { type: 'selectClient'; id: string | null }
   | { type: 'openDetail' }
   | { type: 'closeDetail' }
   | { type: 'fetchDetail' }
   | { type: 'detailSuccess'; client: ClientSummary; units: ClientUnitSummary[] }
-  | { type: 'detailError'; message: string };
+  | { type: 'detailError'; message: string }
+  | {
+      type: 'restoreSnapshot';
+      items: ClientSummary[];
+      total: number;
+      nextCursor: ClientCursor | null;
+    };
 
 const CLIENTS_INITIAL: ClientsListState = {
   items: [],
   total: 0,
-  totalPages: 1,
-  currentPage: 1,
-  hasPrev: false,
-  hasNext: false,
-  loading: true,
+  nextCursor: null,
+  status: 'loading-initial',
   error: null,
   selectedId: null,
   detail: null,
@@ -186,23 +192,38 @@ const CLIENTS_INITIAL: ClientsListState = {
 
 function clientsListReducer(state: ClientsListState, action: ClientsListAction): ClientsListState {
   switch (action.type) {
-    case 'fetch':
-      return { ...state, loading: true, error: null };
-    case 'success':
+    case 'fetch-initial':
+      return { ...CLIENTS_INITIAL, status: 'loading-initial' };
+    case 'fetch-more':
+      return { ...state, status: 'loading-more', error: null };
+    case 'success-initial':
       return {
         ...state,
         items: action.items,
         total: action.total,
-        totalPages: action.totalPages,
-        hasPrev: action.hasPrev,
-        hasNext: action.hasNext,
-        loading: false,
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'success-more':
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        nextCursor: action.nextCursor,
+        status: 'idle',
+        error: null,
+      };
+    case 'restoreSnapshot':
+      return {
+        ...state,
+        items: action.items,
+        total: action.total,
+        nextCursor: action.nextCursor,
+        status: 'idle',
         error: null,
       };
     case 'error':
-      return { ...state, loading: false, error: action.message };
-    case 'setPage':
-      return { ...state, currentPage: action.page };
+      return { ...state, status: 'error', error: action.message };
     case 'selectClient':
       return { ...state, selectedId: action.id };
     case 'openDetail':
@@ -244,8 +265,7 @@ function ClientsPage() {
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
   const clientSearchDebounceRef = useRef<number | null>(null);
 
-  const [sortAZ, setSortAZ] = useState(true);
-  const [activeClientChip, setActiveClientChip] = useState<ClientChipFilter>('all');
+  const [sortMode, setSortMode] = useState<'alphabetical' | 'recent'>('alphabetical');
   const [commercialUserFilter, setCommercialUserFilter] = useState<string>('');
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false);
   const [users, setUsers] = useState<UserLookupItem[]>([]);
@@ -253,40 +273,34 @@ function ClientsPage() {
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
   const clientDetailCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastClientTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreStateRef = useRef<{ inFlight: boolean; token: number }>({
+    inFlight: false,
+    token: 0,
+  });
 
-  const clientChipCounts = useMemo(() => {
-    const items = clientsState.items;
-    const counts: Record<ClientChipFilter, number> = { all: items.length, buyer: 0, seller: 0 };
-    for (const c of items) {
-      if (c.isBuyer) counts.buyer++;
-      if (c.isSeller) counts.seller++;
-    }
-    return counts;
-  }, [clientsState.items]);
-
-  // Q-11: contagem de incompletos na pagina atual.
+  // Q-11: contagem de incompletos nos itens carregados.
   const incompleteCount = useMemo(() => {
     return clientsState.items.reduce((acc, c) => acc + (isClientComplete(c).complete ? 0 : 1), 0);
   }, [clientsState.items]);
 
+  // 14.4.A: filtros restantes — '🟠 Só incompletos' (client-side) +
+  // ordenacao client-side ('alphabetical' default | 'recent' = ordem do
+  // servidor, createdAt DESC). Sort client-side sobre items carregados.
   const displayClients = useMemo(() => {
-    let filtered =
-      activeClientChip === 'all'
-        ? clientsState.items
-        : clientsState.items.filter((c) => {
-            if (activeClientChip === 'buyer') return c.isBuyer;
-            if (activeClientChip === 'seller') return c.isSeller;
-            return true;
-          });
+    let filtered = clientsState.items;
     if (showOnlyIncomplete) {
       filtered = filtered.filter((c) => !isClientComplete(c).complete);
+    }
+    if (sortMode === 'recent') {
+      return filtered;
     }
     return [...filtered].sort((a, b) => {
       const na = clientDisplayName(a).toLowerCase();
       const nb = clientDisplayName(b).toLowerCase();
-      return sortAZ ? na.localeCompare(nb) : nb.localeCompare(na);
+      return na.localeCompare(nb);
     });
-  }, [clientsState.items, activeClientChip, sortAZ, showOnlyIncomplete]);
+  }, [clientsState.items, sortMode, showOnlyIncomplete]);
 
   // Debounce effect for client search
   useEffect(() => {
@@ -302,7 +316,6 @@ function ClientsPage() {
     clientSearchDebounceRef.current = window.setTimeout(() => {
       clientSearchDebounceRef.current = null;
       setAppliedClientSearch(trimmed);
-      dispatchClients({ type: 'setPage', page: 1 });
     }, 400);
 
     return () => {
@@ -312,11 +325,6 @@ function ClientsPage() {
       }
     };
   }, [clientSearchInput, appliedClientSearch]);
-
-  // Scroll to top on page change
-  useEffect(() => {
-    clientsScrollRef.current?.scrollTo({ top: 0 });
-  }, [clientsState.currentPage]);
 
   // Load user lookup once per session
   useEffect(() => {
@@ -342,7 +350,8 @@ function ClientsPage() {
     };
   }, [session]);
 
-  // Fetch clients list
+  // 14.4.A: scroll infinito por cursor — fetch inicial dispara quando muda
+  // search ou commercialUserFilter (filtro server-side). Cursor é resetado.
   useEffect(() => {
     if (!session) {
       return;
@@ -350,41 +359,31 @@ function ClientsPage() {
 
     const abortController = new AbortController();
     let active = true;
-    dispatchClients({ type: 'fetch' });
+    dispatchClients({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
 
     listClients(
       session,
       {
         search: appliedClientSearch || undefined,
         commercialUserId: commercialUserFilter || undefined,
-        page: clientsState.currentPage,
         limit: CLIENT_PAGE_LIMIT,
       },
       { signal: abortController.signal }
     )
       .then((response) => {
-        if (!active) {
-          return;
-        }
-
+        if (!active) return;
         dispatchClients({
-          type: 'success',
+          type: 'success-initial',
           items: response.items,
           total: response.page.total,
-          totalPages: response.page.totalPages,
-          hasPrev: response.page.hasPrev,
-          hasNext: response.page.hasNext,
+          nextCursor: response.page.nextCursor,
         });
       })
       .catch((cause) => {
-        if (!active) {
-          return;
-        }
-
-        if (cause instanceof DOMException && cause.name === 'AbortError') {
-          return;
-        }
-
+        if (!active) return;
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
         dispatchClients({
           type: 'error',
           message: cause instanceof ApiError ? cause.message : 'Falha ao carregar clientes',
@@ -395,7 +394,71 @@ function ClientsPage() {
       active = false;
       abortController.abort();
     };
-  }, [appliedClientSearch, commercialUserFilter, clientsState.currentPage, session]);
+  }, [appliedClientSearch, commercialUserFilter, session]);
+
+  // 14.4.A: load-more pelo cursor. inFlight + token protegem contra race
+  // condition em scrolls rápidos (mesmo padrão de /samples).
+  const runLoadMore = useCallback(
+    (cursor: ClientCursor) => {
+      const state = loadMoreStateRef.current;
+      if (state.inFlight) return;
+      if (!session) return;
+      state.inFlight = true;
+      state.token += 1;
+      const myToken = state.token;
+      dispatchClients({ type: 'fetch-more' });
+
+      listClients(session, {
+        search: appliedClientSearch || undefined,
+        commercialUserId: commercialUserFilter || undefined,
+        limit: CLIENT_PAGE_LIMIT,
+        cursorCreatedAt: cursor.createdAt,
+        cursorId: cursor.id,
+      })
+        .then((response) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          dispatchClients({
+            type: 'success-more',
+            items: response.items,
+            nextCursor: response.page.nextCursor,
+          });
+        })
+        .catch((cause) => {
+          if (loadMoreStateRef.current.token !== myToken) return;
+          dispatchClients({
+            type: 'error',
+            message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais',
+          });
+        })
+        .finally(() => {
+          if (loadMoreStateRef.current.token === myToken) {
+            loadMoreStateRef.current.inFlight = false;
+          }
+        });
+    },
+    [session, appliedClientSearch, commercialUserFilter]
+  );
+
+  // 14.4.A: IntersectionObserver no sentinel — quando entra na viewport
+  // com 200px de margem, dispara load-more se estiver idle e tiver cursor.
+  useEffect(() => {
+    if (!session) return;
+    if (clientsState.status !== 'idle') return;
+    if (!clientsState.nextCursor) return;
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const cursor = clientsState.nextCursor;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          runLoadMore(cursor);
+        }
+      },
+      { root: clientsScrollRef.current, rootMargin: CLIENT_LOAD_MORE_ROOT_MARGIN }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [runLoadMore, clientsState.nextCursor, clientsState.status, session]);
 
   // Fetch client detail
   useEffect(() => {
@@ -487,7 +550,6 @@ function ClientsPage() {
       clientSearchDebounceRef.current = null;
     }
     setAppliedClientSearch(clientSearchInput.trim());
-    dispatchClients({ type: 'setPage', page: 1 });
   }
 
   function openClientDetail(clientId: string, trigger: HTMLButtonElement) {
@@ -500,30 +562,27 @@ function ClientsPage() {
     dispatchClients({ type: 'closeDetail' });
   }
 
-  async function refreshClientsList(
-    nextSearch = appliedClientSearch,
-    nextPage = clientsState.currentPage
-  ) {
+  async function refreshClientsList(nextSearch = appliedClientSearch) {
     if (!session) {
       return;
     }
 
-    dispatchClients({ type: 'fetch' });
+    dispatchClients({ type: 'fetch-initial' });
+    loadMoreStateRef.current.token += 1;
+    loadMoreStateRef.current.inFlight = false;
 
     try {
       const response = await listClients(session, {
         search: nextSearch || undefined,
-        page: nextPage,
+        commercialUserId: commercialUserFilter || undefined,
         limit: CLIENT_PAGE_LIMIT,
       });
 
       dispatchClients({
-        type: 'success',
+        type: 'success-initial',
         items: response.items,
         total: response.page.total,
-        totalPages: response.page.totalPages,
-        hasPrev: response.page.hasPrev,
-        hasNext: response.page.hasNext,
+        nextCursor: response.page.nextCursor,
       });
     } catch (cause) {
       dispatchClients({
@@ -614,7 +673,6 @@ function ClientsPage() {
                 value={commercialUserFilter}
                 onChange={(event) => {
                   setCommercialUserFilter(event.target.value);
-                  dispatchClients({ type: 'setPage', page: 1 });
                 }}
               >
                 <option value="">Todos</option>
@@ -627,31 +685,7 @@ function ClientsPage() {
             </label>
           </div>
 
-          {/* Chips */}
-          <div className="spv2-chips">
-            {CLIENT_CHIP_DEFINITIONS.map((chip) => {
-              const isActive = activeClientChip === chip.id;
-              const count = clientChipCounts[chip.id];
-              const chipModifier =
-                chip.id === 'buyer'
-                  ? ' is-chip-buyer'
-                  : chip.id === 'seller'
-                    ? ' is-chip-seller'
-                    : '';
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  className={`spv2-chip${chipModifier}${isActive ? ' is-active' : ''}`}
-                  onClick={() => setActiveClientChip(chip.id)}
-                >
-                  {chip.color ? <span className="spv2-chip-dot" /> : null}
-                  <span className="spv2-chip-label">{chip.label}</span>
-                  <span className="spv2-chip-count">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+          {/* 14.4.A: chips Todos/Comprador/Vendedor removidos. */}
 
           {/* Count + Filters + Sort */}
           <div className="spv2-list-meta">
@@ -672,19 +706,30 @@ function ClientsPage() {
                   <span>{showOnlyIncomplete ? 'Mostrando incompletos' : 'Só incompletos'}</span>
                 </button>
               ) : null}
-              <button type="button" className="spv2-sort-btn" onClick={() => setSortAZ((v) => !v)}>
+              <button
+                type="button"
+                className="spv2-sort-btn"
+                onClick={() =>
+                  setSortMode((m) => (m === 'alphabetical' ? 'recent' : 'alphabetical'))
+                }
+                title={
+                  sortMode === 'alphabetical'
+                    ? 'Ordenado A–Z. Clique para ver mais recentes.'
+                    : 'Ordenado por mais recentes. Clique para ordem alfabética.'
+                }
+              >
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                   <path d="M4 6h16" />
                   <path d="M4 12h10" />
                   <path d="M4 18h6" />
                 </svg>
-                <span>{sortAZ ? 'A–Z' : 'Z–A'}</span>
+                <span>{sortMode === 'alphabetical' ? 'Alfabético' : 'Mais recentes'}</span>
               </button>
             </div>
           </div>
 
           {/* Card list */}
-          {clientsState.loading ? (
+          {clientsState.status === 'loading-initial' ? (
             <div className="spv2-list-scroll">
               <div className="spv2-empty">
                 <p className="spv2-empty-text">Carregando...</p>
@@ -763,39 +808,14 @@ function ClientsPage() {
                   </button>
                 );
               })}
+              {/* 14.4.A: sentinel para IntersectionObserver carregar próximos. */}
+              {clientsState.nextCursor ? (
+                <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden="true">
+                  {clientsState.status === 'loading-more' ? <span>Carregando…</span> : null}
+                </div>
+              ) : null}
             </div>
           )}
-
-          {/* Pagination */}
-          <footer className="spv2-footer">
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!clientsState.hasPrev || clientsState.loading}
-              onClick={() =>
-                dispatchClients({ type: 'setPage', page: clientsState.currentPage - 1 })
-              }
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m14.5 6-6 6 6 6" />
-              </svg>
-            </button>
-            <span className="spv2-page-info">
-              <strong>{clientsState.currentPage}</strong> / {clientsState.totalPages}
-            </span>
-            <button
-              type="button"
-              className="spv2-page-btn"
-              disabled={!clientsState.hasNext || clientsState.loading}
-              onClick={() =>
-                dispatchClients({ type: 'setPage', page: clientsState.currentPage + 1 })
-              }
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m9.5 6 6 6-6 6" />
-              </svg>
-            </button>
-          </footer>
         </section>
       </section>
 
@@ -945,8 +965,7 @@ function ClientsPage() {
           // adicionar filiais depois. Sem rota especial pra "configurar matriz".
           setClientSearchInput('');
           setAppliedClientSearch('');
-          dispatchClients({ type: 'setPage', page: 1 });
-          await refreshClientsList('', 1);
+          await refreshClientsList('');
           dispatchClients({ type: 'selectClient', id: client.id });
           dispatchClients({ type: 'openDetail' });
         }}

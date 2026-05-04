@@ -1039,7 +1039,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
 | 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
 | 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1 + 14.2 ✅ commit `7de003a`; 14.3 (4 sub-itens A/B/C/D) ✅ implementado (commit pendente push); mais virao                                                        |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A ✅ implementado (commit pendente push); demais sub-itens 14.4 conforme usuario detalhar                                   |
 | 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
 | 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
 | 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
@@ -1155,9 +1155,67 @@ Pontos identificados pelo usuario durante o cadastro do segundo PF (apos
   final #17). `clientUnitToForm` continua mapeando os campos para
   retro-compat (caso alguma filial antiga ja tenha valor).
 
-#### 14.4+ — outros pontos UX (a documentar conforme aparecem)
+#### 14.4 — Redesign das paginas de clientes (em andamento)
 
-Reservado para os proximos pontos identificados pelo usuario durante o cadastro manual.
+Apos 14.1+14.2+14.3 entrarem em prod, o usuario decidiu que ANTES de continuar o cadastro manual dos PFs (#12) sera implementado um pacote de melhorias de design, layout, efeitos e funcionalidades nas paginas de clientes. Justificativa: cada melhoria reduz friccao × ~122 PFs restantes — alto retorno do investimento.
+
+Escopo amplo (sera detalhado conforme o usuario lista os pontos especificos):
+
+- Lista de clientes (`/clients` — `app/clients/page.tsx`)
+- Detalhe de cliente (`/clients/[id]` — `app/clients/[clientId]/page.tsx`)
+- Modais de criacao rapida (`ClientQuickCreateModal`), edicao (inline em page.tsx) e filial (`ClientUnitModal`)
+- Componentes auxiliares (`ClientCompleteChecklist`, `ClientLookupField`, `ClientUnitSelect`)
+- Estilos em `app/globals.css` relacionados a clientes
+- Possiveis sub-pacotes: visual (cards/tipografia/cores), interacoes (hover/focus/animacoes), funcionalidades (filtros/ordenacao/atalhos), responsividade
+
+**Out of scope desta etapa**: tela de selecao de cliente em `/samples/new` — fica para uma etapa futura (apos #12 e #13). Hoje so vira gargalo apos o batch de cadastro estar concluido.
+
+**Metodologia**:
+
+1. Usuario lista os pontos identificados (visual + funcional + efeitos).
+2. Cada ponto e classificado 🔴/🟡/🟢 e agrupado em sub-itens 14.4.A, 14.4.B, etc.
+3. Plan mode + plano consolidado.
+4. Implementacao em commits tematicos (cada sub-item em commit isolado se possivel).
+5. Acumular no canary; promote unico apos validacao.
+6. Voltar para #12 (cadastro manual) com a UI polida.
+
+**14.4.A — `/clients` lista: scroll infinito + remove chips + 6 cards/linha desktop** ✅ implementado
+
+Mudancas (commit pendente push):
+
+- Backend (`src/clients/client-service.js` + `client-support.js`):
+  - `listClients` aceita `cursorCreatedAt` + `cursorId` (mesmo padrao de `listSamples`).
+  - `take: limit + 1` para detectar `nextCursor` sem count adicional na continuacao.
+  - Resposta: `page: { limit, total, nextCursor: { createdAt, id } | null }`.
+  - Drop de `currentPage/totalPages/hasPrev/hasNext` da resposta de listClients.
+  - Helper novo `buildClientListCursorPage` (em `client-support.js`); `buildClientListPage` antigo permanece para outras listagens (`getClientCommercialSummary` etc.).
+- Frontend (`app/clients/page.tsx`):
+  - Reducer reescrito com `loading-initial | loading-more | idle | error`.
+  - State: `nextCursor` em vez de `currentPage/totalPages/hasPrev/hasNext`.
+  - `runLoadMore` com `inFlight` + `token` para race protection.
+  - `IntersectionObserver` no sentinel `loadMoreRef` (`rootMargin: 200px`, root = `clientsScrollRef`).
+  - `CLIENT_PAGE_LIMIT` 15 → 30 (alinha com samples).
+  - Chips Todos/Comprador/Vendedor + `activeClientChip` removidos.
+  - Botoes anterior/proxima removidos.
+  - Toggle "A–Z / Z–A" → "Mais recentes / Alfabetico". Default = Alfabetico.
+  - Sort client-side sobre items carregados (trade-off: pequeno reordenamento visual durante carga).
+- Lib (`lib/api-client.ts`, `lib/types.ts`):
+  - `listClients` query types: `cursorCreatedAt?, cursorId?` substituem `page`.
+  - `ClientsListResponse.page`: `{ limit, total, nextCursor }`.
+- CSS (`app/globals.css`):
+  - `@media min-width: 1200px`: grid `repeat(6, minmax(0, 1fr))` (era `auto-fill, minmax(195px, 1fr)`).
+  - Adiciona `.cv2-load-more-sentinel` (sentinel centralizado com texto "Carregando…" durante load-more).
+
+Out of scope deste sub-item (vao para sub-itens futuros 14.4.B+):
+
+- Snapshot `sessionStorage` para preservar scroll/items ao voltar do detalhe — fica para 14.4.B (otimizacao iterativa).
+- Animacoes/efeitos hover/focus refinados.
+- Divergencias mobile/desktop adicionais (drawer de filtros, layout de detalhe etc.).
+- Sort server-side alfabetico via `$queryRaw` (se reordenamento visual incomodar na pratica).
+
+#### 14.5+ — outros pontos UX (a documentar conforme aparecem)
+
+Reservado para pontos que aparecerem durante ou apos o redesign do 14.4.
 
 ### Estado atual do prod (snapshot 2026-05-04)
 
@@ -1666,32 +1724,32 @@ A reorganizacao esta concluida quando:
 
 ## 19. Tracking
 
-| Fase                                   | Status       | Commit / Deploy                                                     |
-| -------------------------------------- | ------------ | ------------------------------------------------------------------- |
-| L1 — Auditoria                         | ✅ concluida | sem commit (read-only)                                              |
-| L2 — Backup                            | ✅ concluida | sem commit (artefatos em tmp/, gitignored)                          |
-| L3 — Reset destrutivo                  | ✅ concluida | `1b85620` em prod                                                   |
-| M1 — Modo manutencao                   | ✅ ativado   | `de4a032` em prod                                                   |
-| §8 — Estado consolidado                | ✅ concluida | (nesta versao do doc)                                               |
-| §9 — Pontos de revisao                 | ✅ concluida | todas Q-01..Q-27 fechadas                                           |
-| §10 — Decisoes pos-analise             | ✅ concluida | todas decisoes documentadas                                         |
-| §11 — Plano implementacao              | ✅ concluida | itens #1-#11 deployados; #12-#17 pendentes (ver §10 Status)         |
-| L5 — schema PJ direto + ClientUnit     | ✅ concluida | `e65d30d` + `0453882` em prod (2026-04-30)                          |
-| #2 Q-11 + Q-26                         | ✅ concluida | `ff2e253` em prod                                                   |
-| #3+#4 Q-24 + Q-01                      | ✅ concluida | `ecdcbd3` em prod                                                   |
-| #5 Q-02 + Q-25 — Idempotency-Key       | ✅ concluida | `234d1c7` em prod                                                   |
-| #6 Q-05 + Q-08 — inactivate cascade    | ✅ concluida | `2442a7e` em prod                                                   |
-| Commit A — bug fixes B1-B5             | ✅ concluida | `0f93514` em prod                                                   |
-| Q-27 — email 100% opcional             | ✅ concluida | `a6462a6` em prod                                                   |
-| L4 — wizard import PJ                  | ✅ concluida | `ce6f628` (script local, sem deploy)                                |
-| Importacao L4 (134 → 124 PJ no prod)   | ✅ concluida | 2 fases (primeira batch + re-import EXPOCACCER+IPANEMA corrigidos)  |
-| Fix UX modal Cadastrar                 | ✅ concluida | `30eba62` em prod (2026-05-04)                                      |
-| **#12 Cadastro manual PFs + fazendas** | em andamento | 1 PF + 4 fazendas cadastrados; restam ~122 PFs                      |
-| **#13 Conferencia banco × planilha**   | pendente     | depende de #12                                                      |
-| **#14 Melhorias UX**                   | em andamento | 14.1+14.2 ✅ `7de003a`; 14.3 ✅ implementado (commit pendente push) |
-| L3.5 — Limpeza GCS                     | pendente     | aguarda confirmacao de download das 44 fotos                        |
-| M2 — Desativar manutencao              | pendente     | apos #12-#13                                                        |
-| Limpeza final                          | pendente     | apos M2 — `git rm` deste doc + L4 wizard + tmp/                     |
+| Fase                                   | Status       | Commit / Deploy                                                    |
+| -------------------------------------- | ------------ | ------------------------------------------------------------------ |
+| L1 — Auditoria                         | ✅ concluida | sem commit (read-only)                                             |
+| L2 — Backup                            | ✅ concluida | sem commit (artefatos em tmp/, gitignored)                         |
+| L3 — Reset destrutivo                  | ✅ concluida | `1b85620` em prod                                                  |
+| M1 — Modo manutencao                   | ✅ ativado   | `de4a032` em prod                                                  |
+| §8 — Estado consolidado                | ✅ concluida | (nesta versao do doc)                                              |
+| §9 — Pontos de revisao                 | ✅ concluida | todas Q-01..Q-27 fechadas                                          |
+| §10 — Decisoes pos-analise             | ✅ concluida | todas decisoes documentadas                                        |
+| §11 — Plano implementacao              | ✅ concluida | itens #1-#11 deployados; #12-#17 pendentes (ver §10 Status)        |
+| L5 — schema PJ direto + ClientUnit     | ✅ concluida | `e65d30d` + `0453882` em prod (2026-04-30)                         |
+| #2 Q-11 + Q-26                         | ✅ concluida | `ff2e253` em prod                                                  |
+| #3+#4 Q-24 + Q-01                      | ✅ concluida | `ecdcbd3` em prod                                                  |
+| #5 Q-02 + Q-25 — Idempotency-Key       | ✅ concluida | `234d1c7` em prod                                                  |
+| #6 Q-05 + Q-08 — inactivate cascade    | ✅ concluida | `2442a7e` em prod                                                  |
+| Commit A — bug fixes B1-B5             | ✅ concluida | `0f93514` em prod                                                  |
+| Q-27 — email 100% opcional             | ✅ concluida | `a6462a6` em prod                                                  |
+| L4 — wizard import PJ                  | ✅ concluida | `ce6f628` (script local, sem deploy)                               |
+| Importacao L4 (134 → 124 PJ no prod)   | ✅ concluida | 2 fases (primeira batch + re-import EXPOCACCER+IPANEMA corrigidos) |
+| Fix UX modal Cadastrar                 | ✅ concluida | `30eba62` em prod (2026-05-04)                                     |
+| **#12 Cadastro manual PFs + fazendas** | em andamento | 1 PF + 4 fazendas cadastrados; restam ~122 PFs                     |
+| **#13 Conferencia banco × planilha**   | pendente     | depende de #12                                                     |
+| **#14 Melhorias UX**                   | em andamento | 14.1+14.2+14.3 ✅ em prod; 14.4.A ✅ implementado (pendente push)  |
+| L3.5 — Limpeza GCS                     | pendente     | aguarda confirmacao de download das 44 fotos                       |
+| M2 — Desativar manutencao              | pendente     | apos #12-#13                                                       |
+| Limpeza final                          | pendente     | apos M2 — `git rm` deste doc + L4 wizard + tmp/                    |
 
 ## 20. Decisoes fechadas (historico)
 

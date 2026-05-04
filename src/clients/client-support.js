@@ -774,12 +774,22 @@ export function normalizeListClientsInput(input) {
     completeness = v;
   }
 
+  // 14.4.A: cursor opcional para scroll infinito (createdAt DESC, id DESC).
+  // Se ausente, retorna a primeira pagina. Se presente, busca itens
+  // posteriores ao cursor (em ordem cronologica decrescente).
+  const cursorCreatedAtRaw =
+    typeof input.cursorCreatedAt === 'string' ? input.cursorCreatedAt.trim() : null;
+  const cursorIdRaw = typeof input.cursorId === 'string' ? input.cursorId.trim() : null;
+  const cursor =
+    cursorCreatedAtRaw && cursorIdRaw ? { createdAt: cursorCreatedAtRaw, id: cursorIdRaw } : null;
+
   return {
     page: readPageQuery(input.page, 1),
     limit: readLimitQuery(input.limit, {
       fallback: CLIENT_LIST_LIMIT_DEFAULT,
       max: CLIENT_LIST_LIMIT_MAX,
     }),
+    cursor,
     search: normalizeOptionalSearch(input.search),
     status: input.status ? normalizeClientStatus(input.status) : null,
     personType: input.personType ? normalizeClientPersonType(input.personType) : null,
@@ -1046,6 +1056,16 @@ export function buildClientListPage(total, page, limit) {
     totalPages,
     hasPrev: safePage > 1,
     hasNext: safePage < totalPages,
+  };
+}
+
+// 14.4.A: pagina cursor-based para listClients (scroll infinito na UI).
+// nextCursor null = ultima pagina.
+export function buildClientListCursorPage(total, limit, nextCursor) {
+  return {
+    limit,
+    total,
+    nextCursor,
   };
 }
 

@@ -4629,6 +4629,17 @@ button:disabled {
 
 /* ── Client card ── */
 
+.cv2-load-more-sentinel {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.5);
+}
+
 .cv2-card {
   display: flex;
   align-items: center;
@@ -18353,7 +18364,6 @@ button:disabled {
     font-size: 1.4rem;
   }
 
-
   /* Identidade: card verde escuro com destaque */
   .sdv-identity-card {
     background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
@@ -18623,7 +18633,10 @@ button:disabled {
     overflow: hidden;
   }
 
-  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements {
+  .sdv-content:has(.sample-detail-commercial-pane)
+    .sdv-commercial
+    > .sdv-card:nth-child(2)
+    .sdv-com-movements {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -18631,16 +18644,25 @@ button:disabled {
     padding-right: 0.3rem;
   }
 
-  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar {
+  .sdv-content:has(.sample-detail-commercial-pane)
+    .sdv-commercial
+    > .sdv-card:nth-child(2)
+    .sdv-com-movements::-webkit-scrollbar {
     width: 0.45rem;
   }
 
-  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar-thumb {
+  .sdv-content:has(.sample-detail-commercial-pane)
+    .sdv-commercial
+    > .sdv-card:nth-child(2)
+    .sdv-com-movements::-webkit-scrollbar-thumb {
     background: #d6d0c1;
     border-radius: 999px;
   }
 
-  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card:nth-child(2) .sdv-com-movements::-webkit-scrollbar-track {
+  .sdv-content:has(.sample-detail-commercial-pane)
+    .sdv-commercial
+    > .sdv-card:nth-child(2)
+    .sdv-com-movements::-webkit-scrollbar-track {
     background: transparent;
   }
 
@@ -19485,7 +19507,6 @@ button:disabled {
     transform: translateY(-1px);
     filter: brightness(1.04);
   }
-
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -19512,10 +19533,10 @@ button:disabled {
     width: auto;
   }
 
-  /* T1: clients — auto-fill com cards 25% menores (min 195px) */
+  /* 14.4.A: clients — desktop wide com 6 colunas exatas (era auto-fill 195px). */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 1rem;
     justify-content: start;
     padding: 0.4rem 0.2rem 0.2rem;
@@ -19730,7 +19751,6 @@ button:disabled {
   .sdv-page:has(.stg-content) {
     max-width: min(var(--content-max-wide), calc(100vw - 4rem));
   }
-
 }
 
 /* ════════════════════════════════════════════════════════════════

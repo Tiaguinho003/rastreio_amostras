@@ -13,6 +13,7 @@ import {
   buildClientAuditPayload,
   buildClientAuditState,
   buildClientDisplayName,
+  buildClientListCursorPage,
   buildClientListPage,
   normalizeAuditListInput,
   normalizeCommercialUserId,
@@ -700,8 +701,8 @@ export class ClientService {
     assertAuthenticatedActor(actorContext, 'list clients');
 
     const {
-      page,
       limit,
+      cursor,
       search,
       status,
       personType,
@@ -710,7 +711,18 @@ export class ClientService {
       commercialUserIds,
       completeness,
     } = normalizeListClientsInput(input);
-    const skip = (page - 1) * limit;
+
+    // 14.4.A: scroll infinito por cursor (createdAt DESC, id DESC). Mesmo
+    // padrao de listSamples. take = limit + 1 para detectar se ha mais
+    // paginas sem fazer count adicional na continuacao.
+    const cursorWhere = cursor
+      ? {
+          OR: [
+            { createdAt: { lt: new Date(cursor.createdAt) } },
+            { createdAt: new Date(cursor.createdAt), id: { lt: cursor.id } },
+          ],
+        }
+      : null;
 
     // Filtro multi-user: ANY (some) — clients onde QUALQUER um dos userIds da
     // lista esta vinculado. Vazio = sem filtro.
@@ -723,7 +735,20 @@ export class ClientService {
         ? { commercialUsers: { some: { userId: { in: commercialUserIds } } } }
         : {}),
       ...(completeness ? buildCompletenessWhere(completeness) : {}),
+      ...(cursorWhere ?? {}),
     };
+
+    const orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
+
+    function extractNextCursor(rows) {
+      if (rows.length <= limit) return { items: rows, nextCursor: null };
+      const taken = rows.slice(0, limit);
+      const last = taken[taken.length - 1];
+      return {
+        items: taken,
+        nextCursor: { createdAt: last.createdAt.toISOString(), id: last.id },
+      };
+    }
 
     const exactCodeSearch = parseExactCodeSearch(search);
     if (exactCodeSearch !== null) {
@@ -732,21 +757,21 @@ export class ClientService {
         code: exactCodeSearch,
       };
 
-      const [items, total] = await this.prisma.$transaction([
+      const [rows, total] = await this.prisma.$transaction([
         this.prisma.client.findMany({
           where: exactCodeWhere,
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          skip,
-          take: limit,
+          orderBy,
+          take: limit + 1,
           select: CLIENT_SUMMARY_SELECT,
         }),
         this.prisma.client.count({ where: exactCodeWhere }),
       ]);
 
       if (total > 0) {
+        const { items, nextCursor } = extractNextCursor(rows);
         return {
           items: items.map((item) => mapClientRow(item)),
-          page: buildClientListPage(total, page, limit),
+          page: buildClientListCursorPage(total, limit, nextCursor),
         };
       }
     }
@@ -756,20 +781,20 @@ export class ClientService {
       ...(buildClientWhereFromSearch(search) ?? {}),
     };
 
-    const [items, total] = await this.prisma.$transaction([
+    const [rows, total] = await this.prisma.$transaction([
       this.prisma.client.findMany({
         where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip,
-        take: limit,
+        orderBy,
+        take: limit + 1,
         select: CLIENT_SUMMARY_SELECT,
       }),
       this.prisma.client.count({ where }),
     ]);
 
+    const { items, nextCursor } = extractNextCursor(rows);
     return {
       items: items.map((item) => mapClientRow(item)),
-      page: buildClientListPage(total, page, limit),
+      page: buildClientListCursorPage(total, limit, nextCursor),
     };
   }
 

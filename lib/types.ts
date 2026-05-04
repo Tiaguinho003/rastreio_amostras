@@ -239,12 +239,8 @@ export interface ClientsListResponse {
   items: ClientSummary[];
   page: {
     limit: number;
-    page: number;
-    offset: number;
     total: number;
-    totalPages: number;
-    hasPrev: boolean;
-    hasNext: boolean;
+    nextCursor: { createdAt: string; id: string } | null;
   };
 }
 
