@@ -696,7 +696,7 @@ function buildBuyerMovementFilter(buyer) {
         contains: digits,
       },
     });
-    // L5: cnpj vive direto em Client (PJ) e em ClientUnit (fazendas PF).
+    // L5: cnpj vive direto em Client (PJ) e em ClientUnit (filiais PF).
     clientOr.push({
       cnpj: { contains: digits },
     });

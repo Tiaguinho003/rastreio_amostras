@@ -8,7 +8,7 @@ import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientUnitInput, ClientUnitSummary } from '../../lib/types';
 
-// L5: ClientUnit so existe em PF (fazenda). PJ guarda dados direto em Client.
+// L5: ClientUnit so existe em PF (filial). PJ guarda dados direto em Client.
 type ClientUnitModalProps = {
   open: boolean;
   mode: 'create' | 'edit';
@@ -132,7 +132,7 @@ export function ClientUnitModal({
 
   const isEdit = mode === 'edit';
 
-  const title = isEdit ? `Editar fazenda ${unit?.code ?? ''}`.trim() : 'Nova fazenda';
+  const title = isEdit ? `Editar filial ${unit?.code ?? ''}`.trim() : 'Nova filial';
 
   const submitDisabled =
     saving ||
@@ -196,7 +196,7 @@ export function ClientUnitModal({
               maxLength={160}
               required
               onChange={(event) => update('name', event.target.value)}
-              placeholder="Ex.: Fazenda Bom Retiro"
+              placeholder="Ex.: Filial Bom Retiro"
             />
           </label>
           <label className="sdv-edit-field">
@@ -368,7 +368,7 @@ export function ClientUnitModal({
               Cancelar
             </button>
             <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar fazenda'}
+              {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar filial'}
             </button>
           </div>
         </form>

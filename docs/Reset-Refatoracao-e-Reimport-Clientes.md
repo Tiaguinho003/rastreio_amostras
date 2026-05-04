@@ -1023,62 +1023,194 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 
 ### Status de execucao (Q-21)
 
-| #   | Etapa                                                                     | Status                                                                                                                                            |
-| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs) | ✅ **deployado em prod 2026-04-30** (revisao `rastreio-prod-app-00177-hij`, commits `e65d30d` + `0453882`, migrate `rastreio-prod-migrate-pzrmb`) |
-| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName      | ✅ implementado, gates verdes (152 unit + 104 integration), commit `ff2e253` pushado, **aguardando CI verde + deploy**                            |
-| 3   | Q-24 — CEP lookup nos forms                                               | ✅ implementado junto com #4 (commit unico), aguardando push + deploy                                                                             |
-| 4   | Q-01 — `?onlyActive=true` query param                                     | ✅ implementado junto com #3 (commit unico), aguardando push + deploy                                                                             |
-| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                         | ✅ implementado, gates verdes (152 unit + 111 integration, +6 novos), aguardando push + deploy do batch                                           |
-| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                        | ✅ implementado, gates verdes (152 unit + 118 integration, +7 novos), aguardando push + deploy do batch                                           |
-| 7   | (gating) Q-18 + Q-19 — fechar planilha                                    | depende de excerpt da planilha real                                                                                                               |
-| 8   | L4 — wizard de import                                                     | depende de #7                                                                                                                                     |
-| 9   | L3.5 — apagar fotos no GCS                                                | requer confirmacao usuario (44 fotos baixadas localmente)                                                                                         |
-| 10  | M2 + cleanup final                                                        | encerra ciclo                                                                                                                                     |
+> Atualizado 2026-05-04 — todos os itens #1 ao #11 abaixo estao deployados em prod.
 
-### Estado atual do prod (snapshot 2026-04-30 pos-L5)
+| #   | Etapa                                                                        | Commit / Status                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs)    | ✅ deployado 2026-04-30 — `e65d30d` + `0453882` (revisao `rastreio-prod-app-00177-hij`)                                                                               |
+| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName         | ✅ deployado — `ff2e253`                                                                                                                                              |
+| 3+4 | Q-24 + Q-01 — CEP lookup + `?onlyActive=true` query param                    | ✅ deployado (commit unico) — `ecdcbd3`                                                                                                                               |
+| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                            | ✅ deployado — `234d1c7`                                                                                                                                              |
+| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                           | ✅ deployado — `2442a7e`                                                                                                                                              |
+| 7   | Commit A — 5 bug fixes pos-multi-agent review (B1-B5)                        | ✅ deployado — `0f93514` (drop `assertCnpjRootAvailable`, doc Q-26 side effect, idempotency replay flag, `body ?? {}` defensivo, skill prisma escape valve removida)  |
+| 8   | Q-27 — `email` 100% opcional (override Q-12 e Q-10c)                         | ✅ deployado — `a6462a6`                                                                                                                                              |
+| 9   | L4 — wizard de import PJ via planilha XLSX                                   | ✅ script criado e usado — `ce6f628` (`scripts/migrations/l4-import-pj-clients.mjs`, sem deploy — uso local com cloud-sql-proxy)                                      |
+| 10  | Importacao em batch dos PJ via L4                                            | ✅ 124 PJ no banco prod (de 134 candidatos da planilha; 8 excluidos — 3 nome-pessoa + 4 dados incompletos + 1 telefone invalido; 2 corrigidos depois e re-importados) |
+| 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
+| 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
+| 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1 + 14.2 ✅ implementados (commit pendente push); mais virao conforme usuario continua                                                                             |
+| 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
+| 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
+| 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
+
+#### 14.1 — Redesign tela detalhe PJ (IE/endereco/email visiveis e editaveis)
+
+**Estado atual (problema)**
+
+- A tela `/clients/[id]` mostra para PJ apenas: razao social, CNPJ, telefone, responsaveis, papeis.
+- IE (`registrationNumber`), endereco completo (`addressLine`, `district`, `city`, `state`, `postalCode`, `complement`) e `email` **existem no schema, no `ClientSummary` e no backend** mas **nao aparecem em lugar nenhum da UI**.
+- O card "Fazendas" para PJ exibe banner inutil: _"Empresa (PJ). Os dados fiscais e de endereco ficam no proprio cliente — sem unidades."_ — sem mostrar esses dados.
+- O `handleUpdateClient` (linha 686-707 de `app/clients/[clientId]/page.tsx`) ignora 8 campos PJ — formulario nao permite editar.
+
+**Decisao**
+
+Substituir o banner do card "Fazendas" para PJ por um **novo card "Endereco e fiscal"** com IE, endereco completo, bairro, cidade/UF, CEP, complemento. Adicionar `email` ao card "Identidade" existente. Expandir o modal de edicao PJ para aceitar os 8 campos novos + lookup CEP automatico (Q-24).
+
+Backend ja aceita tudo (`normalizeUpdateClientInput` em `client-support.js:591` cobre todos os campos). Schema sem mudanca.
+
+**Implementado** ✅ (commit pendente push):
+
+- `app/clients/[clientId]/page.tsx`: `clientSummaryToForm` estendido (7 campos novos no estado do form), `handleUpdateClient` envia 8 campos novos no payload PJ, `useCepLookup` integrado ao modal de edicao (mesmo padrao de `ClientUnitModal`), card "Identidade" ganhou Email, novo card "Endereco e fiscal" substitui o banner inutil para PJ (PF mantem card "Filiais"), modal de edicao PJ agora tem 8 inputs novos (Email, IE, CEP com spinner, Endereco, Bairro, Cidade, UF, Complemento).
+- Quality gates verdes: lint, format, typecheck, validate:schemas, contracts, unit, build.
+
+#### 14.2 — Rename UI "Fazenda(s)" → "Filial(is)" em todos os contextos
+
+**Estado atual (problema)**
+
+- A UI usa terminologia mista: para PF mostra "Fazenda" e para PJ usava "Filial" (ver linha 763 de `app/clients/[clientId]/page.tsx`: _"F7.4: terminologia contextual nos toasts (PF -> Fazenda, PJ -> Filial)"_).
+- Como PJ no L5 nao tem mais units (sera substituido por novo card "Endereco e fiscal" — ver 14.1), o termo "Fazenda" sobreviveria como o unico, restringindo a semantica do `ClientUnit` ao caso rural.
+
+**Decisao**
+
+Padronizar para **"Filial"** / **"Filiais"** em toda a UI. Schema permanece `ClientUnit` — termo neutro decidido em Q-14, serve para fazenda, filial, deposito ou qualquer unidade futura.
+
+**Por que so UI**:
+
+- Tabela e enums ja sao genericos (`client_unit`, `CLIENT_UNIT_*` em `ClientAuditEventType`).
+- Migration desnecessaria = zero risco em prod.
+- Reversivel num unico commit.
+- Mantem schema flexivel para futuras evolucoes (categorias adicionais de unit).
+
+**Escopo (~30 ocorrencias em 6 arquivos UI)**:
+
+- `app/clients/[clientId]/page.tsx` (`unitSingular`, `unitPlural`, "Fazenda {code}", "Nova fazenda", "Nenhuma fazenda cadastrada", toasts inativada/reativada, terminologia contextual PF/PJ)
+- `components/clients/ClientUnitModal.tsx` (titulos, placeholders, botao "Criar fazenda")
+- `components/clients/ClientUnitSelect.tsx` (tag "Fazenda ", placeholder, mensagem vazio)
+- `components/clients/ClientLookupField.tsx` (tag na busca hierarquica)
+- `components/clients/ClientCompleteChecklist.tsx` (grupo "Fazendas", item "Cadastrar pelo menos uma fazenda", "Fazenda · {nome}")
+- `lib/clients/client-completeness.ts` (label `units: 'Pelo menos uma fazenda'`)
+
+Comentarios internos do backend (`src/clients/client-service.js`, `prisma/schema.prisma`) sao docs — atualizar tambem para consistencia futura.
+
+**Implementado** ✅ (commit pendente push):
+
+- UI strings: 7 componentes atualizados (`app/clients/[clientId]/page.tsx`, `app/clients/page.tsx`, `components/clients/ClientUnitModal.tsx`, `ClientUnitSelect.tsx`, `ClientLookupField.tsx`, `ClientCompleteChecklist.tsx`, `ClientQuickCreateModal.tsx`).
+- Constantes: `unitSingular`/`unitPlural` viraram `'filial'`/`'Filiais'`. Termo `term` simplificado para sempre `'Filial'`.
+- Toasts: "Filial criada/inativada/reativada com sucesso".
+- Comentarios backend atualizados: `src/clients/client-service.js` (8 ocorrencias), `src/samples/sample-query-service.js`, `prisma/schema.prisma:362`, `lib/types.ts:254`, `lib/clients/client-completeness.ts:98`.
+- Skill `prisma`: `.claude/skills/prisma/SKILL.md` atualizada (linhas 22 e 24).
+- Tests **nao** alterados (fixtures `'Fazenda Boa Vista'` etc sao conteudo de entidade, nao label de UI).
+- Schema **nao** alterado — `ClientUnit` permanece neutro.
+
+#### 14.3+ — outros pontos UX (a documentar conforme aparecem)
+
+Reservado para os proximos pontos identificados pelo usuario durante o cadastro manual.
+
+### Estado atual do prod (snapshot 2026-05-04)
 
 - **Modo manutencao (M1) ATIVO**: apenas ADMIN navega o app.
-- **DB**: vazio (L3 zerou + L5 reorganizou schema). Pronto para reimport via L4.
-- **Schema novo**:
-  - `client` ganhou 11 campos (`cnpj`, `cnpj_order`, `registration_number`,
-    `registration_number_canonical`, `address_line`, `district`, `city`,
-    `state`, `postal_code`, `complement`, `email`).
-  - `client_branch` renomeado para `client_unit`. Drop: `is_primary`,
-    `registration_type`, `cnpj_order`. ADD: `car`. `name` virou NOT NULL.
-  - `sample.owner_branch_id` -> `owner_unit_id`. Idem
-    `sample_movement.buyer_branch_id` -> `buyer_unit_id`,
-    `client_audit_event.target_branch_id` -> `target_unit_id`.
+- **DB**: 124 Clients PJ, 0 Clients PF (cadastros PF iniciaram manualmente em
+  2026-05-04 — Antonio Jacinto Caetano + 4 ClientUnits ja registrados).
+- **Schema novo**: ver §10 Q-10..Q-17 e secao 12.5 (L5) — sem mudancas
+  estruturais desde 2026-04-30.
 - **Audit enum** `ClientAuditEventType`: 8 valores apos cutover (4 sobre
   Client + 4 sobre ClientUnit). Sem deprecated.
 - **Triggers ativos**: `enforce_pj_zero_units` (rejeita unit em PJ);
   `chk_client_person_type_fields` (PF rejeita campos PJ; PJ exige cnpj NOT NULL).
+- **Idempotency-Key**: tabela `idempotency_record` ativa, com replay flag e
+  TTL configuravel (D2 cron job de cleanup ainda pendente, baixa prioridade).
 - **Escape valves removidas**: `app.allow_audit_mutation` (F5.1 wizard) e
   `app.allow_split_wizard` (F7.1B).
-- **Codigo deletado**: `scripts/migrations/f7-pj-consolidate-wizard.mjs` e
+- **Codigo deletado pre-L5**: `scripts/migrations/f7-pj-consolidate-wizard.mjs` e
   `scripts/audits/f7-prod-audit.mjs`.
+- **Codigo a deletar no cleanup final (#17)**: `scripts/migrations/l4-import-pj-clients.mjs`
+  - este documento + `tmp/`.
+- **Planilha de trabalho** (em `~/Downloads/Planilha sem título.xlsx`, 3 sheets):
+  - `PJ` 126 linhas (124 importados + 0 pendentes — apenas controle)
+  - `PF` 123 linhas (1 cadastrado em prod, 122 pendentes; obrigatorios:
+    Nome + Telefone 1 + Comprador OU Vendedor SIM; recomendado: CPF)
+  - `PF_Fazendas` 150 linhas (4 cadastradas em prod, 146 pendentes;
+    obrigatorios: CPF Dono + Nome Fazenda; recomendados: IE + endereco
+    completo + CEP; telefones opcionais sem aviso)
 
 ### Como retomar na proxima sessao
 
-1. Confirmar: `git status` limpo, `git log -1` mostra `ff2e253` ou commit
-   posterior.
-2. Conferir CI verde do `ff2e253` e fazer deploy do #2 (canary +
-   migrate-job mesmo sem migration nova + smoke + promote-traffic).
-3. Continuar com **#3 — Q-24 (CEP lookup nos forms)** seguindo
-   metodologia em §10 (5 passos).
+1. Confirmar: `git status` limpo, `git log -1` mostra `30eba62` (ou commit
+   posterior).
+2. Conferir contagem em prod: `SELECT person_type, COUNT(*) FROM client
+GROUP BY person_type` — esperado 124 PJ + N PF (onde N cresce com
+   cadastros manuais).
+3. Continuar com **#12 — cadastro manual dos PFs + fazendas** ou retomar
+   #14 (melhorias UX) caso o usuario tenha decidido bloquear cadastros
+   ate consertar UX. Apos #12 e #13, executar #15 (L3.5), #16 (M2), #17
+   (cleanup final) na ordem.
 
 ---
 
-## 11. Plano de implementacao derivado (a preencher)
+## 11. Plano de implementacao derivado
 
-> Esta secao sera populada apos §10 estar fechada. Ordem proposta:
->
-> 1. Mudancas pequenas que viram 1 commit (ex: adicionar query param
->    `?onlyActive=true` em getClient se Q-01 confirmar).
-> 2. Mudancas medias (ex: idempotency middleware se Q-02 confirmar).
-> 3. Atualizacao de docs canonicos (`Clientes-e-Movimentacoes-Especificacao.md`,
->    `API-e-Contratos.md`) com a nova realidade — antes de codar.
-> 4. Skill maintenance.
+> Atualizado 2026-05-04 — secao espelha o estado executado da §10 Status.
+
+Ordem executada (concluida):
+
+1. **L5 atomico** — schema + migration + service + API + frontend + tests + docs
+   em commit unico (`e65d30d`). Reorganizou Client (PJ direto, sem branches) e
+   renomeou ClientBranch → ClientUnit. Deployado em 2026-04-30.
+2. **#2 Q-11 + Q-26** — `ff2e253`. Aviso visual de incompleto + convencao
+   `tradeName ?? legalName` para display + audit usa `legalName` separado.
+3. **#3+#4 Q-24 + Q-01** — `ecdcbd3`. CEP lookup automatico (ViaCEP) +
+   `?onlyActive=true` em `getClient`.
+4. **#5 Q-02 + Q-25** — `234d1c7`. Idempotency-Key middleware + tabela
+   `idempotency_record` com replay flag.
+5. **#6 Q-05 + Q-08** — `2442a7e`. `inactivate-with-cascade` endpoint + modal
+   UI; rejeicao 409 quando ha amostras ATIVAS.
+6. **Commit A (B1-B5)** — `0f93514`. 5 bug fixes pos-multi-agent review.
+7. **Q-27** — `a6462a6`. `email` 100% opcional, sem badge de incompleto.
+8. **L4 wizard** — `ce6f628`. Script one-shot `scripts/migrations/l4-import-pj-clients.mjs`,
+   chama `ClientService.createClient` por linha, idempotente via `findFirst`
+   por CNPJ. **Sera deletado no cleanup #17.**
+9. **Importacao L4** — 124 PJ no banco. Conduzida em 2 fases (primeira:
+   importou tudo que passou validacao; segunda: re-importou os 2 que
+   tiveram dados corrigidos manualmente — EXPOCACCER + IPANEMA).
+10. **Fix UX modal Cadastrar** — `30eba62`. `cursor: wait` → `not-allowed`
+    em `.app-modal-submit:disabled` + erro inline "Obrigatorio" no campo
+    "Responsaveis comerciais" sem precisar clicar Cadastrar antes.
+
+Pendente (em ordem):
+
+- **#12 Cadastro manual dos PFs + fazendas** — usuario adiciona via UI;
+  planilha em `~/Downloads/Planilha sem título.xlsx` (sheets PJ/PF/PF_Fazendas)
+  serve como roteiro com colunas `Status preenchimento` calculadas.
+- **#13 Conferencia banco × planilha** — script cruza CPF + (CPF + nome
+  de fazenda) e atualiza coluna `Importada para o banco`. Sinaliza
+  divergencias (cadastro com nome diferente, etc.).
+- **#14 Melhorias UX** — pontos identificados pelo usuario durante o
+  cadastro manual de Antonio Jacinto + 4 fazendas. Sub-itens detalhados
+  em §10 (14.1 e 14.2). Decisao: serao implementadas antes de continuar
+  o cadastro manual (#12), porque sao mudancas que afetam diretamente
+  o fluxo repetitivo.
+- **#15 L3.5** — `gsutil -m rm -r gs://safras-amostras-prod-runtime/uploads/samples/`.
+  Pre-requisito: usuario confirmou que baixou as 44 fotos (ainda
+  pendente).
+- **#16 M2** — desativar modo manutencao (linha em codigo, sem migration).
+- **#17 Cleanup final** — `git rm` deste doc + `scripts/migrations/l4-import-pj-clients.mjs`
+  - `tmp/`.
+
+Out of scope (Commit B futuro, nao parte deste ciclo):
+
+- Filter `?completeness=` plug no front
+- 3 copias de listas RECOMMENDED_FIELDS (dedup)
+- displayName inline em user-service + sample-query-service
+- ClientCompleteChecklist `onMissingClick` plug
+- useCepLookup race conditions + erro UI
+- Adapter passa flag `idempotent: true` pro cliente
+- Cleanup expirados idempotency (D2 cron job)
+- Cross-table CNPJ collision check
+- Spec canonica cnpjRoot UNIQUE fix
+- 4 endpoints faltantes em `API-e-Contratos.md`
+- Memory `project_l5_clients_cycle.md` atualizar status
+- Skill `tests` registrar padrao SAMPLE_RECEIVED first event
 
 ---
 
@@ -1482,20 +1614,32 @@ A reorganizacao esta concluida quando:
 
 ## 19. Tracking
 
-| Fase                       | Status       | Commit / Deploy                            |
-| -------------------------- | ------------ | ------------------------------------------ |
-| L1 — Auditoria             | ✅ concluida | sem commit (read-only)                     |
-| L2 — Backup                | ✅ concluida | sem commit (artefatos em tmp/, gitignored) |
-| L3 — Reset destrutivo      | ✅ concluida | `1b85620` em prod                          |
-| M1 — Modo manutencao       | ✅ ativado   | `de4a032` em prod                          |
-| §8 — Estado consolidado    | ✅ concluida | (nesta versao do doc)                      |
-| §9 — Pontos de revisao     | ✅ proposta  | aguardando respostas Q-01..Q-07            |
-| §10 — Decisoes pos-analise | em andamento | —                                          |
-| §11 — Plano implementacao  | pendente     | depende de §10                             |
-| L3.5 — Limpeza GCS         | pendente     | aguarda confirmacao de download            |
-| L4 — Wizard import         | pendente     | depende de §10 + planilha filtrada         |
-| M2 — Desativar manutencao  | pendente     | apos L4                                    |
-| Limpeza final              | pendente     | apos M2                                    |
+| Fase                                   | Status       | Commit / Deploy                                                    |
+| -------------------------------------- | ------------ | ------------------------------------------------------------------ |
+| L1 — Auditoria                         | ✅ concluida | sem commit (read-only)                                             |
+| L2 — Backup                            | ✅ concluida | sem commit (artefatos em tmp/, gitignored)                         |
+| L3 — Reset destrutivo                  | ✅ concluida | `1b85620` em prod                                                  |
+| M1 — Modo manutencao                   | ✅ ativado   | `de4a032` em prod                                                  |
+| §8 — Estado consolidado                | ✅ concluida | (nesta versao do doc)                                              |
+| §9 — Pontos de revisao                 | ✅ concluida | todas Q-01..Q-27 fechadas                                          |
+| §10 — Decisoes pos-analise             | ✅ concluida | todas decisoes documentadas                                        |
+| §11 — Plano implementacao              | ✅ concluida | itens #1-#11 deployados; #12-#17 pendentes (ver §10 Status)        |
+| L5 — schema PJ direto + ClientUnit     | ✅ concluida | `e65d30d` + `0453882` em prod (2026-04-30)                         |
+| #2 Q-11 + Q-26                         | ✅ concluida | `ff2e253` em prod                                                  |
+| #3+#4 Q-24 + Q-01                      | ✅ concluida | `ecdcbd3` em prod                                                  |
+| #5 Q-02 + Q-25 — Idempotency-Key       | ✅ concluida | `234d1c7` em prod                                                  |
+| #6 Q-05 + Q-08 — inactivate cascade    | ✅ concluida | `2442a7e` em prod                                                  |
+| Commit A — bug fixes B1-B5             | ✅ concluida | `0f93514` em prod                                                  |
+| Q-27 — email 100% opcional             | ✅ concluida | `a6462a6` em prod                                                  |
+| L4 — wizard import PJ                  | ✅ concluida | `ce6f628` (script local, sem deploy)                               |
+| Importacao L4 (134 → 124 PJ no prod)   | ✅ concluida | 2 fases (primeira batch + re-import EXPOCACCER+IPANEMA corrigidos) |
+| Fix UX modal Cadastrar                 | ✅ concluida | `30eba62` em prod (2026-05-04)                                     |
+| **#12 Cadastro manual PFs + fazendas** | em andamento | 1 PF + 4 fazendas cadastrados; restam ~122 PFs                     |
+| **#13 Conferencia banco × planilha**   | pendente     | depende de #12                                                     |
+| **#14 Melhorias UX**                   | em andamento | 14.1 + 14.2 ✅ implementados (commit pendente push); outras virao  |
+| L3.5 — Limpeza GCS                     | pendente     | aguarda confirmacao de download das 44 fotos                       |
+| M2 — Desativar manutencao              | pendente     | apos #12-#13                                                       |
+| Limpeza final                          | pendente     | apos M2 — `git rm` deste doc + L4 wizard + tmp/                    |
 
 ## 20. Decisoes fechadas (historico)
 

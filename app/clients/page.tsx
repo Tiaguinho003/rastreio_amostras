@@ -942,7 +942,7 @@ function ClientsPage() {
         onCreated={async (client) => {
           setClientQuickCreateOpen(false);
           // L5: PJ ja vem completo do quick-create (sem branches). PF pode
-          // adicionar fazendas depois. Sem rota especial pra "configurar matriz".
+          // adicionar filiais depois. Sem rota especial pra "configurar matriz".
           setClientSearchInput('');
           setAppliedClientSearch('');
           dispatchClients({ type: 'setPage', page: 1 });

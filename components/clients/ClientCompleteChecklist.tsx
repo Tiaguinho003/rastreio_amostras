@@ -9,7 +9,7 @@ type ClientCompleteChecklistProps = {
    * Callback opcional disparado quando o usuario clica num item da
    * checklist. Permite ao caller abrir modal/scroll pra campo.
    * `target.kind` distingue entre campo do Client direto, campo de
-   * unidade especifica, ou "criar nova fazenda".
+   * unidade especifica, ou "criar nova filial".
    */
   onMissingClick?: (target: ChecklistTarget) => void;
 };
@@ -98,7 +98,7 @@ export function ClientCompleteChecklist({ client, onMissingClick }: ClientComple
 
       {needsCreateUnit && (
         <div className="sdv-completeness-checklist__group">
-          <span className="sdv-completeness-checklist__group-title">Fazendas</span>
+          <span className="sdv-completeness-checklist__group-title">Filiais</span>
           <ul className="sdv-completeness-checklist__list">
             <li>
               <button
@@ -107,7 +107,7 @@ export function ClientCompleteChecklist({ client, onMissingClick }: ClientComple
                 onClick={() => handleClick({ kind: 'create-unit' })}
                 disabled={!onMissingClick}
               >
-                Cadastrar pelo menos uma fazenda
+                Cadastrar pelo menos uma filial
               </button>
             </li>
           </ul>
@@ -117,7 +117,7 @@ export function ClientCompleteChecklist({ client, onMissingClick }: ClientComple
       {Array.from(unitsMap.entries()).map(([unitId, fields]) => (
         <div className="sdv-completeness-checklist__group" key={`unit-${unitId}`}>
           <span className="sdv-completeness-checklist__group-title">
-            Fazenda · {unitNameById(units, unitId)}
+            Filial · {unitNameById(units, unitId)}
           </span>
           <ul className="sdv-completeness-checklist__list">
             {fields.map((field) => (

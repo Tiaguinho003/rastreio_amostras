@@ -95,7 +95,7 @@ const FIELD_LABELS: Record<string, string> = {
   complement: 'Complemento',
   email: 'E-mail',
   cpf: 'CPF',
-  units: 'Pelo menos uma fazenda',
+  units: 'Pelo menos uma filial',
   cnpj: 'CNPJ',
   phone: 'Telefone',
   car: 'CAR',

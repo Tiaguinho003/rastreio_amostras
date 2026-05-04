@@ -35,6 +35,7 @@ import {
   maskCnpjInput,
   maskPhoneInput,
 } from '../../../lib/client-field-formatters';
+import { useCepLookup } from '../../../lib/clients/use-cep-lookup';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
@@ -123,6 +124,14 @@ function clientSummaryToForm(client: ClientSummary) {
     cpf: maskCpfInput(client.cpf ?? ''),
     cnpj: maskCnpjInput(client.cnpj ?? ''),
     phone: maskPhoneInput(client.phone ?? ''),
+    email: client.email ?? '',
+    registrationNumber: client.registrationNumber ?? '',
+    addressLine: client.addressLine ?? '',
+    district: client.district ?? '',
+    city: client.city ?? '',
+    state: client.state ?? '',
+    postalCode: client.postalCode ?? '',
+    complement: client.complement ?? '',
     isBuyer: client.isBuyer,
     isSeller: client.isSeller,
     commercialUserIds: (client.commercialUsers ?? []).map((u) => u.id),
@@ -645,11 +654,11 @@ export default function ClientDetailPage() {
     () => (showInactiveUnits ? units : activeUnitsList),
     [showInactiveUnits, units, activeUnitsList]
   );
-  // L5: PJ nao tem units (dados ficam no Client direto). PF tem fazendas.
+  // L5: PJ nao tem units (dados ficam no Client direto). PF tem filiais.
   const isPf = client?.personType === 'PF';
   const isPj = client?.personType === 'PJ';
-  const unitSingular = 'fazenda';
-  const unitPlural = 'Fazendas';
+  const unitSingular = 'filial';
+  const unitPlural = 'Filiais';
   // Backend rejeita unit em PJ com 422 CLIENT_PJ_HAS_NO_UNITS.
   const canAddUnit = isPf;
 
@@ -676,6 +685,28 @@ export default function ClientDetailPage() {
     setEditClientOpen(false);
   }
 
+  // 14.1 + Q-24: CEP lookup automatico no modal de edicao PJ.
+  // Mesmo padrao de ClientUnitModal: digita 8 digitos, ViaCEP responde,
+  // preenche endereco/bairro/cidade/UF.
+  const editCep = useCepLookup(editClientOpen ? editClientForm.postalCode : '');
+
+  useEffect(() => {
+    if (!editClientOpen) return;
+    editCep.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editClientOpen]);
+
+  useEffect(() => {
+    if (!editCep.data) return;
+    setEditClientForm((prev) => ({
+      ...prev,
+      addressLine: editCep.data!.addressLine || prev.addressLine,
+      district: editCep.data!.district || prev.district,
+      city: editCep.data!.city || prev.city,
+      state: editCep.data!.state || prev.state,
+    }));
+  }, [editCep.data]);
+
   async function handleUpdateClient(event: React.FormEvent) {
     event.preventDefault();
     if (!session || !clientId || !canSaveClient) return;
@@ -698,6 +729,15 @@ export default function ClientDetailPage() {
         data.legalName = editClientForm.legalName;
         data.tradeName = editClientForm.tradeName || null;
         data.cnpj = editClientForm.cnpj.replace(/\D/g, '') || null;
+        // 14.1: PJ tambem guarda IE + endereco + email no proprio Client.
+        data.registrationNumber = editClientForm.registrationNumber.trim() || null;
+        data.addressLine = editClientForm.addressLine.trim() || null;
+        data.district = editClientForm.district.trim() || null;
+        data.city = editClientForm.city.trim() || null;
+        data.state = editClientForm.state.trim().toUpperCase() || null;
+        data.postalCode = editClientForm.postalCode.replace(/\D/g, '') || null;
+        data.complement = editClientForm.complement.trim() || null;
+        data.email = editClientForm.email.trim() || null;
       }
 
       if (editClientForm.phone.replace(/\D/g, '').length > 0) {
@@ -759,8 +799,9 @@ export default function ClientDetailPage() {
     setUnitModalNotice(null);
 
     try {
-      // F7.4: terminologia contextual nos toasts (PF -> "fazenda", PJ -> "filial").
-      const term = client?.personType === 'PF' ? 'Fazenda' : 'Filial';
+      // 14.2: terminologia unificada — PJ no L5 nao tem unit (substituido
+      // por card "Endereco e fiscal"); ClientUnit existe so em PF.
+      const term = 'Filial';
       if (unitModalMode === 'create') {
         await createClientUnit(session, clientId, data);
         setUnitNotice({ kind: 'success', text: `${term} criada com sucesso.` });
@@ -918,13 +959,13 @@ export default function ClientDetailPage() {
     setUnitStatusNotice(null);
 
     try {
-      // L5: ClientUnit so existe pra PF (fazenda).
+      // L5: ClientUnit so existe pra PF (filial).
       if (unitStatusAction === 'inactivate') {
         await inactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
-        setUnitNotice({ kind: 'success', text: 'Fazenda inativada com sucesso.' });
+        setUnitNotice({ kind: 'success', text: 'Filial inativada com sucesso.' });
       } else {
         await reactivateClientUnit(session, clientId, unitStatusUnitId, unitStatusReason);
-        setUnitNotice({ kind: 'success', text: 'Fazenda reativada com sucesso.' });
+        setUnitNotice({ kind: 'success', text: 'Filial reativada com sucesso.' });
       }
 
       setUnitStatusModalOpen(false);
@@ -932,7 +973,7 @@ export default function ClientDetailPage() {
     } catch (cause) {
       setUnitStatusNotice({
         kind: 'error',
-        text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status da fazenda.',
+        text: cause instanceof ApiError ? cause.message : 'Falha ao alterar status da filial.',
       });
     } finally {
       setSavingUnitStatus(false);
@@ -1094,6 +1135,10 @@ export default function ClientDetailPage() {
                           </span>
                         </div>
                         <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">Email</span>
+                          <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                        </div>
+                        <div className="sdv-info-item is-full">
                           <span className="sdv-info-label">
                             Respons\u00e1veis comerciais
                             {client.commercialUsers.length > 0
@@ -1142,118 +1187,164 @@ export default function ClientDetailPage() {
                       <NoticeSlot notice={detailNotice} />
                     </div>
 
-                    {/* Card: Filiais/Fazendas (F6.0 + F7.4 terminologia) */}
-                    <div className="sdv-card">
-                      <div className="sdv-card-header">
-                        <span className="sdv-card-title">
-                          {unitPlural} ({visibleUnits.length}
-                          {inactiveUnitsCount > 0 ? ` · ${inactiveUnitsCount} inativa(s)` : ''})
-                        </span>
-                        {canAddUnit ? (
-                          <button type="button" className="sdv-edit-btn" onClick={openUnitCreate}>
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                            <span>{isPf ? 'Nova fazenda' : 'Nova filial'}</span>
-                          </button>
-                        ) : null}
+                    {isPj ? (
+                      /* 14.1: PJ — card "Endereço e fiscal" no lugar do banner antigo. */
+                      <div className="sdv-card sdv-info-compact">
+                        <div className="sdv-card-header">
+                          <span className="sdv-card-title">Endereço e fiscal</span>
+                        </div>
+                        <div className="sdv-info-grid">
+                          <div className="sdv-info-item is-full">
+                            <span className="sdv-info-label">Inscrição estadual</span>
+                            <span className="sdv-info-value">
+                              {client.registrationNumber || '—'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item is-full">
+                            <span className="sdv-info-label">Endereço</span>
+                            <span className="sdv-info-value">
+                              {[client.addressLine, client.complement].filter(Boolean).join(', ') ||
+                                '—'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">Bairro</span>
+                            <span className="sdv-info-value">{client.district || '—'}</span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">Cidade/UF</span>
+                            <span className="sdv-info-value">
+                              {client.city && client.state ? `${client.city}/${client.state}` : '—'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">CEP</span>
+                            <span className="sdv-info-value">
+                              {client.postalCode
+                                ? client.postalCode.replace(/(\d{5})(\d{3})/, '$1-$2')
+                                : '—'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="sdv-edit-btn sdv-edit-btn-inline"
+                          onClick={openEditClient}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                          </svg>
+                          <span>Editar informações</span>
+                        </button>
                       </div>
-
-                      {isPj ? (
-                        <div className="sdv-banner sdv-banner-info">
-                          <strong>Empresa (PJ).</strong>
-                          <p>
-                            Os dados fiscais e de endereço ficam no próprio cliente — sem unidades.
-                          </p>
-                        </div>
-                      ) : units.length === 0 ? (
-                        <div className="spv2-empty client-detail-empty-compact">
-                          <p className="spv2-empty-text">Nenhuma fazenda cadastrada</p>
-                        </div>
-                      ) : (
-                        <div className="sdv-unit-list">
-                          {visibleUnits.map((unit) => (
-                            <div
-                              key={unit.id}
-                              className={`sdv-unit-card${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                            >
-                              <div className="sdv-unit-card-header">
-                                <span className="sdv-unit-badge is-filial">
-                                  Fazenda {unit.code}
-                                </span>
-                                {unit.status === 'INACTIVE' ? (
-                                  <span className="sdv-unit-badge is-inactive">Inativa</span>
-                                ) : null}
-                                <span className="sdv-unit-name">
-                                  {unit.name ?? unit.legalName ?? 'Sem nome'}
-                                </span>
-                              </div>
-                              <div className="sdv-unit-card-body">
-                                {unit.cnpj ? (
-                                  <div>
-                                    <span className="sdv-unit-label">CNPJ:</span> {unit.cnpj}
-                                  </div>
-                                ) : null}
-                                {unit.city && unit.state ? (
-                                  <div>
-                                    <span className="sdv-unit-label">Local:</span> {unit.city}/
-                                    {unit.state}
-                                  </div>
-                                ) : null}
-                                {unit.registrationNumber ? (
-                                  <div>
-                                    <span className="sdv-unit-label">IE:</span>{' '}
-                                    {unit.registrationNumber}
-                                  </div>
-                                ) : null}
-                                {unit.car ? (
-                                  <div>
-                                    <span className="sdv-unit-label">CAR:</span> {unit.car}
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className="sdv-unit-card-actions">
-                                <button
-                                  type="button"
-                                  className="sdv-edit-btn-small"
-                                  onClick={() => openUnitEdit(unit)}
-                                  disabled={savingUnit}
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`sdv-edit-btn-small${unit.status === 'ACTIVE' ? ' is-danger' : ''}`}
-                                  onClick={() =>
-                                    openUnitStatusModal(
-                                      unit,
-                                      unit.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
-                                    )
-                                  }
-                                  disabled={savingUnitStatus}
-                                >
-                                  {unit.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-
-                          {inactiveUnitsCount > 0 ? (
-                            <button
-                              type="button"
-                              className="sdv-edit-btn-small"
-                              onClick={() => setShowInactiveUnits((v) => !v)}
-                            >
-                              {showInactiveUnits
-                                ? 'Esconder inativas'
-                                : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                    ) : (
+                      /* 14.2: Card "Filiais" (PF apenas — PJ no L5 nao tem ClientUnit). */
+                      <div className="sdv-card">
+                        <div className="sdv-card-header">
+                          <span className="sdv-card-title">
+                            {unitPlural} ({visibleUnits.length}
+                            {inactiveUnitsCount > 0 ? ` · ${inactiveUnitsCount} inativa(s)` : ''})
+                          </span>
+                          {canAddUnit ? (
+                            <button type="button" className="sdv-edit-btn" onClick={openUnitCreate}>
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                              </svg>
+                              <span>Nova filial</span>
                             </button>
                           ) : null}
                         </div>
-                      )}
-                      <NoticeSlot notice={unitNotice} />
-                    </div>
+
+                        {units.length === 0 ? (
+                          <div className="spv2-empty client-detail-empty-compact">
+                            <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                          </div>
+                        ) : (
+                          <div className="sdv-unit-list">
+                            {visibleUnits.map((unit) => (
+                              <div
+                                key={unit.id}
+                                className={`sdv-unit-card${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                              >
+                                <div className="sdv-unit-card-header">
+                                  <span className="sdv-unit-badge is-filial">
+                                    Filial {unit.code}
+                                  </span>
+                                  {unit.status === 'INACTIVE' ? (
+                                    <span className="sdv-unit-badge is-inactive">Inativa</span>
+                                  ) : null}
+                                  <span className="sdv-unit-name">
+                                    {unit.name ?? unit.legalName ?? 'Sem nome'}
+                                  </span>
+                                </div>
+                                <div className="sdv-unit-card-body">
+                                  {unit.cnpj ? (
+                                    <div>
+                                      <span className="sdv-unit-label">CNPJ:</span> {unit.cnpj}
+                                    </div>
+                                  ) : null}
+                                  {unit.city && unit.state ? (
+                                    <div>
+                                      <span className="sdv-unit-label">Local:</span> {unit.city}/
+                                      {unit.state}
+                                    </div>
+                                  ) : null}
+                                  {unit.registrationNumber ? (
+                                    <div>
+                                      <span className="sdv-unit-label">IE:</span>{' '}
+                                      {unit.registrationNumber}
+                                    </div>
+                                  ) : null}
+                                  {unit.car ? (
+                                    <div>
+                                      <span className="sdv-unit-label">CAR:</span> {unit.car}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="sdv-unit-card-actions">
+                                  <button
+                                    type="button"
+                                    className="sdv-edit-btn-small"
+                                    onClick={() => openUnitEdit(unit)}
+                                    disabled={savingUnit}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`sdv-edit-btn-small${unit.status === 'ACTIVE' ? ' is-danger' : ''}`}
+                                    onClick={() =>
+                                      openUnitStatusModal(
+                                        unit,
+                                        unit.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
+                                      )
+                                    }
+                                    disabled={savingUnitStatus}
+                                  >
+                                    {unit.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {inactiveUnitsCount > 0 ? (
+                              <button
+                                type="button"
+                                className="sdv-edit-btn-small"
+                                onClick={() => setShowInactiveUnits((v) => !v)}
+                              >
+                                {showInactiveUnits
+                                  ? 'Esconder inativas'
+                                  : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                              </button>
+                            ) : null}
+                          </div>
+                        )}
+                        <NoticeSlot notice={unitNotice} />
+                      </div>
+                    )}
                   </section>
                 ) : null}
 
@@ -1691,6 +1782,106 @@ export default function ClientDetailPage() {
                         }
                       />
                     </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Email</span>
+                      <input
+                        className="app-modal-input"
+                        type="email"
+                        value={editClientForm.email}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({ ...c, email: e.target.value }))
+                        }
+                        placeholder="contato@empresa.com"
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Inscrição estadual</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.registrationNumber}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            registrationNumber: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">
+                        CEP
+                        {editCep.loading ? <span aria-hidden="true"> ⌛</span> : null}
+                      </span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.postalCode}
+                        disabled={savingClient}
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({ ...c, postalCode: e.target.value }))
+                        }
+                        placeholder="00000-000"
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Endereço</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.addressLine}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({ ...c, addressLine: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Bairro</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.district}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({ ...c, district: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Cidade</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.city}
+                        disabled={savingClient}
+                        onChange={(e) => setEditClientForm((c) => ({ ...c, city: e.target.value }))}
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">UF</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.state}
+                        disabled={savingClient}
+                        maxLength={2}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            state: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="app-modal-field">
+                      <span className="app-modal-label">Complemento</span>
+                      <input
+                        className="app-modal-input"
+                        value={editClientForm.complement}
+                        disabled={savingClient}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({ ...c, complement: e.target.value }))
+                        }
+                      />
+                    </label>
                   </>
                 )}
 
@@ -1791,7 +1982,7 @@ export default function ClientDetailPage() {
         </div>
       ) : null}
 
-      {/* ========== MODAL 2: Create/Edit Unit (PF only — fazendas L5) ========== */}
+      {/* ========== MODAL 2: Create/Edit Unit (PF only — filiais L5) ========== */}
       <ClientUnitModal
         open={unitModalOpen}
         mode={unitModalMode}
@@ -1930,7 +2121,7 @@ export default function ClientDetailPage() {
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="unit-status-modal-title" className="app-modal-title">
-                  {unitStatusAction === 'inactivate' ? 'Inativar fazenda' : 'Reativar fazenda'}
+                  {unitStatusAction === 'inactivate' ? 'Inativar filial' : 'Reativar filial'}
                 </h3>
               </div>
               <button

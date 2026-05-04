@@ -14,7 +14,7 @@ type ClientUnitSelectProps = {
 };
 
 function formatUnitLabel(unit: ClientUnitSummary): string {
-  const tag = `Fazenda ${unit.code}`;
+  const tag = `Filial ${unit.code}`;
   const place = unit.city && unit.state ? ` · ${unit.city}/${unit.state}` : '';
   const name = unit.name ? ` — ${unit.name}` : unit.legalName ? ` — ${unit.legalName}` : '';
   return `${tag}${name}${place}`;
@@ -26,7 +26,7 @@ export function ClientUnitSelect({
   value,
   onChange,
   disabled = false,
-  placeholder = 'Selecionar fazenda',
+  placeholder = 'Selecionar filial',
   activeOnly = true,
   compact = false,
 }: ClientUnitSelectProps) {
@@ -40,7 +40,7 @@ export function ClientUnitSelect({
         disabled={disabled || items.length === 0}
         onChange={(event) => onChange(event.target.value || null)}
       >
-        <option value="">{items.length === 0 ? 'Nenhuma fazenda disponivel' : placeholder}</option>
+        <option value="">{items.length === 0 ? 'Nenhuma filial disponivel' : placeholder}</option>
         {items.map((unit) => (
           <option key={unit.id} value={unit.id}>
             {formatUnitLabel(unit)}

@@ -18,7 +18,7 @@ type ClientLookupFieldProps = {
   kind: ClientLookupKind;
   selectedClient: ClientSummary | null;
   onSelectClient: (client: ClientSummary | null) => void;
-  /** L5: callback opcional para modo hierarquico — apenas PF tem fazendas. */
+  /** L5: callback opcional para modo hierarquico — apenas PF tem filiais. */
   onSelectUnit?: (client: ClientSummary, unit: ClientUnitSummary | null) => void;
   inputRef?: Ref<HTMLInputElement>;
   invalid?: boolean;
@@ -55,14 +55,14 @@ function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
       continue;
     }
 
-    // PF: 0 ou N fazendas. Sem fazendas -> linha simples (sem nesting).
+    // PF: 0 ou N filiais. Sem filiais -> linha simples (sem nesting).
     const units = client.units ?? [];
     if (units.length === 0) {
       rows.push({ key: client.id, client, unit: null, isHierarchicalChild: false });
       continue;
     }
 
-    // PF com fazendas: 1 linha-pai (cliente) + N linhas-filhas (cada fazenda).
+    // PF com filiais: 1 linha-pai (cliente) + N linhas-filhas (cada filial).
     rows.push({ key: client.id, client, unit: null, isHierarchicalChild: false });
     for (const unit of units) {
       rows.push({
@@ -77,7 +77,7 @@ function buildHierarchicalRows(items: ClientSummary[]): LookupRow[] {
 }
 
 function buildUnitLabel(unit: ClientUnitSummary): string {
-  const tag = `Fazenda ${unit.code}`;
+  const tag = `Filial ${unit.code}`;
   const place = unit.city && unit.state ? ` · ${unit.city}/${unit.state}` : '';
   const name = unit.name ? ` — ${unit.name}` : '';
   return `${tag}${name}${place}`;

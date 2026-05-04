@@ -204,7 +204,7 @@ export function ClientQuickCreateModal({
 
     try {
       // L5: PJ guarda cnpj direto no Client (sem branches). PF nao tem cnpj
-      // aqui (cpf vai no proprio Client; fazendas eventuais sao adicionadas
+      // aqui (cpf vai no proprio Client; filiais eventuais sao adicionadas
       // depois pela tela de detalhe).
       const response = await createClient(session, {
         personType: form.personType,

@@ -69,7 +69,7 @@ const CLIENT_UNIT_SUMMARY_SELECT = {
 };
 
 // L5: PJ guarda dados fiscais/endereco no proprio Client. PF deixa esses
-// campos NULL e usa ClientUnit (fazendas).
+// campos NULL e usa ClientUnit (filiais).
 const CLIENT_SUMMARY_SELECT = {
   id: true,
   code: true,
@@ -263,7 +263,7 @@ function mapClientRow(row) {
         ? row.units.length
         : 0;
 
-  // L5: PJ usa cidade/UF do Client direto. PF usa primeira fazenda ativa.
+  // L5: PJ usa cidade/UF do Client direto. PF usa primeira filial ativa.
   const isPj = row.personType === CLIENT_PERSON_TYPES.PJ;
   const fallbackUnit = activeUnits[0] ?? null;
   const primaryCity = isPj ? (row.city ?? null) : (fallbackUnit?.city ?? null);
@@ -778,7 +778,7 @@ export class ClientService {
     const { search, kind, limit } = normalizeLookupClientsInput(input);
 
     // L5: smart resolve por CNPJ completo (14 digitos exatos).
-    // PJ: cnpj vive em Client direto. PF: pode ter cnpj em ClientUnit (fazenda).
+    // PJ: cnpj vive em Client direto. PF: pode ter cnpj em ClientUnit (filial).
     const searchDigits = String(search ?? '').replace(/\D+/g, '');
     if (searchDigits.length === 14) {
       // 1) Tenta PJ: bate direto com client.cnpj
@@ -799,7 +799,7 @@ export class ClientService {
         };
       }
 
-      // 2) Tenta PF via ClientUnit (fazenda com CNPJ proprio)
+      // 2) Tenta PF via ClientUnit (filial com CNPJ proprio)
       const unit = await this.prisma.clientUnit.findFirst({
         where: { cnpj: searchDigits },
         select: { clientId: true, id: true },
@@ -894,7 +894,7 @@ export class ClientService {
         await this.assertCommercialUserAssignable(tx, userId);
       }
 
-      // PF: pre-checa unicidade de cnpj/registrationNumberCanonical das fazendas
+      // PF: pre-checa unicidade de cnpj/registrationNumberCanonical das filiais
       for (const u of units) {
         if (u.cnpj) {
           await this.assertUnitCnpjAvailable(tx, u.cnpj);
@@ -918,7 +918,7 @@ export class ClientService {
         });
       }
 
-      // L5: PF cria units inline (fazendas). PJ NUNCA tem units — ja barrado
+      // L5: PF cria units inline (filiais). PJ NUNCA tem units — ja barrado
       // em normalizeCreateClientInput.
       const createdUnits = [];
       let nextCode = 1;
@@ -2091,7 +2091,7 @@ export class ClientService {
     };
   }
 
-  // L5: createUnit cria fazenda em cliente PF. PJ NAO admite units.
+  // L5: createUnit cria filial em cliente PF. PJ NAO admite units.
   async createUnit(clientId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client unit');
     const { data } = normalizeCreateUnitInput(input);

@@ -251,7 +251,7 @@ export interface ClientsListResponse {
 export interface ClientLookupResponse {
   items: ClientSummary[];
   // L5: smart resolve por 14 digitos pode bater em Client (PJ) ou ClientUnit
-  // (fazenda PF). Quando o match e via unit, a UI destaca essa linha.
+  // (filial PF). Quando o match e via unit, a UI destaca essa linha.
   matchedUnitId?: string | null;
 }
 

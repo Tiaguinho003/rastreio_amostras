@@ -359,7 +359,7 @@ model Client {
   cpf                         String?          @unique(map: "uq_client_cpf")
   // L5: campos de identidade fiscal e contato/endereco de PJ migram
   // para o Client (antes ficavam em ClientBranch matriz). PF deixa todos
-  // estes NULL — sao guardados em ClientUnit (fazendas).
+  // estes NULL — sao guardados em ClientUnit (filiais).
   cnpj                        String?          @unique(map: "uq_client_cnpj")
   cnpjOrder                   String?          @map("cnpj_order") @db.VarChar(4)
   cnpjRoot                    String?          @map("cnpj_root") @db.VarChar(8)
