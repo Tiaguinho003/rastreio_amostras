@@ -1025,24 +1025,24 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 
 > Atualizado 2026-05-04 — todos os itens #1 ao #11 abaixo estao deployados em prod.
 
-| #   | Etapa                                                                        | Commit / Status                                                                                                                                                       |
-| --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs)    | ✅ deployado 2026-04-30 — `e65d30d` + `0453882` (revisao `rastreio-prod-app-00177-hij`)                                                                               |
-| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName         | ✅ deployado — `ff2e253`                                                                                                                                              |
-| 3+4 | Q-24 + Q-01 — CEP lookup + `?onlyActive=true` query param                    | ✅ deployado (commit unico) — `ecdcbd3`                                                                                                                               |
-| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                            | ✅ deployado — `234d1c7`                                                                                                                                              |
-| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                           | ✅ deployado — `2442a7e`                                                                                                                                              |
-| 7   | Commit A — 5 bug fixes pos-multi-agent review (B1-B5)                        | ✅ deployado — `0f93514` (drop `assertCnpjRootAvailable`, doc Q-26 side effect, idempotency replay flag, `body ?? {}` defensivo, skill prisma escape valve removida)  |
-| 8   | Q-27 — `email` 100% opcional (override Q-12 e Q-10c)                         | ✅ deployado — `a6462a6`                                                                                                                                              |
-| 9   | L4 — wizard de import PJ via planilha XLSX                                   | ✅ script criado e usado — `ce6f628` (`scripts/migrations/l4-import-pj-clients.mjs`, sem deploy — uso local com cloud-sql-proxy)                                      |
-| 10  | Importacao em batch dos PJ via L4                                            | ✅ 124 PJ no banco prod (de 134 candidatos da planilha; 8 excluidos — 3 nome-pessoa + 4 dados incompletos + 1 telefone invalido; 2 corrigidos depois e re-importados) |
-| 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
-| 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
-| 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B + 14.4.C + 14.5.A ✅ implementados (acumulando no canary); demais sub-itens conforme usuario detalhar            |
-| 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
-| 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
-| 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
+| #   | Etapa                                                                        | Commit / Status                                                                                                                                                                    |
+| --- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | L5 atomico (schema + migration + service + API + frontend + tests + docs)    | ✅ deployado 2026-04-30 — `e65d30d` + `0453882` (revisao `rastreio-prod-app-00177-hij`)                                                                                            |
+| 2   | Q-11 + Q-26 — aviso incompleto na UI + convencao tradeName/legalName         | ✅ deployado — `ff2e253`                                                                                                                                                           |
+| 3+4 | Q-24 + Q-01 — CEP lookup + `?onlyActive=true` query param                    | ✅ deployado (commit unico) — `ecdcbd3`                                                                                                                                            |
+| 5   | Q-02 + Q-25 — Idempotency-Key middleware + tabela                            | ✅ deployado — `234d1c7`                                                                                                                                                           |
+| 6   | Q-05 + Q-08 — `inactivate-with-cascade` + UI modal                           | ✅ deployado — `2442a7e`                                                                                                                                                           |
+| 7   | Commit A — 5 bug fixes pos-multi-agent review (B1-B5)                        | ✅ deployado — `0f93514` (drop `assertCnpjRootAvailable`, doc Q-26 side effect, idempotency replay flag, `body ?? {}` defensivo, skill prisma escape valve removida)               |
+| 8   | Q-27 — `email` 100% opcional (override Q-12 e Q-10c)                         | ✅ deployado — `a6462a6`                                                                                                                                                           |
+| 9   | L4 — wizard de import PJ via planilha XLSX                                   | ✅ script criado e usado — `ce6f628` (`scripts/migrations/l4-import-pj-clients.mjs`, sem deploy — uso local com cloud-sql-proxy)                                                   |
+| 10  | Importacao em batch dos PJ via L4                                            | ✅ 124 PJ no banco prod (de 134 candidatos da planilha; 8 excluidos — 3 nome-pessoa + 4 dados incompletos + 1 telefone invalido; 2 corrigidos depois e re-importados)              |
+| 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                                |
+| 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)                 |
+| 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                                         |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B + 14.4.C + 14.5.A ✅ deployados; 14.6.A-D ✅ implementados (acumulando no canary); demais sub-itens conforme usuario detalhar |
+| 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                                      |
+| 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                                       |
+| 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                                      |
 
 #### 14.1 — Redesign tela detalhe PJ (IE/endereco/email visiveis e editaveis)
 
@@ -1262,6 +1262,38 @@ Mudancas (commit pendente push, acumula no canary com `8cb9cc7`):
 - **Posicao fixa no desktop** (`@media min-width: 901px`): `.sdv-card-filiais` ancorado em `grid-column: 2; grid-row: 1; align-self: start;` (sobrescreve `align-self: stretch` do `:nth-child(2)` por especificidade casada + ordem de cascata). Card nao estica para acompanhar a coluna 1 nem se desloca quando outros conteudos crescem.
 - **Scroll interno se muitas filiais**: `max-height: calc(100dvh - 16rem)` + `overflow: hidden` no card; `.sdv-unit-list` com `flex: 1; min-height: 0; overflow-y: auto` e scrollbar fina cor `#d6d0c1`.
 - Mobile permanece igual (lista vertical natural).
+
+#### 14.6 — Filtros 1 linha + grid 6x4 + sort alfabetico server-side + scroll com pausa
+
+**14.6.A — Grid 6x4 desktop wide + remove buyer/seller + chip incompletos maior** ✅ (commit `928112d`)
+
+- `app/globals.css:19820+`: grid-template-rows `repeat(5, ...)` -> `repeat(4, ...)`. 24 cards visiveis sem scroll. Min row 110px -> 130px (cards mais altos).
+- `app/clients/page.tsx`: removidas spans `cv2-card-role.is-buyer/is-seller/is-none` do `cv2-card-bottom`. Mantem so o `UserAvatarStack` quando ha responsaveis.
+- `cv2-filter-incomplete-chip` desktop: padding 4px 10px -> 6px 14px, icone 14px -> 16px (mobile intocado).
+
+**14.6.B — Filtros desktop em 1 linha + botao usuario com modal ancorado** ✅ (commit `589418b`)
+
+- `app/clients/page.tsx`: removida a linha do `<select>` "Usuario responsavel". Filtros agora numa unica `spv2-list-meta`: `[X clientes]` esquerda + chip incompletos + botao usuario direita.
+- Novo componente `components/clients/ClientUserFilterButton.tsx`: botao redondo azul com icone usuario. Click sem filtro abre modal ancorado (top-right do botao, animacao diagonal scale+translate via `@keyframes` 220ms cubic-bezier). Click com filtro ativo limpa direto (sem abrir modal). Modal lista usuarios com avatar de iniciais (gradient verde brand) + nome completo + check no selecionado. Selecao unica fecha modal e seta filtro. `useFocusTrap`, Escape e click fora fecham. Estado ativo: botao gradient azul preenchido + badge 2 iniciais branco no canto superior direito.
+- CSS novo em `app/globals.css`: `cv2-filter-user-wrap`, `cv2-filter-user-btn` (default outline + active gradient), `cv2-filter-user-btn-badge`, `cv2-filter-user-modal` (anchored top-right, transform-origin top right, `@keyframes cv2-filter-user-modal-in`), header/list/item.
+
+**14.6.C — Sort alfabetico server-side + cursor alfabetico (B1 generated column)** ✅ (commit `e1b20d0`)
+
+- **Migration nova** `prisma/migrations/20260504205517_add_client_display_name_lower/migration.sql`: `ALTER TABLE client ADD COLUMN display_name_lower TEXT GENERATED ALWAYS AS (LOWER(COALESCE(NULLIF(trim(full_name),''), NULLIF(trim(trade_name),''), NULLIF(trim(legal_name),''), ''))) STORED`. PG mantem sincronia automatica. Index composto `idx_client_display_name_lower_id` cobre orderBy + cursor.
+- **Schema** (`prisma/schema.prisma`): `Client.displayNameLower String? @map("display_name_lower") @db.Text` + `@@index([displayNameLower, id])`. Prisma le mas nao escreve (generated column).
+- **listClients** (`src/clients/client-service.js`): `orderBy: createdAt DESC` -> `displayNameLower ASC, id ASC`. `cursorWhere`: `lt` em `createdAt/id` -> `gt` em `displayNameLower/id`. `extractNextCursor` emite `{ displayName, id }`. `CLIENT_SUMMARY_SELECT` inclui `displayNameLower` (necessario pra cursor).
+- **normalizer** (`client-support.js`): le `cursorDisplayName + cursorId` em vez de `cursorCreatedAt + cursorId`.
+- **Adapter** (`src/api/v1/backend-api.js`): listClients agora propaga `cursorDisplayName + cursorId` pro service. **Bug latente de 14.4.A corrigido** — o adapter NAO passava cursor algum, scroll do `/clients` re-baixava primeira pagina sempre (sem perceber porque <60 clientes em prod = sem segunda pagina).
+- **Frontend** (`app/clients/page.tsx`, `lib/api-client.ts`, `lib/types.ts`): `ClientCursor` type, `ClientsListResponse.page.nextCursor` shape, query params, `runLoadMore`, sort client-side **removido** (vem ordenado do servidor). `CLIENTS_SNAPSHOT_KEY` bumped pra v2 (snapshots v1 com `createdAt` ficam orfaos).
+- **Tests integration novos** em `tests/client-backend.integration.test.js`: ordem alfabetica determinista (5 PFs A-E), cursor avanca corretamente em 3 paginas (Ana/Bruno -> Carlos/Daniel -> Eduardo + nextCursor null), empate de displayName desempata por id ASC.
+
+**14.6.D — Scroll com pausa + cascade row-major nos novos cards** ✅ (commit `8738ebf`)
+
+- **Reducer** (`page.tsx`): `ClientsListState` ganha `firstNewIndex: number | null`. `success-initial: 0`, `success-more: state.items.length` (capturado antes do merge), `restoreSnapshot: null`.
+- **JSX**: `animationDelay` calculado por `(i - firstNewIndex) * 0.03s` capped 25 para `i >= firstNewIndex`, senao `0s`. Cards velhos nao re-animam ao chegar batch novo.
+- **IntersectionObserver**: `rootMargin '200px' -> '0px'`. Sentinel so dispara fetch quando realmente visivel (sem prefetch agressivo).
+- **Lock scroll**: container `.spv2-list-scroll` ganha classe `is-loading-more` durante fetch — CSS `overflow-y: hidden` impede scroll do usuario enquanto bate na pausa.
+- **Spinner**: `.cv2-load-more-spinner` (1.4rem border-rotate, `@keyframes cv2-load-more-spin` 0.7s linear) + texto "Carregando proximos 60..." substitui o "Carregando…" simples no sentinel.
 
 ### Estado atual do prod (snapshot 2026-05-04)
 
