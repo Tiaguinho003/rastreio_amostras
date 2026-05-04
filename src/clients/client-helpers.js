@@ -32,9 +32,9 @@ const PJ_RECOMMENDED_FIELDS = [
 
 const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'];
 
+// 14.3.C: 'cnpj' e 'phone' removidos — fazendas raramente tem CNPJ proprio
+// e telefone proprio (geralmente reusa do dono).
 const PF_UNIT_RECOMMENDED_FIELDS = [
-  'cnpj',
-  'phone',
   'addressLine',
   'district',
   'city',

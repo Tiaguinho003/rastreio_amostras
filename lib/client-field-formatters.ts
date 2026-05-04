@@ -44,6 +44,24 @@ export function maskCnpjInput(value: string) {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
+export function maskPostalCodeInput(value: string) {
+  const digits = onlyDigits(value).slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+export function maskRegistrationNumberInput(value: string) {
+  // Mascara MG: XXX.XXX.XXX.XX-XX (13 digitos). Cobre ~95% dos clientes.
+  // Outras UFs: digitos extras sao truncados em 13.
+  const digits = onlyDigits(value).slice(0, 13);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digits.length <= 11)
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}.${digits.slice(9)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}.${digits.slice(9, 11)}-${digits.slice(11)}`;
+}
+
 export function maskPhoneInput(value: string) {
   const digits = onlyDigits(value).slice(0, 11);
 
@@ -99,6 +117,21 @@ export function formatCnpj(value: string | null | undefined) {
   }
 
   return maskCnpjInput(digits);
+}
+
+export function formatPostalCode(value: string | null | undefined) {
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+  if (digits.length !== 8) return String(value).trim();
+  return maskPostalCodeInput(digits);
+}
+
+export function formatRegistrationNumber(value: string | null | undefined) {
+  // Renderizacao read-only: aplica mascara MG se 13 digitos; senao retorna como esta.
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+  if (digits.length === 13) return maskRegistrationNumberInput(digits);
+  return String(value).trim();
 }
 
 export function formatPhone(value: string | null | undefined) {

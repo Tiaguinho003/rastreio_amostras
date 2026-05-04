@@ -3,6 +3,11 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import {
+  maskPhoneInput,
+  maskPostalCodeInput,
+  maskRegistrationNumberInput,
+} from '../../lib/client-field-formatters';
 import { useCepLookup } from '../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -195,28 +200,8 @@ export function ClientUnitModal({
               disabled={saving}
               maxLength={160}
               required
-              onChange={(event) => update('name', event.target.value)}
-              placeholder="Ex.: Filial Bom Retiro"
-            />
-          </label>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Razão social</span>
-            <input
-              className="sdv-edit-input"
-              value={form.legalName}
-              disabled={saving}
-              maxLength={200}
-              onChange={(event) => update('legalName', event.target.value)}
-            />
-          </label>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Nome fantasia</span>
-            <input
-              className="sdv-edit-input"
-              value={form.tradeName}
-              disabled={saving}
-              maxLength={200}
-              onChange={(event) => update('tradeName', event.target.value)}
+              onChange={(event) => update('name', event.target.value.toUpperCase())}
+              placeholder="Ex.: FILIAL BOM RETIRO"
             />
           </label>
 
@@ -245,7 +230,11 @@ export function ClientUnitModal({
                 className="sdv-edit-input"
                 value={form.registrationNumber}
                 disabled={saving}
-                onChange={(event) => update('registrationNumber', event.target.value)}
+                inputMode="numeric"
+                onChange={(event) =>
+                  update('registrationNumber', maskRegistrationNumberInput(event.target.value))
+                }
+                placeholder="000.000.000.00-00"
               />
             </label>
             <label className="sdv-edit-field">
@@ -255,7 +244,7 @@ export function ClientUnitModal({
                 value={form.car}
                 disabled={saving}
                 maxLength={80}
-                onChange={(event) => update('car', event.target.value)}
+                onChange={(event) => update('car', event.target.value.toUpperCase())}
               />
             </label>
           </div>
@@ -267,7 +256,7 @@ export function ClientUnitModal({
               className="sdv-edit-input"
               value={form.addressLine}
               disabled={saving}
-              onChange={(event) => update('addressLine', event.target.value)}
+              onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
             />
           </label>
           <label className="sdv-edit-field">
@@ -276,7 +265,7 @@ export function ClientUnitModal({
               className="sdv-edit-input"
               value={form.district}
               disabled={saving}
-              onChange={(event) => update('district', event.target.value)}
+              onChange={(event) => update('district', event.target.value.toUpperCase())}
             />
           </label>
           <div className="sdv-edit-row">
@@ -286,7 +275,7 @@ export function ClientUnitModal({
                 className="sdv-edit-input"
                 value={form.city}
                 disabled={saving}
-                onChange={(event) => update('city', event.target.value)}
+                onChange={(event) => update('city', event.target.value.toUpperCase())}
               />
             </label>
             <label className="sdv-edit-field">
@@ -317,7 +306,7 @@ export function ClientUnitModal({
                 value={form.postalCode}
                 disabled={saving}
                 inputMode="numeric"
-                onChange={(event) => update('postalCode', event.target.value)}
+                onChange={(event) => update('postalCode', maskPostalCodeInput(event.target.value))}
                 placeholder="00000-000"
               />
             </label>
@@ -328,7 +317,7 @@ export function ClientUnitModal({
                 value={form.complement}
                 disabled={saving}
                 maxLength={120}
-                onChange={(event) => update('complement', event.target.value)}
+                onChange={(event) => update('complement', event.target.value.toUpperCase())}
               />
             </label>
           </div>
@@ -339,7 +328,8 @@ export function ClientUnitModal({
               value={form.phone}
               disabled={saving}
               inputMode="numeric"
-              onChange={(event) => update('phone', event.target.value)}
+              onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
+              placeholder="(00) 00000-0000"
             />
           </label>
 

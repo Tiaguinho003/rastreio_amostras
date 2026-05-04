@@ -1039,7 +1039,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
 | 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
 | 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1 + 14.2 ✅ implementados (commit pendente push); mais virao conforme usuario continua                                                                             |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1 + 14.2 ✅ commit `7de003a`; 14.3 (4 sub-itens A/B/C/D) ✅ implementado (commit pendente push); mais virao                                                        |
 | 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
 | 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
 | 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
@@ -1103,7 +1103,59 @@ Comentarios internos do backend (`src/clients/client-service.js`, `prisma/schema
 - Tests **nao** alterados (fixtures `'Fazenda Boa Vista'` etc sao conteudo de entidade, nao label de UI).
 - Schema **nao** alterado — `ClientUnit` permanece neutro.
 
-#### 14.3+ — outros pontos UX (a documentar conforme aparecem)
+#### 14.3 — Polimento dos forms de cliente/filial (em planejamento)
+
+Pontos identificados pelo usuario durante o cadastro do segundo PF (apos
+14.1+14.2 deployar):
+
+**14.3.A — Inputs sempre em maiusculo** ✅ implementado
+
+- Hoje a UI esta inconsistente. ClientQuickCreateModal e modal de edicao PJ
+  ja fazem `.toUpperCase()` em `fullName`/`legalName`/`tradeName`/`reasonText`,
+  mas os 7 campos novos adicionados em 14.1 (email, IE, addressLine, district,
+  city, complement) NAO fazem. ClientUnitModal so faz uppercase em `state` (UF).
+- Decisao: aplicar `.toUpperCase()` em **todos os inputs textuais**. Email
+  inclui (case-insensitive no servidor; padroniza visual). Campos numericos
+  formatados (CNPJ, CEP, telefone, IE com mascara) ficam fora.
+
+**14.3.B — Mascaras automaticas em campos formatados** ✅ implementado
+
+- Hoje no ClientUnitModal (filial PF): CNPJ ja mascara (`useDocumentMask`),
+  mas telefone e CEP sao livres. IE livre.
+- Hoje no modal de edicao PJ (14.1): telefone ja mascara, mas CEP e IE livres.
+- Decisao: aplicar mascaras consistentes:
+  - **Telefone**: `maskPhoneInput` (existe — formata `(XX) XXXXX-XXXX`).
+  - **CEP**: nova mascara `XXXXX-XXX` (8 digitos). Helper inline em
+    `lib/client-field-formatters.ts` (junto dos outros).
+  - **IE**: mascara MG `XXX.XXX.XXX.XX-XX` (13 digitos). MG cobre ~95% dos
+    clientes. Se UF for outra, o usuario consegue digitar e os digitos
+    extras sao truncados — solucao iterativa, suficiente para o batch atual.
+
+**14.3.C — CNPJ e telefone da filial opcionais sem aviso de incompleto** ✅ implementado
+
+- Hoje `PF_UNIT_RECOMMENDED_FIELDS` (em 2 arquivos: `src/clients/client-helpers.js`
+  e `lib/clients/client-completeness.ts`) inclui `'cnpj'`, `'phone'`, `'car'` —
+  filial sem qualquer um desses dispara aviso "Cadastro incompleto" no
+  checklist Q-11.
+- Decisao: remover `'cnpj'` e `'phone'` da lista (alinha com a decisao
+  do #14 da planilha de cadastro: filial pode ter telefone e raramente
+  tem CNPJ proprio). `'car'` permanece (CAR e relevante para todas as
+  fazendas com area rural — opcional mas merece aviso).
+
+**14.3.D — Reduzir 3 campos de nome da filial para 1** ✅ implementado
+
+- Hoje ClientUnitModal mostra 3 campos: **Nome (obrigatorio)** = schema
+  `name`, **Razao social** = `legalName`, **Nome fantasia** = `tradeName`.
+- Origem: `legalName` e `tradeName` sao vestigios do `ClientBranch` pre-L5
+  (quando filial PJ tinha razao social/fantasia proprias). No L5, PJ nao
+  tem mais ClientUnit (todos os dados ficam no Client direto). PF tem
+  ClientUnit (filial = fazenda) — fazenda nao tem razao social/fantasia.
+- Decisao: **esconder** os 2 inputs (`legalName`, `tradeName`) da UI do
+  ClientUnitModal. Schema fica intacto (drop column fica para o cleanup
+  final #17). `clientUnitToForm` continua mapeando os campos para
+  retro-compat (caso alguma filial antiga ja tenha valor).
+
+#### 14.4+ — outros pontos UX (a documentar conforme aparecem)
 
 Reservado para os proximos pontos identificados pelo usuario durante o cadastro manual.
 
@@ -1614,32 +1666,32 @@ A reorganizacao esta concluida quando:
 
 ## 19. Tracking
 
-| Fase                                   | Status       | Commit / Deploy                                                    |
-| -------------------------------------- | ------------ | ------------------------------------------------------------------ |
-| L1 — Auditoria                         | ✅ concluida | sem commit (read-only)                                             |
-| L2 — Backup                            | ✅ concluida | sem commit (artefatos em tmp/, gitignored)                         |
-| L3 — Reset destrutivo                  | ✅ concluida | `1b85620` em prod                                                  |
-| M1 — Modo manutencao                   | ✅ ativado   | `de4a032` em prod                                                  |
-| §8 — Estado consolidado                | ✅ concluida | (nesta versao do doc)                                              |
-| §9 — Pontos de revisao                 | ✅ concluida | todas Q-01..Q-27 fechadas                                          |
-| §10 — Decisoes pos-analise             | ✅ concluida | todas decisoes documentadas                                        |
-| §11 — Plano implementacao              | ✅ concluida | itens #1-#11 deployados; #12-#17 pendentes (ver §10 Status)        |
-| L5 — schema PJ direto + ClientUnit     | ✅ concluida | `e65d30d` + `0453882` em prod (2026-04-30)                         |
-| #2 Q-11 + Q-26                         | ✅ concluida | `ff2e253` em prod                                                  |
-| #3+#4 Q-24 + Q-01                      | ✅ concluida | `ecdcbd3` em prod                                                  |
-| #5 Q-02 + Q-25 — Idempotency-Key       | ✅ concluida | `234d1c7` em prod                                                  |
-| #6 Q-05 + Q-08 — inactivate cascade    | ✅ concluida | `2442a7e` em prod                                                  |
-| Commit A — bug fixes B1-B5             | ✅ concluida | `0f93514` em prod                                                  |
-| Q-27 — email 100% opcional             | ✅ concluida | `a6462a6` em prod                                                  |
-| L4 — wizard import PJ                  | ✅ concluida | `ce6f628` (script local, sem deploy)                               |
-| Importacao L4 (134 → 124 PJ no prod)   | ✅ concluida | 2 fases (primeira batch + re-import EXPOCACCER+IPANEMA corrigidos) |
-| Fix UX modal Cadastrar                 | ✅ concluida | `30eba62` em prod (2026-05-04)                                     |
-| **#12 Cadastro manual PFs + fazendas** | em andamento | 1 PF + 4 fazendas cadastrados; restam ~122 PFs                     |
-| **#13 Conferencia banco × planilha**   | pendente     | depende de #12                                                     |
-| **#14 Melhorias UX**                   | em andamento | 14.1 + 14.2 ✅ implementados (commit pendente push); outras virao  |
-| L3.5 — Limpeza GCS                     | pendente     | aguarda confirmacao de download das 44 fotos                       |
-| M2 — Desativar manutencao              | pendente     | apos #12-#13                                                       |
-| Limpeza final                          | pendente     | apos M2 — `git rm` deste doc + L4 wizard + tmp/                    |
+| Fase                                   | Status       | Commit / Deploy                                                     |
+| -------------------------------------- | ------------ | ------------------------------------------------------------------- |
+| L1 — Auditoria                         | ✅ concluida | sem commit (read-only)                                              |
+| L2 — Backup                            | ✅ concluida | sem commit (artefatos em tmp/, gitignored)                          |
+| L3 — Reset destrutivo                  | ✅ concluida | `1b85620` em prod                                                   |
+| M1 — Modo manutencao                   | ✅ ativado   | `de4a032` em prod                                                   |
+| §8 — Estado consolidado                | ✅ concluida | (nesta versao do doc)                                               |
+| §9 — Pontos de revisao                 | ✅ concluida | todas Q-01..Q-27 fechadas                                           |
+| §10 — Decisoes pos-analise             | ✅ concluida | todas decisoes documentadas                                         |
+| §11 — Plano implementacao              | ✅ concluida | itens #1-#11 deployados; #12-#17 pendentes (ver §10 Status)         |
+| L5 — schema PJ direto + ClientUnit     | ✅ concluida | `e65d30d` + `0453882` em prod (2026-04-30)                          |
+| #2 Q-11 + Q-26                         | ✅ concluida | `ff2e253` em prod                                                   |
+| #3+#4 Q-24 + Q-01                      | ✅ concluida | `ecdcbd3` em prod                                                   |
+| #5 Q-02 + Q-25 — Idempotency-Key       | ✅ concluida | `234d1c7` em prod                                                   |
+| #6 Q-05 + Q-08 — inactivate cascade    | ✅ concluida | `2442a7e` em prod                                                   |
+| Commit A — bug fixes B1-B5             | ✅ concluida | `0f93514` em prod                                                   |
+| Q-27 — email 100% opcional             | ✅ concluida | `a6462a6` em prod                                                   |
+| L4 — wizard import PJ                  | ✅ concluida | `ce6f628` (script local, sem deploy)                                |
+| Importacao L4 (134 → 124 PJ no prod)   | ✅ concluida | 2 fases (primeira batch + re-import EXPOCACCER+IPANEMA corrigidos)  |
+| Fix UX modal Cadastrar                 | ✅ concluida | `30eba62` em prod (2026-05-04)                                      |
+| **#12 Cadastro manual PFs + fazendas** | em andamento | 1 PF + 4 fazendas cadastrados; restam ~122 PFs                      |
+| **#13 Conferencia banco × planilha**   | pendente     | depende de #12                                                      |
+| **#14 Melhorias UX**                   | em andamento | 14.1+14.2 ✅ `7de003a`; 14.3 ✅ implementado (commit pendente push) |
+| L3.5 — Limpeza GCS                     | pendente     | aguarda confirmacao de download das 44 fotos                        |
+| M2 — Desativar manutencao              | pendente     | apos #12-#13                                                        |
+| Limpeza final                          | pendente     | apos M2 — `git rm` deste doc + L4 wizard + tmp/                     |
 
 ## 20. Decisoes fechadas (historico)
 

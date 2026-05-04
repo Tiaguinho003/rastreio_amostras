@@ -31,9 +31,12 @@ import {
 import {
   formatClientDocument,
   formatPhone,
+  formatPostalCode,
   maskCpfInput,
   maskCnpjInput,
   maskPhoneInput,
+  maskPostalCodeInput,
+  maskRegistrationNumberInput,
 } from '../../../lib/client-field-formatters';
 import { useCepLookup } from '../../../lib/clients/use-cep-lookup';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
@@ -1220,9 +1223,7 @@ export default function ClientDetailPage() {
                           <div className="sdv-info-item">
                             <span className="sdv-info-label">CEP</span>
                             <span className="sdv-info-value">
-                              {client.postalCode
-                                ? client.postalCode.replace(/(\d{5})(\d{3})/, '$1-$2')
-                                : '—'}
+                              {formatPostalCode(client.postalCode) || '—'}
                             </span>
                           </div>
                         </div>
@@ -1790,9 +1791,12 @@ export default function ClientDetailPage() {
                         value={editClientForm.email}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, email: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            email: e.target.value.toUpperCase(),
+                          }))
                         }
-                        placeholder="contato@empresa.com"
+                        placeholder="CONTATO@EMPRESA.COM"
                       />
                     </label>
                     <label className="app-modal-field">
@@ -1801,12 +1805,14 @@ export default function ClientDetailPage() {
                         className="app-modal-input"
                         value={editClientForm.registrationNumber}
                         disabled={savingClient}
+                        inputMode="numeric"
                         onChange={(e) =>
                           setEditClientForm((c) => ({
                             ...c,
-                            registrationNumber: e.target.value,
+                            registrationNumber: maskRegistrationNumberInput(e.target.value),
                           }))
                         }
+                        placeholder="000.000.000.00-00"
                       />
                     </label>
                     <label className="app-modal-field">
@@ -1820,7 +1826,10 @@ export default function ClientDetailPage() {
                         disabled={savingClient}
                         inputMode="numeric"
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, postalCode: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            postalCode: maskPostalCodeInput(e.target.value),
+                          }))
                         }
                         placeholder="00000-000"
                       />
@@ -1832,7 +1841,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.addressLine}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, addressLine: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            addressLine: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
@@ -1843,7 +1855,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.district}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, district: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            district: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
@@ -1853,7 +1868,12 @@ export default function ClientDetailPage() {
                         className="app-modal-input"
                         value={editClientForm.city}
                         disabled={savingClient}
-                        onChange={(e) => setEditClientForm((c) => ({ ...c, city: e.target.value }))}
+                        onChange={(e) =>
+                          setEditClientForm((c) => ({
+                            ...c,
+                            city: e.target.value.toUpperCase(),
+                          }))
+                        }
                       />
                     </label>
                     <label className="app-modal-field">
@@ -1878,7 +1898,10 @@ export default function ClientDetailPage() {
                         value={editClientForm.complement}
                         disabled={savingClient}
                         onChange={(e) =>
-                          setEditClientForm((c) => ({ ...c, complement: e.target.value }))
+                          setEditClientForm((c) => ({
+                            ...c,
+                            complement: e.target.value.toUpperCase(),
+                          }))
                         }
                       />
                     </label>
