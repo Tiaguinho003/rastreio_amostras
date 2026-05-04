@@ -788,27 +788,39 @@ function ClientsPage() {
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
                     {incomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
-                    <span className="cv2-card-avatar">
-                      <span>{initials}</span>
-                    </span>
-                    <div className="cv2-card-content">
-                      <div className="cv2-card-top">
+                    {/* 14.6.E: card em 2 blocos. Topo: avatar + nome + meta
+                        (type pill + responsaveis). Rodape: indicador de tipo
+                        de pessoa + arrow-btn. */}
+                    <div className="cv2-card-head">
+                      <span className="cv2-card-avatar">
+                        <span>{initials}</span>
+                      </span>
+                      <div className="cv2-card-content">
                         <span className="cv2-card-name">{name}</span>
-                        <span
-                          className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
-                        >
-                          {client.personType}
-                        </span>
-                      </div>
-                      <div className="cv2-card-bottom">
-                        {client.commercialUsers && client.commercialUsers.length > 0 ? (
-                          <UserAvatarStack users={client.commercialUsers} size="sm" />
-                        ) : null}
+                        <div className="cv2-card-meta">
+                          <span
+                            className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
+                          >
+                            {client.personType}
+                          </span>
+                          {client.commercialUsers && client.commercialUsers.length > 0 ? (
+                            <UserAvatarStack users={client.commercialUsers} size="sm" />
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
+                    <span className="cv2-card-divider" aria-hidden="true" />
+                    <div className="cv2-card-foot">
+                      <span className="cv2-card-person-type">
+                        <span className="cv2-card-person-dot" aria-hidden="true" />
+                        {client.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}
+                      </span>
+                      <span className="cv2-card-arrow-btn" aria-hidden="true">
+                        <svg className="spv2-card-chevron" viewBox="0 0 24 24">
+                          <path d="m9 6 6 6-6 6" />
+                        </svg>
+                      </span>
+                    </div>
                   </button>
                 );
               })}
