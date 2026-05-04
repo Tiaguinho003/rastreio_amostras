@@ -19448,27 +19448,9 @@ button:disabled {
     border-radius: 24px;
   }
 
-  /* T4: FAB reposicionado como botao ancorado ao topo no desktop */
-  .cv2-fab {
-    position: fixed;
-    bottom: auto;
-    top: calc(4.5rem + 1.25rem);
-    right: max(calc((100vw - var(--desktop-content-max)) / 2 + var(--desktop-gutter)), 2rem);
-    width: auto;
-    height: auto;
-    border-radius: 12px;
-    padding: 0.65rem 1.15rem 0.65rem 1rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    box-shadow:
-      0 2px 8px rgba(27, 94, 32, 0.22),
-      0 8px 24px rgba(27, 94, 32, 0.18);
-    transition:
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
-    z-index: var(--z-modal-backdrop, 40);
-  }
+  /* 14.4.B/C fix: removido o override antigo que ancorava o FAB no topo
+     com texto. Mantemos apenas o estilo de @901px+ (quadrado fixed
+     bottom-right 60px). Em wide desktop nao precisa mais nenhum override. */
 
   /* ══════════════════════════════════════════
      FASE 2 — DETALHES DESKTOP (sample + client)
