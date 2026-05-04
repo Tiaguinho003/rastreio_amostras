@@ -1241,7 +1241,7 @@ export default function ClientDetailPage() {
                       </div>
                     ) : (
                       /* 14.2: Card "Filiais" (PF apenas — PJ no L5 nao tem ClientUnit). */
-                      <div className="sdv-card">
+                      <div className="sdv-card sdv-card-filiais">
                         <div className="sdv-card-header">
                           <span className="sdv-card-title">
                             {unitPlural} ({visibleUnits.length}

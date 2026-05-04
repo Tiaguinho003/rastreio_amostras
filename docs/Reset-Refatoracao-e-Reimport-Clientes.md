@@ -1039,7 +1039,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
 | 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
 | 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B + 14.4.C ✅ implementados (acumulando no canary); demais sub-itens 14.4 conforme usuario detalhar                |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B + 14.4.C + 14.5.A ✅ implementados (acumulando no canary); demais sub-itens conforme usuario detalhar            |
 | 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
 | 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
 | 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
@@ -1253,7 +1253,15 @@ Commit `aac835a` (animation delay clamp) ja em main, acumulando no canary.
 
 #### 14.5+ — outros pontos UX (a documentar conforme aparecem)
 
-Reservado para pontos que aparecerem durante ou apos o redesign do 14.4.
+**14.5.A — Tema visual no card Filiais + posicao fixa no desktop** ✅ implementado
+
+Mudancas (commit pendente push, acumula no canary com `8cb9cc7`):
+
+- **Sub-cards `.sdv-unit-*` ganharam tema** (mobile e desktop): gradient creme→bege, borda verde-translucido, sombra sutil, status-line lateral verde no `::before` (cinza nas inativas), badge "Filial XX" pill verde, badge "Inativa" pill vermelho, nome em bold escuro, labels (CNPJ:, Local:, IE:, CAR:) em uppercase muted, divider antes das acoes.
+- **Botoes `.sdv-edit-btn-small`**: variante padrao verde (Editar / Mostrar inativas / Reativar) e variante `.is-danger` vermelha (Inativar). Hover/active states com `transform: scale(0.96)`. Antes ficavam sem cor — visual default do browser.
+- **Posicao fixa no desktop** (`@media min-width: 901px`): `.sdv-card-filiais` ancorado em `grid-column: 2; grid-row: 1; align-self: start;` (sobrescreve `align-self: stretch` do `:nth-child(2)` por especificidade casada + ordem de cascata). Card nao estica para acompanhar a coluna 1 nem se desloca quando outros conteudos crescem.
+- **Scroll interno se muitas filiais**: `max-height: calc(100dvh - 16rem)` + `overflow: hidden` no card; `.sdv-unit-list` com `flex: 1; min-height: 0; overflow-y: auto` e scrollbar fina cor `#d6d0c1`.
+- Mobile permanece igual (lista vertical natural).
 
 ### Estado atual do prod (snapshot 2026-05-04)
 
