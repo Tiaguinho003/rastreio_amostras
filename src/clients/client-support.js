@@ -46,7 +46,9 @@ export const CLIENT_LOOKUP_KINDS = {
 };
 
 export const CLIENT_LIST_LIMIT_DEFAULT = 10;
-export const CLIENT_LIST_LIMIT_MAX = 30;
+// 14.4.C: limit max subiu para 60 (alinha com CLIENT_PAGE_LIMIT do
+// frontend; reduz overhead no scroll infinito com 250+ clientes).
+export const CLIENT_LIST_LIMIT_MAX = 60;
 export const CLIENT_AUDIT_LIMIT_DEFAULT = 10;
 export const CLIENT_AUDIT_LIMIT_MAX = 20;
 export const CLIENT_LOOKUP_LIMIT = 8;
