@@ -814,11 +814,9 @@ function ClientsPage() {
                       <div className="cv2-card-content">
                         <span className="cv2-card-name">{name}</span>
                         <div className="cv2-card-meta">
-                          <span
-                            className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
-                          >
-                            {client.personType}
-                          </span>
+                          {/* 14.6.G: pill PJ/PF removido — info redundante com
+                              "Pessoa Juridica/Fisica" no rodape. So fica o
+                              UserAvatarStack sozinho. */}
                           {client.commercialUsers && client.commercialUsers.length > 0 ? (
                             <UserAvatarStack users={client.commercialUsers} size="sm" />
                           ) : null}

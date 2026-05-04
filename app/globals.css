@@ -18661,7 +18661,8 @@ button:disabled {
   }
 
   /* 14.6.E: card em 2 blocos (head + divider + foot). Layout vertical
-     left-aligned. Avatar quadrado arredondado a esquerda do nome. */
+     left-aligned. Avatar quadrado arredondado a esquerda do nome.
+     14.6.G: sombra mais marcada pra dar mais profundidade visual. */
   .clients-page-v2 .cv2-card {
     flex-direction: column;
     align-items: stretch;
@@ -18672,9 +18673,9 @@ button:disabled {
     gap: 0.75rem;
     overflow: visible;
     box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.05),
-      0 8px 18px rgba(19, 35, 24, 0.1),
-      0 16px 36px rgba(19, 35, 24, 0.06);
+      0 4px 8px rgba(0, 0, 0, 0.08),
+      0 14px 28px rgba(19, 35, 24, 0.16),
+      0 28px 56px rgba(19, 35, 24, 0.1);
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease;
@@ -18683,9 +18684,9 @@ button:disabled {
   .clients-page-v2 .cv2-card:hover {
     transform: translateY(-3px);
     box-shadow:
-      0 4px 8px rgba(0, 0, 0, 0.08),
-      0 12px 24px rgba(19, 35, 24, 0.16),
-      0 20px 44px rgba(19, 35, 24, 0.1);
+      0 6px 12px rgba(0, 0, 0, 0.12),
+      0 18px 36px rgba(19, 35, 24, 0.22),
+      0 32px 64px rgba(19, 35, 24, 0.14);
   }
 
   .clients-page-v2 .cv2-card:active {
@@ -18811,10 +18812,13 @@ button:disabled {
     background: #ece4cf;
   }
 
+  /* 14.6.G: chevron usa a cor do avatar do cliente (--avatar-color) —
+     cada card pinta a seta com a sua cor personalizada via inline style. */
   .clients-page-v2 .cv2-card-arrow-btn .spv2-card-chevron {
     width: 16px;
     height: 16px;
-    stroke: #6f6757;
+    stroke: var(--avatar-color, #6f6757);
+    stroke-width: 2.2;
   }
 
   /* Chips: sem padding lateral (container pai cuida) */
