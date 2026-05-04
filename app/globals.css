@@ -18611,7 +18611,9 @@ button:disabled {
   }
 
   .clients-v2-header {
-    padding: 0 0 0.5rem;
+    /* 14.6.F: gap maior entre titulo "Clientes" e barra de pesquisa
+       (era 0.5rem -> 1.5rem). */
+    padding: 0 0 1.5rem;
     flex-shrink: 0;
   }
 
@@ -18896,25 +18898,39 @@ button:disabled {
     transform: translateY(0) scale(0.96);
   }
 
+  /* 14.6.F: barra de pesquisa + FAB inline lado a lado. Form ocupa o
+     espaco esquerdo, FAB fica no canto direito (proximo da borda do
+     sheet). Mobile NAO entra aqui — FAB no mobile mantem fixed. */
   .clients-page-v2 .hero-search-wrap {
     padding: 0 0 0.75rem;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 
-  /* 14.4.B: FAB desktop volta ao formato quadrado fixed bottom-right (igual
-     mobile, mas 60px e mais afastado da borda). */
-  .cv2-fab {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
+  .clients-page-v2 .hero-search-wrap .hero-search-bar {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* 14.6.F: FAB inline a direita da barra de pesquisa no desktop.
+     Sobrescreve o position: fixed do mobile. Tamanho casa com a
+     altura aproximada da search-bar. */
+  .clients-page-v2 .hero-search-wrap .cv2-fab {
+    position: relative;
+    bottom: auto;
+    right: auto;
     top: auto;
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 14px;
     padding: 0;
     display: inline-grid;
     place-items: center;
     gap: 0;
+    flex-shrink: 0;
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease;

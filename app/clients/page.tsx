@@ -365,7 +365,11 @@ function ClientsPage() {
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          setUsers(response.items);
+          // 14.6.F: filtro de responsavel comercial mostra SO usuarios com
+          // role COMMERCIAL — outros papeis (admin, classifier, registration)
+          // nao costumam ser responsaveis comerciais de cliente.
+          const commercials = response.items.filter((u) => u.role === 'COMMERCIAL');
+          setUsers(commercials);
         }
       })
       .catch(() => {
@@ -666,7 +670,8 @@ function ClientsPage() {
           </button>
         </header>
 
-        {/* Search bar — in green area, dashboard style */}
+        {/* Search bar + FAB inline a direita (desktop). No mobile o FAB
+            sai do fluxo via position: fixed. */}
         <div className="hero-search-wrap">
           <form className="hero-search-bar" role="search" onSubmit={handleClientSearchSubmit}>
             <svg
@@ -687,6 +692,17 @@ function ClientsPage() {
               spellCheck={false}
             />
           </form>
+          <button
+            type="button"
+            className="cv2-fab"
+            aria-label="Cadastrar novo cliente"
+            onClick={() => setClientQuickCreateOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </button>
         </div>
 
         {/* Sheet */}
@@ -847,19 +863,6 @@ function ClientsPage() {
           )}
         </section>
       </section>
-
-      {/* FAB - Add client */}
-      <button
-        type="button"
-        className="cv2-fab"
-        aria-label="Cadastrar novo cliente"
-        onClick={() => setClientQuickCreateOpen(true)}
-      >
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </button>
 
       {/* Client detail modal */}
       {clientsState.detailOpen ? (
