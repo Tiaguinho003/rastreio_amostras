@@ -771,7 +771,10 @@ function ClientsPage() {
                     className={`cv2-card${incomplete ? ' is-incomplete' : ''}`}
                     style={
                       {
-                        animationDelay: `${i * 0.04}s`,
+                        // 14.4.B fix: clamp delay para nao deixar cards distantes
+                        // invisiveis por segundos (com 150 entries, i*0.04 chegava
+                        // a 6s e travava cards em opacity: 0).
+                        animationDelay: `${Math.min(i, 25) * 0.03}s`,
                         '--avatar-color': avatarColor,
                       } as React.CSSProperties
                     }
