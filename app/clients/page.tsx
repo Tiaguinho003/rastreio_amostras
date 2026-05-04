@@ -34,7 +34,10 @@ const CLIENT_PAGE_LIMIT = 60;
 // v1 antigos no browser ficam orfaos; proximo save sobrescreve com v2.
 const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v2';
 const CLIENTS_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
-const CLIENT_LOAD_MORE_ROOT_MARGIN = '200px';
+// 14.6.D: rootMargin '0px' — sentinel so dispara fetch quando ja esta
+// realmente visivel (sem prefetch agressivo). Combinado com lock de scroll
+// durante loading-more, da feedback claro de pausa pro usuario.
+const CLIENT_LOAD_MORE_ROOT_MARGIN = '0px';
 
 function clientDocument(client: ClientSummary | null) {
   if (!client) {
@@ -145,6 +148,10 @@ interface ClientsListState {
   nextCursor: ClientCursor | null;
   status: ClientsListStatus;
   error: string | null;
+  // 14.6.D: indice (no array merged) do primeiro card recem-chegado.
+  // Usado pra calcular --anim-delay row-major SO nos novos cards
+  // (cards antigos nao re-animam). null = nenhum batch novo pendente.
+  firstNewIndex: number | null;
   selectedId: string | null;
   detail: ClientSummary | null;
   units: ClientUnitSummary[];
@@ -191,6 +198,7 @@ const CLIENTS_INITIAL: ClientsListState = {
   nextCursor: null,
   status: 'loading-initial',
   error: null,
+  firstNewIndex: null,
   selectedId: null,
   detail: null,
   units: [],
@@ -214,6 +222,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
+        firstNewIndex: 0,
       };
     case 'success-more':
       return {
@@ -223,6 +232,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
+        firstNewIndex: state.items.length,
       };
     case 'restoreSnapshot':
       return {
@@ -233,6 +243,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
+        firstNewIndex: null,
       };
     case 'error':
       return { ...state, status: 'error', error: action.message };
@@ -731,7 +742,11 @@ function ClientsPage() {
               </div>
             </div>
           ) : (
-            <div ref={clientsScrollRef} className="spv2-list-scroll" tabIndex={-1}>
+            <div
+              ref={clientsScrollRef}
+              className={`spv2-list-scroll${clientsState.status === 'loading-more' ? ' is-loading-more' : ''}`}
+              tabIndex={-1}
+            >
               {groupedDisplay.map((node) => {
                 if (node.kind === 'divider') {
                   return (
@@ -757,10 +772,16 @@ function ClientsPage() {
                     className={`cv2-card${incomplete ? ' is-incomplete' : ''}`}
                     style={
                       {
-                        // 14.4.B fix: clamp delay para nao deixar cards distantes
-                        // invisiveis por segundos (com 150 entries, i*0.04 chegava
-                        // a 6s e travava cards em opacity: 0).
-                        animationDelay: `${Math.min(i, 25) * 0.03}s`,
+                        // 14.6.D: cascade row-major SO nos cards do batch atual.
+                        // firstNewIndex marca onde os novos comecam no array
+                        // merged. Cards antes desse indice ja animaram (delay 0),
+                        // cards a partir dele animam relativo a posicao no batch
+                        // novo. Cap em 25 evita delay > 0.75s. Cards quando
+                        // firstNewIndex e null (snapshot restore) nao re-animam.
+                        animationDelay:
+                          clientsState.firstNewIndex !== null && i >= clientsState.firstNewIndex
+                            ? `${Math.min(i - clientsState.firstNewIndex, 25) * 0.03}s`
+                            : '0s',
                         '--avatar-color': avatarColor,
                       } as React.CSSProperties
                     }
@@ -791,10 +812,23 @@ function ClientsPage() {
                   </button>
                 );
               })}
-              {/* 14.4.A: sentinel para IntersectionObserver carregar próximos. */}
+              {/* 14.6.D: sentinel + spinner. Quando loading-more, scroll trava
+                  via classe is-loading-more no parent (CSS overflow:hidden) e
+                  spinner anima centrado abaixo dos cards. */}
               {clientsState.nextCursor ? (
-                <div ref={loadMoreRef} className="cv2-load-more-sentinel" aria-hidden="true">
-                  {clientsState.status === 'loading-more' ? <span>Carregando…</span> : null}
+                <div ref={loadMoreRef} className="cv2-load-more-sentinel">
+                  {clientsState.status === 'loading-more' ? (
+                    <>
+                      <span
+                        className="cv2-load-more-spinner"
+                        aria-hidden="true"
+                        role="presentation"
+                      />
+                      <span className="cv2-load-more-text">
+                        Carregando proximos {CLIENT_PAGE_LIMIT}...
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
