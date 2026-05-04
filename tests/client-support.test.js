@@ -161,7 +161,11 @@ test('Q-11/Q-27: isClientComplete marca PF incompleto so por cpf/units (email NA
     ],
   });
   assert.equal(r3.complete, false);
-  assert.ok(r3.missing.some((m) => m.startsWith('units[unit-1].cnpj')));
+  // 14.3.C: cnpj e phone foram REMOVIDOS dos recomendados (filiais raramente
+  // tem CNPJ proprio e telefone proprio). Outros recomendados continuam.
+  assert.ok(!r3.missing.some((m) => m.startsWith('units[unit-1].cnpj')));
+  assert.ok(!r3.missing.some((m) => m.startsWith('units[unit-1].phone')));
+  assert.ok(r3.missing.some((m) => m.startsWith('units[unit-1].addressLine')));
   assert.ok(r3.missing.some((m) => m.startsWith('units[unit-1].car')));
 
   // PF com unidade INATIVA conta como sem unidade ATIVA
