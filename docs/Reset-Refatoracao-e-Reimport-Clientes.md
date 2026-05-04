@@ -1039,7 +1039,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
 | 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
 | 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A ✅ implementado (commit pendente push); demais sub-itens 14.4 conforme usuario detalhar                                   |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B ✅ implementados (acumulando no canary); demais sub-itens 14.4 conforme usuario detalhar                         |
 | 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
 | 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
 | 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
@@ -1212,6 +1212,30 @@ Out of scope deste sub-item (vao para sub-itens futuros 14.4.B+):
 - Animacoes/efeitos hover/focus refinados.
 - Divergencias mobile/desktop adicionais (drawer de filtros, layout de detalhe etc.).
 - Sort server-side alfabetico via `$queryRaw` (se reordenamento visual incomodar na pratica).
+
+**14.4.B — FAB flutuante + indice alfabetico + badge incompleto + chip filtro** ✅ implementado
+
+Mudancas (commit pendente push, acumula no canary com 14.4.A):
+
+- **FAB "Novo cliente" flutuante em ambos dispositivos**: desktop @901px+ deixa de ser retangulo no topo com texto e vira quadrado fixed `bottom: 2rem; right: 2rem` (60px, 24px de icone). Remove `::after content "Novo cliente"`.
+- **Indice alfabetico tipo iPhone (mobile only)**:
+  - Divisores `position: sticky; top: 0` entre cards de inicial diferente.
+  - Layout: letra a esquerda + linha fina a direita.
+  - Hide via CSS em desktop (grid 6 cols nao comporta).
+  - **Toggle "Mais recentes / Alfabetico" REMOVIDO** — fica fixo em alfabetico crescente (decisao do usuario).
+- **Badge incompleto SVG amarelo no canto superior direito do card**:
+  - Novo componente `components/clients/IncompleteIcon.tsx` (SVG inline, fill `#f59e0b`, stroke `#92400e`, consistente cross-device).
+  - Posicao absoluta `top: 6px; right: 6px` no `.cv2-card`.
+  - Animacao `cv2-incomplete-pulse`: opacidade 0.75→1.0 + scale 1→1.18, loop 1.5s.
+  - Substitui `ClientCompleteBadge variant="icon-only"` no card; `ClientCompleteBadge` original permanece intacto (usado em `ClientLookupField` na busca de cliente em `/samples/new`).
+- **Chip de filtro de incompletos**:
+  - Substitui botao "Só incompletos" por chip pequeno: `IncompleteIcon` + numero (sem palavra).
+  - Sempre visivel (mostra "0" quando zerado).
+  - Quando ativo: `border-color: #f59e0b; background: rgba(245, 158, 11, 0.12); color: #92400e`.
+  - Reaproveita o mesmo `IncompleteIcon` do badge do card.
+  - Remove `· X incompletos` do contador da meta-bar (numero ja esta no chip).
+
+Quality gates verdes (lint, format, typecheck, validate-schemas, contracts, unit, build).
 
 #### 14.5+ — outros pontos UX (a documentar conforme aparecem)
 

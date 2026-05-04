@@ -4641,6 +4641,7 @@ button:disabled {
 }
 
 .cv2-card {
+  position: relative; /* 14.4.B: necessario para o badge absoluto */
   display: flex;
   align-items: center;
   gap: clamp(10px, 3vw, 12px);
@@ -4662,6 +4663,107 @@ button:disabled {
   transition: transform 0.15s ease;
   animation: spv2-cardIn 0.35s ease backwards;
   flex-shrink: 0;
+}
+
+/* 14.4.B: badge "incompleto" no canto superior direito do card.
+   SVG amarelo com pulsacao (opacidade + scale). */
+.cv2-card-incomplete-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  animation: cv2-incomplete-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cv2-incomplete-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+/* 14.4.B: chip de filtro de incompletos (substitui botao "Só incompletos"). */
+.cv2-filter-incomplete-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.cv2-filter-incomplete-chip:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.cv2-filter-incomplete-chip.is-active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+}
+
+.cv2-filter-incomplete-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.cv2-filter-incomplete-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 14.4.B: divisor alfabetico tipo iPhone (mobile only).
+   Sticky no topo do scroll container (.spv2-list-scroll). */
+.cv2-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px 4px;
+  margin: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #faf8f4;
+}
+
+.cv2-section-divider-letter {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.cv2-section-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Desktop: divisor nao aparece (grid 6cols nao comporta). */
+@media (min-width: 901px) {
+  .cv2-section-divider {
+    display: none;
+  }
 }
 
 .cv2-card:active {
@@ -18242,43 +18344,42 @@ button:disabled {
     flex-shrink: 0;
   }
 
-  /* FAB: reposicionar no topo, entre search e cards */
+  /* 14.4.B: FAB desktop volta ao formato quadrado fixed bottom-right (igual
+     mobile, mas 60px e mais afastado da borda). */
   .cv2-fab {
     position: fixed;
-    bottom: auto;
-    top: calc(4.5rem + 1rem);
-    right: max(calc((100vw - var(--desktop-content-max)) / 2 + var(--desktop-gutter)), 2rem);
-    width: auto;
-    height: auto;
-    border-radius: 14px;
-    padding: 0.6rem 1.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    bottom: 2rem;
+    right: 2rem;
+    top: auto;
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    gap: 0;
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease;
   }
 
+  /* 14.4.B: remove o texto "Novo cliente" — desktop fica igual mobile. */
   .cv2-fab::after {
-    content: 'Novo cliente';
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: #ffffff;
+    content: none;
   }
 
   .cv2-fab svg {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
   }
 
   .cv2-fab:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(27, 94, 32, 0.4);
+    box-shadow: 0 10px 28px rgba(27, 94, 32, 0.45);
   }
 
   .cv2-fab:active {
-    transform: scale(0.97);
+    transform: scale(0.95);
   }
 
   /* Client detail modal: padrao client-quick-create (750px, no-scroll) */

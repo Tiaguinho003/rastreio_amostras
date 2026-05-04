@@ -13,8 +13,8 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { ClientCompleteBadge } from '../../components/clients/ClientCompleteBadge';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
+import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { isClientComplete } from '../../lib/clients/client-completeness';
 import { ApiError, getClient, listClients, lookupUsersForReference } from '../../lib/api-client';
@@ -265,7 +265,6 @@ function ClientsPage() {
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
   const clientSearchDebounceRef = useRef<number | null>(null);
 
-  const [sortMode, setSortMode] = useState<'alphabetical' | 'recent'>('alphabetical');
   const [commercialUserFilter, setCommercialUserFilter] = useState<string>('');
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false);
   const [users, setUsers] = useState<UserLookupItem[]>([]);
@@ -284,23 +283,37 @@ function ClientsPage() {
     return clientsState.items.reduce((acc, c) => acc + (isClientComplete(c).complete ? 0 : 1), 0);
   }, [clientsState.items]);
 
-  // 14.4.A: filtros restantes — '🟠 Só incompletos' (client-side) +
-  // ordenacao client-side ('alphabetical' default | 'recent' = ordem do
-  // servidor, createdAt DESC). Sort client-side sobre items carregados.
+  // 14.4.B: ordenacao FIXA em alfabetico (toggle "Mais recentes" removido).
+  // Filtro client-side: chip '⚠️ N' (incompletos).
   const displayClients = useMemo(() => {
     let filtered = clientsState.items;
     if (showOnlyIncomplete) {
       filtered = filtered.filter((c) => !isClientComplete(c).complete);
-    }
-    if (sortMode === 'recent') {
-      return filtered;
     }
     return [...filtered].sort((a, b) => {
       const na = clientDisplayName(a).toLowerCase();
       const nb = clientDisplayName(b).toLowerCase();
       return na.localeCompare(nb);
     });
-  }, [clientsState.items, sortMode, showOnlyIncomplete]);
+  }, [clientsState.items, showOnlyIncomplete]);
+
+  // 14.4.B: agrupa cards por inicial para divisores alfabeticos (mobile-only;
+  // CSS hide em desktop grid).
+  const groupedDisplay = useMemo(() => {
+    const out: Array<
+      { kind: 'divider'; letter: string } | { kind: 'card'; client: ClientSummary; index: number }
+    > = [];
+    let lastLetter: string | null = null;
+    displayClients.forEach((c, i) => {
+      const letter = (clientDisplayName(c).trim().charAt(0) || '#').toUpperCase();
+      if (letter !== lastLetter) {
+        out.push({ kind: 'divider', letter });
+        lastLetter = letter;
+      }
+      out.push({ kind: 'card', client: c, index: i });
+    });
+    return out;
+  }, [displayClients]);
 
   // Debounce effect for client search
   useEffect(() => {
@@ -687,43 +700,24 @@ function ClientsPage() {
 
           {/* 14.4.A: chips Todos/Comprador/Vendedor removidos. */}
 
-          {/* Count + Filters + Sort */}
+          {/* Count + Filtro de incompletos (14.4.B) */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">
-              {displayClients.length} clientes
-              {incompleteCount > 0 ? ` · ${incompleteCount} incompletos` : null}
-            </span>
+            <span className="spv2-list-count">{displayClients.length} clientes</span>
             <div className="spv2-list-meta-actions">
-              {incompleteCount > 0 ? (
-                <button
-                  type="button"
-                  className={`spv2-toggle-btn${showOnlyIncomplete ? ' is-active' : ''}`}
-                  onClick={() => setShowOnlyIncomplete((v) => !v)}
-                  aria-pressed={showOnlyIncomplete}
-                  title="Mostrar somente clientes incompletos"
-                >
-                  <span aria-hidden="true">🟠</span>
-                  <span>{showOnlyIncomplete ? 'Mostrando incompletos' : 'Só incompletos'}</span>
-                </button>
-              ) : null}
               <button
                 type="button"
-                className="spv2-sort-btn"
-                onClick={() =>
-                  setSortMode((m) => (m === 'alphabetical' ? 'recent' : 'alphabetical'))
-                }
+                className={`cv2-filter-incomplete-chip${showOnlyIncomplete ? ' is-active' : ''}`}
+                onClick={() => setShowOnlyIncomplete((v) => !v)}
+                aria-pressed={showOnlyIncomplete}
+                aria-label={`Filtrar somente clientes incompletos (${incompleteCount})`}
                 title={
-                  sortMode === 'alphabetical'
-                    ? 'Ordenado A–Z. Clique para ver mais recentes.'
-                    : 'Ordenado por mais recentes. Clique para ordem alfabética.'
+                  showOnlyIncomplete
+                    ? `Mostrando ${incompleteCount} incompleto(s). Clique para ver todos.`
+                    : `${incompleteCount} cadastro(s) incompleto(s). Clique para filtrar.`
                 }
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M4 6h16" />
-                  <path d="M4 12h10" />
-                  <path d="M4 18h6" />
-                </svg>
-                <span>{sortMode === 'alphabetical' ? 'Alfabético' : 'Mais recentes'}</span>
+                <IncompleteIcon className="cv2-filter-incomplete-icon" />
+                <span className="cv2-filter-incomplete-count">{incompleteCount}</span>
               </button>
             </div>
           </div>
@@ -752,7 +746,20 @@ function ClientsPage() {
             </div>
           ) : (
             <div ref={clientsScrollRef} className="spv2-list-scroll" tabIndex={-1}>
-              {displayClients.map((client, i) => {
+              {groupedDisplay.map((node) => {
+                if (node.kind === 'divider') {
+                  return (
+                    <div
+                      key={`div-${node.letter}`}
+                      className="cv2-section-divider"
+                      aria-hidden="true"
+                    >
+                      <span className="cv2-section-divider-letter">{node.letter}</span>
+                      <span className="cv2-section-divider-line" />
+                    </div>
+                  );
+                }
+                const { client, index: i } = node;
                 const name = clientDisplayName(client);
                 const avatarColor = getAvatarColor(name);
                 const initials = getClientInitials(name);
@@ -770,17 +777,13 @@ function ClientsPage() {
                     }
                     onClick={(event) => openClientDetail(client.id, event.currentTarget)}
                   >
+                    {incomplete ? <IncompleteIcon className="cv2-card-incomplete-badge" /> : null}
                     <span className="cv2-card-avatar">
                       <span>{initials}</span>
                     </span>
                     <div className="cv2-card-content">
                       <div className="cv2-card-top">
-                        <span className="cv2-card-name">
-                          {name}
-                          {incomplete ? (
-                            <ClientCompleteBadge client={client} variant="icon-only" />
-                          ) : null}
-                        </span>
+                        <span className="cv2-card-name">{name}</span>
                         <span
                           className={`cv2-card-type ${client.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
                         >
