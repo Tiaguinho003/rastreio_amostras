@@ -804,15 +804,6 @@ function ClientsPage() {
                         </span>
                       </div>
                       <div className="cv2-card-bottom">
-                        {client.isBuyer ? (
-                          <span className="cv2-card-role is-buyer">Comprador</span>
-                        ) : null}
-                        {client.isSeller ? (
-                          <span className="cv2-card-role is-seller">Vendedor</span>
-                        ) : null}
-                        {!client.isBuyer && !client.isSeller ? (
-                          <span className="cv2-card-role is-none">Sem papel</span>
-                        ) : null}
                         {client.commercialUsers && client.commercialUsers.length > 0 ? (
                           <UserAvatarStack users={client.commercialUsers} size="sm" />
                         ) : null}

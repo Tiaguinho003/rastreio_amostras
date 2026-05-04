@@ -18477,6 +18477,19 @@ button:disabled {
     color: #8a9285;
   }
 
+  /* 14.6.A: chip incompletos desktop — um pouco maior que mobile pra
+     casar visualmente com o novo botao usuario na mesma linha. */
+  .clients-page-v2 .cv2-filter-incomplete-chip {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    gap: 6px;
+  }
+
+  .clients-page-v2 .cv2-filter-incomplete-icon {
+    width: 16px;
+    height: 16px;
+  }
+
   /* Footer: paginacao no rodape do container */
   .clients-page-v2 .spv2-footer {
     padding: 0.6rem 0 0.2rem;
@@ -19817,15 +19830,15 @@ button:disabled {
     width: auto;
   }
 
-  /* 14.4.C: clients — 6 colunas × 5 linhas exatas (30 cards visiveis sem
-     scroll). Cards esticam pra preencher altura disponivel do flex parent.
-     Min 110px por row para evitar cards muito apertados em viewport baixa
-     (laptop 768p). Em viewport grande (1080p+) cards ficam ~140-200px. */
+  /* 14.6.A: clients — 6 colunas × 4 linhas (24 cards visiveis sem scroll).
+     Cards mais altos que em 14.4.C (5 rows -> 4 rows). Min 130px por row
+     pra continuar usavel em laptop 768p (4*130=520, sobra ~250px pra header
+     + filtros). Em viewport grande (1080p+) cards ficam ~180-250px. */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-template-rows: repeat(5, minmax(110px, 1fr));
-    grid-auto-rows: minmax(110px, 1fr);
+    grid-template-rows: repeat(4, minmax(130px, 1fr));
+    grid-auto-rows: minmax(130px, 1fr);
     gap: 1rem;
     justify-content: start;
     padding: 0.4rem 0.2rem 0.2rem;
