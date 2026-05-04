@@ -4700,8 +4700,9 @@ button:disabled {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 18px;
-  height: 18px;
+  /* 14.6.H: dobro do tamanho (18 -> 36px) pra ficar mais visivel. */
+  width: 36px;
+  height: 36px;
   z-index: 2;
   pointer-events: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
