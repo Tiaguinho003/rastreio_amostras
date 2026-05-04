@@ -1039,7 +1039,7 @@ Para cada # da ordem (Q-21), seguir 5 passos:
 | 11  | Fix UX modal "Cadastrar" (erro inline "Obrigatorio" + `cursor: not-allowed`) | ✅ deployado 2026-05-04 — `30eba62`                                                                                                                                   |
 | 12  | **Cadastro manual dos PFs + fazendas**                                       | em andamento — Antonio Jacinto Caetano + 4 fazendas cadastrados; restam ~122 PFs (lista preparada em planilha com 3 sheets: PJ/PF/PF_Fazendas, total 150 fazendas)    |
 | 13  | Conferencia banco × planilha pos-cadastros manuais                           | aguarda #12 terminar (script vai cruzar CPF + nome de fazenda como chaves)                                                                                            |
-| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B ✅ implementados (acumulando no canary); demais sub-itens 14.4 conforme usuario detalhar                         |
+| 14  | **Melhorias UX detectadas durante cadastro manual (em andamento)**           | 14.1+14.2+14.3 ✅ deployado em prod; 14.4.A + 14.4.B + 14.4.C ✅ implementados (acumulando no canary); demais sub-itens 14.4 conforme usuario detalhar                |
 | 15  | L3.5 — apagar 44 fotos orfas no GCS                                          | aguarda confirmacao usuario do download local                                                                                                                         |
 | 16  | M2 — desativar modo manutencao                                               | apos #12-#13                                                                                                                                                          |
 | 17  | Cleanup final — `git rm` deste doc + script L4 + diretorio `tmp/`            | encerra ciclo                                                                                                                                                         |
@@ -1236,6 +1236,20 @@ Mudancas (commit pendente push, acumula no canary com 14.4.A):
   - Remove `· X incompletos` do contador da meta-bar (numero ja esta no chip).
 
 Quality gates verdes (lint, format, typecheck, validate-schemas, contracts, unit, build).
+
+**14.4.C — Layout 6×5 desktop + limit 60 + contagens totais** ✅ implementado
+
+Mudancas (commit pendente push, acumula no canary):
+
+- **Layout desktop @1200px+**: grid `repeat(6, minmax(0, 1fr))` × `repeat(5, minmax(110px, 1fr))` + `grid-auto-rows: minmax(110px, 1fr)`. Cards esticam pra preencher altura disponivel do flex parent — 30 cards visiveis sem scroll. Min 110px protege viewports baixas (laptops 768p).
+- **Cards desktop**: `justify-content: center` (conteudo centralizado vertical quando rows grandes). Removido `margin-top: 0.95rem` do `.cv2-card-avatar` desktop.
+- **Limite por carga**: `CLIENT_PAGE_LIMIT` 30 → 60 (reduz overhead com 250+ clientes mantendo chunks razoaveis).
+- **Backend** (`src/clients/client-service.js`): `listClients` agora retorna `page.incompleteTotal` — count separado usando `buildCompletenessWhere('incomplete')` sobre `filtersWhere` (sem cursor, sem completeness do input — respeita filtros explicitos como search/responsavel comercial/status).
+- **`buildClientListCursorPage`** (`src/clients/client-support.js`): aceita 4º arg `incompleteTotal`.
+- **Frontend** (`app/clients/page.tsx`): state ganha `incompleteTotal`; reducer atualiza em `success-initial`/`success-more`/`restoreSnapshot`. Removido `useMemo` `incompleteCount` (calculado client-side sobre items carregados — sobia conforme scroll).
+- **JSX**: "X clientes" usa `clientsState.total`; chip `⚠ N` usa `clientsState.incompleteTotal`. Ambos refletem total real do banco respeitando filtros server-side.
+
+Commit `aac835a` (animation delay clamp) ja em main, acumulando no canary.
 
 #### 14.5+ — outros pontos UX (a documentar conforme aparecem)
 

@@ -240,6 +240,7 @@ export interface ClientsListResponse {
   page: {
     limit: number;
     total: number;
+    incompleteTotal: number;
     nextCursor: { createdAt: string; id: string } | null;
   };
 }

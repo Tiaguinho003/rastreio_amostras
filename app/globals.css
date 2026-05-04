@@ -18193,6 +18193,7 @@ button:disabled {
   .clients-page-v2 .cv2-card {
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     text-align: center;
     padding: 0;
     border-radius: 14px;
@@ -18219,13 +18220,13 @@ button:disabled {
     transform: translateY(-1px) scale(0.98);
   }
 
-  /* Avatar: reduzido em 25% */
+  /* Avatar: reduzido em 25%. 14.4.C: removido margin-top (justify-content
+     center no card pai centraliza tudo verticalmente). */
   .clients-page-v2 .cv2-card-avatar {
     width: 42px;
     min-width: 42px;
     height: 42px;
     border-radius: 12px;
-    margin-top: 0.95rem;
   }
 
   .clients-page-v2 .cv2-card-avatar span {
@@ -19634,10 +19635,15 @@ button:disabled {
     width: auto;
   }
 
-  /* 14.4.A: clients — desktop wide com 6 colunas exatas (era auto-fill 195px). */
+  /* 14.4.C: clients — 6 colunas × 5 linhas exatas (30 cards visiveis sem
+     scroll). Cards esticam pra preencher altura disponivel do flex parent.
+     Min 110px por row para evitar cards muito apertados em viewport baixa
+     (laptop 768p). Em viewport grande (1080p+) cards ficam ~140-200px. */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(110px, 1fr));
+    grid-auto-rows: minmax(110px, 1fr);
     gap: 1rem;
     justify-content: start;
     padding: 0.4rem 0.2rem 0.2rem;

@@ -724,9 +724,12 @@ export class ClientService {
         }
       : null;
 
-    // Filtro multi-user: ANY (some) — clients onde QUALQUER um dos userIds da
-    // lista esta vinculado. Vazio = sem filtro.
-    const baseWhere = {
+    // 14.4.C: filtersWhere contem apenas filtros server-side (sem cursor,
+    // sem completeness do input). Usado para o count separado de
+    // incompletos, garantindo que a UI exiba sempre o total real do banco
+    // (respeitando filtros explicitos como search/responsavel/etc), nao o
+    // que esta carregado pelo scroll.
+    const filtersWhere = {
       ...(status ? { status } : {}),
       ...(personType ? { personType } : {}),
       ...(isBuyer === null ? {} : { isBuyer }),
@@ -734,6 +737,12 @@ export class ClientService {
       ...(commercialUserIds.length > 0
         ? { commercialUsers: { some: { userId: { in: commercialUserIds } } } }
         : {}),
+    };
+
+    // Filtro multi-user: ANY (some) — clients onde QUALQUER um dos userIds da
+    // lista esta vinculado. Vazio = sem filtro.
+    const baseWhere = {
+      ...filtersWhere,
       ...(completeness ? buildCompletenessWhere(completeness) : {}),
       ...(cursorWhere ?? {}),
     };
@@ -750,6 +759,15 @@ export class ClientService {
       };
     }
 
+    // 14.4.C: count de incompletos usando filtersWhere (sem cursor, sem
+    // completeness do input). Aplica buildCompletenessWhere('incomplete')
+    // sempre — independente do filtro completeness do request — para
+    // mostrar contagem total na UI. Reusa entre exactCode e fallback paths.
+    const incompleteWhere = {
+      ...filtersWhere,
+      ...buildCompletenessWhere('incomplete'),
+    };
+
     const exactCodeSearch = parseExactCodeSearch(search);
     if (exactCodeSearch !== null) {
       const exactCodeWhere = {
@@ -757,7 +775,7 @@ export class ClientService {
         code: exactCodeSearch,
       };
 
-      const [rows, total] = await this.prisma.$transaction([
+      const [rows, total, incompleteTotal] = await this.prisma.$transaction([
         this.prisma.client.findMany({
           where: exactCodeWhere,
           orderBy,
@@ -765,13 +783,14 @@ export class ClientService {
           select: CLIENT_SUMMARY_SELECT,
         }),
         this.prisma.client.count({ where: exactCodeWhere }),
+        this.prisma.client.count({ where: incompleteWhere }),
       ]);
 
       if (total > 0) {
         const { items, nextCursor } = extractNextCursor(rows);
         return {
           items: items.map((item) => mapClientRow(item)),
-          page: buildClientListCursorPage(total, limit, nextCursor),
+          page: buildClientListCursorPage(total, limit, nextCursor, incompleteTotal),
         };
       }
     }
@@ -781,7 +800,7 @@ export class ClientService {
       ...(buildClientWhereFromSearch(search) ?? {}),
     };
 
-    const [rows, total] = await this.prisma.$transaction([
+    const [rows, total, incompleteTotal] = await this.prisma.$transaction([
       this.prisma.client.findMany({
         where,
         orderBy,
@@ -789,12 +808,13 @@ export class ClientService {
         select: CLIENT_SUMMARY_SELECT,
       }),
       this.prisma.client.count({ where }),
+      this.prisma.client.count({ where: incompleteWhere }),
     ]);
 
     const { items, nextCursor } = extractNextCursor(rows);
     return {
       items: items.map((item) => mapClientRow(item)),
-      page: buildClientListCursorPage(total, limit, nextCursor),
+      page: buildClientListCursorPage(total, limit, nextCursor, incompleteTotal),
     };
   }
 

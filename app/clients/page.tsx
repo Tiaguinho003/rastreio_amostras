@@ -28,7 +28,7 @@ import type {
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
-const CLIENT_PAGE_LIMIT = 30;
+const CLIENT_PAGE_LIMIT = 60;
 const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v1';
 const CLIENTS_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const CLIENT_LOAD_MORE_ROOT_MARGIN = '200px';
@@ -137,6 +137,7 @@ type ClientsListStatus = 'loading-initial' | 'loading-more' | 'idle' | 'error';
 interface ClientsListState {
   items: ClientSummary[];
   total: number;
+  incompleteTotal: number;
   nextCursor: ClientCursor | null;
   status: ClientsListStatus;
   error: string | null;
@@ -155,11 +156,13 @@ type ClientsListAction =
       type: 'success-initial';
       items: ClientSummary[];
       total: number;
+      incompleteTotal: number;
       nextCursor: ClientCursor | null;
     }
   | {
       type: 'success-more';
       items: ClientSummary[];
+      incompleteTotal: number;
       nextCursor: ClientCursor | null;
     }
   | { type: 'error'; message: string }
@@ -173,12 +176,14 @@ type ClientsListAction =
       type: 'restoreSnapshot';
       items: ClientSummary[];
       total: number;
+      incompleteTotal: number;
       nextCursor: ClientCursor | null;
     };
 
 const CLIENTS_INITIAL: ClientsListState = {
   items: [],
   total: 0,
+  incompleteTotal: 0,
   nextCursor: null,
   status: 'loading-initial',
   error: null,
@@ -201,6 +206,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         ...state,
         items: action.items,
         total: action.total,
+        incompleteTotal: action.incompleteTotal,
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
@@ -209,6 +215,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
       return {
         ...state,
         items: [...state.items, ...action.items],
+        incompleteTotal: action.incompleteTotal,
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
@@ -218,6 +225,7 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
         ...state,
         items: action.items,
         total: action.total,
+        incompleteTotal: action.incompleteTotal,
         nextCursor: action.nextCursor,
         status: 'idle',
         error: null,
@@ -278,10 +286,9 @@ function ClientsPage() {
     token: 0,
   });
 
-  // Q-11: contagem de incompletos nos itens carregados.
-  const incompleteCount = useMemo(() => {
-    return clientsState.items.reduce((acc, c) => acc + (isClientComplete(c).complete ? 0 : 1), 0);
-  }, [clientsState.items]);
+  // 14.4.C: contagem de incompletos vem do backend (clientsState.incompleteTotal),
+  // total real respeitando filtros server-side. Removido o useMemo client-side
+  // que somava sobre items carregados (numero subia conforme scroll).
 
   // 14.4.B: ordenacao FIXA em alfabetico (toggle "Mais recentes" removido).
   // Filtro client-side: chip '⚠️ N' (incompletos).
@@ -391,6 +398,7 @@ function ClientsPage() {
           type: 'success-initial',
           items: response.items,
           total: response.page.total,
+          incompleteTotal: response.page.incompleteTotal,
           nextCursor: response.page.nextCursor,
         });
       })
@@ -433,6 +441,7 @@ function ClientsPage() {
           dispatchClients({
             type: 'success-more',
             items: response.items,
+            incompleteTotal: response.page.incompleteTotal,
             nextCursor: response.page.nextCursor,
           });
         })
@@ -595,6 +604,7 @@ function ClientsPage() {
         type: 'success-initial',
         items: response.items,
         total: response.page.total,
+        incompleteTotal: response.page.incompleteTotal,
         nextCursor: response.page.nextCursor,
       });
     } catch (cause) {
@@ -702,22 +712,22 @@ function ClientsPage() {
 
           {/* Count + Filtro de incompletos (14.4.B) */}
           <div className="spv2-list-meta">
-            <span className="spv2-list-count">{displayClients.length} clientes</span>
+            <span className="spv2-list-count">{clientsState.total} clientes</span>
             <div className="spv2-list-meta-actions">
               <button
                 type="button"
                 className={`cv2-filter-incomplete-chip${showOnlyIncomplete ? ' is-active' : ''}`}
                 onClick={() => setShowOnlyIncomplete((v) => !v)}
                 aria-pressed={showOnlyIncomplete}
-                aria-label={`Filtrar somente clientes incompletos (${incompleteCount})`}
+                aria-label={`Filtrar somente clientes incompletos (${clientsState.incompleteTotal})`}
                 title={
                   showOnlyIncomplete
-                    ? `Mostrando ${incompleteCount} incompleto(s). Clique para ver todos.`
-                    : `${incompleteCount} cadastro(s) incompleto(s). Clique para filtrar.`
+                    ? `Mostrando ${clientsState.incompleteTotal} incompleto(s). Clique para ver todos.`
+                    : `${clientsState.incompleteTotal} cadastro(s) incompleto(s). Clique para filtrar.`
                 }
               >
                 <IncompleteIcon className="cv2-filter-incomplete-icon" />
-                <span className="cv2-filter-incomplete-count">{incompleteCount}</span>
+                <span className="cv2-filter-incomplete-count">{clientsState.incompleteTotal}</span>
               </button>
             </div>
           </div>

@@ -1061,10 +1061,14 @@ export function buildClientListPage(total, page, limit) {
 
 // 14.4.A: pagina cursor-based para listClients (scroll infinito na UI).
 // nextCursor null = ultima pagina.
-export function buildClientListCursorPage(total, limit, nextCursor) {
+// 14.4.C: incompleteTotal — count separado de clientes incompletos
+// (respeita filtros server-side) para a UI exibir contagem total real
+// sem depender dos items carregados pelo scroll.
+export function buildClientListCursorPage(total, limit, nextCursor, incompleteTotal = 0) {
   return {
     limit,
     total,
+    incompleteTotal,
     nextCursor,
   };
 }
