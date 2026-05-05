@@ -1741,7 +1741,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={editClientTrapRef}
-            className="app-modal client-detail-edit-modal client-detail-modal-scrollable"
+            className="app-modal is-themed is-wide client-detail-edit-modal client-detail-modal-scrollable"
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-client-title"
@@ -2131,7 +2131,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={statusTrapRef}
-            className="app-modal"
+            className="app-modal is-themed"
             role="dialog"
             aria-modal="true"
             aria-labelledby="status-modal-title"
@@ -2232,7 +2232,7 @@ export default function ClientDetailPage() {
         <div className="app-modal-backdrop">
           <section
             ref={unitStatusTrapRef}
-            className="app-modal"
+            className="app-modal is-themed"
             role="dialog"
             aria-modal="true"
             aria-labelledby="unit-status-modal-title"
@@ -2303,7 +2303,7 @@ export default function ClientDetailPage() {
         >
           <section
             ref={saleFiltersTrapRef}
-            className="app-modal samples-filter-modal"
+            className="app-modal is-themed samples-filter-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sale-filter-modal-title"
@@ -2490,7 +2490,7 @@ export default function ClientDetailPage() {
         >
           <section
             ref={purchaseFiltersTrapRef}
-            className="app-modal samples-filter-modal"
+            className="app-modal is-themed samples-filter-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="purchase-filter-modal-title"

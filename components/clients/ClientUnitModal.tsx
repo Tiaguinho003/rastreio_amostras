@@ -164,33 +164,32 @@ export function ClientUnitModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal cdm-modal"
+        className="app-modal is-themed client-unit-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-unit-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="cdm-header">
-          <h3 id="client-unit-modal-title" className="cdm-header-name">
-            {title}
-          </h3>
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id="client-unit-modal-title" className="app-modal-title">
+              {title}
+            </h3>
+          </div>
           <button
             type="button"
-            className="app-modal-close cdm-close"
+            className="app-modal-close"
             onClick={onClose}
             disabled={saving}
             aria-label="Fechar"
           >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+            <span aria-hidden="true">×</span>
           </button>
-        </div>
+        </header>
 
-        {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
+        {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
 
-        <form className="sdv-edit-fields" onSubmit={handleSubmit}>
+        <form className="app-modal-content client-unit-modal-form" onSubmit={handleSubmit}>
           <h4 className="sdv-edit-section">Identificação</h4>
           <label className="sdv-edit-field">
             <span className="sdv-edit-label">Nome (obrigatório)</span>
@@ -348,7 +347,7 @@ export function ClientUnitModal({
             </label>
           ) : null}
 
-          <div className="cdm-footer">
+          <div className="app-modal-actions">
             <button
               type="button"
               className="app-modal-secondary"

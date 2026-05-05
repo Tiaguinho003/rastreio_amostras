@@ -1130,6 +1130,129 @@ body {
   min-height: 0;
 }
 
+/* 14.7.L: padrao is-themed pra modais — header verde brand + tipografia
+   branca + body padding generoso. Opt-in: adiciona "is-themed" ao
+   className do .app-modal pra ativar todo o tema. Width maior pra nao
+   ficar fino como antes ("modais magrelos" feedback do usuario). */
+.app-modal.is-themed {
+  width: min(38rem, calc(100vw - 1.5rem));
+  max-width: min(38rem, calc(100vw - 1.5rem));
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 0;
+}
+
+.app-modal.is-themed .app-modal-header {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: #ffffff;
+  padding: clamp(0.95rem, 3vw, 1.15rem) clamp(1.1rem, 3.5vw, 1.4rem);
+  margin: 0;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.app-modal.is-themed .app-modal-title-wrap {
+  gap: 0.3rem;
+}
+
+.app-modal.is-themed .app-modal-title {
+  color: #ffffff;
+  font-size: clamp(1.15rem, 3vw, 1.45rem);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.app-modal.is-themed .app-modal-description {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+}
+
+.app-modal.is-themed .app-modal-close {
+  width: 2.2rem;
+  height: 2.2rem;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  border-radius: 9px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  box-shadow: none;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.app-modal.is-themed .app-modal-close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.app-modal.is-themed .app-modal-close:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.app-modal.is-themed .app-modal-close span {
+  color: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1;
+  transform: none;
+  font-weight: 600;
+}
+
+.app-modal.is-themed .app-modal-content {
+  padding: clamp(1rem, 3vw, 1.4rem);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.7rem, 2vw, 0.95rem);
+}
+
+.app-modal.is-themed .app-modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.app-modal.is-themed .app-modal-input {
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.app-modal.is-themed .app-modal-input:focus-visible {
+  border-color: rgba(22, 91, 42, 0.5);
+  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+}
+
+.app-modal.is-themed .app-modal-label {
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+/* 14.7.L: wide modal variant — pra modais com formulario grande
+   (Edit Client). 44rem em vez do 38rem padrao. */
+.app-modal.is-themed.is-wide {
+  width: min(46rem, calc(100vw - 1.5rem));
+  max-width: min(46rem, calc(100vw - 1.5rem));
+}
+
 .app-modal-field {
   display: grid;
   gap: 0.32rem;
@@ -7954,90 +8077,33 @@ button:disabled {
   padding: clamp(18px, 5vw, 24px);
 }
 
-/* 14.7.I: ClientUnitDetailModal — view + edit inline. Mais largo que
-   cdm-modal pra acomodar 2 colunas de infos. */
-.cudm-modal {
-  position: relative;
-  width: min(34rem, calc(100vw - 1.5rem));
-  max-height: min(86dvh, 44rem);
-  display: flex;
-  flex-direction: column;
-  padding: clamp(16px, 4vw, 22px);
-  gap: clamp(12px, 3vw, 16px);
-}
-
-.cudm-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.cudm-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.cudm-header-eyebrow {
-  font-size: 0.7rem;
+/* 14.7.I/L: ClientUnitDetailModal — view + edit inline. Width/header
+   herdados de .app-modal.is-themed. So sobra os specifics: eyebrow,
+   inactive badge, body grid. */
+.cudm-modal .cudm-header-eyebrow {
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  color: var(--brand-green-soft);
+  color: rgba(255, 255, 255, 0.78);
 }
 
-.cudm-header-name {
-  margin: 0;
-  font-size: clamp(15px, 4vw, 18px);
-  font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1.2;
+.cudm-modal .cudm-header-name {
   word-break: break-word;
 }
 
-.cudm-header-inactive {
+.cudm-modal .cudm-header-inactive {
   display: inline-block;
   margin-top: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #c45c5c;
-  background: rgba(196, 92, 92, 0.1);
-  border: 1px solid rgba(196, 92, 92, 0.22);
+  color: #ffd9d9;
+  background: rgba(255, 100, 80, 0.22);
+  border: 1px solid rgba(255, 100, 80, 0.4);
   padding: 1px 8px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-}
-
-.cudm-close {
-  flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  display: inline-grid;
-  place-items: center;
-  color: #888;
-}
-
-.cudm-close:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.cudm-close svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .cudm-error {

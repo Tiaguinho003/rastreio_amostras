@@ -66,97 +66,98 @@ export function ClientInactivateWithCascadeModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal cdm-modal"
+        className="app-modal is-themed client-cascade-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-cascade-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="cdm-header">
-          <h3 id="client-cascade-modal-title" className="cdm-header-name">
-            Inativar cliente em cascata
-          </h3>
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id="client-cascade-modal-title" className="app-modal-title">
+              Inativar cliente em cascata
+            </h3>
+          </div>
           <button
             type="button"
-            className="app-modal-close cdm-close"
+            className="app-modal-close"
             onClick={onCancel}
             disabled={saving}
             aria-label="Fechar"
           >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+            <span aria-hidden="true">×</span>
           </button>
-        </div>
+        </header>
 
-        <div className="sdv-cascade-warn">
-          <p>
-            <strong>{clientName}</strong> possui <strong>{sampleCount}</strong> amostra
-            {sampleCount === 1 ? '' : 's'} ativa{sampleCount === 1 ? '' : 's'} vinculada
-            {sampleCount === 1 ? '' : 's'}. Inativar o cliente também invalidará{' '}
-            {sampleCount === 1 ? 'esta amostra' : `as ${sampleCount} amostras`} (status{' '}
-            <strong>INVALIDATED</strong>, terminal).
-          </p>
-          {hasMovements ? (
-            <p className="sdv-cascade-warn-movements">
-              ⚠ Algumas amostras possuem movimentações comerciais ativas (vendas/perdas). Cancele as
-              movimentações antes — ou a operação será rejeitada.
+        <div className="app-modal-content">
+          <div className="sdv-cascade-warn">
+            <p>
+              <strong>{clientName}</strong> possui <strong>{sampleCount}</strong> amostra
+              {sampleCount === 1 ? '' : 's'} ativa{sampleCount === 1 ? '' : 's'} vinculada
+              {sampleCount === 1 ? '' : 's'}. Inativar o cliente também invalidará{' '}
+              {sampleCount === 1 ? 'esta amostra' : `as ${sampleCount} amostras`} (status{' '}
+              <strong>INVALIDATED</strong>, terminal).
             </p>
-          ) : null}
-        </div>
-
-        {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
-
-        <div className="sdv-cascade-list">
-          {activeSamples.map((sample) => (
-            <div key={sample.id} className="sdv-cascade-item">
-              <div className="sdv-cascade-item-main">
-                <span className="sdv-cascade-item-lot">
-                  {sample.internalLotNumber ?? sample.id.slice(0, 8)}
-                </span>
-                <span className="sdv-cascade-item-status">{sample.status}</span>
-              </div>
-              <div className="sdv-cascade-item-meta">
-                {sample.declaredOwner ? <span>{sample.declaredOwner} · </span> : null}
-                {formatSampleDate(sample.createdAt)}
-                {sample.soldSacks > 0 ? <span> · {sample.soldSacks} sacas vendidas</span> : null}
-                {sample.lostSacks > 0 ? <span> · {sample.lostSacks} sacas perdidas</span> : null}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <form className="sdv-edit-fields" onSubmit={handleSubmit}>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Motivo (opcional)</span>
-            <textarea
-              className="sdv-edit-input"
-              value={reasonText}
-              disabled={saving}
-              maxLength={300}
-              rows={3}
-              onChange={(event) => setReasonText(event.target.value)}
-              placeholder="Ex.: Encerramento de relacionamento comercial"
-            />
-          </label>
-
-          <div className="sdv-edit-actions">
-            <button
-              type="button"
-              className="sdv-btn-secondary"
-              onClick={onCancel}
-              disabled={saving}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="sdv-btn-danger" disabled={saving}>
-              {saving
-                ? 'Inativando...'
-                : `Confirmar e invalidar ${sampleCount} amostra${sampleCount === 1 ? '' : 's'}`}
-            </button>
+            {hasMovements ? (
+              <p className="sdv-cascade-warn-movements">
+                ⚠ Algumas amostras possuem movimentações comerciais ativas (vendas/perdas). Cancele
+                as movimentações antes — ou a operação será rejeitada.
+              </p>
+            ) : null}
           </div>
-        </form>
+
+          {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
+
+          <div className="sdv-cascade-list">
+            {activeSamples.map((sample) => (
+              <div key={sample.id} className="sdv-cascade-item">
+                <div className="sdv-cascade-item-main">
+                  <span className="sdv-cascade-item-lot">
+                    {sample.internalLotNumber ?? sample.id.slice(0, 8)}
+                  </span>
+                  <span className="sdv-cascade-item-status">{sample.status}</span>
+                </div>
+                <div className="sdv-cascade-item-meta">
+                  {sample.declaredOwner ? <span>{sample.declaredOwner} · </span> : null}
+                  {formatSampleDate(sample.createdAt)}
+                  {sample.soldSacks > 0 ? <span> · {sample.soldSacks} sacas vendidas</span> : null}
+                  {sample.lostSacks > 0 ? <span> · {sample.lostSacks} sacas perdidas</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <form className="sdv-edit-fields" onSubmit={handleSubmit}>
+            <label className="sdv-edit-field">
+              <span className="sdv-edit-label">Motivo (opcional)</span>
+              <textarea
+                className="sdv-edit-input"
+                value={reasonText}
+                disabled={saving}
+                maxLength={300}
+                rows={3}
+                onChange={(event) => setReasonText(event.target.value)}
+                placeholder="Ex.: Encerramento de relacionamento comercial"
+              />
+            </label>
+
+            <div className="app-modal-actions">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={onCancel}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="sdv-btn-danger" disabled={saving}>
+                {saving
+                  ? 'Inativando...'
+                  : `Confirmar e invalidar ${sampleCount} amostra${sampleCount === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
     </div>,
     document.body

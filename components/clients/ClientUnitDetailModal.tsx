@@ -176,38 +176,35 @@ export function ClientUnitDetailModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal cudm-modal"
+        className="app-modal is-themed cudm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cudm-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="cudm-header">
-          <div className="cudm-header-copy">
+        <header className="app-modal-header cudm-header">
+          <div className="app-modal-title-wrap cudm-header-copy">
             <span className="cudm-header-eyebrow">Filial {unit.code}</span>
-            <h3 id="cudm-title" className="cudm-header-name">
+            <h3 id="cudm-title" className="app-modal-title cudm-header-name">
               {unit.name ?? unit.legalName ?? 'Sem nome'}
             </h3>
             {isInactive ? <span className="cudm-header-inactive">Inativa</span> : null}
           </div>
           <button
             type="button"
-            className="app-modal-close cudm-close"
+            className="app-modal-close"
             onClick={onClose}
             disabled={saving || savingStatus}
             aria-label="Fechar"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+            <span aria-hidden="true">×</span>
           </button>
         </header>
 
         {errorMessage ? <p className="cudm-error">{errorMessage}</p> : null}
 
         {mode === 'view' ? (
-          <div className="cudm-body">
+          <div className="app-modal-content cudm-body">
             <div className="cudm-info-grid">
               <div className="cudm-info-item">
                 <span className="cudm-info-label">CNPJ</span>
@@ -299,7 +296,7 @@ export function ClientUnitDetailModal({
             </div>
           </div>
         ) : (
-          <form className="cudm-body cudm-edit-form" onSubmit={handleSubmit}>
+          <form className="app-modal-content cudm-body cudm-edit-form" onSubmit={handleSubmit}>
             <div className="cudm-info-grid">
               <label className="cudm-edit-field is-full">
                 <span className="cudm-edit-label">Nome (obrigatório)</span>
