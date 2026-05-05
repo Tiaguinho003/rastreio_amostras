@@ -942,11 +942,30 @@ export class ClientService {
       const visibleUnits = onlyActiveUnits
         ? allUnits.filter((u) => u.status === CLIENT_UNIT_STATUSES.ACTIVE)
         : allUnits;
+
+      // 14.7.D: agregado de "lotes em aberto" do cliente — samples onde
+      // ele e owner e ainda nao foram totalmente fechadas. "Em aberto" =
+      // status NAO INVALIDATED + commercialStatus em (OPEN, PARTIALLY_SOLD).
+      // SOLD/LOST nao contam (lote ja fechado).
+      const openLotsAggregate = await tx.sample.aggregate({
+        where: {
+          ownerClientId: client.id,
+          status: { not: 'INVALIDATED' },
+          commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
+        },
+        _count: { _all: true },
+        _sum: { declaredSacks: true },
+      });
+
       return {
         client: mapClientRow(client),
         units: visibleUnits.map((unit) =>
           toClientUnitSummary({ ...unit, clientId: unit.clientId ?? client.id })
         ),
+        openLots: {
+          count: openLotsAggregate._count?._all ?? 0,
+          sacks: openLotsAggregate._sum?.declaredSacks ?? 0,
+        },
       };
     });
   }

@@ -254,6 +254,13 @@ export interface ClientLookupResponse {
 
 export interface ClientDetailResponse extends ClientResponse {
   units: ClientUnitSummary[];
+  // 14.7.D: agregado de lotes em aberto do cliente. count = numero de
+  // samples nao invalidadas com commercialStatus OPEN/PARTIALLY_SOLD;
+  // sacks = soma de declaredSacks desses lotes.
+  openLots: {
+    count: number;
+    sacks: number;
+  };
 }
 
 export interface ClientUnitMutationResponse {

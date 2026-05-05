@@ -7903,6 +7903,27 @@ button:disabled {
   border: 1px solid #e0e0e0;
 }
 
+/* 14.7.D: avatar pequeno inline na meta line do modal cliente
+   (substitui o avatar grande que ficava a esquerda do header). */
+.cdm-header-avatar-inline {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--avatar-color, #1f5d43);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.cdm-header-avatar-inline span {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: 0.3px;
+}
+
 .cdm-close svg {
   width: 16px;
   height: 16px;
@@ -19099,6 +19120,19 @@ button:disabled {
 
   .cdm-modal .cdm-header-avatar span {
     font-size: 1.25rem;
+  }
+
+  /* 14.7.D: avatar pequeno inline (override do desktop pra ficar
+     visivel mas casando com altura do badge "Ativo"). */
+  .cdm-modal .cdm-header-avatar.cdm-header-avatar-inline {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .cdm-modal .cdm-header-avatar.cdm-header-avatar-inline span {
+    font-size: 11px;
   }
 
   .cdm-modal .cdm-header-title {

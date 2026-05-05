@@ -155,6 +155,9 @@ interface ClientsListState {
   selectedId: string | null;
   detail: ClientSummary | null;
   units: ClientUnitSummary[];
+  // 14.7.D: agregado de lotes em aberto do cliente carregado no detail
+  // modal. null enquanto loading; preenchido em detailSuccess.
+  detailOpenLots: { count: number; sacks: number } | null;
   detailOpen: boolean;
   detailLoading: boolean;
   detailError: string | null;
@@ -181,7 +184,12 @@ type ClientsListAction =
   | { type: 'openDetail' }
   | { type: 'closeDetail' }
   | { type: 'fetchDetail' }
-  | { type: 'detailSuccess'; client: ClientSummary; units: ClientUnitSummary[] }
+  | {
+      type: 'detailSuccess';
+      client: ClientSummary;
+      units: ClientUnitSummary[];
+      openLots: { count: number; sacks: number };
+    }
   | { type: 'detailError'; message: string }
   | {
       type: 'restoreSnapshot';
@@ -202,6 +210,7 @@ const CLIENTS_INITIAL: ClientsListState = {
   selectedId: null,
   detail: null,
   units: [],
+  detailOpenLots: null,
   detailOpen: false,
   detailLoading: false,
   detailError: null,
@@ -252,15 +261,23 @@ function clientsListReducer(state: ClientsListState, action: ClientsListAction):
     case 'openDetail':
       return { ...state, detailOpen: true, detailError: null };
     case 'closeDetail':
-      return { ...state, detailOpen: false, detail: null, units: [], detailError: null };
+      return {
+        ...state,
+        detailOpen: false,
+        detail: null,
+        units: [],
+        detailOpenLots: null,
+        detailError: null,
+      };
     case 'fetchDetail':
-      return { ...state, detailLoading: true, detailError: null };
+      return { ...state, detailLoading: true, detailError: null, detailOpenLots: null };
     case 'detailSuccess':
       return {
         ...state,
         detailLoading: false,
         detail: action.client,
         units: action.units,
+        detailOpenLots: action.openLots,
         detailError: null,
       };
     case 'detailError':
@@ -515,6 +532,7 @@ function ClientsPage() {
           type: 'detailSuccess',
           client: response.client,
           units: response.units,
+          openLots: response.openLots,
         });
       })
       .catch((cause) => {
@@ -873,21 +891,6 @@ function ClientsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header">
-              {clientsState.detail
-                ? (() => {
-                    const detailName = clientDisplayName(clientsState.detail!);
-                    const detailColor = getAvatarColor(detailName);
-                    const detailInitials = getClientInitials(detailName);
-                    return (
-                      <span
-                        className="cdm-header-avatar"
-                        style={{ '--avatar-color': detailColor } as React.CSSProperties}
-                      >
-                        <span>{detailInitials}</span>
-                      </span>
-                    );
-                  })()
-                : null}
               <div className="cdm-header-copy">
                 <h3 id="records-client-detail-title" className="cdm-header-name">
                   {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
@@ -900,6 +903,22 @@ function ClientsPage() {
                     >
                       {clientStatusLabel(clientsState.detail.status)}
                     </span>
+                    {/* 14.7.D: avatar pequeno inline com Ativo (substitui o
+                        avatar grande que ficava a esquerda do header). */}
+                    {(() => {
+                      const detailName = clientDisplayName(clientsState.detail);
+                      const detailColor = getAvatarColor(detailName);
+                      const detailInitials = getClientInitials(detailName);
+                      return (
+                        <span
+                          className="cdm-header-avatar cdm-header-avatar-inline"
+                          style={{ '--avatar-color': detailColor } as React.CSSProperties}
+                          aria-hidden="true"
+                        >
+                          <span>{detailInitials}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                 ) : null}
               </div>
@@ -940,13 +959,11 @@ function ClientsPage() {
                   </div>
                   <div className="cdm-info-row">
                     <div className="cdm-info-item">
-                      <span className="cdm-info-label">Tipo</span>
-                      <span
-                        className={`cdm-type-badge ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
-                      >
-                        {clientsState.detail.personType === 'PF'
-                          ? 'Pessoa Fisica'
-                          : 'Pessoa Juridica'}
+                      <span className="cdm-info-label">Lotes em aberto</span>
+                      <span className="cdm-info-value">
+                        {clientsState.detailOpenLots
+                          ? `${clientsState.detailOpenLots.count} ${clientsState.detailOpenLots.count === 1 ? 'lote' : 'lotes'} - ${clientsState.detailOpenLots.sacks} sacas`
+                          : '—'}
                       </span>
                     </div>
                     <div className="cdm-info-item">

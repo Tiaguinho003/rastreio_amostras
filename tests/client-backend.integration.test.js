@@ -1355,6 +1355,103 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.body.items.length, 1);
   });
 
+  test('14.7.D: getClient retorna openLots agregado (zerado quando sem samples)', async () => {
+    const created = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Cliente Sem Lotes LTDA',
+          tradeName: 'Cliente Sem Lotes',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0000',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+    const clientId = created.body.client.id;
+
+    const result = await api.getClient(buildInput({ params: { clientId } }));
+    assert.equal(result.status, 200);
+    assert.ok(result.body.openLots, 'openLots deve estar presente');
+    assert.equal(result.body.openLots.count, 0);
+    assert.equal(result.body.openLots.sacks, 0);
+  });
+
+  test('14.7.D: getClient soma declaredSacks de samples OPEN/PARTIALLY_SOLD', async () => {
+    const created = await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Cliente Com Lotes LTDA',
+          tradeName: 'Cliente Com Lotes',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0000',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+    const clientId = created.body.client.id;
+
+    // Insere samples diretamente via prisma — evita o pipeline de
+    // receiveSample que depende de muitos servicos auxiliares.
+    await prisma.sample.createMany({
+      data: [
+        {
+          id: randomUUID(),
+          internalLotNumber: 'L-9001',
+          status: 'CLASSIFIED',
+          commercialStatus: 'OPEN',
+          declaredOwner: 'TEST',
+          declaredSacks: 50,
+          declaredHarvest: '2025',
+          ownerClientId: clientId,
+          version: 1,
+        },
+        {
+          id: randomUUID(),
+          internalLotNumber: 'L-9002',
+          status: 'CLASSIFIED',
+          commercialStatus: 'PARTIALLY_SOLD',
+          declaredOwner: 'TEST',
+          declaredSacks: 30,
+          declaredHarvest: '2025',
+          ownerClientId: clientId,
+          version: 1,
+        },
+        {
+          id: randomUUID(),
+          internalLotNumber: 'L-9003',
+          status: 'CLASSIFIED',
+          commercialStatus: 'SOLD',
+          declaredOwner: 'TEST',
+          declaredSacks: 20,
+          declaredHarvest: '2025',
+          ownerClientId: clientId,
+          version: 1,
+        },
+        {
+          id: randomUUID(),
+          internalLotNumber: 'L-9004',
+          status: 'INVALIDATED',
+          commercialStatus: 'OPEN',
+          declaredOwner: 'TEST',
+          declaredSacks: 100,
+          declaredHarvest: '2025',
+          ownerClientId: clientId,
+          version: 1,
+        },
+      ],
+    });
+
+    const result = await api.getClient(buildInput({ params: { clientId } }));
+    assert.equal(result.status, 200);
+    // 2 samples open (50 + 30 = 80 sacas). SOLD e INVALIDATED nao contam.
+    assert.equal(result.body.openLots.count, 2);
+    assert.equal(result.body.openLots.sacks, 80);
+  });
+
   test('14.7: busca COM espacos preserva precisao (nao casa compactado)', async () => {
     // "Santa Fe" cadastrado, "Santafezinho" cadastrado.
     // Busca "santa fe" deve casar SO Santa Fe (nao usa search_compact
