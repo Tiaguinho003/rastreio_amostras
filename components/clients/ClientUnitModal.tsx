@@ -190,11 +190,10 @@ export function ClientUnitModal({
         {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
 
         <form className="app-modal-content client-unit-modal-form" onSubmit={handleSubmit}>
-          <h4 className="sdv-edit-section">Identificação</h4>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Nome (obrigatório)</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Nome (obrigatório)</span>
             <input
-              className="sdv-edit-input"
+              className="app-modal-input"
               value={form.name}
               disabled={saving}
               maxLength={160}
@@ -204,11 +203,10 @@ export function ClientUnitModal({
             />
           </label>
 
-          <h4 className="sdv-edit-section">Documentos</h4>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">CNPJ (opcional)</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">CNPJ (opcional)</span>
             <input
-              className={`sdv-edit-input${cnpjMask.error ? ' has-error' : ''}`}
+              className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
               value={cnpjMask.masked}
               disabled={saving}
               inputMode="numeric"
@@ -223,10 +221,10 @@ export function ClientUnitModal({
             ) : null}
           </label>
           <div className="sdv-edit-row">
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Inscrição estadual</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Inscrição estadual</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.registrationNumber}
                 disabled={saving}
                 inputMode="numeric"
@@ -236,10 +234,10 @@ export function ClientUnitModal({
                 placeholder="000.000.000.00-00"
               />
             </label>
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">CAR (Cadastro Ambiental Rural)</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">CAR (Cadastro Ambiental Rural)</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.car}
                 disabled={saving}
                 maxLength={80}
@@ -248,39 +246,38 @@ export function ClientUnitModal({
             </label>
           </div>
 
-          <h4 className="sdv-edit-section">Endereço</h4>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Logradouro</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Logradouro</span>
             <input
-              className="sdv-edit-input"
+              className="app-modal-input"
               value={form.addressLine}
               disabled={saving}
               onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
             />
           </label>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Bairro</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Bairro</span>
             <input
-              className="sdv-edit-input"
+              className="app-modal-input"
               value={form.district}
               disabled={saving}
               onChange={(event) => update('district', event.target.value.toUpperCase())}
             />
           </label>
           <div className="sdv-edit-row">
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Cidade</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Cidade</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.city}
                 disabled={saving}
                 onChange={(event) => update('city', event.target.value.toUpperCase())}
               />
             </label>
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">UF</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">UF</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.state}
                 disabled={saving}
                 maxLength={2}
@@ -290,8 +287,8 @@ export function ClientUnitModal({
             </label>
           </div>
           <div className="sdv-edit-row">
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">
+            <label className="app-modal-field">
+              <span className="app-modal-label">
                 CEP
                 {cep.loading ? (
                   <span className="sdv-cep-spinner" aria-hidden="true">
@@ -301,7 +298,7 @@ export function ClientUnitModal({
                 ) : null}
               </span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.postalCode}
                 disabled={saving}
                 inputMode="numeric"
@@ -309,10 +306,10 @@ export function ClientUnitModal({
                 placeholder="00000-000"
               />
             </label>
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Complemento</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Complemento</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.complement}
                 disabled={saving}
                 maxLength={120}
@@ -320,10 +317,10 @@ export function ClientUnitModal({
               />
             </label>
           </div>
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Telefone</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Telefone</span>
             <input
-              className="sdv-edit-input"
+              className="app-modal-input"
               value={form.phone}
               disabled={saving}
               inputMode="numeric"
@@ -333,10 +330,10 @@ export function ClientUnitModal({
           </label>
 
           {isEdit ? (
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Motivo da edição (obrigatório)</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da edição (obrigatório)</span>
               <textarea
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={form.reasonText}
                 disabled={saving}
                 rows={2}

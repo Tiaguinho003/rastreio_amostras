@@ -8200,44 +8200,13 @@ button:disabled {
   margin: 0;
 }
 
-.cudm-edit-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.cudm-edit-field.is-full {
+/* #14.7.M.3: edit-mode usa .app-modal-* unificado (overrides em ~13139).
+   Mantemos so o is-full do grid scoped + variante has-error global. */
+.cudm-info-grid > .app-modal-field.is-full {
   grid-column: 1 / -1;
 }
 
-.cudm-edit-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.cudm-edit-input {
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  border: 1.5px solid rgba(0, 0, 0, 0.14);
-  border-radius: 9px;
-  background: #ffffff;
-  font-size: 0.92rem;
-  font-family: inherit;
-  color: #1a1a1a;
-  resize: vertical;
-}
-
-.cudm-edit-input:focus {
-  outline: none;
-  border-color: var(--brand-green-soft);
-  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.12);
-}
-
-.cudm-edit-input.has-error {
+.app-modal-input.has-error {
   border-color: rgba(196, 92, 92, 0.5);
 }
 
@@ -13136,8 +13105,13 @@ button:disabled {
   transform: scale(0.97);
 }
 
+/* #14.7.M.3: variant compacto de inputs/labels nos modais de detalhe.
+   Aplica em todos os modais do contexto client detail (Editar info,
+   Registro fiscal, Filial detalhe e Nova/Editar filial). */
 .client-detail-edit-modal .app-modal-input,
-.client-detail-reg-modal .app-modal-input {
+.client-detail-reg-modal .app-modal-input,
+.cudm-modal .app-modal-input,
+.client-unit-modal .app-modal-input {
   padding: 0.48rem 0.72rem;
   font-size: 0.84rem;
   border-radius: 10px;
@@ -13145,17 +13119,23 @@ button:disabled {
 }
 
 .client-detail-edit-modal .app-modal-label,
-.client-detail-reg-modal .app-modal-label {
+.client-detail-reg-modal .app-modal-label,
+.cudm-modal .app-modal-label,
+.client-unit-modal .app-modal-label {
   font-size: 0.68rem;
 }
 
 .client-detail-edit-modal .app-modal-field,
-.client-detail-reg-modal .app-modal-field {
+.client-detail-reg-modal .app-modal-field,
+.cudm-modal .app-modal-field,
+.client-unit-modal .app-modal-field {
   gap: 0.18rem;
 }
 
 .client-detail-edit-modal .app-modal-content,
-.client-detail-reg-modal .app-modal-content {
+.client-detail-reg-modal .app-modal-content,
+.cudm-modal .app-modal-content,
+.client-unit-modal .app-modal-content {
   gap: 0.42rem;
 }
 

@@ -298,10 +298,10 @@ export function ClientUnitDetailModal({
         ) : (
           <form className="app-modal-content cudm-body cudm-edit-form" onSubmit={handleSubmit}>
             <div className="cudm-info-grid">
-              <label className="cudm-edit-field is-full">
-                <span className="cudm-edit-label">Nome (obrigatório)</span>
+              <label className="app-modal-field is-full">
+                <span className="app-modal-label">Nome (obrigatório)</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.name}
                   disabled={saving}
                   maxLength={160}
@@ -309,10 +309,10 @@ export function ClientUnitDetailModal({
                   onChange={(event) => update('name', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">CNPJ</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">CNPJ</span>
                 <input
-                  className={`cudm-edit-input${cnpjMask.error ? ' has-error' : ''}`}
+                  className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
                   value={cnpjMask.masked}
                   disabled={saving}
                   inputMode="numeric"
@@ -322,40 +322,40 @@ export function ClientUnitDetailModal({
                 />
                 {cnpjMask.error ? <span className="cudm-edit-error">{cnpjMask.error}</span> : null}
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">CAR</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">CAR</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.car}
                   disabled={saving}
                   maxLength={80}
                   onChange={(event) => update('car', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field is-full">
-                <span className="cudm-edit-label">Endereço</span>
+              <label className="app-modal-field is-full">
+                <span className="app-modal-label">Endereço</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.addressLine}
                   disabled={saving}
                   onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">Bairro</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Bairro</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.district}
                   disabled={saving}
                   onChange={(event) => update('district', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">
+              <label className="app-modal-field">
+                <span className="app-modal-label">
                   CEP{cep.loading ? <span aria-hidden="true"> ⌛</span> : null}
                 </span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.postalCode}
                   disabled={saving}
                   inputMode="numeric"
@@ -365,19 +365,19 @@ export function ClientUnitDetailModal({
                   placeholder="00000-000"
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">Cidade</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Cidade</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.city}
                   disabled={saving}
                   onChange={(event) => update('city', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">UF</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">UF</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.state}
                   disabled={saving}
                   maxLength={2}
@@ -385,20 +385,20 @@ export function ClientUnitDetailModal({
                   placeholder="MG"
                 />
               </label>
-              <label className="cudm-edit-field is-full">
-                <span className="cudm-edit-label">Complemento</span>
+              <label className="app-modal-field is-full">
+                <span className="app-modal-label">Complemento</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.complement}
                   disabled={saving}
                   maxLength={120}
                   onChange={(event) => update('complement', event.target.value.toUpperCase())}
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">Inscrição estadual</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Inscrição estadual</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.registrationNumber}
                   disabled={saving}
                   inputMode="numeric"
@@ -408,10 +408,10 @@ export function ClientUnitDetailModal({
                   placeholder="000.000.000.00-00"
                 />
               </label>
-              <label className="cudm-edit-field">
-                <span className="cudm-edit-label">Telefone</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Telefone</span>
                 <input
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.phone}
                   disabled={saving}
                   inputMode="numeric"
@@ -419,10 +419,10 @@ export function ClientUnitDetailModal({
                   placeholder="(00) 00000-0000"
                 />
               </label>
-              <label className="cudm-edit-field is-full">
-                <span className="cudm-edit-label">Motivo da edição (obrigatório)</span>
+              <label className="app-modal-field is-full">
+                <span className="app-modal-label">Motivo da edição (obrigatório)</span>
                 <textarea
-                  className="cudm-edit-input"
+                  className="app-modal-input"
                   value={form.reasonText}
                   disabled={saving}
                   rows={2}
