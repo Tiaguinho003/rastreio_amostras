@@ -1386,11 +1386,17 @@ export default function ClientDetailPage() {
                                     : 'Cidade não informada';
                                 const unitDisplayName =
                                   unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
+                                // 14.7.M.2: detecta se a unit tem algum campo
+                                // recomendado missing — alimenta status-line
+                                // amber + warning icon.
+                                const unitIncomplete = Array.from(missingSet).some((key) =>
+                                  key.startsWith(`units[${unit.id}].`)
+                                );
                                 return (
                                   <button
                                     key={unit.id}
                                     type="button"
-                                    className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                                    className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
                                     onClick={() => openUnitDetailModal(unit)}
                                   >
                                     <div className="sdv-unit-card-mini-content">
@@ -1404,6 +1410,9 @@ export default function ClientDetailPage() {
                                       </span>
                                       <span className="sdv-unit-card-mini-city">{cityLabel}</span>
                                     </div>
+                                    {unitIncomplete && unit.status !== 'INACTIVE' ? (
+                                      <IncompleteIcon className="sdv-unit-card-mini-warning" />
+                                    ) : null}
                                     <svg
                                       className="sdv-unit-card-mini-arrow"
                                       viewBox="0 0 24 24"

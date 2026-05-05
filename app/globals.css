@@ -7011,12 +7011,16 @@ button:disabled {
 /* 14.7.I: card minimalista de filial. Substitui o sdv-unit-card antigo
    (que tinha todos os campos + botoes). Agora so nome + cidade + seta
    indicando clicavel. Click abre o ClientUnitDetailModal. */
+/* 14.7.M.2: status-line lateral via ::before. Verde quando completo,
+   amber quando ha campo recomendado faltando. position: relative pra
+   ancorar o pseudo-element. padding-left: 1rem abre espaco. */
 .sdv-unit-card-mini {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 0.85rem 0.7rem 1rem;
   background: linear-gradient(180deg, #fdfbf6 0%, #f6f2e9 100%);
   border: 1px solid rgba(112, 130, 103, 0.16);
   border-radius: 12px;
@@ -7029,6 +7033,34 @@ button:disabled {
     transform 0.15s ease,
     box-shadow 0.15s ease,
     border-color 0.15s ease;
+}
+
+.sdv-unit-card-mini::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--brand-green-soft), var(--brand-green));
+  transition: background 0.15s ease;
+}
+
+.sdv-unit-card-mini.is-incomplete::before {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.sdv-unit-card-mini.is-inactive::before {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.sdv-unit-card-mini-warning {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
+  animation: cv2-incomplete-pulse 1.5s ease-in-out infinite;
 }
 
 .sdv-unit-card-mini:hover {
