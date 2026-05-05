@@ -33,7 +33,58 @@ const CLIENT_PAGE_LIMIT = 60;
 // 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
 // v1 antigos no browser ficam orfaos; proximo save sobrescreve com v2.
 const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v2';
-const CLIENTS_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+// 14.7.K: TTL 10min — snapshot expira apos esse periodo de inatividade.
+const CLIENTS_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
+
+type ClientsSnapshot = {
+  appliedClientSearch: string;
+  commercialUserFilter: string;
+  showOnlyIncomplete: boolean;
+  items: ClientSummary[];
+  total: number;
+  incompleteTotal: number;
+  nextCursor: ClientCursor | null;
+  scrollTop: number;
+  timestamp: number;
+};
+
+function readSnapshot(): ClientsSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(CLIENTS_SNAPSHOT_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as ClientsSnapshot;
+    if (
+      typeof data.timestamp !== 'number' ||
+      Date.now() - data.timestamp > CLIENTS_SNAPSHOT_TTL_MS
+    ) {
+      window.sessionStorage.removeItem(CLIENTS_SNAPSHOT_KEY);
+      return null;
+    }
+    if (!Array.isArray(data.items)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnapshot(snapshot: ClientsSnapshot): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(CLIENTS_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {
+    // QuotaExceeded ou private mode: ignora silenciosamente.
+  }
+}
+
+function clearSnapshot(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(CLIENTS_SNAPSHOT_KEY);
+  } catch {
+    // ignore
+  }
+}
 // 14.6.D: rootMargin '0px' — sentinel so dispara fetch quando ja esta
 // realmente visivel (sem prefetch agressivo). Combinado com lock de scroll
 // durante loading-more, da feedback claro de pausa pro usuario.
@@ -298,15 +349,52 @@ export default function ClientsPageWrapper() {
 function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
 
-  const [clientsState, dispatchClients] = useReducer(clientsListReducer, CLIENTS_INITIAL);
+  // 14.7.K: snapshot persistente — restaura filtros + items + scroll
+  // ao retornar pra pagina dentro do TTL (10min).
+  const initialSnapshotRef = useRef<ClientsSnapshot | null>(null);
+  if (initialSnapshotRef.current === null) {
+    initialSnapshotRef.current = readSnapshot();
+  }
+  const initialSnapshot = initialSnapshotRef.current;
+  const skipInitialFetchRef = useRef<boolean>(initialSnapshot !== null);
+  const pendingScrollRestoreRef = useRef<number | null>(
+    initialSnapshot ? initialSnapshot.scrollTop : null
+  );
+
+  const [clientsState, dispatchClients] = useReducer(
+    clientsListReducer,
+    initialSnapshot,
+    (snap): ClientsListState => {
+      if (snap) {
+        return {
+          ...CLIENTS_INITIAL,
+          items: snap.items,
+          total: snap.total,
+          incompleteTotal: snap.incompleteTotal,
+          nextCursor: snap.nextCursor,
+          status: 'idle',
+          firstNewIndex: null,
+        };
+      }
+      return CLIENTS_INITIAL;
+    }
+  );
   const clientDetailTrapRef = useFocusTrap(clientsState.detail !== null);
-  const [clientSearchInput, setClientSearchInput] = useState('');
-  const [appliedClientSearch, setAppliedClientSearch] = useState('');
+  const [clientSearchInput, setClientSearchInput] = useState(
+    () => initialSnapshot?.appliedClientSearch ?? ''
+  );
+  const [appliedClientSearch, setAppliedClientSearch] = useState(
+    () => initialSnapshot?.appliedClientSearch ?? ''
+  );
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
   const clientSearchDebounceRef = useRef<number | null>(null);
 
-  const [commercialUserFilter, setCommercialUserFilter] = useState<string>('');
-  const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(false);
+  const [commercialUserFilter, setCommercialUserFilter] = useState<string>(
+    () => initialSnapshot?.commercialUserFilter ?? ''
+  );
+  const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(
+    () => initialSnapshot?.showOnlyIncomplete ?? false
+  );
   const [users, setUsers] = useState<UserLookupItem[]>([]);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -404,6 +492,14 @@ function ClientsPage() {
   // search ou commercialUserFilter (filtro server-side). Cursor é resetado.
   useEffect(() => {
     if (!session) {
+      return;
+    }
+
+    // 14.7.K: snapshot restaurou state — pula o primeiro fetch. Ref e
+    // consumido aqui (so vale 1 vez); proximas mudancas em filtro/sessao
+    // refazem fetch normal.
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
       return;
     }
 
@@ -511,6 +607,88 @@ function ClientsPage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [runLoadMore, clientsState.nextCursor, clientsState.status, session]);
+
+  // 14.7.K: restore scroll position uma vez apos o primeiro paint dos
+  // items restaurados. Dois rAF garantem que o grid ja calculou as
+  // posicoes finais (especialmente em desktop wide com grid-template
+  // que pode reflowar).
+  useEffect(() => {
+    const target = pendingScrollRestoreRef.current;
+    if (target === null || target <= 0) return;
+    if (clientsState.items.length === 0) return;
+    pendingScrollRestoreRef.current = null;
+    const id1 = window.requestAnimationFrame(() => {
+      const id2 = window.requestAnimationFrame(() => {
+        const el = clientsScrollRef.current;
+        if (el) el.scrollTop = target;
+      });
+      // captura pra cancelar se desmontar entre rAFs
+      pendingScrollRestoreRef.current = id2 as unknown as number;
+    });
+    return () => {
+      window.cancelAnimationFrame(id1);
+      const pending = pendingScrollRestoreRef.current;
+      if (typeof pending === 'number') {
+        window.cancelAnimationFrame(pending);
+        pendingScrollRestoreRef.current = null;
+      }
+    };
+  }, [clientsState.items.length]);
+
+  // 14.7.K: salva snapshot em sessionStorage sempre que o state relevante
+  // muda. Debounce 250ms pra nao serializar a cada keystroke. Pula durante
+  // loading-initial pra nao sobrescrever snapshot bom com array vazio.
+  useEffect(() => {
+    if (clientsState.status === 'loading-initial') return;
+    if (clientsState.status === 'error') return;
+    const handle = window.setTimeout(() => {
+      saveSnapshot({
+        appliedClientSearch,
+        commercialUserFilter,
+        showOnlyIncomplete,
+        items: clientsState.items,
+        total: clientsState.total,
+        incompleteTotal: clientsState.incompleteTotal,
+        nextCursor: clientsState.nextCursor,
+        scrollTop: clientsScrollRef.current?.scrollTop ?? 0,
+        timestamp: Date.now(),
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [
+    appliedClientSearch,
+    commercialUserFilter,
+    showOnlyIncomplete,
+    clientsState.items,
+    clientsState.total,
+    clientsState.incompleteTotal,
+    clientsState.nextCursor,
+    clientsState.status,
+  ]);
+
+  // 14.7.K: scroll listener — atualiza scrollTop no snapshot existente
+  // (debounce 200ms). So mexe se houver snapshot ja salvo (preserva os
+  // outros campos sem precisar duplica-los aqui).
+  useEffect(() => {
+    const el = clientsScrollRef.current;
+    if (!el) return;
+    let timer: number | null = null;
+    function onScroll() {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const snap = readSnapshot();
+        if (!snap) return;
+        snap.scrollTop = el?.scrollTop ?? 0;
+        snap.timestamp = Date.now();
+        saveSnapshot(snap);
+      }, 200);
+    }
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [clientsState.items.length]);
 
   // Fetch client detail
   useEffect(() => {
