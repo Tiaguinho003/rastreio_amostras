@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
-import { ClientCompleteChecklist } from '../../../components/clients/ClientCompleteChecklist';
+import { IncompleteIcon } from '../../../components/clients/IncompleteIcon';
 import {
   ClientInactivateWithCascadeModal,
   type CascadeSample,
@@ -38,6 +38,7 @@ import {
   maskPostalCodeInput,
   maskRegistrationNumberInput,
 } from '../../../lib/client-field-formatters';
+import { isClientComplete } from '../../../lib/clients/client-completeness';
 import { useCepLookup } from '../../../lib/clients/use-cep-lookup';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
@@ -665,6 +666,17 @@ export default function ClientDetailPage() {
   // Backend rejeita unit em PJ com 422 CLIENT_PJ_HAS_NO_UNITS.
   const canAddUnit = isPf;
 
+  // 14.7.G: indicador de pendencia inline. Em vez do banner grande de
+  // "Cadastro incompleto" no topo, cada campo recomendado missing recebe
+  // um icone amarelo pulsante ao lado do label + label em cor amber.
+  const missingSet = useMemo(() => {
+    const result = isClientComplete(client);
+    return new Set(result.missing);
+  }, [client]);
+  const isMissing = (field: string) => missingSet.has(field);
+  const isUnitMissing = (unitId: string, field: string) =>
+    missingSet.has(`units[${unitId}].${field}`);
+
   /* ================================================================ */
   /*  Edit client handlers                                            */
   /* ================================================================ */
@@ -1075,8 +1087,6 @@ export default function ClientDetailPage() {
 
             <NoticeSlot notice={pageNotice} />
 
-            <ClientCompleteChecklist client={client} />
-
             {/* Abas */}
             <div className="sdv-tabs" role="tablist" aria-label="Secoes do cliente">
               <button
@@ -1141,8 +1151,13 @@ export default function ClientDetailPage() {
                             </span>
                           </div>
                           <div className="sdv-info-item">
-                            <span className="sdv-info-label">
+                            <span
+                              className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
+                            >
                               {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                              {client.personType === 'PF' && isMissing('cpf') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
+                              ) : null}
                             </span>
                             <span className="sdv-info-value">
                               {client.personType === 'PF'
@@ -1218,13 +1233,27 @@ export default function ClientDetailPage() {
                         <div className="sdv-card-themed-body">
                           <div className="sdv-info-grid">
                             <div className="sdv-info-item">
-                              <span className="sdv-info-label">Inscrição estadual</span>
+                              <span
+                                className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
+                              >
+                                Inscrição estadual
+                                {isMissing('registrationNumber') ? (
+                                  <IncompleteIcon className="sdv-info-label-warning" />
+                                ) : null}
+                              </span>
                               <span className="sdv-info-value">
                                 {client.registrationNumber || '—'}
                               </span>
                             </div>
                             <div className="sdv-info-item">
-                              <span className="sdv-info-label">Cidade/UF</span>
+                              <span
+                                className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
+                              >
+                                Cidade/UF
+                                {isMissing('city') || isMissing('state') ? (
+                                  <IncompleteIcon className="sdv-info-label-warning" />
+                                ) : null}
+                              </span>
                               <span className="sdv-info-value">
                                 {client.city && client.state
                                   ? `${client.city}/${client.state}`
@@ -1232,7 +1261,14 @@ export default function ClientDetailPage() {
                               </span>
                             </div>
                             <div className="sdv-info-item is-full">
-                              <span className="sdv-info-label">Endereço</span>
+                              <span
+                                className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                              >
+                                Endereço
+                                {isMissing('addressLine') ? (
+                                  <IncompleteIcon className="sdv-info-label-warning" />
+                                ) : null}
+                              </span>
                               <span className="sdv-info-value">
                                 {[client.addressLine, client.complement]
                                   .filter(Boolean)
@@ -1240,11 +1276,25 @@ export default function ClientDetailPage() {
                               </span>
                             </div>
                             <div className="sdv-info-item">
-                              <span className="sdv-info-label">Bairro</span>
+                              <span
+                                className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
+                              >
+                                Bairro
+                                {isMissing('district') ? (
+                                  <IncompleteIcon className="sdv-info-label-warning" />
+                                ) : null}
+                              </span>
                               <span className="sdv-info-value">{client.district || '—'}</span>
                             </div>
                             <div className="sdv-info-item">
-                              <span className="sdv-info-label">CEP</span>
+                              <span
+                                className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                              >
+                                CEP
+                                {isMissing('postalCode') ? (
+                                  <IncompleteIcon className="sdv-info-label-warning" />
+                                ) : null}
+                              </span>
                               <span className="sdv-info-value">
                                 {formatPostalCode(client.postalCode) || '—'}
                               </span>
@@ -1294,28 +1344,120 @@ export default function ClientDetailPage() {
                                   </span>
                                 </div>
                                 <div className="sdv-unit-card-body">
+                                  {/* CNPJ — nao e recomendado, so exibe se ha valor. */}
                                   {unit.cnpj ? (
                                     <div>
                                       <span className="sdv-unit-label">CNPJ:</span> {unit.cnpj}
                                     </div>
                                   ) : null}
-                                  {unit.city && unit.state ? (
-                                    <div>
-                                      <span className="sdv-unit-label">Local:</span> {unit.city}/
-                                      {unit.state}
-                                    </div>
-                                  ) : null}
-                                  {unit.registrationNumber ? (
-                                    <div>
-                                      <span className="sdv-unit-label">IE:</span>{' '}
-                                      {unit.registrationNumber}
-                                    </div>
-                                  ) : null}
-                                  {unit.car ? (
-                                    <div>
-                                      <span className="sdv-unit-label">CAR:</span> {unit.car}
-                                    </div>
-                                  ) : null}
+                                  {/* 14.7.G: campos recomendados — exibem com — + warning
+                                      quando missing, valor + label normal quando presente. */}
+                                  {(() => {
+                                    const localMissing =
+                                      isUnitMissing(unit.id, 'city') ||
+                                      isUnitMissing(unit.id, 'state');
+                                    const localValue =
+                                      unit.city && unit.state ? `${unit.city}/${unit.state}` : null;
+                                    if (!localValue && !localMissing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${localMissing ? ' is-missing' : ''}`}
+                                        >
+                                          Local:
+                                          {localMissing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {localValue || '—'}
+                                      </div>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const missing = isUnitMissing(unit.id, 'addressLine');
+                                    if (!unit.addressLine && !missing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
+                                        >
+                                          Endereço:
+                                          {missing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {unit.addressLine || '—'}
+                                      </div>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const missing = isUnitMissing(unit.id, 'district');
+                                    if (!unit.district && !missing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
+                                        >
+                                          Bairro:
+                                          {missing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {unit.district || '—'}
+                                      </div>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const missing = isUnitMissing(unit.id, 'postalCode');
+                                    if (!unit.postalCode && !missing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
+                                        >
+                                          CEP:
+                                          {missing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {unit.postalCode || '—'}
+                                      </div>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const missing = isUnitMissing(unit.id, 'registrationNumber');
+                                    if (!unit.registrationNumber && !missing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
+                                        >
+                                          IE:
+                                          {missing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {unit.registrationNumber || '—'}
+                                      </div>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const missing = isUnitMissing(unit.id, 'car');
+                                    if (!unit.car && !missing) return null;
+                                    return (
+                                      <div>
+                                        <span
+                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
+                                        >
+                                          CAR:
+                                          {missing ? (
+                                            <IncompleteIcon className="sdv-info-label-warning" />
+                                          ) : null}
+                                        </span>{' '}
+                                        {unit.car || '—'}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                                 <div className="sdv-unit-card-actions">
                                   <button

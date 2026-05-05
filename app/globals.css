@@ -6719,6 +6719,24 @@ button:disabled {
   margin-bottom: 4px;
 }
 
+/* 14.7.G: indicador inline minimalista de campo recomendado faltante.
+   Substitui o banner grande "Cadastro incompleto" no topo da pagina.
+   Label fica em amber, icone pequeno pulsante ao lado. */
+.sdv-info-label.is-missing,
+.sdv-unit-label.is-missing {
+  color: #b54708;
+}
+
+.sdv-info-label-warning {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
+  animation: cv2-incomplete-pulse 1.5s ease-in-out infinite;
+}
+
 .sdv-info-value {
   display: block;
   font-size: clamp(13px, 3.5vw, 14px);
