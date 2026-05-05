@@ -24,9 +24,6 @@ import {
   updateClientUnit,
   inactivateClientUnit,
   reactivateClientUnit,
-  listClientSamples,
-  listClientPurchases,
-  getClientCommercialSummary,
   lookupUsersForReference,
 } from '../../../lib/api-client';
 import {
@@ -48,9 +45,6 @@ import type {
   ClientPersonType,
   ClientUnitSummary,
   ClientSummary,
-  ClientSampleItem,
-  ClientPurchaseItem,
-  ClientCommercialSummary,
   UserLookupItem,
 } from '../../../lib/types';
 
@@ -59,8 +53,6 @@ import type {
 /* ------------------------------------------------------------------ */
 
 type Notice = { kind: 'error' | 'success'; text: string } | null;
-type ClientDetailSection = 'GENERAL' | 'COMMERCIAL';
-type CommercialSubTab = 'SALE' | 'PURCHASE';
 
 function NoticeSlot({ notice }: { notice: Notice }) {
   return (
@@ -150,21 +142,6 @@ function getStatusTone(status: string): string {
 
 function getStatusLabel(status: string): string {
   return status === 'ACTIVE' ? 'Ativo' : 'Inativo';
-}
-
-function getCommercialStatusClass(status: string): string {
-  switch (status) {
-    case 'OPEN':
-      return 'is-commercial-status-open';
-    case 'PARTIALLY_SOLD':
-      return 'is-commercial-status-partial';
-    case 'SOLD':
-      return 'is-commercial-status-sold';
-    case 'LOST':
-      return 'is-commercial-status-lost';
-    default:
-      return '';
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,77 +239,6 @@ export default function ClientDetailPage() {
   const [savingUnitStatus, setSavingUnitStatus] = useState(false);
   const unitStatusTrapRef = useFocusTrap(unitStatusModalOpen);
 
-  /* ---- commercial tab ---- */
-  const [clientSection, setClientSection] = useState<ClientDetailSection>('GENERAL');
-  const [commercialSubTab, setCommercialSubTab] = useState<CommercialSubTab>('SALE');
-  const [commercialSummary, setCommercialSummary] = useState<ClientCommercialSummary | null>(null);
-  const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
-  const [ownerSamples, setOwnerSamples] = useState<ClientSampleItem[]>([]);
-  const [ownerSamplesPage, setOwnerSamplesPage] = useState(1);
-  const [ownerSamplesMeta, setOwnerSamplesMeta] = useState<{
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  } | null>(null);
-  const [ownerSamplesLoading, setOwnerSamplesLoading] = useState(false);
-  const [buyerPurchases, setBuyerPurchases] = useState<ClientPurchaseItem[]>([]);
-  const [buyerPurchasesPage, setBuyerPurchasesPage] = useState(1);
-  const [buyerPurchasesMeta, setBuyerPurchasesMeta] = useState<{
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  } | null>(null);
-  const [buyerPurchasesLoading, setBuyerPurchasesLoading] = useState(false);
-  const commercialFetchedRef = useRef(false);
-
-  /* ---- sale search & filters ---- */
-  const [saleSearch, setSaleSearch] = useState('');
-  const [saleAppliedSearch, setSaleAppliedSearch] = useState('');
-  const [saleFiltersOpen, setSaleFiltersOpen] = useState(false);
-  const [saleDraftFilters, setSaleDraftFilters] = useState({
-    buyer: '',
-    commercialStatus: '',
-    harvest: '',
-    sacksMin: '',
-    sacksMax: '',
-    periodMode: 'exact' as 'exact' | 'month' | 'year',
-    periodValue: '',
-  });
-  const [saleAppliedFilters, setSaleAppliedFilters] = useState({
-    buyer: '',
-    commercialStatus: '',
-    harvest: '',
-    sacksMin: '',
-    sacksMax: '',
-    periodMode: 'exact' as 'exact' | 'month' | 'year',
-    periodValue: '',
-  });
-  const saleFiltersTrapRef = useFocusTrap(saleFiltersOpen);
-  const saleSearchDebounceRef = useRef<number | null>(null);
-
-  /* ---- purchase search & filters ---- */
-  const [purchaseSearch, setPurchaseSearch] = useState('');
-  const [purchaseAppliedSearch, setPurchaseAppliedSearch] = useState('');
-  const [purchaseFiltersOpen, setPurchaseFiltersOpen] = useState(false);
-  const [purchaseDraftFilters, setPurchaseDraftFilters] = useState({
-    owner: '',
-    sacksMin: '',
-    sacksMax: '',
-    periodMode: 'exact' as 'exact' | 'month' | 'year',
-    periodValue: '',
-  });
-  const [purchaseAppliedFilters, setPurchaseAppliedFilters] = useState({
-    owner: '',
-    sacksMin: '',
-    sacksMax: '',
-    periodMode: 'exact' as 'exact' | 'month' | 'year',
-    periodValue: '',
-  });
-  const purchaseFiltersTrapRef = useFocusTrap(purchaseFiltersOpen);
-  const purchaseSearchDebounceRef = useRef<number | null>(null);
-
   /* ---- refs ---- */
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -373,272 +279,6 @@ export default function ClientDetailPage() {
       fetchAbortRef.current?.abort();
     };
   }, [fetchData]);
-
-  /* ================================================================ */
-  /*  Commercial data fetching                                        */
-  /* ================================================================ */
-
-  async function fetchCommercialSummary() {
-    if (!session || !clientId) return;
-    setCommercialSummaryLoading(true);
-    try {
-      const response = await getClientCommercialSummary(session, clientId);
-      setCommercialSummary({ seller: response.seller, buyer: response.buyer });
-    } catch {
-      // silent — summary is supplementary
-    } finally {
-      setCommercialSummaryLoading(false);
-    }
-  }
-
-  async function fetchOwnerSamples(page: number) {
-    if (!session || !clientId) return;
-    setOwnerSamplesLoading(true);
-    try {
-      const response = await listClientSamples(session, clientId, {
-        page,
-        limit: 10,
-        search: saleAppliedSearch || undefined,
-        buyer: saleAppliedFilters.buyer || undefined,
-        commercialStatus: saleAppliedFilters.commercialStatus || undefined,
-        harvest: saleAppliedFilters.harvest || undefined,
-        sacksMin: saleAppliedFilters.sacksMin || undefined,
-        sacksMax: saleAppliedFilters.sacksMax || undefined,
-        periodMode: saleAppliedFilters.periodValue ? saleAppliedFilters.periodMode : undefined,
-        periodValue: saleAppliedFilters.periodValue || undefined,
-      });
-      setOwnerSamples(response.items);
-      setOwnerSamplesMeta({
-        total: response.page.total,
-        totalPages: response.page.totalPages,
-        hasNext: response.page.hasNext,
-        hasPrev: response.page.hasPrev,
-      });
-      setOwnerSamplesPage(page);
-    } catch {
-      setOwnerSamples([]);
-      setOwnerSamplesMeta(null);
-    } finally {
-      setOwnerSamplesLoading(false);
-    }
-  }
-
-  async function fetchBuyerPurchases(page: number) {
-    if (!session || !clientId) return;
-    setBuyerPurchasesLoading(true);
-    try {
-      const response = await listClientPurchases(session, clientId, {
-        page,
-        limit: 10,
-        search: purchaseAppliedSearch || undefined,
-        owner: purchaseAppliedFilters.owner || undefined,
-        sacksMin: purchaseAppliedFilters.sacksMin || undefined,
-        sacksMax: purchaseAppliedFilters.sacksMax || undefined,
-        periodMode: purchaseAppliedFilters.periodValue
-          ? purchaseAppliedFilters.periodMode
-          : undefined,
-        periodValue: purchaseAppliedFilters.periodValue || undefined,
-      });
-      setBuyerPurchases(response.items);
-      setBuyerPurchasesMeta({
-        total: response.page.total,
-        totalPages: response.page.totalPages,
-        hasNext: response.page.hasNext,
-        hasPrev: response.page.hasPrev,
-      });
-      setBuyerPurchasesPage(page);
-    } catch {
-      setBuyerPurchases([]);
-      setBuyerPurchasesMeta(null);
-    } finally {
-      setBuyerPurchasesLoading(false);
-    }
-  }
-
-  /* ---- lazy‑load commercial data ---- */
-  useEffect(() => {
-    if (clientSection !== 'COMMERCIAL' || commercialFetchedRef.current || !client) return;
-    commercialFetchedRef.current = true;
-    void fetchCommercialSummary();
-    if (client.isSeller) {
-      void fetchOwnerSamples(1);
-    }
-    if (!client.isSeller && client.isBuyer) {
-      setCommercialSubTab('PURCHASE');
-      void fetchBuyerPurchases(1);
-    }
-    // fetch* sao funcoes locais nao memoizadas; effect deve disparar so quando section/client mudam
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientSection, client]);
-
-  useEffect(() => {
-    if (clientSection !== 'COMMERCIAL' || !commercialFetchedRef.current || !client) return;
-    if (
-      commercialSubTab === 'SALE' &&
-      ownerSamples.length === 0 &&
-      !ownerSamplesLoading &&
-      client.isSeller
-    ) {
-      void fetchOwnerSamples(1);
-    }
-    if (
-      commercialSubTab === 'PURCHASE' &&
-      buyerPurchases.length === 0 &&
-      !buyerPurchasesLoading &&
-      client.isBuyer
-    ) {
-      void fetchBuyerPurchases(1);
-    }
-    // intencionalmente reage so a mudancas de subtab; demais valores sao snapshot do momento
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commercialSubTab]);
-
-  /* ---- sale search debounce ---- */
-
-  useEffect(() => {
-    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'SALE') return;
-    if (saleSearchDebounceRef.current !== null) window.clearTimeout(saleSearchDebounceRef.current);
-    const trimmed = saleSearch.trim();
-    if (trimmed === saleAppliedSearch) return;
-    saleSearchDebounceRef.current = window.setTimeout(() => {
-      saleSearchDebounceRef.current = null;
-      setSaleAppliedSearch(trimmed);
-      setOwnerSamplesPage(1);
-    }, 400);
-    return () => {
-      if (saleSearchDebounceRef.current !== null) {
-        window.clearTimeout(saleSearchDebounceRef.current);
-        saleSearchDebounceRef.current = null;
-      }
-    };
-  }, [saleSearch, clientSection, commercialSubTab, saleAppliedSearch]);
-
-  /* ---- re-fetch when applied search/filters change ---- */
-  useEffect(() => {
-    if (
-      clientSection !== 'COMMERCIAL' ||
-      commercialSubTab !== 'SALE' ||
-      !commercialFetchedRef.current
-    )
-      return;
-    void fetchOwnerSamples(1);
-    // dispara so quando filtros aplicados mudam; section/subTab funcionam como guard
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saleAppliedSearch, saleAppliedFilters]);
-
-  /* ---- purchase search debounce ---- */
-
-  useEffect(() => {
-    if (clientSection !== 'COMMERCIAL' || commercialSubTab !== 'PURCHASE') return;
-    if (purchaseSearchDebounceRef.current !== null)
-      window.clearTimeout(purchaseSearchDebounceRef.current);
-    const trimmed = purchaseSearch.trim();
-    if (trimmed === purchaseAppliedSearch) return;
-    purchaseSearchDebounceRef.current = window.setTimeout(() => {
-      purchaseSearchDebounceRef.current = null;
-      setPurchaseAppliedSearch(trimmed);
-      setBuyerPurchasesPage(1);
-    }, 400);
-    return () => {
-      if (purchaseSearchDebounceRef.current !== null) {
-        window.clearTimeout(purchaseSearchDebounceRef.current);
-        purchaseSearchDebounceRef.current = null;
-      }
-    };
-  }, [purchaseSearch, clientSection, commercialSubTab, purchaseAppliedSearch]);
-
-  /* ---- re-fetch when applied purchase search/filters change ---- */
-  useEffect(() => {
-    if (
-      clientSection !== 'COMMERCIAL' ||
-      commercialSubTab !== 'PURCHASE' ||
-      !commercialFetchedRef.current
-    )
-      return;
-    void fetchBuyerPurchases(1);
-    // dispara so quando filtros aplicados mudam; section/subTab funcionam como guard
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purchaseAppliedSearch, purchaseAppliedFilters]);
-
-  function formatDate(value: string | null): string {
-    if (!value) return '\u2014';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString('pt-BR');
-  }
-
-  /* ================================================================ */
-  /*  Sale filter helpers                                              */
-  /* ================================================================ */
-
-  const COMMERCIAL_OPTIONS = [
-    { value: 'OPEN', label: 'Aberto' },
-    { value: 'PARTIALLY_SOLD', label: 'Parcial' },
-    { value: 'SOLD', label: 'Vendido' },
-    { value: 'LOST', label: 'Perdido' },
-  ];
-
-  const HARVEST_OPTIONS = ['24/25', '25/26', '26/27'];
-
-  const saleActiveFiltersCount = [
-    saleAppliedFilters.buyer,
-    saleAppliedFilters.commercialStatus,
-    saleAppliedFilters.harvest,
-    saleAppliedFilters.sacksMin || saleAppliedFilters.sacksMax,
-    saleAppliedFilters.periodValue,
-  ].filter(Boolean).length;
-
-  function handleApplySaleFilters() {
-    setSaleAppliedFilters({ ...saleDraftFilters });
-    setOwnerSamplesPage(1);
-    setSaleFiltersOpen(false);
-  }
-
-  function handleClearSaleFilters() {
-    const empty = {
-      buyer: '',
-      commercialStatus: '',
-      harvest: '',
-      sacksMin: '',
-      sacksMax: '',
-      periodMode: 'exact' as const,
-      periodValue: '',
-    };
-    setSaleDraftFilters(empty);
-    setSaleAppliedFilters(empty);
-    setOwnerSamplesPage(1);
-    setSaleFiltersOpen(false);
-  }
-
-  /* ================================================================ */
-  /*  Purchase filter helpers                                          */
-  /* ================================================================ */
-
-  const purchaseActiveFiltersCount = [
-    purchaseAppliedFilters.owner,
-    purchaseAppliedFilters.sacksMin || purchaseAppliedFilters.sacksMax,
-    purchaseAppliedFilters.periodValue,
-  ].filter(Boolean).length;
-
-  function handleApplyPurchaseFilters() {
-    setPurchaseAppliedFilters({ ...purchaseDraftFilters });
-    setBuyerPurchasesPage(1);
-    setPurchaseFiltersOpen(false);
-  }
-
-  function handleClearPurchaseFilters() {
-    const empty = {
-      owner: '',
-      sacksMin: '',
-      sacksMax: '',
-      periodMode: 'exact' as const,
-      periodValue: '',
-    };
-    setPurchaseDraftFilters(empty);
-    setPurchaseAppliedFilters(empty);
-    setBuyerPurchasesPage(1);
-    setPurchaseFiltersOpen(false);
-  }
 
   /* ================================================================ */
   /*  Validation                                                      */
@@ -1152,55 +792,117 @@ export default function ClientDetailPage() {
 
             <NoticeSlot notice={pageNotice} />
 
-            {/* Abas */}
-            <div className="sdv-tabs" role="tablist" aria-label="Secoes do cliente">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={clientSection === 'GENERAL'}
-                className={`sdv-tab${clientSection === 'GENERAL' ? ' is-active' : ''}`}
-                onClick={() => setClientSection('GENERAL')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span>Geral</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={clientSection === 'COMMERCIAL'}
-                className={`sdv-tab${clientSection === 'COMMERCIAL' ? ' is-active' : ''}`}
-                onClick={() => setClientSection('COMMERCIAL')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 2v20" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-                <span>Comercial</span>
-              </button>
-            </div>
-
-            {/* Conteúdo */}
             <section className="sdv-content">
               <div className="sdv-content-inner">
-                {clientSection === 'GENERAL' ? (
-                  <section className="sdv-general">
-                    {/* 14.7.F Card: Informações — header verde + editar inline */}
-                    <div className="sdv-card sdv-card-themed sdv-card-info">
+                <section className="sdv-general">
+                  {/* 14.7.F Card: Informações — header verde + editar inline */}
+                  <div className="sdv-card sdv-card-themed sdv-card-info">
+                    <div className="sdv-card-themed-header">
+                      <span className="sdv-card-themed-title">Informações</span>
+                      <button
+                        type="button"
+                        className="sdv-card-themed-edit"
+                        onClick={() => openEditClient('info')}
+                        aria-label="Editar informações"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          {/* 14.7.M.1: lapis simetrico — desenho centrado em
+                                (12,12) do viewBox 24x24. Path antigo tinha
+                                centro de massa deslocado pra direita-baixo. */}
+                          <path d="M3 21h4l11-11-4-4L3 17v4Z" />
+                          <path d="m14.5 6.5 4 4" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="sdv-card-themed-body">
+                      <div className="sdv-info-grid">
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">
+                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                          </span>
+                          <span className="sdv-info-value">
+                            {client.personType === 'PF'
+                              ? client.fullName || '\u2014'
+                              : client.legalName || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span
+                            className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
+                          >
+                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                            {client.personType === 'PF' && isMissing('cpf') ? (
+                              <IncompleteIcon className="sdv-info-label-warning" />
+                            ) : null}
+                          </span>
+                          <span className="sdv-info-value">
+                            {client.personType === 'PF'
+                              ? formatClientDocument(client.cpf, 'PF') || '\u2014'
+                              : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Papeis</span>
+                          <div className="cdm-roles">
+                            {client.isBuyer ? (
+                              <span className="cv2-card-role is-buyer">Comprador</span>
+                            ) : null}
+                            {client.isSeller ? (
+                              <span className="cv2-card-role is-seller">Vendedor</span>
+                            ) : null}
+                            {!client.isBuyer && !client.isSeller ? (
+                              <span className="cv2-card-role is-none">Sem papel</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Email</span>
+                          <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Telefone</span>
+                          <span className="sdv-info-value">
+                            {formatPhone(client.phone) || '\u2014'}
+                          </span>
+                        </div>
+                        <div className="sdv-info-item is-full">
+                          <span className="sdv-info-label">
+                            Respons\u00e1veis comerciais
+                            {client.commercialUsers.length > 0
+                              ? ` (${client.commercialUsers.length})`
+                              : ''}
+                          </span>
+                          <div className="sdv-commercial-users">
+                            {client.commercialUsers.length === 0 ? (
+                              <span className="sdv-info-value">{'\u2014'}</span>
+                            ) : (
+                              client.commercialUsers.map((u) => (
+                                <span key={u.id} className="sdv-commercial-user-chip">
+                                  {u.fullName}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <NoticeSlot notice={detailNotice} />
+                    </div>
+                  </div>
+
+                  {isPj ? (
+                    /* 14.7.F PJ — card "Endereço fiscal" — header verde + editar inline */
+                    <div className="sdv-card sdv-card-themed sdv-card-address">
                       <div className="sdv-card-themed-header">
-                        <span className="sdv-card-themed-title">Informações</span>
+                        <span className="sdv-card-themed-title">Endereço fiscal</span>
                         <button
                           type="button"
                           className="sdv-card-themed-edit"
-                          onClick={() => openEditClient('info')}
-                          aria-label="Editar informações"
+                          onClick={() => openEditClient('address')}
+                          aria-label="Editar endereço fiscal"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
-                            {/* 14.7.M.1: lapis simetrico — desenho centrado em
-                                (12,12) do viewBox 24x24. Path antigo tinha
-                                centro de massa deslocado pra direita-baixo. */}
+                            {/* 14.7.M.1: lapis simetrico — mesmo path do
+                                  Card Informacoes (consistencia visual). */}
                             <path d="M3 21h4l11-11-4-4L3 17v4Z" />
                             <path d="m14.5 6.5 4 4" />
                           </svg>
@@ -1208,559 +910,162 @@ export default function ClientDetailPage() {
                       </div>
                       <div className="sdv-card-themed-body">
                         <div className="sdv-info-grid">
-                          <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">
-                              {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                            </span>
-                            <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? client.fullName || '\u2014'
-                                : client.legalName || '\u2014'}
-                            </span>
-                          </div>
                           <div className="sdv-info-item">
                             <span
-                              className={`sdv-info-label${client.personType === 'PF' && isMissing('cpf') ? ' is-missing' : ''}`}
+                              className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
                             >
-                              {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                              {client.personType === 'PF' && isMissing('cpf') ? (
+                              Inscrição estadual
+                              {isMissing('registrationNumber') ? (
                                 <IncompleteIcon className="sdv-info-label-warning" />
                               ) : null}
                             </span>
                             <span className="sdv-info-value">
-                              {client.personType === 'PF'
-                                ? formatClientDocument(client.cpf, 'PF') || '\u2014'
-                                : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                              {client.registrationNumber || '—'}
                             </span>
                           </div>
                           <div className="sdv-info-item">
-                            <span className="sdv-info-label">Papeis</span>
-                            <div className="cdm-roles">
-                              {client.isBuyer ? (
-                                <span className="cv2-card-role is-buyer">Comprador</span>
+                            <span
+                              className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
+                            >
+                              Cidade/UF
+                              {isMissing('city') || isMissing('state') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
                               ) : null}
-                              {client.isSeller ? (
-                                <span className="cv2-card-role is-seller">Vendedor</span>
-                              ) : null}
-                              {!client.isBuyer && !client.isSeller ? (
-                                <span className="cv2-card-role is-none">Sem papel</span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Email</span>
-                            <span className="sdv-info-value">{client.email || '\u2014'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Telefone</span>
+                            </span>
                             <span className="sdv-info-value">
-                              {formatPhone(client.phone) || '\u2014'}
+                              {client.city && client.state ? `${client.city}/${client.state}` : '—'}
                             </span>
                           </div>
                           <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">
-                              Respons\u00e1veis comerciais
-                              {client.commercialUsers.length > 0
-                                ? ` (${client.commercialUsers.length})`
-                                : ''}
+                            <span
+                              className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
+                            >
+                              Endereço
+                              {isMissing('addressLine') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
+                              ) : null}
                             </span>
-                            <div className="sdv-commercial-users">
-                              {client.commercialUsers.length === 0 ? (
-                                <span className="sdv-info-value">{'\u2014'}</span>
-                              ) : (
-                                client.commercialUsers.map((u) => (
-                                  <span key={u.id} className="sdv-commercial-user-chip">
-                                    {u.fullName}
-                                  </span>
-                                ))
-                              )}
-                            </div>
+                            <span className="sdv-info-value">
+                              {[client.addressLine, client.complement].filter(Boolean).join(', ') ||
+                                '—'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span
+                              className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
+                            >
+                              Bairro
+                              {isMissing('district') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
+                              ) : null}
+                            </span>
+                            <span className="sdv-info-value">{client.district || '—'}</span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span
+                              className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
+                            >
+                              CEP
+                              {isMissing('postalCode') ? (
+                                <IncompleteIcon className="sdv-info-label-warning" />
+                              ) : null}
+                            </span>
+                            <span className="sdv-info-value">
+                              {formatPostalCode(client.postalCode) || '—'}
+                            </span>
                           </div>
                         </div>
-                        <NoticeSlot notice={detailNotice} />
                       </div>
                     </div>
-
-                    {isPj ? (
-                      /* 14.7.F PJ — card "Endereço fiscal" — header verde + editar inline */
-                      <div className="sdv-card sdv-card-themed sdv-card-address">
-                        <div className="sdv-card-themed-header">
-                          <span className="sdv-card-themed-title">Endereço fiscal</span>
+                  ) : (
+                    /* 14.7.I: Card "Filiais" (PF) — themed (header verde + "+"
+                         button). Sub-cards minimalistas (so nome + cidade +
+                         seta clicavel). Click abre ClientUnitDetailModal. */
+                    <div className="sdv-card sdv-card-themed sdv-card-filiais">
+                      <div className="sdv-card-themed-header">
+                        <span className="sdv-card-themed-title">{unitPlural}</span>
+                        {canAddUnit ? (
                           <button
                             type="button"
                             className="sdv-card-themed-edit"
-                            onClick={() => openEditClient('address')}
-                            aria-label="Editar endereço fiscal"
+                            onClick={openUnitCreate}
+                            aria-label="Nova filial"
                           >
                             <svg viewBox="0 0 24 24" aria-hidden="true">
-                              {/* 14.7.M.1: lapis simetrico — mesmo path do
-                                  Card Informacoes (consistencia visual). */}
-                              <path d="M3 21h4l11-11-4-4L3 17v4Z" />
-                              <path d="m14.5 6.5 4 4" />
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
                             </svg>
                           </button>
-                        </div>
-                        <div className="sdv-card-themed-body">
-                          <div className="sdv-info-grid">
-                            <div className="sdv-info-item">
-                              <span
-                                className={`sdv-info-label${isMissing('registrationNumber') ? ' is-missing' : ''}`}
-                              >
-                                Inscrição estadual
-                                {isMissing('registrationNumber') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">
-                                {client.registrationNumber || '—'}
-                              </span>
-                            </div>
-                            <div className="sdv-info-item">
-                              <span
-                                className={`sdv-info-label${isMissing('city') || isMissing('state') ? ' is-missing' : ''}`}
-                              >
-                                Cidade/UF
-                                {isMissing('city') || isMissing('state') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">
-                                {client.city && client.state
-                                  ? `${client.city}/${client.state}`
-                                  : '—'}
-                              </span>
-                            </div>
-                            <div className="sdv-info-item is-full">
-                              <span
-                                className={`sdv-info-label${isMissing('addressLine') ? ' is-missing' : ''}`}
-                              >
-                                Endereço
-                                {isMissing('addressLine') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">
-                                {[client.addressLine, client.complement]
-                                  .filter(Boolean)
-                                  .join(', ') || '—'}
-                              </span>
-                            </div>
-                            <div className="sdv-info-item">
-                              <span
-                                className={`sdv-info-label${isMissing('district') ? ' is-missing' : ''}`}
-                              >
-                                Bairro
-                                {isMissing('district') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">{client.district || '—'}</span>
-                            </div>
-                            <div className="sdv-info-item">
-                              <span
-                                className={`sdv-info-label${isMissing('postalCode') ? ' is-missing' : ''}`}
-                              >
-                                CEP
-                                {isMissing('postalCode') ? (
-                                  <IncompleteIcon className="sdv-info-label-warning" />
-                                ) : null}
-                              </span>
-                              <span className="sdv-info-value">
-                                {formatPostalCode(client.postalCode) || '—'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                        ) : null}
                       </div>
-                    ) : (
-                      /* 14.7.I: Card "Filiais" (PF) — themed (header verde + "+"
-                         button). Sub-cards minimalistas (so nome + cidade +
-                         seta clicavel). Click abre ClientUnitDetailModal. */
-                      <div className="sdv-card sdv-card-themed sdv-card-filiais">
-                        <div className="sdv-card-themed-header">
-                          <span className="sdv-card-themed-title">{unitPlural}</span>
-                          {canAddUnit ? (
-                            <button
-                              type="button"
-                              className="sdv-card-themed-edit"
-                              onClick={openUnitCreate}
-                              aria-label="Nova filial"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 5v14" />
-                                <path d="M5 12h14" />
-                              </svg>
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="sdv-card-themed-body">
-                          {units.length === 0 ? (
-                            <div className="spv2-empty client-detail-empty-compact">
-                              <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
-                            </div>
-                          ) : (
-                            <div className="sdv-unit-list">
-                              {visibleUnits.map((unit) => {
-                                const cityLabel =
-                                  unit.city && unit.state
-                                    ? `${unit.city}/${unit.state}`
-                                    : 'Cidade não informada';
-                                const unitDisplayName =
-                                  unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
-                                // 14.7.M.2: detecta se a unit tem algum campo
-                                // recomendado missing — alimenta status-line
-                                // amber + warning icon.
-                                const unitIncomplete = Array.from(missingSet).some((key) =>
-                                  key.startsWith(`units[${unit.id}].`)
-                                );
-                                return (
-                                  <button
-                                    key={unit.id}
-                                    type="button"
-                                    className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
-                                    onClick={() => openUnitDetailModal(unit)}
-                                  >
-                                    <div className="sdv-unit-card-mini-content">
-                                      <span className="sdv-unit-card-mini-name">
-                                        {unitDisplayName}
-                                        {unit.status === 'INACTIVE' ? (
-                                          <span className="sdv-unit-card-mini-inactive">
-                                            Inativa
-                                          </span>
-                                        ) : null}
-                                      </span>
-                                      <span className="sdv-unit-card-mini-city">{cityLabel}</span>
-                                    </div>
-                                    {unitIncomplete && unit.status !== 'INACTIVE' ? (
-                                      <IncompleteIcon className="sdv-unit-card-mini-warning" />
-                                    ) : null}
-                                    <svg
-                                      className="sdv-unit-card-mini-arrow"
-                                      viewBox="0 0 24 24"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="m9 6 6 6-6 6" />
-                                    </svg>
-                                  </button>
-                                );
-                              })}
-
-                              {inactiveUnitsCount > 0 ? (
+                      <div className="sdv-card-themed-body">
+                        {units.length === 0 ? (
+                          <div className="spv2-empty client-detail-empty-compact">
+                            <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                          </div>
+                        ) : (
+                          <div className="sdv-unit-list">
+                            {visibleUnits.map((unit) => {
+                              const cityLabel =
+                                unit.city && unit.state
+                                  ? `${unit.city}/${unit.state}`
+                                  : 'Cidade não informada';
+                              const unitDisplayName =
+                                unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
+                              // 14.7.M.2: detecta se a unit tem algum campo
+                              // recomendado missing — alimenta status-line
+                              // amber + warning icon.
+                              const unitIncomplete = Array.from(missingSet).some((key) =>
+                                key.startsWith(`units[${unit.id}].`)
+                              );
+                              return (
                                 <button
+                                  key={unit.id}
                                   type="button"
-                                  className="sdv-edit-btn-small"
-                                  onClick={() => setShowInactiveUnits((v) => !v)}
+                                  className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}${unitIncomplete && unit.status !== 'INACTIVE' ? ' is-incomplete' : ''}`}
+                                  onClick={() => openUnitDetailModal(unit)}
                                 >
-                                  {showInactiveUnits
-                                    ? 'Esconder inativas'
-                                    : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                                  <div className="sdv-unit-card-mini-content">
+                                    <span className="sdv-unit-card-mini-name">
+                                      {unitDisplayName}
+                                      {unit.status === 'INACTIVE' ? (
+                                        <span className="sdv-unit-card-mini-inactive">Inativa</span>
+                                      ) : null}
+                                    </span>
+                                    <span className="sdv-unit-card-mini-city">{cityLabel}</span>
+                                  </div>
+                                  {unitIncomplete && unit.status !== 'INACTIVE' ? (
+                                    <IncompleteIcon className="sdv-unit-card-mini-warning" />
+                                  ) : null}
+                                  <svg
+                                    className="sdv-unit-card-mini-arrow"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="m9 6 6 6-6 6" />
+                                  </svg>
                                 </button>
-                              ) : null}
-                            </div>
-                          )}
-                          <NoticeSlot notice={unitNotice} />
-                        </div>
+                              );
+                            })}
+
+                            {inactiveUnitsCount > 0 ? (
+                              <button
+                                type="button"
+                                className="sdv-edit-btn-small"
+                                onClick={() => setShowInactiveUnits((v) => !v)}
+                              >
+                                {showInactiveUnits
+                                  ? 'Esconder inativas'
+                                  : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                              </button>
+                            ) : null}
+                          </div>
+                        )}
+                        <NoticeSlot notice={unitNotice} />
                       </div>
-                    )}
-                  </section>
-                ) : null}
-
-                {clientSection === 'COMMERCIAL' ? (
-                  <div className="client-detail-commercial-pane">
-                    {/* BLOCO 1: Sub-abas (fixo) */}
-                    <div className="client-detail-commercial-subtabs">
-                      <button
-                        type="button"
-                        disabled={!client.isSeller}
-                        onClick={() => setCommercialSubTab('SALE')}
-                        className={commercialSubTab === 'SALE' ? 'is-active' : ''}
-                      >
-                        Venda
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!client.isBuyer}
-                        onClick={() => setCommercialSubTab('PURCHASE')}
-                        className={commercialSubTab === 'PURCHASE' ? 'is-active' : ''}
-                      >
-                        Compra
-                      </button>
                     </div>
-
-                    {/* BLOCO 2: Cards de resumo (fixo) */}
-                    <div className="client-detail-commercial-summary-wrap">
-                      {commercialSummaryLoading ? (
-                        <p className="client-detail-status-msg">Carregando resumo...</p>
-                      ) : commercialSummary ? (
-                        <div className="client-detail-commercial-summary">
-                          {commercialSubTab === 'SALE' ? (
-                            <>
-                              <div className="client-detail-summary-card is-samples">
-                                <span className="client-detail-summary-label">Registradas</span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.seller.registeredSamples}
-                                </strong>
-                              </div>
-                              <div className="client-detail-summary-card is-sacks">
-                                <span className="client-detail-summary-label">Sacas</span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.seller.totalSacks}
-                                </strong>
-                              </div>
-                              <div className="client-detail-summary-card is-sold">
-                                <span className="client-detail-summary-label">Vendidas</span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.seller.soldSacks}
-                                </strong>
-                              </div>
-                              <div className="client-detail-summary-card is-lost">
-                                <span className="client-detail-summary-label">Perdidas</span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.seller.lostSacks}
-                                </strong>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="client-detail-summary-card is-purchases">
-                                <span className="client-detail-summary-label">
-                                  Total de compras
-                                </span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.buyer.totalPurchases}
-                                </strong>
-                              </div>
-                              <div className="client-detail-summary-card is-purchased-sacks">
-                                <span className="client-detail-summary-label">Sacas compradas</span>
-                                <strong className="client-detail-summary-value">
-                                  {commercialSummary.buyer.purchasedSacks}
-                                </strong>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* BLOCO 3: Lista de amostras/compras */}
-                    <div className="client-detail-commercial-list-block">
-                      {commercialSubTab === 'SALE' ? (
-                        <>
-                          {/* Topo fixo: busca + filtro */}
-                          <div className="client-detail-commercial-search-row">
-                            <form
-                              className="client-detail-commercial-search-form"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                if (saleSearchDebounceRef.current !== null) {
-                                  window.clearTimeout(saleSearchDebounceRef.current);
-                                  saleSearchDebounceRef.current = null;
-                                }
-                                setSaleAppliedSearch(saleSearch.trim());
-                                setOwnerSamplesPage(1);
-                              }}
-                            >
-                              <input
-                                className="samples-filter-field-input client-detail-commercial-search-input"
-                                value={saleSearch}
-                                onChange={(e) => setSaleSearch(e.target.value)}
-                                placeholder="Buscar por lote"
-                              />
-                            </form>
-                            <button
-                              type="button"
-                              className={`client-detail-commercial-filter-btn${saleActiveFiltersCount > 0 ? ' has-filters' : ''}`}
-                              onClick={() => {
-                                setSaleDraftFilters({ ...saleAppliedFilters });
-                                setSaleFiltersOpen(true);
-                              }}
-                              aria-label="Filtros"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4 6h16" />
-                                <path d="M7 12h10" />
-                                <path d="M10 18h4" />
-                              </svg>
-                              {saleActiveFiltersCount > 0 ? (
-                                <span className="client-detail-commercial-filter-badge">
-                                  {saleActiveFiltersCount}
-                                </span>
-                              ) : null}
-                            </button>
-                          </div>
-
-                          {/* Meio: lista com scroll */}
-                          <div className="client-detail-commercial-scroll">
-                            {ownerSamplesLoading ? (
-                              <p className="client-detail-status-msg">Carregando amostras...</p>
-                            ) : ownerSamples.length === 0 ? (
-                              <p className="client-detail-status-msg">
-                                Nenhuma amostra encontrada.
-                              </p>
-                            ) : (
-                              <div className="client-detail-commercial-list">
-                                {ownerSamples.map((sample) => (
-                                  <Link
-                                    key={sample.id}
-                                    href={`/samples/${sample.id}`}
-                                    className={`client-detail-commercial-item ${getCommercialStatusClass(sample.commercialStatus)}`}
-                                  >
-                                    <div className="client-detail-commercial-item-main">
-                                      <strong>{sample.internalLotNumber ?? sample.id}</strong>
-                                      <span>
-                                        {sample.declaredOwner ?? '\u2014'} · Safra{' '}
-                                        {sample.declaredHarvest ?? '\u2014'} ·{' '}
-                                        {sample.declaredSacks ?? 0} sacas
-                                      </span>
-                                    </div>
-                                    <span className="client-detail-commercial-item-date">
-                                      {formatDate(sample.createdAt)}
-                                    </span>
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Fundo fixo: paginação */}
-                          <div className="client-detail-commercial-pagination">
-                            <button
-                              type="button"
-                              className="client-detail-page-btn"
-                              disabled={!ownerSamplesMeta?.hasPrev}
-                              onClick={() => void fetchOwnerSamples(ownerSamplesPage - 1)}
-                              aria-label="Pagina anterior"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M15 6 9 12l6 6" />
-                              </svg>
-                            </button>
-                            <span className="client-detail-page-info">
-                              {ownerSamplesPage} de {ownerSamplesMeta?.totalPages ?? 1}
-                            </span>
-                            <button
-                              type="button"
-                              className="client-detail-page-btn"
-                              disabled={!ownerSamplesMeta?.hasNext}
-                              onClick={() => void fetchOwnerSamples(ownerSamplesPage + 1)}
-                              aria-label="Proxima pagina"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="m9 6 6 6-6 6" />
-                              </svg>
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Topo fixo: busca + filtro */}
-                          <div className="client-detail-commercial-search-row">
-                            <form
-                              className="client-detail-commercial-search-form"
-                              onSubmit={(e) => {
-                                e.preventDefault();
-                                if (purchaseSearchDebounceRef.current !== null) {
-                                  window.clearTimeout(purchaseSearchDebounceRef.current);
-                                  purchaseSearchDebounceRef.current = null;
-                                }
-                                setPurchaseAppliedSearch(purchaseSearch.trim());
-                                setBuyerPurchasesPage(1);
-                              }}
-                            >
-                              <input
-                                className="samples-filter-field-input client-detail-commercial-search-input"
-                                value={purchaseSearch}
-                                onChange={(e) => setPurchaseSearch(e.target.value)}
-                                placeholder="Buscar por lote"
-                              />
-                            </form>
-                            <button
-                              type="button"
-                              className={`client-detail-commercial-filter-btn${purchaseActiveFiltersCount > 0 ? ' has-filters' : ''}`}
-                              onClick={() => {
-                                setPurchaseDraftFilters({ ...purchaseAppliedFilters });
-                                setPurchaseFiltersOpen(true);
-                              }}
-                              aria-label="Filtros"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4 6h16" />
-                                <path d="M7 12h10" />
-                                <path d="M10 18h4" />
-                              </svg>
-                              {purchaseActiveFiltersCount > 0 ? (
-                                <span className="client-detail-commercial-filter-badge">
-                                  {purchaseActiveFiltersCount}
-                                </span>
-                              ) : null}
-                            </button>
-                          </div>
-
-                          {/* Meio: lista com scroll */}
-                          <div className="client-detail-commercial-scroll">
-                            {buyerPurchasesLoading ? (
-                              <p className="client-detail-status-msg">Carregando compras...</p>
-                            ) : buyerPurchases.length === 0 ? (
-                              <p className="client-detail-status-msg">Nenhuma compra encontrada.</p>
-                            ) : (
-                              <div className="client-detail-commercial-list">
-                                {buyerPurchases.map((purchase) => (
-                                  <Link
-                                    key={purchase.id}
-                                    href={`/samples/${purchase.sampleId}`}
-                                    className="client-detail-commercial-item"
-                                  >
-                                    <div className="client-detail-commercial-item-main">
-                                      <strong>
-                                        {purchase.sampleLotNumber ?? purchase.sampleId}
-                                      </strong>
-                                      <span>
-                                        {purchase.ownerName ?? '\u2014'} · {purchase.quantitySacks}{' '}
-                                        sacas
-                                      </span>
-                                    </div>
-                                    <span className="client-detail-commercial-item-date">
-                                      {formatDate(purchase.movementDate)}
-                                    </span>
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Fundo fixo: paginação */}
-                          <div className="client-detail-commercial-pagination">
-                            <button
-                              type="button"
-                              className="client-detail-page-btn"
-                              disabled={!buyerPurchasesMeta?.hasPrev}
-                              onClick={() => void fetchBuyerPurchases(buyerPurchasesPage - 1)}
-                              aria-label="Pagina anterior"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M15 6 9 12l6 6" />
-                              </svg>
-                            </button>
-                            <span className="client-detail-page-info">
-                              {buyerPurchasesPage} de {buyerPurchasesMeta?.totalPages ?? 1}
-                            </span>
-                            <button
-                              type="button"
-                              className="client-detail-page-btn"
-                              disabled={!buyerPurchasesMeta?.hasNext}
-                              onClick={() => void fetchBuyerPurchases(buyerPurchasesPage + 1)}
-                              aria-label="Proxima pagina"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="m9 6 6 6-6 6" />
-                              </svg>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
+                  )}
+                </section>
               </div>
             </section>
           </>
@@ -2335,340 +1640,6 @@ export default function ClientDetailPage() {
                   disabled={savingUnitStatus}
                 >
                   Cancelar
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
-
-      {/* ========== MODAL: Sale Filters ========== */}
-      {saleFiltersOpen ? (
-        <div
-          className="app-modal-backdrop samples-filter-modal-backdrop"
-          onClick={() => setSaleFiltersOpen(false)}
-        >
-          <section
-            ref={saleFiltersTrapRef}
-            className="app-modal is-themed samples-filter-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sale-filter-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-modal-header samples-filter-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="sale-filter-modal-title" className="app-modal-title">
-                  Filtros
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => setSaleFiltersOpen(false)}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-
-            <form
-              className="samples-filter-modal-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleApplySaleFilters();
-              }}
-            >
-              <div className="samples-filter-modal-content">
-                <div className="samples-filter-fields">
-                  <label className="samples-filter-field">
-                    <span className="samples-filter-field-label">Comprador</span>
-                    <input
-                      className="samples-filter-field-input"
-                      value={saleDraftFilters.buyer}
-                      onChange={(e) =>
-                        setSaleDraftFilters((c) => ({ ...c, buyer: e.target.value }))
-                      }
-                      placeholder="Nome do comprador"
-                    />
-                  </label>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Status comercial</span>
-                    <div className="samples-filter-chip-row">
-                      {COMMERCIAL_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`samples-filter-chip${saleDraftFilters.commercialStatus === opt.value ? ' is-selected' : ''}`}
-                          onClick={() =>
-                            setSaleDraftFilters((c) => ({
-                              ...c,
-                              commercialStatus: c.commercialStatus === opt.value ? '' : opt.value,
-                            }))
-                          }
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Safra</span>
-                    <div className="samples-filter-chip-row">
-                      {HARVEST_OPTIONS.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          className={`samples-filter-chip${saleDraftFilters.harvest === opt ? ' is-selected' : ''}`}
-                          onClick={() =>
-                            setSaleDraftFilters((c) => ({
-                              ...c,
-                              harvest: c.harvest === opt ? '' : opt,
-                            }))
-                          }
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Sacas</span>
-                    <div className="samples-filter-split-grid">
-                      <input
-                        className="samples-filter-field-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={saleDraftFilters.sacksMin}
-                        onChange={(e) =>
-                          setSaleDraftFilters((c) => ({
-                            ...c,
-                            sacksMin: e.target.value.replace(/\D+/g, ''),
-                          }))
-                        }
-                        placeholder="De"
-                      />
-                      <input
-                        className="samples-filter-field-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={saleDraftFilters.sacksMax}
-                        onChange={(e) =>
-                          setSaleDraftFilters((c) => ({
-                            ...c,
-                            sacksMax: e.target.value.replace(/\D+/g, ''),
-                          }))
-                        }
-                        placeholder="Ate"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Periodo</span>
-                    <div className="samples-filter-split-grid">
-                      <select
-                        className="samples-filter-field-input"
-                        value={saleDraftFilters.periodMode}
-                        onChange={(e) =>
-                          setSaleDraftFilters((c) => ({
-                            ...c,
-                            periodMode: e.target.value as 'exact' | 'month' | 'year',
-                            periodValue: '',
-                          }))
-                        }
-                      >
-                        <option value="exact">Data</option>
-                        <option value="month">Mes</option>
-                        <option value="year">Ano</option>
-                      </select>
-                      <input
-                        className="samples-filter-field-input"
-                        type={
-                          saleDraftFilters.periodMode === 'exact'
-                            ? 'date'
-                            : saleDraftFilters.periodMode === 'month'
-                              ? 'month'
-                              : 'number'
-                        }
-                        value={saleDraftFilters.periodValue}
-                        onChange={(e) =>
-                          setSaleDraftFilters((c) => ({ ...c, periodValue: e.target.value }))
-                        }
-                        placeholder={saleDraftFilters.periodMode === 'year' ? 'AAAA' : ''}
-                        min={saleDraftFilters.periodMode === 'year' ? '2000' : undefined}
-                        max={saleDraftFilters.periodMode === 'year' ? '2100' : undefined}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="app-modal-actions samples-filter-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleClearSaleFilters}
-                  disabled={!Object.values(saleDraftFilters).some((v) => v !== '' && v !== 'exact')}
-                >
-                  Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
-
-      {/* ========== MODAL: Purchase Filters ========== */}
-      {purchaseFiltersOpen ? (
-        <div
-          className="app-modal-backdrop samples-filter-modal-backdrop"
-          onClick={() => setPurchaseFiltersOpen(false)}
-        >
-          <section
-            ref={purchaseFiltersTrapRef}
-            className="app-modal is-themed samples-filter-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="purchase-filter-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-modal-header samples-filter-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="purchase-filter-modal-title" className="app-modal-title">
-                  Filtros
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="app-modal-close"
-                onClick={() => setPurchaseFiltersOpen(false)}
-                aria-label="Fechar"
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </header>
-
-            <form
-              className="samples-filter-modal-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleApplyPurchaseFilters();
-              }}
-            >
-              <div className="samples-filter-modal-content">
-                <div className="samples-filter-fields">
-                  <label className="samples-filter-field">
-                    <span className="samples-filter-field-label">Proprietario</span>
-                    <input
-                      className="samples-filter-field-input"
-                      value={purchaseDraftFilters.owner}
-                      onChange={(e) =>
-                        setPurchaseDraftFilters((c) => ({ ...c, owner: e.target.value }))
-                      }
-                      placeholder="Nome do proprietario"
-                    />
-                  </label>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Sacas</span>
-                    <div className="samples-filter-split-grid">
-                      <input
-                        className="samples-filter-field-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={purchaseDraftFilters.sacksMin}
-                        onChange={(e) =>
-                          setPurchaseDraftFilters((c) => ({
-                            ...c,
-                            sacksMin: e.target.value.replace(/\D+/g, ''),
-                          }))
-                        }
-                        placeholder="De"
-                      />
-                      <input
-                        className="samples-filter-field-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={purchaseDraftFilters.sacksMax}
-                        onChange={(e) =>
-                          setPurchaseDraftFilters((c) => ({
-                            ...c,
-                            sacksMax: e.target.value.replace(/\D+/g, ''),
-                          }))
-                        }
-                        placeholder="Ate"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="samples-filter-field">
-                    <span className="samples-filter-field-label">Periodo</span>
-                    <div className="samples-filter-split-grid">
-                      <select
-                        className="samples-filter-field-input"
-                        value={purchaseDraftFilters.periodMode}
-                        onChange={(e) =>
-                          setPurchaseDraftFilters((c) => ({
-                            ...c,
-                            periodMode: e.target.value as 'exact' | 'month' | 'year',
-                            periodValue: '',
-                          }))
-                        }
-                      >
-                        <option value="exact">Data</option>
-                        <option value="month">Mes</option>
-                        <option value="year">Ano</option>
-                      </select>
-                      <input
-                        className="samples-filter-field-input"
-                        type={
-                          purchaseDraftFilters.periodMode === 'exact'
-                            ? 'date'
-                            : purchaseDraftFilters.periodMode === 'month'
-                              ? 'month'
-                              : 'number'
-                        }
-                        value={purchaseDraftFilters.periodValue}
-                        onChange={(e) =>
-                          setPurchaseDraftFilters((c) => ({ ...c, periodValue: e.target.value }))
-                        }
-                        placeholder={purchaseDraftFilters.periodMode === 'year' ? 'AAAA' : ''}
-                        min={purchaseDraftFilters.periodMode === 'year' ? '2000' : undefined}
-                        max={purchaseDraftFilters.periodMode === 'year' ? '2100' : undefined}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="app-modal-actions samples-filter-modal-actions">
-                <button
-                  type="button"
-                  className="app-modal-secondary"
-                  onClick={handleClearPurchaseFilters}
-                  disabled={
-                    !Object.values(purchaseDraftFilters).some((v) => v !== '' && v !== 'exact')
-                  }
-                >
-                  Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
                 </button>
               </div>
             </form>
