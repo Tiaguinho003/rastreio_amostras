@@ -825,10 +825,9 @@ function ClientsPage() {
                     </div>
                     <span className="cv2-card-divider" aria-hidden="true" />
                     <div className="cv2-card-foot">
-                      <span className="cv2-card-person-type">
-                        <span className="cv2-card-person-dot" aria-hidden="true" />
-                        {client.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}
-                      </span>
+                      {/* 14.6.K: pessoa-type texto removido — info redundante
+                          com nome + ja eliminada do meta no #14.6.G. So fica
+                          a seta no canto direito. */}
                       <span className="cv2-card-arrow-btn" aria-hidden="true">
                         <svg className="spv2-card-chevron" viewBox="0 0 24 24">
                           <path d="m9 6 6 6-6 6" />

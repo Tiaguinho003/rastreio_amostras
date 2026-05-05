@@ -219,6 +219,8 @@ function buildClientWhereFromSearch(search) {
 // Q-27 (override de Q-12 e Q-10c): `email` removido dos recomendados.
 // Manter sincronizado com src/clients/client-helpers.js e
 // lib/clients/client-completeness.ts.
+// 14.7.A: 'complement' removido — sincronizado com client-helpers.js e
+// lib/clients/client-completeness.ts.
 const PJ_RECOMMENDED_FIELDS = [
   'tradeName',
   'registrationNumber',
@@ -227,7 +229,6 @@ const PJ_RECOMMENDED_FIELDS = [
   'city',
   'state',
   'postalCode',
-  'complement',
 ];
 const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'];
 const PF_UNIT_RECOMMENDED_FIELDS = [

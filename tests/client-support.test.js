@@ -97,11 +97,17 @@ test('Q-11/Q-27: isClientComplete marca PJ incompleto se faltar qualquer recomen
   assert.ok(!noEmailResult.missing.includes('email'));
 
   // Outros recomendados continuam disparando incompleto
-  const incompletePj = { ...completePj, complement: '' };
+  // 14.7.A: complement deixou de ser recomendado — usar tradeName em vez.
+  const incompletePj = { ...completePj, tradeName: '' };
   const result2 = isClientComplete(incompletePj);
   assert.equal(result2.complete, false);
-  assert.ok(result2.missing.includes('complement'));
+  assert.ok(result2.missing.includes('tradeName'));
   assert.ok(!result2.missing.includes('email'), 'email NAO eh recomendado pos-Q-27');
+  // 14.7.A: complement vazio NAO marca incompleto
+  const noComplementPj = { ...completePj, complement: '' };
+  const noComplementResult = isClientComplete(noComplementPj);
+  assert.equal(noComplementResult.complete, true);
+  assert.ok(!noComplementResult.missing.includes('complement'));
 });
 
 test('Q-11/Q-27: isClientComplete marca PF incompleto so por cpf/units (email NAO conta)', () => {

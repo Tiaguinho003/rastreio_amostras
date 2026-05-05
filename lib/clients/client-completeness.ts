@@ -9,6 +9,8 @@ import type { ClientSummary, ClientUnitSummary } from '../types';
 // Q-27 (override de Q-12 e Q-10c): `email` foi RETIRADO da lista de
 // recomendados. Mantem-se sincronizado com src/clients/client-helpers.js
 // e src/clients/client-service.js (buildCompletenessWhere).
+// 14.7.A: 'complement' removido — sincronizado com client-helpers.js e
+// client-service.js (buildCompletenessWhere).
 const PJ_RECOMMENDED_FIELDS = [
   'tradeName',
   'registrationNumber',
@@ -17,7 +19,6 @@ const PJ_RECOMMENDED_FIELDS = [
   'city',
   'state',
   'postalCode',
-  'complement',
 ] as const;
 
 const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'] as const;

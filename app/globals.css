@@ -18709,19 +18709,22 @@ button:disabled {
     min-width: 0;
   }
 
+  /* 14.6.K: foot agora so tem o arrow-btn — alinhar a direita. */
   .clients-page-v2 .cv2-card-foot {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 0.5rem;
     min-width: 0;
   }
 
+  /* 14.6.K: divider mais visivel (0.06 -> 0.12) — agora separa nome+meta
+     da seta, sem o texto pessoa-type entre. */
   .clients-page-v2 .cv2-card-divider {
     display: block;
     height: 1px;
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.12);
     margin: 0;
   }
 
@@ -20289,17 +20292,15 @@ button:disabled {
     width: auto;
   }
 
-  /* 14.6.E: clients — 4 colunas × 4 linhas (16 cards visiveis sem scroll).
-     Cards bem maiores que em 14.6.A (6 cols -> 4 cols), comportando o novo
-     layout 2-blocos com avatar 56px + nome destacado + meta + divider +
-     foot com person-type + arrow-btn. Min 180px por row pra acomodar o
-     conteudo (avatar + nome + meta = ~110px + divider + foot ~50px). Em
-     viewport grande (1080p+) cards ficam ~200-260px. */
+  /* 14.6.K: clients — 4 colunas × 4 linhas (16 cards visiveis sem scroll).
+     Altura reduzida em 1/5 (180 -> 144) apos remocao do texto pessoa-type
+     do foot. Cards continuam comportando avatar 56px + nome + meta + divider
+     + arrow-btn. */
   .clients-v2-sheet .spv2-list-scroll {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(180px, 1fr));
-    grid-auto-rows: minmax(180px, 1fr);
+    grid-template-rows: repeat(4, minmax(144px, 1fr));
+    grid-auto-rows: minmax(144px, 1fr);
     gap: 1rem;
     justify-content: start;
     padding: 0.4rem 0.2rem 0.2rem;

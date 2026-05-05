@@ -19,6 +19,9 @@ import { CLIENT_PERSON_TYPES } from './client-support.js';
 // pratica: nao eh comum clientes (especialmente cooperativas e
 // armazens) terem email cadastrado; for-ar como recomendado gerava
 // ruido visual permanente sem valor.
+// 14.7.A: 'complement' removido — frequentemente nao se aplica (rural,
+// matriz unica, etc) e gerava badge incompleto permanente. Cliente
+// completo sem complemento e o caso comum.
 const PJ_RECOMMENDED_FIELDS = [
   'tradeName',
   'registrationNumber',
@@ -27,7 +30,6 @@ const PJ_RECOMMENDED_FIELDS = [
   'city',
   'state',
   'postalCode',
-  'complement',
 ];
 
 const PF_CLIENT_RECOMMENDED_FIELDS = ['cpf'];
