@@ -18709,7 +18709,12 @@ button:disabled {
     min-width: 0;
   }
 
-  /* 14.6.K: foot agora so tem o arrow-btn — alinhar a direita. */
+  /* 14.6.K: foot agora so tem o arrow-btn — alinhar a direita.
+     14.7.B: margin-top auto ancora o foot no rodape do card mesmo
+     quando a row do grid eh esticada por outro card mais alto. Antes,
+     com justify-content flex-start no card, o foot ficava logo apos
+     o divider — cards de nome curto pareciam ter espaco vazio
+     embaixo enquanto nome longo grudava o foot. */
   .clients-page-v2 .cv2-card-foot {
     display: flex;
     flex-direction: row;
@@ -18717,6 +18722,7 @@ button:disabled {
     justify-content: flex-end;
     gap: 0.5rem;
     min-width: 0;
+    margin-top: auto;
   }
 
   /* 14.6.K: divider mais visivel (0.06 -> 0.12) — agora separa nome+meta
@@ -18754,16 +18760,25 @@ button:disabled {
     min-width: 0;
   }
 
+  /* 14.7.B: nome limitado a 3 linhas com truncamento. Nomes muito longos
+     (5+ linhas) esticavam a row inteira do grid e quebravam o visual de
+     todos os cards na mesma linha. */
   .clients-page-v2 .cv2-card-name {
     font-size: 1.1rem;
     font-weight: 800;
     color: #1a1a1a;
     max-width: 100%;
     white-space: normal;
-    text-overflow: clip;
     text-align: left;
     line-height: 1.2;
     letter-spacing: -0.01em;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
   }
 
   /* Linha meta: PJ/PF + UserAvatarStack lado a lado */
@@ -18901,24 +18916,25 @@ button:disabled {
     height: 28px;
   }
 
-  /* 14.6.J: botao usuario filtro 2x — 34px -> 64px. Badge proporcional. */
+  /* 14.7.B: botao usuario filtro reduzido 64 -> 56 com svg 32 -> 26
+     pra casar visualmente com o icone do chip incompletos (28px). */
   .clients-page-v2 .cv2-filter-user-btn {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
   }
 
   .clients-page-v2 .cv2-filter-user-btn svg {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
   }
 
   .clients-page-v2 .cv2-filter-user-btn-badge {
-    min-width: 26px;
-    height: 26px;
-    padding: 0 6px;
-    font-size: 11px;
-    top: -6px;
-    right: -6px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 5px;
+    font-size: 10px;
+    top: -5px;
+    right: -5px;
     border-width: 2px;
   }
 
