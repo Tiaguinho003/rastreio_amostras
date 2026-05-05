@@ -18796,30 +18796,38 @@ button:disabled {
     flex-shrink: 0;
   }
 
-  /* Container bege para o chevron, no canto inferior direito do card */
+  /* 14.6.I: container do chevron pintado inteiro com a cor do avatar
+     do cliente (gradient igual o avatar pra consistencia visual).
+     Antes era bege fixo; agora cada card tem o botao na sua cor unica
+     com a seta branca por cima. */
   .clients-page-v2 .cv2-card-arrow-btn {
     display: inline-grid;
     place-items: center;
     width: 2.2rem;
     height: 2.2rem;
     border-radius: 10px;
-    background: #f5f0e3;
-    border: 1px solid rgba(112, 130, 103, 0.18);
+    background: linear-gradient(
+      135deg,
+      var(--avatar-color, #1f5d43),
+      rgb(from var(--avatar-color, #1f5d43) r g b / 0.82)
+    );
+    border: 0;
+    box-shadow: 0 2px 6px rgb(from var(--avatar-color, #1f5d43) r g b / 0.3);
     flex-shrink: 0;
-    transition: background 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   .clients-page-v2 .cv2-card:hover .cv2-card-arrow-btn {
-    background: #ece4cf;
+    box-shadow: 0 4px 12px rgb(from var(--avatar-color, #1f5d43) r g b / 0.45);
   }
 
-  /* 14.6.G: chevron usa a cor do avatar do cliente (--avatar-color) —
-     cada card pinta a seta com a sua cor personalizada via inline style. */
   .clients-page-v2 .cv2-card-arrow-btn .spv2-card-chevron {
     width: 16px;
     height: 16px;
-    stroke: var(--avatar-color, #6f6757);
-    stroke-width: 2.2;
+    stroke: #ffffff;
+    stroke-width: 2.4;
   }
 
   /* Chips: sem padding lateral (container pai cuida) */
