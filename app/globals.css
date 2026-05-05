@@ -4700,9 +4700,9 @@ button:disabled {
   position: absolute;
   top: 6px;
   right: 6px;
-  /* 14.6.H: dobro do tamanho (18 -> 36px) pra ficar mais visivel. */
-  width: 36px;
-  height: 36px;
+  /* 14.6.J: -1/3 do tamanho de 14.6.H (36 -> 24px). */
+  width: 24px;
+  height: 24px;
   z-index: 2;
   pointer-events: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
@@ -4964,7 +4964,13 @@ button:disabled {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  /* 14.6.J: cada usuario com sua cor unica (mesma paleta do avatar do
+     card de cliente). --avatar-color e setado inline pelo componente. */
+  background: linear-gradient(
+    135deg,
+    var(--avatar-color, #1f5d43),
+    rgb(from var(--avatar-color, #1f5d43) r g b / 0.82)
+  );
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -18612,9 +18618,9 @@ button:disabled {
   }
 
   .clients-v2-header {
-    /* 14.6.F: gap maior entre titulo "Clientes" e barra de pesquisa
-       (era 0.5rem -> 1.5rem). */
-    padding: 0 0 1.5rem;
+    /* 14.6.J: gap ainda maior entre titulo "Clientes" e barra de pesquisa
+       (1.5rem -> 2.75rem). */
+    padding: 0 0 2.75rem;
     flex-shrink: 0;
   }
 
@@ -18862,23 +18868,55 @@ button:disabled {
     flex-shrink: 0;
   }
 
-  .clients-page-v2 .spv2-list-count {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #8a9285;
+  /* 14.6.J: contador "X clientes" 2x maior + spv2-list-meta com mais
+     espaco vertical pra acomodar os filtros maiores. */
+  .clients-page-v2 .spv2-list-meta {
+    padding: 0.6rem 0.4rem 0.5rem;
   }
 
-  /* 14.6.A: chip incompletos desktop — um pouco maior que mobile pra
-     casar visualmente com o novo botao usuario na mesma linha. */
+  .clients-page-v2 .spv2-list-meta-actions {
+    gap: 0.75rem;
+  }
+
+  .clients-page-v2 .spv2-list-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #555;
+    letter-spacing: -0.01em;
+  }
+
+  /* 14.6.J: chip incompletos 2x — padding/font/icone proporcionais. */
   .clients-page-v2 .cv2-filter-incomplete-chip {
-    padding: 6px 14px;
-    font-size: 0.82rem;
-    gap: 6px;
+    padding: 12px 22px;
+    font-size: 1.5rem;
+    gap: 10px;
+    border-radius: 999px;
   }
 
   .clients-page-v2 .cv2-filter-incomplete-icon {
-    width: 16px;
-    height: 16px;
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 14.6.J: botao usuario filtro 2x — 34px -> 64px. Badge proporcional. */
+  .clients-page-v2 .cv2-filter-user-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  .clients-page-v2 .cv2-filter-user-btn svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .clients-page-v2 .cv2-filter-user-btn-badge {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    font-size: 11px;
+    top: -6px;
+    right: -6px;
+    border-width: 2px;
   }
 
   /* Footer: paginacao no rodape do container */
@@ -18913,32 +18951,43 @@ button:disabled {
 
   /* 14.6.F: barra de pesquisa + FAB inline lado a lado. Form ocupa o
      espaco esquerdo, FAB fica no canto direito (proximo da borda do
-     sheet). Mobile NAO entra aqui — FAB no mobile mantem fixed. */
+     sheet). Mobile NAO entra aqui — FAB no mobile mantem fixed.
+     14.6.J: barra de pesquisa mais alta (input padding maior) + FAB +1/3
+     (48 -> 64px); barra encolhe um pouco a direita pra acomodar. */
   .clients-page-v2 .hero-search-wrap {
     padding: 0 0 0.75rem;
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
   .clients-page-v2 .hero-search-wrap .hero-search-bar {
     flex: 1;
     min-width: 0;
+    border-radius: 18px;
+    padding: 0 1rem;
   }
 
-  /* 14.6.F: FAB inline a direita da barra de pesquisa no desktop.
-     Sobrescreve o position: fixed do mobile. Tamanho casa com a
-     altura aproximada da search-bar. */
+  .clients-page-v2 .hero-search-wrap .hero-search-input {
+    padding: 1rem 0;
+    font-size: 1.05rem;
+  }
+
+  .clients-page-v2 .hero-search-wrap .hero-search-icon {
+    width: 22px;
+    height: 22px;
+  }
+
   .clients-page-v2 .hero-search-wrap .cv2-fab {
     position: relative;
     bottom: auto;
     right: auto;
     top: auto;
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    border-radius: 14px;
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 18px;
     padding: 0;
     display: inline-grid;
     place-items: center;
@@ -18947,6 +18996,11 @@ button:disabled {
     transition:
       transform 0.2s ease,
       box-shadow 0.2s ease;
+  }
+
+  .clients-page-v2 .hero-search-wrap .cv2-fab svg {
+    width: 30px;
+    height: 30px;
   }
 
   /* 14.4.B: remove o texto "Novo cliente" — desktop fica igual mobile. */

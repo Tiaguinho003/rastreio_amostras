@@ -23,6 +23,40 @@ function getUserInitials(name: string): string {
   );
 }
 
+// 14.6.J: paleta replicada de app/clients/page.tsx — usuarios no modal
+// usam a mesma cor que aparece no avatar do card de cliente que tiver
+// o mesmo nome. Mantido em sincronia manual ate ter um helper compartilhado.
+const AVATAR_COLORS = [
+  '#1f5d43',
+  '#2f6b4a',
+  '#173c30',
+  '#0D47A1',
+  '#1565C0',
+  '#4E342E',
+  '#5D4037',
+  '#6D4C41',
+  '#AD1457',
+  '#C62828',
+  '#6A1B9A',
+  '#4527A0',
+  '#00695C',
+  '#00838F',
+  '#E65100',
+];
+
+function hashName(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getUserAvatarColor(name: string): string {
+  return AVATAR_COLORS[hashName(name) % AVATAR_COLORS.length];
+}
+
 export function ClientUserFilterButton({ users, selectedUserId, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -130,6 +164,7 @@ export function ClientUserFilterButton({ users, selectedUserId, onChange }: Prop
               <ul className="cv2-filter-user-modal-list">
                 {users.map((user) => {
                   const isSelected = user.id === selectedUserId;
+                  const userColor = getUserAvatarColor(user.fullName);
                   return (
                     <li key={user.id}>
                       <button
@@ -137,7 +172,11 @@ export function ClientUserFilterButton({ users, selectedUserId, onChange }: Prop
                         className={`cv2-filter-user-modal-item${isSelected ? ' is-selected' : ''}`}
                         onClick={() => handleSelect(user.id)}
                       >
-                        <span className="cv2-filter-user-modal-item-avatar" aria-hidden="true">
+                        <span
+                          className="cv2-filter-user-modal-item-avatar"
+                          aria-hidden="true"
+                          style={{ '--avatar-color': userColor } as React.CSSProperties}
+                        >
                           {getUserInitials(user.fullName)}
                         </span>
                         <span className="cv2-filter-user-modal-item-name">{user.fullName}</span>
