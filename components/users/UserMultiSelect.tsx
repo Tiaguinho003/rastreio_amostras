@@ -7,8 +7,8 @@ import type { UserLookupItem, UserRole } from '../../lib/types';
 type UserPickItem = { id: string; fullName: string };
 
 type Props = {
-  /** Label exibido acima do componente. Ex.: "Responsáveis comerciais". */
-  label: string;
+  /** Label exibido acima do componente. Vazio/undefined = sem label. */
+  label?: string;
   /** IDs atualmente selecionados. */
   value: string[];
   /** Callback chamado com a nova lista de IDs. */
@@ -25,6 +25,8 @@ type Props = {
   disabled?: boolean;
   /** Quando focar no input limpa erro inline (controlado pelo parent via key). */
   onClearError?: () => void;
+  /** 14.7.C: ocultar role/papel nos chips selecionados (so nome). */
+  hideRoleInChips?: boolean;
 };
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -49,6 +51,7 @@ export function UserMultiSelect({
   errorMessage,
   disabled = false,
   onClearError,
+  hideRoleInChips = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -123,7 +126,7 @@ export function UserMultiSelect({
 
   return (
     <label className="app-modal-field user-multi-select-field">
-      <span className="app-modal-label">{label}</span>
+      {label ? <span className="app-modal-label">{label}</span> : null}
       <div
         ref={containerRef}
         className={`user-multi-select ${open ? 'is-open' : ''} ${
@@ -136,7 +139,7 @@ export function UserMultiSelect({
             return (
               <span key={u.id} className="user-multi-select__chip">
                 <span className="user-multi-select__chip-label">{u.fullName}</span>
-                {role ? (
+                {role && !hideRoleInChips ? (
                   <span className={`user-multi-select__chip-role ${roleClass(role)}`}>
                     {ROLE_LABEL[role]}
                   </span>

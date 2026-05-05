@@ -169,9 +169,10 @@ export function ClientQuickCreateModal({
   const hasNameError = showFieldErrors && !isNameFilled;
   const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
-  // Mostra erro imediato (sem esperar submitted) — sinaliza ao usuario o
-  // motivo de o botao Cadastrar ficar disabled.
-  const hasCommercialUserError = !loadingUsers && !hasCommercialUser;
+  // 14.7.C: erro do responsavel agora so aparece apos tentativa de
+  // submit (antes era permanente quando lista vazia, gerando aspecto
+  // vermelho mesmo sem o usuario interagir).
+  const hasCommercialUserError = submitted && !loadingUsers && !hasCommercialUser;
 
   function handleCloseAndReset() {
     if (saving) {
@@ -277,144 +278,121 @@ export function ClientQuickCreateModal({
           <div className="client-quick-create-body">
             {error ? <p className="error client-quick-create-error">{error}</p> : null}
 
-            <section
-              className="client-quick-create-group"
-              aria-labelledby="client-quick-create-group-identificacao"
-            >
-              <p
-                id="client-quick-create-group-identificacao"
-                className="client-quick-create-group-title"
-              >
-                Identificacao
-              </p>
+            {/* 14.7.C: 1 bloco unico (sem sections "Identificacao/Contato/...").
+                5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
+                telefone+responsavel / vendedor+comprador. */}
 
-              <div className="client-quick-create-grid client-quick-create-grid-compact">
+            {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
+            <div className="client-quick-create-grid client-quick-create-grid-2col">
+              <label className="client-quick-create-field">
+                Tipo de cliente
+                <select
+                  value={form.personType}
+                  disabled={saving}
+                  onChange={(event) => {
+                    const nextType = event.target.value as ClientPersonType;
+                    setForm((current) => ({ ...current, personType: nextType }));
+                    setSubmitted(false);
+                    setError(null);
+                  }}
+                >
+                  <option value="PJ">Pessoa juridica</option>
+                  <option value="PF">Pessoa fisica</option>
+                </select>
+              </label>
+
+              <label
+                className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
+              >
+                {documentLabel}
+                <input
+                  value={documentValue}
+                  disabled={saving}
+                  className={hasDocumentError ? 'cqc-input-error' : undefined}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      cpf:
+                        current.personType === 'PF'
+                          ? maskDocumentInput(event.target.value, 'PF')
+                          : current.cpf,
+                      cnpj:
+                        current.personType === 'PJ'
+                          ? maskDocumentInput(event.target.value, 'PJ')
+                          : current.cnpj,
+                    }))
+                  }
+                  placeholder={hasDocumentError ? (documentHint ?? '') : ''}
+                />
+              </label>
+            </div>
+
+            {/* Linha 2: Nome (PF: completo, PJ: razao social) — full width */}
+            <div className="client-quick-create-grid client-quick-create-grid-single">
+              <label
+                className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}
+              >
+                {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                <input
+                  value={nameValue}
+                  disabled={saving}
+                  className={hasNameError ? 'cqc-input-error' : undefined}
+                  onChange={(event) => {
+                    const value = event.target.value.toUpperCase();
+                    setForm((current) => ({
+                      ...current,
+                      fullName: current.personType === 'PF' ? value : current.fullName,
+                      legalName: current.personType === 'PJ' ? value : current.legalName,
+                    }));
+                  }}
+                  placeholder={hasNameError ? 'Obrigatorio' : ''}
+                />
+              </label>
+            </div>
+
+            {/* Linha 3 (so PJ): Nome fantasia — full width */}
+            {form.personType === 'PJ' ? (
+              <div className="client-quick-create-grid client-quick-create-grid-single">
                 <label className="client-quick-create-field">
-                  Tipo de cliente
-                  <select
-                    value={form.personType}
-                    disabled={saving}
-                    onChange={(event) => {
-                      const nextType = event.target.value as ClientPersonType;
-                      setForm((current) => ({ ...current, personType: nextType }));
-                      setSubmitted(false);
-                      setError(null);
-                    }}
-                  >
-                    <option value="PJ">Pessoa juridica</option>
-                    <option value="PF">Pessoa fisica</option>
-                  </select>
-                </label>
-
-                <label
-                  className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
-                >
-                  {documentLabel}
+                  Nome fantasia
                   <input
-                    value={documentValue}
+                    value={form.tradeName}
                     disabled={saving}
-                    className={hasDocumentError ? 'cqc-input-error' : undefined}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        cpf:
-                          current.personType === 'PF'
-                            ? maskDocumentInput(event.target.value, 'PF')
-                            : current.cpf,
-                        cnpj:
-                          current.personType === 'PJ'
-                            ? maskDocumentInput(event.target.value, 'PJ')
-                            : current.cnpj,
+                        tradeName: event.target.value.toUpperCase(),
                       }))
                     }
-                    placeholder={hasDocumentError ? (documentHint ?? '') : ''}
+                    placeholder=""
                   />
                 </label>
               </div>
+            ) : null}
 
-              <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label
-                  className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}
-                >
-                  {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                  <input
-                    value={nameValue}
-                    disabled={saving}
-                    className={hasNameError ? 'cqc-input-error' : undefined}
-                    onChange={(event) => {
-                      const value = event.target.value.toUpperCase();
-                      setForm((current) => ({
-                        ...current,
-                        fullName: current.personType === 'PF' ? value : current.fullName,
-                        legalName: current.personType === 'PJ' ? value : current.legalName,
-                      }));
-                    }}
-                    placeholder={hasNameError ? 'Obrigatorio' : ''}
-                  />
-                </label>
-              </div>
-
-              {form.personType === 'PJ' ? (
-                <div className="client-quick-create-grid client-quick-create-grid-single">
-                  <label className="client-quick-create-field">
-                    Nome fantasia
-                    <input
-                      value={form.tradeName}
-                      disabled={saving}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          tradeName: event.target.value.toUpperCase(),
-                        }))
-                      }
-                      placeholder=""
-                    />
-                  </label>
-                </div>
-              ) : null}
-            </section>
-
-            <section
-              className="client-quick-create-group"
-              aria-labelledby="client-quick-create-group-contato"
-            >
-              <p id="client-quick-create-group-contato" className="client-quick-create-group-title">
-                Contato
-              </p>
-              <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label
-                  className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}
-                >
-                  Telefone
-                  <input
-                    value={form.phone}
-                    disabled={saving}
-                    className={hasPhoneError ? 'cqc-input-error' : undefined}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        phone: maskPhoneInput(event.target.value),
-                      }))
-                    }
-                    placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section
-              className="client-quick-create-group"
-              aria-labelledby="client-quick-create-group-responsavel"
-            >
-              <p
-                id="client-quick-create-group-responsavel"
-                className="client-quick-create-group-title"
+            {/* Linha 4: Telefone | Responsavel */}
+            <div className="client-quick-create-grid client-quick-create-grid-2col">
+              <label
+                className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}
               >
-                Responsáveis comerciais
-              </p>
-              <div className="client-quick-create-grid client-quick-create-grid-single">
+                Telefone
+                <input
+                  value={form.phone}
+                  disabled={saving}
+                  className={hasPhoneError ? 'cqc-input-error' : undefined}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      phone: maskPhoneInput(event.target.value),
+                    }))
+                  }
+                  placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
+                />
+              </label>
+
+              <div className="client-quick-create-field">
+                Responsavel
                 <UserMultiSelect
-                  label="Selecione 1 ou mais responsáveis"
                   value={form.commercialUserIds}
                   onChange={(next) =>
                     setForm((current) => ({ ...current, commercialUserIds: next }))
@@ -422,44 +400,38 @@ export function ClientQuickCreateModal({
                   users={users}
                   loading={loadingUsers}
                   disabled={saving}
-                  placeholder="Selecione 1+ responsáveis comerciais"
-                  errorMessage={hasCommercialUserError ? 'Obrigatório' : undefined}
+                  placeholder=""
+                  errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
+                  hideRoleInChips
                 />
               </div>
-            </section>
+            </div>
 
-            <section
-              className="client-quick-create-group"
-              aria-labelledby="client-quick-create-group-papeis"
-            >
-              <p id="client-quick-create-group-papeis" className="client-quick-create-group-title">
-                Papel operacional
-              </p>
-              <div className="client-modal-flags client-quick-create-flags">
-                <label className="client-modal-flag client-quick-create-flag">
-                  <input
-                    type="checkbox"
-                    checked={form.isSeller}
-                    disabled={saving}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, isSeller: event.target.checked }))
-                    }
-                  />
-                  <span className="client-quick-create-flag-label">Vendedor</span>
-                </label>
-                <label className="client-modal-flag client-quick-create-flag">
-                  <input
-                    type="checkbox"
-                    checked={form.isBuyer}
-                    disabled={saving}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, isBuyer: event.target.checked }))
-                    }
-                  />
-                  <span className="client-quick-create-flag-label">Comprador</span>
-                </label>
-              </div>
-            </section>
+            {/* Linha 5: Vendedor | Comprador checkboxes */}
+            <div className="client-modal-flags client-quick-create-flags">
+              <label className="client-modal-flag client-quick-create-flag">
+                <input
+                  type="checkbox"
+                  checked={form.isSeller}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, isSeller: event.target.checked }))
+                  }
+                />
+                <span className="client-quick-create-flag-label">Vendedor</span>
+              </label>
+              <label className="client-modal-flag client-quick-create-flag">
+                <input
+                  type="checkbox"
+                  checked={form.isBuyer}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, isBuyer: event.target.checked }))
+                  }
+                />
+                <span className="client-quick-create-flag-label">Comprador</span>
+              </label>
+            </div>
           </div>
 
           <div className="client-quick-create-actions">

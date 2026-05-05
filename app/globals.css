@@ -5232,19 +5232,24 @@ button:disabled {
   color: #5b21b6;
 }
 
+/* 14.7.C: × centralizado em ambos os eixos. font-size + line-height
+   ajustados para evitar desalinhamento do glifo "×". */
 .user-multi-select__chip-remove {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border-radius: 50%;
   background: transparent;
   border: 0;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #064e3b;
   line-height: 1;
+  text-align: center;
+  vertical-align: middle;
   transition: background 0.15s ease;
 }
 
@@ -11855,6 +11860,13 @@ button:disabled {
   padding: clamp(0.7rem, 3vw, 1rem);
 }
 
+/* 14.7.C: titulo "Novo cliente" 25% maior. */
+.client-quick-create-modal #client-quick-create-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
 .client-quick-create-header {
   gap: 0.65rem;
 }
@@ -11930,6 +11942,12 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* 14.7.C: linha de 2 colunas iguais (Linha 1 tipo+doc, Linha 4 tel+resp). */
+.client-quick-create-grid-2col {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+}
+
 .client-quick-create-field {
   gap: clamp(0.22rem, 1vw, 0.32rem);
   font-size: clamp(0.82rem, 2.8vw, 0.88rem);
@@ -11939,6 +11957,24 @@ button:disabled {
 .client-quick-create-field select {
   padding: clamp(0.5rem, 2vw, 0.62rem) clamp(0.6rem, 2.4vw, 0.78rem);
   font-size: clamp(0.82rem, 2.8vw, 0.9rem);
+}
+
+/* 14.7.C: bordas mais visiveis (1px -> 2px) — campos do modal de novo
+   cliente estavam quase invisiveis sem foco. Tom levemente mais escuro
+   pra dar mais presenca. */
+.client-quick-create-modal .client-quick-create-field input,
+.client-quick-create-modal .client-quick-create-field select {
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.client-quick-create-modal .client-quick-create-field input:focus,
+.client-quick-create-modal .client-quick-create-field select:focus {
+  border-color: rgba(22, 91, 42, 0.5);
+}
+
+.client-quick-create-modal .user-multi-select {
+  border-width: 2px;
 }
 
 .client-quick-create-field.is-field-error {
