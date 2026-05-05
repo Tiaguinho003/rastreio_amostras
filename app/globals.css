@@ -6186,22 +6186,28 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* 14.7.E: botao maior. is-danger usa vermelho solido com icone branco
+   (lixeira) — antes era bg translucido com icone vermelho-claro, pouco
+   destacado contra o header verde. */
 .sdv-identity-btn {
   display: inline-grid;
   place-items: center;
-  width: clamp(30px, 8.5vw, 34px);
-  height: clamp(30px, 8.5vw, 34px);
-  border-radius: clamp(8px, 2.5vw, 10px);
+  width: clamp(40px, 11vw, 46px);
+  height: clamp(40px, 11vw, 46px);
+  border-radius: clamp(10px, 3vw, 12px);
   border: 0;
   background: rgba(255, 255, 255, 0.1);
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
 .sdv-identity-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
 .sdv-identity-btn:disabled {
@@ -6209,8 +6215,8 @@ button:disabled {
 }
 
 .sdv-identity-btn svg {
-  width: 50%;
-  height: 50%;
+  width: 60%;
+  height: 60%;
   fill: none;
   stroke: #ffffff;
   stroke-width: 1.8;
@@ -6219,11 +6225,12 @@ button:disabled {
 }
 
 .sdv-identity-btn.is-danger {
-  background: rgba(192, 57, 43, 0.15);
+  background: #c0392b;
+  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.32);
 }
 
 .sdv-identity-btn.is-danger svg {
-  stroke: #ff8a80;
+  stroke: #ffffff;
 }
 
 /* Tabs */
@@ -19220,15 +19227,18 @@ button:disabled {
     color: rgba(255, 255, 255, 0.7);
   }
 
+  /* 14.7.E: desktop botao 56px com icone proporcional. is-danger
+     vermelho solido (#c0392b) com sombra colorida. */
   .sdv-identity-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition:
       transform 0.2s ease,
-      background 0.2s ease;
+      background 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .sdv-identity-btn:hover {
@@ -19238,15 +19248,18 @@ button:disabled {
 
   .sdv-identity-btn svg {
     stroke: #ffffff;
+    stroke-width: 2;
   }
 
   .sdv-identity-btn.is-danger {
-    background: rgba(255, 100, 80, 0.2);
-    border-color: rgba(255, 100, 80, 0.2);
+    background: #c0392b;
+    border-color: transparent;
+    box-shadow: 0 6px 18px rgba(192, 57, 43, 0.4);
   }
 
   .sdv-identity-btn.is-danger:hover {
-    background: rgba(255, 100, 80, 0.35);
+    background: #b03224;
+    box-shadow: 0 8px 22px rgba(192, 57, 43, 0.55);
   }
 
   .sdv-identity-btn.is-danger svg {
