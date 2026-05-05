@@ -150,6 +150,21 @@ const CLIENT_DETAIL_SELECT = {
   },
 };
 
+// 14.7: normaliza input de busca pra casar com search_normalized
+// (acento removido + minusculas, espacos preservados).
+function normalizeSearchInput(input) {
+  if (typeof input !== 'string' || input.length === 0) return '';
+  // NFD decompoe caracteres acentuados em base + combining mark; o regex
+  // remove os combining marks (U+0300..U+036F). Resultado: acentos sumiram.
+  return input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+// 14.7: variante "compacta" — sem espacos. Casa input "GAS" com
+// search_compact que materializa "G A S COMERCIO ..." -> "gascomercio...".
+function compactSearchInput(input) {
+  return normalizeSearchInput(input).replace(/\s+/g, '');
+}
+
 function buildClientWhereFromSearch(search) {
   if (!search) {
     return undefined;
@@ -158,15 +173,34 @@ function buildClientWhereFromSearch(search) {
   const numericSearch = Number.parseInt(search, 10);
   const digits = String(search).replace(/\D+/g, '');
 
+  // 14.7: busca normalizada (acento-insensivel) na coluna gerada
+  // search_normalized. Cobre fullName, tradeName e legalName de uma vez
+  // com input em lowercase + sem acento.
+  const normalizedSearch = normalizeSearchInput(search);
+
   // L5: cnpj e cnpjRoot vivem direto no Client. Search cobre cpf, cnpj e
   // cnpjRoot via OR — sem mais lookup transitivo via units.
   const cnpjDigits = digits.length > 0 ? digits : null;
-  const or = [
-    { fullName: { contains: search, mode: 'insensitive' } },
-    { legalName: { contains: search, mode: 'insensitive' } },
-    { tradeName: { contains: search, mode: 'insensitive' } },
-    { cpf: { contains: digits.length > 0 ? digits : search } },
-  ];
+  const or = [];
+
+  if (normalizedSearch.length > 0) {
+    or.push({ searchNormalized: { contains: normalizedSearch } });
+
+    // 14.7: se input nao tem espacos, tenta tambem na search_compact
+    // pra casar nomes com espacamento decorativo entre letras (ex: input
+    // "GAS" vira "gas" e casa "G A S COMERCIO" cuja compact e "gascomercio").
+    // Quando input TEM espacos, NAO busca em compact — preserva precisao
+    // (input "santa fe" nao deve casar "santafezinho").
+    if (!/\s/.test(search.trim())) {
+      const compact = compactSearchInput(search);
+      if (compact.length > 0) {
+        or.push({ searchCompact: { contains: compact } });
+      }
+    }
+  }
+
+  // CPF: digits-only (mantem como antes — CPF nao precisa de unaccent)
+  or.push({ cpf: { contains: digits.length > 0 ? digits : search } });
 
   if (cnpjDigits) {
     or.push({ cnpjRoot: { startsWith: cnpjDigits.slice(0, 8) } });

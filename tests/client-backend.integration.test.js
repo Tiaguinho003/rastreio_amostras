@@ -1292,6 +1292,105 @@ if (!databaseUrl || !databaseReachable) {
     // ids vem em ordem ASC pra empate alfabetico
     assert.ok(firstId < secondId, `expected ${firstId} < ${secondId}`);
   });
+
+  // 14.7: busca acento+espaco-insensivel (search_normalized + search_compact).
+  test('14.7: busca sem acento casa nome cadastrado com acento', async () => {
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PF',
+          fullName: 'Antônio José Caetano',
+          cpf: generateValidCpf(400),
+          phone: '35 99000-0000',
+          isBuyer: false,
+          isSeller: true,
+        },
+      })
+    );
+
+    const result = await api.listClients(buildInput({ query: { search: 'antonio' } }));
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+    assert.equal(result.body.items[0].fullName, 'Antônio José Caetano');
+  });
+
+  test('14.7: busca compacta casa nome com espacamento decorativo entre letras', async () => {
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'G A S Comercio de Cafe LTDA',
+          tradeName: 'G A S Comercio de Cafe LTDA',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0000',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+
+    const result = await api.listClients(buildInput({ query: { search: 'GAS' } }));
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+    assert.equal(result.body.items[0].legalName, 'G A S Comercio de Cafe LTDA');
+  });
+
+  test('14.7: busca normal continua casando token contido no meio do nome', async () => {
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'G A S Comercio de Cafe LTDA',
+          tradeName: 'G A S Comercio de Cafe LTDA',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0000',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+
+    const result = await api.listClients(buildInput({ query: { search: 'comercio' } }));
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+  });
+
+  test('14.7: busca COM espacos preserva precisao (nao casa compactado)', async () => {
+    // "Santa Fe" cadastrado, "Santafezinho" cadastrado.
+    // Busca "santa fe" deve casar SO Santa Fe (nao usa search_compact
+    // quando input tem espacos).
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Santa Fe S/A',
+          tradeName: 'Santa Fe S/A',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0000',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+    await api.createClient(
+      buildInput({
+        body: {
+          personType: 'PJ',
+          legalName: 'Santafezinho LTDA',
+          tradeName: 'Santafezinho LTDA',
+          cnpj: nextValidCnpj(),
+          phone: '35 3222-0001',
+          isBuyer: true,
+          isSeller: false,
+        },
+      })
+    );
+
+    const result = await api.listClients(buildInput({ query: { search: 'santa fe' } }));
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+    assert.equal(result.body.items[0].legalName, 'Santa Fe S/A');
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

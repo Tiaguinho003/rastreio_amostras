@@ -381,6 +381,9 @@ model Client {
   // 14.6.C: GENERATED ALWAYS AS column em PG (migration manual).
   // Prisma le mas nao escreve — nao passar em create/update.
   displayNameLower            String?          @map("display_name_lower") @db.Text
+  // 14.7: GENERATED ALWAYS AS columns para busca acento+espaco-insensivel.
+  searchNormalized            String?          @map("search_normalized") @db.Text
+  searchCompact               String?          @map("search_compact") @db.Text
 
   units               ClientUnit[]
   ownedSamples        Sample[]               @relation("SampleOwnerClient")
