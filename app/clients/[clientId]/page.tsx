@@ -1179,8 +1179,11 @@ export default function ClientDetailPage() {
                           aria-label="Editar informações"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                            {/* 14.7.M.1: lapis simetrico — desenho centrado em
+                                (12,12) do viewBox 24x24. Path antigo tinha
+                                centro de massa deslocado pra direita-baixo. */}
+                            <path d="M3 21h4l11-11-4-4L3 17v4Z" />
+                            <path d="m14.5 6.5 4 4" />
                           </svg>
                         </button>
                       </div>

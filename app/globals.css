@@ -1156,6 +1156,11 @@ body {
   flex-shrink: 0;
   align-items: center;
   gap: 0.85rem;
+  /* 14.7.M.1: top corners arredondados acompanhando o radius do modal
+     (clamp 24-32px). overflow:hidden do pai nao clipa sozinho por causa
+     do backdrop-filter que cria stacking context. */
+  border-top-left-radius: clamp(24px, 7vw, 32px);
+  border-top-right-radius: clamp(24px, 7vw, 32px);
 }
 
 .app-modal.is-themed .app-modal-title-wrap {
@@ -12432,6 +12437,11 @@ button:disabled {
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   color: #ffffff;
   flex-shrink: 0;
+  /* 14.7.M.1: top corners arredondados acompanhando o radius do modal pai
+     (clamp 24-32px). overflow:hidden do pai sozinho nao clipa por causa
+     do backdrop-filter que cria stacking context. */
+  border-top-left-radius: clamp(24px, 7vw, 32px);
+  border-top-right-radius: clamp(24px, 7vw, 32px);
 }
 
 .client-quick-create-copy {
@@ -20717,7 +20727,10 @@ button:disabled {
     font-size: 1.05rem;
   }
 
-  .client-quick-create-grid,
+  /* 14.7.M.1: era ".client-quick-create-grid" generico — forcava 2 cols
+     em todos os grids incluindo -single, quebrando o full-width das
+     linhas Razao social / Nome fantasia. Agora so -2col e actions. */
+  .client-quick-create-grid-2col,
   .client-quick-create-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
