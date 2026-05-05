@@ -11,6 +11,7 @@ import {
   type CascadeSample,
 } from '../../../components/clients/ClientInactivateWithCascadeModal';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
+import { ClientUnitDetailModal } from '../../../components/clients/ClientUnitDetailModal';
 import {
   ApiError,
   getClient,
@@ -214,12 +215,18 @@ export default function ClientDetailPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const editClientTrapRef = useFocusTrap(editClientOpen);
 
-  /* ---- unit modal (create + edit) — usa ClientUnitModal ---- */
+  /* ---- unit modal (create) — usa ClientUnitModal pra "Nova filial" ---- */
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [unitModalMode, setUnitModalMode] = useState<'create' | 'edit'>('create');
   const [selectedUnit, setSelectedUnit] = useState<ClientUnitSummary | null>(null);
   const [savingUnit, setSavingUnit] = useState(false);
   const [showInactiveUnits, setShowInactiveUnits] = useState(false);
+
+  /* ---- 14.7.I: detail modal (view + edit inline) — abre ao clicar no
+     card mini de filial. Substitui o uso do ClientUnitModal pra editar. */
+  const [unitDetailUnit, setUnitDetailUnit] = useState<ClientUnitSummary | null>(null);
+  const [unitDetailOpen, setUnitDetailOpen] = useState(false);
+  const [unitDetailNotice, setUnitDetailNotice] = useState<string | null>(null);
 
   /* ---- status modal (inactivate/reactivate client) ---- */
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -674,8 +681,6 @@ export default function ClientDetailPage() {
     return new Set(result.missing);
   }, [client]);
   const isMissing = (field: string) => missingSet.has(field);
-  const isUnitMissing = (unitId: string, field: string) =>
-    missingSet.has(`units[${unitId}].${field}`);
 
   /* ================================================================ */
   /*  Edit client handlers                                            */
@@ -792,17 +797,58 @@ export default function ClientDetailPage() {
     setUnitModalOpen(true);
   }
 
-  function openUnitEdit(unit: ClientUnitSummary) {
-    setUnitModalMode('edit');
-    setSelectedUnit(unit);
-    setUnitModalNotice(null);
-    setSavingUnit(false);
-    setUnitModalOpen(true);
-  }
-
   function closeUnitModal() {
     if (savingUnit) return;
     setUnitModalOpen(false);
+  }
+
+  // 14.7.I: detail modal (view + edit inline) handlers
+  function openUnitDetailModal(unit: ClientUnitSummary) {
+    setUnitDetailUnit(unit);
+    setUnitDetailNotice(null);
+    setSavingUnit(false);
+    setUnitDetailOpen(true);
+  }
+
+  function closeUnitDetailModal() {
+    if (savingUnit) return;
+    setUnitDetailOpen(false);
+  }
+
+  async function handleUnitDetailSave(
+    data: import('../../../lib/types').ClientUnitInput,
+    reasonText: string
+  ) {
+    if (!session || !clientId || !unitDetailUnit) return;
+    setSavingUnit(true);
+    setUnitDetailNotice(null);
+    try {
+      await updateClientUnit(session, clientId, unitDetailUnit.id, {
+        ...data,
+        reasonText,
+      });
+      setUnitNotice({ kind: 'success', text: 'Filial atualizada com sucesso.' });
+      void fetchData();
+      setUnitDetailOpen(false);
+    } catch (cause) {
+      setUnitDetailNotice(translateUnitError(cause));
+    } finally {
+      setSavingUnit(false);
+    }
+  }
+
+  function handleUnitDetailInactivate() {
+    if (!unitDetailUnit) return;
+    const unit = unitDetailUnit;
+    setUnitDetailOpen(false);
+    openUnitStatusModal(unit, 'inactivate');
+  }
+
+  function handleUnitDetailReactivate() {
+    if (!unitDetailUnit) return;
+    const unit = unitDetailUnit;
+    setUnitDetailOpen(false);
+    openUnitStatusModal(unit, 'reactivate');
   }
 
   async function handleUnitSubmit(
@@ -1303,202 +1349,84 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                     ) : (
-                      /* 14.2: Card "Filiais" (PF apenas — PJ no L5 nao tem ClientUnit). */
-                      <div className="sdv-card sdv-card-filiais">
-                        <div className="sdv-card-header">
-                          <span className="sdv-card-title">
-                            {unitPlural} ({visibleUnits.length}
-                            {inactiveUnitsCount > 0 ? ` · ${inactiveUnitsCount} inativa(s)` : ''})
-                          </span>
+                      /* 14.7.I: Card "Filiais" (PF) — themed (header verde + "+"
+                         button). Sub-cards minimalistas (so nome + cidade +
+                         seta clicavel). Click abre ClientUnitDetailModal. */
+                      <div className="sdv-card sdv-card-themed sdv-card-filiais">
+                        <div className="sdv-card-themed-header">
+                          <span className="sdv-card-themed-title">{unitPlural}</span>
                           {canAddUnit ? (
-                            <button type="button" className="sdv-edit-btn" onClick={openUnitCreate}>
+                            <button
+                              type="button"
+                              className="sdv-card-themed-edit"
+                              onClick={openUnitCreate}
+                              aria-label="Nova filial"
+                            >
                               <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M12 5v14" />
                                 <path d="M5 12h14" />
                               </svg>
-                              <span>Nova filial</span>
                             </button>
                           ) : null}
                         </div>
-
-                        {units.length === 0 ? (
-                          <div className="spv2-empty client-detail-empty-compact">
-                            <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
-                          </div>
-                        ) : (
-                          <div className="sdv-unit-list">
-                            {visibleUnits.map((unit) => (
-                              <div
-                                key={unit.id}
-                                className={`sdv-unit-card${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
-                              >
-                                <div className="sdv-unit-card-header">
-                                  <span className="sdv-unit-badge is-filial">
-                                    Filial {unit.code}
-                                  </span>
-                                  {unit.status === 'INACTIVE' ? (
-                                    <span className="sdv-unit-badge is-inactive">Inativa</span>
-                                  ) : null}
-                                  <span className="sdv-unit-name">
-                                    {unit.name ?? unit.legalName ?? 'Sem nome'}
-                                  </span>
-                                </div>
-                                <div className="sdv-unit-card-body">
-                                  {/* CNPJ — nao e recomendado, so exibe se ha valor. */}
-                                  {unit.cnpj ? (
-                                    <div>
-                                      <span className="sdv-unit-label">CNPJ:</span> {unit.cnpj}
+                        <div className="sdv-card-themed-body">
+                          {units.length === 0 ? (
+                            <div className="spv2-empty client-detail-empty-compact">
+                              <p className="spv2-empty-text">Nenhuma filial cadastrada</p>
+                            </div>
+                          ) : (
+                            <div className="sdv-unit-list">
+                              {visibleUnits.map((unit) => {
+                                const cityLabel =
+                                  unit.city && unit.state
+                                    ? `${unit.city}/${unit.state}`
+                                    : 'Cidade não informada';
+                                const unitDisplayName =
+                                  unit.name ?? unit.legalName ?? `Filial ${unit.code}`;
+                                return (
+                                  <button
+                                    key={unit.id}
+                                    type="button"
+                                    className={`sdv-unit-card-mini${unit.status === 'INACTIVE' ? ' is-inactive' : ''}`}
+                                    onClick={() => openUnitDetailModal(unit)}
+                                  >
+                                    <div className="sdv-unit-card-mini-content">
+                                      <span className="sdv-unit-card-mini-name">
+                                        {unitDisplayName}
+                                        {unit.status === 'INACTIVE' ? (
+                                          <span className="sdv-unit-card-mini-inactive">
+                                            Inativa
+                                          </span>
+                                        ) : null}
+                                      </span>
+                                      <span className="sdv-unit-card-mini-city">{cityLabel}</span>
                                     </div>
-                                  ) : null}
-                                  {/* 14.7.G: campos recomendados — exibem com — + warning
-                                      quando missing, valor + label normal quando presente. */}
-                                  {(() => {
-                                    const localMissing =
-                                      isUnitMissing(unit.id, 'city') ||
-                                      isUnitMissing(unit.id, 'state');
-                                    const localValue =
-                                      unit.city && unit.state ? `${unit.city}/${unit.state}` : null;
-                                    if (!localValue && !localMissing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${localMissing ? ' is-missing' : ''}`}
-                                        >
-                                          Local:
-                                          {localMissing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {localValue || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const missing = isUnitMissing(unit.id, 'addressLine');
-                                    if (!unit.addressLine && !missing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
-                                        >
-                                          Endereço:
-                                          {missing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {unit.addressLine || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const missing = isUnitMissing(unit.id, 'district');
-                                    if (!unit.district && !missing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
-                                        >
-                                          Bairro:
-                                          {missing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {unit.district || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const missing = isUnitMissing(unit.id, 'postalCode');
-                                    if (!unit.postalCode && !missing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
-                                        >
-                                          CEP:
-                                          {missing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {unit.postalCode || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const missing = isUnitMissing(unit.id, 'registrationNumber');
-                                    if (!unit.registrationNumber && !missing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
-                                        >
-                                          IE:
-                                          {missing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {unit.registrationNumber || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const missing = isUnitMissing(unit.id, 'car');
-                                    if (!unit.car && !missing) return null;
-                                    return (
-                                      <div>
-                                        <span
-                                          className={`sdv-unit-label${missing ? ' is-missing' : ''}`}
-                                        >
-                                          CAR:
-                                          {missing ? (
-                                            <IncompleteIcon className="sdv-info-label-warning" />
-                                          ) : null}
-                                        </span>{' '}
-                                        {unit.car || '—'}
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                                <div className="sdv-unit-card-actions">
-                                  <button
-                                    type="button"
-                                    className="sdv-edit-btn-small"
-                                    onClick={() => openUnitEdit(unit)}
-                                    disabled={savingUnit}
-                                  >
-                                    Editar
+                                    <svg
+                                      className="sdv-unit-card-mini-arrow"
+                                      viewBox="0 0 24 24"
+                                      aria-hidden="true"
+                                    >
+                                      <path d="m9 6 6 6-6 6" />
+                                    </svg>
                                   </button>
-                                  <button
-                                    type="button"
-                                    className={`sdv-edit-btn-small${unit.status === 'ACTIVE' ? ' is-danger' : ''}`}
-                                    onClick={() =>
-                                      openUnitStatusModal(
-                                        unit,
-                                        unit.status === 'ACTIVE' ? 'inactivate' : 'reactivate'
-                                      )
-                                    }
-                                    disabled={savingUnitStatus}
-                                  >
-                                    {unit.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                                );
+                              })}
 
-                            {inactiveUnitsCount > 0 ? (
-                              <button
-                                type="button"
-                                className="sdv-edit-btn-small"
-                                onClick={() => setShowInactiveUnits((v) => !v)}
-                              >
-                                {showInactiveUnits
-                                  ? 'Esconder inativas'
-                                  : `Mostrar ${inactiveUnitsCount} inativa(s)`}
-                              </button>
-                            ) : null}
-                          </div>
-                        )}
-                        <NoticeSlot notice={unitNotice} />
+                              {inactiveUnitsCount > 0 ? (
+                                <button
+                                  type="button"
+                                  className="sdv-edit-btn-small"
+                                  onClick={() => setShowInactiveUnits((v) => !v)}
+                                >
+                                  {showInactiveUnits
+                                    ? 'Esconder inativas'
+                                    : `Mostrar ${inactiveUnitsCount} inativa(s)`}
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
+                          <NoticeSlot notice={unitNotice} />
+                        </div>
                       </div>
                     )}
                   </section>
@@ -2169,6 +2097,20 @@ export default function ClientDetailPage() {
         errorMessage={unitModalNotice?.kind === 'error' ? unitModalNotice.text : null}
         onClose={closeUnitModal}
         onSubmit={handleUnitSubmit}
+      />
+
+      {/* 14.7.I: MODAL 2.B Unit Detail (view + edit inline) */}
+      <ClientUnitDetailModal
+        open={unitDetailOpen}
+        unit={unitDetailUnit}
+        saving={savingUnit}
+        savingStatus={savingUnitStatus}
+        errorMessage={unitDetailNotice}
+        missingSet={missingSet}
+        onClose={closeUnitDetailModal}
+        onSave={handleUnitDetailSave}
+        onInactivate={handleUnitDetailInactivate}
+        onReactivate={handleUnitDetailReactivate}
       />
 
       {/* ========== MODAL 2.5: Cascade Inactivate (#6/Q-05) ========== */}
