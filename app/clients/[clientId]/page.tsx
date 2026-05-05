@@ -1112,136 +1112,145 @@ export default function ClientDetailPage() {
               <div className="sdv-content-inner">
                 {clientSection === 'GENERAL' ? (
                   <section className="sdv-general">
-                    {/* Card: Informações */}
-                    <div className="sdv-card sdv-info-compact">
-                      <div className="sdv-info-grid">
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">
-                            {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                          </span>
-                          <span className="sdv-info-value">
-                            {client.personType === 'PF'
-                              ? client.fullName || '\u2014'
-                              : client.legalName || '\u2014'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">
-                            {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
-                          </span>
-                          <span className="sdv-info-value">
-                            {client.personType === 'PF'
-                              ? formatClientDocument(client.cpf, 'PF') || '\u2014'
-                              : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Telefone</span>
-                          <span className="sdv-info-value">
-                            {formatPhone(client.phone) || '\u2014'}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Email</span>
-                          <span className="sdv-info-value">{client.email || '\u2014'}</span>
-                        </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">
-                            Respons\u00e1veis comerciais
-                            {client.commercialUsers.length > 0
-                              ? ` (${client.commercialUsers.length})`
-                              : ''}
-                          </span>
-                          <div className="sdv-commercial-users">
-                            {client.commercialUsers.length === 0 ? (
-                              <span className="sdv-info-value">{'\u2014'}</span>
-                            ) : (
-                              client.commercialUsers.map((u) => (
-                                <span key={u.id} className="sdv-commercial-user-chip">
-                                  {u.fullName}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                        <div className="sdv-info-sep" />
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Papeis</span>
-                          <div className="cdm-roles">
-                            {client.isBuyer ? (
-                              <span className="cv2-card-role is-buyer">Comprador</span>
-                            ) : null}
-                            {client.isSeller ? (
-                              <span className="cv2-card-role is-seller">Vendedor</span>
-                            ) : null}
-                            {!client.isBuyer && !client.isSeller ? (
-                              <span className="cv2-card-role is-none">Sem papel</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="sdv-edit-btn sdv-edit-btn-inline"
-                        onClick={openEditClient}
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                        </svg>
-                        <span>Editar informacoes</span>
-                      </button>
-                      <NoticeSlot notice={detailNotice} />
-                    </div>
-
-                    {isPj ? (
-                      /* 14.1: PJ — card "Endereço e fiscal" no lugar do banner antigo. */
-                      <div className="sdv-card sdv-info-compact">
-                        <div className="sdv-card-header">
-                          <span className="sdv-card-title">Endereço e fiscal</span>
-                        </div>
-                        <div className="sdv-info-grid">
-                          <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">Inscrição estadual</span>
-                            <span className="sdv-info-value">
-                              {client.registrationNumber || '—'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item is-full">
-                            <span className="sdv-info-label">Endereço</span>
-                            <span className="sdv-info-value">
-                              {[client.addressLine, client.complement].filter(Boolean).join(', ') ||
-                                '—'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Bairro</span>
-                            <span className="sdv-info-value">{client.district || '—'}</span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">Cidade/UF</span>
-                            <span className="sdv-info-value">
-                              {client.city && client.state ? `${client.city}/${client.state}` : '—'}
-                            </span>
-                          </div>
-                          <div className="sdv-info-item">
-                            <span className="sdv-info-label">CEP</span>
-                            <span className="sdv-info-value">
-                              {formatPostalCode(client.postalCode) || '—'}
-                            </span>
-                          </div>
-                        </div>
+                    {/* 14.7.F Card: Informações — header verde + editar inline */}
+                    <div className="sdv-card sdv-card-themed sdv-card-info">
+                      <div className="sdv-card-themed-header">
+                        <span className="sdv-card-themed-title">Informações</span>
                         <button
                           type="button"
-                          className="sdv-edit-btn sdv-edit-btn-inline"
+                          className="sdv-card-themed-edit"
                           onClick={openEditClient}
+                          aria-label="Editar informações"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 20h9" />
                             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                           </svg>
-                          <span>Editar informações</span>
                         </button>
+                      </div>
+                      <div className="sdv-card-themed-body">
+                        <div className="sdv-info-grid">
+                          <div className="sdv-info-item is-full">
+                            <span className="sdv-info-label">
+                              {client.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+                            </span>
+                            <span className="sdv-info-value">
+                              {client.personType === 'PF'
+                                ? client.fullName || '\u2014'
+                                : client.legalName || '\u2014'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">
+                              {client.personType === 'PF' ? 'CPF' : 'CNPJ'}
+                            </span>
+                            <span className="sdv-info-value">
+                              {client.personType === 'PF'
+                                ? formatClientDocument(client.cpf, 'PF') || '\u2014'
+                                : formatClientDocument(client.cnpj, 'PJ') || '\u2014'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">Papeis</span>
+                            <div className="cdm-roles">
+                              {client.isBuyer ? (
+                                <span className="cv2-card-role is-buyer">Comprador</span>
+                              ) : null}
+                              {client.isSeller ? (
+                                <span className="cv2-card-role is-seller">Vendedor</span>
+                              ) : null}
+                              {!client.isBuyer && !client.isSeller ? (
+                                <span className="cv2-card-role is-none">Sem papel</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">Email</span>
+                            <span className="sdv-info-value">{client.email || '\u2014'}</span>
+                          </div>
+                          <div className="sdv-info-item">
+                            <span className="sdv-info-label">Telefone</span>
+                            <span className="sdv-info-value">
+                              {formatPhone(client.phone) || '\u2014'}
+                            </span>
+                          </div>
+                          <div className="sdv-info-item is-full">
+                            <span className="sdv-info-label">
+                              Respons\u00e1veis comerciais
+                              {client.commercialUsers.length > 0
+                                ? ` (${client.commercialUsers.length})`
+                                : ''}
+                            </span>
+                            <div className="sdv-commercial-users">
+                              {client.commercialUsers.length === 0 ? (
+                                <span className="sdv-info-value">{'\u2014'}</span>
+                              ) : (
+                                client.commercialUsers.map((u) => (
+                                  <span key={u.id} className="sdv-commercial-user-chip">
+                                    {u.fullName}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <NoticeSlot notice={detailNotice} />
+                      </div>
+                    </div>
+
+                    {isPj ? (
+                      /* 14.7.F PJ — card "Endereço fiscal" — header verde + editar inline */
+                      <div className="sdv-card sdv-card-themed sdv-card-address">
+                        <div className="sdv-card-themed-header">
+                          <span className="sdv-card-themed-title">Endereço fiscal</span>
+                          <button
+                            type="button"
+                            className="sdv-card-themed-edit"
+                            onClick={openEditClient}
+                            aria-label="Editar informações"
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="sdv-card-themed-body">
+                          <div className="sdv-info-grid">
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Inscrição estadual</span>
+                              <span className="sdv-info-value">
+                                {client.registrationNumber || '—'}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Cidade/UF</span>
+                              <span className="sdv-info-value">
+                                {client.city && client.state
+                                  ? `${client.city}/${client.state}`
+                                  : '—'}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item is-full">
+                              <span className="sdv-info-label">Endereço</span>
+                              <span className="sdv-info-value">
+                                {[client.addressLine, client.complement]
+                                  .filter(Boolean)
+                                  .join(', ') || '—'}
+                              </span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Bairro</span>
+                              <span className="sdv-info-value">{client.district || '—'}</span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">CEP</span>
+                              <span className="sdv-info-value">
+                                {formatPostalCode(client.postalCode) || '—'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       /* 14.2: Card "Filiais" (PF apenas — PJ no L5 nao tem ClientUnit). */
