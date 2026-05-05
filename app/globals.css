@@ -6214,12 +6214,14 @@ button:disabled {
   opacity: 0.35;
 }
 
+/* 14.7.H: stroke-width maior + cor branca pura pra icone (lixeira)
+   destacar mais sobre o vermelho solido. */
 .sdv-identity-btn svg {
   width: 60%;
   height: 60%;
   fill: none;
   stroke: #ffffff;
-  stroke-width: 1.8;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -7998,25 +8000,33 @@ button:disabled {
   border: 1px solid #e0e0e0;
 }
 
-/* 14.7.D: avatar pequeno inline na meta line do modal cliente
-   (substitui o avatar grande que ficava a esquerda do header). */
-.cdm-header-avatar-inline {
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: var(--avatar-color, #1f5d43);
+/* 14.7.H: pill PF/PJ inline na meta line do modal cliente. Mostra o
+   tipo do cliente em formato compacto colorido (substitui o
+   cdm-header-avatar-inline de #14.7.D que mostrava iniciais
+   redundantes com o avatar grande do header). */
+.cdm-header-type {
   display: inline-grid;
   place-items: center;
-  flex-shrink: 0;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 1px solid;
 }
 
-.cdm-header-avatar-inline span {
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1;
-  letter-spacing: 0.3px;
+.cdm-header-type.is-pj {
+  color: #2980b9;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.cdm-header-type.is-pf {
+  color: #e67e22;
+  background: #fff7ed;
+  border-color: #fed7aa;
 }
 
 .cdm-close svg {
@@ -19217,17 +19227,13 @@ button:disabled {
     font-size: 1.25rem;
   }
 
-  /* 14.7.D: avatar pequeno inline (override do desktop pra ficar
-     visivel mas casando com altura do badge "Ativo"). */
-  .cdm-modal .cdm-header-avatar.cdm-header-avatar-inline {
-    width: 28px;
-    min-width: 28px;
-    height: 28px;
-    border-radius: 8px;
-  }
-
-  .cdm-modal .cdm-header-avatar.cdm-header-avatar-inline span {
-    font-size: 11px;
+  /* 14.7.H: pill PF/PJ desktop — proporcional ao badge "Ativo". */
+  .cdm-modal .cdm-header-type {
+    min-width: 38px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: 7px;
   }
 
   .cdm-modal .cdm-header-title {
@@ -19336,7 +19342,7 @@ button:disabled {
 
   .sdv-identity-btn svg {
     stroke: #ffffff;
-    stroke-width: 2;
+    stroke-width: 2.6;
   }
 
   .sdv-identity-btn.is-danger {

@@ -891,6 +891,23 @@ function ClientsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="cdm-header">
+              {/* 14.7.H: avatar grande do cliente volta a esquerda do header
+                  (com iniciais por hash do nome). */}
+              {clientsState.detail
+                ? (() => {
+                    const detailName = clientDisplayName(clientsState.detail!);
+                    const detailColor = getAvatarColor(detailName);
+                    const detailInitials = getClientInitials(detailName);
+                    return (
+                      <span
+                        className="cdm-header-avatar"
+                        style={{ '--avatar-color': detailColor } as React.CSSProperties}
+                      >
+                        <span>{detailInitials}</span>
+                      </span>
+                    );
+                  })()
+                : null}
               <div className="cdm-header-copy">
                 <h3 id="records-client-detail-title" className="cdm-header-name">
                   {clientsState.detail ? clientDisplayName(clientsState.detail) : 'Cliente'}
@@ -903,22 +920,15 @@ function ClientsPage() {
                     >
                       {clientStatusLabel(clientsState.detail.status)}
                     </span>
-                    {/* 14.7.D: avatar pequeno inline com Ativo (substitui o
-                        avatar grande que ficava a esquerda do header). */}
-                    {(() => {
-                      const detailName = clientDisplayName(clientsState.detail);
-                      const detailColor = getAvatarColor(detailName);
-                      const detailInitials = getClientInitials(detailName);
-                      return (
-                        <span
-                          className="cdm-header-avatar cdm-header-avatar-inline"
-                          style={{ '--avatar-color': detailColor } as React.CSSProperties}
-                          aria-hidden="true"
-                        >
-                          <span>{detailInitials}</span>
-                        </span>
-                      );
-                    })()}
+                    {/* 14.7.H: pill com tipo de cliente (PF/PJ) inline ao
+                        lado de "Ativo". Nao confundir com o avatar de
+                        iniciais a esquerda — esse aqui indica TIPO. */}
+                    <span
+                      className={`cdm-header-type ${clientsState.detail.personType === 'PF' ? 'is-pf' : 'is-pj'}`}
+                      aria-label={`Tipo: ${clientsState.detail.personType === 'PF' ? 'Pessoa Fisica' : 'Pessoa Juridica'}`}
+                    >
+                      {clientsState.detail.personType}
+                    </span>
                   </div>
                 ) : null}
               </div>
