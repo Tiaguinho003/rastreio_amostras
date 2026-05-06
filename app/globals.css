@@ -20275,10 +20275,16 @@ button:disabled {
      25% mais estreita (5fr 3fr = 62.5% / 37.5%). minmax(0,Nfr) protege
      contra overflow quando algum filho tem conteudo nao quebravel.
      max-width 1600px + margin auto cap o layout em telas 4K e mantem
-     ele alinhado com a .sdv-commercial abaixo (que tem o mesmo cap). */
+     ele alinhado com a .sdv-commercial abaixo (que tem o mesmo cap).
+     --card-row-height: altura FIXA dos cards da row pra que o tamanho
+     nao cresca com mais filiais (PF) — scroll interno cuida do excesso.
+     Mesma altura aplicada ao .sdv-info-split-row pra alinhar verticalmente
+     com Filiais/Endereco. */
   .sdv-general {
+    --card-row-height: clamp(360px, 38vh, 460px);
     max-width: 1600px;
-    margin: 0 auto;
+    margin-left: auto;
+    margin-right: auto;
     width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
@@ -20290,10 +20296,12 @@ button:disabled {
      acompanha a largura do container (sem clamp baseado em vw que
      estourava a viewport em desktops 901-1280px). minmax(0, Nfr)
      permite que filhos shrinkem corretamente. Mesmo cap 1600px da
-     .sdv-general acima pra ambos blocos ficarem alinhados. */
+     .sdv-general acima pra ambos blocos ficarem alinhados.
+     margin-top com clamp gera o gap vertical entre as duas rows
+     (cards de identidade em cima vs cards comerciais embaixo). */
   .sdv-commercial {
     max-width: 1600px;
-    margin: 0 auto;
+    margin: clamp(1.25rem, 2vw, 1.75rem) auto 0;
     width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
@@ -20387,29 +20395,51 @@ button:disabled {
     margin-bottom: 2px;
   }
 
-  /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura igualada
-     a coluna esquerda (nested card + badges de papeis abaixo). Sem
-     min-height de 28rem — esticam ate alinhar com a roles row.
-     A coluna 1 (Informacoes) agora vive dentro de .sdv-info-split-row;
-     auto-placement coloca o split-row na coluna 1. */
-  .sdv-general > .sdv-card-address {
+  /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura FIXA via
+     --card-row-height. Garante que clientes com 4 filiais nao tenham
+     container maior que clientes com 1 filial ou que PJ sem filiais —
+     o scroll interno do .sdv-unit-list cuida do excesso. */
+  .sdv-general > .sdv-card-address,
+  .sdv-general > .sdv-card-filiais {
     grid-column: 2;
     grid-row: 1;
-    align-self: stretch;
+    height: var(--card-row-height);
     display: flex;
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
   }
 
-  .sdv-general > .sdv-card-filiais {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: stretch;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+  /* Coluna 1: row do split (avatar + Informacoes) com altura igual a
+     dos cards da coluna 2 — assim ambas colunas tem o mesmo tamanho
+     visual independente do conteudo. Card Informacoes scrolla
+     internamente se conteudo passar do limite. */
+  .sdv-info-split-row {
+    height: var(--card-row-height);
+  }
+
+  .sdv-info-split-row > .sdv-card-info {
     overflow: hidden;
+  }
+
+  .sdv-info-split-row > .sdv-card-info .sdv-card-themed-body {
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+  }
+
+  /* Avatar + roles centralizados verticalmente em relacao a altura da
+     row (matching o card Informacoes ao lado). Antes ficavam grudados
+     no topo. */
+  .sdv-info-split-row > .sdv-nested-stack {
+    align-self: center;
+    margin-top: 0;
+  }
+
+  /* Avatar nao precisa do margin-top extra quando o container ja esta
+     vertical-centralizado. */
+  .sdv-info-split-row > .sdv-nested-stack > .sdv-card-nested {
+    margin-top: 0;
   }
 
   /* 14.7.I: filiais agora usa themed body que cuida do scroll interno
