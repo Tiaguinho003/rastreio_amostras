@@ -176,7 +176,7 @@ export function ClientUnitDetailModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed cudm-modal"
+        className="app-modal is-themed is-wide cudm-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cudm-title"
@@ -433,17 +433,17 @@ export function ClientUnitDetailModal({
               </label>
             </div>
 
-            <div className="cudm-footer">
+            <div className="app-modal-actions">
+              <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
               <button
                 type="button"
-                className="cudm-cancel-btn"
+                className="app-modal-secondary"
                 onClick={() => setMode('view')}
                 disabled={saving}
               >
                 Cancelar
-              </button>
-              <button type="submit" className="cudm-save-btn" disabled={submitDisabled}>
-                {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </form>

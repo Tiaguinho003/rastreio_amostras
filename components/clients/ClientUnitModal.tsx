@@ -11,24 +11,22 @@ import {
 import { useCepLookup } from '../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../lib/use-document-mask';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { ClientUnitInput, ClientUnitSummary } from '../../lib/types';
+import type { ClientUnitInput } from '../../lib/types';
 
 // L5: ClientUnit so existe em PF (filial). PJ guarda dados direto em Client.
+// 14.7.I: edit inline absorvido pelo ClientUnitDetailModal — este modal e
+// SO pra criacao de nova filial (Nova filial via "+").
 type ClientUnitModalProps = {
   open: boolean;
-  mode: 'create' | 'edit';
-  unit?: ClientUnitSummary | null;
   saving: boolean;
   errorMessage: string | null;
   onClose: () => void;
-  onSubmit: (data: ClientUnitInput, reasonText: string | null) => Promise<void> | void;
+  onSubmit: (data: ClientUnitInput) => Promise<void> | void;
 };
 
 type FormState = {
   name: string;
   cnpj: string;
-  legalName: string;
-  tradeName: string;
   phone: string;
   addressLine: string;
   district: string;
@@ -38,14 +36,11 @@ type FormState = {
   complement: string;
   registrationNumber: string;
   car: string;
-  reasonText: string;
 };
 
 const EMPTY_FORM: FormState = {
   name: '',
   cnpj: '',
-  legalName: '',
-  tradeName: '',
   phone: '',
   addressLine: '',
   district: '',
@@ -55,36 +50,15 @@ const EMPTY_FORM: FormState = {
   complement: '',
   registrationNumber: '',
   car: '',
-  reasonText: '',
 };
 
-function unitToForm(unit: ClientUnitSummary | null | undefined): FormState {
-  if (!unit) return { ...EMPTY_FORM };
-  return {
-    name: unit.name ?? '',
-    cnpj: unit.cnpj ?? '',
-    legalName: unit.legalName ?? '',
-    tradeName: unit.tradeName ?? '',
-    phone: unit.phone ?? '',
-    addressLine: unit.addressLine ?? '',
-    district: unit.district ?? '',
-    city: unit.city ?? '',
-    state: unit.state ?? '',
-    postalCode: unit.postalCode ?? '',
-    complement: unit.complement ?? '',
-    registrationNumber: unit.registrationNumber ?? '',
-    car: unit.car ?? '',
-    reasonText: '',
-  };
-}
-
-function formToInput(form: FormState): ClientUnitInput {
+function formToInput(form: FormState, cnpjDigits: string): ClientUnitInput {
   const trim = (v: string) => (v.trim() ? v.trim() : null);
   return {
     name: form.name.trim(),
-    cnpj: trim(form.cnpj),
-    legalName: trim(form.legalName),
-    tradeName: trim(form.tradeName),
+    cnpj: cnpjDigits || null,
+    legalName: null,
+    tradeName: null,
     phone: trim(form.phone),
     addressLine: trim(form.addressLine),
     district: trim(form.district),
@@ -99,25 +73,23 @@ function formToInput(form: FormState): ClientUnitInput {
 
 export function ClientUnitModal({
   open,
-  mode,
-  unit = null,
   saving,
   errorMessage,
   onClose,
   onSubmit,
 }: ClientUnitModalProps) {
   const focusTrapRef = useFocusTrap(open);
-  const [form, setForm] = useState<FormState>(unitToForm(unit));
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const cnpjMask = useDocumentMask('cnpj');
   const cep = useCepLookup(open ? form.postalCode : '');
 
   useEffect(() => {
     if (!open) return;
-    setForm(unitToForm(unit));
-    cnpjMask.setRaw(unit?.cnpj ?? '');
+    setForm({ ...EMPTY_FORM });
+    cnpjMask.setRaw('');
     cep.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, unit]);
+  }, [open]);
 
   // Q-24: ao receber dados do CEP, preenche endereco. Sobrescreve mesmo
   // se ja havia conteudo (acao deliberada do usuario). Complemento NAO
@@ -135,15 +107,8 @@ export function ClientUnitModal({
 
   if (!open) return null;
 
-  const isEdit = mode === 'edit';
-
-  const title = isEdit ? `Editar filial ${unit?.code ?? ''}`.trim() : 'Nova filial';
-
   const submitDisabled =
-    saving ||
-    !form.name.trim() ||
-    (isEdit && !form.reasonText.trim()) ||
-    (cnpjMask.digits.length > 0 && !cnpjMask.isValid);
+    saving || !form.name.trim() || (cnpjMask.digits.length > 0 && !cnpjMask.isValid);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -153,18 +118,15 @@ export function ClientUnitModal({
     event.preventDefault();
     if (saving) return;
     if (!form.name.trim()) return;
-    if (isEdit && !form.reasonText.trim()) return;
     if (cnpjMask.digits.length > 0 && !cnpjMask.isValid) return;
-    const input = { ...formToInput(form), cnpj: cnpjMask.digits || null };
-    const reason = isEdit ? form.reasonText.trim() : null;
-    await onSubmit(input, reason);
+    await onSubmit(formToInput(form, cnpjMask.digits));
   }
 
   return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed client-unit-modal"
+        className="app-modal is-themed is-wide client-unit-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-unit-modal-title"
@@ -173,7 +135,7 @@ export function ClientUnitModal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="client-unit-modal-title" className="app-modal-title">
-              {title}
+              Nova filial
             </h3>
           </div>
           <button
@@ -190,48 +152,17 @@ export function ClientUnitModal({
         {errorMessage ? <p className="client-unit-modal-error">{errorMessage}</p> : null}
 
         <form className="app-modal-content client-unit-modal-form" onSubmit={handleSubmit}>
-          <label className="app-modal-field">
-            <span className="app-modal-label">Nome (obrigatório)</span>
-            <input
-              className="app-modal-input"
-              value={form.name}
-              disabled={saving}
-              maxLength={160}
-              required
-              onChange={(event) => update('name', event.target.value.toUpperCase())}
-              placeholder="Ex.: FILIAL BOM RETIRO"
-            />
-          </label>
-
-          <label className="app-modal-field">
-            <span className="app-modal-label">CNPJ (opcional)</span>
-            <input
-              className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
-              value={cnpjMask.masked}
-              disabled={saving}
-              inputMode="numeric"
-              onChange={cnpjMask.onChange}
-              onBlur={cnpjMask.onBlur}
-              placeholder="00.000.000/0000-00"
-            />
-            {cnpjMask.error ? (
-              <span className="sdv-edit-error" role="alert">
-                {cnpjMask.error}
-              </span>
-            ) : null}
-          </label>
           <div className="sdv-edit-row">
             <label className="app-modal-field">
-              <span className="app-modal-label">Inscrição estadual</span>
+              <span className="app-modal-label">Nome (obrigatório)</span>
               <input
                 className="app-modal-input"
-                value={form.registrationNumber}
+                value={form.name}
                 disabled={saving}
-                inputMode="numeric"
-                onChange={(event) =>
-                  update('registrationNumber', maskRegistrationNumberInput(event.target.value))
-                }
-                placeholder="000.000.000.00-00"
+                maxLength={160}
+                required
+                onChange={(event) => update('name', event.target.value.toUpperCase())}
+                placeholder="Ex.: FILIAL BOM RETIRO"
               />
             </label>
             <label className="app-modal-field">
@@ -246,25 +177,59 @@ export function ClientUnitModal({
             </label>
           </div>
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">Logradouro</span>
-            <input
-              className="app-modal-input"
-              value={form.addressLine}
-              disabled={saving}
-              onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
-            />
-          </label>
-          <label className="app-modal-field">
-            <span className="app-modal-label">Bairro</span>
-            <input
-              className="app-modal-input"
-              value={form.district}
-              disabled={saving}
-              onChange={(event) => update('district', event.target.value.toUpperCase())}
-            />
-          </label>
           <div className="sdv-edit-row">
+            <label className="app-modal-field">
+              <span className="app-modal-label">CNPJ (opcional)</span>
+              <input
+                className={`app-modal-input${cnpjMask.error ? ' has-error' : ''}`}
+                value={cnpjMask.masked}
+                disabled={saving}
+                inputMode="numeric"
+                onChange={cnpjMask.onChange}
+                onBlur={cnpjMask.onBlur}
+                placeholder="00.000.000/0000-00"
+              />
+              {cnpjMask.error ? (
+                <span className="sdv-edit-error" role="alert">
+                  {cnpjMask.error}
+                </span>
+              ) : null}
+            </label>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Inscrição estadual</span>
+              <input
+                className="app-modal-input"
+                value={form.registrationNumber}
+                disabled={saving}
+                inputMode="numeric"
+                onChange={(event) =>
+                  update('registrationNumber', maskRegistrationNumberInput(event.target.value))
+                }
+                placeholder="000.000.000.00-00"
+              />
+            </label>
+          </div>
+
+          <div className="sdv-edit-row" style={{ gridTemplateColumns: '1fr 2fr 0.6fr' }}>
+            <label className="app-modal-field">
+              <span className="app-modal-label">
+                CEP
+                {cep.loading ? (
+                  <span className="sdv-cep-spinner" aria-hidden="true">
+                    {' '}
+                    ⌛
+                  </span>
+                ) : null}
+              </span>
+              <input
+                className="app-modal-input"
+                value={form.postalCode}
+                disabled={saving}
+                inputMode="numeric"
+                onChange={(event) => update('postalCode', maskPostalCodeInput(event.target.value))}
+                placeholder="00000-000"
+              />
+            </label>
             <label className="app-modal-field">
               <span className="app-modal-label">Cidade</span>
               <input
@@ -286,26 +251,29 @@ export function ClientUnitModal({
               />
             </label>
           </div>
+
           <div className="sdv-edit-row">
             <label className="app-modal-field">
-              <span className="app-modal-label">
-                CEP
-                {cep.loading ? (
-                  <span className="sdv-cep-spinner" aria-hidden="true">
-                    {' '}
-                    ⌛
-                  </span>
-                ) : null}
-              </span>
+              <span className="app-modal-label">Logradouro</span>
               <input
                 className="app-modal-input"
-                value={form.postalCode}
+                value={form.addressLine}
                 disabled={saving}
-                inputMode="numeric"
-                onChange={(event) => update('postalCode', maskPostalCodeInput(event.target.value))}
-                placeholder="00000-000"
+                onChange={(event) => update('addressLine', event.target.value.toUpperCase())}
               />
             </label>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Bairro</span>
+              <input
+                className="app-modal-input"
+                value={form.district}
+                disabled={saving}
+                onChange={(event) => update('district', event.target.value.toUpperCase())}
+              />
+            </label>
+          </div>
+
+          <div className="sdv-edit-row">
             <label className="app-modal-field">
               <span className="app-modal-label">Complemento</span>
               <input
@@ -316,35 +284,23 @@ export function ClientUnitModal({
                 onChange={(event) => update('complement', event.target.value.toUpperCase())}
               />
             </label>
-          </div>
-          <label className="app-modal-field">
-            <span className="app-modal-label">Telefone</span>
-            <input
-              className="app-modal-input"
-              value={form.phone}
-              disabled={saving}
-              inputMode="numeric"
-              onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
-              placeholder="(00) 00000-0000"
-            />
-          </label>
-
-          {isEdit ? (
             <label className="app-modal-field">
-              <span className="app-modal-label">Motivo da edição (obrigatório)</span>
-              <textarea
+              <span className="app-modal-label">Telefone</span>
+              <input
                 className="app-modal-input"
-                value={form.reasonText}
+                value={form.phone}
                 disabled={saving}
-                rows={2}
-                maxLength={300}
-                onChange={(event) => update('reasonText', event.target.value)}
-                placeholder="Ex.: corrigir endereço"
+                inputMode="numeric"
+                onChange={(event) => update('phone', maskPhoneInput(event.target.value))}
+                placeholder="(00) 00000-0000"
               />
             </label>
-          ) : null}
+          </div>
 
           <div className="app-modal-actions">
+            <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
+              {saving ? 'Salvando...' : 'Criar filial'}
+            </button>
             <button
               type="button"
               className="app-modal-secondary"
@@ -352,9 +308,6 @@ export function ClientUnitModal({
               disabled={saving}
             >
               Cancelar
-            </button>
-            <button type="submit" className="app-modal-submit" disabled={submitDisabled}>
-              {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Criar filial'}
             </button>
           </div>
         </form>

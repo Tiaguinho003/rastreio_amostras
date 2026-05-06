@@ -27,6 +27,8 @@ type Props = {
   onClearError?: () => void;
   /** 14.7.C: ocultar role/papel nos chips selecionados (so nome). */
   hideRoleInChips?: boolean;
+  /** Mostra apenas o primeiro nome no chip (para campos estreitos). */
+  firstNameOnly?: boolean;
 };
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -52,6 +54,7 @@ export function UserMultiSelect({
   disabled = false,
   onClearError,
   hideRoleInChips = false,
+  firstNameOnly = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -138,7 +141,9 @@ export function UserMultiSelect({
             const role = usersById.get(u.id)?.role;
             return (
               <span key={u.id} className="user-multi-select__chip">
-                <span className="user-multi-select__chip-label">{u.fullName}</span>
+                <span className="user-multi-select__chip-label">
+                  {firstNameOnly ? u.fullName.split(' ')[0] : u.fullName}
+                </span>
                 {role && !hideRoleInChips ? (
                   <span className={`user-multi-select__chip-role ${roleClass(role)}`}>
                     {ROLE_LABEL[role]}

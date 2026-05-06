@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -25,6 +25,9 @@ type ClientInactivateWithCascadeModalProps = {
   activeSamples: CascadeSample[];
   saving: boolean;
   errorMessage: string | null;
+  // Motivo digitado no status-modal antes do 409 — pre-popula o campo
+  // pra nao perder o que o usuario ja escreveu.
+  initialReason?: string;
   onCancel: () => void;
   onConfirm: (confirmedSampleIds: string[], reasonText: string | null) => Promise<void> | void;
 };
@@ -43,11 +46,16 @@ export function ClientInactivateWithCascadeModal({
   activeSamples,
   saving,
   errorMessage,
+  initialReason,
   onCancel,
   onConfirm,
 }: ClientInactivateWithCascadeModalProps) {
   const focusTrapRef = useFocusTrap(open);
-  const [reasonText, setReasonText] = useState('');
+  const [reasonText, setReasonText] = useState(initialReason ?? '');
+
+  useEffect(() => {
+    if (open) setReasonText(initialReason ?? '');
+  }, [open, initialReason]);
 
   if (!open) return null;
 
@@ -127,11 +135,11 @@ export function ClientInactivateWithCascadeModal({
             ))}
           </div>
 
-          <form className="sdv-edit-fields" onSubmit={handleSubmit}>
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Motivo (opcional)</span>
+          <form className="client-cascade-form" onSubmit={handleSubmit}>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo (opcional)</span>
               <textarea
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={reasonText}
                 disabled={saving}
                 maxLength={300}
@@ -142,6 +150,11 @@ export function ClientInactivateWithCascadeModal({
             </label>
 
             <div className="app-modal-actions">
+              <button type="submit" className="app-modal-submit is-danger" disabled={saving}>
+                {saving
+                  ? 'Inativando...'
+                  : `Confirmar e invalidar ${sampleCount} amostra${sampleCount === 1 ? '' : 's'}`}
+              </button>
               <button
                 type="button"
                 className="app-modal-secondary"
@@ -149,11 +162,6 @@ export function ClientInactivateWithCascadeModal({
                 disabled={saving}
               >
                 Cancelar
-              </button>
-              <button type="submit" className="sdv-btn-danger" disabled={saving}>
-                {saving
-                  ? 'Inativando...'
-                  : `Confirmar e invalidar ${sampleCount} amostra${sampleCount === 1 ? '' : 's'}`}
               </button>
             </div>
           </form>
