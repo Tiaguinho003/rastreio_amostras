@@ -6628,19 +6628,19 @@ button:disabled {
 }
 
 /* 4 mini-cards em grid 2x2 na coluna esquerda do .sdv-commercial.
-   Gap maior — cada card individual encolhe um pouco mantendo o
-   stack na mesma posicao (mesma largura externa do container). */
+   Gap menor — cada card individual cresce (recebe mais espaco da
+   coluna pai) mantendo o stack na mesma posicao. */
 .sdv-commercial-mini-stack {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: clamp(20px, 4vw, 56px);
+  gap: clamp(8px, 1.6vw, 18px);
   justify-self: start;
   width: 100%;
-  max-width: clamp(360px, 46vw, 510px);
+  max-width: clamp(400px, 50vw, 560px);
 }
 
 .sdv-card.sdv-card-commercial-mini {
-  min-height: clamp(115px, 14vw, 185px);
+  min-height: clamp(135px, 16vw, 215px);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -6707,6 +6707,19 @@ button:disabled {
 
 .sdv-card.sdv-card-commercial-mini:disabled {
   cursor: not-allowed;
+}
+
+/* Hover: cresce um pouco + sombra mais marcada. Combinado com .is-active
+   abaixo, da pra um aumento extra quando o filtro selecionado e hovered. */
+.sdv-card.sdv-card-commercial-mini:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.1),
+    0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.sdv-card.sdv-card-commercial-mini.is-active:hover:not(:disabled) {
+  transform: scale(1.06);
 }
 
 /* Card ativo: cresce + sombra + ring colorido em volta */
@@ -7565,9 +7578,8 @@ button:disabled {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.08),
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    0 16px 40px rgba(0, 0, 0, 0.06);
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 3px 10px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-align: left;
@@ -7614,9 +7626,8 @@ button:disabled {
   background: linear-gradient(180deg, #ffffff 0%, #f3eee5 100%);
   border-color: rgba(0, 0, 0, 0.12);
   box-shadow:
-    0 4px 10px rgba(0, 0, 0, 0.1),
-    0 12px 32px rgba(0, 0, 0, 0.16),
-    0 24px 56px rgba(0, 0, 0, 0.08);
+    0 2px 5px rgba(0, 0, 0, 0.06),
+    0 5px 14px rgba(0, 0, 0, 0.08);
 }
 
 .sdv-unit-card-mini:active {
@@ -20318,7 +20329,7 @@ button:disabled {
      `margin: ... auto 0` centraliza horizontalmente entre os gutters. */
   .sdv-commercial {
     max-width: 1600px;
-    margin: clamp(6rem, 9vw, 8rem) auto 0;
+    margin: clamp(4.5rem, 7vw, 6rem) auto 0;
     width: 100%;
     display: grid;
     /* Larguras naturais (clamp) em vez de fr expansive — assim ao
@@ -20326,7 +20337,7 @@ button:disabled {
        pra absorver o ganho). justify-content: center centraliza o
        conjunto (mini-stack | lista) horizontalmente, mantendo gaps
        laterais iguais ate a borda do .sdv-commercial. */
-    grid-template-columns: clamp(360px, 35vw, 510px) clamp(440px, 54vw, 1020px);
+    grid-template-columns: clamp(400px, 38vw, 560px) clamp(440px, 54vw, 1020px);
     gap: clamp(2.5rem, 4vw, 3.5rem);
     justify-content: center;
   }
