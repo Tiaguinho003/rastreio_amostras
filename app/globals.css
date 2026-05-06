@@ -6628,18 +6628,19 @@ button:disabled {
 }
 
 /* 4 mini-cards em grid 2x2 na coluna esquerda do .sdv-commercial.
-   Largura do stack: 2 cards lado a lado + gap. */
+   Gap maior — cada card individual encolhe um pouco mantendo o
+   stack na mesma posicao (mesma largura externa do container). */
 .sdv-commercial-mini-stack {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: clamp(8px, 2vw, 12px);
-  justify-self: end;
+  gap: clamp(20px, 4vw, 56px);
+  justify-self: start;
   width: 100%;
   max-width: clamp(360px, 46vw, 510px);
 }
 
 .sdv-card.sdv-card-commercial-mini {
-  min-height: clamp(120px, 16vw, 200px);
+  min-height: clamp(115px, 14vw, 185px);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -6737,12 +6738,15 @@ button:disabled {
     0 12px 28px rgba(94, 67, 41, 0.28);
 }
 
-/* Lista de amostras dentro do card grande (perspectiva owner ou comprador) */
+/* Lista de amostras dentro do card grande (perspectiva owner ou comprador).
+   min-height fixo garante que o container tenha SEMPRE o mesmo tamanho —
+   independente de ter amostras, estar vazio, em loading ou skeleton. */
 .sdv-card.sdv-card-commercial {
   padding: clamp(12px, 2vw, 16px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: clamp(320px, 42vw, 460px);
 }
 
 .sdv-commercial-list {
@@ -6778,20 +6782,21 @@ button:disabled {
 
 .sdv-commercial-list-item {
   display: block;
-  /* Animacao de entrada mais natural: fade + slide curto + leve scale,
-     com easing out-expo-like (cubic-bezier 0.22, 1, 0.36, 1) que
-     desacelera suavemente ao final em vez do `ease` linear-ish. */
-  animation: sdv-commercial-row-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /* Animacao de entrada simples e rapida: fade + leve slide pra cima.
+     ease-out e mais natural que cubic-bezier expo (que tinha aceleracao
+     brusca no inicio dando impressao de "travar"). 0.28s e curto o
+     bastante pra nao sentir delay. */
+  animation: sdv-commercial-row-in 0.28s ease-out backwards;
 }
 
 @keyframes sdv-commercial-row-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -6931,6 +6936,9 @@ button:disabled {
   font-size: clamp(13px, 1.4vw, 15px);
   color: #888;
   padding: 2rem;
+  /* Mesma altura da .sdv-commercial-list — assim o estado vazio nao
+     "encolhe" o container quando o filtro selecionado nao tem amostras. */
+  min-height: clamp(320px, 42vw, 460px);
 }
 
 .sdv-commercial-load-more {
@@ -20281,7 +20289,14 @@ button:disabled {
      Mesma altura aplicada ao .sdv-info-split-row pra alinhar verticalmente
      com Filiais/Endereco. */
   .sdv-general {
-    --card-row-height: clamp(360px, 38vh, 460px);
+    /* Altura suficiente pra caber TODOS os campos do PJ no card
+       Informacoes (razao social, nome fantasia, CNPJ, email, telefone,
+       responsavel) e do Endereco fiscal (CEP, endereco, bairro,
+       complemento, cidade/UF, IE) sem scroll interno. Filiais (PF)
+       e Endereco fiscal (PJ) mantem ESSA mesma altura — o scroll
+       interno fica APENAS na lista de filiais (.sdv-unit-list)
+       quando ha mais filiais que cabem. */
+    --card-row-height: clamp(380px, 44vh, 480px);
     max-width: 1600px;
     margin-left: auto;
     margin-right: auto;
@@ -20289,7 +20304,6 @@ button:disabled {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
     gap: 1rem;
-    padding-right: clamp(14px, 4vw, 16px);
   }
 
   /* Comercial: grid 2-colunas proporcional (2fr/3fr ≈ 40%/60%) que
@@ -20298,14 +20312,23 @@ button:disabled {
      permite que filhos shrinkem corretamente. Mesmo cap 1600px da
      .sdv-general acima pra ambos blocos ficarem alinhados.
      margin-top com clamp gera o gap vertical entre as duas rows
-     (cards de identidade em cima vs cards comerciais embaixo). */
+     (cards de identidade em cima vs cards comerciais embaixo).
+     Sem padding lateral — gutters laterais sao exclusivamente do
+     .sdv-content pai (mesmo padding em ambos os lados, simetria).
+     `margin: ... auto 0` centraliza horizontalmente entre os gutters. */
   .sdv-commercial {
     max-width: 1600px;
-    margin: clamp(1.25rem, 2vw, 1.75rem) auto 0;
+    margin: clamp(6rem, 9vw, 8rem) auto 0;
     width: 100%;
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: clamp(1.5rem, 3vw, 3rem);
+    /* Larguras naturais (clamp) em vez de fr expansive — assim ao
+       reduzir o gap o conjunto INTEIRO encolhe (e nao a lista expande
+       pra absorver o ganho). justify-content: center centraliza o
+       conjunto (mini-stack | lista) horizontalmente, mantendo gaps
+       laterais iguais ate a borda do .sdv-commercial. */
+    grid-template-columns: clamp(360px, 35vw, 510px) clamp(440px, 54vw, 1020px);
+    gap: clamp(2.5rem, 4vw, 3.5rem);
+    justify-content: center;
   }
 
   .sdv-commercial > .sdv-commercial-mini-stack {
@@ -20412,20 +20435,15 @@ button:disabled {
 
   /* Coluna 1: row do split (avatar + Informacoes) com altura igual a
      dos cards da coluna 2 — assim ambas colunas tem o mesmo tamanho
-     visual independente do conteudo. Card Informacoes scrolla
-     internamente se conteudo passar do limite. */
+     visual independente do conteudo. Sem scroll interno no card
+     Informacoes — a altura --card-row-height garante espaco pra todos
+     os campos do PJ. */
   .sdv-info-split-row {
     height: var(--card-row-height);
   }
 
   .sdv-info-split-row > .sdv-card-info {
     overflow: hidden;
-  }
-
-  .sdv-info-split-row > .sdv-card-info .sdv-card-themed-body {
-    overflow-y: auto;
-    min-height: 0;
-    scrollbar-width: thin;
   }
 
   /* Avatar + roles centralizados verticalmente em relacao a altura da

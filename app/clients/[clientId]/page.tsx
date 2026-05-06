@@ -1442,7 +1442,7 @@ export default function ClientDetailPage() {
                             <li
                               key={p.id}
                               className="sdv-commercial-list-item"
-                              style={{ animationDelay: `${Math.min(idx, 16) * 0.035}s` }}
+                              style={{ animationDelay: `${Math.min(idx, 10) * 0.025}s` }}
                             >
                               <Link
                                 href={`/samples/${p.sampleId}`}
@@ -1481,7 +1481,7 @@ export default function ClientDetailPage() {
                           <li
                             key={s.id}
                             className="sdv-commercial-list-item"
-                            style={{ animationDelay: `${Math.min(idx, 16) * 0.035}s` }}
+                            style={{ animationDelay: `${Math.min(idx, 10) * 0.025}s` }}
                           >
                             <Link
                               href={`/samples/${s.id}`}
