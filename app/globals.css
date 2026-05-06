@@ -1350,6 +1350,25 @@ body {
   cursor: not-allowed;
 }
 
+/* Variante destrutiva — usada no cascade modal de inativacao com cascata
+   (Confirmar e invalidar N amostras) e em qualquer outro fluxo terminal. */
+.app-modal-submit.is-danger {
+  background: linear-gradient(135deg, #c0392b, #b03224);
+  box-shadow: 0 12px 22px rgba(192, 57, 43, 0.28);
+}
+
+.app-modal-submit.is-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b03224, #962d20);
+  box-shadow: 0 14px 26px rgba(192, 57, 43, 0.36);
+}
+
+/* Form do cascade modal: gap entre o campo de motivo e as actions. */
+.client-cascade-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.7rem, 2vw, 0.95rem);
+}
+
 .app-modal-secondary {
   min-height: 3rem;
   border-radius: 999px;
@@ -4997,15 +5016,20 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.7rem 0.85rem 0.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0.7rem 0.95rem;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  border-bottom: 0;
+  /* Acompanha o radius do modal pai pra nao deixar slivers brancos nos
+     cantos do header. */
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
 }
 
 .cv2-filter-user-modal-title {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #555;
+  color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
@@ -5017,15 +5041,22 @@ button:disabled {
   height: 24px;
   padding: 0;
   border: 0;
-  background: transparent;
-  color: #888;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
   cursor: pointer;
   border-radius: 6px;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s;
 }
 
 .cv2-filter-user-modal-close:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.06);
+}
+
+.cv2-filter-user-modal-close:active {
+  transform: scale(0.94);
 }
 
 .cv2-filter-user-modal-close svg {
@@ -5033,7 +5064,7 @@ button:disabled {
   height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 
@@ -6573,6 +6604,367 @@ button:disabled {
   gap: clamp(10px, 3vw, 12px);
 }
 
+/* Bloco "Comercial" abaixo do .sdv-general — 2 cards brancos:
+   - O principal (.sdv-card-commercial) alinha com a coluna Informacoes
+     acima (3fr no meio).
+   - O menor (.sdv-card-commercial-small) fica na coluna direita
+     (alinhado com Filiais/Endereco). */
+.sdv-commercial {
+  margin-top: clamp(72px, 16vw, 96px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+}
+
+/* Wrapper transparente sem altura minima — apenas posiciona a lista
+   na coluna 2 do .sdv-commercial. Sem clip nem moldura visivel pra
+   nao cortar as sombras dos cards das amostras. */
+.sdv-card-commercial {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+}
+
+/* 4 mini-cards em grid 2x2 na coluna esquerda do .sdv-commercial.
+   Largura do stack: 2 cards lado a lado + gap. */
+.sdv-commercial-mini-stack {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(8px, 2vw, 12px);
+  justify-self: end;
+  width: 100%;
+  max-width: clamp(360px, 46vw, 510px);
+}
+
+.sdv-card.sdv-card-commercial-mini {
+  min-height: clamp(120px, 16vw, 200px);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  text-align: center;
+  overflow: hidden;
+}
+
+.sdv-card-commercial-mini-title {
+  display: block;
+  width: 100%;
+  padding: clamp(8px, 1.4vw, 12px) clamp(10px, 2vw, 14px);
+  font-size: clamp(13px, 1.6vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffffff;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.sdv-card-commercial-mini.is-open .sdv-card-commercial-mini-title {
+  background: linear-gradient(135deg, #4a73b8 0%, #355a99 100%);
+}
+
+.sdv-card-commercial-mini.is-sold .sdv-card-commercial-mini-title {
+  background: linear-gradient(135deg, #4a8a5e 0%, #356b46 100%);
+}
+
+.sdv-card-commercial-mini.is-lost .sdv-card-commercial-mini-title {
+  background: linear-gradient(135deg, #b15454 0%, #8a3f3f 100%);
+}
+
+.sdv-card-commercial-mini.is-bought .sdv-card-commercial-mini-title {
+  background: linear-gradient(135deg, #7a5836 0%, #5e4329 100%);
+}
+
+.sdv-card-commercial-mini-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+}
+
+/* Card "Comprado" opaco quando cliente nao tem papel de comprador. */
+.sdv-card.sdv-card-commercial-mini.is-dim {
+  opacity: 0.45;
+  filter: saturate(0.55);
+}
+
+/* Card mini agora e botao clicavel — reset visual do button */
+.sdv-card.sdv-card-commercial-mini {
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.sdv-card.sdv-card-commercial-mini:disabled {
+  cursor: not-allowed;
+}
+
+/* Card ativo: cresce + sombra + ring colorido em volta */
+.sdv-card.sdv-card-commercial-mini.is-active {
+  transform: scale(1.03);
+}
+
+.sdv-card.sdv-card-commercial-mini.is-active.is-open {
+  box-shadow:
+    0 0 0 3px rgba(74, 115, 184, 0.45),
+    0 12px 28px rgba(53, 90, 153, 0.28);
+}
+
+.sdv-card.sdv-card-commercial-mini.is-active.is-sold {
+  box-shadow:
+    0 0 0 3px rgba(74, 138, 94, 0.45),
+    0 12px 28px rgba(53, 107, 70, 0.28);
+}
+
+.sdv-card.sdv-card-commercial-mini.is-active.is-lost {
+  box-shadow:
+    0 0 0 3px rgba(177, 84, 84, 0.45),
+    0 12px 28px rgba(138, 63, 63, 0.28);
+}
+
+.sdv-card.sdv-card-commercial-mini.is-active.is-bought {
+  box-shadow:
+    0 0 0 3px rgba(122, 88, 54, 0.45),
+    0 12px 28px rgba(94, 67, 41, 0.28);
+}
+
+/* Lista de amostras dentro do card grande (perspectiva owner ou comprador) */
+.sdv-card.sdv-card-commercial {
+  padding: clamp(12px, 2vw, 16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sdv-commercial-list {
+  list-style: none;
+  margin: 0;
+  padding: clamp(14px, 1.8vw, 20px) clamp(14px, 1.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.5vw, 14px);
+  /* Altura FIXA (nao max-height) — sempre o mesmo tamanho independente
+     de quantos items, scroll interno quando ultrapassa. Cards filhos
+     mantem altura natural (sem flex-grow). */
+  height: clamp(320px, 42vw, 460px);
+  overflow-y: auto;
+  /* Mask gradient pra sombras dos cards extremos desaparecerem com fade
+     em vez de cortarem retas nas bordas do scroll. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black clamp(14px, 1.8vw, 20px),
+    black calc(100% - clamp(14px, 1.8vw, 20px)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black clamp(14px, 1.8vw, 20px),
+    black calc(100% - clamp(14px, 1.8vw, 20px)),
+    transparent 100%
+  );
+  scrollbar-width: thin;
+}
+
+.sdv-commercial-list-item {
+  display: block;
+  /* Animacao de entrada mais natural: fade + slide curto + leve scale,
+     com easing out-expo-like (cubic-bezier 0.22, 1, 0.36, 1) que
+     desacelera suavemente ao final em vez do `ease` linear-ish. */
+  animation: sdv-commercial-row-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes sdv-commercial-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Skeleton placeholder durante o fetch da pagina 1 — evita o flash branco
+   no container quando o usuario troca de filtro. 4 rows com pulso. */
+.sdv-commercial-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.5vw, 14px);
+  padding: clamp(14px, 1.8vw, 20px);
+  height: clamp(320px, 42vw, 460px);
+  overflow: hidden;
+}
+
+.sdv-commercial-skeleton-row {
+  height: clamp(72px, 8vw, 88px);
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation:
+    sdv-commercial-skeleton-shimmer 1.4s ease-in-out infinite,
+    sdv-commercial-row-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes sdv-commercial-skeleton-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+.sdv-commercial-list-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.8vw, 18px);
+  align-items: center;
+  padding: clamp(18px, 2.6vw, 24px) clamp(18px, 2.4vw, 22px) clamp(18px, 2.6vw, 24px)
+    clamp(26px, 3vw, 32px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 16px 40px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.sdv-commercial-list-row:hover {
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.16),
+    0 24px 56px rgba(0, 0, 0, 0.08);
+}
+
+.sdv-commercial-list-row:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f3eee5 100%);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.sdv-commercial-list-row:active {
+  transform: scale(0.99);
+}
+
+/* Mesma paleta da samples page (.spv2-card.is-card-*). Barra lateral
+   colorida + variaveis CSS pra reaproveitar em outros decorators. */
+.sdv-commercial-list-row.is-card-open {
+  --card-status-color: #60a5fa;
+  --card-status-bg: #dbeafe;
+}
+
+.sdv-commercial-list-row.is-card-sold {
+  --card-status-color: #2a6539;
+  --card-status-bg: #e4f3e8;
+}
+
+.sdv-commercial-list-row.is-card-lost {
+  --card-status-color: #b44646;
+  --card-status-bg: #f6e1e1;
+}
+
+.sdv-commercial-list-row.is-card-invalid {
+  --card-status-color: #6b7280;
+  --card-status-bg: #f3f4f6;
+  opacity: 0.55;
+  filter: saturate(0.6);
+}
+
+/* Barra lateral cobre TODA a altura da row, colada na borda esquerda
+   interna (dentro do border-radius). Usa absolute pra escapar do grid. */
+.sdv-commercial-list-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: clamp(6px, 0.7vw, 8px);
+  background: var(--card-status-color, #999);
+}
+
+.sdv-commercial-list-lot {
+  font-size: clamp(17px, 1.9vw, 20px);
+  font-weight: 700;
+  color: #1f1f1f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sdv-commercial-list-meta {
+  font-size: clamp(14px, 1.6vw, 16px);
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sdv-commercial-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(13px, 1.4vw, 15px);
+  color: #888;
+  padding: 2rem;
+}
+
+.sdv-commercial-load-more {
+  align-self: center;
+  margin-top: clamp(8px, 1.5vw, 12px);
+  padding: 0.55rem 1.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1f5d43;
+  background: #ffffff;
+  border: 1.5px solid rgba(31, 93, 67, 0.3);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.sdv-commercial-load-more:hover:not(:disabled) {
+  background: #f4f0e7;
+  border-color: rgba(31, 93, 67, 0.55);
+}
+
+.sdv-commercial-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Adapt list row to "Comprado" (3 cols de dados ao inves de 4).
+   :nth-child(4) e o ultimo span quando ha 4 filhos: barra + lote + 2 metas. */
+.sdv-commercial-list-row:has(> :nth-child(4):last-child) {
+  grid-template-columns: minmax(120px, 1fr) repeat(2, minmax(0, 1fr));
+}
+
 .sdv-print-failed-card {
   border-left: 3px solid #c0392b;
   display: flex;
@@ -6693,6 +7085,9 @@ button:disabled {
   place-items: center;
   width: clamp(28px, 7.5vw, 34px);
   height: clamp(28px, 7.5vw, 34px);
+  padding: 0;
+  margin: 0;
+  line-height: 1;
   border-radius: clamp(7px, 2vw, 9px);
   background: #ffffff;
   border: 0;
@@ -6705,7 +7100,8 @@ button:disabled {
 }
 
 .sdv-card-themed-edit:hover {
-  transform: scale(1.06);
+  background: #ffffff;
+  transform: scale(1.08);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
 }
 
@@ -6714,6 +7110,7 @@ button:disabled {
 }
 
 .sdv-card-themed-edit svg {
+  display: block;
   width: 50%;
   height: 50%;
   fill: none;
@@ -6828,6 +7225,141 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 clamp(14px, 4vw, 20px);
+}
+
+/* Card de Informacoes dividido em 2: vazio na esquerda, info compacto na
+   direita. As info ficam empilhadas (1 coluna) pra caber na metade. */
+.sdv-general {
+  /* Avatar circular: clamp menor pro cap (220 em vez de 260) e vw mais
+     conservador (14 em vez de 38) — assim em desktops 901-1100px o
+     avatar nao estoura a coluna 2fr da .sdv-info-split-row. */
+  --nested-card-size: clamp(160px, 14vw, 220px);
+  --nested-vertical-margin: clamp(12px, 3vw, 20px);
+  /* Altura compartilhada da linha — nested + margem em cima e em baixo */
+  --row-height: calc(var(--nested-card-size) + 2 * var(--nested-vertical-margin));
+}
+
+.sdv-info-split-row {
+  /* Grid 2fr/3fr: dentro da coluna 1 da .sdv-general (5fr de 8fr total),
+     o card Informacoes ocupa 3fr — mesmo proporcional do card Filiais/
+     Endereco (que tem 3fr na coluna 2 da .sdv-general). O nested card
+     fica na coluna esquerda 2fr, centralizado entre a borda e
+     Informacoes. minmax(180px, 2fr) garante espaco minimo pro avatar
+     em desktops estreitos; minmax(0, 3fr) permite shrink do card. */
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr);
+  gap: clamp(12px, 3vw, 16px);
+  align-items: stretch;
+}
+
+.sdv-info-split-row > .sdv-nested-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-self: center;
+}
+
+.sdv-info-split-row > .sdv-card-info {
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sdv-card.sdv-card-nested {
+  width: var(--nested-card-size, clamp(190px, 38vw, 260px));
+  aspect-ratio: 1 / 1;
+  margin-top: var(--nested-vertical-margin, clamp(12px, 3vw, 20px));
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+    135deg,
+    var(--avatar-color, #1f5d43),
+    rgb(from var(--avatar-color, #1f5d43) r g b / 0.8)
+  );
+  border-radius: clamp(14px, 3.5vw, 20px);
+  border: 0;
+  box-shadow: 0 4px 14px rgb(from var(--avatar-color, #1f5d43) r g b / 0.32);
+  animation: none;
+}
+
+.sdv-card-nested-initials {
+  font-size: clamp(56px, 13vw, 88px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  user-select: none;
+}
+
+/* Badges de papel (Vendedor/Comprador) abaixo do nested card. Ativos
+   "brilham" na cor; inativos ficam opacos pra mostrar que existem mas
+   nao se aplicam ao cliente. */
+.sdv-roles-row {
+  display: flex;
+  gap: clamp(8px, 1.6vw, 10px);
+  justify-content: center;
+  margin-top: clamp(14px, 3.4vw, 22px);
+}
+
+.sdv-roles-row .cv2-card-role {
+  font-size: clamp(12px, 2.9vw, 14px);
+  padding: clamp(5px, 1.2vw, 7px) clamp(12px, 2.8vw, 16px);
+  border-radius: 999px;
+  transition:
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.sdv-roles-row .cv2-card-role.is-seller:not(.is-dim) {
+  box-shadow:
+    0 0 0 1px rgba(39, 174, 96, 0.3),
+    0 0 12px rgba(39, 174, 96, 0.45);
+}
+
+.sdv-roles-row .cv2-card-role.is-buyer:not(.is-dim) {
+  box-shadow:
+    0 0 0 1px rgba(41, 128, 185, 0.3),
+    0 0 12px rgba(41, 128, 185, 0.45);
+}
+
+.sdv-roles-row .cv2-card-role.is-dim {
+  color: #aaa;
+  background: #f4f3ef;
+  border-color: #e2dfd6;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.sdv-card-info-compact .sdv-info-grid,
+.sdv-card-address .sdv-info-grid {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+/* Sobe os campos colando no header verde + reduz altura por item pra
+   caber tudo dentro da row-height. Fontes mantidas em tamanho normal —
+   so a separacao vertical foi reduzida.
+   Mesma regra aplicada no card Endereco fiscal (sdv-card-address) pra
+   os itens ficarem alinhados verticalmente com Informacoes. */
+.sdv-card-info-compact .sdv-card-themed-body,
+.sdv-card-address .sdv-card-themed-body {
+  padding: clamp(4px, 1.2vw, 6px) clamp(14px, 3.5vw, 18px) clamp(4px, 1.2vw, 6px);
+}
+
+.sdv-card-info-compact .sdv-info-item,
+.sdv-card-address .sdv-info-item {
+  padding: 1px 0;
+}
+
+.sdv-card-info-compact .sdv-info-item.is-full {
+  grid-column: auto;
+}
+
+.sdv-card-info-compact .sdv-info-label,
+.sdv-card-address .sdv-info-label {
+  margin-bottom: 1px;
 }
 
 .sdv-info-item {
@@ -7011,48 +7543,55 @@ button:disabled {
 /* 14.7.I: card minimalista de filial. Substitui o sdv-unit-card antigo
    (que tinha todos os campos + botoes). Agora so nome + cidade + seta
    indicando clicavel. Click abre o ClientUnitDetailModal. */
-/* 14.7.M.2: status-line lateral via ::before. Verde quando completo,
-   amber quando ha campo recomendado faltando. position: relative pra
-   ancorar o pseudo-element. padding-left: 1rem abre espaco. */
+/* Padrao visual igual ao .sdv-commercial-list-row (cards de amostra):
+   gradient branco/cremoso, sombra triple, barra lateral cobrindo TODA
+   a borda esquerda via --card-status-color. */
 .sdv-unit-card-mini {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.7rem 0.85rem 0.7rem 1rem;
-  background: linear-gradient(180deg, #fdfbf6 0%, #f6f2e9 100%);
-  border: 1px solid rgba(112, 130, 103, 0.16);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 0.7rem 0.85rem 0.7rem clamp(20px, 1.8vw, 24px);
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 16px 40px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   text-align: left;
   width: 100%;
+  overflow: hidden;
+  --card-status-color: var(--brand-green-soft);
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
 }
 
+/* Barra lateral cobre TODA a altura, colada na borda esquerda interna
+   (dentro do border-radius). Igual ao .sdv-commercial-list-bar. */
 .sdv-unit-card-mini::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 18%;
-  bottom: 18%;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, var(--brand-green-soft), var(--brand-green));
+  top: 0;
+  bottom: 0;
+  width: clamp(6px, 0.7vw, 8px);
+  background: var(--card-status-color);
   transition: background 0.15s ease;
 }
 
-.sdv-unit-card-mini.is-incomplete::before {
-  background: linear-gradient(180deg, #f59e0b, #d97706);
+.sdv-unit-card-mini.is-incomplete {
+  --card-status-color: #d97706;
 }
 
-.sdv-unit-card-mini.is-inactive::before {
-  background: rgba(0, 0, 0, 0.18);
+.sdv-unit-card-mini.is-inactive {
+  --card-status-color: rgba(0, 0, 0, 0.32);
 }
 
 .sdv-unit-card-mini-warning {
@@ -7064,20 +7603,21 @@ button:disabled {
 }
 
 .sdv-unit-card-mini:hover {
-  border-color: rgba(47, 107, 74, 0.3);
+  background: linear-gradient(180deg, #ffffff 0%, #f3eee5 100%);
+  border-color: rgba(0, 0, 0, 0.12);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(19, 35, 24, 0.08);
-  transform: translateY(-1px);
+    0 4px 10px rgba(0, 0, 0, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.16),
+    0 24px 56px rgba(0, 0, 0, 0.08);
 }
 
 .sdv-unit-card-mini:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .sdv-unit-card-mini.is-inactive {
   opacity: 0.62;
-  background: #f5f3ee;
+  filter: saturate(0.6);
 }
 
 .sdv-unit-card-mini-content {
@@ -7701,14 +8241,6 @@ button:disabled {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* Commercial tab v2 */
-.sdv-commercial {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(10px, 3vw, 12px);
-  animation: sdv-fadeIn 0.3s ease backwards;
 }
 
 .sdv-com-status {
@@ -12406,7 +12938,8 @@ button:disabled {
 }
 
 /* 14.7.J: padding 0 + overflow hidden pra header verde colar nas
-   bordas do modal. Body interno cuida do proprio padding. */
+   bordas do modal. Body interno cuida do proprio padding.
+   Background pure white + sem border bege (override do .app-modal base). */
 .client-quick-create-modal {
   position: relative;
   width: min(100%, 29rem);
@@ -12417,6 +12950,10 @@ button:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  border: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* 14.7.C: titulo "Novo cliente" 25% maior. 14.7.J: cor branca. */
@@ -12965,39 +13502,135 @@ button:disabled {
   padding: clamp(20px, 5vw, 28px) 0;
 }
 
-
-/* #14.7.M.3: variant compacto de inputs/labels nos modais de detalhe.
-   Aplica em todos os modais do contexto client detail (Editar info,
-   Registro fiscal, Filial detalhe e Nova/Editar filial). */
-.client-detail-edit-modal .app-modal-input,
-.client-detail-reg-modal .app-modal-input,
-.cudm-modal .app-modal-input,
-.client-unit-modal .app-modal-input {
+/* Variant compacto so pra Reg modal. Filial detail modal e Edit Client
+   usam tamanhos full do tema (.app-modal.is-themed defaults). */
+.client-detail-reg-modal .app-modal-input {
   padding: 0.48rem 0.72rem;
   font-size: 0.84rem;
   border-radius: 10px;
   box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.1);
 }
 
-.client-detail-edit-modal .app-modal-label,
-.client-detail-reg-modal .app-modal-label,
-.cudm-modal .app-modal-label,
-.client-unit-modal .app-modal-label {
+.client-detail-reg-modal .app-modal-label {
   font-size: 0.68rem;
 }
 
-.client-detail-edit-modal .app-modal-field,
-.client-detail-reg-modal .app-modal-field,
-.cudm-modal .app-modal-field,
-.client-unit-modal .app-modal-field {
+.client-detail-reg-modal .app-modal-field {
   gap: 0.18rem;
 }
 
-.client-detail-edit-modal .app-modal-content,
-.client-detail-reg-modal .app-modal-content,
-.cudm-modal .app-modal-content,
-.client-unit-modal .app-modal-content {
+.client-detail-reg-modal .app-modal-content {
   gap: 0.42rem;
+}
+
+/* Edit Client + Nova/Editar Filial — actions colam no ultimo campo,
+   sem ar morto e sem border separadora */
+.client-detail-edit-modal .app-modal-actions,
+.client-unit-modal .app-modal-actions {
+  margin-top: 0;
+  padding-top: 0.5rem;
+  border-top: 0;
+}
+
+.client-detail-edit-modal .client-detail-modal-form,
+.client-unit-modal .client-unit-modal-form {
+  flex: 0 1 auto;
+}
+
+/* Espacamento entre campos do form mais apertado pra nao deixar buraco */
+.client-detail-edit-modal .app-modal-content,
+.client-unit-modal .app-modal-content {
+  gap: 0.55rem;
+}
+
+/* UserMultiSelect (Responsavel) alinhado com .app-modal-input — mesmo
+   border / padding / font-size. Forca .user-multi-select-field a usar
+   o mesmo layout (display:grid + gap) que .app-modal-field, senao o
+   componente fica deslocado verticalmente do par de linha. */
+.client-detail-edit-modal .user-multi-select-field {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.client-detail-edit-modal .user-multi-select {
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.16);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+/* Altura travada — bate com .app-modal-input (padding 0.82rem * 2 + font
+   1rem * line-height 1.2). Chips/input vivem dentro dessa caixa fixa,
+   independente de quantos forem selecionados. */
+.client-detail-edit-modal .user-multi-select__chips {
+  height: 2.84rem;
+  padding: 0 1.1rem;
+  min-height: 0;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  align-items: center;
+}
+
+.client-detail-edit-modal .user-multi-select__chip {
+  flex-shrink: 0;
+}
+
+.client-detail-edit-modal .user-multi-select__input {
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.client-detail-edit-modal .user-multi-select.is-field-error {
+  border-color: rgba(196, 92, 92, 0.5);
+  background: #ffffff;
+}
+
+/* Esconde a mensagem de erro abaixo do UserMultiSelect — mantemos so a
+   border vermelha + placeholder "Obrigatorio" dentro do campo. */
+.client-detail-edit-modal .user-multi-select-field .app-modal-error {
+  display: none;
+}
+
+/* Papeis em duas caixas separadas (Vendedor | Comprador), cada uma
+   ocupando metade da largura. Mesma estetica dos inputs themed.
+   display:grid + 1fr 1fr forca cada label a ocupar metade da row,
+   sobrescrevendo o display:flex base de .client-detail-modal-flags. */
+.client-detail-edit-modal .client-detail-modal-flags {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.2vw, 10px);
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  flex-wrap: nowrap;
+}
+
+.client-detail-edit-modal .client-detail-modal-flag {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  border: 2px solid rgba(0, 0, 0, 0.16);
+  border-radius: 12px;
+  background: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.client-detail-edit-modal .client-detail-modal-flag input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--brand-green, #1f5d43);
+  cursor: pointer;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .client-detail-edit-modal .app-modal-submit,
@@ -13043,7 +13676,6 @@ button:disabled {
     width: min(calc(100vw - 0.75rem), 28rem);
   }
 }
-
 
 .admin-page-layout {
   display: grid;
@@ -18565,7 +19197,10 @@ button:disabled {
   }
 
   .samples-page-v2-header {
-    padding: 0 0 0.5rem;
+    /* Mesmo padrao de espaco em torno do titulo usado em /clients e /users:
+       1.5rem em cima e embaixo deixa o titulo visualmente centralizado
+       entre o topo da pagina e a barra de busca. */
+    padding: 1.5rem 0 1.5rem;
     flex-shrink: 0;
   }
 
@@ -18740,21 +19375,24 @@ button:disabled {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
-  /* Meta: header do container (padrao dd-activity-header) */
+  /* Meta: header do container — mesmo padrao compacto da /clients
+     (padding e tamanho do contador alinhados pra consistencia entre as
+     duas listagens). */
   .samples-page-v2 .spv2-list-meta {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    padding: 0 0.2rem 0.6rem;
+    padding: 0.35rem 0.4rem 0.35rem;
     border-bottom: 1px solid rgba(112, 130, 103, 0.12);
     margin-bottom: 0.4rem;
     flex-shrink: 0;
   }
 
   .samples-page-v2 .spv2-list-count {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #8a9285;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #555;
+    letter-spacing: -0.01em;
   }
 
   /* Footer: paginacao no rodape do container */
@@ -18787,8 +19425,73 @@ button:disabled {
     transform: translateY(0) scale(0.96);
   }
 
+  /* Mesmo padrao da /clients: barra de pesquisa em flex inline com botao
+     de filtro FORA do form, ancorado no canto direito (igual ao "+" em
+     /clients). Search ocupa todo o espaco esquerdo via flex:1. */
   .samples-page-v2 .hero-search-wrap {
     padding: 0 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-bar {
+    flex: 1;
+    min-width: 0;
+    border-radius: 18px;
+    padding: 0 1rem;
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-input {
+    padding: 1rem 0;
+    font-size: 1.05rem;
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Botao de filtro fora do form — quadrado verde solido com icone branco.
+     Tamanho maior pra ficar visualmente equilibrado com a barra de busca
+     mais alta (mesmo papel que o FAB "+" em /clients). */
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+    box-shadow: 0 6px 16px rgba(31, 93, 67, 0.32);
+    transition:
+      transform 0.15s,
+      box-shadow 0.18s ease,
+      background 0.18s ease;
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(31, 93, 67, 0.42);
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn:active {
+    transform: scale(0.96);
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn svg {
+    width: 26px;
+    height: 26px;
+    stroke: #ffffff;
+    stroke-width: 2.2;
+  }
+
+  /* Estado has-filters: gradient um pouco mais saturado pra sinalizar acao
+     em uso. Badge no canto direito mantem visibilidade da contagem. */
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn.has-filters {
+    background: linear-gradient(135deg, var(--brand-green-deep, var(--brand-green)), var(--brand-green));
+  }
+
+  .samples-page-v2 .hero-search-wrap .hero-search-filter-btn.has-filters svg {
+    stroke: #ffffff;
   }
 
   .samples-page-v2 .spv2-aging-banner {
@@ -18889,9 +19592,10 @@ button:disabled {
   }
 
   .clients-v2-header {
-    /* 14.6.J: gap ainda maior entre titulo "Clientes" e barra de pesquisa
-       (1.5rem -> 2.75rem). */
-    padding: 0 0 2.75rem;
+    /* Padding equilibrado em cima e embaixo pra deixar o titulo "Clientes"
+       visualmente CENTRALIZADO entre o topo da pagina e a barra de busca,
+       em vez de colado no topo. */
+    padding: 1.5rem 0 1.5rem;
     flex-shrink: 0;
   }
 
@@ -19031,9 +19735,9 @@ button:disabled {
     min-width: 0;
   }
 
-  /* 14.7.B: nome limitado a 3 linhas com truncamento. Nomes muito longos
-     (5+ linhas) esticavam a row inteira do grid e quebravam o visual de
-     todos os cards na mesma linha. */
+  /* Nome limitado a 2 linhas com truncamento. Nomes muito longos esticam
+     a row inteira do grid e quebram o visual de todos os cards na mesma
+     linha. */
   .clients-page-v2 .cv2-card-name {
     font-size: 1.1rem;
     font-weight: 800;
@@ -19044,8 +19748,8 @@ button:disabled {
     line-height: 1.2;
     letter-spacing: -0.01em;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -19157,55 +19861,55 @@ button:disabled {
     flex-shrink: 0;
   }
 
-  /* 14.6.J: contador "X clientes" 2x maior + spv2-list-meta com mais
-     espaco vertical pra acomodar os filtros maiores. */
+  /* Faixa superior dos filtros + contador de clientes — versao mais
+     compacta. Antes era 2x; reduzido pra deixar mais espaco vertical
+     pra lista. */
   .clients-page-v2 .spv2-list-meta {
-    padding: 0.6rem 0.4rem 0.5rem;
+    padding: 0.35rem 0.4rem 0.35rem;
   }
 
   .clients-page-v2 .spv2-list-meta-actions {
-    gap: 0.75rem;
+    gap: 0.55rem;
   }
 
   .clients-page-v2 .spv2-list-count {
-    font-size: 1.5rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: #555;
     letter-spacing: -0.01em;
   }
 
-  /* 14.6.J: chip incompletos 2x — padding/font/icone proporcionais. */
+  /* Chip incompletos compacto. */
   .clients-page-v2 .cv2-filter-incomplete-chip {
-    padding: 12px 22px;
-    font-size: 1.5rem;
-    gap: 10px;
+    padding: 7px 14px;
+    font-size: 1rem;
+    gap: 7px;
     border-radius: 999px;
   }
 
   .clients-page-v2 .cv2-filter-incomplete-icon {
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
   }
 
-  /* 14.7.B: botao usuario filtro reduzido 64 -> 56 com svg 32 -> 26
-     pra casar visualmente com o icone do chip incompletos (28px). */
+  /* Botao usuario filtro reduzido proporcional ao chip. */
   .clients-page-v2 .cv2-filter-user-btn {
-    width: 56px;
-    height: 56px;
+    width: 40px;
+    height: 40px;
   }
 
   .clients-page-v2 .cv2-filter-user-btn svg {
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
   }
 
   .clients-page-v2 .cv2-filter-user-btn-badge {
-    min-width: 24px;
-    height: 24px;
-    padding: 0 5px;
-    font-size: 10px;
-    top: -5px;
-    right: -5px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 9px;
+    top: -4px;
+    right: -4px;
     border-width: 2px;
   }
 
@@ -19567,13 +20271,41 @@ button:disabled {
     flex-direction: column;
   }
 
-  /* General: 2 colunas iguais. 14.7.F: 1.4fr 1fr -> 1fr 1fr — cards
-     PJ ficam com mesma largura (Identidade + Endereco fiscal). */
+  /* General: coluna Informacoes 25% mais larga, coluna Filiais/Endereco
+     25% mais estreita (5fr 3fr = 62.5% / 37.5%). minmax(0,Nfr) protege
+     contra overflow quando algum filho tem conteudo nao quebravel.
+     max-width 1600px + margin auto cap o layout em telas 4K e mantem
+     ele alinhado com a .sdv-commercial abaixo (que tem o mesmo cap). */
   .sdv-general {
-    max-width: none;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
     gap: 1rem;
+    padding-right: clamp(14px, 4vw, 16px);
+  }
+
+  /* Comercial: grid 2-colunas proporcional (2fr/3fr ≈ 40%/60%) que
+     acompanha a largura do container (sem clamp baseado em vw que
+     estourava a viewport em desktops 901-1280px). minmax(0, Nfr)
+     permite que filhos shrinkem corretamente. Mesmo cap 1600px da
+     .sdv-general acima pra ambos blocos ficarem alinhados. */
+  .sdv-commercial {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: clamp(1.5rem, 3vw, 3rem);
+  }
+
+  .sdv-commercial > .sdv-commercial-mini-stack {
+    grid-column: 1;
+  }
+
+  .sdv-commercial > .sdv-card-commercial {
+    grid-column: 2;
   }
 
   /* Cards brancos: sombra marcante */
@@ -19636,25 +20368,38 @@ button:disabled {
     flex-direction: column;
   }
 
-  /* 14.7.I: cards "Informacoes" / "Filiais" / "Endereco fiscal" tem
-     mesma altura padrao no desktop. min-height fixa garante visual
-     consistente independente da quantidade de conteudo. */
-  .sdv-general > .sdv-card-info {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: stretch;
-    display: flex;
-    flex-direction: column;
-    min-height: 28rem;
+  /* Compact (Informacoes + Endereco fiscal) — mesmo padding pra os
+     itens dos dois cards stackearem nas mesmas Y positions. Override
+     do .sdv-card-themed .sdv-card-themed-body acima (mesma especifi-
+     cidade, mas vem depois → ganha em desktop). */
+  .sdv-card-info-compact .sdv-card-themed-body,
+  .sdv-card-address .sdv-card-themed-body {
+    padding: 0.45rem 1.5rem 0.5rem;
   }
 
+  .sdv-card-info-compact .sdv-info-item,
+  .sdv-card-address .sdv-info-item {
+    padding: 0.18rem 0;
+  }
+
+  .sdv-card-info-compact .sdv-info-label,
+  .sdv-card-address .sdv-info-label {
+    margin-bottom: 2px;
+  }
+
+  /* Cards Filiais / Endereco fiscal (coluna 2 do grid) — altura igualada
+     a coluna esquerda (nested card + badges de papeis abaixo). Sem
+     min-height de 28rem — esticam ate alinhar com a roles row.
+     A coluna 1 (Informacoes) agora vive dentro de .sdv-info-split-row;
+     auto-placement coloca o split-row na coluna 1. */
   .sdv-general > .sdv-card-address {
     grid-column: 2;
     grid-row: 1;
     align-self: stretch;
     display: flex;
     flex-direction: column;
-    min-height: 28rem;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .sdv-general > .sdv-card-filiais {
@@ -19663,7 +20408,8 @@ button:disabled {
     align-self: stretch;
     display: flex;
     flex-direction: column;
-    min-height: 28rem;
+    min-height: 0;
+    overflow: hidden;
   }
 
   /* 14.7.I: filiais agora usa themed body que cuida do scroll interno
@@ -19750,18 +20496,15 @@ button:disabled {
     max-width: 640px;
   }
 
-  .sdv-commercial {
+  /* Commercial v2 (samples detail) — scoped por .sample-detail-commercial-pane
+     pra nao conflitar com .sdv-commercial do cliente detail. */
+  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     gap: 1.25rem;
-    align-items: start;
-  }
-
-  /* Commercial: movimentacoes com scroll interno no card */
-  .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial {
+    align-items: stretch;
     flex: 1;
     min-height: 0;
-    align-items: stretch;
   }
 
   .sdv-content:has(.sample-detail-commercial-pane) .sdv-commercial > .sdv-card {
@@ -20017,24 +20760,27 @@ button:disabled {
     display: none;
   }
 
-  /* Detalhe (amostra/cliente) reexibe o back no desktop, em verde de marca para destaque */
+  /* Detalhe (amostra/cliente) reexibe o back no desktop, em verde solido
+     com icone branco para destaque maximo. */
   .sdv-header .nsv2-back {
     display: inline-grid;
-    background: rgba(31, 93, 67, 0.12);
-    border: 1px solid rgba(31, 93, 67, 0.3);
+    background: var(--brand-green);
+    border: 0;
+    box-shadow: 0 4px 12px rgba(31, 93, 67, 0.32);
     transition:
       background 0.18s ease,
-      border-color 0.18s ease,
-      transform 0.15s;
+      transform 0.15s,
+      box-shadow 0.18s ease;
   }
 
   .sdv-header .nsv2-back:hover {
-    background: rgba(31, 93, 67, 0.2);
-    border-color: rgba(31, 93, 67, 0.48);
+    background: var(--brand-green-soft, var(--brand-green));
+    transform: scale(1.06);
+    box-shadow: 0 6px 16px rgba(31, 93, 67, 0.42);
   }
 
   .sdv-header .nsv2-back svg {
-    stroke: var(--brand-green);
+    stroke: #ffffff;
   }
 
   /* Body: fundo suave */
@@ -20320,9 +21066,9 @@ button:disabled {
   .client-quick-create-modal {
     width: min(750px, calc(100vw - 3rem));
     max-height: none;
-    overflow: visible;
-    gap: 0.95rem;
-    padding: 1.25rem;
+    overflow: hidden;
+    gap: 0;
+    padding: 0;
   }
 
   .client-quick-create-body {
@@ -20715,16 +21461,11 @@ button:disabled {
     gap: 1rem;
   }
 
-  /* T8: meta da lista */
-  .clients-page-v2 .spv2-list-meta {
-    padding: 0 0.2rem 0.6rem;
-    max-width: none;
-    margin: 0 0 0.4rem;
-    width: auto;
-  }
-
+  /* T8: meta da lista — mantem max-width/margin overrides do layout T8
+     mas sem reaplicar padding (padding compacto definido acima nos
+     overrides especificos de cada page). */
+  .clients-page-v2 .spv2-list-meta,
   .samples-page-v2 .spv2-list-meta {
-    padding: 0 0.2rem 0.6rem;
     max-width: none;
     margin: 0 0 0.4rem;
     width: auto;
@@ -21883,11 +22624,27 @@ button:disabled {
   opacity: 0.85;
 }
 
-/* Borda esquerda laranja sutil em cards de cliente incompleto na listagem.
-   Aplicada via classe modifier no card (cv2-card é o componente atual). */
+/* Barra esquerda laranja em cards de cliente incompleto. Mais larga +
+   gradiente vertical (mesmo padrao visual das filiais incompletas e dos
+   cards de amostra). */
 .sdv-client-card.is-incomplete,
 .cv2-card.is-incomplete {
-  border-left: 3px solid #f59e0b;
+  position: relative;
+  border-left: 0;
+  overflow: hidden;
+}
+
+.sdv-client-card.is-incomplete::before,
+.cv2-card.is-incomplete::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: clamp(6px, 0.7vw, 8px);
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* #6/Q-05: modal de cascade inactivate — banner + lista de samples afetadas. */
