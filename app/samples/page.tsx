@@ -1019,7 +1019,8 @@ function SamplesPage() {
           </button>
         </header>
 
-        {/* Search bar — in green area, dashboard style */}
+        {/* Search bar — in green area, dashboard style. Filtro fica
+            FORA do form, alinhado a direita (mesmo padrao do "+" em /clients). */}
         <div className="hero-search-wrap">
           <form className="hero-search-bar" role="search" onSubmit={handleSearchSubmit}>
             <svg
@@ -1039,28 +1040,28 @@ function SamplesPage() {
               autoComplete="off"
               spellCheck={false}
             />
-            <button
-              type="button"
-              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-              aria-label="Filtros avancados"
-              onClick={(event) => {
-                if (filtersOpen) {
-                  closeFilters();
-                  return;
-                }
-                openFilters(event.currentTarget);
-              }}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
-              </svg>
-              {activeHiddenFiltersCount > 0 ? (
-                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
-              ) : null}
-            </button>
           </form>
+          <button
+            type="button"
+            className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
+            aria-label="Filtros avancados"
+            onClick={(event) => {
+              if (filtersOpen) {
+                closeFilters();
+                return;
+              }
+              openFilters(event.currentTarget);
+            }}
+          >
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M4 6h16" />
+              <path d="M7 12h10" />
+              <path d="M10 18h4" />
+            </svg>
+            {activeHiddenFiltersCount > 0 ? (
+              <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
+            ) : null}
+          </button>
         </div>
 
         <section className="samples-page-v2-sheet">

@@ -401,9 +401,14 @@ function ClientsPage() {
   const clientDetailCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastClientTriggerRef = useRef<HTMLButtonElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreStateRef = useRef<{ inFlight: boolean; token: number }>({
+  const loadMoreStateRef = useRef<{
+    inFlight: boolean;
+    token: number;
+    abort: AbortController | null;
+  }>({
     inFlight: false,
     token: 0,
+    abort: null,
   });
 
   // 14.4.C: contagem de incompletos vem do backend (clientsState.incompleteTotal),
@@ -508,6 +513,9 @@ function ClientsPage() {
     dispatchClients({ type: 'fetch-initial' });
     loadMoreStateRef.current.token += 1;
     loadMoreStateRef.current.inFlight = false;
+    // Cancela load-more pendente do filtro/busca anteriores.
+    loadMoreStateRef.current.abort?.abort();
+    loadMoreStateRef.current.abort = null;
 
     listClients(
       session,
@@ -553,15 +561,24 @@ function ClientsPage() {
       state.inFlight = true;
       state.token += 1;
       const myToken = state.token;
+      // Cancela load-more pendente anterior (caso o sentinel dispare 2x
+      // antes do primeiro completar — defensivo).
+      state.abort?.abort();
+      const controller = new AbortController();
+      state.abort = controller;
       dispatchClients({ type: 'fetch-more' });
 
-      listClients(session, {
-        search: appliedClientSearch || undefined,
-        commercialUserId: commercialUserFilter || undefined,
-        limit: CLIENT_PAGE_LIMIT,
-        cursorDisplayName: cursor.displayName,
-        cursorId: cursor.id,
-      })
+      listClients(
+        session,
+        {
+          search: appliedClientSearch || undefined,
+          commercialUserId: commercialUserFilter || undefined,
+          limit: CLIENT_PAGE_LIMIT,
+          cursorDisplayName: cursor.displayName,
+          cursorId: cursor.id,
+        },
+        { signal: controller.signal }
+      )
         .then((response) => {
           if (loadMoreStateRef.current.token !== myToken) return;
           dispatchClients({
@@ -573,6 +590,7 @@ function ClientsPage() {
         })
         .catch((cause) => {
           if (loadMoreStateRef.current.token !== myToken) return;
+          if (cause instanceof DOMException && cause.name === 'AbortError') return;
           dispatchClients({
             type: 'error',
             message: cause instanceof ApiError ? cause.message : 'Falha ao carregar mais',
@@ -581,6 +599,7 @@ function ClientsPage() {
         .finally(() => {
           if (loadMoreStateRef.current.token === myToken) {
             loadMoreStateRef.current.inFlight = false;
+            loadMoreStateRef.current.abort = null;
           }
         });
     },

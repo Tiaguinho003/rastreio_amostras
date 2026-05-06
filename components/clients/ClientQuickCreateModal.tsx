@@ -9,6 +9,50 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { UserMultiSelect } from '../users/UserMultiSelect';
 
+// Mapeia mensagens de erro do backend (em ingles) para pt-BR.
+const FIELD_LABELS: Record<string, string> = {
+  cpf: 'CPF',
+  cnpj: 'CNPJ',
+  legalName: 'Razao social',
+  tradeName: 'Nome fantasia',
+  fullName: 'Nome completo',
+  phone: 'Telefone',
+  email: 'E-mail',
+  commercialUserId: 'Responsavel comercial',
+};
+
+function translateCreateClientError(cause: unknown): string {
+  if (!(cause instanceof ApiError)) {
+    return 'Falha ao criar cliente. Tente novamente.';
+  }
+  if (cause.status === 0) {
+    return 'Sem conexao com o servidor. Verifique sua internet e tente novamente.';
+  }
+  if (cause.status === 401) return 'Sessao expirada. Faca login novamente.';
+  if (cause.status === 403) return 'Sem permissao para esta acao.';
+  const code =
+    cause.details && typeof cause.details === 'object'
+      ? (cause.details as { code?: string }).code
+      : undefined;
+  const field =
+    cause.details && typeof cause.details === 'object'
+      ? (cause.details as { field?: string }).field
+      : undefined;
+  if (code === 'PJ_REQUIRES_CNPJ') return 'CNPJ e obrigatorio para Pessoa juridica.';
+  if (code === 'COMMERCIAL_USER_NOT_FOUND' || code === 'COMMERCIAL_USER_INACTIVE') {
+    return 'Responsavel comercial invalido ou inativo.';
+  }
+  const message = cause.message ?? '';
+  if (message.includes('already exists') || cause.status === 409) {
+    if (field && FIELD_LABELS[field]) return `${FIELD_LABELS[field]} ja cadastrado no sistema.`;
+    return 'Registro ja existe no sistema.';
+  }
+  if (cause.status === 422 && field && FIELD_LABELS[field]) {
+    return `${FIELD_LABELS[field]} invalido.`;
+  }
+  return cause.message || 'Falha ao criar cliente. Tente novamente.';
+}
+
 type ClientQuickCreateModalProps = {
   session: SessionData;
   open: boolean;
@@ -102,7 +146,9 @@ export function ClientQuickCreateModal({
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          setUsers(response.items);
+          // So usuarios COMMERCIAL podem ser responsaveis comerciais —
+          // alinhado com o filtro do ClientUserFilterButton em /clients.
+          setUsers(response.items.filter((u) => u.role === 'COMMERCIAL'));
         }
       })
       .catch(() => {
@@ -141,15 +187,15 @@ export function ClientQuickCreateModal({
 
   const nameValue = form.personType === 'PF' ? form.fullName : form.legalName;
   const isNameFilled = nameValue.trim().length > 0;
-  const isPhoneFilled = form.phone.replace(/\D/g, '').length > 0;
+  // Telefone e opcional. Se preenchido, exige formato (10 ou 11 digitos).
   const isPhoneValid =
     form.phone.replace(/\D/g, '').length === 0 ||
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
   const hasCommercialUser = form.commercialUserIds.length > 0;
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneFilled && isPhoneValid && isDocumentValid && hasCommercialUser;
-  }, [isNameFilled, isPhoneFilled, isPhoneValid, isDocumentValid, hasCommercialUser]);
+    return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser;
+  }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser]);
 
   if (!open) {
     return null;
@@ -167,7 +213,7 @@ export function ClientQuickCreateModal({
       : `${documentLabel} invalido (digito verificador errado)`
     : null;
   const hasNameError = showFieldErrors && !isNameFilled;
-  const hasPhoneError = showFieldErrors && (!isPhoneFilled || !isPhoneValid);
+  const hasPhoneError = showFieldErrors && !isPhoneValid;
   const phoneHint = !isPhoneValid ? 'Telefone deve ter 10 ou 11 digitos' : null;
   // 14.7.C: erro do responsavel agora so aparece apos tentativa de
   // submit (antes era permanente quando lista vazia, gerando aspecto
@@ -227,7 +273,7 @@ export function ClientQuickCreateModal({
         onCreated(response.client);
       }, 900);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha ao criar cliente');
+      setError(translateCreateClientError(cause));
       setSaving(false);
     }
   }
