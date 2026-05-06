@@ -280,6 +280,54 @@ export interface ClientUnitInactivateResponse extends ClientUnitMutationResponse
   };
 }
 
+export interface ClientCommercialSummaryResponse {
+  openCount: number;
+  soldCount: number;
+  lostCount: number;
+  boughtCount: number;
+}
+
+export interface ClientSampleListItem {
+  id: string;
+  internalLotNumber: string | null;
+  declaredSacks: number;
+  declaredHarvest: string | null;
+  createdAt: string | null;
+  commercialStatus: string;
+  status: string;
+}
+
+export interface ClientPurchaseListItem {
+  id: string;
+  sampleId: string;
+  sampleLotNumber: string | null;
+  sellerName: string | null;
+  quantitySacks: number;
+  movementDate: string | null;
+  commercialStatus: string | null;
+  status: string | null;
+}
+
+export interface ClientPagedListPage {
+  limit: number;
+  page: number;
+  offset: number;
+  total: number;
+  totalPages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+}
+
+export interface ClientSamplesListResponse {
+  items: ClientSampleListItem[];
+  page: ClientPagedListPage;
+}
+
+export interface ClientPurchasesListResponse {
+  items: ClientPurchaseListItem[];
+  page: ClientPagedListPage;
+}
+
 export interface ClientAuditEventResponse {
   eventId: string;
   eventType: ClientAuditEventType | string;

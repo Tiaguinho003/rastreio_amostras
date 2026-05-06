@@ -1,9 +1,12 @@
 import type {
   ClassificationType,
   ClientAuditListResponse,
+  ClientCommercialSummaryResponse,
   ClientDetailResponse,
   ClientLookupKind,
   ClientLookupResponse,
+  ClientPurchasesListResponse,
+  ClientSamplesListResponse,
   ClientUnitInactivateResponse,
   ClientUnitMutationResponse,
   ClientResponse,
@@ -379,7 +382,7 @@ export function updateClient(
     fullName?: string;
     legalName?: string;
     tradeName?: string | null;
-    cpf?: string;
+    cpf?: string | null;
     cnpj?: string | null;
     registrationNumber?: string | null;
     addressLine?: string | null;
@@ -462,6 +465,50 @@ export function getClientImpact(session: SessionData, clientId: string) {
     client: { id: string; displayName: string; status: string };
     usage: { ownedSamples: number; activeMovements: number; activeUnits: number };
   }>(`/clients/${clientId}/impact`, { session });
+}
+
+export function getClientCommercialSummary(
+  session: SessionData,
+  clientId: string,
+  options?: { signal?: AbortSignal }
+) {
+  return request<ClientCommercialSummaryResponse>(`/clients/${clientId}/commercial-summary`, {
+    session,
+    signal: options?.signal,
+  });
+}
+
+export function listClientSamples(
+  session: SessionData,
+  clientId: string,
+  query: { status?: 'open' | 'sold' | 'lost'; page?: number; limit?: number },
+  options?: { signal?: AbortSignal }
+) {
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request<ClientSamplesListResponse>(`/clients/${clientId}/samples${qs ? `?${qs}` : ''}`, {
+    session,
+    signal: options?.signal,
+  });
+}
+
+export function listClientPurchases(
+  session: SessionData,
+  clientId: string,
+  query: { page?: number; limit?: number },
+  options?: { signal?: AbortSignal }
+) {
+  const params = new URLSearchParams();
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request<ClientPurchasesListResponse>(
+    `/clients/${clientId}/purchases${qs ? `?${qs}` : ''}`,
+    { session, signal: options?.signal }
+  );
 }
 
 export function inactivateClient(session: SessionData, clientId: string, reasonText: string) {

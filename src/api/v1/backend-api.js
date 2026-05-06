@@ -1142,6 +1142,66 @@ export function createBackendApiV1({
         };
       }),
 
+    getClientCommercialSummary: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+
+        const result = await clientService.getClientCommercialSummary(clientId, actor);
+
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
+    listClientSamples: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        const result = await clientService.listClientSamples(
+          clientId,
+          {
+            status: input?.query?.status,
+            page: input?.query?.page,
+            limit: input?.query?.limit,
+          },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
+    listClientPurchases: (input) =>
+      executeApiForInput(input, async () => {
+        if (!clientService) {
+          throw new HttpError(501, 'Client service is not configured');
+        }
+        const actor = await resolveActorContext(input, authService);
+        const clientId = input?.params?.clientId;
+        if (typeof clientId !== 'string' || clientId.length === 0) {
+          throw new HttpError(422, 'clientId path param is required');
+        }
+        const result = await clientService.listClientPurchases(
+          clientId,
+          { page: input?.query?.page, limit: input?.query?.limit },
+          actor
+        );
+        return { status: 200, body: result };
+      }),
+
     addCommercialUserToClient: (input) =>
       executeApiForInput(input, async () => {
         if (!clientService) {

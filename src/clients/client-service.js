@@ -1256,6 +1256,178 @@ export class ClientService {
     };
   }
 
+  /**
+   * Resumo comercial do cliente para os 4 cards na pagina de detalhe:
+   * Em aberto / Vendido / Perdido / Comprado.
+   *
+   * Em aberto: amostras com commercialStatus IN (OPEN, PARTIALLY_SOLD),
+   * status != INVALIDATED, vinculadas ao cliente como ownerClientId,
+   * e filtradas por filiais ATIVAS quando ownerUnitId nao e null (PF).
+   *
+   * Vendido / Perdido / Comprado serao implementados nos proximos passos.
+   */
+  async getClientCommercialSummary(clientId, actorContext) {
+    assertAuthenticatedActor(actorContext, 'get client commercial summary');
+    await this.requireClientById(this.prisma, clientId);
+
+    // Filtros base compartilhados pelos counts: amostras nao invalidadas
+    // do cliente, filtrando por filial ativa (PF) ou unit null (PJ).
+    const baseWhere = {
+      ownerClientId: clientId,
+      status: { not: 'INVALIDATED' },
+      OR: [{ ownerUnitId: null }, { ownerUnit: { status: 'ACTIVE' } }],
+    };
+
+    const [openCount, soldCount, lostCount, distinctBoughtSamples] = await this.prisma.$transaction(
+      [
+        this.prisma.sample.count({
+          where: { ...baseWhere, commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } },
+        }),
+        this.prisma.sample.count({
+          where: { ...baseWhere, commercialStatus: 'SOLD' },
+        }),
+        this.prisma.sample.count({
+          where: { ...baseWhere, commercialStatus: 'LOST' },
+        }),
+        // Comprado: count distinct sample_id em SampleMovement onde o
+        // cliente e o comprador (regra de filial ativa replicada via
+        // buyerUnit). Status ACTIVE exclui movimentos cancelados.
+        this.prisma.sampleMovement.findMany({
+          where: {
+            movementType: 'SALE',
+            status: 'ACTIVE',
+            buyerClientId: clientId,
+            OR: [{ buyerUnitId: null }, { buyerUnit: { status: 'ACTIVE' } }],
+          },
+          select: { sampleId: true },
+          distinct: ['sampleId'],
+        }),
+      ]
+    );
+
+    return {
+      openCount,
+      soldCount,
+      lostCount,
+      boughtCount: distinctBoughtSamples.length,
+    };
+  }
+
+  /**
+   * Lista amostras do cliente (perspectiva de proprietario), paginada.
+   * Aceita filtro por status comercial: open | sold | lost.
+   */
+  async listClientSamples(clientId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list client samples');
+    await this.requireClientById(this.prisma, clientId);
+
+    const page = readPageQuery(input?.page, 1);
+    const limit = readLimitQuery(input?.limit, { fallback: 20, max: 100 });
+
+    const where = {
+      ownerClientId: clientId,
+      status: { not: 'INVALIDATED' },
+      OR: [{ ownerUnitId: null }, { ownerUnit: { status: 'ACTIVE' } }],
+    };
+
+    const status = typeof input?.status === 'string' ? input.status.toLowerCase() : '';
+    if (status === 'open') {
+      where.commercialStatus = { in: ['OPEN', 'PARTIALLY_SOLD'] };
+    } else if (status === 'sold') {
+      where.commercialStatus = 'SOLD';
+    } else if (status === 'lost') {
+      where.commercialStatus = 'LOST';
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.sample.findMany({
+        where,
+        select: {
+          id: true,
+          internalLotNumber: true,
+          declaredSacks: true,
+          declaredHarvest: true,
+          createdAt: true,
+          commercialStatus: true,
+          status: true,
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.sample.count({ where }),
+    ]);
+
+    return {
+      items: items.map((it) => ({
+        id: it.id,
+        internalLotNumber: it.internalLotNumber,
+        declaredSacks: it.declaredSacks ?? 0,
+        declaredHarvest: it.declaredHarvest,
+        createdAt: it.createdAt?.toISOString() ?? null,
+        commercialStatus: it.commercialStatus,
+        status: it.status,
+      })),
+      page: buildClientListPage(total, page, limit),
+    };
+  }
+
+  /**
+   * Lista compras feitas pelo cliente (uma linha por movimento ATIVO).
+   */
+  async listClientPurchases(clientId, input, actorContext) {
+    assertAuthenticatedActor(actorContext, 'list client purchases');
+    await this.requireClientById(this.prisma, clientId);
+
+    const page = readPageQuery(input?.page, 1);
+    const limit = readLimitQuery(input?.limit, { fallback: 20, max: 100 });
+
+    const where = {
+      movementType: 'SALE',
+      status: 'ACTIVE',
+      buyerClientId: clientId,
+      OR: [{ buyerUnitId: null }, { buyerUnit: { status: 'ACTIVE' } }],
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.sampleMovement.findMany({
+        where,
+        select: {
+          id: true,
+          sampleId: true,
+          quantitySacks: true,
+          movementDate: true,
+          sample: {
+            select: {
+              internalLotNumber: true,
+              declaredOwner: true,
+              commercialStatus: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: [{ movementDate: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.sampleMovement.count({ where }),
+    ]);
+
+    return {
+      items: items.map((m) => ({
+        id: m.id,
+        sampleId: m.sampleId,
+        sampleLotNumber: m.sample?.internalLotNumber ?? null,
+        sellerName: m.sample?.declaredOwner ?? null,
+        quantitySacks: m.quantitySacks,
+        movementDate: m.movementDate?.toISOString()?.split('T')[0] ?? null,
+        commercialStatus: m.sample?.commercialStatus ?? null,
+        status: m.sample?.status ?? null,
+      })),
+      page: buildClientListPage(total, page, limit),
+    };
+  }
+
   async inactivateClient(clientId, input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'inactivate client');
     const { reasonText } = normalizeStatusReasonInput(input);
