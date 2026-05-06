@@ -223,6 +223,19 @@ Audit: o enum `ClientAuditEventType` foi reduzido a 8 valores (`CLIENT_CREATED|U
    inativacao;
    reativacao.
 
+### Detalhe do cliente (#14.7.N)
+
+1. A pagina de detalhe do cliente exibe identidade (avatar + nome + status + papel) e dois cards principais:
+   `Informacoes` (PF/PJ — nome, documento, email, telefone, responsaveis comerciais; PJ inclui `Nome fantasia` recomendado);
+   `Endereco fiscal` (PJ) ou `Filiais` (PF — fazendas).
+2. A edicao desses dois cards e feita por **modal unico com duas tabs** (`info` e `address`); o lapis de cada card abre a tab correspondente. O backend `PATCH /api/v1/clients/:clientId` aceita payload partial — apenas os campos da tab atual sao enviados, junto com `reasonText`.
+3. Abaixo dos cards de identidade, a pagina exibe a **visao comercial** do cliente — 4 mini-cards-filtro stackados (`Em aberto`, `Vendido`, `Perdido`, `Comprado`) ao lado de uma lista paginada de amostras/movimentos:
+   `Em aberto`, `Vendido`, `Perdido`: amostras nas quais o cliente e `ownerClientId`, agrupadas por `commercialStatus` (`OPEN`/`PARTIALLY_SOLD` => Em aberto; `SOLD`; `LOST`).
+   `Comprado`: movimentos de venda nos quais o cliente e `buyerClientId` (1 row por movimento).
+   Os contadores vem de `GET /clients/:id/commercial-summary`; a lista vem de `GET /clients/:id/samples?status=...` ou `GET /clients/:id/purchases`.
+4. Card-filtro `Comprado` so esta habilitado para clientes com `isBuyer = true`. Quando o usuario desmarca `isBuyer` na edicao, o filtro reseta automaticamente para `Em aberto`.
+5. A criacao de filial (PF) abre modal proprio (apenas para criar, ja que a edicao acontece inline no modal de detalhe da filial). Modais de filial usam o mesmo padrao visual unificado dos modais de cliente (`.app-modal`).
+
 ### Cadastro da amostra
 
 1. O cadastro da amostra deve trocar o proprietario textual por autocomplete de cliente.

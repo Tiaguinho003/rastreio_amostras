@@ -103,7 +103,7 @@ Validacoes criticas nessas rotas:
    param **`?onlyActive=true`** (Q-01) que filtra unidades inativas do
    payload retornado. Default `false` (retrocompativel).
 5. `PATCH /api/v1/clients/:clientId`
-   Atualiza fields. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Exige `reasonText`.
+   Atualiza fields. **Aceita payload partial** — backend usa `Object.hasOwn` para detectar campos presentes (em `normalizeUpdateClientInput`); o front divide a edicao em duas tabs (`info` e `address`) e envia apenas os campos da tab atual + `reasonText`. PJ pode editar `cnpj` (UNIQUE), `addressLine`, `city`, `state`, `registrationNumber`, `email` direto. Bloqueia troca de `personType` com 422 `CLIENT_PERSON_TYPE_LOCKED`. Outros codigos de erro mapeados no front (em pt-BR): `COMMERCIAL_USER_REQUIRED_FOR_ACTIVE`, `COMMERCIAL_USER_NOT_FOUND`, `COMMERCIAL_USER_INACTIVE`, `PJ_REQUIRES_CNPJ`. `email` e opcional em ambos PF e PJ. Exige `reasonText`.
 6. `POST /api/v1/clients/:clientId/inactivate`
    Inativa cliente. **#6/Q-05 (E1): rejeita 409 `CLIENT_HAS_ACTIVE_SAMPLES`** se o cliente tem amostras ATIVAS (`status NOT IN ('INVALIDATED')`). Body `{ reasonText: string }` (obrigatorio). Resposta 409 inclui `details.code = 'CLIENT_HAS_ACTIVE_SAMPLES'` + `details.details.activeSampleIds`/`activeSamples` para o front abrir o modal de cascata.
 7. `POST /api/v1/clients/:clientId/inactivate-with-cascade`
@@ -128,6 +128,21 @@ PJ rejeita TODAS as rotas abaixo com 422 `CLIENT_PJ_HAS_NO_UNITS`.
 2. `DELETE /api/v1/clients/:clientId/users/:userId`
 3. `POST /api/v1/clients/bulk-add-commercial-user`
 4. `GET /api/v1/clients/:clientId/audit`
+
+### Visao comercial (#14.7.N)
+
+Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filtro + lista paginada). Todos respeitam regra de filial ativa: amostras com `ownerUnitId IS NULL` ou `ownerUnit.status = 'ACTIVE'`. Movimentos com `status = 'CANCELLED'` sao ignorados.
+
+1. `GET /api/v1/clients/:clientId/commercial-summary`
+   Retorna 4 contadores agregados do cliente como **proprietario**: `{ openCount, soldCount, lostCount, boughtCount }`.
+   - `openCount`: amostras nao invalidadas com `commercialStatus IN ('OPEN', 'PARTIALLY_SOLD')`.
+   - `soldCount`: amostras nao invalidadas com `commercialStatus = 'SOLD'`.
+   - `lostCount`: amostras nao invalidadas com `commercialStatus = 'LOST'`.
+   - `boughtCount`: contagem distinta de `sampleId` em `SampleMovement` onde o cliente e o comprador (`movementType = 'SALE'`, `status = 'ACTIVE'`).
+2. `GET /api/v1/clients/:clientId/samples?status=open|sold|lost&page=N&limit=20`
+   Lista paginada de amostras do cliente como proprietario, filtrada por status comercial. `status` aceita os 3 valores acima (mesmo mapping do summary). Retorna `{ items: ClientSampleListItem[], page: { total, page, limit, hasNext, ... } }`. Ordenacao: `createdAt DESC, id DESC`.
+3. `GET /api/v1/clients/:clientId/purchases?page=N&limit=20`
+   Lista paginada de **movimentos de venda** onde o cliente e o comprador (perspectiva diferente do summary `boughtCount`, que e distinct por sample — aqui cada movimento e uma row). Retorna `{ items: ClientPurchaseListItem[], page: { ... } }` com `sampleId`, `sampleLotNumber`, `sellerName` (de `sample.declaredOwner`), `quantitySacks`, `movementDate` (ISO date string `YYYY-MM-DD`).
 
 ### Bindings de owner/buyer em sample
 

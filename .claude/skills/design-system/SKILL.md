@@ -102,20 +102,41 @@ box-shadow:
 
 ### Linha lateral de status
 
-- Usar `::before` com `position: absolute`, `left: 0`, `top: 20%`, `bottom: 20%`
+Existem dois padroes em uso (ambos validos — usar conforme o contexto do card):
+
+**Compacto** (cards de listagem leves, ex: filiais antigas, dots/markers internos):
+
+- `::before` com `position: absolute`, `left: 0`, `top: 20%`, `bottom: 20%`
 - `width: 3px`, `border-radius: 0 3px 3px 0`
-- Cor corresponde ao status do item
+
+**Padrao amostras / cards detalhados** (`sdv-commercial-list-row`, `sdv-unit-card-mini`, `cv2-card.is-incomplete`):
+
+- `::before` com `position: absolute`, `left: 0`, `top: 0`, `bottom: 0` (cobre toda a borda)
+- `width: clamp(6px, 0.7vw, 8px)`, sem `border-radius` (corner segue o do card via `overflow: hidden`)
+- Cor via `--card-status-color` ou gradient (`linear-gradient(180deg, ...)`)
 
 ### Interacao
 
-- `:active` usa `transform: scale(0.95)` + sombra reduzida
-- Nunca mudar cor de fundo ao clicar
+- `:active` usa `transform: scale(0.95-0.99)` + sombra reduzida
+- Nunca mudar cor de fundo ao clicar (excecao: filter chips em listagens — ver §7)
 - `-webkit-tap-highlight-color: transparent`
 
 ### Skeleton loading
 
-- Formato identico ao card final, com blocos em `#e8e3d5` e `#e0dbd0`
-- Sem animacao de shimmer (manter estatico)
+- Formato identico ao card final (mesma altura, mesmo radius, mesma cor de fundo neutra)
+- Pode usar **shimmer suave** (`background-size: 200% 100%` + `linear-gradient` em movimento, `~1.4s ease-in-out infinite`) combinado com fade-in `cubic-bezier(0.22, 1, 0.36, 1)` na entrada
+- Exemplo em uso: `.sdv-commercial-skeleton-row` (ver `app/globals.css`)
+
+### Variantes de card especificas
+
+| Classe                      | Uso                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `.sdv-card`                 | Card branco padrao (sombra 3D, radius 18px) — base para detalhe de cliente/amostra                              |
+| `.sdv-card-themed`          | Card com header verde (gradient `--brand-green`) + body branco — Informacoes / Endereco / Filiais               |
+| `.sdv-card-commercial-mini` | Mini-card-filtro (Em aberto/Vendido/Perdido/Comprado), modificadores `is-open\|sold\|lost\|bought\|active\|dim` |
+| `.sdv-commercial-list-row`  | Linha de lista detalhada com barra lateral colorida via `--card-status-color`                                   |
+| `.sdv-unit-card-mini`       | Card minimalista de filial — barra lateral verde (completo) / amber (incompleto) / cinza (inativo)              |
+| `.cv2-card`                 | Card de cliente na listagem `/clients` — barra lateral amber via `::before` quando `.is-incomplete`             |
 
 ## 4. Icones
 
@@ -194,9 +215,16 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 - Texto na cor da acao
 - `:active` = `scale(0.95)` ou `opacity: 0.7`
 
+### Filter chips e botoes de filtro em listagens
+
+Excecao a regra "nunca verde ao clicar":
+
+- Em listagens (`/clients`, `/samples`, `/users`), **filter chips/botoes em estado `.is-active`** podem usar verde solid (`linear-gradient(135deg, var(--brand-green), var(--brand-green-soft))` com SVG branco) para sinalizar acao em uso. Exemplo: `.sdv-card-commercial-mini.is-active`, `.hero-search-filter-btn` em `/samples`.
+- A excecao se aplica **apenas ao estado persistente de "filtro ativo"** — nunca ao `:active` transitorio do clique.
+
 ### Regras universais de botao
 
-- NUNCA ficar verde ao clicar (ja definido na skill responsive)
+- Nunca virar verde no `:active` transitorio (regra mantida — verde solido e exclusivo do estado persistente `.is-active` em filter chips, conforme acima)
 - Sempre `-webkit-tap-highlight-color: transparent`
 - Sempre `outline: none` ou outline neutro
 
@@ -213,6 +241,50 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 - `border-radius` arredondado no topo: `clamp(18px, 5vw, 24px)`
 - `max-height: 85dvh`
 - Escape fecha, scroll interno com `-webkit-overflow-scrolling: touch`
+
+### Modal central (`.app-modal`)
+
+Padrao consolidado para modais nao-bottom-sheet (Edit Client, ClientUnitDetailModal, ClientInactivateWithCascadeModal, etc.). Substitui o padrao legado `sdv-edit-*` (descontinuado).
+
+**Estrutura JSX**:
+
+```jsx
+<div className="app-modal-backdrop">
+  <section className="app-modal is-themed [is-wide] [classe-especifica]">
+    <header className="app-modal-header">
+      <div className="app-modal-title-wrap">
+        <h3 className="app-modal-title">Titulo</h3>
+        <p className="app-modal-description">Subtitulo opcional</p>
+      </div>
+      <button className="app-modal-close" aria-label="Fechar">
+        <span aria-hidden="true">×</span>
+      </button>
+    </header>
+    <form className="app-modal-content" onSubmit={...}>
+      <label className="app-modal-field">
+        <span className="app-modal-label">Campo</span>
+        <input className="app-modal-input" />
+      </label>
+      <div className="app-modal-actions">
+        <button type="submit" className="app-modal-submit">Salvar</button>
+        <button type="button" className="app-modal-secondary">Cancelar</button>
+      </div>
+    </form>
+  </section>
+</div>
+```
+
+**Variantes**:
+
+| Modificador                   | Efeito                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `.is-themed`                  | Header verde (gradient `--brand-green` → `--brand-green-soft`), body branco                                     |
+| `.is-wide`                    | Largura 46rem em vez do default 38rem (formularios maiores)                                                     |
+| `.app-modal-submit.is-danger` | Variante destrutiva (gradient vermelho `#c0392b` → `#b03224`) — usada em cascade modal de inativacao em cascata |
+
+**Ordem de botoes em `.app-modal-actions`**: `[Submit, Secondary]` (Submit primeiro). Sob `.is-themed`, o container vira `flex; justify-content: flex-end` — Submit fica a esquerda, Cancelar a direita.
+
+**Fechar (X) sob `.is-themed`**: `background: rgba(255,255,255,0.16)`, hover `rgba(255,255,255,0.28)` + `transform: scale(1.06)`. Icone branco (`color: #ffffff`).
 
 ### Animacao de entrada
 

@@ -1295,6 +1295,25 @@ Mudancas (commit pendente push, acumula no canary com `8cb9cc7`):
 - **Lock scroll**: container `.spv2-list-scroll` ganha classe `is-loading-more` durante fetch — CSS `overflow-y: hidden` impede scroll do usuario enquanto bate na pausa.
 - **Spinner**: `.cv2-load-more-spinner` (1.4rem border-rotate, `@keyframes cv2-load-more-spin` 0.7s linear) + texto "Carregando proximos 60..." substitui o "Carregando…" simples no sentinel.
 
+**14.7.N — Revisao completa pagina de detalhe do cliente** ✅ (acumulado, multiplos commits)
+
+Auditoria + correcoes profundas em `app/clients/[clientId]/page.tsx` e modais relacionados.
+
+- **Bloco comercial**: 4 mini-cards-filtro (`Em aberto`/`Vendido`/`Perdido`/`Comprado`) + lista paginada ao lado, alimentada por 3 endpoints novos (`GET /clients/:id/commercial-summary`, `/samples?status=`, `/purchases`). Backend em `client-service.js` (`getClientCommercialSummary`, `listClientSamples`, `listClientPurchases`). Filtros respeitam `ownerUnit.status = ACTIVE` e excluem `INVALIDATED`. Card `Comprado` desabilitado para clientes nao-buyer (auto-reset para `Em aberto` quando `isBuyer` vira false).
+- **Edit Client modal split**: lapis em `Informacoes` abre tab `info`; lapis em `Endereco fiscal` (PJ) abre tab `address`. Backend `PATCH /clients/:id` aceita payload partial (`Object.hasOwn` checks). `personType` virou readonly no UI (backend ja bloqueava com 422 `CLIENT_PERSON_TYPE_LOCKED`). Telefone e email agora opcionais para ambos PF e PJ.
+- **Validacao inline CPF/CNPJ**: usa `useDocumentMask` com checksum + erro inline (mesmo hook dos modais de filial). Telefone aceita vazio ou 10/11 digitos.
+- **Tradutores de erro 422/409 em pt-BR**: `translateClientUpdateError` (page detail), `translateUnitError` (filial), `translateCreateClientError` (quick-create modal). Cobrem `PJ_REQUIRES_CNPJ`, `COMMERCIAL_USER_REQUIRED_FOR_ACTIVE`, `COMMERCIAL_USER_NOT_FOUND/INACTIVE`, `CLIENT_PERSON_TYPE_LOCKED`, `already exists`, `No client changes`, e mapping de field invalido por `FIELD_LABELS`.
+- **`ClientUnitModal` simplificado para create-only**: modo `'edit'` foi absorvido pelo `ClientUnitDetailModal` (#14.7.I). Removidos states `unitModalMode`, `selectedUnit` (dead code).
+- **Cascade modal `initialReason`**: motivo digitado no status modal antes do 409 e pre-populado no cascade modal (antes era perdido).
+- **Race conditions resolvidas**: `commercialFetchTokenRef` + `loadMoreAbortRef` no fetch dos cards comerciais; `loadMoreStateRef.abort` em `clients/page.tsx` runLoadMore. Token e AbortController garantem que respostas tardias nao contaminam filtros novos.
+- **Filtro `role === 'COMMERCIAL'`** ao receber `lookupUsersForReference` em todos os modais que selecionam responsavel comercial (antes mostrava qualquer role).
+- **Padronizacao visual**: modais migrados de `sdv-edit-*` para `app-modal-*` (cudm + cascade). Nova variante `.app-modal-submit.is-danger`. `ClientUnitDetailModal` ganha `is-wide`. Header dos modais com fundo verde (gradient `--brand-green`), botao close com hover scale.
+- **Skeleton + animacao mais natural** na lista comercial: keyframe `sdv-commercial-row-in 0.45s cubic-bezier(0.22, 1, 0.36, 1)` substitui o `spv2-cardIn` antigo. Skeleton com shimmer durante fetch da pagina 1.
+- **Card de identidade reorganizado**: avatar circular + chips de papel; card Informacoes compacto com Nome fantasia (PJ) novo; card Endereco fiscal reordenado (CEP -> Endereco -> Bairro/Compl. -> Cidade/UF -> IE).
+- **Filiais mini-card** com barra lateral de status colorida (verde completo / amber incompleto / cinza inativo) seguindo padrao visual dos cards de amostra.
+- **Padronizacao header/search-bar** entre `/clients`, `/samples` e `/users`: header padding `1.5rem 0 1.5rem` (titulo centralizado), search bar maior (1.05rem font, 18px radius), filter button verde solid no `/samples` movido para fora do form.
+- **Responsividade desktop**: `.sdv-general` e `.sdv-commercial` com `minmax(0, Nfr)` e `max-width: 1600px; margin: 0 auto` — antes `.sdv-commercial` usava `clamp(vw)` que estourava viewport entre 901-1280px.
+
 ### Estado atual do prod (snapshot 2026-05-04)
 
 - **Modo manutencao (M1) ATIVO**: apenas ADMIN navega o app.
@@ -1391,12 +1410,12 @@ Out of scope (Commit B futuro, nao parte deste ciclo):
 - 3 copias de listas RECOMMENDED_FIELDS (dedup)
 - displayName inline em user-service + sample-query-service
 - ClientCompleteChecklist `onMissingClick` plug
-- useCepLookup race conditions + erro UI
+- ~~useCepLookup race conditions + erro UI~~ (resolvido em #14.7.N — token + AbortController nos cards comerciais e em `clients/page.tsx:runLoadMore`)
 - Adapter passa flag `idempotent: true` pro cliente
 - Cleanup expirados idempotency (D2 cron job)
 - Cross-table CNPJ collision check
 - Spec canonica cnpjRoot UNIQUE fix
-- 4 endpoints faltantes em `API-e-Contratos.md`
+- ~~4 endpoints faltantes em `API-e-Contratos.md`~~ (3 dos 4 documentados em #14.7.N — secao `### Visao comercial`)
 - Memory `project_l5_clients_cycle.md` atualizar status
 - Skill `tests` registrar padrao SAMPLE_RECEIVED first event
 
