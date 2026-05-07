@@ -21,11 +21,13 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida + executada)
   - [x] Fase 0.1 — Defesa em profundidade da invariante PF ≥1 unit ACTIVE (definida + executada)
   - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
+  - [ ] Fase D — Layout desktop do `/samples/new` (iterativa)
   - [ ] Fase C — Refatoração da classificação (inclui unificação 3→1)
 - [ ] **Etapa 4** — Execução
   - [x] Fase 0 (executada — commit `44fd144`)
   - [x] Fase 0.1 (executada — commit `d6f5d24`)
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
+  - [ ] Fase D (em andamento)
   - [ ] Fase C
 
 ---
@@ -370,7 +372,22 @@ Executada em commit `d6f5d24`.
 - UI (`app/clients/[clientId]/page.tsx` `translateUnitError`): captura código 409 e propaga mensagem em pt-BR.
 - 5 testes integration novos cobrindo PF/PJ/cascades.
 
-### Fase R — Filial obrigatória no registro de amostra PF
+### Fase D — Layout desktop do `/samples/new`
+
+Iterativa. Usuário vai pedir ajustes pontuais; cada um vira commit atômico. Acumulam até o próximo deploy.
+
+**Constraints fechadas:**
+
+| #   | Decisão                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | **Escopo**: somente a tela `/samples/new`. Demais telas ficam para fases futuras.                           |
+| 2   | **Mobile intacto**: cada ajuste usa media query ativando só em ≥1024px. PWA mobile fica idêntico.           |
+| 3   | **Breakpoint desktop**: `min-width: 1024px` (laptop padrão).                                                |
+| 4   | **Sem mudança de comportamento**: só layout/visual. Lógica/validação/fluxo dos commits anteriores não mexe. |
+
+**Trabalho a fazer**: definido conforme cada solicitação. Sem lista pré-fechada.
+
+### Fase R — Filial obrigatória no registro de amostra PF (executada)
 
 Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
@@ -414,3 +431,4 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 | 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`              | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                          |
 | 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                    | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                        |
 | 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                          |
+| 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                           | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                    |
