@@ -3,8 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-
 import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
@@ -72,7 +70,10 @@ const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
 
 type RequiredFieldName = 'owner' | 'ownerUnit' | 'sacks' | 'harvest';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
-type LabelModalStep = 'review' | 'completed';
+// Fase P3: step `completed` (com QR + polling de impressao) virou
+// `created` (apenas mostra o lote em destaque pra anotar na saca,
+// botao unico "Ir para amostra" redireciona pra detail page).
+type LabelModalStep = 'review' | 'created';
 
 interface PendingDraftPayload {
   clientDraftId: string;
@@ -157,12 +158,6 @@ function NewSamplePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [printStatus, setPrintStatus] = useState<
-    'pending' | 'success' | 'failed' | 'timeout' | null
-  >(null);
-  const [printExitWarningOpen, setPrintExitWarningOpen] = useState(false);
-  const printPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const printTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [requiredFieldErrors, setRequiredFieldErrors] = useState<RequiredFieldErrors>(
     EMPTY_REQUIRED_FIELD_ERRORS
   );
@@ -185,7 +180,7 @@ function NewSamplePageContent() {
   const modalPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const lastCreateButtonRef = useRef<HTMLButtonElement | null>(null);
   const printableSample = useMemo(() => created?.sample ?? null, [created]);
-  const canCloseModal = labelModalStep === 'review' || labelModalStep === 'completed';
+  const canCloseModal = labelModalStep === 'review' || labelModalStep === 'created';
 
   const hasFormContent = Boolean(
     owner.trim() ||
@@ -195,8 +190,7 @@ function NewSamplePageContent() {
     location.trim() ||
     notes.trim()
   );
-  const isPrintInProgress = printStatus === 'pending';
-  const isFormDirty = hasFormContent || pendingDraft !== null || isPrintInProgress;
+  const isFormDirty = hasFormContent || pendingDraft !== null;
   useRegisterDirtyState('samples/new', isFormDirty, 'Nova amostra em preenchimento');
 
   useEffect(() => {
@@ -329,39 +323,6 @@ function NewSamplePageContent() {
     };
   }, []);
 
-  useEffect(() => {
-    // Fase P2: createSample não dispara mais impressão automática. O
-    // polling de status de impressão fica desativado neste fluxo. A
-    // Fase P3 substitui o step `completed` por um step `created` com o
-    // lote em destaque (sem QR/impressão); a Fase Pb (futura) reintroduz
-    // impressão pós-classificação. Por enquanto o estado fica `null`.
-    if (labelModalStep !== 'completed' || !created || !session) {
-      return;
-    }
-
-    setPrintStatus(null);
-  }, [labelModalStep, created, session]);
-
-  useEffect(() => {
-    if (printStatus === 'success' || printStatus === 'failed' || printStatus === 'timeout') {
-      if (printPollingRef.current) {
-        clearInterval(printPollingRef.current);
-        printPollingRef.current = null;
-      }
-      if (printTimeoutRef.current) {
-        clearTimeout(printTimeoutRef.current);
-        printTimeoutRef.current = null;
-      }
-    }
-
-    if (printStatus === 'success' && created) {
-      const redirectTimer = setTimeout(() => {
-        router.push(`/samples/${created.sample.id}`);
-      }, 2000);
-      return () => clearTimeout(redirectTimer);
-    }
-  }, [printStatus, created, router]);
-
   if (loading || !session) {
     return null;
   }
@@ -422,16 +383,6 @@ function NewSamplePageContent() {
     setModalError(null);
     setRequiredFieldErrors(EMPTY_REQUIRED_FIELD_ERRORS);
     setSubmitting(false);
-    setPrintStatus(null);
-    setPrintExitWarningOpen(false);
-    if (printPollingRef.current) {
-      clearInterval(printPollingRef.current);
-      printPollingRef.current = null;
-    }
-    if (printTimeoutRef.current) {
-      clearTimeout(printTimeoutRef.current);
-      printTimeoutRef.current = null;
-    }
   }
 
   function clearRequiredFieldError(field: RequiredFieldName) {
@@ -452,29 +403,18 @@ function NewSamplePageContent() {
       return;
     }
 
-    if (labelModalStep === 'completed' && printStatus === 'pending') {
-      setPrintExitWarningOpen(true);
-      return;
-    }
-
     setLabelModalOpen(false);
-    if (labelModalStep === 'completed') {
-      router.push('/dashboard');
-    }
   }
 
-  function forceCloseLabelModal() {
-    if (printPollingRef.current) {
-      clearInterval(printPollingRef.current);
-      printPollingRef.current = null;
-    }
-    if (printTimeoutRef.current) {
-      clearTimeout(printTimeoutRef.current);
-      printTimeoutRef.current = null;
-    }
-    setPrintExitWarningOpen(false);
+  // Fase P3: substitui handleConfirmCompleted/forceCloseLabelModal. Após
+  // criar a amostra, o user clica "Ir para amostra" pra ir pra detail
+  // page. Limpa o draft do sessionStorage (criado, não há mais nada
+  // pra retomar).
+  function goToCreatedSample() {
+    if (!created) return;
+    clearPersistedDraftId();
     setLabelModalOpen(false);
-    router.push('/dashboard');
+    router.push(`/samples/${created.sample.id}`);
   }
 
   function openReviewModal(trigger?: HTMLButtonElement) {
@@ -591,7 +531,7 @@ function NewSamplePageContent() {
       clearPersistedDraftId();
 
       setCreated(result);
-      setLabelModalStep('completed');
+      setLabelModalStep('created');
     } catch (cause) {
       if (cause instanceof ApiError) {
         setModalError(cause.message);
@@ -616,7 +556,6 @@ function NewSamplePageContent() {
   const previewHarvest = pendingDraft?.harvest ?? printableSample?.declared.harvest ?? null;
   const previewOriginLot = pendingDraft?.originLot ?? printableSample?.declared.originLot ?? null;
   const previewLocation = pendingDraft?.location ?? printableSample?.declared.location ?? null;
-  const previewInternalLot = printableSample?.internalLotNumber ?? null;
   function hasUnsavedData() {
     return Boolean(
       owner.trim() ||
@@ -896,65 +835,50 @@ function NewSamplePageContent() {
             </header>
 
             <div className="new-sample-label-modal-content">
-              <article
-                id="sample-label-print"
-                className="label-print-card new-sample-label-print-card"
-              >
-                {labelModalStep === 'review' ? (
-                  <div className="label-qr new-sample-label-qr-placeholder" aria-hidden="true">
-                    <span>Aguardando confirmacao</span>
-                  </div>
-                ) : (
-                  <div className="label-qr">
-                    <QRCodeSVG
-                      value={
-                        created?.sample.internalLotNumber ??
-                        created?.sample.id ??
-                        printableSample?.id ??
-                        'sample'
-                      }
-                      size={120}
-                    />
-                  </div>
-                )}
-                <div className="label-meta">
-                  <p>
-                    <strong>Lote interno:</strong>{' '}
-                    {previewInternalLot ?? 'Sera gerado ao confirmar'}
-                  </p>
-                  <p>
-                    <strong>Proprietario:</strong> {previewValue(previewOwner)}
-                  </p>
-                  <p>
-                    <strong>Sacas:</strong> {previewValue(previewSacks)}
-                  </p>
-                  <p>
-                    <strong>Safra:</strong> {previewValue(previewHarvest)}
-                  </p>
-                  <p>
-                    <strong>Lote origem:</strong> {previewValue(previewOriginLot)}
-                  </p>
-                  {previewLocation ? (
+              {labelModalStep === 'review' ? (
+                <article
+                  id="sample-label-print"
+                  className="label-print-card new-sample-label-print-card is-review-card"
+                >
+                  <div className="label-meta">
                     <p>
-                      <strong>Local:</strong> {previewValue(previewLocation)}
+                      <strong>Proprietario:</strong> {previewValue(previewOwner)}
                     </p>
-                  ) : null}
-                </div>
-                {labelModalStep === 'completed' ? (
-                  <div className="new-sample-modal-check-fx">
-                    <div className="new-sample-modal-check-glow" />
-                    <div className="new-sample-modal-check-ring" />
-                    <svg
-                      className="new-sample-modal-check-icon"
-                      viewBox="0 0 24 24"
-                      focusable="false"
-                      aria-hidden="true"
-                    >
-                      <path d="m5 12.5 4.3 4.2L19 7" />
-                    </svg>
+                    <p>
+                      <strong>Sacas:</strong> {previewValue(previewSacks)}
+                    </p>
+                    <p>
+                      <strong>Safra:</strong> {previewValue(previewHarvest)}
+                    </p>
+                    <p>
+                      <strong>Lote origem:</strong> {previewValue(previewOriginLot)}
+                    </p>
+                    {previewLocation ? (
+                      <p>
+                        <strong>Local:</strong> {previewValue(previewLocation)}
+                      </p>
+                    ) : null}
                   </div>
-                ) : null}
-              </article>
+                </article>
+              ) : (
+                /* Fase P3: step `created` foca no lote pra anotacao na saca.
+                   Sem QR, sem dados de classificacao — esses voltam na
+                   etiqueta fisica futura (Fase Pb). */
+                <div
+                  className="new-sample-created-panel"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <span className="new-sample-created-panel__label">Lote</span>
+                  <strong className="new-sample-created-panel__lot">
+                    {created?.sample.internalLotNumber ?? '—'}
+                  </strong>
+                  <p className="new-sample-created-panel__hint">
+                    Anote este número na saca antes de seguir.
+                  </p>
+                </div>
+              )}
             </div>
 
             {modalError ? (
@@ -994,78 +918,17 @@ function NewSamplePageContent() {
                 </>
               ) : null}
 
-              {labelModalStep === 'completed' ? (
-                <>
-                  {printStatus === 'pending' ? (
-                    <p className="nsv2-print-status">Aguardando impressao...</p>
-                  ) : null}
-                  {printStatus === 'success' ? (
-                    <p className="nsv2-print-status nsv2-print-success">
-                      Impressao concluida! Redirecionando...
-                    </p>
-                  ) : null}
-                  {printStatus === 'failed' ? (
-                    <p className="nsv2-print-status nsv2-print-failed">
-                      Impressao falhou. Tente novamente pela pagina de detalhes.
-                    </p>
-                  ) : null}
-                  {printStatus === 'timeout' ? (
-                    <p className="nsv2-print-status nsv2-print-failed">Impressao nao confirmada</p>
-                  ) : null}
-
-                  <div className="nsv2-modal-completed-actions">
-                    {printableSample ? (
-                      <Link
-                        href={`/samples/${printableSample.id}`}
-                        className="new-sample-modal-circle is-secondary"
-                        aria-label="Ver detalhes"
-                      >
-                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                          <path d="M5 12h14" />
-                          <path d="m13 6 6 6-6 6" />
-                        </svg>
-                      </Link>
-                    ) : null}
-                    <button
-                      ref={modalPrimaryActionRef}
-                      type="button"
-                      className="new-sample-modal-circle is-primary"
-                      onClick={resetDraft}
-                      aria-label="Nova amostra"
-                    >
-                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                      </svg>
-                    </button>
-                  </div>
-                </>
+              {labelModalStep === 'created' ? (
+                <button
+                  ref={modalPrimaryActionRef}
+                  type="button"
+                  className="nsv2-submit-btn new-sample-created-cta"
+                  onClick={goToCreatedSample}
+                >
+                  Ir para amostra
+                </button>
               ) : null}
             </div>
-
-            {printExitWarningOpen ? (
-              <div className="nsv2-exit-overlay">
-                <div className="nsv2-exit-dialog">
-                  <p className="nsv2-exit-dialog-text">Impressao em andamento. Deseja sair?</p>
-                  <div className="nsv2-exit-dialog-actions">
-                    <button
-                      type="button"
-                      className="nsv2-exit-dialog-btn is-cancel"
-                      onClick={() => setPrintExitWarningOpen(false)}
-                    >
-                      Aguardar
-                    </button>
-                    <button
-                      type="button"
-                      className="nsv2-exit-dialog-btn is-confirm"
-                      onClick={forceCloseLabelModal}
-                    >
-                      Sair
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
         </div>
       ) : null}

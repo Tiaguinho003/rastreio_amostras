@@ -12621,6 +12621,44 @@ button:disabled {
   padding-bottom: clamp(0.8rem, 2.5vw, 1.1rem);
 }
 
+/* Fase P3: step "created" foca o usuario no lote pra anotar na saca. */
+.new-sample-created-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  padding: clamp(1.2rem, 4vw, 1.8rem) clamp(0.8rem, 3vw, 1.2rem);
+  text-align: center;
+}
+
+.new-sample-created-panel__label {
+  font-size: clamp(0.78rem, 2.6vw, 0.88rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+}
+
+.new-sample-created-panel__lot {
+  font-size: clamp(2.6rem, 9vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.new-sample-created-panel__hint {
+  margin: clamp(0.2rem, 1vw, 0.4rem) 0 0;
+  font-size: clamp(0.86rem, 2.8vw, 0.95rem);
+  color: #4a4a4a;
+}
+
+/* Botao "Ir para amostra": full-width, reusa o estilo do submit verde. */
+.new-sample-created-cta {
+  width: 100%;
+}
+
 .new-sample-label-modal-content {
   display: grid;
   justify-content: center;
