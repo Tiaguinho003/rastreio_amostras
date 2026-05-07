@@ -15,7 +15,6 @@ import {
   cancelPhysicalSampleSend,
   cancelSampleMovement,
   completeClassification,
-  confirmRegistration,
   exportSamplePdf,
   getClient,
   getSampleDetail,
@@ -88,7 +87,6 @@ const CLASSIFICATION_STATUSES: SampleStatus[] = [
   'CLASSIFIED',
 ];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
-  'REGISTRATION_IN_PROGRESS',
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
@@ -452,10 +450,6 @@ function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): 
 }
 
 function getOperationalStatusDotTone(status: SampleStatus) {
-  if (status === 'PHYSICAL_RECEIVED' || status === 'REGISTRATION_IN_PROGRESS') {
-    return 'neutral';
-  }
-
   if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
     return 'warning';
   }
@@ -476,14 +470,6 @@ function getOperationalStatusDotTone(status: SampleStatus) {
 }
 
 function getOperationalStatusDotLabel(status: SampleStatus) {
-  if (status === 'PHYSICAL_RECEIVED') {
-    return 'Recebida fisicamente';
-  }
-
-  if (status === 'REGISTRATION_IN_PROGRESS') {
-    return 'Registro em andamento';
-  }
-
   if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
     return 'Impressao pendente';
   }
@@ -659,7 +645,6 @@ export default function SampleDetailPage() {
   const [harvest, setHarvest] = useState('');
   const [originLot, setOriginLot] = useState('');
   const [location, setLocation] = useState('');
-  const [confirming, setConfirming] = useState(false);
 
   const [printerId, setPrinterId] = useState('printer-main');
   const [labelModalOpen, setLabelModalOpen] = useState(false);
@@ -1441,60 +1426,6 @@ export default function SampleDetailPage() {
       }
     } finally {
       setCancellingSend(false);
-    }
-  }
-
-  async function handleConfirmRegistration() {
-    if (!session || !detail) {
-      return;
-    }
-
-    setRegistrationModalNotice(null);
-
-    if (!selectedOwnerClient) {
-      setRegistrationModalNotice({
-        kind: 'error',
-        text: 'Selecione um cliente proprietario antes de confirmar o registro.',
-      });
-      return;
-    }
-
-    const parsed = registrationFormSchema.safeParse({
-      owner: selectedOwnerClient.displayName ?? owner,
-      sacks,
-      harvest,
-      originLot,
-      location: location.trim() ? location : null,
-    });
-
-    if (!parsed.success) {
-      setRegistrationModalNotice({
-        kind: 'error',
-        text: parsed.error.issues[0]?.message ?? 'Dados de registro invalidos',
-      });
-      return;
-    }
-
-    setConfirming(true);
-    try {
-      await confirmRegistration(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        ownerClientId: selectedOwnerClient.id,
-        ownerUnitId: selectedOwnerUnitId,
-        declared: parsed.data,
-      });
-      registrationEditModeRef.current = false;
-      setRegistrationEditMode(false);
-      setGeneralNotice({ kind: 'success', text: 'Registro confirmado com sucesso.' });
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setRegistrationModalNotice({ kind: 'error', text: cause.message });
-      } else {
-        setRegistrationModalNotice({ kind: 'error', text: 'Falha ao confirmar registro' });
-      }
-    } finally {
-      setConfirming(false);
     }
   }
 
@@ -2706,11 +2637,7 @@ export default function SampleDetailPage() {
                             <path d="M12 20h9" />
                             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
                           </svg>
-                          <span>
-                            {detail.sample.status === 'REGISTRATION_IN_PROGRESS'
-                              ? 'Completar registro'
-                              : 'Editar'}
-                          </span>
+                          <span>Editar</span>
                         </button>
                       ) : null}
                       <NoticeSlot notice={generalNotice} />
@@ -3320,9 +3247,7 @@ export default function SampleDetailPage() {
           >
             <div className="cdm-header">
               <h3 id="registration-edit-modal-title" className="cdm-header-name">
-                {detail?.sample.status === 'REGISTRATION_IN_PROGRESS'
-                  ? 'Completar registro'
-                  : 'Editar informacoes'}
+                Editar informacoes
               </h3>
               <button
                 type="button"
@@ -3414,45 +3339,41 @@ export default function SampleDetailPage() {
                   />
                 </label>
               </div>
-              {detail?.sample.status !== 'REGISTRATION_IN_PROGRESS' ? (
-                <>
-                  <div className="sdv-edit-sep" />
+              <div className="sdv-edit-sep" />
 
-                  <label className="sdv-edit-field">
-                    <span className="sdv-edit-label">Motivo da edicao</span>
-                    <select
-                      className="sdv-edit-input"
-                      value={registrationEditReasonCode}
-                      onChange={(event) =>
-                        setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
-                      }
-                      disabled={registrationUpdating}
-                    >
-                      {UPDATE_REASON_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="sdv-edit-field">
-                    <span className="sdv-edit-label">
-                      Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}
-                    </span>
-                    <input
-                      className="sdv-edit-input"
-                      value={registrationEditReasonText}
-                      onChange={(event) =>
-                        setRegistrationEditReasonText(event.target.value.toUpperCase())
-                      }
-                      placeholder={
-                        registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
-                      }
-                      disabled={registrationUpdating}
-                    />
-                  </label>
-                </>
-              ) : null}
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Motivo da edicao</span>
+                <select
+                  className="sdv-edit-input"
+                  value={registrationEditReasonCode}
+                  onChange={(event) =>
+                    setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
+                  }
+                  disabled={registrationUpdating}
+                >
+                  {UPDATE_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">
+                  Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}
+                </span>
+                <input
+                  className="sdv-edit-input"
+                  value={registrationEditReasonText}
+                  onChange={(event) =>
+                    setRegistrationEditReasonText(event.target.value.toUpperCase())
+                  }
+                  placeholder={
+                    registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
+                  }
+                  disabled={registrationUpdating}
+                />
+              </label>
             </div>
 
             <NoticeSlot notice={registrationModalNotice} />
@@ -3463,27 +3384,15 @@ export default function SampleDetailPage() {
                 type="button"
                 className="cdm-manage-link"
                 onClick={() => {
-                  if (detail?.sample.status === 'REGISTRATION_IN_PROGRESS') {
-                    void handleConfirmRegistration();
-                  } else {
-                    void handleConfirmRegistrationUpdate();
-                  }
+                  void handleConfirmRegistrationUpdate();
                 }}
                 disabled={
                   registrationUpdating ||
-                  confirming ||
-                  (detail?.sample.status !== 'REGISTRATION_IN_PROGRESS' &&
-                    registrationEditReasonCode === 'OTHER' &&
+                  (registrationEditReasonCode === 'OTHER' &&
                     registrationEditReasonText.trim().length === 0)
                 }
               >
-                {detail?.sample.status === 'REGISTRATION_IN_PROGRESS'
-                  ? confirming
-                    ? 'Confirmando...'
-                    : 'Confirmar registro'
-                  : registrationUpdating
-                    ? 'Salvando...'
-                    : 'Salvar edicao'}
+                {registrationUpdating ? 'Salvando...' : 'Salvar edicao'}
               </button>
             </div>
           </section>

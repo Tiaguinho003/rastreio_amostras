@@ -858,22 +858,10 @@ export function listSamples(
   });
 }
 
-export function receiveSample(
-  session: SessionData,
-  data: {
-    sampleId?: string;
-    receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
-    notes?: string | null;
-  }
-) {
-  return request<CommandResponse>('/samples/receive', {
-    method: 'POST',
-    session,
-    body: data,
-  });
-}
-
-// Fase P2: renomeada de `createSampleAndPreparePrint` (sem etapa de impressão).
+// Fase Q: orquestrador único do registro. Antes da Fase P2 chamava-se
+// `createSampleAndPreparePrint` e fazia 4 passos (receive → start → confirm
+// → request print). Após a Fase P2 saiu o print. Após a Fase Q virou um
+// emit único de `REGISTRATION_CONFIRMED`.
 export function createSample(
   session: SessionData,
   data: {
@@ -903,22 +891,6 @@ export function createSample(
       location: data.location ?? null,
       receivedChannel: data.receivedChannel ?? 'in_person',
       notes: data.notes ?? null,
-    },
-  });
-}
-
-export function startRegistration(
-  session: SessionData,
-  sampleId: string,
-  expectedVersion: number,
-  notes?: string | null
-) {
-  return request<CommandResponse>(`/samples/${sampleId}/registration/start`, {
-    method: 'POST',
-    session,
-    body: {
-      expectedVersion,
-      notes: notes ?? null,
     },
   });
 }
@@ -1159,34 +1131,6 @@ export function resolveSampleByLot(session: SessionData, lotNumber: string) {
       session,
     }
   );
-}
-
-export function confirmRegistration(
-  session: SessionData,
-  sampleId: string,
-  data: {
-    expectedVersion: number;
-    ownerClientId?: string | null;
-    ownerUnitId?: string | null;
-    declared: {
-      owner: string;
-      sacks: number;
-      harvest: string;
-      originLot?: string | null;
-      location?: string | null;
-    };
-  }
-) {
-  return request<CommandResponse>(`/samples/${sampleId}/registration/confirm`, {
-    method: 'POST',
-    session,
-    body: {
-      expectedVersion: data.expectedVersion,
-      ownerClientId: data.ownerClientId ?? null,
-      ownerUnitId: data.ownerUnitId ?? null,
-      declared: data.declared,
-    },
-  });
 }
 
 export function requestQrPrint(
