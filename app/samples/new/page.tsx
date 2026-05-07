@@ -908,22 +908,24 @@ function NewSamplePageContent() {
         <div className="app-modal-backdrop new-sample-label-modal-backdrop">
           <section
             ref={labelTrapRef}
-            className="app-modal new-sample-label-modal"
+            className="app-modal is-themed new-sample-label-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-sample-label-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="new-sample-label-modal-header">
-              <h3 id="new-sample-label-modal-title" className="new-sample-label-modal-title">
-                {buildModalTitle(labelModalStep)}
-              </h3>
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="new-sample-label-modal-title" className="app-modal-title">
+                  {buildModalTitle(labelModalStep)}
+                </h3>
+              </div>
 
               {canCloseModal ? (
                 <button
                   ref={labelModalCloseButtonRef}
                   type="button"
-                  className="app-modal-close new-sample-label-modal-close"
+                  className="app-modal-close"
                   onClick={closeLabelModal}
                   aria-label="Fechar modal"
                 >

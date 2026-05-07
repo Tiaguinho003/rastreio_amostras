@@ -12596,31 +12596,29 @@ button:disabled {
 }
 
 .new-sample-label-modal {
-  gap: 0.8rem;
-  padding: 1.1rem;
   max-height: min(90dvh, 44rem);
 }
 
-.new-sample-label-modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding-bottom: 0.2rem;
+/* Fase D: modal usa .app-modal.is-themed (header verde com letras
+   brancas), entao padding e gap vem da-i (padding 0, gap 0). Restaura
+   espacamentos internos para cada secao abaixo do header. */
+.app-modal.is-themed.new-sample-label-modal {
+  gap: clamp(0.7rem, 2vw, 0.9rem);
 }
 
-.new-sample-label-modal-title {
-  margin: 0;
-  color: #312b24;
-  font-size: 1.15rem;
-  font-weight: 700;
-  line-height: 1.1;
+.new-sample-label-modal .new-sample-label-modal-content,
+.new-sample-label-modal .new-sample-label-modal-feedback,
+.new-sample-label-modal .new-sample-label-modal-actions {
+  padding-left: clamp(1rem, 3vw, 1.4rem);
+  padding-right: clamp(1rem, 3vw, 1.4rem);
 }
 
-.new-sample-label-modal-close span {
-  font-size: 1.3rem;
-  line-height: 1;
-  transform: translateY(-0.02em);
+.new-sample-label-modal .new-sample-label-modal-content {
+  padding-top: clamp(0.8rem, 2.5vw, 1.1rem);
+}
+
+.new-sample-label-modal .new-sample-label-modal-actions {
+  padding-bottom: clamp(0.8rem, 2.5vw, 1.1rem);
 }
 
 .new-sample-label-modal-content {
