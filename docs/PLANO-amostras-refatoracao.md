@@ -21,13 +21,17 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida + executada)
   - [x] Fase 0.1 — Defesa em profundidade da invariante PF ≥1 unit ACTIVE (definida + executada)
   - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
-  - [ ] Fase D — Layout desktop do `/samples/new` (iterativa)
+  - [ ] Fase D — Layout desktop do `/samples/new` (iterativa, em andamento)
+  - [x] Fase P — Remove impressão do registro + lote numérico puro (definida)
+  - [ ] Fase Pb — Impressão pós-classificação (futura, não definida)
   - [ ] Fase C — Refatoração da classificação (inclui unificação 3→1)
 - [ ] **Etapa 4** — Execução
   - [x] Fase 0 (executada — commit `44fd144`)
   - [x] Fase 0.1 (executada — commit `d6f5d24`)
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
   - [ ] Fase D (em andamento)
+  - [ ] Fase P (próxima)
+  - [ ] Fase Pb
   - [ ] Fase C
 
 ---
@@ -405,9 +409,139 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 - Helper `isUnitComplete` extraído em `lib/clients/client-completeness.ts` (reuso pelo OwnerUnitField).
 - Estilos `.owner-unit-field*` em `app/globals.css`.
 
+### Fase P — Remove impressão do registro + lote numérico puro
+
+**Motivação**: o QR na etiqueta foi pensado pro classificador escanear, mas a classificação hoje identifica o lote sozinha (foto da ficha + AI). Portanto a etiqueta no registro é desperdício. Nova lógica:
+
+1. Funcionário recebe amostra → registra
+2. Sistema gera lote numérico puro (ex: `5562`)
+3. Modal mostra o lote em destaque após criar (`step='created'`)
+4. **Funcionário anota o número à mão na saca**
+5. Saca vai pra estante com o número visível
+6. Classificador depois lê o número, classifica
+7. Etiqueta com QR + dados completos é impressa **pós-classificação** (Fase Pb futura)
+
+#### P.1. Decisões fechadas
+
+| #   | Decisão                                   | Escolha                                                                                                                    |
+| --- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Formato do lote                           | **Numérico puro** (`5562`, sem `A-`)                                                                                       |
+| 2   | Print pré-classificação                   | **Permitir como override manual** (botão "Imprimir etiqueta" continua disponível em REGISTRATION_CONFIRMED na detail page) |
+| 3   | Saída do step `created` no modal          | **Botão explícito "Ir para amostra"** (sem auto-redirect, força a anotação)                                                |
+| 4   | Dashboard `printPending` durante a Fase P | **Esconder o card** (volta na Fase Pb)                                                                                     |
+| 5   | `startClassification` precondição         | Aceita `REGISTRATION_CONFIRMED` E `QR_PRINTED` (compat com fluxo legado)                                                   |
+| 6   | Backwards compat de dados                 | Não há (L3.2 wipe; prod tem 0 amostras). Sem migration de dados.                                                           |
+| 7   | Renomear `createSampleAndPreparePrint`    | Sim, vira `createSample` (rename hard, único caller é o frontend)                                                          |
+| 8   | Estados `QR_PENDING_PRINT`/`QR_PRINTED`   | **Ficam no enum** (usados em reprint e na futura Fase Pb)                                                                  |
+
+#### P.2. Trabalho a fazer
+
+**Backend — formato do lote**
+
+- [ ] `src/samples/sample-query-service.js` `getNextInternalLotNumber()` (linhas 1922-1937):
+  - `LIKE 'A-%'` → `~ '^[0-9]+$'`
+  - Remove `replace('A-', '')`
+  - Retorna `String(nextSequence)` (sem prefixo)
+- [ ] `src/samples/classification-extraction-service.js` linhas 101, 208, 327:
+  - Limpa exemplo `"A-5490"` dos prompts (deixa só `"5487"`)
+- [ ] `print-agent/test-print.js:13-14`: atualiza fixture pra `'5562'`
+
+**Backend — fluxo de criação**
+
+- [ ] `src/samples/sample-command-service.js`:
+  - Renomeia `createSampleAndPreparePrint` → `createSample`
+  - Remove o passo final `requestQrPrint` (sample termina em `REGISTRATION_CONFIRMED`)
+  - Não cria mais `PrintJob` no registro
+  - Não emite `QR_PRINT_REQUESTED` no registro
+  - `startClassification` (linha 2020): aceita `['REGISTRATION_CONFIRMED', 'QR_PRINTED']`
+  - `requestQrPrint` (linha 1870): **mantém** aceitando `REGISTRATION_CONFIRMED` (decisão #2)
+- [ ] `src/api/v1/backend-api.js`: ajusta `createSample` handler — response sem `print` payload, sem `qr` derivado de print
+- [ ] `lib/api-client.ts:createSampleAndPreparePrint`: renomeia + ajusta tipos do response
+
+**Backend — agrupamentos de status**
+
+- [ ] `src/samples/sample-query-service.js`:
+  - `PRINT_PENDING_STATUSES`: `['QR_PENDING_PRINT']` (remove REGISTRATION_CONFIRMED)
+  - `CLASSIFICATION_PENDING_STATUSES`: adiciona `REGISTRATION_CONFIRMED`
+  - Outros pickers/agregações que tocam esses arrays
+
+**Frontend — modal de criação**
+
+- [ ] `app/samples/new/page.tsx`:
+  - Modal mantém 2 steps mas redefine `LabelModalStep`: `'review' | 'created'` (era `'review' | 'completed'`)
+  - **Remove** estados: `printStatus`, `printPollingRef`, `printTimeoutRef`, `printExitWarningOpen`
+  - **Remove** useEffects: polling de impressão, cleanup, timeout
+  - **Remove** JSX: QR placeholder, QRCodeSVG, animação check, status messages, botões "Ver detalhes"/"Nova amostra" do completed, exit warning overlay
+  - `step='created'` JSX **novo**: lote em destaque (font ~3rem, centralizado), texto "Anote este número na saca antes de seguir", botão único "Ir para amostra"
+  - `handleConfirmDraft` após sucesso → seta `step='created'` (em vez de `step='completed'`)
+  - Botão "Ir para amostra" → `router.push('/samples/' + sampleId)`
+  - Tipos: response do `createSample` sem `qr`/`print`
+
+**Frontend — detail page**
+
+- [ ] `app/samples/[sampleId]/page.tsx`:
+  - Status `REGISTRATION_CONFIRMED`: CTA principal vira "Iniciar classificação" (em vez de "Imprimir etiqueta")
+  - Botão "Imprimir etiqueta" continua disponível em REGISTRATION_CONFIRMED (decisão #2 — manual override) mas como CTA secundário
+  - Demais lugares que tratam REGISTRATION_CONFIRMED/QR_PENDING_PRINT como "aguardando print" — revisar texto/lógica
+
+**Frontend — dashboard**
+
+- [ ] `app/dashboard/page.tsx`: esconder o card `printPending` enquanto Fase Pb não existe
+- [ ] (Talvez) garantir que samples REGISTRATION_CONFIRMED apareçam no card `classificationPending` (já agrupado pelo backend após mudança em CLASSIFICATION_PENDING_STATUSES)
+
+**Tests**
+
+- [ ] `tests/sample-backend-sprint1.integration.test.js`: vários testes esperam o fluxo de 4 passos. Atualizar pra esperar parar em REGISTRATION_CONFIRMED.
+- [ ] Helpers `moveSampleToQrPendingPrint`, `moveSampleToQrPrinted` continuam (usados em testes que precisam desses estados pra reprint/legacy)
+- [ ] Novos casos:
+  - `createSample` retorna sample em REGISTRATION_CONFIRMED (sem print payload)
+  - `getNextInternalLotNumber` retorna número puro
+  - `startClassification` aceita REGISTRATION_CONFIRMED
+  - `startClassification` continua aceitando QR_PRINTED (regressão)
+
+**Docs/Skill**
+
+- [ ] `docs/PLANO-amostras-refatoracao.md`: marca Fase P executada (ao fim)
+- [ ] `.claude/skills/prisma/SKILL.md`: novo significado de REGISTRATION_CONFIRMED ("aguardando classificação"), formato do lote numérico
+- [ ] Comentários no código mencionando `A-####` ou "imprime no registro" — atualizar se relevante
+
+#### P.3. Commits previstos (atômicos)
+
+| #   | Commit                                                                             | Escopo                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `feat(samples): formato do lote interno passa a ser numerico (sem prefixo A-)`     | `getNextInternalLotNumber` + AI prompts + fixture + tests de format                                                                                          |
+| 2   | `feat(samples): remove etapa de impressao do registro de amostra`                  | Backend orchestrator (rename pra `createSample`, sem `requestQrPrint`), endpoint, response shape, `startClassification` aceita REGISTRATION_CONFIRMED, tests |
+| 3   | `feat(samples): modal de confirmacao com step "lote criado" pra anotar na saca`    | Frontend modal: remove polling/printStatus/exitWarning, adiciona step `created` com lote em destaque + botão "Ir para amostra"                               |
+| 4   | `feat(samples): reagrupa REGISTRATION_CONFIRMED em "aguardando classificacao"`     | Backend status arrays (PRINT_PENDING / CLASSIFICATION_PENDING) + dashboard esconde card printPending                                                         |
+| 5   | `feat(samples): detail page CTA "Iniciar classificacao" em REGISTRATION_CONFIRMED` | Detail page: muda CTA principal, mantém print como secundário                                                                                                |
+| 6   | `docs(samples): marca Fase P no plano + atualiza skill prisma`                     | Plan + skills                                                                                                                                                |
+
+(Quality gates rodam antes de **cada** commit.)
+
+#### P.4. Verificação end-to-end
+
+**Automatizada**: typecheck/lint/format/build/validate:schemas/test:contracts/test:unit/test:integration:db (≥142 testes verdes, +novos).
+
+**Manual local**:
+
+1. Criar amostra PF nova → modal abre em `review` → confirmar → modal vira `created` mostrando lote `5562` em destaque → botão "Ir para amostra" → redirect pra detail page
+2. Detail page de REGISTRATION_CONFIRMED → CTA "Iniciar classificação" visível
+3. Tentar imprimir manualmente em REGISTRATION_CONFIRMED → ainda funciona (override)
+4. Dashboard → card "Aguardando impressão" não aparece, REGISTRATION_CONFIRMED conta no "Aguardando classificação"
+5. `getNextInternalLotNumber()` retorna `'5562'` (sem prefixo)
+
+### Fase Pb — Impressão pós-classificação (futura, não definida)
+
+Após Fase P + Fase C, definir:
+
+- Quando dispara o `requestQrPrint` (auto após CLASSIFIED? botão manual?)
+- Layout da etiqueta com dados de classificação (tipo, peneiras, defeitos)
+- Estados pós-CLASSIFIED do sample
+- Reaparecer card "Aguardando impressão" no dashboard
+
 ### Fase C — Refatoração da classificação
 
-> A definir após Etapas 1 e 2.
+> A definir após Fase P (e talvez Fase Pb).
 >
 > Escopo confirmado: **unificação 3 fichas → 1 ficha única** (layout já desenhado e aprovado em PDF — ver histórico).
 
@@ -432,3 +566,8 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 | 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                    | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                        |
 | 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                          |
 | 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                           | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                    |
+| 2026-05-07 | Etiqueta sai do registro e vai pra pós-classificação (Fase P + Pb)     | QR no registro era pro classificador escanear, mas a classificação hoje identifica lote sozinha (foto+AI). Etiqueta vale mais com dados completos pós-classificação.                  |
+| 2026-05-07 | Lote vira numérico puro (sem `A-`)                                     | Mais simples de escrever na saca à mão, mais simples de comunicar. AI já tolera. Sem migration (L3.2 wipou prod).                                                                     |
+| 2026-05-07 | Step `created` no modal mostra lote em destaque                        | Funcionário precisa anotar o lote na saca. Step pós-criação dentro do modal força a atenção ao número antes de seguir.                                                                |
+| 2026-05-07 | Print pré-classificação fica como override manual                      | `requestQrPrint` continua aceitando REGISTRATION_CONFIRMED. Botão "Imprimir etiqueta" disponível como secundário na detail page.                                                      |
+| 2026-05-07 | `startClassification` aceita REGISTRATION_CONFIRMED                    | Sem essa mudança, samples ficariam presos sem caminho pra frente. Mantém também `QR_PRINTED` (compat com fluxo legado).                                                               |
