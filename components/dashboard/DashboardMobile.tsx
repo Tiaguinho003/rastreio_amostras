@@ -84,27 +84,8 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             {error ? <p className="error">{error}</p> : null}
             {data ? (
               <div className="dashboard-operations-grid">
-                <button
-                  type="button"
-                  className="dashboard-operation-card dashboard-op-print"
-                  onClick={(event) => openOperationPanel('print_pending', event.currentTarget)}
-                  aria-expanded={activeOperationPanel === 'print_pending'}
-                  aria-controls="dashboard-operation-modal-print-pending"
-                  aria-haspopup="dialog"
-                >
-                  <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <rect x="4" y="8" width="16" height="10" rx="2.2" />
-                      <path d="M7 8V5h10v3" />
-                      <path d="M8 13h8" />
-                    </svg>
-                    {data.printPending.total > 0 ? (
-                      <span className="dashboard-operation-badge">{data.printPending.total}</span>
-                    ) : null}
-                  </span>
-                  <span className="dashboard-operation-label">Impressão</span>
-                </button>
-
+                {/* Fase P4: card "Impressão" removido (volta na Fase Pb quando
+                    a impressao pos-classificacao for implementada). */}
                 <button
                   type="button"
                   className="dashboard-operation-card dashboard-op-classification"

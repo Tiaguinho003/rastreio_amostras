@@ -159,7 +159,10 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     };
   }, [session]);
 
-  const printTotal = data?.printPending.total ?? 0;
+  // Fase P4: card "Impressao pendente" escondido enquanto Fase Pb (impressao
+  // pos-classificacao) nao existe. Sample em REGISTRATION_CONFIRMED agora
+  // entra em CLASSIFICATION_PENDING. `printTotal` deixa de ser exibido
+  // (mantido no backend pra compat de API).
   const classificationTotal =
     (data?.classificationPending.total ?? 0) + (data?.classificationInProgress?.total ?? 0);
 
@@ -169,33 +172,8 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         {error ? <p className="error">{error}</p> : null}
 
         <div className="dd-summary-row">
-          {data ? (
-            <button
-              type="button"
-              className="dd-card dd-card-print"
-              onClick={(event) => openOperationPanel('print_pending', event.currentTarget)}
-              aria-expanded={activeOperationPanel === 'print_pending'}
-              aria-controls="dashboard-operation-modal-print-pending"
-              aria-haspopup="dialog"
-            >
-              <span className="dd-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <rect x="4" y="8" width="16" height="10" rx="2.2" />
-                  <path d="M7 8V5h10v3" />
-                  <path d="M8 13h8" />
-                </svg>
-              </span>
-              <strong className="dd-card-count">{printTotal}</strong>
-              <span className="dd-card-label">Impressao pendente</span>
-            </button>
-          ) : (
-            <div className="dd-card dd-card-skeleton" aria-hidden="true">
-              <span className="dd-card-icon-placeholder" />
-              <span className="dd-card-count-placeholder" />
-              <span className="dd-card-label-placeholder" />
-            </div>
-          )}
-
+          {/* Fase P4: card "Impressao pendente" removido (volta na Fase Pb
+              quando a impressao pos-classificacao for implementada). */}
           {data ? (
             <button
               type="button"

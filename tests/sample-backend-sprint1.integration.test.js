@@ -739,21 +739,30 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('returns dedicated dashboard list for samples with pending print (not printed yet)', async () => {
+    // Fase P4: REGISTRATION_CONFIRMED migrou de PRINT_PENDING para
+    // CLASSIFICATION_PENDING (sem etapa de impressao no registro). Apenas
+    // QR_PENDING_PRINT (reprint manual ou futura Fase Pb) entra em
+    // PRINT_PENDING agora.
     const registrationConfirmedSampleId = randomUUID();
     const qrPendingSampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(registrationConfirmedSampleId);
     await moveSampleToQrPendingPrint(qrPendingSampleId);
 
     const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.printPending.counts.REGISTRATION_CONFIRMED, 1);
-    assert.equal(dashboard.printPending.counts.QR_PENDING_PRINT, 1);
-    assert.equal(dashboard.printPending.total, 2);
 
-    const statusBySampleId = new Map(
-      dashboard.printPending.items.map((sample) => [sample.id, sample.status])
+    // PRINT_PENDING agora so contem QR_PENDING_PRINT.
+    assert.equal(dashboard.printPending.counts.QR_PENDING_PRINT, 1);
+    assert.equal(dashboard.printPending.total, 1);
+    assert.equal(dashboard.printPending.items[0].id, qrPendingSampleId);
+    assert.equal(dashboard.printPending.items[0].status, 'QR_PENDING_PRINT');
+
+    // REGISTRATION_CONFIRMED agora aparece em CLASSIFICATION_PENDING.
+    const classificationItems = dashboard.classificationPending.items;
+    const regConfirmedItem = classificationItems.find(
+      (sample) => sample.id === registrationConfirmedSampleId
     );
-    assert.equal(statusBySampleId.get(registrationConfirmedSampleId), 'REGISTRATION_CONFIRMED');
-    assert.equal(statusBySampleId.get(qrPendingSampleId), 'QR_PENDING_PRINT');
+    assert.ok(regConfirmedItem, 'REGISTRATION_CONFIRMED deve aparecer em classificationPending');
+    assert.equal(regConfirmedItem.status, 'REGISTRATION_CONFIRMED');
   });
 
   test('resolves sample from QR content for classification access', async () => {
