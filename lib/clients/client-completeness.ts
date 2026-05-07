@@ -75,14 +75,28 @@ export function isClientComplete(client: ClientSummary | null | undefined): Comp
   }
 
   for (const unit of activeUnits) {
-    for (const field of PF_UNIT_RECOMMENDED_FIELDS) {
-      if (isMissing((unit as unknown as Record<string, unknown>)[field])) {
-        missing.push(`units[${unit.id}].${field}`);
-      }
+    for (const field of missingPfUnitFields(unit)) {
+      missing.push(`units[${unit.id}].${field}`);
     }
   }
 
   return { complete: missing.length === 0, missing };
+}
+
+// Fase R: helper reusavel para detectar campos faltantes em uma unit PF.
+// Usado pelo OwnerUnitField para mostrar o badge de incompleta no dropdown.
+export function missingPfUnitFields(unit: ClientUnitSummary): string[] {
+  const missing: string[] = [];
+  for (const field of PF_UNIT_RECOMMENDED_FIELDS) {
+    if (isMissing((unit as unknown as Record<string, unknown>)[field])) {
+      missing.push(field);
+    }
+  }
+  return missing;
+}
+
+export function isUnitComplete(unit: ClientUnitSummary): boolean {
+  return missingPfUnitFields(unit).length === 0;
 }
 
 const FIELD_LABELS: Record<string, string> = {

@@ -5527,6 +5527,131 @@ button:disabled {
   text-align: center;
 }
 
+/* Fase R: campo de fazenda dependente em /samples/new */
+.owner-unit-field {
+  position: relative;
+}
+
+.owner-unit-field__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.owner-unit-field__trigger:disabled,
+.owner-unit-field__trigger.is-disabled {
+  cursor: not-allowed;
+  background: #f3f3f0;
+  color: #999;
+}
+
+.owner-unit-field__trigger.is-open {
+  border-color: var(--brand-green-soft);
+}
+
+.owner-unit-field__trigger-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-unit-field__caret {
+  font-size: 14px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.owner-unit-field__incomplete-icon,
+.owner-unit-field__option-incomplete {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.owner-unit-field__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 50;
+}
+
+.owner-unit-field__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  color: #1a1a1a;
+  transition: background 0.12s ease;
+}
+
+.owner-unit-field__option:hover,
+.owner-unit-field__option:focus-visible {
+  background: #f9fafb;
+  outline: 0;
+}
+
+.owner-unit-field__option.is-selected {
+  background: #ecfdf5;
+}
+
+.owner-unit-field__option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-unit-field__create {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff;
+  border: 0;
+  border-top: 1px solid #d1d5db;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e7d32;
+  transition: background 0.12s ease;
+}
+
+.owner-unit-field__create:hover,
+.owner-unit-field__create:focus-visible {
+  background: #ecfdf5;
+  outline: 0;
+}
+
+.owner-unit-field__empty {
+  padding: 14px 12px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+}
+
 /* Chips no detalhe do client (modo view) */
 .sdv-commercial-users {
   display: flex;

@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
+import { OwnerUnitField } from '../../../components/samples/OwnerUnitField';
 import {
   ApiError,
   createSampleAndPreparePrint,
@@ -79,7 +80,7 @@ function buildHarvestPresets(): readonly string[] {
 const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
 
-type RequiredFieldName = 'owner' | 'sacks' | 'harvest';
+type RequiredFieldName = 'owner' | 'ownerUnit' | 'sacks' | 'harvest';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 type LabelModalStep = 'review' | 'completed';
 
@@ -98,6 +99,7 @@ interface PendingDraftPayload {
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
+  ownerUnit: null,
   sacks: null,
   harvest: null,
 };
@@ -107,10 +109,11 @@ function hasRequiredFieldErrors(fieldErrors: RequiredFieldErrors) {
 }
 
 function getMissingRequiredFieldErrors(
-  values: Record<RequiredFieldName, string>
+  values: Record<'owner' | 'sacks' | 'harvest', string>
 ): RequiredFieldErrors {
   return {
     owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
+    ownerUnit: null,
     sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
     harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
   };
@@ -413,7 +416,9 @@ function NewSamplePageContent() {
           ? ownerInputRef.current
           : field === 'sacks'
             ? sacksInputRef.current
-            : harvestInputRef.current;
+            : field === 'harvest'
+              ? harvestInputRef.current
+              : null;
 
       target?.focus();
       target?.scrollIntoView({ block: 'nearest' });
@@ -422,7 +427,7 @@ function NewSamplePageContent() {
   }
 
   function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
-    const firstInvalidField = (['owner', 'sacks', 'harvest'] as const).find((field) =>
+    const firstInvalidField = (['owner', 'ownerUnit', 'sacks', 'harvest'] as const).find((field) =>
       Boolean(fieldErrors[field])
     );
     if (!firstInvalidField) {
@@ -533,12 +538,13 @@ function NewSamplePageContent() {
       return;
     }
 
-    // F7.4: PJ sem matriz (transient) nao pode ser dono de amostra. O lookup
-    // ja desabilita a selecao, mas o estado pode ter sido carregado de
-    // rascunho ou via outra rota — defesa em profundidade.
-    if (selectedOwnerClient.personType === 'PJ' && ownerUnits.length === 0) {
+    // Fase R: defesa em profundidade. Pos-Fase 0/0.1, todo PF tem
+    // sempre >=1 unit ativa (invariante mantida pelo backend), entao
+    // este caso so aconteceria com dados pre-Fase 0 que nao pertencem
+    // mais a producao. Mantemos o bloqueio como rede de seguranca.
+    if (selectedOwnerClient.personType === 'PF' && ownerUnits.length === 0) {
       setError(
-        'Este cliente PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar amostras.'
+        'Este cliente PF nao tem fazenda ativa. Cadastre uma fazenda na pagina do cliente antes de registrar amostras.'
       );
       return;
     }
@@ -548,6 +554,11 @@ function NewSamplePageContent() {
       sacks,
       harvest,
     });
+
+    // Fase R: ownerUnitId obrigatorio quando o proprietario e PF.
+    if (selectedOwnerClient.personType === 'PF' && !selectedOwnerUnitId) {
+      missingRequiredFieldErrors.ownerUnit = REQUIRED_FIELD_MESSAGE;
+    }
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
       setRequiredFieldErrors(missingRequiredFieldErrors);
@@ -698,7 +709,7 @@ function NewSamplePageContent() {
               <div className="nsv2-grid-full">
                 <ClientLookupField
                   session={session}
-                  label="Proprietario / Filial"
+                  label="Proprietario"
                   kind="owner"
                   required
                   inputRef={ownerInputRef}
@@ -710,15 +721,13 @@ function NewSamplePageContent() {
                     setOwner(client?.displayName ?? '');
                     if (!client) {
                       setSelectedOwnerUnitId(null);
+                    } else if (selectedOwnerClient?.id !== client.id) {
+                      // Trocou de cliente: limpa unit selecionada (auto-select
+                      // do OwnerUnitField cuida do PF + 1-fazenda).
+                      setSelectedOwnerUnitId(null);
                     }
                     clearRequiredFieldError('owner');
-                    setError(null);
-                  }}
-                  onSelectUnit={(client, unit) => {
-                    setSelectedOwnerClient(client);
-                    setOwner(client.displayName ?? '');
-                    setSelectedOwnerUnitId(unit?.id ?? null);
-                    clearRequiredFieldError('owner');
+                    clearRequiredFieldError('ownerUnit');
                     setError(null);
                   }}
                   onRequestCreate={(searchTerm) => {
@@ -726,6 +735,27 @@ function NewSamplePageContent() {
                     setQuickCreateOpen(true);
                   }}
                   createLabel="Cadastrar proprietario"
+                />
+              </div>
+
+              <div className="nsv2-grid-full">
+                <OwnerUnitField
+                  session={session}
+                  client={selectedOwnerClient}
+                  units={ownerUnits}
+                  loading={ownerUnitLoading}
+                  selectedUnitId={selectedOwnerUnitId}
+                  onSelect={(unitId) => {
+                    setSelectedOwnerUnitId(unitId);
+                    clearRequiredFieldError('ownerUnit');
+                  }}
+                  onUnitCreated={(unit) => {
+                    setOwnerUnits((prev) => [...prev, unit]);
+                  }}
+                  required={selectedOwnerClient?.personType === 'PF'}
+                  invalid={Boolean(requiredFieldErrors.ownerUnit)}
+                  invalidText={requiredFieldErrors.ownerUnit ?? 'Obrigatório'}
+                  onClearError={() => clearRequiredFieldError('ownerUnit')}
                 />
               </div>
 
