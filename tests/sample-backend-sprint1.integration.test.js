@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 
 import { ClientService } from '../src/clients/client-service.js';
-import { generateValidCnpj } from './helpers/cnpj-generator.js';
+import { generateValidCnpj, generateValidCpf } from './helpers/cnpj-generator.js';
 import { EventContractDbService } from '../src/events/event-contract-db-service.js';
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
@@ -103,6 +103,25 @@ if (!databaseUrl || !databaseReachable) {
         phone: overrides.phone ?? '35 99999-0000',
         isBuyer: overrides.isBuyer ?? true,
         isSeller: overrides.isSeller ?? true,
+      },
+      actorClassifier
+    );
+  }
+
+  // Fase R: helper para criar PF seller (com Fazenda 1 auto-criada via Fase 0).
+  let pfSellerSequence = 0;
+  async function createPfSellerClient(overrides = {}) {
+    pfSellerSequence += 1;
+    const cpf = overrides.cpf ?? generateValidCpf(800 + pfSellerSequence);
+    return clientService.createClient(
+      {
+        personType: 'PF',
+        fullName: overrides.fullName ?? `Produtor PF ${pfSellerSequence}`,
+        cpf,
+        phone: overrides.phone ?? '35 99999-0001',
+        isBuyer: overrides.isBuyer ?? false,
+        isSeller: overrides.isSeller ?? true,
+        units: overrides.units,
       },
       actorClassifier
     );
@@ -245,6 +264,127 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(confirmed.statusCode, 201);
     assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
+  });
+
+  test('Fase R: confirmRegistration PF sem ownerUnitId rejeita 422 OWNER_UNIT_REQUIRED_FOR_PF', async () => {
+    const sampleId = randomUUID();
+    const pfOwner = await createPfSellerClient();
+
+    await commandService.receiveSample(
+      { sampleId, receivedChannel: 'in_person', notes: null },
+      actorClassifier
+    );
+    await commandService.startRegistration(
+      { sampleId, expectedVersion: 1, notes: null },
+      actorClassifier
+    );
+
+    await assert.rejects(
+      () =>
+        commandService.confirmRegistration(
+          {
+            sampleId,
+            expectedVersion: 2,
+            ownerClientId: pfOwner.client.id,
+            // ownerUnitId omitido — backend deve rejeitar
+            declared: {
+              owner: pfOwner.client.displayName,
+              sacks: 5,
+              harvest: '25/26',
+              originLot: 'ORIG-PF-NO-UNIT',
+            },
+            idempotencyKey: randomUUID(),
+          },
+          actorClassifier
+        ),
+      (error) =>
+        error instanceof HttpError &&
+        error.status === 422 &&
+        error.details?.code === 'OWNER_UNIT_REQUIRED_FOR_PF'
+    );
+  });
+
+  test('Fase R: confirmRegistration PF com ownerUnitId valido -> 201', async () => {
+    const sampleId = randomUUID();
+    const pfOwner = await createPfSellerClient();
+    const fazenda1Id = pfOwner.client.units[0].id;
+
+    await commandService.receiveSample(
+      { sampleId, receivedChannel: 'in_person', notes: null },
+      actorClassifier
+    );
+    await commandService.startRegistration(
+      { sampleId, expectedVersion: 1, notes: null },
+      actorClassifier
+    );
+
+    const confirmed = await commandService.confirmRegistration(
+      {
+        sampleId,
+        expectedVersion: 2,
+        ownerClientId: pfOwner.client.id,
+        ownerUnitId: fazenda1Id,
+        declared: {
+          owner: pfOwner.client.displayName,
+          sacks: 8,
+          harvest: '25/26',
+          originLot: 'ORIG-PF-OK',
+        },
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    assert.equal(confirmed.statusCode, 201);
+    assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
+    const persisted = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true, ownerUnitId: true },
+    });
+    assert.equal(persisted.ownerClientId, pfOwner.client.id);
+    assert.equal(persisted.ownerUnitId, fazenda1Id);
+  });
+
+  test('Fase R: confirmRegistration PJ sem ownerUnitId aceita -> 201 (regressao)', async () => {
+    const sampleId = randomUUID();
+    const pjOwner = await createSellerClient({
+      legalName: 'PJ Sem Unit Esperada',
+      tradeName: 'PJ Sem Unit Esperada',
+    });
+
+    await commandService.receiveSample(
+      { sampleId, receivedChannel: 'in_person', notes: null },
+      actorClassifier
+    );
+    await commandService.startRegistration(
+      { sampleId, expectedVersion: 1, notes: null },
+      actorClassifier
+    );
+
+    const confirmed = await commandService.confirmRegistration(
+      {
+        sampleId,
+        expectedVersion: 2,
+        ownerClientId: pjOwner.client.id,
+        // ownerUnitId omitido propositalmente — PJ nao tem unit
+        declared: {
+          owner: pjOwner.client.displayName,
+          sacks: 9,
+          harvest: '25/26',
+          originLot: 'ORIG-PJ-OK',
+        },
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    assert.equal(confirmed.statusCode, 201);
+    const persisted = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true, ownerUnitId: true },
+    });
+    assert.equal(persisted.ownerClientId, pjOwner.client.id);
+    assert.equal(persisted.ownerUnitId, null);
   });
 
   test('executes phase1 + phase2 flow and exposes read model for frontend', async () => {

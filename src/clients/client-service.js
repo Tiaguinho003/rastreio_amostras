@@ -413,6 +413,18 @@ export class ClientService {
       });
     }
 
+    // Fase R: PF exige selecao explicita de fazenda (ownerUnitId). PJ
+    // continua sem unit (PJ nao tem ClientUnit pos-L5).
+    if (
+      client.personType === CLIENT_PERSON_TYPES.PF &&
+      (ownerUnitId === null || ownerUnitId === undefined)
+    ) {
+      throw new HttpError(422, 'Cliente PF exige selecao de fazenda (ownerUnitId).', {
+        code: 'OWNER_UNIT_REQUIRED_FOR_PF',
+        field: 'ownerUnitId',
+      });
+    }
+
     let unit = null;
     if (ownerUnitId !== null && ownerUnitId !== undefined) {
       unit = await this.prisma.clientUnit.findFirst({
