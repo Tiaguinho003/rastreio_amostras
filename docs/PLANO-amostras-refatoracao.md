@@ -18,12 +18,14 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [ ] 1.2. Caminhos de classificação
 - [ ] **Etapa 2** — Identificação de gargalos
 - [ ] **Etapa 3** — Definição do plano de execução
-  - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida)
-  - [ ] Fase R — Refatoração do registro
+  - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida + executada)
+  - [x] Fase 0.1 — Defesa em profundidade da invariante PF ≥1 unit ACTIVE (definida + executada)
+  - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
   - [ ] Fase C — Refatoração da classificação (inclui unificação 3→1)
 - [ ] **Etapa 4** — Execução
   - [x] Fase 0 (executada — commit `44fd144`)
-  - [ ] Fase R
+  - [x] Fase 0.1 (executada — commit `d6f5d24`)
+  - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
   - [ ] Fase C
 
 ---
@@ -357,11 +359,34 @@ Mudança no cadastro de **cliente** (não da amostra) que destrava o próximo pa
 - [x] `44fd144 feat(clients): PF auto-cria Fazenda 1 placeholder ao criar cliente`
 - [x] `4b718c5 docs(samples): plano vivo de refatoracao do registro+classificacao`
 
-### Fase R — Refatoração do registro de amostra
+### Fase 0.1 — Defesa em profundidade: PF ACTIVE tem ≥1 unit ACTIVE
 
-> A definir. Depende da conclusão da Fase 0.
->
-> Próximas decisões: seleção de filial pós-proprietário (PF mostra dropdown; PJ desabilitado), `ownerUnitId` obrigatório para PF, possíveis melhorias na máquina de 4 passos (ver gargalos identificados).
+Executada em commit `d6f5d24`.
+
+**Decisões:**
+
+- `inactivateUnit`: rejeita 409 `PF_LAST_ACTIVE_UNIT` se for a única unit ACTIVE de um PF. Mensagem sugere `inactivateClientWithCascade` pra parar de usar o cliente inteiro.
+- `reactivateClient`: se PF reativado tiver 0 units ACTIVE (dados pré-Fase 0 ou unit forçada a INACTIVE direto no DB), auto-cria placeholder `Fazenda 1` na mesma transação.
+- UI (`app/clients/[clientId]/page.tsx` `translateUnitError`): captura código 409 e propaga mensagem em pt-BR.
+- 5 testes integration novos cobrindo PF/PJ/cascades.
+
+### Fase R — Filial obrigatória no registro de amostra PF
+
+Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
+
+**Backend:**
+
+- `resolveOwnerBinding` rejeita 422 `OWNER_UNIT_REQUIRED_FOR_PF` se proprietário PF e `ownerUnitId` vazio.
+- 3 testes integration novos + helper `createPfSellerClient`.
+- `lib/form-schemas.ts`: `createSampleDraftSchema` ganha `ownerClientId` e `ownerUnitId` opcionais (validação cross-field no backend).
+
+**Frontend:**
+
+- Novo `components/samples/OwnerUnitField.tsx` com 4 estados (PF 1-unit auto-selecionada / PF 2+ dropdown / PJ disabled / sem cliente disabled), badge `<IncompleteIcon />` para fazendas incompletas, atalho "+ Nova fazenda" abre `ClientUnitModal` reutilizado.
+- `ClientLookupField` em `/samples/new` opera em modo só-cliente (basta omitir `onSelectUnit` — `isHierarchical` já é auto-detectado).
+- `app/samples/new/page.tsx`: integra novo componente, valida `ownerUnitId` obrigatório para PF no submit, substitui validação stale (linha 539) por defesa em profundidade `PF + 0 units ATIVAS`.
+- Helper `isUnitComplete` extraído em `lib/clients/client-completeness.ts` (reuso pelo OwnerUnitField).
+- Estilos `.owner-unit-field*` em `app/globals.css`.
 
 ### Fase C — Refatoração da classificação
 
@@ -373,12 +398,19 @@ Mudança no cadastro de **cliente** (não da amostra) que destrava o próximo pa
 
 ## 4. Histórico de decisões
 
-| Data       | Decisão                                                      | Contexto                                                                                                                                                                              |
-| ---------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | Unificar 3 fichas de classificação em ficha única            | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado). |
-| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                 |
-| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")     | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                      |
-| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados    | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                    |
-| 2026-05-07 | Auto-create silencioso quando `units: []` explícito          | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                               |
-| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`          | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                     |
-| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco         | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                              |
+| Data       | Decisão                                                                | Contexto                                                                                                                                                                              |
+| ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | Unificar 3 fichas de classificação em ficha única                      | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado). |
+| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento           | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                 |
+| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")               | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                      |
+| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados              | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                    |
+| 2026-05-07 | Auto-create silencioso quando `units: []` explícito                    | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                               |
+| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`                    | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                     |
+| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco                   | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                              |
+| 2026-05-07 | Fase 0.1 separada da Fase R                                            | Defesa em profundidade da invariante "PF ACTIVE tem ≥1 unit ACTIVE" no domínio de cliente. Fase R passa a confiar 100% nessa invariante.                                              |
+| 2026-05-07 | `reactivateClient` auto-cria Fazenda 1 quando PF tem 0 units           | Mesma estratégia da Fase 0: garante invariante silenciosamente. UX não falha por dados pré-Fase 0.                                                                                    |
+| 2026-05-07 | Fase R não toca SampleMovementModal                                    | Movements (vendas/perdas) é fluxo separado, mexe em buyer (não owner). Fica como "Fase R+1" se virar dor real.                                                                        |
+| 2026-05-07 | Etiqueta QR mantém minimalista                                         | Hoje só mostra lote/safra/sacas + QR. Adicionar fazenda mexeria em layout físico térmico (Elgin L42 Pro). Vínculo fica no banco/UI por enquanto.                                      |
+| 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`              | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                          |
+| 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                    | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                        |
+| 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                          |
