@@ -5624,23 +5624,26 @@ button:disabled {
   white-space: nowrap;
 }
 
-.owner-unit-field__create {
+/* CTA verde reusavel para botoes "Novo cliente" / "Nova filial" dentro
+   de dropdowns no /samples/new. Mesma altura/tipografia para alinhar
+   visualmente os dois caminhos. */
+.lookup-create-cta {
   display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: #fff;
   border: 0;
   border-top: 1px solid #d1d5db;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #2e7d32;
   transition: background 0.12s ease;
 }
 
-.owner-unit-field__create:hover,
-.owner-unit-field__create:focus-visible {
+.lookup-create-cta:hover,
+.lookup-create-cta:focus-visible {
   background: #ecfdf5;
   outline: 0;
 }

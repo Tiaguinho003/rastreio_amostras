@@ -734,7 +734,8 @@ function NewSamplePageContent() {
                     setQuickCreateSeed(searchTerm);
                     setQuickCreateOpen(true);
                   }}
-                  createLabel="Cadastrar proprietario"
+                  createLabel="Novo cliente"
+                  createButtonStyle="inline-cta"
                 />
               </div>
 

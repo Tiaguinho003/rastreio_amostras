@@ -28,6 +28,14 @@ type ClientLookupFieldProps = {
   emptyMessage?: string;
   onRequestCreate?: (search: string) => void;
   createLabel?: string;
+  /**
+   * Estilo do botao de criacao no estado vazio do dropdown.
+   * 'secondary' (default) — botao discreto alinhado a esquerda (compat
+   *                          com SampleMovementModal e demais usos).
+   * 'inline-cta'           — CTA verde full-width (visual unificado com
+   *                          o botao "Nova filial" no /samples/new).
+   */
+  createButtonStyle?: 'secondary' | 'inline-cta';
   compact?: boolean;
   required?: boolean;
 };
@@ -98,6 +106,7 @@ export function ClientLookupField({
   emptyMessage = 'Nenhum cliente encontrado.',
   onRequestCreate,
   createLabel = 'Cadastrar cliente',
+  createButtonStyle = 'secondary',
   compact = false,
   required = false,
 }: ClientLookupFieldProps) {
@@ -293,7 +302,11 @@ export function ClientLookupField({
               {onRequestCreate ? (
                 <button
                   type="button"
-                  className="secondary client-lookup-create"
+                  className={
+                    createButtonStyle === 'inline-cta'
+                      ? 'lookup-create-cta'
+                      : 'secondary client-lookup-create'
+                  }
                   onClick={() => {
                     setOpen(false);
                     onRequestCreate(normalizedSearch);

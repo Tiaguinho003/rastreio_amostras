@@ -40,7 +40,7 @@ type Props = {
 const DISABLED_PLACEHOLDER_NO_CLIENT = 'Selecione o proprietário primeiro';
 const DISABLED_PLACEHOLDER_PJ = 'Não aplicável (PJ)';
 const PF_CHOOSE_PLACEHOLDER = 'Selecione a fazenda';
-const NEW_FARM_LABEL = '+ Nova fazenda';
+const NEW_FARM_LABEL = 'Nova filial';
 
 export function OwnerUnitField({
   session,
@@ -202,7 +202,7 @@ export function OwnerUnitField({
               );
             })
           )}
-          <button type="button" className="owner-unit-field__create" onClick={handleOpenCreate}>
+          <button type="button" className="lookup-create-cta" onClick={handleOpenCreate}>
             {NEW_FARM_LABEL}
           </button>
         </div>
