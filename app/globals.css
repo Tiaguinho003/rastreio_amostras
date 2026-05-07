@@ -20982,9 +20982,12 @@ button:disabled {
     background: linear-gradient(180deg, #f4f0e7 0%, var(--bg) 100%);
   }
 
-  /* Body do form: card edge-to-edge dentro das margens da pagina */
+  /* Body do form: alinhado com .topbar-inner (mesma formula
+     `min(1120px, 100% - 2rem)`). Borda direita do card coincide com
+     a borda direita do conteudo do topbar (onde fica o profile button). */
   .nsv2-body-form {
-    max-width: none;
+    width: min(1120px, 100% - 2rem);
+    align-self: center;
     margin: 0;
     padding: 0;
     padding-bottom: 0;
