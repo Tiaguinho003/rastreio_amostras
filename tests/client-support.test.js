@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  DEFAULT_PF_UNIT_NAME,
   buildClientDisplayName,
   buildClientLegalName,
+  ensureDefaultPfUnit,
   normalizeCreateUnitInput,
   normalizeCreateClientInput,
   normalizeLookupClientsInput,
@@ -450,6 +452,26 @@ test('L5: normalizeCreateUnitInput rejects cnpjOrder (dropped under L5)', () => 
       }),
     /cnpjOrder cannot be provided/
   );
+});
+
+test('Fase 0: ensureDefaultPfUnit injeta Fazenda 1 quando PF e units esta vazio', () => {
+  assert.deepEqual(ensureDefaultPfUnit('PF', []), [{ name: DEFAULT_PF_UNIT_NAME }]);
+  assert.deepEqual(ensureDefaultPfUnit('PF', undefined), [{ name: DEFAULT_PF_UNIT_NAME }]);
+  assert.deepEqual(ensureDefaultPfUnit('PF', null), [{ name: DEFAULT_PF_UNIT_NAME }]);
+});
+
+test('Fase 0: ensureDefaultPfUnit preserva units fornecidas para PF', () => {
+  const provided = [{ name: 'Fazenda Boa Vista' }, { name: 'Fazenda Sao Joao' }];
+  assert.equal(ensureDefaultPfUnit('PF', provided), provided);
+});
+
+test('Fase 0: ensureDefaultPfUnit nao injeta nada para PJ', () => {
+  assert.deepEqual(ensureDefaultPfUnit('PJ', []), []);
+  assert.equal(ensureDefaultPfUnit('PJ', undefined), undefined);
+});
+
+test('Fase 0: DEFAULT_PF_UNIT_NAME tem valor "Fazenda 1"', () => {
+  assert.equal(DEFAULT_PF_UNIT_NAME, 'Fazenda 1');
 });
 
 test('normalizeLookupClientsInput enforces minimum search length and fixed limit', () => {

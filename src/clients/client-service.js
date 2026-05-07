@@ -15,6 +15,7 @@ import {
   buildClientDisplayName,
   buildClientListCursorPage,
   buildClientListPage,
+  ensureDefaultPfUnit,
   normalizeAuditListInput,
   normalizeCommercialUserId,
   normalizeCommercialUserIds,
@@ -972,7 +973,10 @@ export class ClientService {
 
   async createClient(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'create client');
-    const { data, commercialUserIds, units } = normalizeCreateClientInput(input);
+    const { data, commercialUserIds, units: providedUnits } = normalizeCreateClientInput(input);
+    // Fase 0: PF sempre nasce com >=1 fazenda. Se o caller nao fornecer
+    // nenhuma, injeta a placeholder "Fazenda 1" (campos NULL, ACTIVE).
+    const units = ensureDefaultPfUnit(data.personType, providedUnits);
 
     return this.prisma.$transaction(async (tx) => {
       // L5: validacao de unicidade

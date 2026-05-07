@@ -25,6 +25,12 @@ export const CLIENT_UNIT_STATUSES = {
   INACTIVE: 'INACTIVE',
 };
 
+// Fase 0: invariante "PF sempre tem >=1 fazenda". Quando o caller cria um
+// cliente PF sem fornecer units, o backend injeta uma fazenda placeholder
+// com este nome. Os demais campos ficam NULL (e o cliente fica marcado
+// como incompleto via lib/clients/client-completeness.ts).
+export const DEFAULT_PF_UNIT_NAME = 'Fazenda 1';
+
 // L5/Q-16: cutover removeu CLIENT_REGISTRATION_*, CLIENT_BRANCH_*,
 // CLIENT_SPLIT e CLIENT_BRANCH_CONSOLIDATED do enum. Codigo emite apenas
 // os 8 valores ativos (4 sobre Client, 4 sobre ClientUnit).
@@ -588,6 +594,20 @@ function normalizeUnitListInput(value) {
     assertProtectedUnitFieldsAbsent(entry);
     return buildUnitWriteData(entry, { requireName: true });
   });
+}
+
+// Fase 0: garante a invariante "PF sempre nasce com >=1 fazenda". Se o
+// caller for PF e nao fornecer nenhuma unit (undefined ou []), injeta a
+// fazenda placeholder com nome `DEFAULT_PF_UNIT_NAME`. Para PJ ou listas
+// nao-vazias, devolve o input intocado. Idempotente.
+export function ensureDefaultPfUnit(personType, units) {
+  if (personType !== CLIENT_PERSON_TYPES.PF) {
+    return units;
+  }
+  if (Array.isArray(units) && units.length > 0) {
+    return units;
+  }
+  return [{ name: DEFAULT_PF_UNIT_NAME }];
 }
 
 export function normalizeUpdateClientInput(input, currentClient) {

@@ -360,6 +360,10 @@ model Client {
   // L5: campos de identidade fiscal e contato/endereco de PJ migram
   // para o Client (antes ficavam em ClientBranch matriz). PF deixa todos
   // estes NULL — sao guardados em ClientUnit (filiais).
+  // Fase 0: PF sempre nasce com pelo menos 1 ClientUnit. Se o caller nao
+  // fornecer nenhuma, o backend injeta uma fazenda placeholder
+  // "Fazenda 1" (ver DEFAULT_PF_UNIT_NAME e ensureDefaultPfUnit em
+  // src/clients/client-support.js). PJ continua sem units.
   cnpj                        String?          @unique(map: "uq_client_cnpj")
   cnpjOrder                   String?          @map("cnpj_order") @db.VarChar(4)
   cnpjRoot                    String?          @map("cnpj_root") @db.VarChar(8)

@@ -262,6 +262,57 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.body.client.units[0].state, 'MG');
   });
 
+  test('Fase 0: PF criado sem units recebe Fazenda 1 placeholder', async () => {
+    const result = await createPfClient({ cpf: generateValidCpf(701) });
+    assert.equal(result.status, 201);
+    assert.equal(result.body.client.units.length, 1);
+    const fazenda = result.body.client.units[0];
+    assert.equal(fazenda.name, 'Fazenda 1');
+    assert.equal(fazenda.code, 1);
+    assert.equal(fazenda.status, 'ACTIVE');
+    assert.equal(fazenda.cnpj, null);
+    assert.equal(fazenda.addressLine, null);
+    assert.equal(fazenda.city, null);
+    assert.equal(fazenda.state, null);
+    assert.equal(fazenda.car, null);
+  });
+
+  test('Fase 0: PF criado com units: [] explicito tambem recebe Fazenda 1', async () => {
+    const result = await createPfClient({ cpf: generateValidCpf(702), units: [] });
+    assert.equal(result.status, 201);
+    assert.equal(result.body.client.units.length, 1);
+    assert.equal(result.body.client.units[0].name, 'Fazenda 1');
+  });
+
+  test('Fase 0: PF com units explicitas nao duplica Fazenda 1', async () => {
+    const result = await createPfClient({
+      cpf: generateValidCpf(703),
+      units: [{ name: 'Fazenda Boa Vista' }],
+    });
+    assert.equal(result.status, 201);
+    assert.equal(result.body.client.units.length, 1);
+    assert.equal(result.body.client.units[0].name, 'Fazenda Boa Vista');
+  });
+
+  test('Fase 0: PJ continua sem unit (auto-create nao se aplica)', async () => {
+    const result = await createPjClient({ cnpj: nextValidCnpj() });
+    assert.equal(result.status, 201);
+    assert.equal(result.body.client.units.length, 0);
+  });
+
+  test('Fase 0: audit event CLIENT_UNIT_CREATED emitido para Fazenda 1 auto-criada', async () => {
+    const pf = await createPfClient({ cpf: generateValidCpf(704) });
+    assert.equal(pf.status, 201);
+    const audit = await api.listClientAuditEvents(
+      buildInput({ params: { clientId: pf.body.client.id } })
+    );
+    assert.equal(audit.status, 200);
+    const unitCreated = audit.body.items.filter((it) => it.eventType === 'CLIENT_UNIT_CREATED');
+    assert.equal(unitCreated.length, 1, 'um unico CLIENT_UNIT_CREATED para Fazenda 1');
+    assert.equal(unitCreated[0].targetUnit?.id, pf.body.client.units[0].id);
+    assert.equal(unitCreated[0].targetUnit?.name, 'Fazenda 1');
+  });
+
   test('L5: createUnit on PJ rejects with 422 CLIENT_PJ_HAS_NO_UNITS', async () => {
     const pj = await createPjClient();
     const res = await api.createClientUnit(
@@ -321,12 +372,13 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    // Sem param: retorna todas (legado)
+    // Sem param: retorna todas (legado).
+    // Fase 0: PF nasce com Fazenda 1 auto-criada, entao total = 3 (placeholder + u1 + u2).
     const allUnits = await api.getClient(buildInput({ params: { clientId: pf.body.client.id } }));
     assert.equal(allUnits.status, 200);
-    assert.equal(allUnits.body.units.length, 2);
+    assert.equal(allUnits.body.units.length, 3);
 
-    // Com onlyActive=true: filtra inativas
+    // Com onlyActive=true: filtra inativas. Restam Fazenda 1 (placeholder) + u1.
     const activeOnly = await api.getClient(
       buildInput({
         params: { clientId: pf.body.client.id },
@@ -334,9 +386,12 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
     assert.equal(activeOnly.status, 200);
-    assert.equal(activeOnly.body.units.length, 1);
-    assert.equal(activeOnly.body.units[0].id, u1.body.unit.id);
-    assert.equal(activeOnly.body.units[0].status, 'ACTIVE');
+    assert.equal(activeOnly.body.units.length, 2);
+    const u1InActive = activeOnly.body.units.find((u) => u.id === u1.body.unit.id);
+    const u2InActive = activeOnly.body.units.find((u) => u.id === u2.body.unit.id);
+    assert.ok(u1InActive, 'u1 deve aparecer entre as ativas');
+    assert.equal(u1InActive.status, 'ACTIVE');
+    assert.ok(!u2InActive, 'u2 (inativada) nao deve aparecer entre as ativas');
   });
 
   test('L5: PF inactivateUnit + reactivateUnit work', async () => {
@@ -923,11 +978,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(r2.body.unit.id, firstUnitId);
     assert.equal(r2.idempotent, true);
 
-    // Confirma que so 1 unit foi criada.
+    // Confirma que so 1 unit nova foi criada (alem da Fazenda 1 placeholder
+    // auto-criada pela Fase 0): 1 placeholder + 1 idempotente = 2.
     const count = await prisma.clientUnit.count({
       where: { clientId: pf.body.client.id },
     });
-    assert.equal(count, 1);
+    assert.equal(count, 2);
   });
 
   // ============================================================
