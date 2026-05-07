@@ -21018,12 +21018,22 @@ button:disabled {
     letter-spacing: 0.8px;
   }
 
-  /* Campos: grandes, bordas visiveis, hover/focus */
+  /* Label do ClientLookupField (Proprietario): alinhar com .nsv2-field-label
+     no desktop pra manter o padrao visual com os outros campos. Sem essa
+     regra, fica preso no clamp(9px,2.5vw,9.5px) cinza claro do mobile. */
+  .nsv2-body-form .client-lookup-field > label {
+    font-size: 0.78rem;
+    color: #444;
+    letter-spacing: 0.8px;
+  }
+
+  /* Campos: design alinhado com modal de novo cliente — bordas 2px e mais
+     escuras (rgba 0.3, antes era 1.5px com 0.14 — quase invisivel). */
   .nsv2-field-input,
   .nsv2-field-select {
     padding: 1rem 1.15rem;
     font-size: 1rem;
-    border: 1.5px solid rgba(0, 0, 0, 0.14);
+    border: 2px solid rgba(0, 0, 0, 0.3);
     border-radius: 14px;
     background: #ffffff;
     box-shadow:
@@ -21037,7 +21047,7 @@ button:disabled {
 
   .nsv2-field-input:hover,
   .nsv2-field-select:hover {
-    border-color: rgba(0, 0, 0, 0.25);
+    border-color: rgba(0, 0, 0, 0.45);
     box-shadow:
       0 3px 6px rgba(0, 0, 0, 0.08),
       0 6px 16px rgba(0, 0, 0, 0.08);
@@ -21056,11 +21066,11 @@ button:disabled {
     font-size: 0.95rem;
   }
 
-  /* Client/Warehouse lookup fields */
+  /* Client/Warehouse lookup fields — mesmo padrao dos demais (2px, 0.3) */
   .nsv2-page .client-lookup-field input {
     padding: 1rem 1.15rem;
     font-size: 1rem;
-    border: 1.5px solid rgba(0, 0, 0, 0.14);
+    border: 2px solid rgba(0, 0, 0, 0.3);
     border-radius: 14px;
     background: #ffffff;
     box-shadow:
@@ -21072,7 +21082,7 @@ button:disabled {
   }
 
   .nsv2-page .client-lookup-field input:hover {
-    border-color: rgba(0, 0, 0, 0.25);
+    border-color: rgba(0, 0, 0, 0.45);
     box-shadow:
       0 3px 6px rgba(0, 0, 0, 0.08),
       0 6px 16px rgba(0, 0, 0, 0.08);

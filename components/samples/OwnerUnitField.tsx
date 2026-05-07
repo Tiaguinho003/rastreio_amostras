@@ -13,14 +13,14 @@ import type {
 import { ClientUnitModal } from '../clients/ClientUnitModal';
 import { IncompleteIcon } from '../clients/IncompleteIcon';
 
-// Fase R: campo de "Filial / Fazenda" exibido logo abaixo do propri-
-// etário no /samples/new. Comporta-se em 4 estados visuais conforme o
-// cliente selecionado:
+// Fase R: campo de "Filial" exibido logo abaixo do proprietário no
+// /samples/new. Comporta-se em 4 estados visuais conforme o cliente
+// selecionado:
 //   - sem cliente            -> disabled, placeholder convidando seleção
 //   - PJ                     -> disabled, "Não aplicável (PJ)"
-//   - PF + 1 fazenda ativa   -> auto-selecionada (usuário pode trocar)
-//   - PF + 2+ fazendas ATIVAS -> dropdown obrigatório, vazio até escolher
-// Atalho "+ Nova fazenda" no rodapé do dropdown abre o ClientUnitModal
+//   - PF + 1 filial ativa    -> auto-selecionada (usuário pode trocar)
+//   - PF + 2+ filiais ATIVAS -> dropdown obrigatório, vazio até escolher
+// Atalho "+ Nova filial" no rodapé do dropdown abre o ClientUnitModal
 // e faz POST direto via createClientUnit, refrescando a lista via
 // onUnitCreated.
 type Props = {
@@ -39,7 +39,7 @@ type Props = {
 
 const DISABLED_PLACEHOLDER_NO_CLIENT = 'Selecione o proprietário primeiro';
 const DISABLED_PLACEHOLDER_PJ = 'Não aplicável (PJ)';
-const PF_CHOOSE_PLACEHOLDER = 'Selecione a fazenda';
+const PF_CHOOSE_PLACEHOLDER = 'Selecione a filial';
 const NEW_FARM_LABEL = '+ Nova filial';
 
 export function OwnerUnitField({
@@ -132,8 +132,8 @@ export function OwnerUnitField({
   const buttonLabel = (() => {
     if (!client) return DISABLED_PLACEHOLDER_NO_CLIENT;
     if (isPj) return DISABLED_PLACEHOLDER_PJ;
-    if (loading) return 'Carregando fazendas…';
-    if (selectedUnit) return selectedUnit.name ?? `Fazenda ${selectedUnit.code}`;
+    if (loading) return 'Carregando filiais…';
+    if (selectedUnit) return selectedUnit.name ?? `Filial ${selectedUnit.code}`;
     return PF_CHOOSE_PLACEHOLDER;
   })();
 
@@ -150,7 +150,7 @@ export function OwnerUnitField({
   return (
     <div className="nsv2-field owner-unit-field" ref={containerRef}>
       <label htmlFor={inputId} className="nsv2-field-label">
-        Fazenda{required ? <span className="nsv2-required-star"> *</span> : null}
+        Filial{required ? <span className="nsv2-required-star"> *</span> : null}
       </label>
       <button
         id={inputId}
@@ -178,7 +178,7 @@ export function OwnerUnitField({
       {open && isPf ? (
         <div className="owner-unit-field__dropdown" role="listbox">
           {units.length === 0 ? (
-            <div className="owner-unit-field__empty">Nenhuma fazenda ativa</div>
+            <div className="owner-unit-field__empty">Nenhuma filial ativa</div>
           ) : (
             units.map((unit) => {
               const incomplete = !isUnitComplete(unit);
@@ -193,7 +193,7 @@ export function OwnerUnitField({
                   aria-selected={selected}
                 >
                   <span className="owner-unit-field__option-name">
-                    {unit.name ?? `Fazenda ${unit.code}`}
+                    {unit.name ?? `Filial ${unit.code}`}
                   </span>
                   {incomplete ? (
                     <IncompleteIcon className="owner-unit-field__option-incomplete" />
