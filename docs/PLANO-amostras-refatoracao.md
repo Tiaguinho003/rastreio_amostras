@@ -15,23 +15,23 @@ Reformular a lógica de **registro** e **classificação** de amostras:
 
 - [x] **Etapa 1** — Mapeamento do estado atual
   - [x] 1.1. Caminhos de registro de amostra
-  - [ ] 1.2. Caminhos de classificação
-- [ ] **Etapa 2** — Identificação de gargalos
+  - [x] 1.2. Caminhos de classificação (mapeado em 2026-05-07)
+- [x] **Etapa 2** — Identificação de gargalos (consolidada na Fase Q)
 - [ ] **Etapa 3** — Definição do plano de execução
   - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida + executada)
   - [x] Fase 0.1 — Defesa em profundidade da invariante PF ≥1 unit ACTIVE (definida + executada)
   - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
   - [ ] Fase D — Layout desktop do `/samples/new` (iterativa, em andamento)
-  - [x] Fase P — Remove impressão do registro + lote numérico puro (definida)
-  - [ ] Fase Pb — Impressão pós-classificação (futura, não definida)
-  - [ ] Fase C — Refatoração da classificação (inclui unificação 3→1)
+  - [x] Fase P — Remove impressão do registro + lote numérico puro (definida + executada parcial: commits 1-4 + skill; commit #5 absorvido pela Fase Q)
+  - [x] Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação (definida; Fase Pb absorvida)
+  - [ ] Fase C — Refatoração da classificação (unificação 3 fichas → 1, layout aprovado em PDF)
 - [ ] **Etapa 4** — Execução
   - [x] Fase 0 (executada — commit `44fd144`)
   - [x] Fase 0.1 (executada — commit `d6f5d24`)
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
-  - [ ] Fase D (em andamento)
-  - [ ] Fase P (próxima)
-  - [ ] Fase Pb
+  - [ ] Fase D (em andamento, sem prazo)
+  - [x] Fase P (executada parcial — commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` + skill prisma)
+  - [ ] Fase Q (próxima — bloqueia Fase C)
   - [ ] Fase C
 
 ---
@@ -286,11 +286,40 @@ Usuário digita: owner, sacks, harvest, originLot, location,
 
 ### 1.2. Classificação
 
-> A preencher.
->
-> **Já mapeado em alto nível** (sessão atual): 3 fichas distintas por `ClassificationType` (`BICA`, `PREPARADO`, `LOW_CAFF`), config em `lib/classification-form.ts:161-282`. Extração via IA (GPT-4o) com 3 prompts + 3 schemas + 3 normalizadoras em `src/samples/classification-extraction-service.js`.
->
-> **Pendente detalhar**: fluxo end-to-end (UI → upload → IA → revisão manual → persistência), eventos do event store gerados, auth, integração com a máquina de estados da amostra.
+#### 1.2.1. Status atuais (antes da Fase Q)
+
+- `CLASSIFICATION_IN_PROGRESS` — alguém clicou "Iniciar classificação" e ainda não fechou.
+- `CLASSIFIED` — classificação fechada (terminal "ok"). Reclassificação volta a `CLASSIFIED` (audit).
+
+#### 1.2.2. Eventos atuais (antes da Fase Q)
+
+- `CLASSIFICATION_STARTED` — transição RC/QR_PRINTED → CLASSIFICATION_IN_PROGRESS
+- `CLASSIFICATION_SAVED_PARTIAL` — audit (null/null), salva rascunho — feature presente em UI mas nunca usada na operação
+- `CLASSIFICATION_COMPLETED` — transição IP/QR_PRINTED → CLASSIFIED (com foto obrigatória)
+- `CLASSIFICATION_UPDATED` — audit (CLASSIFIED → CLASSIFIED), reclassificação
+- `CLASSIFICATION_EXTRACTION_COMPLETED` — audit, IA terminou de extrair dados da foto
+- `CLASSIFICATION_EXTRACTION_FAILED` — audit, IA falhou
+
+#### 1.2.3. Comandos atuais (antes da Fase Q)
+
+| Comando                           | Pré-condição                     | Efeito                                                                                            |
+| --------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `startClassification`             | RC ou QR_PRINTED                 | Status → IP, emite `CLASSIFICATION_STARTED`                                                       |
+| `saveClassificationPartial`       | RC, IP ou QR_PRINTED             | Audit, salva rascunho                                                                             |
+| `completeClassification`          | RC, IP ou QR_PRINTED + foto      | Status → CLASSIFIED, emite `CLASSIFICATION_COMPLETED`                                             |
+| `updateClassification`            | CLASSIFIED                       | Audit, reclassifica                                                                               |
+| `confirmClassificationFromCamera` | RC, IP, QR_PRINTED ou CLASSIFIED | Chama `completeClassification` ou `updateClassification` por baixo, com validação cruzada de lote |
+
+#### 1.2.4. UI
+
+- Detail page de RC tem CTA "Iniciar classificação" → leva pra `/camera` com `sampleId` fixado.
+- Detail page de IP tem formulário de classificação manual + botões "Salvar rascunho" + "Concluir".
+- Detail page de CLASSIFIED tem opção de reclassificar.
+- Câmera (`/camera`) lê foto, IA extrai lote/dados, valida cruzado contra `sampleId` fixado (caminho A do plano).
+
+#### 1.2.5. 3 fichas (escopo da Fase C, futura)
+
+3 fichas distintas por `ClassificationType` (`BICA`, `PREPARADO`, `LOW_CAFF`), config em `lib/classification-form.ts:161-282`. Extração via IA (GPT-4o-mini) com 3 prompts + 3 schemas + 3 normalizadoras em `src/samples/classification-extraction-service.js`. Layout unificado já desenhado e aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado).
 
 ---
 
@@ -409,7 +438,9 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 - Helper `isUnitComplete` extraído em `lib/clients/client-completeness.ts` (reuso pelo OwnerUnitField).
 - Estilos `.owner-unit-field*` em `app/globals.css`.
 
-### Fase P — Remove impressão do registro + lote numérico puro
+### Fase P — Remove impressão do registro + lote numérico puro (executada parcial)
+
+**Status**: commits 1-4 executados (`0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6`) + skill prisma atualizada. **Commit #5** (detail page CTA "Iniciar classificação" em REGISTRATION_CONFIRMED) **absorvido pela Fase Q** (revisão completa da detail page como parte da simplificação de lifecycle).
 
 **Motivação**: o QR na etiqueta foi pensado pro classificador escanear, mas a classificação hoje identifica o lote sozinha (foto da ficha + AI). Portanto a etiqueta no registro é desperdício. Nova lógica:
 
@@ -530,44 +561,415 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 4. Dashboard → card "Aguardando impressão" não aparece, REGISTRATION_CONFIRMED conta no "Aguardando classificação"
 5. `getNextInternalLotNumber()` retorna `'5562'` (sem prefixo)
 
-### Fase Pb — Impressão pós-classificação (futura, não definida)
+### Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação
 
-Após Fase P + Fase C, definir:
+> **Absorve** a Fase Pb original. **Pré-requisito** da Fase C.
 
-- Quando dispara o `requestQrPrint` (auto após CLASSIFIED? botão manual?)
-- Layout da etiqueta com dados de classificação (tipo, peneiras, defeitos)
-- Estados pós-CLASSIFIED do sample
-- Reaparecer card "Aguardando impressão" no dashboard
+**Motivação**: a análise da Etapa 1 expôs **5 statuses fantasmas** no lifecycle (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS, QR_PENDING_PRINT, QR_PRINTED, CLASSIFICATION_IN_PROGRESS) que o usuário **nunca vê** — todos artefato técnico. Cada um inflagra o event store e a UI sem agregar valor de produto. Além disso:
+
+- **Impressão é ação, não estado**: a tabela `PrintJob` (PENDING/SUCCESS/FAILED + `attemptNumber` + `error` + timestamps) **já é** a fonte da verdade do estado de impressão. Replicar esse estado no enum `SampleStatus` gera redundância e força hacks (ex: `recordQrPrinted` linha 1929-1947 com lógica de "se já passou de QR_PENDING_PRINT, retorna idempotente").
+- **Distinção PRINT vs REPRINT é artefato**: nada no produto distingue 1ª de N-ésima impressão. `attemptNumber` + `createdAt` cobrem qualquer pergunta operacional.
+- **Classificação parcial nunca foi usada** na operação real, apesar do botão "Salvar rascunho" existir na detail page.
+- **Etiqueta vale mais pós-classificação**: registro só anota o lote à mão na saca (Fase P3); a etiqueta com QR sai automaticamente quando a amostra é classificada.
+
+**Resultado**: lifecycle do Sample tem **3 estados** (RC, CLASSIFIED, INVALIDATED). Tudo mais é ação ou audit.
+
+#### Q.1. Decisões fechadas
+
+##### Q.1.a. Registro
+
+| #   | Decisão                                                                      | Escolha                                                                  |
+| --- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1   | Quantos status no registro                                                   | **1 só**: `REGISTRATION_CONFIRMED`                                       |
+| 2   | Quantos eventos de transição                                                 | **1 só**: `REGISTRATION_CONFIRMED` (`fromStatus: null` → `toStatus: RC`) |
+| 3   | Statuses `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`                     | **Cortar do enum** (sem manter como legado — prod zerado)                |
+| 4   | Eventos `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`                            | **Cortar do enum**                                                       |
+| 5   | Comandos `receivePhysicalSample`, `startRegistration`, `confirmRegistration` | **Deletar** (orquestrador `createSample` passa a emitir 1 evento direto) |
+
+##### Q.1.b. Classificação
+
+| #   | Decisão                                                                  | Escolha                                                                                           |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| 1   | Quantos status na classificação                                          | **1 só terminal**: `CLASSIFIED`                                                                   |
+| 2   | Status `CLASSIFICATION_IN_PROGRESS`                                      | **Cortar** — nunca era visível ao usuário, é detalhe técnico                                      |
+| 3   | Evento `CLASSIFICATION_STARTED`                                          | **Cortar**                                                                                        |
+| 4   | Evento `CLASSIFICATION_SAVED_PARTIAL` (rascunho)                         | **Cortar** — feature nunca usada na prática                                                       |
+| 5   | Comando `startClassification`                                            | **Cortar** — sem status IP, perde sentido                                                         |
+| 6   | Comando `saveClassificationPartial`                                      | **Cortar**                                                                                        |
+| 7   | Comando `completeClassification`                                         | **Mantém** — RC → CLASSIFIED, exige foto                                                          |
+| 8   | Comando `updateClassification` (reclassificação)                         | **Mantém** — CLASSIFIED → CLASSIFIED, audit                                                       |
+| 9   | Comando `confirmClassificationFromCamera`                                | **Mantém** — caminho A: classifica via câmera com `sampleId` fixo                                 |
+| 10  | Eventos da IA (`CLASSIFICATION_EXTRACTION_*`)                            | **Mantém** — audit-only, fluxo paralelo                                                           |
+| 11  | Botão "Iniciar classificação" na detail page                             | **Mantém** — só pra direcionar pra câmera com `sampleId` fixado                                   |
+| 12  | Caminho A (botão → câmera com `sampleId`) vs B (câmera direta sem fixar) | **Apenas A** — validação cruzada de lote protege contra "operador pegou a saca errada da estante" |
+| 13  | Foto de classificação obrigatória em `completeClassification`            | **Mantém**                                                                                        |
+| 14  | Reclassificação (CLASSIFIED → CLASSIFIED)                                | **Mantém** — necessidade real de corrigir erros ou re-medir                                       |
+
+##### Q.1.c. Impressão (ação pura)
+
+| #   | Decisão                                                       | Escolha                                                                                                           |
+| --- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | Statuses `QR_PENDING_PRINT` e `QR_PRINTED`                    | **Cortar do enum**                                                                                                |
+| 2   | Impressão como ação ou estado                                 | **Ação pura** — não toca status do sample                                                                         |
+| 3   | Fonte da verdade do estado de impressão                       | **Tabela `PrintJob`** (PENDING/SUCCESS/FAILED + `attemptNumber` + `error` + `createdAt`/`updatedAt`)              |
+| 4   | Eventos `QR_PRINT_REQUESTED`, `QR_PRINTED`, `QR_PRINT_FAILED` | **Mantém** mas todos viram **audit-only** (`fromStatus: null`, `toStatus: null`)                                  |
+| 5   | Evento `QR_REPRINT_REQUESTED`                                 | **Cortar** (substituído por `QR_PRINT_REQUESTED` com `attemptNumber > 1`)                                         |
+| 6   | Distinção PRINT vs REPRINT                                    | **Cortar** — toda impressão é igual; `attemptNumber` sequencial cobre tudo                                        |
+| 7   | Enum `PrintAction` (PRINT/REPRINT)                            | **Cortar inteiro**                                                                                                |
+| 8   | Coluna `print_job.print_action`                               | **Cortar**                                                                                                        |
+| 9   | `IdempotencyScope.QR_REPRINT`                                 | **Cortar**                                                                                                        |
+| 10  | Constraint `uq_print_job_sample_action_attempt`               | Vira `uq_print_job_sample_attempt` em `(sample_id, attempt_number)`                                               |
+| 11  | Comandos de impressão                                         | **Unificar** em `requestQrPrint` (sem distinguir 1ª de N-ésima)                                                   |
+| 12  | Comando `requestQrReprint`                                    | **Cortar** (substituído por `requestQrPrint`)                                                                     |
+| 13  | Concorrência: múltiplos PENDING simultâneos                   | **Bloquear**: 1 `PrintJob` PENDING por amostra. Nova request retorna 409 enquanto há PENDING válido               |
+| 14  | Timeout de `PrintJob` travado                                 | **1 minuto**, lazy (sem worker/cron)                                                                              |
+| 15  | Onde rodar o lazy timeout                                     | **D3** — em `requestQrPrint` E em `getSampleDetail` (path de leitura E escrita)                                   |
+| 16  | `requestQrPrint` exige `expectedVersion`                      | **Não** — não muda o sample, sem optimistic lock                                                                  |
+| 17  | Imprimir em `INVALIDATED`                                     | **Bloqueado** (único veto)                                                                                        |
+| 18  | Print agent local                                             | **Não muda** — endpoints `recordQrPrinted` / `recordQrPrintFailed` mantêm assinatura                              |
+| 19  | Override manual de print em RC                                | **Mantém** — botão "Imprimir etiqueta" disponível em qualquer status não-INVALIDATED (impressão é ação, não fase) |
+| 20  | Card "Aguardando impressão" no dashboard                      | **Cortado** definitivamente (não volta na Fase Q nem depois) — toast + detail page bastam                         |
+
+##### Q.1.d. Print automático pós-classificação (Fase Pb absorvida)
+
+| #   | Decisão                                                                                                            | Escolha                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `completeClassification` dispara `requestQrPrint` automaticamente                                                  | **Sim**                                                                                                                                             |
+| 2   | `confirmClassificationFromCamera` (1ª classificação, RC → CLASSIFIED) dispara                                      | **Sim** (chama `completeClassification` por baixo)                                                                                                  |
+| 3   | Reclassificação (`updateClassification` ou `confirmClassificationFromCamera` em CLASSIFIED) dispara nova impressão | **Não** — etiqueta minimalista (lote/safra/sacas/QR) não muda. Operador reimprime manualmente se quiser                                             |
+| 4   | Layout da etiqueta                                                                                                 | **A1: minimalista** — lote, safra, sacas, QR. Sem dados de classificação. Sem mexer no layout físico Elgin L42 Pro                                  |
+| 5   | UX da impressão automática                                                                                         | **C2: background** — classificação fecha imediato + redireciona pra detail page; print roda em background; modal de feedback aparece quando termina |
+| 6   | Idempotency                                                                                                        | Idempotency key da classificação **deriva** key do print (hash composta) — protege duplo-clique de criar 2 PrintJobs                                |
+| 7   | Override manual de reimpressão em CLASSIFIED                                                                       | **Mantém** — operador pode reimprimir a qualquer momento (impressão é ação)                                                                         |
+| 8   | Feedback de print (sucesso/falha)                                                                                  | **Modal rápido com opções clicáveis** ao operador (ex: "Etiqueta impressa" / "Falha — Tentar novamente"). **Não fixo** em área da detail page       |
+| 9   | Polling de `PrintJob`                                                                                              | **Polling simples**, intervalo curto (a definir, ex: 2-3s), só ativo enquanto há PENDING                                                            |
+
+##### Q.1.e. Migration
+
+| #   | Decisão                             | Escolha                                                                     |
+| --- | ----------------------------------- | --------------------------------------------------------------------------- |
+| 1   | Estratégia de migration             | **Single-shot** — prod zerado (L3.2 wipou); local descartável               |
+| 2   | Eventos legados (statuses cortados) | **Cortar e limpar** — sem manter como legado; sem dados antigos a preservar |
+| 3   | Backfill de dados                   | **Não necessário** (zero rows com valores legados)                          |
+
+#### Q.2. Lifecycle final
+
+```
+                              ┌─────────────────────────────────────┐
+                              │                                     │
+   (criação direta — 1 evento)│                                     │
+                              ▼                                     │
+                    REGISTRATION_CONFIRMED                          │
+                              │                                     │
+        (completeClassification │                                   │
+         ou confirmClassificationFromCamera)                        │
+                              │                                     │
+                              ▼                                     │
+                          CLASSIFIED ─────► (reclassificação)        │
+                              │              audit, fica em CLASSIFIED
+                              │                                     │
+       (a qualquer momento, exceto INVALIDATED → INVALIDATED)       │
+                              │                                     │
+                              ▼                                     │
+                         INVALIDATED                                │
+                          (terminal)                                │
+                                                                    │
+       ─── PRINT (operação paralela, sem mudar status) ─────────────┘
+
+         requestQrPrint → cria PrintJob(PENDING) [emite QR_PRINT_REQUESTED audit]
+         Print agent processa (polling)
+         Agent reporta → recordQrPrinted ou recordQrPrintFailed
+                         emite QR_PRINTED ou QR_PRINT_FAILED (audit, null/null)
+                         PrintJob.status atualizado (SUCCESS/FAILED)
+
+         Disparado:
+           — automaticamente por completeClassification (idempotency derivada)
+           — manualmente por botão "Imprimir etiqueta" em qualquer status ≠ INVALIDATED
+```
+
+#### Q.3. Transições permitidas (mudam status do Sample)
+
+| De                     | Para                   | Como                                                                                         |
+| ---------------------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| (não existe)           | REGISTRATION_CONFIRMED | `createSample` (form do `/samples/new`)                                                      |
+| REGISTRATION_CONFIRMED | CLASSIFIED             | `completeClassification` ou `confirmClassificationFromCamera` (foto obrigatória — caminho A) |
+| qualquer não-terminal  | INVALIDATED            | `invalidateSample`                                                                           |
+
+#### Q.4. Operações permitidas por status
+
+| Operação                             | RC  | CLASSIFIED | INVALIDATED |
+| ------------------------------------ | --- | ---------- | ----------- |
+| `requestQrPrint` (manual ou auto)    | ✅  | ✅         | ❌          |
+| `recordQrPrinted` (agente)           | ✅  | ✅         | ✅\*        |
+| `recordQrPrintFailed` (agente)       | ✅  | ✅         | ✅\*        |
+| `addSamplePhoto` (CLASSIFICATION)    | ✅  | ✅         | ❌          |
+| `completeClassification`             | ✅  | ❌         | ❌          |
+| `confirmClassificationFromCamera`    | ✅  | ✅ (recl.) | ❌          |
+| `updateClassification`               | ❌  | ✅         | ❌          |
+| `updateRegistration` (editar campos) | ✅  | ✅         | ❌          |
+| Vendas/perdas (`SALE_*`, `LOSS_*`)   | ✅  | ✅         | ❌          |
+| Envio físico                         | ✅  | ✅         | ❌          |
+| `invalidateSample`                   | ✅  | ✅         | ❌          |
+
+\* Se o sample foi invalidado **enquanto havia `PrintJob` PENDING**: agente pode reportar resultado (atualiza apenas o `PrintJob`, não muda nada no sample). Idempotência protege re-tentativas.
+
+#### Q.5. Eventos finais
+
+##### Q.5.a. Com mudança de status (3 eventos)
+
+- `REGISTRATION_CONFIRMED` (`null` → `RC`)
+- `CLASSIFICATION_COMPLETED` (`RC` → `CLASSIFIED`) — **dispara `requestQrPrint` automático**
+- `SAMPLE_INVALIDATED` (qualquer não-terminal → `INVALIDATED`)
+
+##### Q.5.b. Audit-only (`null/null`)
+
+- **Registro**: `REGISTRATION_UPDATED`, `PHOTO_ADDED`
+- **Classificação**: `CLASSIFICATION_UPDATED`, `CLASSIFICATION_EXTRACTION_COMPLETED`, `CLASSIFICATION_EXTRACTION_FAILED`
+- **Impressão**: `QR_PRINT_REQUESTED`, `QR_PRINTED`, `QR_PRINT_FAILED`
+- **Comercial**: `SALE_CREATED`, `SALE_UPDATED`, `SALE_CANCELLED`, `LOSS_RECORDED`, `LOSS_UPDATED`, `LOSS_CANCELLED`, `COMMERCIAL_STATUS_UPDATED`
+- **Operacional**: `PHYSICAL_SAMPLE_SENT`, `PHYSICAL_SAMPLE_SEND_UPDATED`, `PHYSICAL_SAMPLE_SEND_CANCELLED`, `REPORT_EXPORTED`
+
+##### Q.5.c. Cortados do enum
+
+- **Statuses (5)**: `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`
+- **Eventos (5)**: `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED`
+- **Outros**: `PrintAction` (enum inteiro), `IdempotencyScope.QR_REPRINT`
+
+#### Q.6. Mudanças no schema (migration single-shot)
+
+> Ordem importa por causa das dependências FK e da limitação Postgres pra `DROP` de enum value.
+
+1. **DELETE local** quaisquer rows em `sample` ou `sample_event` com valores legados (script, executar antes da migration). Prod já está zerado.
+2. **DROP coluna** `print_job.print_action`.
+3. **DROP constraint** `uq_print_job_sample_action_attempt`.
+4. **CREATE constraint** `uq_print_job_sample_attempt` em `(sample_id, attempt_number)`.
+5. **DROP enum** `PrintAction`.
+6. **CREATE enum novo** `SampleStatus_v2` com 3 valores (RC, CLASSIFIED, INVALIDATED).
+7. **ALTER TABLE** `sample` e `sample_event`: trocar `status`, `from_status`, `to_status` pra usar `SampleStatus_v2`.
+8. **DROP enum antigo** `SampleStatus`. **Renomear** `SampleStatus_v2` → `SampleStatus`.
+9. Repetir 6-8 para `SampleEventType` (3 → 19 valores ativos restantes).
+10. Repetir 6-8 para `IdempotencyScope` (sem `QR_REPRINT`).
+11. Atualizar `prisma/schema.prisma` refletindo o novo estado.
+
+#### Q.7. Trabalho a fazer
+
+##### Q.7.1. Backend — schema + migrations
+
+- [ ] Migration Prisma única (passos Q.6.1 a Q.6.10), **idempotente em local** (com `IF EXISTS` onde possível).
+- [ ] `prisma/schema.prisma`: enums `SampleStatus`, `SampleEventType`, `IdempotencyScope` reduzidos. Model `PrintJob` sem `printAction`. Constraint renomeada.
+
+##### Q.7.2. Backend — comandos
+
+- [ ] `createSample` (`sample-command-service.js`): emite **1 evento único** `REGISTRATION_CONFIRMED` (`null` → `RC`). Remove orquestração `receivePhysicalSample` + `startRegistration` + `confirmRegistration`.
+- [ ] **Deletar** os 3 comandos individuais acima (sem callers fora do orquestrador — confirmar antes de deletar).
+- [ ] `startClassification`: **deletar**.
+- [ ] `saveClassificationPartial`: **deletar**.
+- [ ] `completeClassification`: aceita partir de **RC apenas**. Emite `CLASSIFICATION_COMPLETED`. **Após emitir**, dispara `requestQrPrint` com `idempotencyKey` derivada (ex: `hash(input.idempotencyKey + ':print')`).
+- [ ] `confirmClassificationFromCamera`: aceita **RC** ou **CLASSIFIED** (reclassificação). Se RC → `completeClassification` (dispara print). Se CLASSIFIED → `updateClassification` (sem print).
+- [ ] `updateClassification`: **mantém** comportamento atual. **Não dispara** print.
+- [ ] `requestQrPrint`:
+  - aceita qualquer status **exceto** `INVALIDATED`
+  - cria `PrintJob(PENDING)` + emite `QR_PRINT_REQUESTED` audit (null/null)
+  - **sem** `expectedVersion` (não muda sample)
+  - **antes** de criar: executa lazy timeout — marca `PrintJob`s PENDING > 1min como FAILED com `error: 'timeout 1min'`
+  - **bloqueia (409)** se já houver PENDING válido pra essa amostra
+  - **remove** parâmetro `printAction` da assinatura
+- [ ] `requestQrReprint`: **deletar**.
+- [ ] `recordQrPrinted`:
+  - atualiza `PrintJob` pra SUCCESS, emite `QR_PRINTED` audit (null/null)
+  - **remove** o hack "se já passou de QR_PENDING_PRINT" (linha 1929-1947)
+  - **sem** `expectedVersion`
+- [ ] `recordQrPrintFailed`:
+  - atualiza `PrintJob` pra FAILED com `error`, emite `QR_PRINT_FAILED` audit (null/null)
+  - **sem** `expectedVersion`
+
+##### Q.7.3. Backend — query + agrupamentos
+
+- [ ] `sample-query-service.js`:
+  - `PRINT_PENDING_STATUSES`: **deletar** (substituído por query em `PrintJob.status='PENDING'`)
+  - `CLASSIFICATION_PENDING_STATUSES`: vira `['REGISTRATION_CONFIRMED']`
+  - `getNextPrintAttemptNumber(sampleId)`: **remove** parâmetro `printAction`
+  - `getSampleDetail`: **antes de retornar**, executa lazy timeout (D3) — expira PENDING > 1min
+  - `getNextInternalLotNumber`: já está numérico puro (Fase P) — sem mudança
+  - Outros pickers/agregações que tocam statuses cortados — atualizar
+- [ ] `assertSampleStatus`: revisar todos os call sites (`grep` por `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`).
+- [ ] `PHOTO_KINDS.CLASSIFICATION` (linha 22 do command service): de `[QR_PRINTED, CLASSIFICATION_IN_PROGRESS, CLASSIFIED]` pra `[REGISTRATION_CONFIRMED, CLASSIFIED]`.
+
+##### Q.7.4. Backend — schemas JSON (event contracts)
+
+- [ ] `src/events/event-contract-*.js`:
+  - **Drop** schemas dos eventos cortados (`SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED`).
+  - `REGISTRATION_CONFIRMED`: relax → `fromStatus: null`, `toStatus: 'REGISTRATION_CONFIRMED'`.
+  - `QR_PRINT_REQUESTED`, `QR_PRINTED`, `QR_PRINT_FAILED`: relax → `fromStatus: null`, `toStatus: null` (todos audit).
+
+##### Q.7.5. Frontend — detail page (Gargalo 4)
+
+> Revisão exaustiva. ~30 referências a `QR_PRINTED` / `QR_PENDING_PRINT` em `app/samples/[sampleId]/page.tsx`. **Sub-fase Q.r dentro da execução**.
+
+- [ ] CTA principal por status:
+  - **RC**: "Iniciar classificação" (leva pra `/camera` com `sampleId` fixado) + secundário "Imprimir etiqueta" (override manual).
+  - **CLASSIFIED**: "Reclassificar" + secundário "Reimprimir etiqueta".
+  - **INVALIDATED**: nada (terminal).
+- [ ] Botão "Salvar rascunho": **deletar**.
+- [ ] Painel "etiqueta" (status do PrintJob): mostra última impressão (data, status). Sem painel fixo de "imprimindo agora" (decisão Gargalo A).
+- [ ] Polling de `PrintJob` quando há PENDING ativo (ver Q.7.6).
+- [ ] Limpar todas as condicionais que comparam contra statuses cortados.
+- [ ] Sem código morto.
+
+##### Q.7.6. Frontend — modal de feedback do print (auto + manual)
+
+- [ ] Após `completeClassification` (auto), frontend redireciona pra detail page imediatamente.
+- [ ] Detail page detecta `PrintJob` PENDING ativo → polling a cada N segundos (curto, ex: 2-3s).
+- [ ] Quando `PrintJob` vira SUCCESS → modal "Etiqueta impressa com sucesso" + botão OK (auto-dismiss opcional).
+- [ ] Quando `PrintJob` vira FAILED → modal "Falha na impressão" + opções: "Tentar novamente" / "Cancelar".
+- [ ] Modal aparece **só uma vez** por job (depois de fechado, não reaparece sem novo print).
+- [ ] Mesmo modal cobre print manual (override em RC ou reimpressão em CLASSIFIED).
+
+##### Q.7.7. Frontend — dashboard
+
+- [ ] `app/dashboard/page.tsx`: card "Aguardando impressão" — **deletar inteiro** (decisão Q.1.c #20). Sem volta.
+- [ ] Card "Aguardando classificação": query continua, conta amostras em `RC`.
+
+##### Q.7.8. Frontend — api-client
+
+- [ ] `lib/api-client.ts`:
+  - `saveClassificationPartial`: **deletar**.
+  - `startClassification`: **deletar**.
+  - `requestQrReprint`: **deletar**.
+  - `requestQrPrint`: **remove** parâmetros `printAction` e `expectedVersion` da assinatura.
+
+##### Q.7.9. Tests
+
+- [ ] `tests/sample-backend-sprint1.integration.test.js`: revisar todos os testes que tocam fluxo de registro (3 → 1 evento) e classificação (sem IP).
+- [ ] Helpers a deletar:
+  - `moveSampleToQrPendingPrint`
+  - `moveSampleToQrPrinted`
+  - `moveSampleToClassificationInProgress` (se existir)
+- [ ] `moveSampleToRegistrationConfirmed`: simplificar (1 evento direto, sem `SAMPLE_RECEIVED` + `REGISTRATION_STARTED`).
+- [ ] `moveSampleToClassified`: passar pelo novo fluxo (RC → CLASSIFIED em 1 transição) e considerar que `completeClassification` dispara print (mock o agent ou ignora `PrintJob`).
+- [ ] Casos novos (mínimos):
+  - `createSample` emite **1** evento (`REGISTRATION_CONFIRMED`, null/RC).
+  - `requestQrPrint` aceita RC, CLASSIFIED; rejeita INVALIDATED (409).
+  - `requestQrPrint` cria `PrintJob`; se já há PENDING, retorna 409.
+  - Lazy timeout em `requestQrPrint`: PENDING > 1min vira FAILED antes da nova request criar.
+  - Lazy timeout em `getSampleDetail`: PENDING vencido aparece como FAILED no GET.
+  - `completeClassification` dispara `requestQrPrint` automaticamente; idempotency protege duplo-clique.
+  - `confirmClassificationFromCamera` em RC dispara print; em CLASSIFIED **não** dispara.
+  - `updateClassification` (reclassificação direta) **não** dispara print.
+
+##### Q.7.10. Print agent
+
+> **Sem mudança.** Endpoints `recordQrPrinted` / `recordQrPrintFailed` mantêm assinatura. Print agent continua fazendo polling de `PrintJob` PENDING (modelo atual). Mudança é interna ao backend.
+
+##### Q.7.11. Skills + docs
+
+- [ ] `.claude/skills/prisma/SKILL.md`: atualizar significados — Sample com 3 statuses, eventos audit-only, `PrintJob` sem `printAction`, novo lifecycle.
+- [ ] `docs/PLANO-amostras-refatoracao.md` (este doc): marcar Fase Q como executada ao fim.
+- [ ] Outros skills se relevante (verificar `tests`, `conventions`).
+
+#### Q.8. Commits previstos (atômicos, em ordem)
+
+| #   | Commit                                                                  | Escopo                                                                                                                                                                             |
+| --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `feat(samples): migration de schema — simplifica enums e PrintJob`      | Migration única (Q.6 inteira) + `prisma/schema.prisma` atualizado                                                                                                                  |
+| 2   | `feat(samples): registro emite 1 evento unico (REGISTRATION_CONFIRMED)` | Backend `createSample` simplificado, deletar `receivePhysicalSample`/`startRegistration`/`confirmRegistration`, schemas JSON, helpers de teste, testes                             |
+| 3   | `feat(samples): classificacao sem CLASSIFICATION_IN_PROGRESS`           | Remove `startClassification`, `saveClassificationPartial`, status IP. Adapta `completeClassification`, `updateClassification`, `confirmClassificationFromCamera`. Tests + frontend |
+| 4   | `feat(samples): impressao como acao pura (sem QR_*)`                    | Backend `requestQrPrint` unificado, `recordQrPrinted`/`recordQrPrintFailed` sem `expectedVersion`, lazy timeout 1min (D3). Sem `PrintAction`. Tests                                |
+| 5   | `feat(samples): impressao automatica apos completeClassification`       | `completeClassification` dispara `requestQrPrint` com `idempotencyKey` derivada. Tests                                                                                             |
+| 6   | `feat(samples): polling + modal de feedback de print no frontend`       | Detail page polling de `PrintJob` PENDING, modal sucesso/falha (auto + manual)                                                                                                     |
+| 7   | `feat(samples): dashboard sem card "aguardando impressao"`              | Frontend dashboard remove card                                                                                                                                                     |
+| 8   | `feat(samples): detail page revisada (sem QR_PRINTED/QR_PENDING_PRINT)` | Revisão exaustiva da detail page (Q.7.5 / Gargalo 4). CTAs por status, sem código morto                                                                                            |
+| 9   | `docs(samples): marca Fase Q no plano + skills atualizadas`             | Plan + skills + ajustes finais                                                                                                                                                     |
+
+(Quality gates rodam antes de **cada** commit: typecheck/lint/format/build/validate:schemas/test:contracts/test:unit/test:integration:db.)
+
+#### Q.9. Verificação end-to-end
+
+**Automatizada**: typecheck/lint/format/build/validate:schemas/test:contracts/test:unit/test:integration:db (≥142 testes verdes, +novos).
+
+**Manual local**:
+
+1. Criar amostra PF nova → modal `created` mostra lote → "Ir para amostra" → detail page de `RC`.
+2. Detail page de `RC`: CTA "Iniciar classificação" + CTA secundário "Imprimir etiqueta".
+3. Imprimir manualmente em `RC` → cria `PrintJob`, agente imprime, modal sucesso.
+4. Imprimir 2x rápido na mesma amostra → 2ª request retorna 409 (PrintJob PENDING ativo).
+5. Esperar > 1min com agente offline → próxima request marca o PENDING travado como FAILED e cria novo PrintJob.
+6. Refresh da detail page com PrintJob PENDING > 1min → status mostra FAILED (lazy timeout no GET).
+7. Clicar "Iniciar classificação" → vai pra `/camera` com `sampleId` fixado.
+8. Tirar foto da ficha correta → IA valida lote (caminho A) → completa classificação → redireciona pra detail page → polling detecta PrintJob → modal "Imprimindo etiqueta..." → modal sucesso.
+9. Tirar foto de ficha de outra amostra (lote diferente) → IA detecta divergência → avisa.
+10. Detail page de `CLASSIFIED`: CTA "Reclassificar" + CTA secundário "Reimprimir etiqueta".
+11. Reclassificar → `CLASSIFICATION_UPDATED` audit, **não** dispara nova impressão.
+12. Reimprimir manualmente em `CLASSIFIED` → cria novo `PrintJob`, agente imprime, modal sucesso.
+13. Invalidar amostra em qualquer estado → vira `INVALIDATED`, todas operações bloqueadas (incluindo print).
+14. Dashboard: card "Aguardando impressão" não aparece. Card "Aguardando classificação" conta apenas `RC`.
+
+#### Q.10. Open items (a fechar antes de codar / decidir durante)
+
+- [ ] **Auditoria de callers**: confirmar que **nenhum endpoint REST direto** chama os comandos individuais que vão sumir (`receivePhysicalSample`, `startRegistration`, `confirmRegistration`, `startClassification`, `saveClassificationPartial`, `requestQrReprint`). Se houver, remover endpoint junto.
+- [ ] **Tempo exato do polling** (2-3s? backoff exponencial até 10s? apenas constante?).
+- [ ] **Layout exato dos modals** (sucesso simples vs falha com opções) — pode ficar pra revisão visual durante implementação.
+- [ ] **`Sample.version` em audit-only events**: confirmar que `appendEvent` continua subindo `version` mesmo em null/null events (comportamento atual). Audit não é "transparente" pro optimistic lock — concorrência segue protegida.
+- [ ] **Print agent local**: confirmar formato de polling (intervalo, batching) — sem mudança esperada, mas conferir antes de mexer.
+- [ ] **Eventos legados no DB local**: rodar `SELECT COUNT(*) WHERE event_type IN (...)` antes de migrar pra confirmar que precisa do `DELETE` da Q.6.1.
 
 ### Fase C — Refatoração da classificação
 
-> A definir após Fase P (e talvez Fase Pb).
+> A definir após Fase Q.
 >
-> Escopo confirmado: **unificação 3 fichas → 1 ficha única** (layout já desenhado e aprovado em PDF — ver histórico).
+> **Escopo confirmado**: **unificação 3 fichas → 1 ficha única** (layout já desenhado e aprovado em PDF — ver §1.2.5 + histórico).
+>
+> **Pré-requisito**: Fase Q (lifecycle simplificado e classificação sem IP/SAVED_PARTIAL). Sem isso, refatorar 3 prompts → 1 fica acoplado a uma máquina de estados que vai mudar.
 
 ---
 
 ## 4. Histórico de decisões
 
-| Data       | Decisão                                                                | Contexto                                                                                                                                                                              |
-| ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | Unificar 3 fichas de classificação em ficha única                      | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado). |
-| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento           | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                 |
-| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")               | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                      |
-| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados              | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                    |
-| 2026-05-07 | Auto-create silencioso quando `units: []` explícito                    | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                               |
-| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`                    | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                     |
-| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco                   | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                              |
-| 2026-05-07 | Fase 0.1 separada da Fase R                                            | Defesa em profundidade da invariante "PF ACTIVE tem ≥1 unit ACTIVE" no domínio de cliente. Fase R passa a confiar 100% nessa invariante.                                              |
-| 2026-05-07 | `reactivateClient` auto-cria Fazenda 1 quando PF tem 0 units           | Mesma estratégia da Fase 0: garante invariante silenciosamente. UX não falha por dados pré-Fase 0.                                                                                    |
-| 2026-05-07 | Fase R não toca SampleMovementModal                                    | Movements (vendas/perdas) é fluxo separado, mexe em buyer (não owner). Fica como "Fase R+1" se virar dor real.                                                                        |
-| 2026-05-07 | Etiqueta QR mantém minimalista                                         | Hoje só mostra lote/safra/sacas + QR. Adicionar fazenda mexeria em layout físico térmico (Elgin L42 Pro). Vínculo fica no banco/UI por enquanto.                                      |
-| 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`              | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                          |
-| 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                    | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                        |
-| 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                          |
-| 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                           | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                    |
-| 2026-05-07 | Etiqueta sai do registro e vai pra pós-classificação (Fase P + Pb)     | QR no registro era pro classificador escanear, mas a classificação hoje identifica lote sozinha (foto+AI). Etiqueta vale mais com dados completos pós-classificação.                  |
-| 2026-05-07 | Lote vira numérico puro (sem `A-`)                                     | Mais simples de escrever na saca à mão, mais simples de comunicar. AI já tolera. Sem migration (L3.2 wipou prod).                                                                     |
-| 2026-05-07 | Step `created` no modal mostra lote em destaque                        | Funcionário precisa anotar o lote na saca. Step pós-criação dentro do modal força a atenção ao número antes de seguir.                                                                |
-| 2026-05-07 | Print pré-classificação fica como override manual                      | `requestQrPrint` continua aceitando REGISTRATION_CONFIRMED. Botão "Imprimir etiqueta" disponível como secundário na detail page.                                                      |
-| 2026-05-07 | `startClassification` aceita REGISTRATION_CONFIRMED                    | Sem essa mudança, samples ficariam presos sem caminho pra frente. Mantém também `QR_PRINTED` (compat com fluxo legado).                                                               |
+| Data       | Decisão                                                                  | Contexto                                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | Unificar 3 fichas de classificação em ficha única                        | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado).                                                                   |
+| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento             | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                                                                                   |
+| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")                 | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                                                                                        |
+| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados                | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                                                                                      |
+| 2026-05-07 | Auto-create silencioso quando `units: []` explícito                      | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                                                                                                 |
+| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`                      | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                                                                                       |
+| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco                     | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                                                                                                |
+| 2026-05-07 | Fase 0.1 separada da Fase R                                              | Defesa em profundidade da invariante "PF ACTIVE tem ≥1 unit ACTIVE" no domínio de cliente. Fase R passa a confiar 100% nessa invariante.                                                                                                                |
+| 2026-05-07 | `reactivateClient` auto-cria Fazenda 1 quando PF tem 0 units             | Mesma estratégia da Fase 0: garante invariante silenciosamente. UX não falha por dados pré-Fase 0.                                                                                                                                                      |
+| 2026-05-07 | Fase R não toca SampleMovementModal                                      | Movements (vendas/perdas) é fluxo separado, mexe em buyer (não owner). Fica como "Fase R+1" se virar dor real.                                                                                                                                          |
+| 2026-05-07 | Etiqueta QR mantém minimalista                                           | Hoje só mostra lote/safra/sacas + QR. Adicionar fazenda mexeria em layout físico térmico (Elgin L42 Pro). Vínculo fica no banco/UI por enquanto.                                                                                                        |
+| 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`                | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                                                                                            |
+| 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                      | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                                                                                          |
+| 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado   | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                                                                                            |
+| 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                             | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                                                                                      |
+| 2026-05-07 | Etiqueta sai do registro e vai pra pós-classificação (Fase P + Pb)       | QR no registro era pro classificador escanear, mas a classificação hoje identifica lote sozinha (foto+AI). Etiqueta vale mais com dados completos pós-classificação.                                                                                    |
+| 2026-05-07 | Lote vira numérico puro (sem `A-`)                                       | Mais simples de escrever na saca à mão, mais simples de comunicar. AI já tolera. Sem migration (L3.2 wipou prod).                                                                                                                                       |
+| 2026-05-07 | Step `created` no modal mostra lote em destaque                          | Funcionário precisa anotar o lote na saca. Step pós-criação dentro do modal força a atenção ao número antes de seguir.                                                                                                                                  |
+| 2026-05-07 | Print pré-classificação fica como override manual                        | `requestQrPrint` continua aceitando REGISTRATION_CONFIRMED. Botão "Imprimir etiqueta" disponível como secundário na detail page.                                                                                                                        |
+| 2026-05-07 | `startClassification` aceita REGISTRATION_CONFIRMED                      | Sem essa mudança, samples ficariam presos sem caminho pra frente. Mantém também `QR_PRINTED` (compat com fluxo legado).                                                                                                                                 |
+| 2026-05-07 | Lifecycle do Sample reduzido a 3 estados (RC → CLASSIFIED → INVALIDATED) | Statuses intermediários (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS, QR_PENDING_PRINT, QR_PRINTED, CLASSIFICATION_IN_PROGRESS) eram fantasmas — usuário nunca via, só inflagiam o lifecycle e o event store. Lifecycle limpo facilita raciocínio e UI. |
+| 2026-05-07 | Registro emite 1 evento único (`REGISTRATION_CONFIRMED`, null → RC)      | Os 3 eventos sequenciais (RECEIVED + STARTED + CONFIRMED) eram artefato técnico — todos com timestamps quase iguais e sem usuário pra interagir nos intermediários. Reduz ruído no event store.                                                         |
+| 2026-05-07 | `CLASSIFICATION_IN_PROGRESS` cortado                                     | Era cerimonial — câmera já pulava direto pra CLASSIFIED, classificação parcial nunca foi usada na operação. `startClassification` virava handshake sem valor.                                                                                           |
+| 2026-05-07 | `CLASSIFICATION_SAVED_PARTIAL` e botão "Salvar rascunho" removidos       | Usuário confirmou: "nunca vi uma classificação ser salva pela metade." Botão presente na UI mas sem uso real. Sem essa feature, todo `saveClassificationPartial` cai junto.                                                                             |
+| 2026-05-07 | Câmera usa apenas caminho A (com `sampleId` fixado + validação cruzada)  | Validação cruzada protege contra erro humano de "peguei a saca errada da estante". Caminho B (câmera direta sem pré-seleção) descartado: não há valor de velocidade que justifique perder a proteção.                                                   |
+| 2026-05-07 | Botão "Iniciar classificação" mantém — só pra direcionar pra câmera      | Sem `startClassification` o botão perde efeito de status, mas continua útil como atalho da detail page pra `/camera` com `sampleId` fixado. UX não regride.                                                                                             |
+| 2026-05-07 | Impressão é ação, não estado                                             | `PrintJob` (PENDING/SUCCESS/FAILED + attemptNumber + error + timestamps) já é fonte da verdade. Replicar em `SampleStatus` era redundância e gerava hacks (ex: `recordQrPrinted` linha 1929-1947 com lógica "se sample já passou...").                  |
+| 2026-05-07 | Comandos `requestQrPrint` e `requestQrReprint` unificados                | Nada no produto distingue 1ª de N-ésima impressão. `attemptNumber` + `createdAt` cobrem qualquer pergunta operacional. Reduz API surface e elimina enum `PrintAction`.                                                                                  |
+| 2026-05-07 | Enum `PrintAction` e coluna `print_action` removidos                     | Toda impressão é igual; distinção PRINT/REPRINT era artefato. Constraint vira `(sample_id, attempt_number)`.                                                                                                                                            |
+| 2026-05-07 | 1 `PrintJob` PENDING por amostra (lock)                                  | Evita criar 2 jobs paralelos pra mesma amostra com agente lento. Nova request → 409 enquanto há PENDING válido.                                                                                                                                         |
+| 2026-05-07 | Timeout de 1 minuto, lazy (D3 — leitura E escrita)                       | `PrintJob` travado libera automaticamente. Lazy evita worker/cron na infra enxuta. Aplica em `getSampleDetail` E em `requestQrPrint` — cobre path de leitura e escrita.                                                                                 |
+| 2026-05-07 | Imprimir em `INVALIDATED` bloqueado                                      | Único veto — amostra terminal não tem etiqueta nova.                                                                                                                                                                                                    |
+| 2026-05-07 | Print automático ao concluir classificação (Fase Pb absorvida na Fase Q) | Etiqueta vale mais com classificação fechada. Operador não precisa apertar "Imprimir" — sai sozinho. Reduz fricção do classificador, alinha com decisão "etiqueta sai do registro" da Fase P.                                                           |
+| 2026-05-07 | Reclassificação NÃO dispara nova impressão                               | Etiqueta minimalista (lote/safra/sacas/QR) — dados não mudam ao reclassificar. Operador reimprime manualmente se quiser (impressão é ação livre).                                                                                                       |
+| 2026-05-07 | Layout da etiqueta mantém minimalista (decisão A1)                       | Sem mexer no layout físico Elgin L42 Pro. Justifica decisão de reclassificação não reimprimir. Eventual enriquecimento fica pra fase futura quando justificar redesenhar a etiqueta térmica.                                                            |
+| 2026-05-07 | UX da impressão automática em background (decisão C2)                    | Classificação fecha imediato, redireciona pra detail page. Polling detecta resultado e dispara modal. Operador classifica em série sem travar 1min esperando agente.                                                                                    |
+| 2026-05-07 | Modal rápido de feedback (sucesso/falha)                                 | Aparece uma vez quando o print termina. Não fixa em área da detail page (decisão Gargalo A do usuário). Mantém UI limpa em estado padrão.                                                                                                               |
+| 2026-05-07 | Override manual de print mantém em qualquer status não-INVALIDATED       | Impressão é ação — operador pode imprimir mesmo antes de classificar (caso raro mas possível). Coerente com "1 PrintJob PENDING por amostra".                                                                                                           |
+| 2026-05-07 | Card "Aguardando impressão" no dashboard cortado definitivamente         | Com timeout 1min + print manual de baixa frequência, fila pendente é minúscula. Toast + detail page bastam. Sem volta na Fase Pb (que foi absorvida).                                                                                                   |
+| 2026-05-07 | Idempotency derivada — `completeClassification` → `requestQrPrint`       | Hash composto (`hash(input.idempotencyKey + ':print')`) evita duplo `PrintJob` quando frontend retenta `completeClassification`.                                                                                                                        |
+| 2026-05-07 | Migration single-shot                                                    | Prod zerado (L3.2 wipou). Sem dados pra preservar — single-shot é suficiente e atômico. Faseada seria overkill.                                                                                                                                         |
+| 2026-05-07 | Eventos legados cortados (sem manter no enum)                            | Sem dados antigos a preservar. Manter como legado seria ruído permanente no enum.                                                                                                                                                                       |
+| 2026-05-07 | Print agent local sem mudança                                            | Endpoints `recordQrPrinted` / `recordQrPrintFailed` mantêm assinatura. Mudança é interna ao backend (não atualiza mais status do sample, só `PrintJob` e evento audit).                                                                                 |
+| 2026-05-07 | `requestQrPrint` sem `expectedVersion`                                   | Não muda o sample → optimistic lock desnecessário. Simplifica chamadas internas e externas (auto após classificação não precisa propagar version).                                                                                                      |
+| 2026-05-07 | Polling simples no frontend, intervalo curto                             | Detecta resultado do print rapidamente sem WebSocket/SSE (overkill). Tempo exato a definir durante implementação (provável 2-3s, só ativo enquanto há PENDING).                                                                                         |
+| 2026-05-07 | Fase Pb (impressão pós-classificação) absorvida pela Fase Q              | Decisão de "imprimir auto após classificação" entra junto com a simplificação de lifecycle pra evitar refatoração em duas etapas com retrabalho.                                                                                                        |

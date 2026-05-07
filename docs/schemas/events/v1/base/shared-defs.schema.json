@@ -15,8 +15,6 @@
     "eventType": {
       "type": "string",
       "enum": [
-        "SAMPLE_RECEIVED",
-        "REGISTRATION_STARTED",
         "PHOTO_ADDED",
         "REGISTRATION_CONFIRMED",
         "QR_PRINT_REQUESTED",
@@ -45,8 +43,6 @@
     "sampleStatus": {
       "type": "string",
       "enum": [
-        "PHYSICAL_RECEIVED",
-        "REGISTRATION_IN_PROGRESS",
         "REGISTRATION_CONFIRMED",
         "QR_PENDING_PRINT",
         "QR_PRINTED",

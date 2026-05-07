@@ -13,7 +13,6 @@ const USER_ACTION_ROLES = [
   USER_ROLES.COMMERCIAL,
 ];
 const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
-const CREATE_SAMPLE_MAX_RETRIES = 12;
 const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other']);
 const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO',
@@ -1181,10 +1180,6 @@ function buildDeterministicUuid(seed) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-function isStatusConflict(error) {
-  return error instanceof HttpError && error.status === 409;
-}
-
 function requireExpectedVersion(expectedVersion) {
   if (
     typeof expectedVersion !== 'number' ||
@@ -1316,27 +1311,6 @@ function crossValidateExtraction(identificacao, sample) {
   };
 }
 
-function normalizeDeclaredFields(declared, options = {}) {
-  if (!declared || typeof declared !== 'object') {
-    throw new HttpError(422, 'declared fields are required');
-  }
-
-  const resolvedOwnerName =
-    typeof options.resolvedOwnerName === 'string' ? options.resolvedOwnerName.trim() : null;
-  const owner =
-    resolvedOwnerName && resolvedOwnerName.length > 0
-      ? resolvedOwnerName
-      : normalizeRequiredText(declared.owner, 'owner');
-
-  return {
-    owner,
-    sacks: declared.sacks,
-    harvest: declared.harvest,
-    originLot: declared.originLot,
-    location: normalizeOptionalText(declared.location, 'location', 30),
-  };
-}
-
 function isInternalLotNumberUniqueConflict(error) {
   if (error?.code === 'P2002') {
     const target = Array.isArray(error?.meta?.target) ? error.meta.target.join(',') : '';
@@ -1456,32 +1430,14 @@ export class SampleCommandService {
     return snapshots;
   }
 
-  async receiveSample(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'receive sample');
-
-    const sampleId = input.sampleId ?? randomUUID();
-    const event = buildEventEnvelope({
-      eventType: 'SAMPLE_RECEIVED',
-      sampleId,
-      payload: {
-        receivedChannel: input.receivedChannel ?? 'in_person',
-        notes: input.notes ?? null,
-      },
-      fromStatus: null,
-      toStatus: 'PHYSICAL_RECEIVED',
-      module: 'registration',
-      actorContext: actor,
-    });
-
-    return this.eventService.appendEvent(event);
-  }
-
-  // Fase P2: orquestrador renomeado de `createSampleAndPreparePrint` para
-  // `createSample`. O passo final de impressao (requestQrPrint) saiu do
-  // fluxo de criação; sample termina em REGISTRATION_CONFIRMED. A
-  // impressão de etiqueta passa a ocorrer pós-classificação (Fase Pb,
-  // futura) ou via override manual no detail page (`requestQrPrint`
-  // continua aceitando REGISTRATION_CONFIRMED como precondicao).
+  // Fase Q (2026-05-07): registro emite 1 evento único `REGISTRATION_CONFIRMED`
+  // (`fromStatus: null` → `toStatus: REGISTRATION_CONFIRMED`). A orquestração
+  // anterior de 3 passos (SAMPLE_RECEIVED + REGISTRATION_STARTED + REGISTRATION_CONFIRMED)
+  // foi colapsada — os statuses intermediários PHYSICAL_RECEIVED e
+  // REGISTRATION_IN_PROGRESS eram fantasmas (usuário nunca via). Idempotência
+  // por `sampleId` determinístico (hash de actorUserId + clientDraftId) +
+  // `idempotencyScope: REGISTRATION_CONFIRM`. Retry preserva apenas a geração
+  // de `internalLotNumber` (conflito de unicidade).
   async createSample(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'create sample');
 
@@ -1502,137 +1458,92 @@ export class SampleCommandService {
     };
     const receivedChannel = normalizeReceivedChannel(input.receivedChannel ?? 'in_person');
     const notes = normalizeOptionalText(input.notes, 'notes', 500);
-    const sampleId = buildDeterministicUuid(`${actor.actorUserId}:${clientDraftId}`);
+    // Em produção, `sampleId` é determinístico (hash de actor + clientDraftId) pra
+    // garantir idempotência por draft. Tests podem passar `input.sampleId` explícito
+    // pra fixar o UUID e simplificar asserts.
+    const sampleId =
+      normalizeNullableUuid(input.sampleId, 'sampleId') ??
+      buildDeterministicUuid(`${actor.actorUserId}:${clientDraftId}`);
 
-    let createdThisRequest = false;
-    let lastEvent = null;
-
-    for (let attempt = 0; attempt < CREATE_SAMPLE_MAX_RETRIES; attempt += 1) {
-      const sample = await this.queryService.findSampleOrNull(sampleId);
-
-      if (!sample) {
-        try {
-          const received = await this.receiveSample(
-            {
-              sampleId,
-              receivedChannel,
-              notes,
-            },
-            actor
-          );
-          createdThisRequest = true;
-          lastEvent = received.event;
-          continue;
-        } catch (error) {
-          if (isStatusConflict(error)) {
-            continue;
-          }
-          throw error;
-        }
+    // Idempotência: se o sample já existe (retry da mesma criação ou request
+    // duplicada por outra aba), retornamos sem emitir evento novo. Statuses
+    // legados (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS) não devem mais
+    // existir após a Fase Q, mas tratamos como erro se aparecerem (dados
+    // pré-Fase Q em local que não rodou o DELETE de migration).
+    const existing = await this.queryService.findSampleOrNull(sampleId);
+    if (existing) {
+      if (existing.status === 'INVALIDATED') {
+        throw new HttpError(409, `Sample ${existing.id} is INVALIDATED and cannot be recreated`);
       }
-
-      if (sample.status === 'INVALIDATED') {
-        throw new HttpError(409, `Sample ${sample.id} is INVALIDATED and cannot be recreated`);
-      }
-
-      if (sample.status === 'PHYSICAL_RECEIVED') {
-        try {
-          const started = await this.startRegistration(
-            {
-              sampleId,
-              expectedVersion: sample.version,
-              notes,
-            },
-            actor
-          );
-          lastEvent = started.event;
-          continue;
-        } catch (error) {
-          if (isStatusConflict(error)) {
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      if (sample.status === 'REGISTRATION_IN_PROGRESS') {
-        try {
-          const confirmed = await this.confirmRegistration(
-            {
-              sampleId,
-              expectedVersion: sample.version,
-              declared,
-              ownerClientId: ownerBinding?.ownerClientId ?? null,
-              ownerUnitId: ownerBinding?.ownerUnitId ?? null,
-              idempotencyKey: `draft:${clientDraftId}:registration-confirm`,
-            },
-            actor
-          );
-          lastEvent = confirmed.event;
-          continue;
-        } catch (error) {
-          if (isStatusConflict(error)) {
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      // Fase P2: REGISTRATION_CONFIRMED e o estado terminal do fluxo
-      // de criação. Estados pos-CONFIRMED (QR_*, CLASSIFICATION_*,
-      // CLASSIFIED) sao retornados como idempotent (caller pode estar
-      // chamando de novo apos sample ja avancado por outra ação).
       if (
-        sample.status === 'REGISTRATION_CONFIRMED' ||
-        sample.status === 'QR_PENDING_PRINT' ||
-        sample.status === 'QR_PRINTED' ||
-        sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
-        sample.status === 'CLASSIFIED'
+        existing.status === 'PHYSICAL_RECEIVED' ||
+        existing.status === 'REGISTRATION_IN_PROGRESS'
       ) {
-        return {
-          statusCode: createdThisRequest ? 201 : 200,
-          idempotent: !createdThisRequest,
-          event: lastEvent,
-          sample,
-          draft: {
-            clientDraftId,
-            sampleId: sample.id,
-          },
-        };
+        throw new HttpError(
+          409,
+          `Sample ${existing.id} is in legacy status ${existing.status} (pré-Fase Q) and cannot be reused. Run a local DB cleanup.`
+        );
       }
-
-      throw new HttpError(
-        409,
-        `Sample ${sample.id} is in unsupported status ${sample.status} for create flow`
-      );
+      return {
+        statusCode: 200,
+        idempotent: true,
+        event: null,
+        sample: existing,
+        draft: { clientDraftId, sampleId: existing.id },
+      };
     }
 
-    throw new HttpError(
-      409,
-      'Could not finalize sample creation flow due to concurrent updates. Retry request.'
-    );
-  }
+    // Geração do internalLotNumber: aceita override via input.sampleLotNumber
+    // (caso de testes/imports). Sem override, gera sequencial e retenta se
+    // bater no UNIQUE constraint (corrida com outra request).
+    const fixedLotNumber = input.sampleLotNumber ?? null;
+    const maxRetries = fixedLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
 
-  async startRegistration(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'start registration');
-    requireExpectedVersion(input.expectedVersion);
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      const sampleLotNumber =
+        fixedLotNumber ?? (await this.queryService.getNextInternalLotNumber());
 
-    const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['PHYSICAL_RECEIVED'], 'start registration');
+      const event = buildEventEnvelope({
+        eventType: 'REGISTRATION_CONFIRMED',
+        sampleId,
+        payload: {
+          sampleLotNumber,
+          declared,
+          ownerClientId: ownerBinding?.ownerClientId ?? null,
+          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
+          receivedChannel,
+          notes,
+        },
+        fromStatus: null,
+        toStatus: 'REGISTRATION_CONFIRMED',
+        module: 'registration',
+        actorContext: actor,
+        idempotencyScope: 'REGISTRATION_CONFIRM',
+        idempotencyKey: input.idempotencyKey ?? `draft:${clientDraftId}:registration-confirm`,
+      });
 
-    const event = buildEventEnvelope({
-      eventType: 'REGISTRATION_STARTED',
-      sampleId: sample.id,
-      payload: {
-        notes: input.notes ?? null,
-      },
-      fromStatus: 'PHYSICAL_RECEIVED',
-      toStatus: 'REGISTRATION_IN_PROGRESS',
-      module: 'registration',
-      actorContext: actor,
-    });
+      try {
+        const result = await this.eventService.appendEvent(event);
+        // Re-busca o sample via queryService pra ter o shape do read model
+        // (declared.{owner,sacks,...}, latestClassification, etc.) em vez do
+        // record cru do Prisma (declaredOwner, declaredSacks, ...).
+        const mappedSample = await this.queryService.requireSample(sampleId);
+        return {
+          statusCode: result.idempotent ? 200 : 201,
+          idempotent: Boolean(result.idempotent),
+          event: result.event,
+          sample: mappedSample,
+          draft: { clientDraftId, sampleId },
+        };
+      } catch (error) {
+        if (!fixedLotNumber && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
+          continue;
+        }
+        throw error;
+      }
+    }
 
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+    throw new HttpError(409, 'Could not generate a unique sample lot number');
   }
 
   async addSamplePhoto(input, actorContext) {
@@ -1767,68 +1678,6 @@ export class SampleCommandService {
       },
       actorContext
     );
-  }
-
-  async confirmRegistration(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'confirm registration');
-    requireExpectedVersion(input.expectedVersion);
-
-    const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['REGISTRATION_IN_PROGRESS'], 'confirm registration');
-
-    const ownerBinding = await resolveStructuredOwnerForWrite({
-      sample,
-      inputOwnerClientId: normalizeNullableUuid(input.ownerClientId, 'ownerClientId'),
-      inputOwnerUnitId: normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId'),
-      clientService: this.clientService,
-      mode: 'confirm',
-    });
-    const declared = normalizeDeclaredFields(input.declared, {
-      resolvedOwnerName: ownerBinding?.displayName ?? null,
-    });
-    const existingLotNumber = sample.internalLotNumber;
-    const lotNumberFixed = Boolean(existingLotNumber || input.sampleLotNumber);
-    const maxRetries = lotNumberFixed ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
-      const sampleLotNumber =
-        existingLotNumber ??
-        input.sampleLotNumber ??
-        (await this.queryService.getNextInternalLotNumber());
-
-      const event = buildEventEnvelope({
-        eventType: 'REGISTRATION_CONFIRMED',
-        sampleId: sample.id,
-        payload: {
-          sampleLotNumber,
-          declared,
-          ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
-        },
-        fromStatus: 'REGISTRATION_IN_PROGRESS',
-        toStatus: 'REGISTRATION_CONFIRMED',
-        module: 'registration',
-        actorContext: actor,
-        idempotencyScope: 'REGISTRATION_CONFIRM',
-        idempotencyKey: input.idempotencyKey ?? randomUUID(),
-      });
-
-      try {
-        const result = await this.eventService.appendEvent(event, {
-          expectedVersion: input.expectedVersion,
-        });
-
-        return result;
-      } catch (error) {
-        if (!lotNumberFixed && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw new HttpError(409, 'Could not generate a unique sample lot number');
   }
 
   async requestQrPrint(input, actorContext) {

@@ -1139,32 +1139,45 @@ if (!databaseUrl || !databaseReachable) {
         status,
         declaredOwner: 'Test Owner',
         declaredSacks: 50,
+        declaredHarvest: '25/26',
         soldSacks,
         lostSacks,
         lastEventSequence: status === 'INVALIDATED' ? 0 : 1,
       },
     });
-    // Trigger append-only de sample_event exige SAMPLE_RECEIVED como primeiro
-    // evento. Para samples ja INVALIDATED no setup de tests, nao podemos
-    // inserir eventos posteriormente (trigger rejeita "cannot append events
-    // to INVALIDATED"). Pulamos o seed de evento — esses samples sao usados
-    // apenas como "ja terminais" no cascade, nao recebem novos eventos.
+    // Trigger append-only de sample_event exige REGISTRATION_CONFIRMED como
+    // primeiro evento (Fase Q). Para samples ja INVALIDATED no setup de tests,
+    // nao podemos inserir eventos posteriormente (trigger rejeita "cannot
+    // append events to INVALIDATED"). Pulamos o seed de evento — esses samples
+    // sao usados apenas como "ja terminais" no cascade, nao recebem novos
+    // eventos.
     if (status !== 'INVALIDATED') {
       await prisma.sampleEvent.create({
         data: {
           eventId: randomUUID(),
           sampleId: id,
           sequenceNumber: 1,
-          eventType: 'SAMPLE_RECEIVED',
+          eventType: 'REGISTRATION_CONFIRMED',
           schemaVersion: 1,
           occurredAt: new Date(),
           actorType: 'USER',
           actorUserId: actor.actorUserId,
           source: 'WEB',
-          payload: { receivedChannel: 'in_person' },
+          payload: {
+            sampleLotNumber: id.slice(0, 8),
+            declared: {
+              owner: 'Test Owner',
+              sacks: 50,
+              harvest: '25/26',
+            },
+            receivedChannel: 'in_person',
+          },
           requestId: randomUUID(),
-          toStatus: 'PHYSICAL_RECEIVED',
+          fromStatus: null,
+          toStatus: 'REGISTRATION_CONFIRMED',
           metadataModule: 'REGISTRATION',
+          idempotencyScope: 'REGISTRATION_CONFIRM',
+          idempotencyKey: `seed-${id}`,
         },
       });
     }

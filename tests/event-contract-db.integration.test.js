@@ -8,8 +8,6 @@ import { EventContractDbService } from '../src/events/event-contract-db-service.
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import {
   buildEvent,
-  sampleReceivedEvent,
-  registrationStartedEvent,
   registrationConfirmedEvent,
   photoAddedEvent,
   qrPrintRequestedEvent,
@@ -56,52 +54,34 @@ if (!databaseUrl || !databaseReachable) {
   test('persists events and updates sample snapshot/version in Postgres', async () => {
     const sampleId = randomUUID();
 
-    const received = await service.appendEvent(sampleReceivedEvent(sampleId));
-    assert.equal(received.statusCode, 201);
-    assert.equal(received.event.sequenceNumber, 1);
-
-    const started = await service.appendEvent(registrationStartedEvent(sampleId), {
-      expectedVersion: 1,
-    });
-    assert.equal(started.statusCode, 201);
-    assert.equal(started.event.sequenceNumber, 2);
-
-    const confirmed = await service.appendEvent(registrationConfirmedEvent(sampleId), {
-      expectedVersion: 2,
-    });
+    const confirmed = await service.appendEvent(registrationConfirmedEvent(sampleId));
     assert.equal(confirmed.statusCode, 201);
-    assert.equal(confirmed.event.sequenceNumber, 3);
+    assert.equal(confirmed.event.sequenceNumber, 1);
 
     const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sample.status, 'REGISTRATION_CONFIRMED');
-    assert.equal(sample.version, 3);
-    assert.equal(sample.lastEventSequence, 3);
+    assert.equal(sample.version, 1);
+    assert.equal(sample.lastEventSequence, 1);
     assert.equal(sample.internalLotNumber, '5444');
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
-    assert.equal(count, 3);
+    assert.equal(count, 1);
   });
 
   test('idempotency returns existing event and avoids duplication in Postgres', async () => {
     const sampleId = randomUUID();
-
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-
     const idempotencyKey = randomUUID();
 
     const first = await service.appendEvent(
       registrationConfirmedEvent(sampleId, {
         idempotencyKey,
-      }),
-      { expectedVersion: 2 }
+      })
     );
 
     const second = await service.appendEvent(
       registrationConfirmedEvent(sampleId, {
         idempotencyKey,
-      }),
-      { expectedVersion: 999 }
+      })
     );
 
     assert.equal(first.statusCode, 201);
@@ -109,13 +89,12 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(second.event.eventId, first.event.eventId);
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
-    assert.equal(count, 3);
+    assert.equal(count, 1);
   });
 
   test('projects structured owner binding into sample snapshot', async () => {
     const sampleId = randomUUID();
     const clientId = randomUUID();
-    const registrationId = randomUUID();
 
     await prisma.client.create({
       data: {
@@ -139,8 +118,6 @@ if (!databaseUrl || !databaseReachable) {
       },
     });
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
     await service.appendEvent(
       registrationConfirmedEvent(sampleId, {
         payload: {
@@ -154,8 +131,7 @@ if (!databaseUrl || !databaseReachable) {
             originLot: 'LOTE-ORIGEM-001',
           },
         },
-      }),
-      { expectedVersion: 2 }
+      })
     );
 
     const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
@@ -167,9 +143,7 @@ if (!databaseUrl || !databaseReachable) {
   test('print attempt uniqueness returns existing event by sample/action/attempt', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     const first = await service.appendEvent(
       qrPrintRequestedEvent(sampleId, {
@@ -179,7 +153,7 @@ if (!databaseUrl || !databaseReachable) {
           printerId: 'printer-main',
         },
       }),
-      { expectedVersion: 3 }
+      { expectedVersion: 1 }
     );
 
     const second = await service.appendEvent(
@@ -198,15 +172,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(second.event.eventId, first.event.eventId);
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
-    assert.equal(count, 4);
+    assert.equal(count, 2);
   });
 
   test('materializes print_job lifecycle from QR events', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     const requested = await service.appendEvent(
       qrPrintRequestedEvent(sampleId, {
@@ -216,7 +188,7 @@ if (!databaseUrl || !databaseReachable) {
           printerId: 'printer-main',
         },
       }),
-      { expectedVersion: 3 }
+      { expectedVersion: 1 }
     );
 
     const failed = await service.appendEvent(
@@ -249,15 +221,15 @@ if (!databaseUrl || !databaseReachable) {
 
   test('returns 409 on version conflict and keeps database state consistent', async () => {
     const sampleId = randomUUID();
-    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     await assert.rejects(
-      () => service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 0 }),
+      () => service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 0 }),
       (error) => error instanceof HttpError && error.status === 409
     );
 
     const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
-    assert.equal(sample.status, 'PHYSICAL_RECEIVED');
+    assert.equal(sample.status, 'REGISTRATION_CONFIRMED');
     assert.equal(sample.version, 1);
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
@@ -266,11 +238,11 @@ if (!databaseUrl || !databaseReachable) {
 
   test('rolls back transaction when failing after sample mutation', async () => {
     const sampleId = randomUUID();
-    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     await assert.rejects(
       () =>
-        service.appendEvent(registrationStartedEvent(sampleId), {
+        service.appendEvent(qrPrintRequestedEvent(sampleId), {
           expectedVersion: 1,
           simulateFailureAfterSampleMutation: true,
         }),
@@ -278,7 +250,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
-    assert.equal(sample.status, 'PHYSICAL_RECEIVED');
+    assert.equal(sample.status, 'REGISTRATION_CONFIRMED');
     assert.equal(sample.version, 1);
     assert.equal(sample.lastEventSequence, 1);
 
@@ -288,7 +260,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('database enforces append-only on sample_event', async () => {
     const sampleId = randomUUID();
-    const created = await service.appendEvent(sampleReceivedEvent(sampleId));
+    const created = await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     await assert.rejects(async () => {
       await prisma.$executeRawUnsafe(
@@ -299,11 +271,13 @@ if (!databaseUrl || !databaseReachable) {
 
   test('does not allow new events after INVALIDATED status', async () => {
     const sampleId = randomUUID();
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(sampleInvalidatedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+    await service.appendEvent(sampleInvalidatedEvent(sampleId, 'REGISTRATION_CONFIRMED'), {
+      expectedVersion: 1,
+    });
 
     await assert.rejects(
-      () => service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 2 }),
+      () => service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 2 }),
       (error) => error instanceof HttpError && error.status === 409
     );
 
@@ -318,11 +292,9 @@ if (!databaseUrl || !databaseReachable) {
   test('persists REPORT_EXPORTED without mutating sample version', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
 
     const classificationPhotoId = randomUUID();
     await service.appendEvent(
@@ -348,7 +320,7 @@ if (!databaseUrl || !databaseReachable) {
         payload: {},
         module: 'classification',
       }),
-      { expectedVersion: 5 }
+      { expectedVersion: 3 }
     );
 
     await service.appendEvent(
@@ -364,7 +336,7 @@ if (!databaseUrl || !databaseReachable) {
         },
         module: 'classification',
       }),
-      { expectedVersion: 6 }
+      { expectedVersion: 4 }
     );
 
     const beforeExport = await prisma.sample.findUnique({ where: { id: sampleId } });
@@ -393,11 +365,9 @@ if (!databaseUrl || !databaseReachable) {
   test('persists QR_PRINTED REPRINT without mutating sample version/status', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
     await service.appendEvent(
       qrReprintRequestedEvent(sampleId, {
         payload: {
@@ -433,10 +403,8 @@ if (!databaseUrl || !databaseReachable) {
   test('persists QR_PRINTED REPRINT with transition when sample is QR_PENDING_PRINT', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
     await service.appendEvent(
       qrReprintRequestedEvent(sampleId, {
         payload: {
@@ -474,7 +442,7 @@ if (!databaseUrl || !databaseReachable) {
   test('persists COMMERCIAL_STATUS_UPDATED and mutates commercial status/version', async () => {
     const sampleId = randomUUID();
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
     const beforeUpdate = await prisma.sample.findUnique({ where: { id: sampleId } });
 
     const updated = await service.appendEvent(
@@ -532,11 +500,9 @@ if (!databaseUrl || !databaseReachable) {
       },
     });
 
-    await service.appendEvent(sampleReceivedEvent(sampleId));
-    await service.appendEvent(registrationStartedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(registrationConfirmedEvent(sampleId), { expectedVersion: 2 });
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 3 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 4 });
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
+    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
     await service.appendEvent(
       buildEvent({
         eventType: 'CLASSIFICATION_STARTED',
@@ -546,7 +512,7 @@ if (!databaseUrl || !databaseReachable) {
         payload: {},
         module: 'classification',
       }),
-      { expectedVersion: 5 }
+      { expectedVersion: 3 }
     );
     await service.appendEvent(
       photoAddedEvent(sampleId, {
@@ -574,7 +540,7 @@ if (!databaseUrl || !databaseReachable) {
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
       }),
-      { expectedVersion: 6 }
+      { expectedVersion: 4 }
     );
 
     const saleCreated = await service.appendEvent(
@@ -587,7 +553,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 7 }
+      { expectedVersion: 5 }
     );
     const saleMovement = await prisma.sampleMovement.findUnique({
       where: { id: saleCreated.event.payload.movementId },
@@ -635,7 +601,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 8 }
+      { expectedVersion: 6 }
     );
 
     const updatedSaleMovement = await prisma.sampleMovement.findUnique({
@@ -652,7 +618,7 @@ if (!databaseUrl || !databaseReachable) {
           commercialStatus: 'PARTIALLY_SOLD',
         },
       }),
-      { expectedVersion: 9 }
+      { expectedVersion: 7 }
     );
     const sampleAfterLoss = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sampleAfterLoss.lostSacks, 3);
@@ -664,7 +630,7 @@ if (!databaseUrl || !databaseReachable) {
           movementId: lossCreated.event.payload.movementId,
         },
       }),
-      { expectedVersion: 10 }
+      { expectedVersion: 8 }
     );
 
     const cancelledLossMovement = await prisma.sampleMovement.findUnique({

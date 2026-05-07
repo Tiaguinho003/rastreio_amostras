@@ -48,39 +48,12 @@ export function buildEvent({
   return event;
 }
 
-export function sampleReceivedEvent(sampleId) {
-  return buildEvent({
-    eventType: 'SAMPLE_RECEIVED',
-    sampleId,
-    fromStatus: null,
-    toStatus: 'PHYSICAL_RECEIVED',
-    payload: {
-      receivedChannel: 'in_person',
-      notes: null,
-    },
-    module: 'registration',
-  });
-}
-
-export function registrationStartedEvent(sampleId) {
-  return buildEvent({
-    eventType: 'REGISTRATION_STARTED',
-    sampleId,
-    fromStatus: 'PHYSICAL_RECEIVED',
-    toStatus: 'REGISTRATION_IN_PROGRESS',
-    payload: {
-      notes: null,
-    },
-    module: 'registration',
-  });
-}
-
 export function registrationConfirmedEvent(sampleId, overrides = {}) {
   const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;
   return buildEvent({
     eventType: 'REGISTRATION_CONFIRMED',
     sampleId,
-    fromStatus: 'REGISTRATION_IN_PROGRESS',
+    fromStatus: null,
     toStatus: 'REGISTRATION_CONFIRMED',
     idempotencyScope: 'REGISTRATION_CONFIRM',
     idempotencyKey: randomUUID(),
@@ -92,6 +65,7 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
         harvest: '24/25',
         originLot: 'LOTE-ORIGEM-001',
       },
+      receivedChannel: 'in_person',
       ...payloadOverrides,
     },
     module: 'registration',
@@ -139,7 +113,11 @@ export function qrPrintRequestedEvent(sampleId, overrides = {}) {
   });
 }
 
-export function sampleInvalidatedEvent(sampleId, fromStatus = 'PHYSICAL_RECEIVED', overrides = {}) {
+export function sampleInvalidatedEvent(
+  sampleId,
+  fromStatus = 'REGISTRATION_CONFIRMED',
+  overrides = {}
+) {
   return buildEvent({
     eventType: 'SAMPLE_INVALIDATED',
     sampleId,

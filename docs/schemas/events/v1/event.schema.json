@@ -3,8 +3,6 @@
   "$id": "https://amostras-safras.local/schemas/events/v1/event.schema.json",
   "title": "Event Contract v1 - Aggregate Schema",
   "oneOf": [
-    { "$ref": "./events/sample-received.event.schema.json" },
-    { "$ref": "./events/registration-started.event.schema.json" },
     { "$ref": "./events/photo-added.event.schema.json" },
     { "$ref": "./events/registration-confirmed.event.schema.json" },
     { "$ref": "./events/qr-print-requested.event.schema.json" },

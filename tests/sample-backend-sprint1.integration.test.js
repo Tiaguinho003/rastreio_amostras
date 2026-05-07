@@ -139,28 +139,16 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: `Proprietario Sprint ${sampleId.slice(0, 8)} LTDA`,
     });
 
-    await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
-
-    await commandService.startRegistration(
+    await commandService.createSample(
       {
         sampleId,
-        expectedVersion: 1,
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.confirmRegistration(
-      {
-        sampleId,
-        expectedVersion: 2,
+        clientDraftId: `draft-${sampleId.slice(0, 8)}`,
         ownerClientId: ownerClient.client.id,
-        declared: {
-          owner: ownerClient.client.displayName,
-          sacks: 11,
-          harvest: '25/26',
-          originLot: `ORIG-${sampleId.slice(0, 8)}`,
-        },
+        owner: ownerClient.client.displayName,
+        sacks: 11,
+        harvest: '25/26',
+        originLot: `ORIG-${sampleId.slice(0, 8)}`,
+        receivedChannel: 'in_person',
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -173,7 +161,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.requestQrPrint(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         attemptNumber: 1,
         printerId: 'printer-main',
         idempotencyKey: randomUUID(),
@@ -188,7 +176,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.recordQrPrinted(
       {
         sampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         printAction: 'PRINT',
         attemptNumber: 1,
         printerId: 'printer-main',
@@ -228,35 +216,16 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Fazenda Sem Foto',
     });
 
-    await commandService.receiveSample(
+    const confirmed = await commandService.createSample(
       {
         sampleId,
-        receivedChannel: 'in_person',
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.startRegistration(
-      {
-        sampleId,
-        expectedVersion: 1,
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    const confirmed = await commandService.confirmRegistration(
-      {
-        sampleId,
-        expectedVersion: 2,
+        clientDraftId: 'draft-no-photo',
         ownerClientId: ownerClient.client.id,
-        declared: {
-          owner: ownerClient.client.displayName,
-          sacks: 7,
-          harvest: '25/26',
-          originLot: 'ORIG-NO-PHOTO',
-        },
+        owner: ownerClient.client.displayName,
+        sacks: 7,
+        harvest: '25/26',
+        originLot: 'ORIG-NO-PHOTO',
+        receivedChannel: 'in_person',
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -266,33 +235,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
   });
 
-  test('Fase R: confirmRegistration PF sem ownerUnitId rejeita 422 OWNER_UNIT_REQUIRED_FOR_PF', async () => {
+  test('Fase R: createSample PF sem ownerUnitId rejeita 422 OWNER_UNIT_REQUIRED_FOR_PF', async () => {
     const sampleId = randomUUID();
     const pfOwner = await createPfSellerClient();
 
-    await commandService.receiveSample(
-      { sampleId, receivedChannel: 'in_person', notes: null },
-      actorClassifier
-    );
-    await commandService.startRegistration(
-      { sampleId, expectedVersion: 1, notes: null },
-      actorClassifier
-    );
-
     await assert.rejects(
       () =>
-        commandService.confirmRegistration(
+        commandService.createSample(
           {
             sampleId,
-            expectedVersion: 2,
+            clientDraftId: 'draft-pf-no-unit',
             ownerClientId: pfOwner.client.id,
             // ownerUnitId omitido — backend deve rejeitar
-            declared: {
-              owner: pfOwner.client.displayName,
-              sacks: 5,
-              harvest: '25/26',
-              originLot: 'ORIG-PF-NO-UNIT',
-            },
+            owner: pfOwner.client.displayName,
+            sacks: 5,
+            harvest: '25/26',
+            originLot: 'ORIG-PF-NO-UNIT',
+            receivedChannel: 'in_person',
             idempotencyKey: randomUUID(),
           },
           actorClassifier
@@ -304,32 +263,22 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('Fase R: confirmRegistration PF com ownerUnitId valido -> 201', async () => {
+  test('Fase R: createSample PF com ownerUnitId valido -> 201', async () => {
     const sampleId = randomUUID();
     const pfOwner = await createPfSellerClient();
     const fazenda1Id = pfOwner.client.units[0].id;
 
-    await commandService.receiveSample(
-      { sampleId, receivedChannel: 'in_person', notes: null },
-      actorClassifier
-    );
-    await commandService.startRegistration(
-      { sampleId, expectedVersion: 1, notes: null },
-      actorClassifier
-    );
-
-    const confirmed = await commandService.confirmRegistration(
+    const confirmed = await commandService.createSample(
       {
         sampleId,
-        expectedVersion: 2,
+        clientDraftId: 'draft-pf-ok',
         ownerClientId: pfOwner.client.id,
         ownerUnitId: fazenda1Id,
-        declared: {
-          owner: pfOwner.client.displayName,
-          sacks: 8,
-          harvest: '25/26',
-          originLot: 'ORIG-PF-OK',
-        },
+        owner: pfOwner.client.displayName,
+        sacks: 8,
+        harvest: '25/26',
+        originLot: 'ORIG-PF-OK',
+        receivedChannel: 'in_person',
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -345,34 +294,24 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(persisted.ownerUnitId, fazenda1Id);
   });
 
-  test('Fase R: confirmRegistration PJ sem ownerUnitId aceita -> 201 (regressao)', async () => {
+  test('Fase R: createSample PJ sem ownerUnitId aceita -> 201 (regressao)', async () => {
     const sampleId = randomUUID();
     const pjOwner = await createSellerClient({
       legalName: 'PJ Sem Unit Esperada',
       tradeName: 'PJ Sem Unit Esperada',
     });
 
-    await commandService.receiveSample(
-      { sampleId, receivedChannel: 'in_person', notes: null },
-      actorClassifier
-    );
-    await commandService.startRegistration(
-      { sampleId, expectedVersion: 1, notes: null },
-      actorClassifier
-    );
-
-    const confirmed = await commandService.confirmRegistration(
+    const confirmed = await commandService.createSample(
       {
         sampleId,
-        expectedVersion: 2,
+        clientDraftId: 'draft-pj-ok',
         ownerClientId: pjOwner.client.id,
         // ownerUnitId omitido propositalmente — PJ nao tem unit
-        declared: {
-          owner: pjOwner.client.displayName,
-          sacks: 9,
-          harvest: '25/26',
-          originLot: 'ORIG-PJ-OK',
-        },
+        owner: pjOwner.client.displayName,
+        sacks: 9,
+        harvest: '25/26',
+        originLot: 'ORIG-PJ-OK',
+        receivedChannel: 'in_person',
         idempotencyKey: randomUUID(),
       },
       actorClassifier
@@ -394,47 +333,27 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Fazenda Teste',
     });
 
-    const received = await commandService.receiveSample(
+    const created = await commandService.createSample(
       {
         sampleId,
+        clientDraftId: 'draft-phase1-phase2',
+        ownerClientId: ownerClient.client.id,
+        owner: ownerClient.client.displayName,
+        sacks: 11,
+        harvest: '25/26',
+        originLot: 'ORIG-999',
         receivedChannel: 'in_person',
         notes: 'chegou no balcao',
-      },
-      actorClassifier
-    );
-    assert.equal(received.statusCode, 201);
-
-    const started = await commandService.startRegistration(
-      {
-        sampleId,
-        expectedVersion: 1,
-        notes: null,
-      },
-      actorClassifier
-    );
-    assert.equal(started.statusCode, 201);
-
-    const confirmed = await commandService.confirmRegistration(
-      {
-        sampleId,
-        expectedVersion: 2,
-        ownerClientId: ownerClient.client.id,
-        declared: {
-          owner: ownerClient.client.displayName,
-          sacks: 11,
-          harvest: '25/26',
-          originLot: 'ORIG-999',
-        },
         idempotencyKey: randomUUID(),
       },
       actorClassifier
     );
-    assert.equal(confirmed.statusCode, 201);
+    assert.equal(created.statusCode, 201);
 
     const printRequested = await commandService.requestQrPrint(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         attemptNumber: 1,
         printerId: 'printer-main',
         idempotencyKey: randomUUID(),
@@ -446,7 +365,7 @@ if (!databaseUrl || !databaseReachable) {
     const printed = await commandService.recordQrPrinted(
       {
         sampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         printAction: 'PRINT',
         attemptNumber: 1,
         printerId: 'printer-main',
@@ -458,7 +377,7 @@ if (!databaseUrl || !databaseReachable) {
     const classificationStarted = await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },
@@ -480,7 +399,7 @@ if (!databaseUrl || !databaseReachable) {
     const partial = await commandService.saveClassificationPartial(
       {
         sampleId,
-        expectedVersion: 6,
+        expectedVersion: 4,
         snapshotPartial: {
           padrao: 'PADRAO-1',
           bebida: 'DURA',
@@ -494,7 +413,7 @@ if (!databaseUrl || !databaseReachable) {
     const completed = await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 7,
+        expectedVersion: 5,
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
@@ -520,10 +439,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
-    assert.equal(detail.sample.version, 8);
+    assert.equal(detail.sample.version, 6);
     assert.match(detail.sample.internalLotNumber ?? '', /^\d+$/);
     assert.equal(detail.attachments.length, 1);
-    assert.equal(detail.events.length, 9);
+    assert.equal(detail.events.length, 7);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
@@ -545,35 +464,6 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(dashboard.classificationInProgress.total, 0);
   });
 
-  test('tracks samples in registration in progress via pending counts', async () => {
-    const inProgressSampleId = randomUUID();
-
-    await commandService.receiveSample(
-      {
-        sampleId: inProgressSampleId,
-        receivedChannel: 'in_person',
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.startRegistration(
-      {
-        sampleId: inProgressSampleId,
-        expectedVersion: 1,
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.pendingCounts.REGISTRATION_IN_PROGRESS, 1);
-    const oldestStatusBySampleId = new Map(
-      dashboard.oldestPending.map((sample) => [sample.id, sample.status])
-    );
-    assert.equal(oldestStatusBySampleId.get(inProgressSampleId), 'REGISTRATION_IN_PROGRESS');
-  });
-
   test('requires classification photo before completing classification', async () => {
     const sampleId = randomUUID();
     await moveSampleToQrPrinted(sampleId);
@@ -581,7 +471,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },
@@ -593,7 +483,7 @@ if (!databaseUrl || !databaseReachable) {
         commandService.completeClassification(
           {
             sampleId,
-            expectedVersion: 6,
+            expectedVersion: 4,
             classificationData: {
               padrao: 'SEM-FOTO',
             },
@@ -616,7 +506,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },
@@ -662,7 +552,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },
@@ -672,7 +562,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.saveClassificationPartial(
       {
         sampleId,
-        expectedVersion: 6,
+        expectedVersion: 4,
         snapshotPartial: {
           padrao: 'PADRAO-BASE',
           bebida: 'DURA',
@@ -685,7 +575,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.saveClassificationPartial(
       {
         sampleId,
-        expectedVersion: 7,
+        expectedVersion: 5,
         snapshotPartial: {
           aspecto: 'BOM',
         },
@@ -696,7 +586,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFICATION_IN_PROGRESS');
-    assert.equal(detail.sample.version, 8);
+    assert.equal(detail.sample.version, 6);
     assert.equal(detail.sample.classificationDraft.completionPercent, 60);
     assert.equal(detail.sample.classificationDraft.snapshot?.padrao, 'PADRAO-BASE');
     assert.equal(detail.sample.classificationDraft.snapshot?.bebida, 'DURA');
@@ -713,7 +603,7 @@ if (!databaseUrl || !databaseReachable) {
     const classificationStarted = await commandService.startClassification(
       {
         sampleId: inProgressSampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },
@@ -801,8 +691,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('allows invalidation for authenticated operational roles and keeps INVALIDATED terminal', async () => {
     const sampleId = randomUUID();
-
-    await commandService.receiveSample({ sampleId, receivedChannel: 'in_person' }, actorClassifier);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const invalidatedByClassifier = await commandService.invalidateSample(
       {
@@ -1053,7 +942,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.startClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationId: null,
         notes: null,
       },

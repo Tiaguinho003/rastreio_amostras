@@ -188,14 +188,6 @@ export function createBackendApiV1({
         };
       }),
 
-    receiveSample: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const result = await commandService.receiveSample(body, actor);
-        return { status: result.statusCode, body: result };
-      }),
-
     createSample: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
@@ -212,23 +204,6 @@ export function createBackendApiV1({
             originLot: body.originLot,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
-
-    startRegistration: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-        const result = await commandService.startRegistration(
-          {
-            sampleId,
-            notes: body.notes ?? null,
-            expectedVersion: body.expectedVersion,
           },
           actor
         );
@@ -257,28 +232,6 @@ export function createBackendApiV1({
             mimeType: body.mimeType ?? null,
             originalFileName: body.originalFileName ?? null,
             replaceExisting: body.replaceExisting,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
-
-    confirmRegistration: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        const result = await commandService.confirmRegistration(
-          {
-            sampleId,
-            expectedVersion: body.expectedVersion,
-            sampleLotNumber: body.sampleLotNumber,
-            declared: body.declared,
-            ownerClientId: body.ownerClientId,
-            ownerUnitId: body.ownerUnitId,
-            idempotencyKey: body.idempotencyKey,
           },
           actor
         );

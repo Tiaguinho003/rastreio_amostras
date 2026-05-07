@@ -3,8 +3,6 @@ import { HttpError } from '../contracts/errors.js';
 import { isPrismaUniqueViolation } from './prisma-event-store.js';
 
 const MUTATING_EVENT_TYPES = new Set([
-  'SAMPLE_RECEIVED',
-  'REGISTRATION_STARTED',
   'REGISTRATION_CONFIRMED',
   'QR_PRINT_REQUESTED',
   'CLASSIFICATION_STARTED',
@@ -256,6 +254,29 @@ function buildSampleCreateData(event) {
     lastEventSequence: event.sequenceNumber,
   };
 
+  // Fase Q: REGISTRATION_CONFIRMED é o evento criador único do sample. Os
+  // campos `declared.*`, `internalLotNumber` e `ownerClientId/UnitId` vêm
+  // direto do payload (antes vinham via update do REGISTRATION_CONFIRMED
+  // sobre um sample já criado por SAMPLE_RECEIVED).
+  if (event.eventType === 'REGISTRATION_CONFIRMED') {
+    data.internalLotNumber = event.payload.sampleLotNumber;
+    if (hasOwn(event.payload, 'ownerClientId')) {
+      data.ownerClientId = event.payload.ownerClientId ?? null;
+    }
+    if (hasOwn(event.payload, 'ownerUnitId')) {
+      data.ownerUnitId = event.payload.ownerUnitId ?? null;
+    }
+    data.declaredOwner = event.payload.declared.owner;
+    data.declaredSacks = event.payload.declared.sacks;
+    data.declaredHarvest = event.payload.declared.harvest;
+    if (hasOwn(event.payload.declared, 'originLot')) {
+      data.declaredOriginLot = event.payload.declared.originLot;
+    }
+    if (hasOwn(event.payload.declared, 'location')) {
+      data.declaredLocation = event.payload.declared.location;
+    }
+  }
+
   return data;
 }
 
@@ -425,7 +446,7 @@ export class EventContractDbService {
         }
 
         const sample = await tx.getSampleForUpdate(eventDraft.sampleId);
-        if (!sample && eventDraft.eventType !== 'SAMPLE_RECEIVED') {
+        if (!sample && eventDraft.eventType !== 'REGISTRATION_CONFIRMED') {
           throw new HttpError(404, `Sample ${eventDraft.sampleId} does not exist`);
         }
 
@@ -436,7 +457,11 @@ export class EventContractDbService {
           );
         }
 
-        if (sample && eventDraft.eventType === 'SAMPLE_RECEIVED') {
+        if (
+          sample &&
+          eventDraft.eventType === 'REGISTRATION_CONFIRMED' &&
+          eventDraft.fromStatus === null
+        ) {
           throw new HttpError(409, `Sample ${eventDraft.sampleId} already exists`);
         }
 

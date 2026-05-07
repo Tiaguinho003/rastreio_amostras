@@ -27,8 +27,15 @@
     "ownerUnitId": {
       "type": ["string", "null"],
       "minLength": 1
+    },
+    "receivedChannel": {
+      "type": "string",
+      "enum": ["in_person", "courier", "driver", "other"]
+    },
+    "notes": {
+      "type": ["string", "null"]
     }
   },
-  "required": ["sampleLotNumber", "declared"],
+  "required": ["sampleLotNumber", "declared", "receivedChannel"],
   "additionalProperties": false
 }

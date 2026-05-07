@@ -31,7 +31,18 @@ if (!databaseUrl || !databaseReachable) {
 
   let eventSequence = 0;
 
-  async function insertEvent({ sampleId, sequenceNumber, eventType, occurredAt, payload, module }) {
+  async function insertEvent({
+    sampleId,
+    sequenceNumber,
+    eventType,
+    occurredAt,
+    payload,
+    module,
+    fromStatus = null,
+    toStatus = null,
+    idempotencyScope = null,
+    idempotencyKey = null,
+  }) {
     eventSequence += 1;
     await prisma.sampleEvent.create({
       data: {
@@ -47,6 +58,10 @@ if (!databaseUrl || !databaseReachable) {
         payload,
         requestId: `req-${eventSequence}`,
         metadataModule: module,
+        fromStatus,
+        toStatus,
+        idempotencyScope,
+        idempotencyKey,
       },
     });
   }
@@ -69,28 +84,28 @@ if (!databaseUrl || !databaseReachable) {
     const sampleId = randomUUID();
     // Cria com CLASSIFIED para permitir append de eventos (trigger bloqueia INVALIDATED).
     await prisma.sample.create({ data: { id: sampleId, status: 'CLASSIFIED' } });
-    // Trigger requer primeiro evento = SAMPLE_RECEIVED com sequence_number=1.
+    // Fase Q: trigger requer primeiro evento = REGISTRATION_CONFIRMED com fromStatus=null.
     await insertEvent({
       sampleId,
       sequenceNumber: 1,
-      eventType: 'SAMPLE_RECEIVED',
-      occurredAt: new Date(registeredAt.getTime() - 60_000),
-      payload: { receivedChannel: 'in_person', notes: null },
-      module: 'REGISTRATION',
-    });
-    await insertEvent({
-      sampleId,
-      sequenceNumber: 2,
       eventType: 'REGISTRATION_CONFIRMED',
       occurredAt: registeredAt,
-      payload: {},
+      payload: {
+        sampleLotNumber: sampleId.slice(0, 8),
+        declared: { owner: 'Test', sacks: 10, harvest: '25/26' },
+        receivedChannel: 'in_person',
+      },
       module: 'REGISTRATION',
+      fromStatus: null,
+      toStatus: 'REGISTRATION_CONFIRMED',
+      idempotencyScope: 'REGISTRATION_CONFIRM',
+      idempotencyKey: `seed-${sampleId}`,
     });
     // Trigger requer CLASSIFICATION_PHOTO attachment existente referenciado no payload.
     const photoId = await insertClassificationPhoto(sampleId);
     await insertEvent({
       sampleId,
-      sequenceNumber: 3,
+      sequenceNumber: 2,
       eventType: 'CLASSIFICATION_COMPLETED',
       occurredAt: classifiedAt,
       payload: { classificationPhotoId: photoId },
@@ -110,18 +125,18 @@ if (!databaseUrl || !databaseReachable) {
     await insertEvent({
       sampleId,
       sequenceNumber: 1,
-      eventType: 'SAMPLE_RECEIVED',
-      occurredAt: new Date(registeredAt.getTime() - 60_000),
-      payload: { receivedChannel: 'in_person', notes: null },
-      module: 'REGISTRATION',
-    });
-    await insertEvent({
-      sampleId,
-      sequenceNumber: 2,
       eventType: 'REGISTRATION_CONFIRMED',
       occurredAt: registeredAt,
-      payload: {},
+      payload: {
+        sampleLotNumber: sampleId.slice(0, 8),
+        declared: { owner: 'Test', sacks: 10, harvest: '25/26' },
+        receivedChannel: 'in_person',
+      },
       module: 'REGISTRATION',
+      fromStatus: null,
+      toStatus: 'REGISTRATION_CONFIRMED',
+      idempotencyScope: 'REGISTRATION_CONFIRM',
+      idempotencyKey: `seed-${sampleId}`,
     });
     return sampleId;
   }

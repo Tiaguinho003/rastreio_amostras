@@ -2,8 +2,6 @@ import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
 
 const MUTATING_EVENT_TYPES = new Set([
-  'SAMPLE_RECEIVED',
-  'REGISTRATION_STARTED',
   'REGISTRATION_CONFIRMED',
   'QR_PRINT_REQUESTED',
   'CLASSIFICATION_STARTED',
@@ -100,8 +98,12 @@ export class EventContractService {
       const hasStatusTransition = event.fromStatus !== null || event.toStatus !== null;
       const mutatesSample = isMutatingEvent(event);
 
-      if (!sample && event.eventType !== 'SAMPLE_RECEIVED') {
+      if (!sample && event.eventType !== 'REGISTRATION_CONFIRMED') {
         throw new HttpError(404, `Sample ${event.sampleId} does not exist`);
+      }
+
+      if (sample && event.eventType === 'REGISTRATION_CONFIRMED' && event.fromStatus === null) {
+        throw new HttpError(409, `Sample ${event.sampleId} already exists`);
       }
 
       if (sample && mutatesSample) {

@@ -10,7 +10,7 @@
         "eventType": { "const": "REGISTRATION_CONFIRMED" },
         "schemaVersion": { "const": 1 },
         "payload": { "$ref": "../payloads/registration-confirmed.payload.schema.json" },
-        "fromStatus": { "const": "REGISTRATION_IN_PROGRESS" },
+        "fromStatus": { "type": "null" },
         "toStatus": { "const": "REGISTRATION_CONFIRMED" },
         "idempotencyScope": { "const": "REGISTRATION_CONFIRM" },
         "idempotencyKey": { "type": "string", "minLength": 1 }
