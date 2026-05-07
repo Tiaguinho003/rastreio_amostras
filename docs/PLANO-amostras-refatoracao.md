@@ -22,7 +22,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [ ] Fase R — Refatoração do registro
   - [ ] Fase C — Refatoração da classificação (inclui unificação 3→1)
 - [ ] **Etapa 4** — Execução
-  - [ ] Fase 0 (próxima)
+  - [x] Fase 0 (executada — commit `44fd144`)
   - [ ] Fase R
   - [ ] Fase C
 
@@ -312,38 +312,50 @@ Mudança no cadastro de **cliente** (não da amostra) que destrava o próximo pa
 
 **Backend** (núcleo)
 
-- [ ] `src/clients/client-support.js`: criar `ensureDefaultPfUnit(personType, units)` que retorna a lista com `{ name: 'Fazenda 1' }` se PF e lista vazia, ou a lista original caso contrário.
-- [ ] `src/clients/client-service.js` (`createClient`, ~linha 975): chamar o helper logo após `normalizeCreateClientInput`.
-- [ ] (opcional) Constante `DEFAULT_PF_UNIT_NAME = 'Fazenda 1'` exportada do mesmo arquivo do helper.
+- [x] `src/clients/client-support.js`: criar `ensureDefaultPfUnit(personType, units)` que retorna a lista com `{ name: 'Fazenda 1' }` se PF e lista vazia, ou a lista original caso contrário.
+- [x] `src/clients/client-service.js` (`createClient`, ~linha 975): chamar o helper logo após `normalizeCreateClientInput`.
+- [x] Constante `DEFAULT_PF_UNIT_NAME = 'Fazenda 1'` exportada do mesmo arquivo do helper.
 
 **Schema/DB**
 
-- [ ] `prisma/schema.prisma:360-362`: adicionar linha no comentário do bloco PF/PJ documentando a invariante.
-- [ ] **Sem migration de dados** (confirmado: zero PF órfão em produção).
+- [x] `prisma/schema.prisma:360-362`: adicionar linha no comentário do bloco PF/PJ documentando a invariante.
+- [x] **Sem migration de dados** (confirmado: zero PF órfão em produção).
 
-**Testes** (`tests/client-backend.integration.test.js`)
+**Testes**
 
-- [ ] Atualizar casos existentes que criam PF sem units esperando `units.length === 0`.
-- [ ] Novo: PF criado sem units recebe Fazenda 1 (`code=1`, `status=ACTIVE`, demais campos `NULL`).
-- [ ] Novo: PF criado com `units: []` explícito também recebe Fazenda 1 (auto-create silencioso).
-- [ ] Novo: PF criado com units explícitas mantém só as fornecidas (sem duplicação).
-- [ ] Novo: audit event `CLIENT_UNIT_CREATED` é emitido pra Fazenda 1 auto-criada.
-- [ ] (talvez) Adicionar `tests/client-support.test.js`: testes unitários puros do `ensureDefaultPfUnit`.
+- [x] Atualizar casos existentes que criam PF sem units esperando `units.length === 0` (Q-01 + #5 Q-02 idempotency).
+- [x] Novo (integration): PF criado sem units recebe Fazenda 1 (`code=1`, `status=ACTIVE`, demais campos `NULL`).
+- [x] Novo (integration): PF criado com `units: []` explícito também recebe Fazenda 1.
+- [x] Novo (integration): PF criado com units explícitas mantém só as fornecidas (sem duplicação).
+- [x] Novo (integration): PJ continua sem unit (auto-create não se aplica).
+- [x] Novo (integration): audit event `CLIENT_UNIT_CREATED` é emitido pra Fazenda 1 auto-criada.
+- [x] Novo (unit puro em `tests/client-support.test.js`): 4 casos de `ensureDefaultPfUnit`.
 
 **UI** (`components/clients/ClientQuickCreateModal.tsx`)
 
-- [ ] Sem alteração obrigatória — modal hoje já não envia `units` ao criar PF, então o auto-create dispara naturalmente.
-- [ ] (opcional) Mensagem de sucesso pode mencionar "Fazenda 1 criada como placeholder — complete os dados depois".
+- [x] Sem alteração — modal já não envia `units` ao criar PF, auto-create dispara naturalmente no backend.
+- [ ] (opcional, futuro) Mensagem de sucesso pode mencionar "Fazenda 1 criada como placeholder — complete os dados depois".
 
 **Documentação**
 
-- [ ] Atualizar `docs/PLANO-amostras-refatoracao.md` (este doc).
-- [ ] Rever skills `.claude/skills/prisma` e qualquer skill que mencione regras de Client/ClientUnit (`skill-maintenance`).
+- [x] Atualizar `docs/PLANO-amostras-refatoracao.md` (este doc).
+- [x] Rever skill `.claude/skills/prisma/SKILL.md` (atualizada com a invariante).
 
-**Quality gates antes do commit**
+**Quality gates** (todos verdes)
 
-- `npm run typecheck && npm run lint && npm run format:check && npm run build`
-- `npm run test:unit && npm run test:integration:db`
+- [x] `npm run typecheck` ✅
+- [x] `npm run lint` ✅
+- [x] `npm run format:check` ✅
+- [x] `npm run build` ✅
+- [x] `npm run validate:schemas` ✅
+- [x] `npm run test:contracts` ✅ (22/22)
+- [x] `npm run test:unit` ✅ (171/171, inclui 4 novos do helper)
+- [x] `npm run test:integration:db` ✅ (134/134, inclui 5 novos)
+
+**Commit**
+
+- [x] `44fd144 feat(clients): PF auto-cria Fazenda 1 placeholder ao criar cliente`
+- [x] `4b718c5 docs(samples): plano vivo de refatoracao do registro+classificacao`
 
 ### Fase R — Refatoração do registro de amostra
 
