@@ -20929,9 +20929,14 @@ button:disabled {
     overflow: visible;
   }
 
-  /* Header: fundo transparente, titulo escuro, maior */
+  /* Header: alinha o padrao de localizacao do titulo com /samples e
+     /clients — `1.5rem 0 1.5rem` deixa o titulo visualmente centralizado
+     entre o topo da pagina e o conteudo abaixo (mesmo comentario que
+     vive em .samples-page-v2-header e .clients-v2-header). Antes era
+     `1rem 300px 0.75rem` (assimetrico + 300px lateral), o que
+     desalinhava do resto do app. */
   .nsv2-header {
-    padding: 1rem 300px 0.75rem;
+    padding: 1.5rem 0 1.5rem;
     background: transparent;
   }
 
