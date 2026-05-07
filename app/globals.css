@@ -22718,8 +22718,22 @@ button:disabled {
 }
 
 .sdv-completeness-badge__icon {
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
   line-height: 1;
+}
+
+/* 14.4.B: SVG do IncompleteIcon dentro do badge — dimensiona conforme o variant. */
+.sdv-completeness-badge__svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.sdv-completeness-badge--icon-only .sdv-completeness-badge__svg {
+  width: 16px;
+  height: 16px;
 }
 
 .sdv-completeness-badge__text {
