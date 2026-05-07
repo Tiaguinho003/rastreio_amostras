@@ -12,7 +12,7 @@ import type {
   ClientResponse,
   ClientsListResponse,
   CommandResponse,
-  CreateSampleAndPreparePrintResponse,
+  CreateSampleResponse,
   ExtractAndPrepareResponse,
   ResolveSampleByLotResponse,
   DashboardPendingResponse,
@@ -873,7 +873,8 @@ export function receiveSample(
   });
 }
 
-export function createSampleAndPreparePrint(
+// Fase P2: renomeada de `createSampleAndPreparePrint` (sem etapa de impressão).
+export function createSample(
   session: SessionData,
   data: {
     clientDraftId: string;
@@ -886,10 +887,9 @@ export function createSampleAndPreparePrint(
     location?: string | null;
     receivedChannel?: 'in_person' | 'courier' | 'driver' | 'other';
     notes?: string | null;
-    printerId?: string | null;
   }
 ) {
-  return request<CreateSampleAndPreparePrintResponse>('/samples/create', {
+  return request<CreateSampleResponse>('/samples/create', {
     method: 'POST',
     session,
     body: {
@@ -903,7 +903,6 @@ export function createSampleAndPreparePrint(
       location: data.location ?? null,
       receivedChannel: data.receivedChannel ?? 'in_person',
       notes: data.notes ?? null,
-      printerId: data.printerId ?? null,
     },
   });
 }

@@ -196,12 +196,12 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    createSampleAndPreparePrint: (input) =>
+    createSample: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
         const body = readRequestBody(input);
 
-        const result = await commandService.createSampleAndPreparePrint(
+        const result = await commandService.createSample(
           {
             clientDraftId: body.clientDraftId,
             owner: body.owner,
@@ -212,7 +212,6 @@ export function createBackendApiV1({
             originLot: body.originLot,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
-            printerId: body.printerId ?? null,
           },
           actor
         );

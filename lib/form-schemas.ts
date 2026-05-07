@@ -66,7 +66,6 @@ export const createSampleDraftSchema = z.object({
     .nullable(),
   receivedChannel: z.enum(['in_person', 'courier', 'driver', 'other']).default('in_person'),
   notes: z.string().trim().max(500).optional().nullable(),
-  printerId: z.string().trim().max(120).optional().nullable(),
 });
 
 export const updateProfileSchema = z.object({

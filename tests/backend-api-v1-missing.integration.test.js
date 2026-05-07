@@ -611,7 +611,7 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('POST /samples/create requires owner client and prepares QR print', async () => {
-    const missingOwnerClient = await api.createSampleAndPreparePrint(
+    const missingOwnerClient = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -634,7 +634,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Fazenda Nova Era',
     });
 
-    const created = await api.createSampleAndPreparePrint(
+    const created = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -644,28 +644,23 @@ if (!databaseUrl || !databaseReachable) {
           originLot: 'ORIG-SEM-FOTO',
           receivedChannel: 'in_person',
           notes: 'criacao sem foto',
-          printerId: 'printer-main',
         },
       })
     );
 
     assert.equal(created.status, 201);
-    assert.equal(created.body.sample.status, 'QR_PENDING_PRINT');
+    // Fase P2: registro termina em REGISTRATION_CONFIRMED (sem etapa de
+    // impressao). Response shape limpa (sem qr/print).
+    assert.equal(created.body.sample.status, 'REGISTRATION_CONFIRMED');
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(
-      created.body.qr.value,
-      created.body.sample.internalLotNumber ?? created.body.sample.id
-    );
-    assert.equal(created.body.print?.printAction, 'PRINT');
-    assert.equal(created.body.print?.attemptNumber, 1);
-    assert.equal(created.body.print?.status, 'PENDING');
-    assert.equal(created.body.print?.printerId, 'printer-main');
+    assert.equal(created.body.qr, undefined);
+    assert.equal(created.body.print, undefined);
 
     const events = await queryService.listSampleEvents(created.body.sample.id, { limit: 20 });
     assert.deepEqual(
       events.map((event) => event.eventType),
-      ['SAMPLE_RECEIVED', 'REGISTRATION_STARTED', 'REGISTRATION_CONFIRMED', 'QR_PRINT_REQUESTED']
+      ['SAMPLE_RECEIVED', 'REGISTRATION_STARTED', 'REGISTRATION_CONFIRMED']
     );
   });
 
@@ -683,7 +678,7 @@ if (!databaseUrl || !databaseReachable) {
       postalCode: '37062-447',
     });
 
-    const created = await api.createSampleAndPreparePrint(
+    const created = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -789,7 +784,7 @@ if (!databaseUrl || !databaseReachable) {
       actorAdmin
     );
 
-    const inactiveResult = await api.createSampleAndPreparePrint(
+    const inactiveResult = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -811,7 +806,7 @@ if (!databaseUrl || !databaseReachable) {
       isSeller: false,
     });
 
-    const buyerOnlyResult = await api.createSampleAndPreparePrint(
+    const buyerOnlyResult = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -836,7 +831,7 @@ if (!databaseUrl || !databaseReachable) {
       cnpj: generateValidCnpj(106),
     });
 
-    const created = await api.createSampleAndPreparePrint(
+    const created = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -883,7 +878,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Outro Proprietario Idempotente',
     });
 
-    const first = await api.createSampleAndPreparePrint(
+    const first = await api.createSample(
       buildInput({
         body: {
           clientDraftId,
@@ -896,7 +891,7 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    const second = await api.createSampleAndPreparePrint(
+    const second = await api.createSample(
       buildInput({
         body: {
           clientDraftId,
@@ -940,7 +935,7 @@ if (!databaseUrl || !databaseReachable) {
         ownerClientIds.set(ownerName, ownerClientId);
       }
 
-      const created = await api.createSampleAndPreparePrint(
+      const created = await api.createSample(
         buildInput({
           body: {
             clientDraftId: randomUUID(),
@@ -1082,7 +1077,7 @@ if (!databaseUrl || !databaseReachable) {
     });
 
     for (let index = 0; index < 40; index += 1) {
-      await api.createSampleAndPreparePrint(
+      await api.createSample(
         buildInput({
           body: {
             clientDraftId: randomUUID(),
@@ -1190,7 +1185,7 @@ if (!databaseUrl || !databaseReachable) {
       tradeName: 'Fazenda Print Pendente',
     });
 
-    const printPending = await api.createSampleAndPreparePrint(
+    const printPending = await api.createSample(
       buildInput({
         body: {
           clientDraftId: randomUUID(),
@@ -1203,6 +1198,16 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
     assert.equal(printPending.status, 201);
+    // Fase P2: createSample para em REGISTRATION_CONFIRMED. Pra testar
+    // o filtro PRINT_PENDING (que inclui QR_PENDING_PRINT) explicitamente,
+    // disparo o requestQrPrint manualmente — esse fluxo continua valido
+    // como override (decisao da Fase P).
+    await api.requestQrPrint(
+      buildInput({
+        params: { sampleId: printPending.body.sample.id },
+        body: { expectedVersion: printPending.body.sample.version, attemptNumber: 1 },
+      })
+    );
 
     const classificationPendingSampleId = randomUUID();
     await moveSampleToQrPrinted(classificationPendingSampleId);

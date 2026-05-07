@@ -1476,7 +1476,13 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
-  async createSampleAndPreparePrint(input, actorContext) {
+  // Fase P2: orquestrador renomeado de `createSampleAndPreparePrint` para
+  // `createSample`. O passo final de impressao (requestQrPrint) saiu do
+  // fluxo de criação; sample termina em REGISTRATION_CONFIRMED. A
+  // impressão de etiqueta passa a ocorrer pós-classificação (Fase Pb,
+  // futura) ou via override manual no detail page (`requestQrPrint`
+  // continua aceitando REGISTRATION_CONFIRMED como precondicao).
+  async createSample(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'create sample');
 
     const clientDraftId = normalizeRequiredText(input.clientDraftId, 'clientDraftId');
@@ -1496,12 +1502,10 @@ export class SampleCommandService {
     };
     const receivedChannel = normalizeReceivedChannel(input.receivedChannel ?? 'in_person');
     const notes = normalizeOptionalText(input.notes, 'notes', 500);
-    const printerId = normalizeOptionalText(input.printerId, 'printerId', 120);
     const sampleId = buildDeterministicUuid(`${actor.actorUserId}:${clientDraftId}`);
 
     let createdThisRequest = false;
     let lastEvent = null;
-    let activePrintAttempt = null;
 
     for (let attempt = 0; attempt < CREATE_SAMPLE_MAX_RETRIES; attempt += 1) {
       const sample = await this.queryService.findSampleOrNull(sampleId);
@@ -1574,46 +1578,17 @@ export class SampleCommandService {
         }
       }
 
-      if (sample.status === 'REGISTRATION_CONFIRMED') {
-        const nextAttempt = await this.queryService.getNextPrintAttemptNumber(sampleId, 'PRINT');
-        try {
-          const requested = await this.requestQrPrint(
-            {
-              sampleId,
-              expectedVersion: sample.version,
-              attemptNumber: nextAttempt,
-              printerId,
-              idempotencyKey: `draft:${clientDraftId}:qr-print:${nextAttempt}`,
-            },
-            actor
-          );
-          lastEvent = requested.event;
-          activePrintAttempt = {
-            printAction: 'PRINT',
-            attemptNumber: nextAttempt,
-            printerId,
-            status: 'PENDING',
-          };
-          continue;
-        } catch (error) {
-          if (isStatusConflict(error)) {
-            continue;
-          }
-          throw error;
-        }
-      }
-
+      // Fase P2: REGISTRATION_CONFIRMED e o estado terminal do fluxo
+      // de criação. Estados pos-CONFIRMED (QR_*, CLASSIFICATION_*,
+      // CLASSIFIED) sao retornados como idempotent (caller pode estar
+      // chamando de novo apos sample ja avancado por outra ação).
       if (
+        sample.status === 'REGISTRATION_CONFIRMED' ||
         sample.status === 'QR_PENDING_PRINT' ||
         sample.status === 'QR_PRINTED' ||
         sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
         sample.status === 'CLASSIFIED'
       ) {
-        const pendingPrintAttempt =
-          sample.status === 'QR_PENDING_PRINT'
-            ? (activePrintAttempt ?? (await this.queryService.findPendingPrintJobOrNull(sample.id)))
-            : null;
-
         return {
           statusCode: createdThisRequest ? 201 : 200,
           idempotent: !createdThisRequest,
@@ -1623,12 +1598,6 @@ export class SampleCommandService {
             clientDraftId,
             sampleId: sample.id,
           },
-          qr: {
-            value: sample.internalLotNumber ?? sample.id,
-            internalLotNumber: sample.internalLotNumber,
-            status: sample.status,
-          },
-          print: pendingPrintAttempt,
         };
       }
 
@@ -2017,7 +1986,9 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['QR_PRINTED'], 'start classification');
+    // Fase P2: aceita REGISTRATION_CONFIRMED (novo fluxo, sem etiqueta no
+    // registro) e QR_PRINTED (compat com fluxo legacy ou print manual).
+    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PRINTED'], 'start classification');
 
     const event = buildEventEnvelope({
       eventType: 'CLASSIFICATION_STARTED',

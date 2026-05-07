@@ -707,7 +707,11 @@ export interface ResolveSampleByLotResponse {
   };
 }
 
-export interface CreateSampleAndPreparePrintResponse {
+// Fase P2: renomeada de `CreateSampleAndPreparePrintResponse`. Sem mais
+// `qr` e `print` no response — registro termina em REGISTRATION_CONFIRMED
+// e impressão de etiqueta acontece em outro momento (fluxo de reprint
+// manual ou Fase Pb pós-classificação).
+export interface CreateSampleResponse {
   statusCode: number;
   idempotent: boolean;
   event: SampleEvent | null;
@@ -716,17 +720,6 @@ export interface CreateSampleAndPreparePrintResponse {
     clientDraftId: string;
     sampleId: string;
   };
-  qr: {
-    value: string;
-    internalLotNumber: string | null;
-    status: SampleStatus;
-  };
-  print: {
-    printAction: PrintAction;
-    attemptNumber: number;
-    printerId: string | null;
-    status: PrintJobStatus;
-  } | null;
 }
 
 export interface PendingPrintJob {

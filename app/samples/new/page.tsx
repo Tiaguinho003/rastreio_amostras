@@ -9,20 +9,10 @@ import { AppShell } from '../../../components/AppShell';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { OwnerUnitField } from '../../../components/samples/OwnerUnitField';
-import {
-  ApiError,
-  createSampleAndPreparePrint,
-  getClient,
-  getPendingPrintJobs,
-  getSampleDetail,
-} from '../../../lib/api-client';
+import { ApiError, createSample, getClient } from '../../../lib/api-client';
 import { useRegisterDirtyState } from '../../../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../../../lib/form-schemas';
-import type {
-  ClientUnitSummary,
-  ClientSummary,
-  CreateSampleAndPreparePrintResponse,
-} from '../../../lib/types';
+import type { ClientUnitSummary, ClientSummary, CreateSampleResponse } from '../../../lib/types';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 
@@ -178,7 +168,7 @@ function NewSamplePageContent() {
   );
 
   const [pendingDraft, setPendingDraft] = useState<PendingDraftPayload | null>(null);
-  const [created, setCreated] = useState<CreateSampleAndPreparePrintResponse | null>(null);
+  const [created, setCreated] = useState<CreateSampleResponse | null>(null);
   const [labelModalOpen, setLabelModalOpen] = useState(false);
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
@@ -340,45 +330,16 @@ function NewSamplePageContent() {
   }, []);
 
   useEffect(() => {
+    // Fase P2: createSample não dispara mais impressão automática. O
+    // polling de status de impressão fica desativado neste fluxo. A
+    // Fase P3 substitui o step `completed` por um step `created` com o
+    // lote em destaque (sem QR/impressão); a Fase Pb (futura) reintroduz
+    // impressão pós-classificação. Por enquanto o estado fica `null`.
     if (labelModalStep !== 'completed' || !created || !session) {
       return;
     }
 
-    if (!created.print) {
-      setPrintStatus(null);
-      return;
-    }
-
-    setPrintStatus('pending');
-    const sampleId = created.sample.id;
-
-    printPollingRef.current = setInterval(() => {
-      getPendingPrintJobs(session, { limit: 1, sampleId })
-        .then((res) => {
-          if (res.items.length > 0) return;
-          getSampleDetail(session, sampleId, { eventLimit: 0 })
-            .then((detail) => {
-              if (detail.latestPrintJob?.status === 'FAILED') {
-                setPrintStatus('failed');
-              } else {
-                setPrintStatus('success');
-              }
-            })
-            .catch(() => {
-              setPrintStatus('success');
-            });
-        })
-        .catch(() => {});
-    }, 2000);
-
-    printTimeoutRef.current = setTimeout(() => {
-      setPrintStatus((current) => (current === 'pending' ? 'timeout' : current));
-    }, 30000);
-
-    return () => {
-      if (printPollingRef.current) clearInterval(printPollingRef.current);
-      if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
-    };
+    setPrintStatus(null);
   }, [labelModalStep, created, session]);
 
   useEffect(() => {
@@ -614,7 +575,7 @@ function NewSamplePageContent() {
     setModalError(null);
 
     try {
-      const result = await createSampleAndPreparePrint(session, {
+      const result = await createSample(session, {
         clientDraftId: pendingDraft.clientDraftId,
         owner: pendingDraft.owner,
         ownerClientId: pendingDraft.ownerClientId,
@@ -946,7 +907,12 @@ function NewSamplePageContent() {
                 ) : (
                   <div className="label-qr">
                     <QRCodeSVG
-                      value={created?.qr.value ?? printableSample?.id ?? 'sample'}
+                      value={
+                        created?.sample.internalLotNumber ??
+                        created?.sample.id ??
+                        printableSample?.id ??
+                        'sample'
+                      }
                       size={120}
                     />
                   </div>
