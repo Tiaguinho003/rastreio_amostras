@@ -85,7 +85,7 @@ export function registrationConfirmedEvent(sampleId, overrides = {}) {
     idempotencyScope: 'REGISTRATION_CONFIRM',
     idempotencyKey: randomUUID(),
     payload: {
-      sampleLotNumber: 'A-5444',
+      sampleLotNumber: '5444',
       declared: {
         owner: 'Produtor XPTO',
         sacks: 10,
@@ -219,7 +219,7 @@ export function reportExportedEvent(sampleId, overrides = {}) {
     payload: {
       format: 'PDF',
       exportType: 'COMPLETO',
-      fileName: 'amostra(A-5444).pdf',
+      fileName: 'amostra(5444).pdf',
       destination: null,
       selectedFields: ['owner', 'sacks', 'harvest'],
       classificationPhotoId: randomUUID(),
@@ -424,7 +424,7 @@ export function classificationExtractionCompletedEvent(sampleId, overrides = {})
       crossValidation: {
         hasMismatches: false,
         details: [
-          { field: 'lote', extracted: 'A-5444', registered: 'A-5444', match: true },
+          { field: 'lote', extracted: '5444', registered: '5444', match: true },
           { field: 'sacas', extracted: '50', registered: '50', match: true },
         ],
       },

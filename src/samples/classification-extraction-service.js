@@ -98,7 +98,7 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
 - Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
 - Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 
@@ -205,7 +205,7 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
 - Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
 - Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 
@@ -324,7 +324,7 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Defeitos numericos (broca, pva, impureza, gpi): retorne SOMENTE o numero (ex: "2", "0,5", "20").
 - Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
 - Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "A-5490").
+- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
 - Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
 - Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
 

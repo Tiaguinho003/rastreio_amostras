@@ -12,7 +12,7 @@ description: Use this skill when working with the database, Prisma schema, migra
 
 ## Models principais
 
-- **Sample** — snapshot atual da amostra (status, classificacao, comercial)
+- **Sample** — snapshot atual da amostra (status, classificacao, comercial). `internalLotNumber` (UNIQUE) e gerado em `getNextInternalLotNumber` em `src/samples/sample-query-service.js` no formato **numerico puro** (ex: `5641`). Sequencia global iniciada em `initialSequence=5640` (proxima = `5641`). Antes da Fase P1 era `A-####` (ex: `A-5562`).
 - **SampleEvent** — timeline append-only (event types definidos em `enum SampleEventType` no schema). Funcao `fn_prevent_sample_event_mutation` + triggers `trg_sample_event_prevent_update`/`trg_sample_event_prevent_delete` impedem mutacao.
 - **SampleAttachment** — fotos (CLASSIFICATION_PHOTO). Unique por `(sampleId, kind)`.
 - **PrintJob** — tentativas de impressao/reimpressao.

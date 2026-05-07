@@ -10,8 +10,8 @@ const mockJob = {
   attemptNumber: 1,
   sample: {
     id: 'test-sample-001',
-    internalLotNumber: 'A-0042',
-    qrValue: 'A-0042',
+    internalLotNumber: '0042',
+    qrValue: '0042',
     version: 1,
     declared: {
       owner: 'Fazenda São João',

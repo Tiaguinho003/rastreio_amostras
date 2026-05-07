@@ -21,7 +21,10 @@ const SAO_PAULO_UTC_OFFSET_HOURS = 3;
 const MAX_QR_PARTS = 64;
 const UUID_PATTERN =
   '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
-const INTERNAL_LOT_PATTERN = 'A-\\d+';
+// Fase P1: lote interno passa a ser numerico puro. Pattern aceita o
+// novo formato (`5641`) e o legado (`A-5641`) — backwards compat com
+// samples antigos em local; producao foi wipada no L3.2.
+const INTERNAL_LOT_PATTERN = '(?:A-)?\\d+';
 const COMMERCIAL_STATUSES = ['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST'];
 const DISPLAY_STATUSES = ['OPEN', 'SOLD', 'LOST', 'INVALIDATED'];
 
@@ -1920,20 +1923,23 @@ export class SampleQueryService {
   }
 
   async getNextInternalLotNumber() {
-    const initialSequence = 5561;
+    // Fase P1: lote vira numerico puro (ex: "5641"). Antes era "A-####".
+    // Sequencia continua de onde a empresa parou no historico em papel:
+    // proxima amostra apos initialSequence=5640 sera "5641".
+    const initialSequence = 5640;
 
     const result = await this.prisma.$queryRaw`
       SELECT internal_lot_number FROM sample
-      WHERE internal_lot_number LIKE 'A-%'
-      ORDER BY CAST(SUBSTRING(internal_lot_number FROM 3) AS INTEGER) DESC
+      WHERE internal_lot_number ~ '^[0-9]+$'
+      ORDER BY CAST(internal_lot_number AS INTEGER) DESC
       LIMIT 1`;
 
     const lastLot = result[0]?.internal_lot_number ?? null;
-    const lastSequence = lastLot ? Number(lastLot.replace('A-', '')) : initialSequence;
+    const lastSequence = lastLot ? Number(lastLot) : initialSequence;
     const nextSequence =
       Number.isInteger(lastSequence) && lastSequence > 0 ? lastSequence + 1 : initialSequence + 1;
 
-    return `A-${nextSequence}`;
+    return String(nextSequence);
   }
 }
 

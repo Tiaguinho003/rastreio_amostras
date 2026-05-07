@@ -92,7 +92,7 @@ Regra oficial:
 2. O registro confirmado exige os campos manuais:
    `owner`, `sacks`, `harvest`, `originLot`.
 3. A foto de chegada e opcional.
-4. Ao confirmar o registro, o sistema gera automaticamente um lote interno no padrao `A-NNNN` (sequencial global, ex: A-5444, A-5445).
+4. Ao confirmar o registro, o sistema gera automaticamente um lote interno numerico (sequencial global, ex: 5641, 5642).
 5. O fluxo de registro e inteiramente manual.
 
 ### 2. Impressao de QR

@@ -521,7 +521,7 @@ if (!databaseUrl || !databaseReachable) {
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
     assert.equal(detail.sample.version, 8);
-    assert.match(detail.sample.internalLotNumber ?? '', /^A-\d+$/);
+    assert.match(detail.sample.internalLotNumber ?? '', /^\d+$/);
     assert.equal(detail.attachments.length, 1);
     assert.equal(detail.events.length, 9);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
@@ -785,7 +785,7 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     await assert.rejects(
-      () => queryService.resolveSampleByQrToken('A-999999'),
+      () => queryService.resolveSampleByQrToken('9999999'),
       (error) => error instanceof HttpError && error.status === 404
     );
   });

@@ -76,7 +76,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.status, 'REGISTRATION_CONFIRMED');
     assert.equal(sample.version, 3);
     assert.equal(sample.lastEventSequence, 3);
-    assert.equal(sample.internalLotNumber, 'A-5444');
+    assert.equal(sample.internalLotNumber, '5444');
 
     const count = await prisma.sampleEvent.count({ where: { sampleId } });
     assert.equal(count, 3);
@@ -372,7 +372,7 @@ if (!databaseUrl || !databaseReachable) {
       reportExportedEvent(sampleId, {
         payload: {
           format: 'PDF',
-          fileName: 'amostra(A-5444).pdf',
+          fileName: 'amostra(5444).pdf',
           selectedFields: ['owner', 'sacks'],
           classificationPhotoId,
           templateVersion: 'v1',
