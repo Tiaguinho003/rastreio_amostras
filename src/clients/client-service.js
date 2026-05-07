@@ -7,6 +7,7 @@ import {
   CLIENT_LOOKUP_KINDS,
   CLIENT_STATUSES,
   CLIENT_PERSON_TYPES,
+  DEFAULT_PF_UNIT_NAME,
   assertAuthenticatedActor,
   buildAuditContext,
   buildUnitAuditState,
@@ -2024,6 +2025,40 @@ export class ClientService {
         },
       });
 
+      // Fase 0.1: garante invariante "PF ACTIVE tem >=1 unit ACTIVE" na
+      // reativacao. Se PF reativado tem 0 units ACTIVE (units foram
+      // inativadas direto no DB ou em dados pre-Fase 0.1), auto-cria
+      // a fazenda placeholder. PJ nao tem units (skip).
+      if (current.personType === CLIENT_PERSON_TYPES.PF) {
+        const activeUnitsCount = await tx.clientUnit.count({
+          where: { clientId: updated.id, status: CLIENT_UNIT_STATUSES.ACTIVE },
+        });
+        if (activeUnitsCount === 0) {
+          const aggregate = await tx.clientUnit.aggregate({
+            where: { clientId: updated.id },
+            _max: { code: true },
+          });
+          const nextCode = (aggregate._max?.code ?? 0) + 1;
+          const createdUnit = await tx.clientUnit.create({
+            data: {
+              id: randomUUID(),
+              clientId: updated.id,
+              code: nextCode,
+              name: DEFAULT_PF_UNIT_NAME,
+              status: CLIENT_UNIT_STATUSES.ACTIVE,
+            },
+            select: CLIENT_UNIT_SUMMARY_SELECT,
+          });
+          await this.recordAuditEvent(tx, {
+            targetClientId: updated.id,
+            targetUnitId: createdUnit.id,
+            actorContext: actor,
+            eventType: CLIENT_AUDIT_EVENT_TYPES.CLIENT_UNIT_CREATED,
+            payload: { after: buildUnitAuditState(createdUnit) },
+          });
+        }
+      }
+
       return {
         client: mapClientRow(updated),
       };
@@ -2204,6 +2239,22 @@ export class ClientService {
       const current = await this.requireUnitById(tx, clientId, unitId);
       if (current.status === CLIENT_UNIT_STATUSES.INACTIVE) {
         throw new HttpError(409, 'Client unit is already inactive');
+      }
+
+      // Fase 0.1: invariante "PF ACTIVE tem >=1 unit ACTIVE". Bloqueia
+      // inativacao da ultima unit ativa de um cliente PF. Pra parar de
+      // usar o cliente inteiro, usar inactivateClientWithCascade.
+      if (client.personType === CLIENT_PERSON_TYPES.PF) {
+        const activeUnitsCount = await tx.clientUnit.count({
+          where: { clientId: client.id, status: CLIENT_UNIT_STATUSES.ACTIVE },
+        });
+        if (activeUnitsCount <= 1) {
+          throw new HttpError(
+            409,
+            'Nao e possivel inativar a unica fazenda ativa de um cliente PF. Inative o cliente inteiro (cascade) se quiser parar de usar este cliente.',
+            { code: 'PF_LAST_ACTIVE_UNIT', field: 'unitId' }
+          );
+        }
       }
 
       const usage = await this.countUnitUsage(tx, current.id);

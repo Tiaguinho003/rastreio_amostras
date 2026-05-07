@@ -422,6 +422,140 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(reactivated.body.unit.status, 'ACTIVE');
   });
 
+  test('Fase 0.1: PF inactivateUnit rejeita 409 PF_LAST_ACTIVE_UNIT na unica ativa', async () => {
+    const pf = await createPfClient({ cpf: generateValidCpf(710) });
+    assert.equal(pf.body.client.units.length, 1);
+    const fazenda1Id = pf.body.client.units[0].id;
+    const result = await api.inactivateClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id, unitId: fazenda1Id },
+        body: { reasonText: 'tentativa de fechar' },
+      })
+    );
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.details.code, 'PF_LAST_ACTIVE_UNIT');
+  });
+
+  test('Fase 0.1: PF inactivateUnit aceita inativar 1 de 2 units', async () => {
+    const pf = await createPfClient({ cpf: generateValidCpf(711) });
+    const segunda = await api.createClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { name: 'Fazenda Boa Vista' },
+      })
+    );
+    assert.equal(segunda.status, 201);
+
+    const result = await api.inactivateClientUnit(
+      buildInput({
+        params: { clientId: pf.body.client.id, unitId: segunda.body.unit.id },
+        body: { reasonText: 'arrematei' },
+      })
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.unit.status, 'INACTIVE');
+  });
+
+  test('Fase 0.1: reactivateClient PF auto-cria Fazenda 1 quando 0 units ativas', async () => {
+    // Trigger DB exige >=1 commercial user para client ACTIVE (incluindo reativacao).
+    const user = await createTestUser('COMMERCIAL');
+    const pf = await createPfClient({
+      cpf: generateValidCpf(712),
+      commercialUserIds: [user.id],
+    });
+    const fazenda1Id = pf.body.client.units[0].id;
+
+    const inact = await api.inactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'pausa' },
+      })
+    );
+    assert.equal(inact.status, 200);
+
+    // Forca a unit a INACTIVE direto no DB pra simular dados pre-Fase 0.1.
+    await prisma.clientUnit.update({
+      where: { id: fazenda1Id },
+      data: { status: 'INACTIVE' },
+    });
+
+    const reactivated = await api.reactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'voltou' },
+      })
+    );
+    assert.equal(reactivated.status, 200);
+
+    const after = await prisma.clientUnit.findMany({
+      where: { clientId: pf.body.client.id, status: 'ACTIVE' },
+      select: { id: true, name: true, code: true },
+      orderBy: { code: 'asc' },
+    });
+    assert.equal(after.length, 1, 'deve ter exatamente 1 unit ACTIVE pos-reativacao');
+    assert.equal(after[0].name, 'Fazenda 1');
+    assert.notEqual(after[0].id, fazenda1Id, 'eh uma nova unit, nao a antiga reativada');
+  });
+
+  test('Fase 0.1: reactivateClient PF com unit ativa nao duplica', async () => {
+    const user = await createTestUser('COMMERCIAL');
+    const pf = await createPfClient({
+      cpf: generateValidCpf(713),
+      commercialUserIds: [user.id],
+    });
+
+    const inact = await api.inactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'pausa' },
+      })
+    );
+    assert.equal(inact.status, 200);
+
+    const reactivated = await api.reactivateClient(
+      buildInput({
+        params: { clientId: pf.body.client.id },
+        body: { reasonText: 'voltou' },
+      })
+    );
+    assert.equal(reactivated.status, 200);
+
+    const after = await prisma.clientUnit.findMany({
+      where: { clientId: pf.body.client.id },
+    });
+    assert.equal(after.length, 1, 'nao deve ter criado outra unit');
+    assert.equal(after[0].status, 'ACTIVE');
+  });
+
+  test('Fase 0.1: reactivateClient PJ nao toca units', async () => {
+    const user = await createTestUser('COMMERCIAL');
+    const pj = await createPjClient({
+      cnpj: nextValidCnpj(),
+      commercialUserIds: [user.id],
+    });
+
+    const inact = await api.inactivateClient(
+      buildInput({
+        params: { clientId: pj.body.client.id },
+        body: { reasonText: 'pausa' },
+      })
+    );
+    assert.equal(inact.status, 200);
+
+    const reactivated = await api.reactivateClient(
+      buildInput({
+        params: { clientId: pj.body.client.id },
+        body: { reasonText: 'voltou' },
+      })
+    );
+    assert.equal(reactivated.status, 200);
+
+    const after = await prisma.clientUnit.findMany({
+      where: { clientId: pj.body.client.id },
+    });
+    assert.equal(after.length, 0, 'PJ nunca tem units');
+  });
+
   test('L5: updateUnit on PJ rejects with 422', async () => {
     const pj = await createPjClient();
     // injeta unit "ilegal" via prisma direto, somente para garantir que update rejeita

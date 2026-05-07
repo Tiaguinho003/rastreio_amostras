@@ -101,6 +101,15 @@ function translateUnitError(cause: unknown): string {
   ) {
     return cause.message;
   }
+  // Fase 0.1: bloqueio de inativacao da ultima fazenda de PF.
+  if (
+    cause.status === 409 &&
+    cause.details &&
+    typeof cause.details === 'object' &&
+    (cause.details as { code?: string }).code === 'PF_LAST_ACTIVE_UNIT'
+  ) {
+    return cause.message;
+  }
   const message = cause.message ?? '';
   if (message.includes('already exists')) {
     return 'Numero de inscricao ja esta cadastrado no sistema.';
