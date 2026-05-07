@@ -734,7 +734,7 @@ function NewSamplePageContent() {
                     setQuickCreateSeed(searchTerm);
                     setQuickCreateOpen(true);
                   }}
-                  createLabel="Novo cliente"
+                  createLabel="+ Novo cliente"
                   createButtonStyle="inline-cta"
                 />
               </div>
