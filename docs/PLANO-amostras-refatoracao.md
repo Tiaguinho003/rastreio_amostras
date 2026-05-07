@@ -31,7 +31,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
   - [ ] Fase D (em andamento, sem prazo)
   - [x] Fase P (executada parcial — commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` + skill prisma)
-  - [ ] Fase Q (próxima — bloqueia Fase C)
+  - [ ] Fase Q (em andamento — registro concluído nos commits `6761a54` (backend) + `0b7c45f` (frontend); classificação, impressão e migration final pendentes)
   - [ ] Fase C
 
 ---
@@ -564,6 +564,8 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 ### Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação
 
 > **Absorve** a Fase Pb original. **Pré-requisito** da Fase C.
+>
+> **Status de execução (2026-05-07)**: a frente do **registro** foi concluída nos commits `6761a54` (backend: command service, schemas JSON, migration do trigger, helpers de teste) e `0b7c45f` (frontend: api-client, detail page, modal de edição). Pendentes na Fase Q: classificação (Q.7.2 classificação + Q.7.3 + Q.7.5), impressão (Q.7.2 impressão + Q.7.6 + Q.7.7), auto-print pós-classificação (Q.1.d) e migration final dos enums (Q.6 etapas 5-10).
 
 **Motivação**: a análise da Etapa 1 expôs **5 statuses fantasmas** no lifecycle (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS, QR_PENDING_PRINT, QR_PRINTED, CLASSIFICATION_IN_PROGRESS) que o usuário **nunca vê** — todos artefato técnico. Cada um inflagra o event store e a UI sem agregar valor de produto. Além disso:
 
@@ -755,65 +757,57 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 ##### Q.7.1. Backend — schema + migrations
 
-- [ ] Migration Prisma única (passos Q.6.1 a Q.6.10), **idempotente em local** (com `IF EXISTS` onde possível).
-- [ ] `prisma/schema.prisma`: enums `SampleStatus`, `SampleEventType`, `IdempotencyScope` reduzidos. Model `PrintJob` sem `printAction`. Constraint renomeada.
+- [x] **Registro (`6761a54`)**: migration `20260507201156_phaseq_registration_confirmed_creator` atualiza trigger `fn_guard_sample_event_insert` pra exigir `REGISTRATION_CONFIRMED` (com `fromStatus=null`) como primeiro evento.
+- [ ] **Migration final**: Prisma única (passos Q.6.5 a Q.6.10) que dropa enum values legados de `SampleStatus`, `SampleEventType`, `IdempotencyScope` e a coluna `print_job.print_action`. Vai depois das frentes de classificação e impressão.
+- [ ] `prisma/schema.prisma`: enums reduzidos + Model `PrintJob` sem `printAction` + constraint renomeada (junto da migration final).
 
 ##### Q.7.2. Backend — comandos
 
-- [ ] `createSample` (`sample-command-service.js`): emite **1 evento único** `REGISTRATION_CONFIRMED` (`null` → `RC`). Remove orquestração `receivePhysicalSample` + `startRegistration` + `confirmRegistration`.
-- [ ] **Deletar** os 3 comandos individuais acima (sem callers fora do orquestrador — confirmar antes de deletar).
-- [ ] `startClassification`: **deletar**.
-- [ ] `saveClassificationPartial`: **deletar**.
-- [ ] `completeClassification`: aceita partir de **RC apenas**. Emite `CLASSIFICATION_COMPLETED`. **Após emitir**, dispara `requestQrPrint` com `idempotencyKey` derivada (ex: `hash(input.idempotencyKey + ':print')`).
-- [ ] `confirmClassificationFromCamera`: aceita **RC** ou **CLASSIFIED** (reclassificação). Se RC → `completeClassification` (dispara print). Se CLASSIFIED → `updateClassification` (sem print).
-- [ ] `updateClassification`: **mantém** comportamento atual. **Não dispara** print.
-- [ ] `requestQrPrint`:
+- [x] **Registro (`6761a54`)**: `createSample` emite 1 evento único `REGISTRATION_CONFIRMED` (`null` → `RC`). `receiveSample`, `startRegistration`, `confirmRegistration` deletados (sem callers fora do orquestrador) junto com handlers e endpoints REST.
+- [x] `appendEvent` em ambos `event-contract-service.js` e `event-contract-db-service.js`: aceita `REGISTRATION_CONFIRMED` como evento criador (era `SAMPLE_RECEIVED`). Bloqueia recriação com 409.
+- [x] `buildSampleCreateData` popula `declared.*` + `ownerClientId/UnitId` direto do payload do `REGISTRATION_CONFIRMED`.
+- [ ] **Classificação**: `startClassification` deletar, `saveClassificationPartial` deletar.
+- [ ] **Classificação**: `completeClassification` aceita partir de **RC apenas**. Emite `CLASSIFICATION_COMPLETED`. **Após emitir**, dispara `requestQrPrint` com `idempotencyKey` derivada.
+- [ ] **Classificação**: `confirmClassificationFromCamera` aceita **RC** ou **CLASSIFIED** (reclassificação). Se RC → `completeClassification` (dispara print). Se CLASSIFIED → `updateClassification` (sem print).
+- [ ] **Classificação**: `updateClassification` mantém comportamento atual. **Não dispara** print.
+- [ ] **Impressão**: `requestQrPrint`:
   - aceita qualquer status **exceto** `INVALIDATED`
   - cria `PrintJob(PENDING)` + emite `QR_PRINT_REQUESTED` audit (null/null)
   - **sem** `expectedVersion` (não muda sample)
   - **antes** de criar: executa lazy timeout — marca `PrintJob`s PENDING > 1min como FAILED com `error: 'timeout 1min'`
   - **bloqueia (409)** se já houver PENDING válido pra essa amostra
   - **remove** parâmetro `printAction` da assinatura
-- [ ] `requestQrReprint`: **deletar**.
-- [ ] `recordQrPrinted`:
-  - atualiza `PrintJob` pra SUCCESS, emite `QR_PRINTED` audit (null/null)
-  - **remove** o hack "se já passou de QR_PENDING_PRINT" (linha 1929-1947)
-  - **sem** `expectedVersion`
-- [ ] `recordQrPrintFailed`:
-  - atualiza `PrintJob` pra FAILED com `error`, emite `QR_PRINT_FAILED` audit (null/null)
-  - **sem** `expectedVersion`
+- [ ] **Impressão**: `requestQrReprint` deletar.
+- [ ] **Impressão**: `recordQrPrinted` atualiza `PrintJob` pra SUCCESS, emite `QR_PRINTED` audit (null/null), remove o hack "se já passou de QR_PENDING_PRINT", sem `expectedVersion`.
+- [ ] **Impressão**: `recordQrPrintFailed` atualiza `PrintJob` pra FAILED com `error`, emite `QR_PRINT_FAILED` audit (null/null), sem `expectedVersion`.
 
 ##### Q.7.3. Backend — query + agrupamentos
 
-- [ ] `sample-query-service.js`:
-  - `PRINT_PENDING_STATUSES`: **deletar** (substituído por query em `PrintJob.status='PENDING'`)
-  - `CLASSIFICATION_PENDING_STATUSES`: vira `['REGISTRATION_CONFIRMED']`
-  - `getNextPrintAttemptNumber(sampleId)`: **remove** parâmetro `printAction`
-  - `getSampleDetail`: **antes de retornar**, executa lazy timeout (D3) — expira PENDING > 1min
-  - `getNextInternalLotNumber`: já está numérico puro (Fase P) — sem mudança
-  - Outros pickers/agregações que tocam statuses cortados — atualizar
-- [ ] `assertSampleStatus`: revisar todos os call sites (`grep` por `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`).
-- [ ] `PHOTO_KINDS.CLASSIFICATION` (linha 22 do command service): de `[QR_PRINTED, CLASSIFICATION_IN_PROGRESS, CLASSIFIED]` pra `[REGISTRATION_CONFIRMED, CLASSIFIED]`.
+- [x] **Registro (`6761a54`)**: `assertSampleStatus` em `createSample` removido (sample novo nunca está em status legado). `getNextInternalLotNumber` mantém (Fase P). Auditoria de callers de `receiveSample/startRegistration/confirmRegistration` feita — sem callers backend remanescentes.
+- [ ] **Impressão**: `PRINT_PENDING_STATUSES` deletar (substituído por query em `PrintJob.status='PENDING'`); `getNextPrintAttemptNumber(sampleId)` remove parâmetro `printAction`; `getSampleDetail` aplica lazy timeout antes de retornar.
+- [ ] **Classificação**: `CLASSIFICATION_PENDING_STATUSES` vira `['REGISTRATION_CONFIRMED']`.
+- [ ] **Classificação**: `assertSampleStatus` em `completeClassification`/`startClassification`/`saveClassificationPartial`/`confirmClassificationFromCamera` revisar (`grep` por `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`, `QR_PENDING_PRINT`).
+- [ ] **Classificação**: `PHOTO_KINDS.CLASSIFICATION` (linha ~22 do command service) de `[QR_PRINTED, CLASSIFICATION_IN_PROGRESS, CLASSIFIED]` pra `[REGISTRATION_CONFIRMED, CLASSIFIED]`.
 
 ##### Q.7.4. Backend — schemas JSON (event contracts)
 
-- [ ] `src/events/event-contract-*.js`:
-  - **Drop** schemas dos eventos cortados (`SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED`).
-  - `REGISTRATION_CONFIRMED`: relax → `fromStatus: null`, `toStatus: 'REGISTRATION_CONFIRMED'`.
-  - `QR_PRINT_REQUESTED`, `QR_PRINTED`, `QR_PRINT_FAILED`: relax → `fromStatus: null`, `toStatus: null` (todos audit).
+- [x] **Registro (`6761a54`)**: schemas `sample-received.event/payload` e `registration-started.event/payload` deletados. `registration-confirmed.event` relax pra `fromStatus: null`. `registration-confirmed.payload` ganha `receivedChannel` (required) e `notes`. `shared-defs.schema.json` perde `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`.
+- [ ] **Classificação**: drop schemas `classification-started.event/payload`, `classification-saved-partial.event/payload`. `shared-defs` perde `CLASSIFICATION_IN_PROGRESS`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`.
+- [ ] **Impressão**: drop schema `qr-reprint-requested.event/payload`. Relax `qr-print-requested.event` (fromStatus null/null), `qr-printed.event` (fromStatus null/null), `qr-print-failed.event` (já é null/null). `shared-defs` perde `QR_PENDING_PRINT`, `QR_PRINTED`, `QR_REPRINT_REQUESTED`, e `printAction` enum inteiro, `IdempotencyScope.QR_REPRINT`.
 
 ##### Q.7.5. Frontend — detail page (Gargalo 4)
 
 > Revisão exaustiva. ~30 referências a `QR_PRINTED` / `QR_PENDING_PRINT` em `app/samples/[sampleId]/page.tsx`. **Sub-fase Q.r dentro da execução**.
 
-- [ ] CTA principal por status:
+- [x] **Registro (`0b7c45f`)**: import `confirmRegistration` removido; `handleConfirmRegistration` + state `confirming` deletados; `REGISTRATION_EDITABLE_STATUSES` perde IP; helpers `getOperationalStatusDot*` perdem branches `PHYSICAL_RECEIVED`/`REGISTRATION_IN_PROGRESS`; modal de edição simplificado (header/labels/handler/validação sem condicionais de IP).
+- [ ] CTA principal por status (frente classificação + impressão):
   - **RC**: "Iniciar classificação" (leva pra `/camera` com `sampleId` fixado) + secundário "Imprimir etiqueta" (override manual).
   - **CLASSIFIED**: "Reclassificar" + secundário "Reimprimir etiqueta".
   - **INVALIDATED**: nada (terminal).
-- [ ] Botão "Salvar rascunho": **deletar**.
+- [ ] Botão "Salvar rascunho": deletar.
 - [ ] Painel "etiqueta" (status do PrintJob): mostra última impressão (data, status). Sem painel fixo de "imprimindo agora" (decisão Gargalo A).
 - [ ] Polling de `PrintJob` quando há PENDING ativo (ver Q.7.6).
-- [ ] Limpar todas as condicionais que comparam contra statuses cortados.
+- [ ] Limpar todas as condicionais que comparam contra statuses cortados (`QR_PRINTED`, `QR_PENDING_PRINT`, `CLASSIFICATION_IN_PROGRESS`).
 - [ ] Sem código morto.
 
 ##### Q.7.6. Frontend — modal de feedback do print (auto + manual)
@@ -832,11 +826,9 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 ##### Q.7.8. Frontend — api-client
 
-- [ ] `lib/api-client.ts`:
-  - `saveClassificationPartial`: **deletar**.
-  - `startClassification`: **deletar**.
-  - `requestQrReprint`: **deletar**.
-  - `requestQrPrint`: **remove** parâmetros `printAction` e `expectedVersion` da assinatura.
+- [x] **Registro (`0b7c45f`)**: `receiveSample`, `startRegistration`, `confirmRegistration` deletados.
+- [ ] **Classificação**: `saveClassificationPartial`, `startClassification` deletar.
+- [ ] **Impressão**: `requestQrReprint` deletar; `requestQrPrint` remove parâmetros `printAction` e `expectedVersion` da assinatura.
 
 ##### Q.7.9. Tests
 
@@ -867,19 +859,22 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 - [ ] `docs/PLANO-amostras-refatoracao.md` (este doc): marcar Fase Q como executada ao fim.
 - [ ] Outros skills se relevante (verificar `tests`, `conventions`).
 
-#### Q.8. Commits previstos (atômicos, em ordem)
+#### Q.8. Commits — plano vs execução
 
-| #   | Commit                                                                  | Escopo                                                                                                                                                                             |
-| --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `feat(samples): migration de schema — simplifica enums e PrintJob`      | Migration única (Q.6 inteira) + `prisma/schema.prisma` atualizado                                                                                                                  |
-| 2   | `feat(samples): registro emite 1 evento unico (REGISTRATION_CONFIRMED)` | Backend `createSample` simplificado, deletar `receivePhysicalSample`/`startRegistration`/`confirmRegistration`, schemas JSON, helpers de teste, testes                             |
-| 3   | `feat(samples): classificacao sem CLASSIFICATION_IN_PROGRESS`           | Remove `startClassification`, `saveClassificationPartial`, status IP. Adapta `completeClassification`, `updateClassification`, `confirmClassificationFromCamera`. Tests + frontend |
-| 4   | `feat(samples): impressao como acao pura (sem QR_*)`                    | Backend `requestQrPrint` unificado, `recordQrPrinted`/`recordQrPrintFailed` sem `expectedVersion`, lazy timeout 1min (D3). Sem `PrintAction`. Tests                                |
-| 5   | `feat(samples): impressao automatica apos completeClassification`       | `completeClassification` dispara `requestQrPrint` com `idempotencyKey` derivada. Tests                                                                                             |
-| 6   | `feat(samples): polling + modal de feedback de print no frontend`       | Detail page polling de `PrintJob` PENDING, modal sucesso/falha (auto + manual)                                                                                                     |
-| 7   | `feat(samples): dashboard sem card "aguardando impressao"`              | Frontend dashboard remove card                                                                                                                                                     |
-| 8   | `feat(samples): detail page revisada (sem QR_PRINTED/QR_PENDING_PRINT)` | Revisão exaustiva da detail page (Q.7.5 / Gargalo 4). CTAs por status, sem código morto                                                                                            |
-| 9   | `docs(samples): marca Fase Q no plano + skills atualizadas`             | Plan + skills + ajustes finais                                                                                                                                                     |
+> **Reorganizado**: o "registro" originalmente previsto como 2 commits (#1 migration + #2 backend) virou 1 commit backend + 1 frontend. A migration final (drop de enums) foi adiada pra última frente da Fase Q (após classificação e impressão), porque cada `DROP` de enum value no Postgres é caro e queremos fazer uma vez só com tudo migrado.
+
+| #   | Commit                                                                   | Status   | SHA / nota                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `feat(samples): registro emite 1 evento unico (Fase Q backend)`          | ✅       | `6761a54` — command service (3 comandos deletados), schemas JSON, migration do trigger, append-event aceita REGISTRATION_CONFIRMED criador, tests                                                                                                                                                                                                                          |
+| 2   | `feat(samples): frontend sem REGISTRATION_IN_PROGRESS (Fase Q frontend)` | ✅       | `0b7c45f` — api-client (3 fns deletadas), detail page (handleConfirmRegistration + estado + helpers + modal simplificados)                                                                                                                                                                                                                                                 |
+| 3   | `feat(samples): classificacao sem CLASSIFICATION_IN_PROGRESS`            | pendente | Backend (startClassification + saveClassificationPartial deletar; completeClassification só de RC; confirmClassificationFromCamera RC ou CLASSIFIED) + tests + frontend (botão "Salvar rascunho", aba IP)                                                                                                                                                                  |
+| 4   | `feat(samples): impressao como acao pura (sem QR_*)`                     | pendente | Backend `requestQrPrint` unificado, `recordQrPrinted`/`recordQrPrintFailed` sem `expectedVersion`, lazy timeout 1min (D3). Sem `PrintAction`. Tests                                                                                                                                                                                                                        |
+| 5   | `feat(samples): impressao automatica apos completeClassification`        | pendente | `completeClassification` dispara `requestQrPrint` com `idempotencyKey` derivada. Tests                                                                                                                                                                                                                                                                                     |
+| 6   | `feat(samples): polling + modal de feedback de print no frontend`        | pendente | Detail page polling de `PrintJob` PENDING, modal sucesso/falha (auto + manual)                                                                                                                                                                                                                                                                                             |
+| 7   | `feat(samples): dashboard sem card "aguardando impressao"`               | pendente | Frontend dashboard remove card                                                                                                                                                                                                                                                                                                                                             |
+| 8   | `feat(samples): detail page revisada (sem QR_PRINTED/QR_PENDING_PRINT)`  | pendente | Revisão exaustiva da detail page (Q.7.5 / Gargalo 4). CTAs por status, sem código morto. CTA "Iniciar classificação" em RC entra aqui                                                                                                                                                                                                                                      |
+| 9   | `feat(samples): migration final — drop enum values legados`              | pendente | Drop de `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS` (SampleStatus); `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED` (SampleEventType); `PrintAction` enum + coluna `print_job.print_action`; `IdempotencyScope.QR_REPRINT` |
+| 10  | `docs(samples): marca Fase Q completa + skills atualizadas`              | pendente | Plan + skills (`prisma`, `tests`, `conventions`)                                                                                                                                                                                                                                                                                                                           |
 
 (Quality gates rodam antes de **cada** commit: typecheck/lint/format/build/validate:schemas/test:contracts/test:unit/test:integration:db.)
 
@@ -904,14 +899,20 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 13. Invalidar amostra em qualquer estado → vira `INVALIDATED`, todas operações bloqueadas (incluindo print).
 14. Dashboard: card "Aguardando impressão" não aparece. Card "Aguardando classificação" conta apenas `RC`.
 
-#### Q.10. Open items (a fechar antes de codar / decidir durante)
+#### Q.10. Open items
 
-- [ ] **Auditoria de callers**: confirmar que **nenhum endpoint REST direto** chama os comandos individuais que vão sumir (`receivePhysicalSample`, `startRegistration`, `confirmRegistration`, `startClassification`, `saveClassificationPartial`, `requestQrReprint`). Se houver, remover endpoint junto.
+**Resolvidos durante a execução do registro:**
+
+- [x] **Auditoria de callers do registro**: confirmado que `receiveSample`, `startRegistration`, `confirmRegistration` tinham handlers/endpoints REST e callers em testes (resolvido nos commits `6761a54` + `0b7c45f`).
+
+**Pendentes pras próximas frentes:**
+
+- [ ] **Auditoria de callers da classificação e impressão**: confirmar que `startClassification`, `saveClassificationPartial`, `requestQrReprint` têm callers só nos lugares já mapeados (frontend/api-client/tests).
 - [ ] **Tempo exato do polling** (2-3s? backoff exponencial até 10s? apenas constante?).
 - [ ] **Layout exato dos modals** (sucesso simples vs falha com opções) — pode ficar pra revisão visual durante implementação.
-- [ ] **`Sample.version` em audit-only events**: confirmar que `appendEvent` continua subindo `version` mesmo em null/null events (comportamento atual). Audit não é "transparente" pro optimistic lock — concorrência segue protegida.
-- [ ] **Print agent local**: confirmar formato de polling (intervalo, batching) — sem mudança esperada, mas conferir antes de mexer.
-- [ ] **Eventos legados no DB local**: rodar `SELECT COUNT(*) WHERE event_type IN (...)` antes de migrar pra confirmar que precisa do `DELETE` da Q.6.1.
+- [ ] **`Sample.version` em audit-only events**: confirmar que `appendEvent` continua subindo `version` mesmo em null/null events. Audit não é "transparente" pro optimistic lock — concorrência segue protegida.
+- [ ] **Print agent local**: confirmar formato de polling (intervalo, batching) antes da migration final que dropa `print_action`.
+- [ ] **Eventos legados no DB local antes da migration final**: rodar `SELECT COUNT(*) WHERE event_type IN (legacy values)` pra confirmar que precisa do `DELETE` da Q.6.1.
 
 ### Fase C — Refatoração da classificação
 
