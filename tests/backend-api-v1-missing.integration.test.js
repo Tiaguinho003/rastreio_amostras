@@ -385,19 +385,13 @@ if (!databaseUrl || !databaseReachable) {
 
   test('POST /qr/printed and /qr/print/failed are audit-only (no version/status change)', async () => {
     const sampleId = randomUUID();
+    // Q.auto: moveSampleToClassified ja gera PrintJob #1 PENDING via
+    // auto-print pos-classificacao. Finalizamos esse primeiro pra exercitar
+    // o ciclo de attempt=2 manual no teste audit-only.
     await moveSampleToClassified(sampleId);
 
     const before = await queryService.requireSample(sampleId);
     assert.equal(before.status, 'CLASSIFIED');
-
-    const requested = await api.requestQrPrint(
-      buildInput({
-        params: { sampleId },
-        body: { printerId: 'printer-main' },
-      })
-    );
-    assert.equal(requested.status, 201);
-    assert.equal(requested.body.event.payload.attemptNumber, 1);
 
     const printed = await api.recordQrPrinted(
       buildInput({
@@ -414,7 +408,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(afterPrint.status, 'CLASSIFIED');
     assert.equal(afterPrint.version, before.version);
 
-    // Outro request + failed (tem que limpar pending antes; usar attempt 2)
+    // Novo print manual (override) — attempt 2.
     const requested2 = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
@@ -422,6 +416,7 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
     assert.equal(requested2.status, 201);
+    assert.equal(requested2.body.event.payload.attemptNumber, 2);
 
     const failed = await api.recordQrPrintFailed(
       buildInput({
@@ -2290,9 +2285,9 @@ if (!databaseUrl || !databaseReachable) {
 
   test('GET /events supports pagination and validates query params', async () => {
     const sampleId = randomUUID();
-    // Q.print: precisa de >2 events na sample pra testar paginacao;
-    // moveSampleToClassified gera 3 (REGISTRATION_CONFIRMED, PHOTO_ADDED,
-    // CLASSIFICATION_COMPLETED).
+    // Q.print + Q.auto: moveSampleToClassified gera 4 events (RC,
+    // PHOTO_ADDED, CLASSIFICATION_COMPLETED, QR_PRINT_REQUESTED — esse
+    // ultimo via auto-print pos-classificacao).
     await moveSampleToClassified(sampleId);
 
     const firstPage = await api.listSampleEvents(
@@ -2322,10 +2317,10 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(nextPage.status, 200);
-    assert.equal(nextPage.body.events.length, 1);
+    assert.equal(nextPage.body.events.length, 2);
     assert.deepEqual(
       nextPage.body.events.map((event) => event.sequenceNumber),
-      [3]
+      [3, 4]
     );
 
     const invalidLimit = await api.listSampleEvents(

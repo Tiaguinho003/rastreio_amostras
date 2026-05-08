@@ -1728,6 +1728,23 @@ export class SampleCommandService {
       throw new HttpError(409, 'cannot print on INVALIDATED sample');
     }
 
+    // Idempotency pre-check: se ja existe um QR_PRINT_REQUESTED com essa
+    // key, retorna idempotent antes do bloqueio de PENDING. Q.auto depende
+    // disso pra que retry da mesma classificacao (key derivada do
+    // event.idempotencyKey) reuse o PrintJob original em vez de cair em 409.
+    if (input.idempotencyKey) {
+      const existing = await this.queryService.prisma.sampleEvent.findFirst({
+        where: {
+          sampleId: sample.id,
+          idempotencyScope: 'QR_PRINT',
+          idempotencyKey: input.idempotencyKey,
+        },
+      });
+      if (existing) {
+        return { statusCode: 200, idempotent: true, event: existing };
+      }
+    }
+
     // Lazy timeout: marca PrintJobs PENDING > 1min como FAILED antes de
     // criar/avaliar nova request. Evita bloqueio permanente quando o
     // print agent fica offline.
@@ -1880,7 +1897,35 @@ export class SampleCommandService {
       idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+    const result = await this.eventService.appendEvent(event, {
+      expectedVersion: input.expectedVersion,
+    });
+
+    // Q.auto: dispara impressao automatica pos-classificacao. Best-effort —
+    // se requestQrPrint falhar (Print Agent offline, PrintJob PENDING duplicado,
+    // 503 do banco), a classificacao ja foi commitada e nao deve falhar pelo
+    // print. A secao Etiqueta na detail page tem botao "Imprimir novamente"
+    // pra retry manual. Idempotency derivada do `event.idempotencyKey` da
+    // classificacao garante 1 print por classificacao mesmo em retry — se
+    // appendEvent retornou idempotent (duplo-clique), result.event mantem o
+    // mesmo idempotencyKey, e o print key derivado tambem dedupa.
+    try {
+      await this.requestQrPrint(
+        {
+          sampleId: sample.id,
+          idempotencyKey: `${result.event.idempotencyKey}:auto-print`,
+        },
+        actor
+      );
+    } catch (cause) {
+      console.error('[Q.auto] auto-print pos-classificacao falhou', {
+        sampleId: sample.id,
+        eventId: result.event.eventId,
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+
+    return result;
   }
 
   async updateRegistration(input, actorContext) {

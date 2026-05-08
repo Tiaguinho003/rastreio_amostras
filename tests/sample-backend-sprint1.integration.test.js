@@ -394,7 +394,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.sample.version, 2);
     assert.match(detail.sample.internalLotNumber ?? '', /^\d+$/);
     assert.equal(detail.attachments.length, 1);
-    assert.equal(detail.events.length, 5);
+    // Q.auto: completeClassification dispara auto-print, somando QR_PRINT_REQUESTED
+    // ao timeline (RC, QR_PRINT_REQUESTED #1 manual, QR_PRINTED #1, PHOTO_ADDED,
+    // CLASSIFICATION_COMPLETED, QR_PRINT_REQUESTED #2 auto = 6 eventos).
+    assert.equal(detail.events.length, 6);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
@@ -403,10 +406,15 @@ if (!databaseUrl || !databaseReachable) {
 
     const printJobs = await prisma.printJob.findMany({
       where: { sampleId },
-      orderBy: [{ printAction: 'asc' }, { attemptNumber: 'asc' }],
+      orderBy: [{ attemptNumber: 'asc' }],
     });
-    assert.equal(printJobs.length, 1);
+    // Q.auto: 2 PrintJobs — #1 manual (SUCCESS via recordQrPrinted) + #2 auto-print
+    // pos-classificacao (PENDING, ainda nao confirmado pelo print agent).
+    assert.equal(printJobs.length, 2);
+    assert.equal(printJobs[0].attemptNumber, 1);
     assert.equal(printJobs[0].status, 'SUCCESS');
+    assert.equal(printJobs[1].attemptNumber, 2);
+    assert.equal(printJobs[1].status, 'PENDING');
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.classificationPending.total, 0);
@@ -1231,6 +1239,187 @@ if (!databaseUrl || !databaseReachable) {
     // Tipo refletido em before/after também
     assert.equal(updateEvent.payload.before.classificationType, 'BICA');
     assert.equal(updateEvent.payload.after.classificationType, 'LOW_CAFF');
+  });
+
+  // ============================================================
+  // Q.auto: auto-print pos-classificacao
+  // ============================================================
+
+  test('Q.auto: completeClassification dispara auto-print (PrintJob PENDING + QR_PRINT_REQUESTED audit)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    const completed = await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { padrao: 'PADRAO-A' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+    assert.equal(completed.statusCode, 201);
+
+    const printJobs = await prisma.printJob.findMany({
+      where: { sampleId },
+      orderBy: [{ attemptNumber: 'asc' }],
+    });
+    assert.equal(printJobs.length, 1);
+    assert.equal(printJobs[0].attemptNumber, 1);
+    assert.equal(printJobs[0].status, 'PENDING');
+
+    const events = await prisma.sampleEvent.findMany({
+      where: { sampleId },
+      orderBy: { sequenceNumber: 'asc' },
+    });
+    const printRequested = events.filter((e) => e.eventType === 'QR_PRINT_REQUESTED');
+    assert.equal(printRequested.length, 1);
+    assert.equal(printRequested[0].fromStatus, null);
+    assert.equal(printRequested[0].toStatus, null);
+  });
+
+  test('Q.auto: idempotency — print key derivada de event.idempotencyKey dedupa retry', async () => {
+    // Cenario: o auto-print do completeClassification usa a key
+    // `${event.idempotencyKey}:auto-print`. Validamos que chamar
+    // requestQrPrint DEPOIS do auto-print com a mesma key derivada
+    // retorna idempotent (em vez de 409 PENDING duplicado), provando
+    // que retry da operacao composta nao cria PrintJobs duplicados.
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    const completed = await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { padrao: 'PADRAO-A' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+    assert.equal(completed.statusCode, 201);
+
+    const classificationEvent = completed.event;
+    const derivedPrintKey = `${classificationEvent.idempotencyKey}:auto-print`;
+
+    // Retry manual com mesma key — deve retornar idempotent, nao criar PrintJob novo.
+    const replay = await commandService.requestQrPrint(
+      { sampleId, idempotencyKey: derivedPrintKey },
+      actorClassifier
+    );
+    assert.equal(replay.idempotent, true);
+
+    const printJobs = await prisma.printJob.findMany({ where: { sampleId } });
+    assert.equal(printJobs.length, 1, 'retry com key derivada nao cria PrintJob duplicado');
+  });
+
+  test('Q.auto: updateClassification (reclassificacao) NAO dispara auto-print', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { padrao: 'PADRAO-A' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const printJobsAfterClassify = await prisma.printJob.findMany({ where: { sampleId } });
+    assert.equal(printJobsAfterClassify.length, 1);
+
+    const sampleNow = await queryService.requireSample(sampleId);
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: sampleNow.version,
+        after: { classificationData: { padrao: 'PADRAO-B' } },
+        reasonCode: 'TYPO',
+        reasonText: 'erro de digitacao',
+      },
+      actorClassifier
+    );
+
+    const printJobsAfterUpdate = await prisma.printJob.findMany({ where: { sampleId } });
+    assert.equal(printJobsAfterUpdate.length, 1, 'reclassificacao nao deve criar PrintJob novo');
+  });
+
+  test('Q.auto: best-effort — falha do auto-print nao bloqueia classificacao', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    // Stub requestQrPrint pra forcar falha. completeClassification nao deve
+    // propagar — classificacao permanece commitada.
+    const originalRequestQrPrint = commandService.requestQrPrint.bind(commandService);
+    commandService.requestQrPrint = async () => {
+      throw new HttpError(503, 'Print agent indisponivel (stub)');
+    };
+
+    try {
+      const completed = await commandService.completeClassification(
+        {
+          sampleId,
+          expectedVersion: 1,
+          classificationData: { padrao: 'PADRAO-A' },
+          classifiers: classifiersOf(actorClassifier),
+          idempotencyKey: randomUUID(),
+        },
+        actorClassifier
+      );
+      assert.equal(completed.statusCode, 201);
+
+      const sample = await queryService.requireSample(sampleId);
+      assert.equal(sample.status, 'CLASSIFIED');
+
+      const printJobs = await prisma.printJob.findMany({ where: { sampleId } });
+      assert.equal(printJobs.length, 0, 'PrintJob nao foi criado pois requestQrPrint falhou');
+    } finally {
+      commandService.requestQrPrint = originalRequestQrPrint;
+    }
   });
 }
 
