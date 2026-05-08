@@ -17,20 +17,20 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [x] 1.1. Caminhos de registro de amostra
   - [x] 1.2. Caminhos de classificação (mapeado em 2026-05-07)
 - [x] **Etapa 2** — Identificação de gargalos (consolidada na Fase Q)
-- [ ] **Etapa 3** — Definição do plano de execução
+- [x] **Etapa 3** — Definição do plano de execução
   - [x] Fase 0 — Pré-requisito: PF sempre com ≥1 fazenda (definida + executada)
   - [x] Fase 0.1 — Defesa em profundidade da invariante PF ≥1 unit ACTIVE (definida + executada)
   - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
-  - [ ] Fase D — Layout desktop do `/samples/new` (iterativa, em andamento)
-  - [x] Fase P — Remove impressão do registro + lote numérico puro (definida + executada parcial: commits 1-4 + skill; commit #5 absorvido pela Fase Q)
+  - [ ] Fase D — Layout desktop do `/samples/new` (iterativa, em andamento — agenda contínua, sem fim definido)
+  - [x] Fase P — Remove impressão do registro + lote numérico puro (definida + executada: commits 1-4 + skill; commit #5 absorvido pela Fase Q)
   - [x] Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação (definida; Fase Pb absorvida; Fase C original incorporada como Q.cls.2)
-- [ ] **Etapa 4** — Execução
+- [x] **Etapa 4** — Execução (deployada em prod 2026-05-08; Fase D segue iterativa)
   - [x] Fase 0 (executada — commit `44fd144`)
   - [x] Fase 0.1 (executada — commit `d6f5d24`)
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
-  - [ ] Fase D (em andamento, sem prazo)
-  - [x] Fase P (executada parcial — commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` + skill prisma)
-  - [ ] Fase Q (em andamento)
+  - [ ] Fase D (em andamento, sem prazo — agenda contínua)
+  - [x] Fase P (executada — commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` + skill prisma; commit #5 absorvido pela Fase Q)
+  - [x] Fase Q (completa em prod — Q registro + Q.cls.1 + Q.cls.2 + Q.print + Q.auto + Q.final + Q.types + Q.draft)
     - [x] Q registro (commits `6761a54` + `0b7c45f`)
     - [x] Q.cls.1 lifecycle classificação (commits `79385bc` + `d02eb73`)
     - [x] Q.cls.2 ficha unificada (concluída — ficha física `a79626e`, CTA "Classificar" `f505926`, tela da câmera `e37deaa`, IA `864f619`, modal de revisão `a39e305`, modal de tipo `8dbe36f`, avisos 3a/3b + modo manual `983ccc3`, modais de cross-validation/reclassify/classifier `9411ffe`, payload ficha unificada + reason persistido + sub-caminho 5 Flow B `aa7c591`+`1aa4845`+`a2c7594`+`40d91e4`+`2bc3a36`, frontend cleanup TYPE_CONFIGS `c18e435`+`6659bd6`, audit do tipo na detail page `4e02fe1`+`15a5a07`; migration final do enum fica na Q.final)
@@ -472,74 +472,47 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 #### P.2. Trabalho a fazer
 
+> **Status**: tudo executado nos commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` (Fase P) + absorbidos em Q (Q registro, Q.print, Q.cls.1).
+
 **Backend — formato do lote**
 
-- [ ] `src/samples/sample-query-service.js` `getNextInternalLotNumber()` (linhas 1922-1937):
-  - `LIKE 'A-%'` → `~ '^[0-9]+$'`
-  - Remove `replace('A-', '')`
-  - Retorna `String(nextSequence)` (sem prefixo)
-- [ ] `src/samples/classification-extraction-service.js` linhas 101, 208, 327:
-  - Limpa exemplo `"A-5490"` dos prompts (deixa só `"5487"`)
-- [ ] `print-agent/test-print.js:13-14`: atualiza fixture pra `'5562'`
+- [x] `src/samples/sample-query-service.js` `getNextInternalLotNumber()`: `LIKE 'A-%'` → `~ '^[0-9]+$'`; sem `replace('A-', '')`; retorna `String(nextSequence)` puro.
+- [x] `src/samples/classification-extraction-service.js`: exemplos limpos pra formato numérico.
+- [x] `print-agent/test-print.js`: fixture atualizada.
 
 **Backend — fluxo de criação**
 
-- [ ] `src/samples/sample-command-service.js`:
-  - Renomeia `createSampleAndPreparePrint` → `createSample`
-  - Remove o passo final `requestQrPrint` (sample termina em `REGISTRATION_CONFIRMED`)
-  - Não cria mais `PrintJob` no registro
-  - Não emite `QR_PRINT_REQUESTED` no registro
-  - `startClassification` (linha 2020): aceita `['REGISTRATION_CONFIRMED', 'QR_PRINTED']`
-  - `requestQrPrint` (linha 1870): **mantém** aceitando `REGISTRATION_CONFIRMED` (decisão #2)
-- [ ] `src/api/v1/backend-api.js`: ajusta `createSample` handler — response sem `print` payload, sem `qr` derivado de print
-- [ ] `lib/api-client.ts:createSampleAndPreparePrint`: renomeia + ajusta tipos do response
+- [x] `src/samples/sample-command-service.js`: `createSampleAndPreparePrint` renomeado pra `createSample`; sem `requestQrPrint` no registro; sem `PrintJob`/`QR_PRINT_REQUESTED` no registro. (Q registro absorveu o resto: `startClassification` deletado em Q.cls.1, `requestQrPrint` reescrito em Q.print.)
+- [x] `src/api/v1/backend-api.js`: `createSample` handler sem `print` payload.
+- [x] `lib/api-client.ts`: `createSampleAndPreparePrint` removido (Q registro frontend).
 
 **Backend — agrupamentos de status**
 
-- [ ] `src/samples/sample-query-service.js`:
-  - `PRINT_PENDING_STATUSES`: `['QR_PENDING_PRINT']` (remove REGISTRATION_CONFIRMED)
-  - `CLASSIFICATION_PENDING_STATUSES`: adiciona `REGISTRATION_CONFIRMED`
-  - Outros pickers/agregações que tocam esses arrays
+- [x] `src/samples/sample-query-service.js`: `PRINT_PENDING_STATUSES` deletado em Q.print; `CLASSIFICATION_PENDING_STATUSES = ['REGISTRATION_CONFIRMED']` em Q.cls.1.
 
 **Frontend — modal de criação**
 
-- [ ] `app/samples/new/page.tsx`:
-  - Modal mantém 2 steps mas redefine `LabelModalStep`: `'review' | 'created'` (era `'review' | 'completed'`)
-  - **Remove** estados: `printStatus`, `printPollingRef`, `printTimeoutRef`, `printExitWarningOpen`
-  - **Remove** useEffects: polling de impressão, cleanup, timeout
-  - **Remove** JSX: QR placeholder, QRCodeSVG, animação check, status messages, botões "Ver detalhes"/"Nova amostra" do completed, exit warning overlay
-  - `step='created'` JSX **novo**: lote em destaque (font ~3rem, centralizado), texto "Anote este número na saca antes de seguir", botão único "Ir para amostra"
-  - `handleConfirmDraft` após sucesso → seta `step='created'` (em vez de `step='completed'`)
-  - Botão "Ir para amostra" → `router.push('/samples/' + sampleId)`
-  - Tipos: response do `createSample` sem `qr`/`print`
+- [x] `app/samples/new/page.tsx`: modal redefinido pra `'review' | 'created'`; estados de polling removidos (`78b0621`); step "created" destaca o lote; botão "Ir para amostra".
 
 **Frontend — detail page**
 
-- [ ] `app/samples/[sampleId]/page.tsx`:
-  - Status `REGISTRATION_CONFIRMED`: CTA principal vira "Iniciar classificação" (em vez de "Imprimir etiqueta")
-  - Botão "Imprimir etiqueta" continua disponível em REGISTRATION_CONFIRMED (decisão #2 — manual override) mas como CTA secundário
-  - Demais lugares que tratam REGISTRATION_CONFIRMED/QR_PENDING_PRINT como "aguardando print" — revisar texto/lógica
+- [x] `app/samples/[sampleId]/page.tsx`: CTA principal em RC vira FAB "Classificar" (`f505926`/Q.cls.2); "Imprimir etiqueta" continua disponível na seção Etiqueta (Q.print P3); condicionais por QR_PENDING_PRINT/QR_PRINTED removidas em Q.print P2/P3 + sweep.
 
 **Frontend — dashboard**
 
-- [ ] `app/dashboard/page.tsx`: esconder o card `printPending` enquanto Fase Pb não existe
-- [ ] (Talvez) garantir que samples REGISTRATION_CONFIRMED apareçam no card `classificationPending` (já agrupado pelo backend após mudança em CLASSIFICATION_PENDING_STATUSES)
+- [x] `app/dashboard/page.tsx`: card `printPending` removido em Q.print (`b2253bb` — decisão Q.1.c #20, sem volta).
+- [x] Card `classificationPending` agrupa RC (já garantido pela mudança em `CLASSIFICATION_PENDING_STATUSES`).
 
 **Tests**
 
-- [ ] `tests/sample-backend-sprint1.integration.test.js`: vários testes esperam o fluxo de 4 passos. Atualizar pra esperar parar em REGISTRATION_CONFIRMED.
-- [ ] Helpers `moveSampleToQrPendingPrint`, `moveSampleToQrPrinted` continuam (usados em testes que precisam desses estados pra reprint/legacy)
-- [ ] Novos casos:
-  - `createSample` retorna sample em REGISTRATION_CONFIRMED (sem print payload)
-  - `getNextInternalLotNumber` retorna número puro
-  - `startClassification` aceita REGISTRATION_CONFIRMED
-  - `startClassification` continua aceitando QR_PRINTED (regressão)
+- [x] `tests/sample-backend-sprint1.integration.test.js`: testes ajustados pro fluxo de 1 passo (registro) + helpers `moveSampleToQrPendingPrint`/`moveSampleToQrPrinted` deletados em Q.print.
+- [x] Casos novos cobertos: `createSample` 1 evento, `getNextInternalLotNumber` puro, `requestQrPrint` rejeita INVALIDATED, audit-only events sem mutação.
 
 **Docs/Skill**
 
-- [ ] `docs/PLANO-amostras-refatoracao.md`: marca Fase P executada (ao fim)
-- [ ] `.claude/skills/prisma/SKILL.md`: novo significado de REGISTRATION_CONFIRMED ("aguardando classificação"), formato do lote numérico
-- [ ] Comentários no código mencionando `A-####` ou "imprime no registro" — atualizar se relevante
+- [x] `docs/PLANO-amostras-refatoracao.md`: Fase P marcada executada (Etapa 4).
+- [x] `.claude/skills/prisma/SKILL.md`: REGISTRATION_CONFIRMED descrito como "aguardando classificação"; formato do lote numérico documentado.
+- [x] Comentários `A-####` / "imprime no registro" cobertos pelos sweeps de Q.print/Q.types/sweep dead code.
 
 #### P.3. Commits previstos (atômicos)
 
