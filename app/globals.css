@@ -9805,10 +9805,6 @@ button:disabled {
   --sc: #7d3c98;
 }
 
-.cld-actions.is-hidden {
-  visibility: hidden;
-}
-
 .cdm-manage-link svg {
   width: 16px;
   height: 16px;
@@ -9819,35 +9815,22 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* ── Classification detail modal (cld) ── */
+/* ── Classification detail modal (cld) ──
+   Q.cls.2.7 (refator pos-tipo): segue o padrao .app-modal.is-themed.is-wide
+   da skill modals — header verde brand + body branco + actions com
+   submit/secondary. As classes .cld-* internas (section, grid, field,
+   classifier, photo, saved-overlay, type-select) coabitam com as
+   .app-modal-* canonicas. */
 
 .cld-modal {
+  /* Posicionamento + scroll do saved overlay. Largura/altura/padding/
+     animacao herdadas de .app-modal.is-themed.is-wide. */
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(12px, 3.5vw, 16px);
-  padding: clamp(16px, 4.5vw, 22px);
-  width: min(520px, calc(100vw - 1.5rem));
-  max-width: calc(100vw - 1.5rem);
-  max-height: min(90dvh, 50rem);
 }
 
-.cld-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(8px, 2.5vw, 12px);
-}
-
-.cld-title {
-  margin: 0;
-  font-size: clamp(15px, 4vw, 18px);
-  font-weight: 700;
-  color: #1a1a1a;
-  flex: 1;
-  min-width: 0;
-}
-
+/* Acoes secundarias no header verde (Reclassificar, Editar). Visualmente
+   alinhadas com .app-modal-close.is-themed: pill branco translucido sobre
+   gradient verde brand. */
 .cld-header-actions {
   display: flex;
   align-items: center;
@@ -9855,81 +9838,36 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.cld-edit-btn {
+.cld-header-action {
   display: inline-flex;
   align-items: center;
-  gap: clamp(4px, 1.5vw, 6px);
-  padding: clamp(6px, 2vw, 8px) clamp(10px, 3vw, 12px);
-  border: 1px solid rgba(46, 125, 50, 0.18);
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(46, 125, 50, 0.06);
-  color: var(--brand-green-soft);
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    background 0.15s;
-}
-
-.cld-edit-btn:active {
-  transform: scale(0.95);
-  background: rgba(46, 125, 50, 0.12);
-}
-
-.cld-edit-btn svg {
-  width: clamp(12px, 3.2vw, 14px);
-  height: clamp(12px, 3.2vw, 14px);
-}
-
-.cld-reclassify-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: clamp(4px, 1.5vw, 6px);
-  padding: clamp(6px, 2vw, 8px) clamp(10px, 3vw, 12px);
-  border: 1px solid rgba(46, 125, 50, 0.3);
-  border-radius: 999px;
-  background: var(--brand-green-soft);
+  background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
-  font-size: clamp(11px, 3vw, 12px);
+  font-size: 0.82rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform 0.15s,
-    background 0.15s;
+    background 0.15s,
+    transform 0.15s;
 }
 
-.cld-reclassify-btn:active {
-  transform: scale(0.95);
-  background: #286a2b;
+.cld-header-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
 }
 
-.cld-reclassify-btn svg {
-  width: clamp(12px, 3.2vw, 14px);
-  height: clamp(12px, 3.2vw, 14px);
-  fill: none;
-  stroke: #ffffff;
+.cld-header-action:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
-.cld-body {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(12px, 3.2vw, 14px);
-  overflow-y: auto;
-  scrollbar-width: none;
-  min-height: 0;
-}
-
-.cld-body::-webkit-scrollbar {
-  display: none;
-}
-
-.cld-body.is-saved {
-  pointer-events: none;
+.cld-header-action svg {
+  width: 14px;
+  height: 14px;
 }
 
 .cld-section {
@@ -10078,55 +10016,6 @@ button:disabled {
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-}
-
-.cld-actions {
-  display: flex;
-  gap: clamp(8px, 2.5vw, 10px);
-  margin-top: clamp(4px, 1vw, 6px);
-}
-
-.cld-btn-cancel,
-.cld-btn-save {
-  flex: 1;
-  padding: clamp(10px, 3vw, 12px);
-  border: 0;
-  border-radius: clamp(11px, 3.2vw, 13px);
-  font-size: clamp(13px, 3.5vw, 14px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    transform 0.15s,
-    opacity 0.15s;
-}
-
-.cld-btn-cancel {
-  background: transparent;
-  color: #777;
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-}
-
-.cld-btn-cancel:active:not(:disabled) {
-  transform: scale(0.97);
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.cld-btn-save {
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(27, 94, 32, 0.25);
-}
-
-.cld-btn-save:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.cld-btn-cancel:disabled,
-.cld-btn-save:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .cld-saved-overlay {

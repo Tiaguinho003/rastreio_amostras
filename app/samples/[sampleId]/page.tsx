@@ -3335,24 +3335,23 @@ export default function SampleDetailPage() {
               <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
                 <section
                   ref={classificationDetailTrapRef}
-                  className="app-modal cld-modal"
+                  className="app-modal is-themed is-wide cld-modal"
                   role="dialog"
                   aria-modal="true"
-                  aria-label="Classificacao completa"
+                  aria-labelledby="cld-modal-title"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <header className="cld-header">
-                    <h3 className="cld-title">
-                      Classificacao
-                      {classificationDetailType
-                        ? ` \u2014 ${CLASSIFICATION_TYPE_LABEL[classificationDetailType]}`
-                        : ''}
-                    </h3>
+                  <header className="app-modal-header">
+                    <div className="app-modal-title-wrap">
+                      <h3 id="cld-modal-title" className="app-modal-title">
+                        Classifica\u00e7\u00e3o
+                      </h3>
+                    </div>
                     <div className="cld-header-actions">
                       {canEdit && !editing ? (
                         <button
                           type="button"
-                          className="cld-reclassify-btn"
+                          className="cld-header-action"
                           onClick={() => setReclassifyModalOpen(true)}
                           aria-label="Reclassificar amostra"
                         >
@@ -3360,7 +3359,7 @@ export default function SampleDetailPage() {
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.6"
+                            strokeWidth="1.8"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             aria-hidden="true"
@@ -3374,14 +3373,14 @@ export default function SampleDetailPage() {
                       {canEdit && !editing ? (
                         <button
                           type="button"
-                          className="cld-edit-btn"
+                          className="cld-header-action"
                           onClick={() => setClassificationDetailEditing(true)}
                         >
                           <svg
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.6"
+                            strokeWidth="1.8"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           >
@@ -3392,26 +3391,18 @@ export default function SampleDetailPage() {
                       ) : null}
                       <button
                         type="button"
-                        className="app-modal-close cld-close-btn"
+                        className="app-modal-close"
                         onClick={closeClassificationDetail}
                         aria-label="Fechar"
                       >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        >
-                          <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
+                        <span aria-hidden="true">&times;</span>
                       </button>
                     </div>
                   </header>
 
                   {(() => {
                     return (
-                      <div className={`cld-body${saved ? ' is-saved' : ''}`}>
+                      <div className="app-modal-content cld-body">
                         <div className="cld-photo-section">
                           {classificationServerPhotoUrl ? (
                             <button
@@ -3713,37 +3704,39 @@ export default function SampleDetailPage() {
                     );
                   })()}
 
-                  <div className={`cld-actions${editing ? '' : ' is-hidden'}`}>
-                    <button
-                      type="button"
-                      className="cld-btn-cancel"
-                      onClick={() => {
-                        if (detail && session)
-                          setClassificationDetailForm(
-                            buildClassificationFormState(detail, session.user)
+                  {editing ? (
+                    <div className="app-modal-actions">
+                      <button
+                        type="button"
+                        className="app-modal-submit"
+                        onClick={() => void saveClassificationDetail()}
+                        disabled={saving}
+                      >
+                        {saving ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button
+                        type="button"
+                        className="app-modal-secondary"
+                        onClick={() => {
+                          if (detail && session)
+                            setClassificationDetailForm(
+                              buildClassificationFormState(detail, session.user)
+                            );
+                          setClassificationDetailClassifiers(
+                            classificationDetailClassifiersOriginal
                           );
-                        setClassificationDetailClassifiers(classificationDetailClassifiersOriginal);
-                        // Q.cls.2 audit do tipo: cancelar restaura o tipo original.
-                        setClassificationDetailType(classificationDetailTypeOriginal);
-                        setClassificationDetailPickerOpen(false);
-                        setClassificationDetailUserSearch('');
-                        setClassificationDetailEditing(false);
-                      }}
-                      disabled={saving}
-                      tabIndex={editing ? 0 : -1}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      className="cld-btn-save"
-                      onClick={() => void saveClassificationDetail()}
-                      disabled={saving}
-                      tabIndex={editing ? 0 : -1}
-                    >
-                      {saving ? 'Salvando...' : 'Salvar'}
-                    </button>
-                  </div>
+                          // Q.cls.2 audit do tipo: cancelar restaura o tipo original.
+                          setClassificationDetailType(classificationDetailTypeOriginal);
+                          setClassificationDetailPickerOpen(false);
+                          setClassificationDetailUserSearch('');
+                          setClassificationDetailEditing(false);
+                        }}
+                        disabled={saving}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : null}
 
                   {saved ? (
                     <div className="cld-saved-overlay" aria-live="polite">
