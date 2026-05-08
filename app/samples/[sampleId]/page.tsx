@@ -3468,7 +3468,7 @@ export default function SampleDetailPage() {
                               </option>
                             </select>
                           ) : (
-                            <span className="cld-field-value cld-type-value">
+                            <span className="cld-field-value">
                               {classificationDetailType
                                 ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
                                 : '—'}

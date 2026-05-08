@@ -491,6 +491,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 
 - `OperationModal` (dashboard) — usa `app-modal app-modal-dashboard`
 - `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
+- `cld-modal` (Classification Detail Modal em `/samples/[sampleId]/page.tsx`) — usa `cld-*` (cld-header/section/field/grid). Q.cls.2 audit do tipo (commit `15a5a07`) adicionou seção "Tipo" seguindo o padrão interno (cld-section + cld-field-input + chevron SVG no select), mas o modal pai segue legacy.
 - `SampleMovementModal`
 - `samples-filter-modal` em `/samples`
 - `InactivateUserModal`, `CancelInactivationDialog`, `InactivateConfirmDialog` em `/users`
