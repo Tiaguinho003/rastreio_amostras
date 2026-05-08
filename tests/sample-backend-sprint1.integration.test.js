@@ -1143,6 +1143,149 @@ if (!databaseUrl || !databaseReachable) {
       { peneira: '11', percentual: 4 },
     ]);
   });
+
+  // Q.cls.2.7: tipo-only update — operador edita SO o tipo na detail
+  // page sem mexer em campos do classificationData.
+
+  test('updateClassification aceita tipo-only update (sem campos no after)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 3,
+        classificationData: { padrao: 'PADRAO-1' },
+        classifiers: classifiersOf(actorClassifier),
+        classificationType: 'BICA',
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const currentBeforeUpdate = await queryService.requireSample(sampleId);
+    assert.equal(currentBeforeUpdate.classificationType, 'BICA');
+
+    // Update so com classificationType (sem after) deve ser aceito.
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: currentBeforeUpdate.version,
+        // after omitido — tipo-only update
+        reasonCode: 'TYPO',
+        reasonText: 'Tipo alterado de BICA pra PREPARADO',
+        classificationType: 'PREPARADO',
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.classificationType, 'PREPARADO');
+    const updateEvent = detail.events.find((event) => event.eventType === 'CLASSIFICATION_UPDATED');
+    assert.ok(updateEvent);
+    assert.equal(updateEvent.payload.before.classificationType, 'BICA');
+    assert.equal(updateEvent.payload.after.classificationType, 'PREPARADO');
+    assert.equal(updateEvent.payload.classificationType, 'PREPARADO');
+    assert.equal(updateEvent.payload.reasonCode, 'TYPO');
+  });
+
+  test('updateClassification rejeita 409 quando nem after nem tipo mudaram', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 3,
+        classificationData: { padrao: 'PADRAO-1' },
+        classifiers: classifiersOf(actorClassifier),
+        classificationType: 'BICA',
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const currentBeforeUpdate = await queryService.requireSample(sampleId);
+
+    // Sem after, sem tipo diferente — deve rejeitar 409.
+    await assert.rejects(
+      () =>
+        commandService.updateClassification(
+          {
+            sampleId,
+            expectedVersion: currentBeforeUpdate.version,
+            classificationType: 'BICA', // mesmo tipo atual
+          },
+          actorClassifier
+        ),
+      (error) => error instanceof HttpError && error.status === 409
+    );
+  });
+
+  test('updateClassification em update combinado (campos + tipo) inclui tipo no before/after', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 3,
+        classificationData: { padrao: 'PADRAO-1' },
+        classifiers: classifiersOf(actorClassifier),
+        classificationType: 'BICA',
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const currentBeforeUpdate = await queryService.requireSample(sampleId);
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: currentBeforeUpdate.version,
+        after: { classificationData: { padrao: 'PADRAO-2' } },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Tipo + padrao corrigidos',
+        classificationType: 'LOW_CAFF',
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.classificationType, 'LOW_CAFF');
+    const updateEvent = detail.events.find((event) => event.eventType === 'CLASSIFICATION_UPDATED');
+    assert.ok(updateEvent);
+    // Campos refletidos
+    assert.equal(updateEvent.payload.before.classificationData.padrao, 'PADRAO-1');
+    assert.equal(updateEvent.payload.after.classificationData.padrao, 'PADRAO-2');
+    // Tipo refletido em before/after também
+    assert.equal(updateEvent.payload.before.classificationType, 'BICA');
+    assert.equal(updateEvent.payload.after.classificationType, 'LOW_CAFF');
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

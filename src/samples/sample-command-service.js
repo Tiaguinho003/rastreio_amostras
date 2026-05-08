@@ -2069,17 +2069,48 @@ export class SampleCommandService {
       ? normalizeUpdateReasonText(input.reasonText)
       : 'Atualizacao de classificacao';
     const rawAfter = input.after ?? input.changes ?? {};
-    // Normaliza classifiers antes de parsear o patch, pois e async
-    // (precisa buscar usuarios). O parser sync so valida o shape top-level.
-    let normalizedAfter = rawAfter;
-    if (isPlainObject(rawAfter) && hasOwn(rawAfter, 'classifiers')) {
-      const normalized = await this.normalizeClassifiers(rawAfter.classifiers);
-      normalizedAfter = { ...rawAfter, classifiers: normalized };
+
+    // Q.cls.2.7: tipo-only update — operador pode editar SO o tipo na
+    // detail page sem mexer em campos da classificacao. Detecta antes
+    // de parsear o patch.
+    const newType = input.classificationType ?? null;
+    const oldType = sample.classificationType ?? null;
+    const typeChanged = newType !== oldType;
+
+    const afterEmpty = !isPlainObject(rawAfter) || Object.keys(rawAfter).length === 0;
+
+    let updatePayload;
+    if (afterEmpty) {
+      // Sem campos no after: so aceita se o tipo mudou.
+      if (!typeChanged) {
+        throw new HttpError(409, 'No classification changes detected');
+      }
+      updatePayload = { before: {}, after: {} };
+    } else {
+      // Normaliza classifiers antes de parsear o patch, pois e async
+      // (precisa buscar usuarios). O parser sync so valida o shape top-level.
+      let normalizedAfter = rawAfter;
+      if (isPlainObject(rawAfter) && hasOwn(rawAfter, 'classifiers')) {
+        const normalized = await this.normalizeClassifiers(rawAfter.classifiers);
+        normalizedAfter = { ...rawAfter, classifiers: normalized };
+      }
+      const parsedPatch = parseClassificationUpdatePatch(normalizedAfter);
+      const fieldsPayload = buildClassificationUpdatePayload(sample, parsedPatch);
+      if (!fieldsPayload) {
+        if (!typeChanged) {
+          throw new HttpError(409, 'No classification changes detected');
+        }
+        updatePayload = { before: {}, after: {} };
+      } else {
+        updatePayload = fieldsPayload;
+      }
     }
-    const parsedPatch = parseClassificationUpdatePatch(normalizedAfter);
-    const updatePayload = buildClassificationUpdatePayload(sample, parsedPatch);
-    if (!updatePayload) {
-      throw new HttpError(409, 'No classification changes detected');
+
+    // Inclui classificationType em before/after pra audit completo + pra
+    // satisfazer o schema do evento (before/after exigem minProperties:1).
+    if (typeChanged) {
+      updatePayload.before.classificationType = oldType;
+      updatePayload.after.classificationType = newType;
     }
 
     const updateEventPayload = {
