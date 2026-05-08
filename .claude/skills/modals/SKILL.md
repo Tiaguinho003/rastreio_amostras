@@ -450,6 +450,8 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 ### ✅ Seguem o padrao .is-themed
 
+#### Cliente
+
 | Modal                               | Arquivo                                                   | Variantes                  |
 | ----------------------------------- | --------------------------------------------------------- | -------------------------- |
 | ClientUnitModal (Nova filial)       | `components/clients/ClientUnitModal.tsx`                  | `is-themed is-wide`        |
@@ -458,6 +460,24 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 | Edit Client (inline na detail page) | `app/clients/[clientId]/page.tsx` ~L1547                  | `is-themed is-wide`        |
 | Status modal cliente (inline)       | `app/clients/[clientId]/page.tsx` ~L1991                  | `is-themed`                |
 | Status modal unit (inline)          | `app/clients/[clientId]/page.tsx` ~L2092                  | `is-themed`                |
+
+#### Extracao da classificacao (`/camera` — Q.cls.2)
+
+Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handleSendPhoto → detecting → detected → extracting → ` (3a/3b se falha; senão) ` confirming (Review) → selecting-type (Type) → selecting-classifier (Classifier) → submitting → success`. Mismatch/reclassify aparecem no caminho do save.
+
+| Modal                              | Arquivo                                                     | Sub-caminho                         | Variantes                  |
+| ---------------------------------- | ----------------------------------------------------------- | ----------------------------------- | -------------------------- |
+| ClassificationReviewModal          | `components/samples/ClassificationReviewModal.tsx`          | Q.cls.2.3 (revisão pós-extração)    | `is-themed is-wide`        |
+| ClassificationTypeModal            | `components/samples/ClassificationTypeModal.tsx`            | Q.cls.2.8 (seleção de tipo)         | `is-themed`                |
+| ClassificationClassifierModal      | `components/samples/ClassificationClassifierModal.tsx`      | Q.cls.2.9 (seleção classificadores) | `is-themed`                |
+| ClassificationExtractionErrorModal | `components/samples/ClassificationExtractionErrorModal.tsx` | Sub-caminhos 3a + 3b                | `is-themed`                |
+| ClassificationManualConfirmModal   | `components/samples/ClassificationManualConfirmModal.tsx`   | 2º modal de 3b                      | `is-themed`                |
+| ClassificationLotMismatchModal     | `components/samples/ClassificationLotMismatchModal.tsx`     | Sub-caminho 2 (lote diverge)        | `is-themed`                |
+| ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`        |
+| ClassificationReclassifyModal      | `components/samples/ClassificationReclassifyModal.tsx`      | Sub-caminho 5 (reclassificação)     | `is-themed` + `.is-danger` |
+| ClassificationNotFoundModal        | `components/samples/ClassificationNotFoundModal.tsx`        | Flow A legacy fallback              | `is-themed`                |
+
+> Padrao da extracao: avisos de erro/mismatch usam `role="alertdialog"`; modal de tipo+classifier+revisao usam `role="dialog"`. Modais com seta de Voltar no header (Type, ManualConfirm, Classifier) reutilizam a classe `.type-modal-back` que aplica fundo branco translucido + ESC = onBack.
 
 ### ⚠ Visual igual mas implementacao com classes proprias (refatorar quando tocar)
 
@@ -473,7 +493,6 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 - `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
 - `SampleMovementModal`
 - `samples-filter-modal` em `/samples`
-- `cam-cf-modal`, `cam-type-card`, `cam-error-card`, `cam-mismatch-card`, `cam-already-card`, `cam-classifier-card` em `/camera`
 - `InactivateUserModal`, `CancelInactivationDialog`, `InactivateConfirmDialog` em `/users`
 - `SampleLookupResultModal`
 
@@ -486,6 +505,49 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 | ProfileBottomSheet  | Bottom sheet (slide de baixo no mobile) — outro padrao, ver `design-system` §8 |
 | ForgotPasswordModal | Estilo da tela de login (`login-modal-*`), fora da app autenticada             |
 | PhotoZoomViewer     | Overlay full-screen pra zoom de foto — nao e modal de form                     |
+
+### Mapa visual do fluxo da extracao
+
+```
+        scanner (idle)
+           │
+           ▼ tira foto
+        preview ──── Tirar outra ──── (resetClassificationFlow)
+           │ "Enviar"
+           ▼
+       detecting ─── Foto sem ficha visivel ──► detect-failed (overlay) ─── "Continuar assim" ───┐
+           │ ficha detectada                                                                       │
+           ▼                                                                                        │
+       detected (success-icon, 800ms)                                                               │
+           │                                                                                        │
+           ▼                                                                                        │
+       extracting ◄────────────────────────────────────────────────────────────────────────────────┘
+           │
+           ├── lote=null (hasContext) ──► extraction-error-illegible ─── "Tirar outra" ─── reset
+           │                                                          ─── "Cancelar"     ─── router.back()
+           │
+           ├── catch (timeout/offline) ──► extraction-error-technical ─ "Tirar outra"     ─ reset
+           │                                                            "Continuar manual"─►  manual-confirm ─ "Confirmar" ─► startManualMode → confirming (Review com lote/sacas/safra editaveis)
+           │                                                            "Cancelar"        ─ router.back()
+           │
+           ▼ extracao OK
+       confirming (ReviewModal) ─── "Cancelar" ─── reset
+           │
+           ▼ "Avançar" (≥1 campo)
+       selecting-type (TypeModal) ─── ← Voltar (seta) ─── confirming
+           │ click num tipo
+           ▼
+       selecting-classifier (ClassifierModal) ─── ← Voltar (seta) ─── selecting-type
+           │ "Confirmar e salvar"
+           ▼
+       handleConfirmClassification
+           ├── lote(editavel) ≠ contextSampleLot ──► lot-mismatch (LotMismatchModal) ─ "Tirar outra" ─ reset
+           │                                                                          "Cancelar"    ─ router.back()
+           ├── divergencias sacas/safra ───────────► data-mismatch (DataMismatchModal) ─ ESCOLHA campo a campo ─► "Aplicar e salvar"
+           ├── sample CLASSIFIED (Flow A) ─────────► overwrite-confirm (ReclassifyModal com reason) ─► "Confirmar" ─► save
+           ├── lote nao encontrado (Flow A) ───────► not-found (NotFoundModal) ─ "Sair" / "Cadastrar nova"
+           └── tudo OK ─────────────────────────────► saveClassification → submitting → success
+```
 
 ## 12. Checklist de revisao
 
