@@ -34,7 +34,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
     - [x] Q registro (commits `6761a54` + `0b7c45f`)
     - [x] Q.cls.1 lifecycle classificação (commits `79385bc` + `d02eb73`)
     - [x] Q.cls.2 ficha unificada (concluída — ficha física `a79626e`, CTA "Classificar" `f505926`, tela da câmera `e37deaa`, IA `864f619`, modal de revisão `a39e305`, modal de tipo `8dbe36f`, avisos 3a/3b + modo manual `983ccc3`, modais de cross-validation/reclassify/classifier `9411ffe`, payload ficha unificada + reason persistido + sub-caminho 5 Flow B `aa7c591`+`1aa4845`+`a2c7594`+`40d91e4`+`2bc3a36`, frontend cleanup TYPE_CONFIGS `c18e435`+`6659bd6`, audit do tipo na detail page `4e02fe1`+`15a5a07`; migration final do enum fica na Q.final)
-    - [ ] Q.print impressão como ação
+    - [x] Q.print impressão como ação (commits `498e74b` backend + `b2253bb` frontend infra + `3584b73` seção Etiqueta+polling)
     - [ ] Q.auto auto-print pós-classificação
     - [ ] Q.final migration de drop dos enums legados
 
@@ -774,21 +774,21 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 - [ ] **Classificação**: `completeClassification` aceita partir de **RC apenas**. Emite `CLASSIFICATION_COMPLETED`. **Após emitir**, dispara `requestQrPrint` com `idempotencyKey` derivada.
 - [ ] **Classificação**: `confirmClassificationFromCamera` aceita **RC** ou **CLASSIFIED** (reclassificação). Se RC → `completeClassification` (dispara print). Se CLASSIFIED → `updateClassification` (sem print).
 - [ ] **Classificação**: `updateClassification` mantém comportamento atual. **Não dispara** print.
-- [ ] **Impressão**: `requestQrPrint`:
-  - aceita qualquer status **exceto** `INVALIDATED`
-  - cria `PrintJob(PENDING)` + emite `QR_PRINT_REQUESTED` audit (null/null)
-  - **sem** `expectedVersion` (não muda sample)
-  - **antes** de criar: executa lazy timeout — marca `PrintJob`s PENDING > 1min como FAILED com `error: 'timeout 1min'`
-  - **bloqueia (409)** se já houver PENDING válido pra essa amostra
-  - **remove** parâmetro `printAction` da assinatura
-- [ ] **Impressão**: `requestQrReprint` deletar.
-- [ ] **Impressão**: `recordQrPrinted` atualiza `PrintJob` pra SUCCESS, emite `QR_PRINTED` audit (null/null), remove o hack "se já passou de QR_PENDING_PRINT", sem `expectedVersion`.
-- [ ] **Impressão**: `recordQrPrintFailed` atualiza `PrintJob` pra FAILED com `error`, emite `QR_PRINT_FAILED` audit (null/null), sem `expectedVersion`.
+- [x] **Impressão (`498e74b`)**: `requestQrPrint`:
+  - aceita qualquer status **exceto** `INVALIDATED` ✓
+  - cria `PrintJob(PENDING)` + emite `QR_PRINT_REQUESTED` audit (null/null) ✓
+  - **sem** `expectedVersion` (não muda sample) ✓
+  - **antes** de criar: executa lazy timeout em `expireStalePrintJobs` (60s, status EXPIRED) ✓
+  - **bloqueia (409)** se já houver PENDING válido pra essa amostra ✓
+  - **remove** parâmetro `printAction` da assinatura ✓
+- [x] **Impressão (`498e74b`)**: `requestQrReprint` deletado.
+- [x] **Impressão (`498e74b`)**: `recordQrPrinted` atualiza `PrintJob` pra SUCCESS, emite `QR_PRINTED` audit (null/null), removido o hack "se já passou de QR_PENDING_PRINT", sem `expectedVersion`.
+- [x] **Impressão (`498e74b`)**: `recordQrPrintFailed` atualiza `PrintJob` pra FAILED com `error`, emite `QR_PRINT_FAILED` audit (null/null), sem `expectedVersion`.
 
 ##### Q.7.3. Backend — query + agrupamentos
 
 - [x] **Registro (`6761a54`)**: `assertSampleStatus` em `createSample` removido (sample novo nunca está em status legado). `getNextInternalLotNumber` mantém (Fase P). Auditoria de callers de `receiveSample/startRegistration/confirmRegistration` feita — sem callers backend remanescentes.
-- [ ] **Impressão**: `PRINT_PENDING_STATUSES` deletar (substituído por query em `PrintJob.status='PENDING'`); `getNextPrintAttemptNumber(sampleId)` remove parâmetro `printAction`; `getSampleDetail` aplica lazy timeout antes de retornar.
+- [x] **Impressão (`498e74b`)**: `PRINT_PENDING_STATUSES` deletado; `getNextPrintAttemptNumber(sampleId)` sem `printAction`; `getSampleDetail` aplica lazy timeout (`applyPrintTimeout`) antes de retornar; `getDashboardPending` perde `printPending`/`oldestPending`.
 - [ ] **Classificação**: `CLASSIFICATION_PENDING_STATUSES` vira `['REGISTRATION_CONFIRMED']`.
 - [ ] **Classificação**: `assertSampleStatus` em `completeClassification`/`startClassification`/`saveClassificationPartial`/`confirmClassificationFromCamera` revisar (`grep` por `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`, `QR_PENDING_PRINT`).
 - [ ] **Classificação**: `PHOTO_KINDS.CLASSIFICATION` (linha ~22 do command service) de `[QR_PRINTED, CLASSIFICATION_IN_PROGRESS, CLASSIFIED]` pra `[REGISTRATION_CONFIRMED, CLASSIFIED]`.
@@ -797,7 +797,7 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 - [x] **Registro (`6761a54`)**: schemas `sample-received.event/payload` e `registration-started.event/payload` deletados. `registration-confirmed.event` relax pra `fromStatus: null`. `registration-confirmed.payload` ganha `receivedChannel` (required) e `notes`. `shared-defs.schema.json` perde `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`.
 - [ ] **Classificação**: drop schemas `classification-started.event/payload`, `classification-saved-partial.event/payload`. `shared-defs` perde `CLASSIFICATION_IN_PROGRESS`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`.
-- [ ] **Impressão**: drop schema `qr-reprint-requested.event/payload`. Relax `qr-print-requested.event` (fromStatus null/null), `qr-printed.event` (fromStatus null/null), `qr-print-failed.event` (já é null/null). `shared-defs` perde `QR_PENDING_PRINT`, `QR_PRINTED`, `QR_REPRINT_REQUESTED`, e `printAction` enum inteiro, `IdempotencyScope.QR_REPRINT`.
+- [x] **Impressão (`498e74b`)**: drop `qr-reprint-requested.event/payload`. Relax `qr-print-requested.event` (null/null), `qr-printed.event` (null/null). `shared-defs` perde `QR_REPRINT_REQUESTED` + `IdempotencyScope.QR_REPRINT`. `QR_PENDING_PRINT`/`QR_PRINTED` enum + `printAction` ficam pra Q.final junto com a migration que dropa do Postgres.
 
 ##### Q.7.5. Frontend — detail page (Gargalo 4)
 
@@ -809,49 +809,36 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
   - **CLASSIFIED**: "Reclassificar" + secundário "Reimprimir etiqueta".
   - **INVALIDATED**: nada (terminal).
 - [ ] Botão "Salvar rascunho": deletar.
-- [ ] Painel "etiqueta" (status do PrintJob): mostra última impressão (data, status). Sem painel fixo de "imprimindo agora" (decisão Gargalo A).
-- [ ] Polling de `PrintJob` quando há PENDING ativo (ver Q.7.6).
-- [ ] Limpar todas as condicionais que comparam contra statuses cortados (`QR_PRINTED`, `QR_PENDING_PRINT`, `CLASSIFICATION_IN_PROGRESS`).
+- [x] **Painel "etiqueta" (`3584b73`)**: nova seção `sdv-print-section` no body do `sdv-general` mostra status do `latestPrintJob` (idle/pending/success/failed/expired) + tentativa atual + erro + botão "Imprimir etiqueta" / "Imprimir novamente". Substitui o card `sdv-print-failed-card` antigo. O botão "Imprimir" da `sdv-actions-bar` migrou pra essa seção.
+- [x] **Polling (`3584b73`)**: `useEffect` recarrega o detail a cada 3s enquanto `latestPrintJob.status === 'PENDING'`. Para automaticamente quando muda pra SUCCESS/FAILED/EXPIRED.
+- [x] **Modal de revisão (`3584b73`)**: step "completed" destaca o lote ("Lote N enviado pra impressao. Anote o numero na saca enquanto a etiqueta sai.") com botão "Anotei, fechar".
+- [x] **Limpeza Q.print (`b2253bb` + `3584b73`)**: condicionais contra `QR_PRINTED`/`QR_PENDING_PRINT` removidas; `printAction`/`PrintAction` removidos; `printFailed` deletado; `getOperationalStatusDot*` simplificado; `CLASSIFICATION_STATUSES`/`REGISTRATION_EDITABLE_STATUSES` cobrem só RC + CLASSIFIED.
 - [ ] Sem código morto.
 
 ##### Q.7.6. Frontend — modal de feedback do print (auto + manual)
 
-- [ ] Após `completeClassification` (auto), frontend redireciona pra detail page imediatamente.
-- [ ] Detail page detecta `PrintJob` PENDING ativo → polling a cada N segundos (curto, ex: 2-3s).
-- [ ] Quando `PrintJob` vira SUCCESS → modal "Etiqueta impressa com sucesso" + botão OK (auto-dismiss opcional).
-- [ ] Quando `PrintJob` vira FAILED → modal "Falha na impressão" + opções: "Tentar novamente" / "Cancelar".
-- [ ] Modal aparece **só uma vez** por job (depois de fechado, não reaparece sem novo print).
-- [ ] Mesmo modal cobre print manual (override em RC ou reimpressão em CLASSIFIED).
+- [ ] Após `completeClassification` (auto), frontend redireciona pra detail page imediatamente. **Q.auto.**
+- [x] **Polling (`3584b73`)**: detail page detecta `PrintJob` PENDING ativo → polling a cada 3s. Para automaticamente em SUCCESS/FAILED/EXPIRED.
+- [x] **Feedback Q.print (`3584b73`)**: badge na seção Etiqueta atualiza via polling (Imprimindo... → Impressa / Falhou / Tempo esgotado). Sem modal automático pós-PENDING — decisão atual é manter o feedback direto na seção pra evitar que um modal interrompa o operador. Modal automático fica pra Q.auto se necessário.
+- [x] **Modal único por print (`3584b73`)**: o modal de revisão+confirmação aparece quando o user clica "Imprimir", confirma, vai pra step "completed" ("Lote N enviado pra impressao") e fecha. Não reaparece sem nova ação.
+- [x] **Print manual (`3584b73`)**: mesmo modal cobre RC e CLASSIFIED — botão "Imprimir etiqueta" vira "Imprimir novamente" quando já há `latestPrintJob`.
 
 ##### Q.7.7. Frontend — dashboard
 
-- [ ] `app/dashboard/page.tsx`: card "Aguardando impressão" — **deletar inteiro** (decisão Q.1.c #20). Sem volta.
-- [ ] Card "Aguardando classificação": query continua, conta amostras em `RC`.
+- [x] **Dashboard (`b2253bb`)**: card "Aguardando impressão" deletado em `DashboardDesktop.tsx` + `DashboardMobile.tsx`. `useOperationModal.ts` perdeu `print_pending` panel. Sem volta.
+- [x] **Card "Aguardando classificação" (`b2253bb`)**: query continua, conta amostras em `RC`. (`classificationInProgress.total` removido — agora só `classificationPending.total`).
 
 ##### Q.7.8. Frontend — api-client
 
 - [x] **Registro (`0b7c45f`)**: `receiveSample`, `startRegistration`, `confirmRegistration` deletados.
 - [ ] **Classificação**: `saveClassificationPartial`, `startClassification` deletar.
-- [ ] **Impressão**: `requestQrReprint` deletar; `requestQrPrint` remove parâmetros `printAction` e `expectedVersion` da assinatura.
+- [x] **Impressão (`b2253bb`)**: `requestQrReprint` deletado; `requestQrPrint` perde `expectedVersion` + `attemptNumber` (backend gerencia); `recordQrPrinted`/`recordQrPrintFailed` perdem `printAction` + `expectedVersion`. `LatestPrintJob`/`PendingPrintJob` perdem `printAction`. `PrintJobStatus` ganha `EXPIRED`.
 
 ##### Q.7.9. Tests
 
-- [ ] `tests/sample-backend-sprint1.integration.test.js`: revisar todos os testes que tocam fluxo de registro (3 → 1 evento) e classificação (sem IP).
-- [ ] Helpers a deletar:
-  - `moveSampleToQrPendingPrint`
-  - `moveSampleToQrPrinted`
-  - `moveSampleToClassificationInProgress` (se existir)
-- [ ] `moveSampleToRegistrationConfirmed`: simplificar (1 evento direto, sem `SAMPLE_RECEIVED` + `REGISTRATION_STARTED`).
-- [ ] `moveSampleToClassified`: passar pelo novo fluxo (RC → CLASSIFIED em 1 transição) e considerar que `completeClassification` dispara print (mock o agent ou ignora `PrintJob`).
-- [ ] Casos novos (mínimos):
-  - `createSample` emite **1** evento (`REGISTRATION_CONFIRMED`, null/RC).
-  - `requestQrPrint` aceita RC, CLASSIFIED; rejeita INVALIDATED (409).
-  - `requestQrPrint` cria `PrintJob`; se já há PENDING, retorna 409.
-  - Lazy timeout em `requestQrPrint`: PENDING > 1min vira FAILED antes da nova request criar.
-  - Lazy timeout em `getSampleDetail`: PENDING vencido aparece como FAILED no GET.
-  - `completeClassification` dispara `requestQrPrint` automaticamente; idempotency protege duplo-clique.
-  - `confirmClassificationFromCamera` em RC dispara print; em CLASSIFIED **não** dispara.
-  - `updateClassification` (reclassificação direta) **não** dispara print.
+- [x] **Tests Q.print (`498e74b`)**: helpers `moveSampleToQrPendingPrint` + `moveSampleToQrPrinted` deletados em `sprint1.integration.test.js` e `backend-api-v1-missing.integration.test.js`. Calls migrados pra `moveSampleToRegistrationConfirmed`. `expectedVersion` ajustado em ~25 lugares (3 → 1, 4 → 2, 5 → 3, 6 → 4) — refletindo que QR_PRINT_REQUESTED/QR_PRINTED não mutam mais. Tests REPRINT (5 em api-v1-missing + 2 em event-contract-db) deletados ou substituídos por novos do fluxo Q.print (1 cobre idempotency+block-INVALIDATED+409 PENDING; outro cobre audit-only). `qrReprintRequestedEvent` builder deletado de `helpers/event-builders.js`.
+- [x] `event-contract.test.js` (`498e74b`): `MUTATING_EVENT_TYPES` sem QR\_\*; tests com `expectedVersion` em audit events ajustados; tests "qr reprint success" deletados.
+- [x] **Casos novos cobertos (`498e74b`)**: `createSample` emite 1 evento; `requestQrPrint` rejeita INVALIDATED (409); 409 quando PrintJob PENDING já existe; audit-only não muta version/status (testado em `recordQrPrinted` e `recordQrPrintFailed`). Auto-print pós-classificação fica pra Q.auto.
 
 ##### Q.7.10. Print agent
 
@@ -867,18 +854,19 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 > **Reorganizado**: o "registro" originalmente previsto como 2 commits (#1 migration + #2 backend) virou 1 commit backend + 1 frontend. A migration final (drop de enums) foi adiada pra última frente da Fase Q (após classificação e impressão), porque cada `DROP` de enum value no Postgres é caro e queremos fazer uma vez só com tudo migrado.
 
-| #   | Commit                                                                   | Status   | SHA / nota                                                                                                                                                                                                                                                                                                                                                                 |
-| --- | ------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `feat(samples): registro emite 1 evento unico (Fase Q backend)`          | ✅       | `6761a54` — command service (3 comandos deletados), schemas JSON, migration do trigger, append-event aceita REGISTRATION_CONFIRMED criador, tests                                                                                                                                                                                                                          |
-| 2   | `feat(samples): frontend sem REGISTRATION_IN_PROGRESS (Fase Q frontend)` | ✅       | `0b7c45f` — api-client (3 fns deletadas), detail page (handleConfirmRegistration + estado + helpers + modal simplificados)                                                                                                                                                                                                                                                 |
-| 3   | `feat(samples): classificacao sem CLASSIFICATION_IN_PROGRESS`            | pendente | Backend (startClassification + saveClassificationPartial deletar; completeClassification só de RC; confirmClassificationFromCamera RC ou CLASSIFIED) + tests + frontend (botão "Salvar rascunho", aba IP)                                                                                                                                                                  |
-| 4   | `feat(samples): impressao como acao pura (sem QR_*)`                     | pendente | Backend `requestQrPrint` unificado, `recordQrPrinted`/`recordQrPrintFailed` sem `expectedVersion`, lazy timeout 1min (D3). Sem `PrintAction`. Tests                                                                                                                                                                                                                        |
-| 5   | `feat(samples): impressao automatica apos completeClassification`        | pendente | `completeClassification` dispara `requestQrPrint` com `idempotencyKey` derivada. Tests                                                                                                                                                                                                                                                                                     |
-| 6   | `feat(samples): polling + modal de feedback de print no frontend`        | pendente | Detail page polling de `PrintJob` PENDING, modal sucesso/falha (auto + manual)                                                                                                                                                                                                                                                                                             |
-| 7   | `feat(samples): dashboard sem card "aguardando impressao"`               | pendente | Frontend dashboard remove card                                                                                                                                                                                                                                                                                                                                             |
-| 8   | `feat(samples): detail page revisada (sem QR_PRINTED/QR_PENDING_PRINT)`  | pendente | Revisão exaustiva da detail page (Q.7.5 / Gargalo 4). CTAs por status, sem código morto. CTA "Iniciar classificação" em RC entra aqui                                                                                                                                                                                                                                      |
-| 9   | `feat(samples): migration final — drop enum values legados`              | pendente | Drop de `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS` (SampleStatus); `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED` (SampleEventType); `PrintAction` enum + coluna `print_job.print_action`; `IdempotencyScope.QR_REPRINT` |
-| 10  | `docs(samples): marca Fase Q completa + skills atualizadas`              | pendente | Plan + skills (`prisma`, `tests`, `conventions`)                                                                                                                                                                                                                                                                                                                           |
+| #   | Commit                                                                                     | Status   | SHA / nota                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `feat(samples): registro emite 1 evento unico (Fase Q backend)`                            | ✅       | `6761a54` — command service (3 comandos deletados), schemas JSON, migration do trigger, append-event aceita REGISTRATION_CONFIRMED criador, tests                                                                                                                                                                                                                          |
+| 2   | `feat(samples): frontend sem REGISTRATION_IN_PROGRESS (Fase Q frontend)`                   | ✅       | `0b7c45f` — api-client (3 fns deletadas), detail page (handleConfirmRegistration + estado + helpers + modal simplificados)                                                                                                                                                                                                                                                 |
+| 3   | `feat(samples): classificacao sem CLASSIFICATION_IN_PROGRESS`                              | pendente | Backend (startClassification + saveClassificationPartial deletar; completeClassification só de RC; confirmClassificationFromCamera RC ou CLASSIFIED) + tests + frontend (botão "Salvar rascunho", aba IP)                                                                                                                                                                  |
+| 4   | `refactor(samples): impressao vira acao pura — PrintJob como source of truth (Q.print P1)` | ✅       | `498e74b` — backend command/query/projeção/schemas/tests; `requestQrReprint` deletado, audit-only events, lazy timeout (`expireStalePrintJobs`), 409 em PENDING duplicado                                                                                                                                                                                                  |
+| 5   | `feat(samples): impressao automatica apos completeClassification`                          | pendente | **Q.auto.** `completeClassification` dispara `requestQrPrint` com `idempotencyKey` derivada. Tests                                                                                                                                                                                                                                                                         |
+| 6a  | `feat(samples): remove QR_PENDING_PRINT/QR_PRINTED do frontend (Q.print P2)`               | ✅       | `b2253bb` — api-client (requestQrReprint deletado), types (SampleStatus 3 estados, dashboard simplificado, PrintJobStatus EXPIRED), StatusBadge, dashboard cards, useOperationModal, camera, SampleMovementsPanel                                                                                                                                                          |
+| 6b  | `feat(samples): secao Etiqueta no body + polling do PrintJob (Q.print P3)`                 | ✅       | `3584b73` — secao `sdv-print-section` no `sdv-general` (substitui `sdv-print-failed-card`), polling de PrintJob a cada 3s enquanto PENDING, modal step "completed" destaca lote                                                                                                                                                                                            |
+| 7   | (incluído em P2)                                                                           | ✅       | dashboard sem "Aguardando impressão" entrou no commit `b2253bb`                                                                                                                                                                                                                                                                                                            |
+| 8   | (incluído em P2 + P3)                                                                      | ✅       | revisão da detail page distribuída entre `b2253bb` (limpeza de tipos QR\_\*) e `3584b73` (seção Etiqueta + polling). CTA "Iniciar classificação" fica pra Q.auto                                                                                                                                                                                                           |
+| 9   | `feat(samples): migration final — drop enum values legados`                                | pendente | Drop de `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`, `QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS` (SampleStatus); `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`, `QR_REPRINT_REQUESTED` (SampleEventType); `PrintAction` enum + coluna `print_job.print_action`; `IdempotencyScope.QR_REPRINT` |
+| 10  | `docs(samples): marca Fase Q completa + skills atualizadas`                                | pendente | Plan + skills (`prisma`, `tests`, `conventions`)                                                                                                                                                                                                                                                                                                                           |
 
 (Quality gates rodam antes de **cada** commit: typecheck/lint/format/build/validate:schemas/test:contracts/test:unit/test:integration:db.)
 
