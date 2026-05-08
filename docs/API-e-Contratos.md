@@ -72,7 +72,7 @@ Rotas top-level usadas pelo fluxo de `Camera inteligente` (o `sampleId` chega no
 Validacoes criticas nessas rotas:
 
 1. `detect-form` e o modo `multipart` de `extract-and-prepare` rejeitam com `415` se o `Content-Type` nao comecar com `multipart/form-data`;
-2. `extract-and-prepare` retorna `422` se `classificationType` nao for um dos suportados (`BICA`, `PREPARADO`, `LOW_CAFF`);
+2. `extract-and-prepare` retorna `422` se `classificationType` nao for um dos suportados (`BICA`, `PREPARADO`, `BAIXO`, `ESCOLHA`); pos Q.types, `LOW_CAFF` foi renomeado pra `BAIXO` e `ESCOLHA` adicionado;
 3. a extracao por IA depende de `OPENAI_API_KEY` configurada — caso contrario o endpoint retorna `503` e o frontend cai em preenchimento manual.
 
 ### Leitura
@@ -194,37 +194,43 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 
 O dominio de amostras gera os seguintes eventos (o enum canonico vive em `SampleEventType` no `prisma/schema.prisma`):
 
-1. `SAMPLE_RECEIVED`
-2. `REGISTRATION_STARTED`
-3. `PHOTO_ADDED`
-4. `REGISTRATION_CONFIRMED`
-5. `REGISTRATION_UPDATED`
-6. `QR_PRINT_REQUESTED`
-7. `QR_PRINT_FAILED`
-8. `QR_PRINTED`
-9. `QR_REPRINT_REQUESTED`
-10. `CLASSIFICATION_STARTED`
-11. `CLASSIFICATION_SAVED_PARTIAL`
-12. `CLASSIFICATION_EXTRACTION_COMPLETED`
-13. `CLASSIFICATION_EXTRACTION_FAILED`
-14. `CLASSIFICATION_COMPLETED`
-15. `CLASSIFICATION_UPDATED`
-16. `SALE_CREATED`
-17. `SALE_UPDATED`
-18. `SALE_CANCELLED`
-19. `LOSS_RECORDED`
-20. `LOSS_UPDATED`
-21. `LOSS_CANCELLED`
-22. `COMMERCIAL_STATUS_UPDATED`
-23. `PHYSICAL_SAMPLE_SENT`
-24. `REPORT_EXPORTED`
-25. `SAMPLE_INVALIDATED`
+1. `PHOTO_ADDED`
+2. `REGISTRATION_CONFIRMED` (criador unico do Sample, fromStatus null → toStatus RC)
+3. `REGISTRATION_UPDATED`
+4. `QR_PRINT_REQUESTED` (audit-only, null/null)
+5. `QR_PRINT_FAILED` (audit-only)
+6. `QR_PRINTED` (audit-only)
+7. `CLASSIFICATION_EXTRACTION_COMPLETED` (audit)
+8. `CLASSIFICATION_EXTRACTION_FAILED` (audit)
+9. `CLASSIFICATION_COMPLETED`
+10. `CLASSIFICATION_UPDATED`
+11. `SALE_CREATED`
+12. `SALE_UPDATED`
+13. `SALE_CANCELLED`
+14. `LOSS_RECORDED`
+15. `LOSS_UPDATED`
+16. `LOSS_CANCELLED`
+17. `COMMERCIAL_STATUS_UPDATED`
+18. `PHYSICAL_SAMPLE_SENT`
+19. `PHYSICAL_SAMPLE_SEND_UPDATED`
+20. `PHYSICAL_SAMPLE_SEND_CANCELLED`
+21. `REPORT_EXPORTED`
+22. `SAMPLE_INVALIDATED`
+
+Eventos historicos cortados na Fase Q (nao existem mais no enum):
+`SAMPLE_RECEIVED`, `REGISTRATION_STARTED` (consolidados em `REGISTRATION_CONFIRMED`
+unico — Q registro), `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`
+(sem maquina de estado intermediaria — Q.cls.1), `QR_REPRINT_REQUESTED`
+(toda impressao usa `QR_PRINT_REQUESTED` com `attemptNumber` sequencial — Q.print).
 
 Regras oficiais:
 
 1. o envelope do evento e validado por JSON Schema;
 2. `actorType=USER` exige `actorUserId`;
-3. eventos de transicao precisam de `fromStatus` e `toStatus`;
+3. eventos de transicao mutadores precisam de `fromStatus` e `toStatus`. Eventos
+   audit-only (impressao, fotos, extracao IA, reports, sends) tem `fromStatus: null`
+   e `toStatus: null` — nao mutam status nem version do Sample. A lista canonica
+   de mutadores vive em `MUTATING_EVENT_TYPES` em `src/events/event-contract-service.js`;
 4. `SampleEvent` e append-only;
 5. `Sample` materializa o estado atual, mas nao substitui a trilha de eventos.
 

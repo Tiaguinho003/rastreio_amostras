@@ -46,7 +46,7 @@ Hoje o sistema modela cada amostra (`Sample`) como um lote fisico indivisivel, i
 - [x] Apenas lotes ja **classificados** podem ser ligados, ou qualquer status serve? **Apenas lotes classificados** (status `CLASSIFIED`).
 - [x] O lote resultante **herda** classificacao ou precisa de nova? **Ambas** - sistema calcula classificacao **prevista** (media ponderada dos lotes de origem) via script, e posteriormente a liga e classificada fisicamente com ficha propria (foto + analise) para validar/ajustar a previsao.
 - [ ] Se precisa de classificacao nova: a ficha do lote resultante e gerada do zero ou pre-preenchida a partir das origens? **A decidir** (ver sub-perguntas abaixo).
-- [x] O `classificationType` dos lotes de origem precisa ser o mesmo? **Nao** - pode misturar PREPARADO + BICA + LOW_CAFF numa mesma liga.
+- [x] O `classificationType` dos lotes de origem precisa ser o mesmo? **Nao** - pode misturar PREPARADO + BICA + BAIXO + ESCOLHA numa mesma liga (Q.types renomeou `LOW_CAFF` pra `BAIXO` e adicionou `ESCOLHA`).
 
 **Decisoes derivadas / implicacoes:**
 
@@ -55,7 +55,7 @@ Hoje o sistema modela cada amostra (`Sample`) como um lote fisico indivisivel, i
    - Persistida no lote resultante em campo separado (ex: `predicted_classification_data: Json`) - **nao sobrescreve** a classificacao oficial.
    - Serve como referencia visual e pode ser comparada depois com a classificacao real para identificar divergencias.
 2. **Classificacao oficial da liga:**
-   - O lote resultante entra no mesmo fluxo de classificacao das amostras normais (status inicial apos criacao: `QR_PENDING_PRINT` ou `CLASSIFICATION_IN_PROGRESS`?).
+   - O lote resultante entra no mesmo fluxo de classificacao das amostras normais. Pos Fase Q, o lifecycle do Sample tem 3 status (`REGISTRATION_CONFIRMED`, `CLASSIFIED`, `INVALIDATED`); a liga nasce em `REGISTRATION_CONFIRMED` (mesmo ponto de partida das amostras normais). PrintJob e entidade separada e nao move o sample.
    - Foto da ficha > extracao AI > ficha validada > `latestClassificationData` preenchido normalmente.
 3. **`classificationType` do lote resultante:**
    - Como pode misturar tipos, o campo pode ficar nulo ate a classificacao oficial, ou usamos o tipo "dominante" (maior contribuicao), ou criamos um valor novo? **A decidir.**

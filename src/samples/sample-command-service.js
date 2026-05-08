@@ -1500,23 +1500,11 @@ export class SampleCommandService {
       buildDeterministicUuid(`${actor.actorUserId}:${clientDraftId}`);
 
     // Idempotência: se o sample já existe (retry da mesma criação ou request
-    // duplicada por outra aba), retornamos sem emitir evento novo. Statuses
-    // legados (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS) não devem mais
-    // existir após a Fase Q, mas tratamos como erro se aparecerem (dados
-    // pré-Fase Q em local que não rodou o DELETE de migration).
+    // duplicada por outra aba), retornamos sem emitir evento novo.
     const existing = await this.queryService.findSampleOrNull(sampleId);
     if (existing) {
       if (existing.status === 'INVALIDATED') {
         throw new HttpError(409, `Sample ${existing.id} is INVALIDATED and cannot be recreated`);
-      }
-      if (
-        existing.status === 'PHYSICAL_RECEIVED' ||
-        existing.status === 'REGISTRATION_IN_PROGRESS'
-      ) {
-        throw new HttpError(
-          409,
-          `Sample ${existing.id} is in legacy status ${existing.status} (pré-Fase Q) and cannot be reused. Run a local DB cleanup.`
-        );
       }
       return {
         statusCode: 200,

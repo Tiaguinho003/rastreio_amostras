@@ -66,7 +66,7 @@ Documentos relacionados: `docs/README.md`, `docs/Produto-e-Fluxos.md`, `docs/Ope
 1. O sistema deixou de ser descrito como repositorio de contratos. A descricao oficial agora e a de uma aplicacao fullstack operacional.
 2. Os ambientes oficiais sao `development` (local) e `cloud-production` (Cloud Run de producao). `internal-production` e qualquer aparato on-premise foram descontinuados.
 3. O registro da amostra e manual. Nao ha foto no fluxo de registro.
-4. A conclusao da classificacao exige foto de classificacao. Sem essa foto a amostra nao pode sair de `CLASSIFICATION_IN_PROGRESS`.
+4. A conclusao da classificacao exige foto de classificacao. Sem essa foto a amostra nao pode sair de `REGISTRATION_CONFIRMED` (pos Q.cls.1, `CLASSIFICATION_IN_PROGRESS` foi cortado — classificacao parte direto de RC pra CLASSIFIED).
 5. O status comercial e uma dimensao separada e so pode mudar quando a amostra esta `CLASSIFIED`.
 6. A unica permissao rigidamente segregada por papel no estado atual e a administracao de usuarios, restrita a `ADMIN`.
 7. As operacoes do dominio de amostras aceitam qualquer usuario autenticado no backend atual. Os papeis `CLASSIFIER`, `REGISTRATION` e `COMMERCIAL` funcionam hoje mais como marcacao organizacional do que como barreira tecnica por modulo.

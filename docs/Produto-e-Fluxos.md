@@ -2,7 +2,7 @@
 
 Status: Ativo  
 Escopo: comportamento funcional oficial do sistema, estados da amostra e regras operacionais  
-Ultima revisao: 2026-04-15  
+Ultima revisao: 2026-05-08 (pos-Q.final + Q.types + Q.draft)  
 Documentos relacionados: `docs/Arquitetura-Tecnica.md`, `docs/API-e-Contratos.md`, `docs/Clientes-e-Movimentacoes-Especificacao.md`
 
 ## Objetivo do sistema
@@ -51,22 +51,22 @@ Regra consolidada nesta revisao:
 
 ### Status operacionais
 
-1. `PHYSICAL_RECEIVED`
-   A amostra foi recebida, mas o registro ainda nao comecou.
-2. `REGISTRATION_IN_PROGRESS`
-   O registro esta em andamento.
-3. `REGISTRATION_CONFIRMED`
-   Os dados minimos foram confirmados e o lote interno foi gerado.
-4. `QR_PENDING_PRINT`
-   A impressao inicial do QR foi solicitada e aguarda conclusao.
-5. `QR_PRINTED`
-   A etiqueta principal foi impressa e a classificacao pode iniciar.
-6. `CLASSIFICATION_IN_PROGRESS`
-   A classificacao esta em execucao, com suporte a rascunho parcial.
-7. `CLASSIFIED`
-   A classificacao foi concluida.
-8. `INVALIDATED`
+Pos-Fase Q (Q.print + Q.auto + Q.final), o lifecycle do Sample foi reduzido a **3 valores**:
+
+1. `REGISTRATION_CONFIRMED`
+   A amostra foi registrada (createSample emite 1 evento unico). Os dados minimos
+   estao confirmados, o lote interno foi gerado e a amostra esta pronta pra
+   classificacao. Status inicial e tambem o status enquanto a impressao da
+   etiqueta acontece (impressao virou acao pura, sem mover o sample).
+2. `CLASSIFIED`
+   A classificacao foi concluida. Pode receber reclassificacoes (audit) e
+   movimentacoes comerciais.
+3. `INVALIDATED`
    Estado terminal. Nao permite novas operacoes de fluxo.
+
+Os 5 statuses legacy (`PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`,
+`QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`) foram
+**dropados** do enum Postgres na migration `20260508163528_qfinal_drop_legacy_enums`.
 
 ### Dimensao comercial
 
@@ -97,20 +97,33 @@ Regra oficial:
 
 ### 2. Impressao de QR
 
-1. A primeira impressao muda a amostra para `QR_PENDING_PRINT`.
-2. O sucesso da primeira impressao muda a amostra para `QR_PRINTED`.
-3. Falhas de impressao ficam registradas por evento e job, sem apagar historico.
-4. Reimpressao e permitida quando a amostra esta em:
-   `QR_PENDING_PRINT`, `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS` ou `CLASSIFIED`.
+Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
+
+1. `requestQrPrint` cria um `PrintJob` (status `PENDING`) e emite `QR_PRINT_REQUESTED`
+   (audit-only, `fromStatus: null`/`toStatus: null`). 1 PrintJob PENDING por amostra
+   no maximo (request duplicada com PENDING valido retorna 409).
+2. `recordQrPrinted` atualiza o `PrintJob` pra `SUCCESS` (audit-only).
+3. `recordQrPrintFailed` atualiza pra `FAILED` (audit-only).
+4. Lazy timeout de 60s em `expireStalePrintJobs`: PrintJob PENDING por mais de 1
+   minuto vira `EXPIRED` antes de criar nova request OU antes de `getSampleDetail`
+   retornar — sem worker/cron.
+5. Reimpressao manual (override) e permitida em qualquer status `!== INVALIDATED`.
+   Nao ha mais distincao entre PRINT e REPRINT — toda tentativa usa `attemptNumber`
+   sequencial.
+6. Pos Q.auto: `completeClassification` dispara `requestQrPrint` automaticamente
+   ao final da classificacao (best-effort; falha de print nao bloqueia
+   classificacao). Idempotency derivada (`${event.idempotencyKey}:auto-print`)
+   protege contra duplo-clique.
+7. PrintJob status: `PENDING` / `SUCCESS` / `FAILED` / `EXPIRED`.
 
 ### 3. Classificacao
 
-1. A classificacao so pode ser iniciada a partir de `QR_PRINTED`.
-2. O fluxo principal hoje e via `Camera inteligente`, com quatro fases conduzidas pelo mesmo modal:
-   escolha do tipo de cafe (`BICA`, `PREPARADO`, `LOW_CAFF`);
-   conferencia por outros classificadores (ver subsecao abaixo);
-   foto da ficha fisica de classificacao com auto-crop e extracao por IA (ver subsecao abaixo);
-   revisao dos campos extraidos e confirmacao.
+1. A classificacao parte de `REGISTRATION_CONFIRMED` (Q.cls.1 cortou
+   `CLASSIFICATION_IN_PROGRESS` e o evento `CLASSIFICATION_STARTED`).
+2. O fluxo principal e via `Camera inteligente`, com sequencia de modais:
+   foto da ficha → extracao IA (1 prompt unico, type-agnostic) → modal de revisao
+   da ficha unificada → modal de tipo de cafe (`BICA`, `PREPARADO`, `BAIXO`,
+   `ESCOLHA`) → modal de classificadores → save direto (Q.auto dispara print).
 3. A foto da classificacao e obrigatoria para concluir, seja pelo fluxo de camera ou pelo fluxo manual legado.
 4. A data de classificacao e registrada automaticamente na timezone `America/Sao_Paulo`.
 5. O tipo de cafe define quais campos aparecem no formulario; os principais grupos hoje expostos sao:

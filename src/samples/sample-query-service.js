@@ -606,10 +606,7 @@ function resolveStatusGroupStatuses(statusGroup) {
 
   const resolved = SAMPLE_STATUS_FILTER_GROUPS[normalized];
   if (!resolved) {
-    throw new HttpError(
-      422,
-      'statusGroup must be one of: PRINT_PENDING, CLASSIFICATION_PENDING, CLASSIFIED'
-    );
+    throw new HttpError(422, 'statusGroup must be one of: CLASSIFICATION_PENDING, CLASSIFIED');
   }
 
   return resolved;
@@ -1879,5 +1876,3 @@ export class SampleQueryService {
     return String(nextSequence);
   }
 }
-
-export { CLASSIFICATION_PENDING_STATUSES };
