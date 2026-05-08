@@ -15,7 +15,8 @@ O projeto possui skills em `.claude/skills/` que o Claude Code carrega automatic
 
 ### Frontend e UI
 
-- `design-system` — linguagem visual da PWA (cores, cards, tipografia, botoes, modais, checklist)
+- `design-system` — linguagem visual da PWA (cores, cards, tipografia, botoes, checklist)
+- `modals` — padrao canonico `.app-modal.is-themed` para modais centrais (estrutura JSX, variantes, UX, auditoria dos modais existentes)
 - `responsive` — responsividade mobile-first (clamp, safe areas, checklist de validacao)
 
 ### Processo

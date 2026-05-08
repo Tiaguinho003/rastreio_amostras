@@ -242,19 +242,18 @@ Excecao a regra "nunca verde ao clicar":
 - `max-height: 85dvh`
 - Escape fecha, scroll interno com `-webkit-overflow-scrolling: touch`
 
-### Modal central (`.app-modal`)
+### Modal central (`.app-modal.is-themed`)
 
-Padrao consolidado para modais nao-bottom-sheet (Edit Client, ClientUnitDetailModal, ClientInactivateWithCascadeModal, etc.). Substitui o padrao legado `sdv-edit-*` (descontinuado).
+> Padrao canonico documentado em detalhe na skill `modals` (`.claude/skills/modals/SKILL.md`). Esta secao e apenas resumo — sempre consultar a skill `modals` ao construir/editar modal.
 
-**Estrutura JSX**:
+**Resumo**: backdrop glass + container 38rem (`.is-themed`) ou 46rem (`.is-wide`), header verde brand, body branco, fields `.app-modal-field/.app-modal-input`, actions `[.app-modal-submit, .app-modal-secondary]` na ordem JSX (Submit primeiro). Variante destrutiva `.app-modal-submit.is-danger`.
 
 ```jsx
 <div className="app-modal-backdrop">
-  <section className="app-modal is-themed [is-wide] [classe-especifica]">
+  <section className="app-modal is-themed [is-wide]">
     <header className="app-modal-header">
       <div className="app-modal-title-wrap">
         <h3 className="app-modal-title">Titulo</h3>
-        <p className="app-modal-description">Subtitulo opcional</p>
       </div>
       <button className="app-modal-close" aria-label="Fechar">
         <span aria-hidden="true">×</span>
@@ -274,22 +273,7 @@ Padrao consolidado para modais nao-bottom-sheet (Edit Client, ClientUnitDetailMo
 </div>
 ```
 
-**Variantes**:
-
-| Modificador                   | Efeito                                                                                                          |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `.is-themed`                  | Header verde (gradient `--brand-green` → `--brand-green-soft`), body branco                                     |
-| `.is-wide`                    | Largura 46rem em vez do default 38rem (formularios maiores)                                                     |
-| `.app-modal-submit.is-danger` | Variante destrutiva (gradient vermelho `#c0392b` → `#b03224`) — usada em cascade modal de inativacao em cascata |
-
-**Ordem de botoes em `.app-modal-actions`**: `[Submit, Secondary]` (Submit primeiro). Sob `.is-themed`, o container vira `flex; justify-content: flex-end` — Submit fica a esquerda, Cancelar a direita.
-
-**Fechar (X) sob `.is-themed`**: `background: rgba(255,255,255,0.16)`, hover `rgba(255,255,255,0.28)` + `transform: scale(1.06)`. Icone branco (`color: #ffffff`).
-
-### Animacao de entrada
-
-- Montar no DOM → esperar 2 frames (`requestAnimationFrame` duplo) → aplicar classe `is-open`
-- Isso garante que o browser renderize o estado inicial antes de animar
+Animacao de entrada coberta pelos keyframes `app-modal-backdrop-in` (0.3s) e `app-modal-card-in` (0.35s, fade + scale subtil) — nao inventar transicoes proprias.
 
 ## 9. Tipografia de Secao
 
