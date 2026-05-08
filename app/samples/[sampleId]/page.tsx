@@ -4131,11 +4131,15 @@ export default function SampleDetailPage() {
           </section>
         </div>
       ) : null}
-      {/* Botao flutuante Classificar — aparece apenas quando ha classificacao
-          pendente/em andamento. Para reclassificar uma amostra ja CLASSIFIED,
-          o usuario abre o modal full-view e usa o botao Reclassificar la. */}
-      {detail &&
-      (detail.sample.status === 'QR_PENDING_PRINT' || detail.sample.status === 'QR_PRINTED') ? (
+      {/* FAB "Classificar" — único ponto de entrada do Caminho A da Fase
+          Q.cls.2: operador chega na câmera exclusivamente pela detail page.
+          Aparece somente em REGISTRATION_CONFIRMED, que é o único status do
+          fluxo de classificação após a Fase Q. QR_PRINTED é dado legado
+          (backend aceita por compat até a migration final que dropa o
+          status do enum, mas a UI não oferece entrada por ele).
+          Reclassificação de sample já CLASSIFIED usa o modal próprio
+          (`reclassifyModalOpen`). */}
+      {detail && detail.sample.status === 'REGISTRATION_CONFIRMED' ? (
         <button
           type="button"
           className="sdv-fab-classify"
