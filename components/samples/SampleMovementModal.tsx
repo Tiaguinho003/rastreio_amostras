@@ -114,7 +114,7 @@ export function SampleMovementModal({
   const [notes, setNotes] = useState(movement?.notes ?? '');
   const [lossReasonText, setLossReasonText] = useState(movement?.lossReasonText ?? '');
   const [reasonText, setReasonText] = useState('');
-  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [, setLoadingUnits] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const showBuyerFields = movementType === 'SALE';

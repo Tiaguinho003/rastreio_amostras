@@ -14,7 +14,6 @@ import {
   ApiError,
   cancelPhysicalSampleSend,
   cancelSampleMovement,
-  completeClassification,
   exportSamplePdf,
   getClient,
   getSampleDetail,
@@ -27,9 +26,7 @@ import {
   updateClassification,
   updatePhysicalSampleSend,
   updateRegistration,
-  uploadClassificationPhoto,
 } from '../../../lib/api-client';
-import { compressImage } from '../../../lib/compress-image';
 import { shareOrDownloadFile } from '../../../lib/share-blob';
 import {
   invalidateSampleSchema,
@@ -43,8 +40,6 @@ import type {
   ClassifierSnapshot,
   ClientUnitSummary,
   ClientSummary,
-  CommercialStatus,
-  ExtractionResult,
   InvalidateReasonCode,
   SampleDetailResponse,
   SampleEvent,
@@ -53,19 +48,15 @@ import type {
   UpdateReasonCode,
   UserLookupItem,
   SampleStatus,
-  SessionUser,
 } from '../../../lib/types';
 import {
   type ClassificationFormState,
-  type ClassificationDataPayload,
-  type ClassificationTechnicalPayload,
   CLASSIFICATION_TYPE_LABEL,
   EMPTY_CLASSIFICATION_FORM,
   getTodayDateInput,
   validateClassificationForm,
   buildClassificationDataPayload,
   buildTechnicalFromClassificationData,
-  mapExtractionToForm,
 } from '../../../lib/classification-form';
 
 type LabelModalStep = 'review' | 'completed';
@@ -73,7 +64,6 @@ type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
 // Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
 // REGISTRATION_CONFIRMED ate ser classificada.
-const CLASSIFICATION_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 
 const INVALIDATE_REASON_OPTIONS: Array<{ value: InvalidateReasonCode; label: string }> = [
@@ -151,29 +141,7 @@ function getMovementBuyerLabel(movement: SampleMovement): string | null {
   return client.displayName ?? client.fullName ?? client.tradeName ?? null;
 }
 
-function formatDateInputLabel(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const directMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (directMatch) {
-    return `${directMatch[3]}/${directMatch[2]}/${directMatch[1]}`;
-  }
-
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) {
-    return trimmed;
-  }
-
-  return parsed.toLocaleDateString('pt-BR');
-}
-
-function buildClassificationFormState(
-  detail: SampleDetailResponse,
-  user: SessionUser
-): ClassificationFormState {
+function buildClassificationFormState(detail: SampleDetailResponse): ClassificationFormState {
   // Q.draft: classificationDraft.snapshot foi descontinuado em Q.cls.1
   // junto com CLASSIFICATION_SAVED_PARTIAL. Form parte direto da ficha
   // mais recente (latestClassification.data).
@@ -220,24 +188,6 @@ function buildClassificationFormState(
     ap: toText(latestDefeitos.ap),
     defeito: toText(latestDefeitos.defeito),
   };
-}
-
-function buildMismatchMessage(crossValidation: ExtractionResult['crossValidation']): string {
-  const fieldLabels: Record<string, string> = {
-    lote: 'Lote',
-    sacas: 'Sacas',
-    safra: 'Safra',
-    data: 'Data',
-  };
-
-  const mismatches = crossValidation.details
-    .filter((d) => !d.match)
-    .map((d) => {
-      const label = fieldLabels[d.field] ?? d.field;
-      return `${label}: ficha "${d.extracted ?? '?'}", registro "${d.registered ?? '?'}"`;
-    });
-
-  return `Atenção: dados divergentes — ${mismatches.join('. ')}`;
 }
 
 function NoticeSlot({ notice }: { notice: Notice }) {
@@ -387,16 +337,11 @@ function projectSendHistoryItems(events: SampleEvent[]): SendHistoryItem[] {
   );
 }
 
-function isClassificationStatus(status: SampleStatus): boolean {
-  return CLASSIFICATION_STATUSES.includes(status);
-}
-
 function getExportTypeLabel(exportType: SampleExportType): string {
   return exportType === 'COMPLETO' ? 'Completo' : 'Comprador Parcial';
 }
 
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
-const MAX_PHOTO_SIZE_BYTES = 12 * 1024 * 1024; // 12 MB — same as backend DEFAULT_MAX_UPLOAD_SIZE_BYTES
 
 function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): string {
   const sample = detail?.sample;
@@ -408,64 +353,6 @@ function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): 
     ? rawDate.slice(0, 10)
     : new Date().toISOString().slice(0, 10);
   return `classificacao-${lot}-${datePart}.jpg`;
-}
-
-// Q.print: impressao virou acao pura — sample fica em RC ate a
-// classificacao, sem etapas QR_PENDING_PRINT/QR_PRINTED.
-function getOperationalStatusDotTone(status: SampleStatus) {
-  if (status === 'REGISTRATION_CONFIRMED') {
-    return 'pending';
-  }
-
-  if (status === 'CLASSIFIED') {
-    return 'success';
-  }
-
-  return 'danger';
-}
-
-function getOperationalStatusDotLabel(status: SampleStatus) {
-  if (status === 'REGISTRATION_CONFIRMED') {
-    return 'Aguardando classificacao';
-  }
-
-  if (status === 'CLASSIFIED') {
-    return 'Classificada';
-  }
-
-  return 'Invalidada';
-}
-
-function getCommercialStatusDotTone(status: CommercialStatus) {
-  if (status === 'OPEN') {
-    return 'open';
-  }
-
-  if (status === 'PARTIALLY_SOLD') {
-    return 'partial';
-  }
-
-  if (status === 'SOLD') {
-    return 'sold';
-  }
-
-  return 'lost';
-}
-
-function getCommercialStatusDotLabel(status: CommercialStatus) {
-  if (status === 'OPEN') {
-    return 'Em aberto';
-  }
-
-  if (status === 'PARTIALLY_SOLD') {
-    return 'Venda parcial';
-  }
-
-  if (status === 'SOLD') {
-    return 'Vendido';
-  }
-
-  return 'Perdido';
 }
 
 // Q.print: impressao virou acao pura — sem distinguir PRINT/REPRINT.
@@ -529,7 +416,6 @@ export default function SampleDetailPage() {
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();
   const sampleId = typeof params.sampleId === 'string' ? params.sampleId : '';
-  const fromQrSource = searchParams.get('source') === 'qr';
   const highlightPrint = searchParams.get('highlight') === 'print';
   const [reclassifyModalOpen, setReclassifyModalOpen] = useState(false);
 
@@ -538,7 +424,6 @@ export default function SampleDetailPage() {
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [generalNotice, setGeneralNotice] = useState<Notice>(null);
-  const [classificationNotice, setClassificationNotice] = useState<Notice>(null);
   const [registrationModalNotice, setRegistrationModalNotice] = useState<Notice>(null);
   const [classificationModalNotice, setClassificationModalNotice] = useState<Notice>(null);
   const [invalidateModalNotice, setInvalidateModalNotice] = useState<Notice>(null);
@@ -548,11 +433,6 @@ export default function SampleDetailPage() {
   const [classificationSavedPhotoFile, setClassificationSavedPhotoFile] = useState<File | null>(
     null
   );
-  const [classificationPhotoUploading, setClassificationPhotoUploading] = useState(false);
-  const [_showClassificationPhotoConfirmEffect, setShowClassificationPhotoConfirmEffect] =
-    useState(false);
-  const [_classificationPhotoConfirmEffectKey, setClassificationPhotoConfirmEffectKey] =
-    useState(0);
   const [printHighlighted, setPrintHighlighted] = useState(false);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
@@ -572,7 +452,7 @@ export default function SampleDetailPage() {
   const [activeSendMenuId, setActiveSendMenuId] = useState<string | null>(null);
 
   const [sendHistory, setSendHistory] = useState<SampleEvent[]>([]);
-  const [loadingSendHistory, setLoadingSendHistory] = useState(false);
+  const [, setLoadingSendHistory] = useState(false);
 
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
@@ -586,7 +466,7 @@ export default function SampleDetailPage() {
   const [originLot, setOriginLot] = useState('');
   const [location, setLocation] = useState('');
 
-  const [printerId, setPrinterId] = useState('printer-main');
+  const [printerId] = useState('printer-main');
   const [labelModalOpen, setLabelModalOpen] = useState(false);
   const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
   const [labelModalSubmitting, setLabelModalSubmitting] = useState(false);
@@ -601,7 +481,6 @@ export default function SampleDetailPage() {
 
   const [classificationForm, setClassificationForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
-  const [classificationCompleting, setClassificationCompleting] = useState(false);
   const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>(
     'PHOTO'
   );
@@ -641,7 +520,7 @@ export default function SampleDetailPage() {
   const [classificationDetailTypeOriginal, setClassificationDetailTypeOriginal] =
     useState<ClassificationType | null>(null);
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
-  const [classificationEditMode, setClassificationEditMode] = useState(false);
+  const [, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] =
     useState<UpdateReasonCode>('OTHER');
@@ -660,9 +539,7 @@ export default function SampleDetailPage() {
   const lastQuickPrintButtonRef = useRef<HTMLButtonElement | null>(null);
   const invalidateModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastInvalidateTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const classificationPhotoPostUploadTimeoutRef = useRef<number | null>(null);
   const classificationPhotoInputRef = useRef<HTMLInputElement | null>(null);
-  const classificationSectionRef = useRef<HTMLElement | null>(null);
   const classificationStepBodyRef = useRef<HTMLDivElement | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const canInvalidateSample = Boolean(session);
@@ -711,7 +588,7 @@ export default function SampleDetailPage() {
         }
 
         if (!classificationEditModeRef.current) {
-          setClassificationForm(buildClassificationFormState(response, session.user));
+          setClassificationForm(buildClassificationFormState(response));
         }
 
         return response;
@@ -857,8 +734,6 @@ export default function SampleDetailPage() {
     setOwnerQuickCreateSeed('');
     setClassificationSelectedPhoto(null);
     setClassificationSavedPhotoFile(null);
-    setShowClassificationPhotoConfirmEffect(false);
-    setClassificationPhotoConfirmEffectKey(0);
     if (classificationPhotoInputRef.current) {
       classificationPhotoInputRef.current.value = '';
     }
@@ -897,41 +772,12 @@ export default function SampleDetailPage() {
     detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment
   );
   const canPhysicalSend = detail ? PHYSICAL_SEND_ALLOWED_STATUSES.has(detail.sample.status) : false;
-  const labelModalPrintAction = detail ? getLabelPrintActionForStatus(detail.sample.status) : null;
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
-  const classificationShowsWorkspace = Boolean(
-    detail &&
-    (detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'CLASSIFIED')
-  );
-  const classificationPhotoEditingAllowed =
-    detail?.sample.status === 'REGISTRATION_CONFIRMED' ||
-    (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
-  const classificationFieldsReadOnly =
-    detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
-  const classificationVisiblePhotoPreviewUrl =
-    classificationSelectedPhotoPreviewUrl ??
-    classificationSavedPhotoPreviewUrl ??
-    classificationServerPhotoUrl;
-  const classificationCanComplete =
-    !classificationPhotoUploading &&
-    !classificationSelectedPhoto &&
-    Boolean(classificationAttachment);
   const classificationCanAccessDataSteps =
     Boolean(classificationAttachment) || detail?.sample.status === 'CLASSIFIED';
-  const classificationTabDotTone = detail
-    ? getOperationalStatusDotTone(detail.sample.status)
-    : null;
-
-  useEffect(() => {
-    return () => {
-      if (classificationPhotoPostUploadTimeoutRef.current !== null) {
-        window.clearTimeout(classificationPhotoPostUploadTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!labelModalOpen) {
@@ -1107,63 +953,6 @@ export default function SampleDetailPage() {
         <p className="error">sampleId invalido na rota.</p>
       </AppShell>
     );
-  }
-
-  async function handleUploadClassificationPhoto() {
-    if (!session || !classificationSelectedPhoto || !detail) {
-      setClassificationNotice({
-        kind: 'error',
-        text: 'Selecione uma foto de classificacao antes de usar.',
-      });
-      return;
-    }
-
-    setClassificationPhotoUploading(true);
-    setClassificationNotice(null);
-
-    try {
-      const compressed = await compressImage(classificationSelectedPhoto);
-      const uploadResult = await uploadClassificationPhoto(session, sampleId, compressed, true);
-      setClassificationSavedPhotoFile(compressed);
-      setClassificationSelectedPhoto(null);
-      if (classificationPhotoInputRef.current) {
-        classificationPhotoInputRef.current.value = '';
-      }
-
-      if (uploadResult?.extraction?.extractedFields) {
-        const extracted = mapExtractionToForm(uploadResult.extraction.extractedFields);
-        setClassificationForm((prev) => ({ ...prev, ...extracted }));
-      }
-
-      // Cross-validation alerts disabled — extraction pre-fill is sufficient
-      // if (uploadResult?.extraction?.crossValidation?.hasMismatches) {
-      //   setClassificationNotice({ kind: 'error', text: buildMismatchMessage(uploadResult.extraction.crossValidation) });
-      // }
-
-      await syncDetailState();
-      setClassificationPhotoConfirmEffectKey((current) => current + 1);
-      setShowClassificationPhotoConfirmEffect(true);
-
-      if (classificationPhotoPostUploadTimeoutRef.current !== null) {
-        window.clearTimeout(classificationPhotoPostUploadTimeoutRef.current);
-      }
-      classificationPhotoPostUploadTimeoutRef.current = window.setTimeout(() => {
-        setShowClassificationPhotoConfirmEffect(false);
-        setClassificationStep('GENERAL');
-        classificationPhotoPostUploadTimeoutRef.current = null;
-      }, 820);
-    } catch (cause) {
-      if (classificationPhotoInputRef.current) {
-        classificationPhotoInputRef.current.value = '';
-      }
-      if (cause instanceof ApiError) {
-        setClassificationNotice({ kind: 'error', text: cause.message });
-      } else {
-        setClassificationNotice({ kind: 'error', text: 'Falha ao enviar foto da classificacao' });
-      }
-    } finally {
-      setClassificationPhotoUploading(false);
-    }
   }
 
   function handleOpenExportConfirmation(exportType: SampleExportType) {
@@ -1653,62 +1442,6 @@ export default function SampleDetailPage() {
     }
   }
 
-  async function handleCompleteClassification() {
-    if (!session || !detail || detail.sample.status !== 'REGISTRATION_CONFIRMED') {
-      return;
-    }
-
-    if (!classificationAttachment) {
-      setClassificationNotice({
-        kind: 'error',
-        text: 'A foto da classificacao e obrigatoria para concluir.',
-      });
-      return;
-    }
-
-    if (classificationSelectedPhoto) {
-      setClassificationNotice({
-        kind: 'error',
-        text: 'Confirme a foto selecionada antes de concluir.',
-      });
-      return;
-    }
-
-    const validationError = validateClassificationForm(classificationForm);
-    if (validationError) {
-      setClassificationNotice({ kind: 'error', text: validationError });
-      return;
-    }
-
-    const classificationData = buildClassificationDataPayload(classificationForm, {
-      includeAutomaticDate: true,
-    });
-    const technical = buildTechnicalFromClassificationData(classificationData);
-
-    setClassificationCompleting(true);
-    setClassificationNotice(null);
-
-    try {
-      // Classificador = usuario atual (finalizando proprio draft).
-      await completeClassification(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        classificationData,
-        technical,
-        classifiers: [{ userId: session.user.id }],
-      });
-      setClassificationNotice({ kind: 'success', text: 'Classificacao concluida com sucesso.' });
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setClassificationNotice({ kind: 'error', text: cause.message });
-      } else {
-        setClassificationNotice({ kind: 'error', text: 'Falha ao concluir classificacao' });
-      }
-    } finally {
-      setClassificationCompleting(false);
-    }
-  }
-
   function startRegistrationEdit() {
     if (!detail || !canEditRegistrationStatus(detail.sample.status)) {
       return;
@@ -1825,31 +1558,6 @@ export default function SampleDetailPage() {
     }
   }
 
-  function startClassificationEdit() {
-    if (!detail || !session || detail.sample.status !== 'CLASSIFIED') {
-      return;
-    }
-
-    setClassificationForm(buildClassificationFormState(detail, session.user));
-    setClassificationEditReasonCode('OTHER');
-    setClassificationEditReasonText('');
-    setClassificationEditReasonModalOpen(false);
-    classificationEditModeRef.current = true;
-    setClassificationEditMode(true);
-    setClassificationNotice(null);
-  }
-
-  function cancelClassificationEdit() {
-    if (detail && session) {
-      setClassificationForm(buildClassificationFormState(detail, session.user));
-    }
-    setClassificationEditReasonCode('OTHER');
-    setClassificationEditReasonText('');
-    setClassificationEditReasonModalOpen(false);
-    classificationEditModeRef.current = false;
-    setClassificationEditMode(false);
-  }
-
   function readClassifiersFromDetail(data: unknown): ClassifierSnapshot[] {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
     const rec = data as Record<string, unknown>;
@@ -1878,7 +1586,7 @@ export default function SampleDetailPage() {
 
   function openClassificationDetail() {
     if (!detail || !session) return;
-    setClassificationDetailForm(buildClassificationFormState(detail, session.user));
+    setClassificationDetailForm(buildClassificationFormState(detail));
     const initialClassifiers = readClassifiersFromDetail(detail.sample.latestClassification?.data);
     setClassificationDetailClassifiers(initialClassifiers);
     setClassificationDetailClassifiersOriginal(initialClassifiers);
@@ -2017,21 +1725,6 @@ export default function SampleDetailPage() {
     }
   }
 
-  function handleRequestClassificationUpdate() {
-    if (!detail || detail.sample.status === 'INVALIDATED') {
-      return;
-    }
-
-    const validationError = validateClassificationForm(classificationForm);
-    if (validationError) {
-      setClassificationNotice({ kind: 'error', text: validationError });
-      return;
-    }
-
-    setClassificationEditReasonModalOpen(true);
-    setClassificationNotice(null);
-  }
-
   async function handleConfirmClassificationUpdate() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') {
       return;
@@ -2077,7 +1770,7 @@ export default function SampleDetailPage() {
       setClassificationEditMode(false);
       setClassificationEditReasonCode('OTHER');
       setClassificationEditReasonText('');
-      setClassificationNotice({
+      setGeneralNotice({
         kind: 'success',
         text: 'Edicao de classificacao salva com sucesso.',
       });
@@ -2105,110 +1798,6 @@ export default function SampleDetailPage() {
     setClassificationModalNotice(null);
   }
 
-  function updateClassificationField(key: keyof ClassificationFormState, value: string) {
-    setClassificationForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  }
-
-  function getClassificationFieldState(value: string, className?: string) {
-    const isEmpty = classificationFieldsReadOnly && !value.trim();
-    const stateClass = classificationFieldsReadOnly ? (isEmpty ? 'is-empty' : 'is-filled') : '';
-    return {
-      fieldClassName: ['sample-classification-field', className, stateClass]
-        .filter(Boolean)
-        .join(' '),
-      controlClassName: ['sample-classification-control', stateClass].filter(Boolean).join(' '),
-      placeholder: classificationFieldsReadOnly ? '-' : undefined,
-    };
-  }
-
-  function renderClassificationInputField(
-    key: keyof ClassificationFormState,
-    label: string,
-    options: {
-      className?: string;
-      inputMode?: 'decimal' | 'numeric' | 'text';
-      type?: 'text';
-    } = {}
-  ) {
-    const fieldState = getClassificationFieldState(classificationForm[key], options.className);
-    const isNumeric = options.inputMode === 'decimal' || options.inputMode === 'numeric';
-
-    return (
-      <label key={String(key)} className={fieldState.fieldClassName}>
-        {label}
-        <input
-          type={options.type ?? 'text'}
-          inputMode={options.inputMode}
-          value={classificationForm[key]}
-          onChange={(event) => {
-            const raw = event.target.value;
-            updateClassificationField(key, isNumeric ? raw : raw.toUpperCase());
-          }}
-          readOnly={classificationFieldsReadOnly}
-          placeholder={fieldState.placeholder}
-          className={fieldState.controlClassName}
-        />
-      </label>
-    );
-  }
-
-  function renderClassificationTextareaField(
-    key: keyof ClassificationFormState,
-    label: string,
-    options: {
-      className?: string;
-      rows?: number;
-    } = {}
-  ) {
-    const fieldState = getClassificationFieldState(classificationForm[key], options.className);
-
-    return (
-      <label className={fieldState.fieldClassName}>
-        {label}
-        <textarea
-          rows={options.rows ?? 2}
-          value={classificationForm[key]}
-          onChange={(event) => updateClassificationField(key, event.target.value.toUpperCase())}
-          readOnly={classificationFieldsReadOnly}
-          placeholder={fieldState.placeholder}
-          className={fieldState.controlClassName}
-        />
-      </label>
-    );
-  }
-
-  function handleClassificationPhotoSelected(file: File | null) {
-    if (!file) {
-      setClassificationSelectedPhoto(null);
-      return;
-    }
-
-    if (file.size > MAX_PHOTO_SIZE_BYTES) {
-      const limitMb = Math.round(MAX_PHOTO_SIZE_BYTES / (1024 * 1024));
-      setClassificationNotice({
-        kind: 'error',
-        text: `A foto selecionada excede o limite de ${limitMb} MB. Escolha uma imagem menor.`,
-      });
-      if (classificationPhotoInputRef.current) {
-        classificationPhotoInputRef.current.value = '';
-      }
-      return;
-    }
-
-    setClassificationNotice(null);
-    setClassificationSelectedPhoto(file);
-  }
-
-  function clearClassificationSelectedPhoto() {
-    setClassificationSelectedPhoto(null);
-    if (classificationPhotoInputRef.current) {
-      classificationPhotoInputRef.current.value = '';
-    }
-  }
-
   const userFullName = session.user.fullName ?? session.user.username;
   const userAvatarInitials = userFullName
     .split(' ')
@@ -2221,10 +1810,12 @@ export default function SampleDetailPage() {
   function getSdvStatusColor(status: string) {
     switch (status) {
       case 'REGISTRATION_CONFIRMED':
-      case 'QR_PENDING_PRINT':
-        return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Em aberto' };
-      case 'QR_PRINTED':
-        return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A', label: 'Impressa' };
+        return {
+          color: '#E67E22',
+          bg: '#FFF7ED',
+          border: '#FDE68A',
+          label: 'Aguardando classificacao',
+        };
       case 'CLASSIFIED':
         return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Classificada' };
       case 'INVALIDATED':
@@ -3691,9 +3282,7 @@ export default function SampleDetailPage() {
                         className="app-modal-secondary"
                         onClick={() => {
                           if (detail && session)
-                            setClassificationDetailForm(
-                              buildClassificationFormState(detail, session.user)
-                            );
+                            setClassificationDetailForm(buildClassificationFormState(detail));
                           setClassificationDetailClassifiers(
                             classificationDetailClassifiersOriginal
                           );

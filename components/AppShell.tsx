@@ -439,7 +439,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
           <div className="topbar-tools">
             <div className="topbar-search-slot">
-              <SampleSearchField session={session} compact submitLabel="Ir" />
+              <SampleSearchField session={session} compact />
             </div>
 
             <div className="topbar-profile" ref={profileMenuRef}>

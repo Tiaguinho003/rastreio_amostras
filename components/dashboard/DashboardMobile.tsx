@@ -68,11 +68,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             </button>
           </div>
           <div className="dashboard-hero-search">
-            <SampleSearchField
-              session={session}
-              placeholder="Buscar por lote"
-              submitLabel="Buscar"
-            />
+            <SampleSearchField session={session} placeholder="Buscar por lote" />
           </div>
         </section>
 

@@ -29,7 +29,6 @@ interface SampleSearchFieldProps {
   className?: string;
   compact?: boolean;
   placeholder?: string;
-  submitLabel?: string;
 }
 
 export function SampleSearchField({
@@ -37,7 +36,6 @@ export function SampleSearchField({
   className,
   compact = false,
   placeholder = 'Buscar amostra',
-  submitLabel = 'Buscar',
 }: SampleSearchFieldProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
