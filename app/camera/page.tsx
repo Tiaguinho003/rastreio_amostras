@@ -970,11 +970,11 @@ function CameraPageContent() {
       // Flow B: validate status and lot match
       if (
         contextSampleStatus &&
+        contextSampleStatus !== 'REGISTRATION_CONFIRMED' &&
         contextSampleStatus !== 'QR_PRINTED' &&
-        contextSampleStatus !== 'CLASSIFICATION_IN_PROGRESS' &&
         contextSampleStatus !== 'CLASSIFIED'
       ) {
-        setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
+        setFlowError('Amostra nao pode ser classificada (status invalido).');
         return;
       }
 
@@ -1039,11 +1039,11 @@ function CameraPageContent() {
         setResolvedSample(resolved.sample);
 
         if (
+          resolved.sample.status !== 'REGISTRATION_CONFIRMED' &&
           resolved.sample.status !== 'QR_PRINTED' &&
-          resolved.sample.status !== 'CLASSIFICATION_IN_PROGRESS' &&
           resolved.sample.status !== 'CLASSIFIED'
         ) {
-          setFlowError('Amostra ainda nao foi impressa. Imprima a etiqueta antes de classificar.');
+          setFlowError('Amostra nao pode ser classificada (status invalido).');
           setFlowState('confirming');
           return;
         }

@@ -2,9 +2,15 @@
 
 import type { SampleStatus } from '../lib/types';
 
+// Statuses legados (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS após Fase Q
+// registro; CLASSIFICATION_IN_PROGRESS após Fase Q.cls.1) ainda existem no
+// enum Postgres mas nenhum sample novo entra neles. Escondemos o badge pra
+// não vazar artefato técnico na UI. Drop dos enum values fica pra migration
+// final da Fase Q.
 const HIDDEN_STATUS_BADGE = new Set<SampleStatus>([
   'PHYSICAL_RECEIVED',
   'REGISTRATION_IN_PROGRESS',
+  'CLASSIFICATION_IN_PROGRESS',
 ]);
 
 const STATUS_LABEL: Record<SampleStatus, string> = {
@@ -13,7 +19,7 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
   REGISTRATION_CONFIRMED: 'Impressao pendente',
   QR_PENDING_PRINT: 'Impressao pendente',
   QR_PRINTED: 'Classificacao pendente',
-  CLASSIFICATION_IN_PROGRESS: 'Classificacao em andamento',
+  CLASSIFICATION_IN_PROGRESS: '',
   CLASSIFIED: 'Classificada',
   INVALIDATED: 'Invalidada',
 };
@@ -24,7 +30,7 @@ const STATUS_STYLE: Record<SampleStatus, string> = {
   REGISTRATION_CONFIRMED: 'status-badge-print-pending',
   QR_PENDING_PRINT: 'status-badge-print-pending',
   QR_PRINTED: 'status-badge-warning',
-  CLASSIFICATION_IN_PROGRESS: 'status-badge-classification-progress',
+  CLASSIFICATION_IN_PROGRESS: 'status-badge-neutral',
   CLASSIFIED: 'status-badge-success',
   INVALIDATED: 'status-badge-danger',
 };

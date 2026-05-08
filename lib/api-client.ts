@@ -1232,51 +1232,6 @@ export function recordQrPrinted(
   });
 }
 
-export function startClassification(
-  session: SessionData,
-  sampleId: string,
-  data: {
-    expectedVersion: number;
-    classificationId?: string | null;
-    notes?: string | null;
-  }
-) {
-  return request<CommandResponse>(`/samples/${sampleId}/classification/start`, {
-    method: 'POST',
-    session,
-    body: {
-      expectedVersion: data.expectedVersion,
-      classificationId: data.classificationId ?? null,
-      notes: data.notes ?? null,
-    },
-  });
-}
-
-export function saveClassificationPartial(
-  session: SessionData,
-  sampleId: string,
-  data: {
-    expectedVersion: number;
-    snapshotPartial: { [key: string]: JsonValue };
-    completionPercent?: number;
-  }
-) {
-  const body: { [key: string]: JsonValue } = {
-    expectedVersion: data.expectedVersion,
-    snapshotPartial: data.snapshotPartial,
-  };
-
-  if (data.completionPercent !== undefined) {
-    body.completionPercent = data.completionPercent;
-  }
-
-  return request<CommandResponse>(`/samples/${sampleId}/classification/partial`, {
-    method: 'POST',
-    session,
-    body,
-  });
-}
-
 export function completeClassification(
   session: SessionData,
   sampleId: string,

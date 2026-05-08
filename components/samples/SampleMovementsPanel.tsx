@@ -23,7 +23,6 @@ const COMMERCIAL_ALLOWED_STATUSES: readonly SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ];
 import { SampleMovementModal } from './SampleMovementModal';

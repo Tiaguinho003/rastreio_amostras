@@ -25,8 +25,6 @@ import {
   recordPhysicalSampleSent,
   requestQrReprint,
   requestQrPrint,
-  saveClassificationPartial,
-  startClassification,
   updateClassification,
   updatePhysicalSampleSend,
   updateRegistration,
@@ -81,16 +79,11 @@ import {
 type LabelModalStep = 'review' | 'completed';
 type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
-const CLASSIFICATION_STATUSES: SampleStatus[] = [
-  'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED',
-];
+const CLASSIFICATION_STATUSES: SampleStatus[] = ['QR_PRINTED', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ];
 
@@ -196,9 +189,7 @@ function buildClassificationFormState(
     ? detail.sample.latestClassification.data
     : {};
   const draftData =
-    (detail.sample.status === 'QR_PRINTED' ||
-      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') &&
-    isRecord(detail.sample.classificationDraft.snapshot)
+    detail.sample.status === 'QR_PRINTED' && isRecord(detail.sample.classificationDraft.snapshot)
       ? detail.sample.classificationDraft.snapshot
       : {};
   const mergedData = { ...latestData, ...draftData };
@@ -311,19 +302,13 @@ function canEditRegistrationStatus(status: SampleStatus): boolean {
 }
 
 function canRequestReprintStatus(status: SampleStatus): boolean {
-  return (
-    status === 'QR_PENDING_PRINT' ||
-    status === 'QR_PRINTED' ||
-    status === 'CLASSIFICATION_IN_PROGRESS' ||
-    status === 'CLASSIFIED'
-  );
+  return status === 'QR_PENDING_PRINT' || status === 'QR_PRINTED' || status === 'CLASSIFIED';
 }
 
 const PHYSICAL_SEND_ALLOWED_STATUSES = new Set<SampleStatus>([
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ]);
 
@@ -458,10 +443,6 @@ function getOperationalStatusDotTone(status: SampleStatus) {
     return 'pending';
   }
 
-  if (status === 'CLASSIFICATION_IN_PROGRESS') {
-    return 'progress';
-  }
-
   if (status === 'CLASSIFIED') {
     return 'success';
   }
@@ -476,10 +457,6 @@ function getOperationalStatusDotLabel(status: SampleStatus) {
 
   if (status === 'QR_PRINTED') {
     return 'Classificacao pendente';
-  }
-
-  if (status === 'CLASSIFICATION_IN_PROGRESS') {
-    return 'Classificacao em andamento';
   }
 
   if (status === 'CLASSIFIED') {
@@ -661,8 +638,6 @@ export default function SampleDetailPage() {
 
   const [classificationForm, setClassificationForm] =
     useState<ClassificationFormState>(EMPTY_CLASSIFICATION_FORM);
-  const [classificationStarting, setClassificationStarting] = useState(false);
-  const [classificationSaving, setClassificationSaving] = useState(false);
   const [classificationCompleting, setClassificationCompleting] = useState(false);
   const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>(
     'PHOTO'
@@ -942,14 +917,10 @@ export default function SampleDetailPage() {
   const labelModalPrintAction = detail ? getLabelPrintActionForStatus(detail.sample.status) : null;
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationShowsWorkspace = Boolean(
-    detail &&
-    (detail.sample.status === 'QR_PRINTED' ||
-      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
-      detail.sample.status === 'CLASSIFIED')
+    detail && (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFIED')
   );
   const classificationPhotoEditingAllowed =
     detail?.sample.status === 'QR_PRINTED' ||
-    detail?.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
     (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
   const classificationFieldsReadOnly =
     detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
@@ -1706,95 +1677,11 @@ export default function SampleDetailPage() {
     }
   }
 
-  async function handleStartClassification() {
-    if (
-      !session ||
-      !detail ||
-      !isClassificationStatus(detail.sample.status) ||
-      detail.sample.status === 'CLASSIFICATION_IN_PROGRESS' ||
-      detail.sample.status === 'CLASSIFIED'
-    ) {
-      return;
-    }
-
-    setClassificationStarting(true);
-    setClassificationNotice(null);
-
-    try {
-      await startClassification(session, sampleId, {
-        expectedVersion: detail.sample.version,
-        classificationId: null,
-        notes: null,
-      });
-      setClassificationStep('PHOTO');
-      setClassificationNotice({ kind: 'success', text: 'Classificacao iniciada com sucesso.' });
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setClassificationNotice({ kind: 'error', text: cause.message });
-      } else {
-        setClassificationNotice({ kind: 'error', text: 'Falha ao iniciar classificacao' });
-      }
-    } finally {
-      setClassificationStarting(false);
-    }
-  }
-
-  async function handleSaveClassificationPartial() {
-    if (
-      !session ||
-      !detail ||
-      (detail.sample.status !== 'QR_PRINTED' &&
-        detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')
-    ) {
-      return;
-    }
-
-    const validationError = validateClassificationForm(
-      classificationForm,
-      detail?.sample.classificationType
-    );
-    if (validationError) {
-      setClassificationNotice({ kind: 'error', text: validationError });
-      return;
-    }
-
-    const classificationData = buildClassificationDataPayload(classificationForm, {
-      classificationType: detail?.sample.classificationType,
-    });
-
-    setClassificationSaving(true);
-    setClassificationNotice(null);
-
-    try {
-      const partialPayload: {
-        expectedVersion: number;
-        snapshotPartial: ClassificationDataPayload;
-      } = {
-        expectedVersion: detail.sample.version,
-        snapshotPartial: { ...classificationData },
-      };
-
-      await saveClassificationPartial(session, sampleId, partialPayload);
-      setClassificationNotice({ kind: 'success', text: 'Rascunho de classificacao salvo.' });
-      await syncDetailState();
-    } catch (cause) {
-      if (cause instanceof ApiError) {
-        setClassificationNotice({ kind: 'error', text: cause.message });
-      } else {
-        setClassificationNotice({ kind: 'error', text: 'Falha ao salvar classificacao parcial' });
-      }
-    } finally {
-      setClassificationSaving(false);
-    }
-  }
-
   async function handleCompleteClassification() {
     if (
       !session ||
       !detail ||
-      (detail.sample.status !== 'QR_PRINTED' &&
-        detail.sample.status !== 'CLASSIFICATION_IN_PROGRESS')
+      (detail.sample.status !== 'REGISTRATION_CONFIRMED' && detail.sample.status !== 'QR_PRINTED')
     ) {
       return;
     }
@@ -2363,8 +2250,6 @@ export default function SampleDetailPage() {
         return { color: '#C0392B', bg: '#FEF2F2', border: '#FECACA', label: 'Em aberto' };
       case 'QR_PRINTED':
         return { color: '#E67E22', bg: '#FFF7ED', border: '#FDE68A', label: 'Impressa' };
-      case 'CLASSIFICATION_IN_PROGRESS':
-        return { color: '#2980B9', bg: '#EFF6FF', border: '#BFDBFE', label: 'Classificando' };
       case 'CLASSIFIED':
         return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Classificada' };
       case 'INVALIDATED':
@@ -4250,9 +4135,7 @@ export default function SampleDetailPage() {
           pendente/em andamento. Para reclassificar uma amostra ja CLASSIFIED,
           o usuario abre o modal full-view e usa o botao Reclassificar la. */}
       {detail &&
-      (detail.sample.status === 'QR_PENDING_PRINT' ||
-        detail.sample.status === 'QR_PRINTED' ||
-        detail.sample.status === 'CLASSIFICATION_IN_PROGRESS') ? (
+      (detail.sample.status === 'QR_PENDING_PRINT' || detail.sample.status === 'QR_PRINTED') ? (
         <button
           type="button"
           className="sdv-fab-classify"
