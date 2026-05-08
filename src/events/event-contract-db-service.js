@@ -322,8 +322,6 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
         incrementVersionWhenMissing: true,
       })
     );
-    updateData.classificationDraftData = null;
-    updateData.classificationDraftCompletionPercent = null;
     updateData.classifiedAt = event.occurredAt;
     if (hasOwn(event.payload, 'classificationType')) {
       updateData.classificationType = event.payload.classificationType;

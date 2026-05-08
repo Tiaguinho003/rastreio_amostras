@@ -434,10 +434,6 @@ export interface SampleSnapshot {
       notes: string | null;
     };
   };
-  classificationDraft: {
-    snapshot: Record<string, unknown> | null;
-    completionPercent: number | null;
-  };
   createdAt: string;
   updatedAt: string;
 }

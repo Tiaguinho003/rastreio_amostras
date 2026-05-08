@@ -397,8 +397,6 @@ if (!databaseUrl || !databaseReachable) {
     // ao timeline (RC, QR_PRINT_REQUESTED #1 manual, QR_PRINTED #1, PHOTO_ADDED,
     // CLASSIFICATION_COMPLETED, QR_PRINT_REQUESTED #2 auto = 6 eventos).
     assert.equal(detail.events.length, 6);
-    assert.equal(detail.sample.classificationDraft.snapshot, null);
-    assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
     assert.equal(detail.sample.latestClassification.data?.bebida, 'DURA');
     assert.equal(detail.sample.latestClassification.data?.aspecto, 'verde');

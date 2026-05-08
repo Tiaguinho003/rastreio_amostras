@@ -912,10 +912,6 @@ function mapSample(row) {
         notes: row.latestNotes,
       },
     },
-    classificationDraft: {
-      snapshot: toObjectOrNull(row.classificationDraftData),
-      completionPercent: row.classificationDraftCompletionPercent,
-    },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

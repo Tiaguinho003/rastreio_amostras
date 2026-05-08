@@ -174,64 +174,51 @@ function buildClassificationFormState(
   detail: SampleDetailResponse,
   user: SessionUser
 ): ClassificationFormState {
+  // Q.draft: classificationDraft.snapshot foi descontinuado em Q.cls.1
+  // junto com CLASSIFICATION_SAVED_PARTIAL. Form parte direto da ficha
+  // mais recente (latestClassification.data).
   const latestData = isRecord(detail.sample.latestClassification.data)
     ? detail.sample.latestClassification.data
     : {};
-  const draftData =
-    detail.sample.status === 'REGISTRATION_CONFIRMED' &&
-    isRecord(detail.sample.classificationDraft.snapshot)
-      ? detail.sample.classificationDraft.snapshot
-      : {};
-  const mergedData = { ...latestData, ...draftData };
 
   // Q.cls.2.7: ficha unificada agrupada — peneiras (sub-obj p18..p10/mk),
   // fundos (array top-level de 2), defeitos (sub-obj imp/pva/broca/gpi/ap/
   // defeito). Sem mais peneirasPercentuais nem flat broca/pva/imp/etc.
   const latestPeneiras = isRecord(latestData.peneiras) ? latestData.peneiras : {};
-  const draftPeneiras = isRecord(draftData.peneiras) ? draftData.peneiras : {};
-  const mergedPeneiras = { ...latestPeneiras, ...draftPeneiras };
-
-  const fundosSource = Array.isArray(draftData.fundos)
-    ? draftData.fundos
-    : Array.isArray(latestData.fundos)
-      ? latestData.fundos
-      : [];
+  const fundosSource = Array.isArray(latestData.fundos) ? latestData.fundos : [];
   const fundo0 = isRecord(fundosSource[0]) ? fundosSource[0] : {};
   const fundo1 = isRecord(fundosSource[1]) ? fundosSource[1] : {};
-
   const latestDefeitos = isRecord(latestData.defeitos) ? latestData.defeitos : {};
-  const draftDefeitos = isRecord(draftData.defeitos) ? draftData.defeitos : {};
-  const mergedDefeitos = { ...latestDefeitos, ...draftDefeitos };
 
   return {
     ...EMPTY_CLASSIFICATION_FORM,
     dataClassificacao: toDateInput(latestData.dataClassificacao),
-    padrao: toText(mergedData.padrao),
-    aspecto: toText(mergedData.aspecto),
-    certif: toText(mergedData.certif),
-    catacao: toText(mergedData.catacao),
-    observacoes: toText(mergedData.observacoes),
-    bebida: toText(mergedData.bebida),
-    peneiraP18: toText(mergedPeneiras.p18),
-    peneiraP17: toText(mergedPeneiras.p17),
-    peneiraP16: toText(mergedPeneiras.p16),
-    peneiraP15: toText(mergedPeneiras.p15),
-    peneiraP14: toText(mergedPeneiras.p14),
-    peneiraP13: toText(mergedPeneiras.p13),
-    peneiraP12: toText(mergedPeneiras.p12),
-    peneiraP11: toText(mergedPeneiras.p11),
-    peneiraP10: toText(mergedPeneiras.p10),
-    peneiraMk: toText(mergedPeneiras.mk),
+    padrao: toText(latestData.padrao),
+    aspecto: toText(latestData.aspecto),
+    certif: toText(latestData.certif),
+    catacao: toText(latestData.catacao),
+    observacoes: toText(latestData.observacoes),
+    bebida: toText(latestData.bebida),
+    peneiraP18: toText(latestPeneiras.p18),
+    peneiraP17: toText(latestPeneiras.p17),
+    peneiraP16: toText(latestPeneiras.p16),
+    peneiraP15: toText(latestPeneiras.p15),
+    peneiraP14: toText(latestPeneiras.p14),
+    peneiraP13: toText(latestPeneiras.p13),
+    peneiraP12: toText(latestPeneiras.p12),
+    peneiraP11: toText(latestPeneiras.p11),
+    peneiraP10: toText(latestPeneiras.p10),
+    peneiraMk: toText(latestPeneiras.mk),
     fundo1Peneira: toText(fundo0.peneira),
     fundo1Percent: toText(fundo0.percentual),
     fundo2Peneira: toText(fundo1.peneira),
     fundo2Percent: toText(fundo1.percentual),
-    imp: toText(mergedDefeitos.imp),
-    pva: toText(mergedDefeitos.pva),
-    broca: toText(mergedDefeitos.broca),
-    gpi: toText(mergedDefeitos.gpi),
-    ap: toText(mergedDefeitos.ap),
-    defeito: toText(mergedDefeitos.defeito),
+    imp: toText(latestDefeitos.imp),
+    pva: toText(latestDefeitos.pva),
+    broca: toText(latestDefeitos.broca),
+    gpi: toText(latestDefeitos.gpi),
+    ap: toText(latestDefeitos.ap),
+    defeito: toText(latestDefeitos.defeito),
   };
 }
 

@@ -196,8 +196,6 @@ model Sample {
   lostSacks                            Int                 @default(0) @map("lost_sacks")
   latestClassificationVersion          Int?                @map("latest_classification_version")
   latestClassificationData             Json?               @map("latest_classification_data")
-  classificationDraftData              Json?               @map("classification_draft_data")
-  classificationDraftCompletionPercent Int?                @map("classification_draft_completion_percent")
   latestType                           String?             @map("latest_type")
   latestScreen                         String?             @map("latest_screen")
   latestDefectsCount                   Int?                @map("latest_defects_count")
