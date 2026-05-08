@@ -67,35 +67,34 @@ const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
   'CLASSIFIED',
 ];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
+// Q.cls.2.7: ficha unificada — campos do classificationData no payload
+// do evento CLASSIFICATION_COMPLETED. Mais detalhes no schema
+// classification-completed.payload.schema.json. Sem safra (vive no
+// sample.declaredHarvest, atualizado via applySampleUpdates).
 const CLASSIFICATION_DATA_EDITABLE_FIELDS = [
   'padrao',
-  'catacao',
   'aspecto',
-  'bebida',
-  'safra',
-  'broca',
-  'pva',
-  'imp',
-  'ap',
-  'gpi',
-  'defeito',
   'certif',
+  'catacao',
   'observacoes',
+  'bebida',
 ];
-const CLASSIFICATION_SIEVE_FIELDS = [
-  'p19',
+// Peneiras (sub-obj `peneiras`): 10 chaves fixas, sem p19 (nao existe na
+// ficha unificada).
+const CLASSIFICATION_PENEIRA_KEYS = [
   'p18',
   'p17',
   'p16',
-  'mk',
   'p15',
   'p14',
   'p13',
   'p12',
   'p11',
   'p10',
-  'fundos',
+  'mk',
 ];
+// Defeitos (sub-obj `defeitos`): 6 chaves fixas, todos string|null.
+const CLASSIFICATION_DEFEITO_KEYS = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
 const CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS = [
   'type',
   'screen',
@@ -597,58 +596,90 @@ function parseApplySampleUpdatesPatch(value) {
   return patch;
 }
 
-function parseClassificationSievePatch(value) {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (value === null) {
-    return null;
-  }
-
+// Q.cls.2.7: parseia o sub-obj `peneiras` da ficha unificada. 10 chaves
+// fixas (p18..p10 + mk), todas number|null entre 0-100. Retorna undefined
+// se valor ausente; null pra zerar; ou patch parcial.
+function parseClassificationPeneirasPatch(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   assertNoUnknownKeys(
     value,
-    new Set(CLASSIFICATION_SIEVE_FIELDS),
-    'after.classificationData.peneirasPercentuais'
+    new Set(CLASSIFICATION_PENEIRA_KEYS),
+    'after.classificationData.peneiras'
   );
-
   const patch = {};
-  for (const key of CLASSIFICATION_SIEVE_FIELDS) {
-    if (!hasOwn(value, key)) {
-      continue;
+  for (const key of CLASSIFICATION_PENEIRA_KEYS) {
+    if (!hasOwn(value, key)) continue;
+    patch[key] = normalizeNullableNumber(value[key], `after.classificationData.peneiras.${key}`);
+  }
+  return Object.keys(patch).length === 0 ? undefined : patch;
+}
+
+// Q.cls.2.7: parseia o array `fundos` (top-level dentro de
+// classificationData). Sempre 2 elementos com {peneira:string|null,
+// percentual:number|null}. Retorna undefined se ausente, null pra zerar,
+// ou array de 2 normalizado.
+function parseClassificationFundosPatch(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (!Array.isArray(value)) {
+    throw new HttpError(422, 'after.classificationData.fundos must be an array');
+  }
+  if (value.length !== 2) {
+    throw new HttpError(422, 'after.classificationData.fundos must have exactly 2 items');
+  }
+  return value.map((item, index) => {
+    if (!isPlainObject(item)) {
+      throw new HttpError(422, `after.classificationData.fundos[${index}] must be an object`);
     }
-    if (key === 'fundos') {
-      if (value[key] === null) {
-        patch.fundos = null;
-      } else if (Array.isArray(value[key])) {
-        patch.fundos = value[key];
-      }
-      continue;
-    }
-    patch[key] = normalizeNullableNumber(
-      value[key],
-      `after.classificationData.peneirasPercentuais.${key}`
+    assertNoUnknownKeys(
+      item,
+      new Set(['peneira', 'percentual']),
+      `after.classificationData.fundos[${index}]`
     );
-  }
+    const peneira =
+      item.peneira === null || item.peneira === undefined
+        ? null
+        : normalizeNullableText(item.peneira, `after.classificationData.fundos[${index}].peneira`);
+    const percentual =
+      item.percentual === null || item.percentual === undefined
+        ? null
+        : normalizeNullableNumber(
+            item.percentual,
+            `after.classificationData.fundos[${index}].percentual`
+          );
+    return { peneira, percentual };
+  });
+}
 
-  if (Object.keys(patch).length === 0) {
-    return undefined;
+// Q.cls.2.7: parseia o sub-obj `defeitos`. 6 chaves fixas string|null
+// (texto livre — operador escreve numero ou texto, ex: "12", "ALTO", "0,5").
+function parseClassificationDefeitosPatch(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  assertNoUnknownKeys(
+    value,
+    new Set(CLASSIFICATION_DEFEITO_KEYS),
+    'after.classificationData.defeitos'
+  );
+  const patch = {};
+  for (const key of CLASSIFICATION_DEFEITO_KEYS) {
+    if (!hasOwn(value, key)) continue;
+    const raw = value[key];
+    if (raw === null || raw === undefined) {
+      patch[key] = null;
+    } else if (typeof raw === 'string') {
+      patch[key] = raw.trim() || null;
+    } else {
+      patch[key] = String(raw);
+    }
   }
-
-  return patch;
+  return Object.keys(patch).length === 0 ? undefined : patch;
 }
 
 function normalizeClassificationDataFieldValue(fieldName, value) {
-  if (
-    fieldName === 'broca' ||
-    fieldName === 'pva' ||
-    fieldName === 'imp' ||
-    fieldName === 'defeito'
-  ) {
-    if (value === null || value === undefined) return null;
-    return typeof value === 'string' ? value.trim() || null : String(value);
-  }
-
+  // Todos os 6 flat fields do classificationData (padrao, aspecto, certif,
+  // catacao, observacoes, bebida) sao texto livre (string|null).
   return normalizeNullableText(value, `after.classificationData.${fieldName}`);
 }
 
@@ -678,13 +709,19 @@ function parseClassificationUpdatePatch(after) {
     'versaoClassificacao',
   ]);
 
+  // Q.cls.2.7: top-level aceita os 6 flat fields + grupos novos (peneiras,
+  // fundos, defeitos) + technical/consumptionGrams/classifiers + envoltorio
+  // classificationData. Sem peneirasPercentuais (substituido por peneiras
+  // + fundos).
   const allowedTopLevel = new Set([
     ...CLASSIFICATION_DATA_EDITABLE_FIELDS,
     ...CLASSIFICATION_TECHNICAL_EDITABLE_FIELDS,
     'classificationData',
     'technical',
     'consumptionGrams',
-    'peneirasPercentuais',
+    'peneiras',
+    'fundos',
+    'defeitos',
     'classifiers',
   ]);
   assertNoUnknownKeys(after, allowedTopLevel, 'after');
@@ -701,7 +738,7 @@ function parseClassificationUpdatePatch(after) {
   if (classificationData !== undefined) {
     assertNoUnknownKeys(
       classificationData,
-      new Set([...CLASSIFICATION_DATA_EDITABLE_FIELDS, 'peneirasPercentuais', 'consumoGramas']),
+      new Set([...CLASSIFICATION_DATA_EDITABLE_FIELDS, 'peneiras', 'fundos', 'defeitos']),
       'after.classificationData'
     );
 
@@ -735,17 +772,33 @@ function parseClassificationUpdatePatch(after) {
     classificationDataPatch[field] = normalizeClassificationDataFieldValue(field, selected);
   }
 
-  const topSievePatch = hasOwn(after, 'peneirasPercentuais')
-    ? parseClassificationSievePatch(after.peneirasPercentuais)
-    : undefined;
-  const nestedSievePatch =
-    isPlainObject(classificationData) && hasOwn(classificationData, 'peneirasPercentuais')
-      ? parseClassificationSievePatch(classificationData.peneirasPercentuais)
+  // Aceita peneiras top-level (legacy/conveniencia) OU dentro de
+  // classificationData. Idem fundos e defeitos.
+  const peneirasPatch = hasOwn(after, 'peneiras')
+    ? parseClassificationPeneirasPatch(after.peneiras)
+    : isPlainObject(classificationData) && hasOwn(classificationData, 'peneiras')
+      ? parseClassificationPeneirasPatch(classificationData.peneiras)
       : undefined;
+  if (peneirasPatch !== undefined) {
+    classificationDataPatch.peneiras = peneirasPatch;
+  }
 
-  if (topSievePatch !== undefined || nestedSievePatch !== undefined) {
-    classificationDataPatch.peneirasPercentuais =
-      nestedSievePatch !== undefined ? nestedSievePatch : topSievePatch;
+  const fundosPatch = hasOwn(after, 'fundos')
+    ? parseClassificationFundosPatch(after.fundos)
+    : isPlainObject(classificationData) && hasOwn(classificationData, 'fundos')
+      ? parseClassificationFundosPatch(classificationData.fundos)
+      : undefined;
+  if (fundosPatch !== undefined) {
+    classificationDataPatch.fundos = fundosPatch;
+  }
+
+  const defeitosPatch = hasOwn(after, 'defeitos')
+    ? parseClassificationDefeitosPatch(after.defeitos)
+    : isPlainObject(classificationData) && hasOwn(classificationData, 'defeitos')
+      ? parseClassificationDefeitosPatch(classificationData.defeitos)
+      : undefined;
+  if (defeitosPatch !== undefined) {
+    classificationDataPatch.defeitos = defeitosPatch;
   }
 
   const technicalPatch = {};
@@ -761,17 +814,9 @@ function parseClassificationUpdatePatch(after) {
     technicalPatch[field] = normalizeClassificationTechnicalFieldValue(field, selected);
   }
 
-  const hasConsumptionTop = hasOwn(after, 'consumptionGrams');
-  const hasConsumptionNested =
-    isPlainObject(classificationData) && hasOwn(classificationData, 'consumoGramas');
-  const consumptionGrams = hasConsumptionTop
+  const consumptionGrams = hasOwn(after, 'consumptionGrams')
     ? normalizeNullableNumber(after.consumptionGrams, 'after.consumptionGrams')
-    : hasConsumptionNested
-      ? normalizeNullableNumber(
-          classificationData.consumoGramas,
-          'after.classificationData.consumoGramas'
-        )
-      : undefined;
+    : undefined;
 
   // classifiers e extraido como sibling do classificationData porque vive
   // top-level no payload do evento, nao dentro de classificationData. O shape
@@ -1024,39 +1069,65 @@ function buildClassificationUpdatePayload(sample, parsedPatch) {
       afterClassificationData[field] = nextValue;
     }
 
-    if (hasOwn(parsedPatch.classificationData, 'peneirasPercentuais')) {
-      const nextSievePatch = parsedPatch.classificationData.peneirasPercentuais;
-      const currentSieve = isPlainObject(currentData.peneirasPercentuais)
-        ? currentData.peneirasPercentuais
-        : null;
-
-      if (nextSievePatch === null) {
-        if (currentSieve !== null) {
-          beforeClassificationData.peneirasPercentuais = currentSieve;
-          afterClassificationData.peneirasPercentuais = null;
+    // Q.cls.2.7: peneiras (sub-obj), fundos (array de 2), defeitos (sub-obj)
+    // — diff campo a campo dentro do grupo, ou null pra zerar grupo inteiro.
+    if (hasOwn(parsedPatch.classificationData, 'peneiras')) {
+      const next = parsedPatch.classificationData.peneiras;
+      const current = isPlainObject(currentData.peneiras) ? currentData.peneiras : null;
+      if (next === null) {
+        if (current !== null) {
+          beforeClassificationData.peneiras = current;
+          afterClassificationData.peneiras = null;
         }
-      } else if (isPlainObject(nextSievePatch)) {
-        const beforeSieve = {};
-        const afterSieve = {};
-
-        for (const key of CLASSIFICATION_SIEVE_FIELDS) {
-          if (!hasOwn(nextSievePatch, key)) {
-            continue;
-          }
-
-          const currentValue = currentSieve && hasOwn(currentSieve, key) ? currentSieve[key] : null;
-          const nextValue = nextSievePatch[key];
-          if (valuesEqual(currentValue, nextValue)) {
-            continue;
-          }
-
-          beforeSieve[key] = currentValue;
-          afterSieve[key] = nextValue;
+      } else if (isPlainObject(next)) {
+        const beforeGroup = {};
+        const afterGroup = {};
+        for (const key of CLASSIFICATION_PENEIRA_KEYS) {
+          if (!hasOwn(next, key)) continue;
+          const cur = current && hasOwn(current, key) ? current[key] : null;
+          const nxt = next[key];
+          if (valuesEqual(cur, nxt)) continue;
+          beforeGroup[key] = cur;
+          afterGroup[key] = nxt;
         }
+        if (Object.keys(afterGroup).length > 0) {
+          beforeClassificationData.peneiras = beforeGroup;
+          afterClassificationData.peneiras = afterGroup;
+        }
+      }
+    }
 
-        if (Object.keys(afterSieve).length > 0) {
-          beforeClassificationData.peneirasPercentuais = beforeSieve;
-          afterClassificationData.peneirasPercentuais = afterSieve;
+    if (hasOwn(parsedPatch.classificationData, 'fundos')) {
+      const next = parsedPatch.classificationData.fundos;
+      const current = Array.isArray(currentData.fundos) ? currentData.fundos : null;
+      if (!valuesEqual(current, next)) {
+        beforeClassificationData.fundos = current;
+        afterClassificationData.fundos = next;
+      }
+    }
+
+    if (hasOwn(parsedPatch.classificationData, 'defeitos')) {
+      const next = parsedPatch.classificationData.defeitos;
+      const current = isPlainObject(currentData.defeitos) ? currentData.defeitos : null;
+      if (next === null) {
+        if (current !== null) {
+          beforeClassificationData.defeitos = current;
+          afterClassificationData.defeitos = null;
+        }
+      } else if (isPlainObject(next)) {
+        const beforeGroup = {};
+        const afterGroup = {};
+        for (const key of CLASSIFICATION_DEFEITO_KEYS) {
+          if (!hasOwn(next, key)) continue;
+          const cur = current && hasOwn(current, key) ? current[key] : null;
+          const nxt = next[key];
+          if (valuesEqual(cur, nxt)) continue;
+          beforeGroup[key] = cur;
+          afterGroup[key] = nxt;
+        }
+        if (Object.keys(afterGroup).length > 0) {
+          beforeClassificationData.defeitos = beforeGroup;
+          afterClassificationData.defeitos = afterGroup;
         }
       }
     }
@@ -2922,39 +2993,39 @@ export class SampleCommandService {
     let result;
 
     if (sample.status === 'CLASSIFIED') {
-      // Reclassification: update existing classification
-      const allowedUpdateFields = new Set([...CLASSIFICATION_DATA_EDITABLE_FIELDS]);
+      // Q.cls.2.7: reclassificacao via camera. classificationData ja vem
+      // na ficha unificada (flat fields + peneiras + fundos + defeitos)
+      // do frontend. Repassamos via spread direto, dropando dataClassificacao
+      // (auto-set pelo completeClassification, nao editavel via update).
+      const allowedUpdateKeys = new Set([
+        ...CLASSIFICATION_DATA_EDITABLE_FIELDS,
+        'peneiras',
+        'fundos',
+        'defeitos',
+      ]);
       const parsedPatch = {};
       for (const [key, value] of Object.entries(classificationData)) {
-        if (allowedUpdateFields.has(key)) {
+        if (allowedUpdateKeys.has(key)) {
           parsedPatch[key] = value;
         }
       }
-      if (isPlainObject(classificationData.peneirasPercentuais)) {
-        const sieve = classificationData.peneirasPercentuais;
-        const sievePatch = {};
-        for (const sieveKey of CLASSIFICATION_SIEVE_FIELDS) {
-          if (sieve[sieveKey] !== undefined) {
-            sievePatch[sieveKey] = sieve[sieveKey];
-          }
-        }
-        if (Object.keys(sievePatch).length > 0) {
-          parsedPatch.peneirasPercentuais = sievePatch;
-        }
-      }
-      // classifiers e passado top-level no after, fora do whitelist de
-      // CLASSIFICATION_DATA_EDITABLE_FIELDS acima. Passamos o input original
-      // (formato {userId}) e o updateClassification re-normaliza.
+      // classifiers e passado top-level no after, fora do whitelist acima.
+      // Passamos o input original (formato {userId}) e o updateClassification
+      // re-normaliza.
       if (input.classifiers !== undefined) {
         parsedPatch.classifiers = input.classifiers;
       }
+      // Q.cls.2.7: reasonCode/reasonText vem do frontend (ClassificationReclassifyModal).
+      // Frontend valida obrigatoriedade do code e do text quando code=OTHER —
+      // o backend faz o mesmo via normalizeUpdateReasonText/Code. Default
+      // 'DATA_FIX' preserva compat com chamadas pre-Q.cls.2.7.
       result = await this.updateClassification(
         {
           sampleId,
           expectedVersion: current.version,
           after: parsedPatch,
-          reasonCode: 'DATA_FIX',
-          reasonText: 'Reclassificacao via foto',
+          reasonCode: input.reasonCode ?? 'DATA_FIX',
+          reasonText: input.reasonText ?? 'Reclassificacao via foto',
           classificationType: input.classificationType ?? null,
         },
         actorContext
