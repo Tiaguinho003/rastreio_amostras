@@ -18,37 +18,28 @@ const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO',
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.CLASSIFICATION]: ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'],
+  [PHOTO_KINDS.CLASSIFICATION]: ['REGISTRATION_CONFIRMED', 'QR_PRINTED', 'CLASSIFIED'],
 };
-const REPRINT_ALLOWED_STATUSES = [
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
-  'CLASSIFIED',
-];
+const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'];
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
 const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
 // Venda e perda podem ser registradas a partir do momento em que a amostra tem sacas
 // declaradas (REGISTRATION_CONFIRMED). Classificacao nao e pre-requisito comercial:
 // o operador pode vender/registrar perda antes mesmo de classificar. INVALIDATED
-// continua bloqueado via check separado. PHYSICAL_RECEIVED e REGISTRATION_IN_PROGRESS
-// nao entram aqui porque declaredSacks ainda nao existe.
+// continua bloqueado via check separado.
 const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set([
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ]);
 // Envio fisico de amostra pode ser registrado assim que a amostra foi registrada
 // (REGISTRATION_CONFIRMED). Edicao e cancelamento do envio tambem usam esse range.
-// INVALIDATED, PHYSICAL_RECEIVED e REGISTRATION_IN_PROGRESS ficam fora.
 const PHYSICAL_SEND_ALLOWED_STATUSES = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ];
 const MOVEMENT_TYPES = {
@@ -67,16 +58,12 @@ const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ];
 const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
-  'PHYSICAL_RECEIVED',
-  'REGISTRATION_IN_PROGRESS',
   'REGISTRATION_CONFIRMED',
   'QR_PENDING_PRINT',
   'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
   'CLASSIFIED',
 ];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
@@ -1830,70 +1817,15 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
-  async startClassification(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'start classification');
-    requireExpectedVersion(input.expectedVersion);
-
-    const sample = await this.queryService.requireSample(input.sampleId);
-    // Fase P2: aceita REGISTRATION_CONFIRMED (novo fluxo, sem etiqueta no
-    // registro) e QR_PRINTED (compat com fluxo legacy ou print manual).
-    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PRINTED'], 'start classification');
-
-    const event = buildEventEnvelope({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId: sample.id,
-      payload: {
-        classificationId: input.classificationId ?? null,
-        notes: input.notes ?? null,
-      },
-      fromStatus: sample.status,
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      module: 'classification',
-      actorContext: actor,
-    });
-
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
-  }
-
-  async saveClassificationPartial(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'save classification partial');
-    requireExpectedVersion(input.expectedVersion);
-
-    const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(
-      sample,
-      ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'],
-      'save classification partial'
-    );
-
-    const event = buildEventEnvelope({
-      eventType: 'CLASSIFICATION_SAVED_PARTIAL',
-      sampleId: sample.id,
-      payload: {
-        snapshotPartial: input.snapshotPartial,
-        ...(typeof input.completionPercent === 'number'
-          ? { completionPercent: input.completionPercent }
-          : {}),
-      },
-      fromStatus: null,
-      toStatus: null,
-      module: 'classification',
-      actorContext: actor,
-    });
-
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
-  }
-
   async completeClassification(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'complete classification');
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(
-      sample,
-      ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS'],
-      'complete classification'
-    );
+    // Fase Q.cls.1: classificação parte direto de REGISTRATION_CONFIRMED
+    // (sem CLASSIFICATION_IN_PROGRESS intermediário). QR_PRINTED mantido
+    // como compat até a Fase Q.print remover esse status.
+    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PRINTED'], 'complete classification');
     const classificationPhoto = await this.queryService.findAttachmentByKind(
       sample.id,
       PHOTO_KINDS.CLASSIFICATION
@@ -2883,7 +2815,9 @@ export class SampleCommandService {
     const sampleUpdatesPatch = parseApplySampleUpdatesPatch(input.applySampleUpdates);
 
     const sample = await this.queryService.requireSample(sampleId);
-    const classifiableStatuses = ['QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'];
+    // Fase Q.cls.1: câmera aceita partir de RC (1ª classificação) ou CLASSIFIED
+    // (reclassificação). QR_PRINTED mantido como compat até a Fase Q.print.
+    const classifiableStatuses = ['REGISTRATION_CONFIRMED', 'QR_PRINTED', 'CLASSIFIED'];
     assertSampleStatus(sample, classifiableStatuses, 'confirm classification from camera');
 
     // Read photo from temp

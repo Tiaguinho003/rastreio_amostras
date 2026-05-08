@@ -231,16 +231,6 @@ if (!databaseUrl || !databaseReachable) {
   async function moveSampleToClassified(sampleId) {
     await moveSampleToQrPrinted(sampleId);
 
-    await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -254,7 +244,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 4,
+        expectedVersion: 3,
         classificationData: {
           padrao: 'PADRAO-A',
         },
@@ -1185,22 +1175,11 @@ if (!databaseUrl || !databaseReachable) {
       })
     );
 
-    const classificationPendingSampleId = randomUUID();
-    await moveSampleToQrPrinted(classificationPendingSampleId);
+    const classificationPendingRcSampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(classificationPendingRcSampleId);
 
-    const classificationInProgressSampleId = randomUUID();
-    await moveSampleToQrPrinted(classificationInProgressSampleId);
-    const started = await api.startClassification(
-      buildInput({
-        params: { sampleId: classificationInProgressSampleId },
-        body: {
-          expectedVersion: 3,
-          classificationId: null,
-          notes: null,
-        },
-      })
-    );
-    assert.equal(started.status, 201);
+    const classificationPendingQrSampleId = randomUUID();
+    await moveSampleToQrPrinted(classificationPendingQrSampleId);
 
     const classifiedSampleId = randomUUID();
     await moveSampleToClassified(classifiedSampleId);
@@ -1216,8 +1195,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(printPendingFiltered.body.page.total, 1);
     assert.equal(printPendingFiltered.body.items[0].status, 'QR_PENDING_PRINT');
 
-    // CLASSIFICATION_PENDING agora unifica QR_PRINTED + CLASSIFICATION_IN_PROGRESS (refactor 07/04).
-    // O filtro statusGroup CLASSIFICATION_IN_PROGRESS nao existe mais como grupo separado.
+    // Fase Q.cls.1: CLASSIFICATION_PENDING cobre RC + QR_PRINTED
+    // (CLASSIFICATION_IN_PROGRESS removido como status).
     const classificationPendingFiltered = await api.listSamples(
       buildInput({
         query: {
@@ -1230,7 +1209,7 @@ if (!databaseUrl || !databaseReachable) {
     const pendingStatuses = classificationPendingFiltered.body.items
       .map((item) => item.status)
       .sort();
-    assert.deepEqual(pendingStatuses, ['CLASSIFICATION_IN_PROGRESS', 'QR_PRINTED']);
+    assert.deepEqual(pendingStatuses, ['QR_PRINTED', 'REGISTRATION_CONFIRMED']);
 
     const classifiedFiltered = await api.listSamples(
       buildInput({
@@ -1257,7 +1236,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1272,7 +1251,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.updateCommercialStatus(
       {
         sampleId: lostSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         toCommercialStatus: 'LOST',
         reasonText: 'extravio',
       },
@@ -1284,7 +1263,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: partialSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
@@ -1360,7 +1339,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: partialSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
@@ -1376,7 +1355,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1392,7 +1371,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1431,7 +1410,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1451,7 +1430,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1480,7 +1459,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.updateCommercialStatus(
       {
         sampleId: lostSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         toCommercialStatus: 'LOST',
         reasonText: 'extravio',
       },
@@ -1497,7 +1476,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1526,7 +1505,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1550,7 +1529,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 5,
+        expectedVersion: 4,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1666,18 +1645,6 @@ if (!databaseUrl || !databaseReachable) {
   test('POST /samples/:sampleId/photos saves classification photo when sample is in classification phase', async () => {
     const sampleId = randomUUID();
     await moveSampleToQrPrinted(sampleId);
-
-    const started = await api.startClassification(
-      buildInput({
-        params: { sampleId },
-        body: {
-          expectedVersion: 3,
-          classificationId: null,
-          notes: null,
-        },
-      })
-    );
-    assert.equal(started.status, 201);
 
     const uploaded = await api.addLabelPhoto(
       buildInput({
@@ -1893,7 +1860,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           before: {
             classificationData: {
               padrao: 'PADRAO-A',
@@ -1918,7 +1885,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.status, 'CLASSIFIED');
     assert.equal(sample.latestClassification.data?.padrao, 'PADRAO-B');
     assert.equal(sample.latestClassification.data?.bebida, 'DURA');
-    assert.equal(sample.version, 6);
+    assert.equal(sample.version, 5);
   });
 
   test('POST /registration/update keeps diff-only payload and blocks id fields', async () => {
@@ -2028,7 +1995,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           after: {
             classificationData: {
               padrao: 'PADRAO-REVERSIVEL',
@@ -2047,7 +2014,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 6,
+          expectedVersion: 5,
           targetEventId: changed.body.event.eventId,
           reasonCode: 'DATA_FIX',
           reasonText: 'reverter ajuste',
@@ -2060,7 +2027,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const sample = await queryService.requireSample(sampleId);
     assert.equal(sample.latestClassification.data?.padrao, 'PADRAO-A');
-    assert.equal(sample.version, 7);
+    assert.equal(sample.version, 6);
   });
 
   test('POST /commercial-status updates classified sample and enforces transition rules', async () => {
@@ -2071,7 +2038,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           toCommercialStatus: 'SOLD',
           reasonText: 'negocio fechado',
         },
@@ -2084,7 +2051,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           toCommercialStatus: 'LOST',
           reasonText: 'extravio total',
         },
@@ -2122,7 +2089,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId: partialSampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'SALE',
           buyerClientId: buyer.client.id,
           quantitySacks: 4,
@@ -2197,7 +2164,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'SALE',
           buyerClientId: buyerA.client.id,
           quantitySacks: 5,
@@ -2311,7 +2278,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'SALE',
           buyerClientId: inactiveBuyer.client.id,
           quantitySacks: 2,
@@ -2334,7 +2301,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'SALE',
           buyerClientId: sellerOnlyClient.client.id,
           quantitySacks: 2,
@@ -2382,7 +2349,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'LOSS',
           quantitySacks: 2,
           movementDate: '2026-03-19',
@@ -2415,7 +2382,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 4,
           movementType: 'SALE',
           buyerClientId: buyer.client.id,
           quantitySacks: 5,

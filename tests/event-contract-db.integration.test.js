@@ -313,21 +313,9 @@ if (!databaseUrl || !databaseReachable) {
 
     await service.appendEvent(
       buildEvent({
-        eventType: 'CLASSIFICATION_STARTED',
-        sampleId,
-        fromStatus: 'QR_PRINTED',
-        toStatus: 'CLASSIFICATION_IN_PROGRESS',
-        payload: {},
-        module: 'classification',
-      }),
-      { expectedVersion: 3 }
-    );
-
-    await service.appendEvent(
-      buildEvent({
         eventType: 'CLASSIFICATION_COMPLETED',
         sampleId,
-        fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+        fromStatus: 'QR_PRINTED',
         toStatus: 'CLASSIFIED',
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
@@ -336,7 +324,7 @@ if (!databaseUrl || !databaseReachable) {
         },
         module: 'classification',
       }),
-      { expectedVersion: 4 }
+      { expectedVersion: 3 }
     );
 
     const beforeExport = await prisma.sample.findUnique({ where: { id: sampleId } });
@@ -504,17 +492,6 @@ if (!databaseUrl || !databaseReachable) {
     await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
     await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
     await service.appendEvent(
-      buildEvent({
-        eventType: 'CLASSIFICATION_STARTED',
-        sampleId,
-        fromStatus: 'QR_PRINTED',
-        toStatus: 'CLASSIFICATION_IN_PROGRESS',
-        payload: {},
-        module: 'classification',
-      }),
-      { expectedVersion: 3 }
-    );
-    await service.appendEvent(
       photoAddedEvent(sampleId, {
         payload: {
           attachmentId: classificationPhotoId,
@@ -531,7 +508,7 @@ if (!databaseUrl || !databaseReachable) {
       buildEvent({
         eventType: 'CLASSIFICATION_COMPLETED',
         sampleId,
-        fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+        fromStatus: 'QR_PRINTED',
         toStatus: 'CLASSIFIED',
         payload: {
           classificationPhotoId,
@@ -540,7 +517,7 @@ if (!databaseUrl || !databaseReachable) {
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
       }),
-      { expectedVersion: 4 }
+      { expectedVersion: 3 }
     );
 
     const saleCreated = await service.appendEvent(
@@ -553,7 +530,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 5 }
+      { expectedVersion: 4 }
     );
     const saleMovement = await prisma.sampleMovement.findUnique({
       where: { id: saleCreated.event.payload.movementId },
@@ -601,7 +578,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 6 }
+      { expectedVersion: 5 }
     );
 
     const updatedSaleMovement = await prisma.sampleMovement.findUnique({
@@ -618,7 +595,7 @@ if (!databaseUrl || !databaseReachable) {
           commercialStatus: 'PARTIALLY_SOLD',
         },
       }),
-      { expectedVersion: 7 }
+      { expectedVersion: 6 }
     );
     const sampleAfterLoss = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sampleAfterLoss.lostSacks, 3);
@@ -630,7 +607,7 @@ if (!databaseUrl || !databaseReachable) {
           movementId: lossCreated.event.payload.movementId,
         },
       }),
-      { expectedVersion: 8 }
+      { expectedVersion: 7 }
     );
 
     const cancelledLossMovement = await prisma.sampleMovement.findUnique({

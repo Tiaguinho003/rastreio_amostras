@@ -1,22 +1,15 @@
 import { HttpError } from '../contracts/errors.js';
 
-const PENDING_STATUSES = [
-  'PHYSICAL_RECEIVED',
-  'REGISTRATION_IN_PROGRESS',
-  'QR_PENDING_PRINT',
-  'CLASSIFICATION_IN_PROGRESS',
-];
+const PENDING_STATUSES = ['QR_PENDING_PRINT'];
 // Fase P4: REGISTRATION_CONFIRMED migra de PRINT_PENDING para
 // CLASSIFICATION_PENDING. Como a etapa de impressao saiu do registro
 // (Fase P2), uma amostra recem-confirmada agora aguarda classificacao
 // (nao impressao). PRINT_PENDING ainda existe pra cobrir reprints
-// (QR_PENDING_PRINT) e a futura Fase Pb (impressao pos-classificacao).
+// (QR_PENDING_PRINT) e a futura Fase Q.print (impressao pos-classificacao).
 const PRINT_PENDING_STATUSES = ['QR_PENDING_PRINT'];
-const CLASSIFICATION_PENDING_STATUSES = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PRINTED',
-  'CLASSIFICATION_IN_PROGRESS',
-];
+// Fase Q.cls.1: CLASSIFICATION_IN_PROGRESS removido. QR_PRINTED mantido
+// como compat até a Fase Q.print remover esse status do enum.
+const CLASSIFICATION_PENDING_STATUSES = ['REGISTRATION_CONFIRMED', 'QR_PRINTED'];
 const SAMPLE_STATUS_FILTER_GROUPS = {
   PRINT_PENDING: PRINT_PENDING_STATUSES,
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
@@ -621,7 +614,7 @@ function resolveStatusGroupStatuses(statusGroup) {
   if (!resolved) {
     throw new HttpError(
       422,
-      'statusGroup must be one of: PRINT_PENDING, CLASSIFICATION_PENDING, CLASSIFICATION_IN_PROGRESS, CLASSIFIED'
+      'statusGroup must be one of: PRINT_PENDING, CLASSIFICATION_PENDING, CLASSIFIED'
     );
   }
 
@@ -1071,7 +1064,7 @@ export class SampleQueryService {
           printAction: 'REPRINT',
           sample: {
             status: {
-              in: ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFICATION_IN_PROGRESS', 'CLASSIFIED'],
+              in: ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'],
             },
           },
         },
@@ -1690,13 +1683,6 @@ export class SampleQueryService {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
         items: classificationPendingRows.map(mapDashboardSample),
-      },
-      classificationInProgress: {
-        counts: {
-          CLASSIFICATION_IN_PROGRESS: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
-        },
-        total: classificationPendingCounts.CLASSIFICATION_IN_PROGRESS ?? 0,
-        items: [],
       },
     };
   }

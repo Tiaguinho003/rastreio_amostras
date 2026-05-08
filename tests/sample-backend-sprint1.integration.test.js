@@ -374,17 +374,6 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(printed.statusCode, 201);
 
-    const classificationStarted = await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-    assert.equal(classificationStarted.statusCode, 201);
-
     const classificationPhoto = await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -396,24 +385,10 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.equal(classificationPhoto.statusCode, 201);
 
-    const partial = await commandService.saveClassificationPartial(
-      {
-        sampleId,
-        expectedVersion: 4,
-        snapshotPartial: {
-          padrao: 'PADRAO-1',
-          bebida: 'DURA',
-        },
-        completionPercent: 45,
-      },
-      actorClassifier
-    );
-    assert.equal(partial.statusCode, 201);
-
     const completed = await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 5,
+        expectedVersion: 3,
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
@@ -439,10 +414,10 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
-    assert.equal(detail.sample.version, 6);
+    assert.equal(detail.sample.version, 4);
     assert.match(detail.sample.internalLotNumber ?? '', /^\d+$/);
     assert.equal(detail.attachments.length, 1);
-    assert.equal(detail.events.length, 7);
+    assert.equal(detail.events.length, 5);
     assert.equal(detail.sample.classificationDraft.snapshot, null);
     assert.equal(detail.sample.classificationDraft.completionPercent, null);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
@@ -461,29 +436,18 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(dashboard.printPending.total, 0);
     assert.equal(dashboard.printPending.items.length, 0);
     assert.equal(dashboard.classificationPending.total, 0);
-    assert.equal(dashboard.classificationInProgress.total, 0);
   });
 
   test('requires classification photo before completing classification', async () => {
     const sampleId = randomUUID();
     await moveSampleToQrPrinted(sampleId);
 
-    await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-
     await assert.rejects(
       () =>
         commandService.completeClassification(
           {
             sampleId,
-            expectedVersion: 4,
+            expectedVersion: 3,
             classificationData: {
               padrao: 'SEM-FOTO',
             },
@@ -502,16 +466,6 @@ if (!databaseUrl || !databaseReachable) {
   test('replaces classification photo when user retries capture', async () => {
     const sampleId = randomUUID();
     await moveSampleToQrPrinted(sampleId);
-
-    await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
 
     const first = await commandService.addClassificationPhoto(
       {
@@ -545,87 +499,26 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(classificationPhotos[0].id, second.photo.attachmentId);
   });
 
-  test('merges draft data across partial classification saves and increments version', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
-
-    await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-
-    await commandService.saveClassificationPartial(
-      {
-        sampleId,
-        expectedVersion: 4,
-        snapshotPartial: {
-          padrao: 'PADRAO-BASE',
-          bebida: 'DURA',
-        },
-        completionPercent: 35,
-      },
-      actorClassifier
-    );
-
-    await commandService.saveClassificationPartial(
-      {
-        sampleId,
-        expectedVersion: 5,
-        snapshotPartial: {
-          aspecto: 'BOM',
-        },
-        completionPercent: 60,
-      },
-      actorClassifier
-    );
-
-    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
-    assert.equal(detail.sample.status, 'CLASSIFICATION_IN_PROGRESS');
-    assert.equal(detail.sample.version, 6);
-    assert.equal(detail.sample.classificationDraft.completionPercent, 60);
-    assert.equal(detail.sample.classificationDraft.snapshot?.padrao, 'PADRAO-BASE');
-    assert.equal(detail.sample.classificationDraft.snapshot?.bebida, 'DURA');
-    assert.equal(detail.sample.classificationDraft.snapshot?.aspecto, 'BOM');
-  });
-
   test('returns dedicated dashboard list for samples pending classification', async () => {
-    const readySampleId = randomUUID();
-    const inProgressSampleId = randomUUID();
+    const rcSampleId = randomUUID();
+    const qrPrintedSampleId = randomUUID();
 
-    await moveSampleToQrPrinted(readySampleId);
-    await moveSampleToQrPrinted(inProgressSampleId);
-
-    const classificationStarted = await commandService.startClassification(
-      {
-        sampleId: inProgressSampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-    assert.equal(classificationStarted.statusCode, 201);
+    await moveSampleToRegistrationConfirmed(rcSampleId);
+    await moveSampleToQrPrinted(qrPrintedSampleId);
 
     const dashboard = await queryService.getDashboardPending();
     assert.equal(dashboard.printPending.total, 0);
-    // classificationPending agora unifica QR_PRINTED + CLASSIFICATION_IN_PROGRESS (refactor 07/04)
+    // Fase Q.cls.1: classificationPending agora cobre RC + QR_PRINTED.
+    // CLASSIFICATION_IN_PROGRESS removido como status.
+    assert.equal(dashboard.classificationPending.counts.REGISTRATION_CONFIRMED, 1);
     assert.equal(dashboard.classificationPending.counts.QR_PRINTED, 1);
-    assert.equal(dashboard.classificationPending.counts.CLASSIFICATION_IN_PROGRESS, 1);
     assert.equal(dashboard.classificationPending.total, 2);
-    // classificationInProgress mantido para compat: counts/total ok, items vazio
-    assert.equal(dashboard.classificationInProgress.counts.CLASSIFICATION_IN_PROGRESS, 1);
-    assert.equal(dashboard.classificationInProgress.total, 1);
 
     const statusBySampleId = new Map(
       dashboard.classificationPending.items.map((sample) => [sample.id, sample.status])
     );
-    assert.equal(statusBySampleId.get(readySampleId), 'QR_PRINTED');
-    assert.equal(statusBySampleId.get(inProgressSampleId), 'CLASSIFICATION_IN_PROGRESS');
+    assert.equal(statusBySampleId.get(rcSampleId), 'REGISTRATION_CONFIRMED');
+    assert.equal(statusBySampleId.get(qrPrintedSampleId), 'QR_PRINTED');
   });
 
   test('returns dedicated dashboard list for samples with pending print (not printed yet)', async () => {
@@ -939,16 +832,6 @@ if (!databaseUrl || !databaseReachable) {
 
     // Avanca a amostra ate CLASSIFIED e registra uma venda de 8 sacas para
     // depois tentar reduzir declaredSacks para 5 via applySampleUpdates.
-    await commandService.startClassification(
-      {
-        sampleId,
-        expectedVersion: 3,
-        classificationId: null,
-        notes: null,
-      },
-      actorClassifier
-    );
-
     await commandService.addClassificationPhoto(
       {
         sampleId,

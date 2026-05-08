@@ -319,46 +319,6 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    startClassification: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        const result = await commandService.startClassification(
-          {
-            sampleId,
-            expectedVersion: body.expectedVersion,
-            classificationId: body.classificationId ?? null,
-            notes: body.notes ?? null,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
-
-    saveClassificationPartial: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        const result = await commandService.saveClassificationPartial(
-          {
-            sampleId,
-            expectedVersion: body.expectedVersion,
-            snapshotPartial: body.snapshotPartial,
-            ...(Object.prototype.hasOwnProperty.call(body, 'completionPercent')
-              ? { completionPercent: body.completionPercent }
-              : {}),
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
-
     completeClassification: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);

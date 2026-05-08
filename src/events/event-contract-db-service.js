@@ -5,8 +5,6 @@ import { isPrismaUniqueViolation } from './prisma-event-store.js';
 const MUTATING_EVENT_TYPES = new Set([
   'REGISTRATION_CONFIRMED',
   'QR_PRINT_REQUESTED',
-  'CLASSIFICATION_STARTED',
-  'CLASSIFICATION_SAVED_PARTIAL',
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
@@ -331,16 +329,6 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     if (hasOwn(after, 'soldSacks')) updateData.soldSacks = after.soldSacks;
     if (hasOwn(after, 'lostSacks')) updateData.lostSacks = after.lostSacks;
     if (hasOwn(after, 'commercialStatus')) updateData.commercialStatus = after.commercialStatus;
-  }
-
-  if (event.eventType === 'CLASSIFICATION_SAVED_PARTIAL') {
-    updateData.classificationDraftData = mergeClassificationData(
-      currentSample.classificationDraftData,
-      event.payload.snapshotPartial
-    );
-    if (hasOwn(event.payload, 'completionPercent')) {
-      updateData.classificationDraftCompletionPercent = event.payload.completionPercent;
-    }
   }
 
   if (event.eventType === 'CLASSIFICATION_COMPLETED') {

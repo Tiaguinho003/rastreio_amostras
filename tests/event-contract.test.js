@@ -186,20 +186,9 @@ test('sale and loss events are accepted by the contract validator', () => {
   service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
   service.appendEvent(
     buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-  service.appendEvent(
-    buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      fromStatus: 'QR_PRINTED',
       toStatus: 'CLASSIFIED',
       payload: {
         classificationPhotoId: randomUUID(),
@@ -208,26 +197,26 @@ test('sale and loss events are accepted by the contract validator', () => {
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
     }),
-    { expectedVersion: 4 }
+    { expectedVersion: 3 }
   );
 
-  const created = service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 5 });
+  const created = service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 4 });
   const updated = service.appendEvent(
     saleUpdatedEvent(sampleId, { payload: { movementId: created.event.payload.movementId } }),
     {
-      expectedVersion: 6,
+      expectedVersion: 5,
     }
   );
-  const loss = service.appendEvent(lossRecordedEvent(sampleId), { expectedVersion: 7 });
+  const loss = service.appendEvent(lossRecordedEvent(sampleId), { expectedVersion: 6 });
   const cancelled = service.appendEvent(
     lossCancelledEvent(sampleId, { payload: { movementId: loss.event.payload.movementId } }),
-    { expectedVersion: 8 }
+    { expectedVersion: 7 }
   );
 
   assert.equal(created.statusCode, 201);
   assert.equal(updated.statusCode, 201);
   assert.equal(cancelled.statusCode, 201);
-  assert.equal(store.getEvents(sampleId).length, 9);
+  assert.equal(store.getEvents(sampleId).length, 8);
 });
 
 test('atomicity rolls back sample mutation if event append fails mid-operation', () => {
@@ -273,23 +262,11 @@ test('classification completed requires classification photo reference and accep
     })
   );
 
-  service.appendEvent(
-    buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-
   const completed = service.appendEvent(
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      fromStatus: 'QR_PRINTED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -298,7 +275,7 @@ test('classification completed requires classification photo reference and accep
       },
       module: 'classification',
     }),
-    { expectedVersion: 4 }
+    { expectedVersion: 3 }
   );
 
   assert.equal(completed.statusCode, 201);
@@ -325,23 +302,11 @@ test('classification completed accepts conferredBy array with valid snapshots', 
       module: 'classification',
     })
   );
-  service.appendEvent(
-    buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-
   const completed = service.appendEvent(
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      fromStatus: 'QR_PRINTED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -362,7 +327,7 @@ test('classification completed accepts conferredBy array with valid snapshots', 
       },
       module: 'classification',
     }),
-    { expectedVersion: 4 }
+    { expectedVersion: 3 }
   );
 
   assert.equal(completed.statusCode, 201);
@@ -389,25 +354,13 @@ test('classification completed rejects conferredBy with empty array', () => {
       module: 'classification',
     })
   );
-  service.appendEvent(
-    buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-
   assert.throws(
     () =>
       service.appendEvent(
         buildEvent({
           eventType: 'CLASSIFICATION_COMPLETED',
           sampleId,
-          fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+          fromStatus: 'QR_PRINTED',
           toStatus: 'CLASSIFIED',
           idempotencyScope: 'CLASSIFICATION_COMPLETE',
           idempotencyKey: randomUUID(),
@@ -417,7 +370,7 @@ test('classification completed rejects conferredBy with empty array', () => {
           },
           module: 'classification',
         }),
-        { expectedVersion: 4 }
+        { expectedVersion: 3 }
       ),
     (error) => error instanceof HttpError && error.status === 422
   );
@@ -443,25 +396,13 @@ test('classification completed rejects conferredBy with extra keys per item', ()
       module: 'classification',
     })
   );
-  service.appendEvent(
-    buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-
   assert.throws(
     () =>
       service.appendEvent(
         buildEvent({
           eventType: 'CLASSIFICATION_COMPLETED',
           sampleId,
-          fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+          fromStatus: 'QR_PRINTED',
           toStatus: 'CLASSIFIED',
           idempotencyScope: 'CLASSIFICATION_COMPLETE',
           idempotencyKey: randomUUID(),
@@ -478,7 +419,7 @@ test('classification completed rejects conferredBy with extra keys per item', ()
           },
           module: 'classification',
         }),
-        { expectedVersion: 4 }
+        { expectedVersion: 3 }
       ),
     (error) => error instanceof HttpError && error.status === 422
   );
@@ -508,21 +449,9 @@ test('report exported is accepted and does not mutate sample version/status', ()
 
   service.appendEvent(
     buildEvent({
-      eventType: 'CLASSIFICATION_STARTED',
-      sampleId,
-      fromStatus: 'QR_PRINTED',
-      toStatus: 'CLASSIFICATION_IN_PROGRESS',
-      payload: {},
-      module: 'classification',
-    }),
-    { expectedVersion: 3 }
-  );
-
-  service.appendEvent(
-    buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'CLASSIFICATION_IN_PROGRESS',
+      fromStatus: 'QR_PRINTED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -533,7 +462,7 @@ test('report exported is accepted and does not mutate sample version/status', ()
       },
       module: 'classification',
     }),
-    { expectedVersion: 4 }
+    { expectedVersion: 3 }
   );
 
   const beforeExport = store.getSample(sampleId);
