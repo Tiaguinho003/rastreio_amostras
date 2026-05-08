@@ -4,401 +4,240 @@ import OpenAI from 'openai';
 import { HttpError } from '../contracts/errors.js';
 
 // ============================================================
-// SYSTEM PROMPT (shared across all classification types)
+// SYSTEM PROMPT
 // ============================================================
 
 const SYSTEM_PROMPT = `Voce e um sistema especializado em extracao de dados manuscritos de fichas de classificacao de cafe.
 
 CONTEXTO DA IMAGEM:
 A foto mostra uma mesa de classificacao de cafe. Na cena voce encontrara:
-- Uma ficha de classificacao retangular branca. No TOPO da ficha ha uma TARJA FINA com fundo bege claro contendo o NOME DO TIPO de cafe centralizado em letras impressas maiusculas (ex: "BICA", "PREPARADO", "CAF\u00c9 BAIXO"). Logo abaixo da tarja comeca o corpo da ficha com varias LINHAS de dados. A PRIMEIRA LINHA (L1) do corpo e a zona de identificacao: ela tem duas celulas com bordas mais grossas — uma celula grande a esquerda com o rotulo "LOTE" (onde fica o codigo manuscrito grande) e uma celula menor a direita com o rotulo "Sacas" (numero manuscrito). Esta e a UNICA ficha que voce deve ler.
-- Graos de cafe espalhados ao redor da ficha, em um ou mais montes. IGNORE completamente os graos de cafe.
-- A mesa de classificacao e uma superficie cinza escura.
-- Pode haver OUTROS documentos, tabelas de referencia ou fichas de outras empresas visiveis na mesa (como tabelas da Green Coffee Association, Volcafe, ou similares). IGNORE todos os outros papeis — extraia dados SOMENTE da ficha com o layout descrito acima.
+- A ficha de classificacao SAFRAS — um cartao retangular branco com bordas pretas, dividido em celulas tabulares (descrita em detalhe no prompt do usuario). E a UNICA ficha que voce deve ler.
+- Graos de cafe espalhados ao redor da ficha, em um ou mais montinhos. IGNORE completamente os graos.
+- A mesa de classificacao e geralmente uma superficie cinza escura.
+- Pode haver OUTROS documentos, tabelas de referencia ou fichas de outras empresas visiveis (Green Coffee Association, Volcafe, ou similares). IGNORE todos os outros papeis — extraia dados SOMENTE da ficha SAFRAS descrita no prompt.
 
-A ficha SAFRAS pode ocupar desde uma area pequena da foto (15-30%) ate a maior parte da imagem. Em qualquer caso, foque toda sua atencao na ficha e ignore todo o restante da cena.
+A ficha SAFRAS pode ocupar de 15-30% ate a maior parte da imagem. Em qualquer caso, foque toda sua atencao na ficha e ignore o restante da cena.
 
 REGRAS CRITICAS DE EXTRACAO:
-1. Extraia SOMENTE valores escritos a mao (manuscritos) com caneta azul ou preta. NUNCA retorne um rotulo impresso como valor.
-2. Se um campo nao tem valor manuscrito, retorne null. NAO invente, NAO copie de campos vizinhos, NAO repita rotulos.
+1. Extraia SOMENTE valores escritos a mao (manuscritos) com caneta ou lapis. NUNCA retorne um rotulo impresso como valor.
+2. Se um campo NAO TEM valor manuscrito, retorne null. NAO invente, NAO copie de campos vizinhos, NAO repita rotulos.
 3. Mantenha exatamente a grafia manuscrita encontrada. NAO corrija ortografia ou abreviacoes.
 4. Para campos numericos: retorne APENAS o numero como string (ex: "12,5" ou "45"). NAO inclua simbolos como "%" ou unidades.
 5. Para campos de texto: retorne o texto exatamente como escrito a mao.
-6. Responda APENAS com JSON valido no formato especificado. Nenhum texto antes ou depois do JSON.
-7. Valores manuscritos ficam ABAIXO ou AO LADO do rotulo impresso de cada campo, dentro da celula.
-8. Se a escrita e ilegivel, retorne null em vez de adivinhar.
-9. O campo Observacoes pode conter QUALQUER texto manuscrito (valores numericos, descricoes, abreviacoes). Extraia TODO o texto visivel nesse campo como uma unica string.
-10. Campos de identificacao (lote, sacas, safra) devem aparecer dentro de "identificacao" no JSON. O campo safra TAMBEM deve ser copiado para "classificacao.safra" porque e usado nos dois lugares.`;
+6. Valores manuscritos ficam ABAIXO ou AO LADO do rotulo impresso de cada celula.
+7. Se a escrita e ilegivel, retorne null em vez de adivinhar.
+8. Virgula brasileira: numeros decimais usam VIRGULA (ex: "12,5"), nao ponto.
+9. NUNCA INVENTE: muitos campos ficam vazios. E ESPERADO. Retorne null sem hesitar.`;
 
 // ============================================================
-// USER PROMPTS (one per classification type)
+// USER PROMPT (ficha unificada Q.cls.2)
 // ============================================================
 
-const BICA_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo BICA presente na foto.
+const USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao SAFRAS presente na foto.
 
 COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a palavra "BICA" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
+A ficha e uma TABELA RETANGULAR pequena (geralmente proporcao proxima de 1:1, levemente mais larga que alta), com:
+- Bordas PRETAS FINAS em todas as celulas internas (linhas que dividem cada celula).
+- Bordas PRETAS GROSSAS no contorno externo da ficha (linhas-guia de corte da impressao, mais espessas que as linhas internas).
+- Fundo BRANCO em todas as celulas.
+- 8 LINHAS de celulas empilhadas verticalmente, cada linha dividida em 2-5 celulas.
+- Labels impressos em CAIXA ALTA, NEGRITO, no canto SUPERIOR ESQUERDO de cada celula.
+- O resto de cada celula e em branco (espaco para preenchimento manuscrito).
 
-LAYOUT DA FICHA BICA (de cima para baixo):
+Se houver MULTIPLAS fichas semelhantes na imagem (varias recortadas lado a lado), foque APENAS na ficha mais bem enquadrada / mais nitida / mais central. Ignore qualquer outro papel ou tabela na mesa que nao tenha esta estrutura tabular caracteristica.
 
-TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "BICA" impresso centralizado (ignore, e o nome do tipo).
+LAYOUT DA FICHA (8 LINHAS, de cima para baixo):
 
-Abaixo da tarja ha 5 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
+LINHA 1 — CABECALHO (3 celulas, larguras aproximadas 47% / 27% / 27%):
+  Celula 1 (mais larga, a esquerda): SEM ROTULO IMPRESSO. Contem o numero do LOTE escrito a mao em tamanho grande — geralmente o maior texto manuscrito da ficha. Tipicamente um numero de 4-5 digitos (ex: "5567", "5640"). → identificacao.lote
+  Celula 2 (centro): rotulo "SCS" no canto superior esquerdo (abreviacao de "Sacas"). Contem um numero manuscrito inteiro (ex: "100", "200", "350"). → identificacao.sacas
+  Celula 3 (a direita): rotulo "SAFRA" no canto superior esquerdo. Contem a safra manuscrita, tipicamente no formato "AA/AA" (ex: "25/26", "24/25"). → identificacao.safra
 
-LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
-  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
-  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
+LINHA 2 — IDENTIFICACAO (3 celulas iguais, ~33% cada):
+  Celula 1: rotulo "PADR." (Padrao) — texto livre manuscrito. → classificacao.padrao
+  Celula 2: rotulo "ASP." (Aspecto) — texto livre manuscrito. → classificacao.aspecto
+  Celula 3: rotulo "CERT." (Certificacao). Pode conter siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO", ou texto livre. → classificacao.certif
 
-LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
-  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
-  Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
+LINHA 3 — PENEIRAS GRANDES (5 celulas iguais, 20% cada):
+  Cada celula tem rotulo "P18", "P17", "P16", "P15", "P14" (da esquerda pra direita).
+  Cada uma contem um percentual manuscrito (ex: "12,5", "8", "0,5"). Sem o simbolo "%".
+  Nem todas as peneiras estarao preenchidas — retorne null para vazias.
+  → classificacao.peneiras.p18, p17, p16, p15, p14 (na ordem)
 
-LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
-  Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
-  Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
+LINHA 4 — PENEIRAS PEQUENAS (5 celulas iguais, 20% cada):
+  Cada celula tem rotulo "P13", "P12", "P11", "P10", "MK" (da esquerda pra direita).
+  Mesmo formato da LINHA 3.
+  → classificacao.peneiras.p13, p12, p11, p10, mk
 
-Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
+LINHA 5 — FUNDOS + CATACAO (3 celulas, larguras ~37% / 37% / 27%):
+  Celulas 1 e 2 (FUNDOS): cada uma tem rotulo "FD" no canto superior esquerdo. Cada celula esta dividida visualmente em 3 partes lado a lado:
+    - A ESQUERDA, o operador escreve a PENEIRA do fundo (geralmente um numero como "13", "11").
+    - No CENTRO, ha um simbolo "=" IMPRESSO (NAO e manuscrito — ignore).
+    - A DIREITA, o operador escreve a PORCENTAGEM (ex: "8", "1,5"). Pode haver um "%" decorativo impresso no canto direito da celula (NAO e manuscrito).
+    Se uma das celulas FD nao foi preenchida, retorne null para ambas as chaves daquele fundo.
+    → classificacao.fundos[0]: { peneira, percentual } (primeira celula FD da esquerda)
+    → classificacao.fundos[1]: { peneira, percentual } (segunda celula FD)
+  Celula 3 (CAT.): rotulo "CAT." (Catacao). Contem um percentual manuscrito (numero). Sem "%". → classificacao.catacao
 
-LINHA 4 — Peneiras e impureza (3 campos largos, cada um ocupa UM TERCO da largura):
-  Campo esquerdo (terco): rotulo "P.17 %" → extraia como "p17"
-  Campo centro (terco): rotulo "MK %" → extraia como "mk"
-  Campo direito (terco): rotulo "Impureza" → extraia como "impureza"
+LINHA 6 — DEFEITOS PRINCIPAIS (3 celulas iguais):
+  Celula 1: rotulo "IMP." (Impureza) — numero manuscrito. → classificacao.defeitos.imp
+  Celula 2: rotulo "PVA" (Pretos/Verdes/Ardidos) — numero manuscrito. → classificacao.defeitos.pva
+  Celula 3: rotulo "BROCA" — numero manuscrito. → classificacao.defeitos.broca
 
-LINHA 5 — Fundos (4 campos lado a lado, fundo bege claro):
-  Esta linha tem fundo bege e contem DOIS pares de fundos.
-  Primeiro par (fundo 1):
-    Campo 1 com rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
-    Campo 2 com rotulo "%" → extraia o numero manuscrito como "fundo1_percentual" (ex: "1,5")
-  Segundo par (fundo 2):
-    Campo 3 com rotulo "Fundo Pen." → extraia como "fundo2_peneira"
-    Campo 4 com rotulo "%" → extraia como "fundo2_percentual"
-  Se apenas o primeiro fundo estiver preenchido, retorne null para fundo2_peneira e fundo2_percentual.
+LINHA 7 — DEFEITOS COMPLEMENTARES (3 celulas iguais):
+  Celula 1: rotulo "GPI" (Grao Perfeito Inteiro) — numero manuscrito. → classificacao.defeitos.gpi
+  Celula 2: rotulo "AP" (Aproveitamento) — numero manuscrito. → classificacao.defeitos.ap
+  Celula 3: rotulo "DEF." (Defeito) — texto livre manuscrito (pode ser numero, descricao curta, ou ambos). → classificacao.defeitos.defeito
 
-LINHA 6 — Observacoes (campo unico, largura total da ficha, mais alto que os demais):
-  Rotulo "Observações" no canto superior esquerdo.
-  Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
-  - Valores numericos como "Pau 2", "AP 1", "Umid 11,5"
-  - Textos descritivos como "pedra", "cafe verde", "mofo"
-  - Qualquer combinacao dos exemplos acima
-  Extraia TODO o texto manuscrito deste campo como uma unica string.
-  Mantenha a grafia exata. Separe itens visivelmente distintos por virgula.
-  Se o campo estiver vazio, retorne null.
-  → extraia como "observacoes"
-
-ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Sacas, Certif., Certif, Certificado, BICA, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.17 %, MK %, Fundo Pen., %, Observações
+LINHA 8 — FINAL (2 celulas, larguras 67% / 33%):
+  Celula 1 (mais larga): rotulo "OBS." (Observacoes). Texto livre manuscrito completo — pode ser uma palavra, frase, ou multiplas notas. Mantenha grafia exata. Separe itens visivelmente distintos por virgula. → classificacao.observacoes
+  Celula 2: rotulo "BEB." (Bebida) — texto manuscrito (ex: "DURA", "RIO", "MOLE", "RIADA"). → classificacao.bebida
 
 REGRAS DE FORMATO POR TIPO DE CAMPO:
-- Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
-- Peneiras percentuais (p17, mk, fundo1_percentual, fundo2_percentual): retorne SOMENTE o numero. Use virgula como separador decimal se escrito assim (ex: "36", "1,5", "0,8"). NAO inclua "%".
-- Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
-- Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
-- Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
-- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
-- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
+- Lote: codigo manuscrito grande do canto superior esquerdo da L1 (ex: "5567", "5640"). String.
+- Sacas: numero inteiro manuscrito da celula SCS (ex: "100"). String.
+- Safra: texto manuscrito da celula SAFRA (ex: "25/26"). String.
+- Padrao, Aspecto, Certif: texto livre manuscrito.
+- Peneiras (p18..p10, mk): SOMENTE o numero (ex: "12,5", "8"). Sem "%".
+- Fundos: peneira e geralmente numero (ex: "13"); percentual e numero (ex: "8", "1,5"). Sem "%".
+- Catacao: SOMENTE o numero (ex: "0,5", "2"). Sem "%".
+- Defeitos numericos (imp, pva, broca, gpi, ap): SOMENTE o numero.
+- Defeito (def.): texto livre manuscrito.
+- Observacoes: TODO o texto manuscrito como string unica.
+- Bebida: texto manuscrito como esta.
+
+ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
+SCS, SAFRA, PADR., ASP., CERT., P18, P17, P16, P15, P14, P13, P12, P11, P10, MK, FD, =, %, CAT., IMP., PVA, BROCA, GPI, AP, DEF., OBS., BEB.
 
 ERROS COMUNS A EVITAR:
 - NAO confunda o numero "0" (zero) com a letra "O".
-- NAO confunda o numero "1" com a letra "l" ou "I".
-- Se um valor parece ser texto impresso e nao manuscrito, retorne null.
-- Muitos campos ficam vazios (sem escrita) — retorne null para eles sem hesitar.
+- NAO confunda o numero "1" com a letra "l" minuscula ou "I" maiuscula.
+- NAO confunda "8" com "B".
+- Se um valor parece TEXTO IMPRESSO e nao MANUSCRITO, retorne null.
+- MUITOS campos ficam vazios (sem escrita). E NORMAL. Retorne null SEM HESITAR.
+- NAO infira valores que nao estao escritos. Se esta vazio, e null.
 
-Retorne SOMENTE o JSON abaixo, sem texto adicional:
-{
-  "classificacao": {
-    "padrao": "texto manuscrito ou null",
-    "catacao": "valor manuscrito ou null",
-    "aspecto": "texto manuscrito ou null",
-    "bebida": "texto manuscrito ou null",
-    "safra": "texto manuscrito ou null",
-    "broca": "numero ou null",
-    "pva": "numero ou null",
-    "impureza": "numero ou null",
-    "p17": "numero ou null",
-    "mk": "numero ou null",
-    "fundo1_peneira": "identificador manuscrito ou null",
-    "fundo1_percentual": "numero ou null",
-    "fundo2_peneira": "identificador manuscrito ou null",
-    "fundo2_percentual": "numero ou null",
-    "certif": "siglas manuscritas do campo Certif. ou null",
-    "observacoes": "texto manuscrito completo ou null"
-  },
-  "identificacao": {
-    "lote": "codigo manuscrito da L1 ou null",
-    "sacas": "numero manuscrito da L1 ou null",
-    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
-  }
-}`;
+O array "fundos" deve sempre conter exatamente 2 objetos (representando os dois campos FD da LINHA 5). Se o segundo fundo nao foi preenchido, retorne { "peneira": null, "percentual": null } para o segundo elemento.
 
-const PREPARADO_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo PREPARADO presente na foto.
-
-COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a palavra "PREPARADO" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
-
-LAYOUT DA FICHA PREPARADO (de cima para baixo):
-
-TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "PREPARADO" impresso centralizado (ignore, e o nome do tipo).
-
-Abaixo da tarja ha 6 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
-
-LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
-  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
-  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
-
-LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
-  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
-  Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
-
-LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
-  Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
-  Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
-
-Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
-
-LINHA 4 — Peneiras superiores (6 campos COMPACTADOS lado a lado, mais estreitos que as outras linhas):
-  ATENCAO: esta linha tem 6 colunas de largura igual. Cada coluna e mais estreita.
-  Da esquerda para a direita:
-  Coluna 1: rotulo "P.19 %" → extraia como "p19"
-  Coluna 2: rotulo "P.18 %" → extraia como "p18"
-  Coluna 3: rotulo "P.17 %" → extraia como "p17"
-  Coluna 4: rotulo "P.16 %" → extraia como "p16"
-  Coluna 5: rotulo "P.15 %" → extraia como "p15"
-  Coluna 6: rotulo "P.14 %" → extraia como "p14"
-
-LINHA 5 — MK, Defeito e Impureza (3 campos lado a lado, cada um ocupa UM TERCO da largura):
-  Campo esquerdo (terco): rotulo "MK %" → extraia como "mk"
-  Campo centro (terco): rotulo "Defeito" → extraia como "defeito"
-  Campo direito (terco): rotulo "Impureza" → extraia como "impureza"
-
-LINHA 6 — Fundo (2 campos largos, cada um ocupa METADE da largura da ficha, fundo bege claro):
-  Esta linha tem fundo bege e contem apenas UM fundo (PREPARADO nao tem fundo 2).
-  Campo esquerdo (metade): rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
-  Campo direito (metade): rotulo "%" → extraia o numero manuscrito como "fundo1_percentual" (ex: "1,5")
-
-LINHA 7 — Observacoes (campo unico, largura total da ficha):
-  Rotulo "Observações" no canto superior esquerdo.
-  Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
-  - Valores numericos como "Pau 2", "AP 1", "Umid 11,5"
-  - Textos descritivos como "pedra", "cafe verde", "mofo"
-  - Qualquer combinacao dos exemplos acima
-  Extraia TODO o texto manuscrito deste campo como uma unica string.
-  Mantenha a grafia exata. Separe itens visivelmente distintos por virgula.
-  Se o campo estiver vazio, retorne null.
-  → extraia como "observacoes"
-
-ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Sacas, Certif., Certif, Certificado, PREPARADO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.19 %, P.18 %, P.17 %, P.16 %, P.15 %, P.14 %, MK %, Defeito, Fundo Pen., %, Observações
-
-REGRAS DE FORMATO POR TIPO DE CAMPO:
-- Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
-- Peneiras percentuais (p19, p18, p17, p16, p15, p14, mk, fundo1_percentual): retorne SOMENTE o numero. Use virgula como separador decimal se escrito assim (ex: "36", "1,5", "0,8"). NAO inclua "%".
-- Defeito (defeito): retorne SOMENTE o numero (ex: "6", "15", "20").
-- Defeitos numericos (broca, pva, impureza): retorne SOMENTE o numero (ex: "2", "0,5", "20").
-- Fundo peneira (fundo1_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
-- Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
-- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
-- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
-
-ERROS COMUNS A EVITAR:
-- NAO confunda o numero "0" (zero) com a letra "O".
-- NAO confunda o numero "1" com a letra "l" ou "I".
-- Se um valor parece ser texto impresso e nao manuscrito, retorne null.
-- Muitos campos ficam vazios (sem escrita) — retorne null para eles sem hesitar.
-- Na LINHA 4 com 6 colunas compactadas, preste atencao extra para nao confundir valores entre colunas adjacentes.
-
-Retorne SOMENTE o JSON abaixo, sem texto adicional:
-{
-  "classificacao": {
-    "padrao": "texto manuscrito ou null",
-    "catacao": "valor manuscrito ou null",
-    "aspecto": "texto manuscrito ou null",
-    "bebida": "texto manuscrito ou null",
-    "safra": "texto manuscrito ou null",
-    "broca": "numero ou null",
-    "pva": "numero ou null",
-    "impureza": "numero ou null",
-    "p19": "numero ou null",
-    "p18": "numero ou null",
-    "p17": "numero ou null",
-    "p16": "numero ou null",
-    "p15": "numero ou null",
-    "p14": "numero ou null",
-    "mk": "numero ou null",
-    "defeito": "numero ou null",
-    "fundo1_peneira": "identificador manuscrito ou null",
-    "fundo1_percentual": "numero ou null",
-    "certif": "siglas manuscritas do campo Certif. ou null",
-    "observacoes": "texto manuscrito completo ou null"
-  },
-  "identificacao": {
-    "lote": "codigo manuscrito da L1 ou null",
-    "sacas": "numero manuscrito da L1 ou null",
-    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
-  }
-}`;
-
-const LOW_CAFF_USER_PROMPT = `Extraia os dados manuscritos da ficha de classificacao do tipo CAF\u00c9 BAIXO presente na foto.
-
-COMO IDENTIFICAR A FICHA CORRETA:
-Procure o cartao branco retangular com a expressao "CAF\u00c9 BAIXO" impressa em uma TARJA FINA no topo, com fundo bege claro. Logo abaixo da tarja comeca o corpo da ficha, com a primeira linha (L1) destacada por bordas mais grossas contendo as celulas "LOTE" (esquerda, larga) e "Sacas" (direita, estreita). Ignore qualquer outro papel ou tabela na mesa.
-
-LAYOUT DA FICHA CAF\u00c9 BAIXO (de cima para baixo):
-
-TARJA SUPERIOR: faixa fina com fundo bege claro, largura total, texto "CAF\u00c9 BAIXO" impresso centralizado (ignore, e o nome do tipo).
-
-Abaixo da tarja ha 6 LINHAS de dados seguidas de 1 LINHA de OBSERVACOES.
-
-LINHA 1 — Identificacao (2 celulas com bordas mais grossas):
-  Celula esquerda (larga, ~65% da largura): rotulo "LOTE" impresso no canto superior esquerdo. Contem o codigo do lote escrito a mao em tamanho grande — e o maior texto manuscrito da ficha. → extraia como "lote" em identificacao
-  Celula direita (estreita, ~35%): rotulo "Sacas" impresso no canto superior esquerdo. Contem um numero manuscrito (ex: "100", "200", "350") indicando a quantidade de sacas. → extraia como "sacas" em identificacao
-
-LINHA 2 — Classificacao geral (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Padrão" → extraia como "padrao" em classificacao
-  Campo centro-esquerdo: rotulo "Safra" → extraia como "safra" (retorne o MESMO valor em identificacao.safra E em classificacao.safra)
-  Campo centro-direito: rotulo "Aspecto" → extraia como "aspecto"
-  Campo direito: rotulo "Certif." → extraia como "certif" (siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO")
-
-LINHA 3 — Catacao, defeitos e bebida (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "Catação" → extraia como "catacao"
-  Campo centro-esquerdo: rotulo "Broca" → extraia como "broca"
-  Campo centro-direito: rotulo "PVA" → extraia como "pva"
-  Campo direito: rotulo "Bebida" → extraia como "bebida"
-
-Ha um pequeno espaco visual separando as linhas acima das linhas abaixo.
-
-LINHA 4 — Peneiras (6 campos COMPACTADOS lado a lado, mais estreitos que as outras linhas):
-  ATENCAO: esta linha tem 6 colunas de largura igual. Cada coluna e mais estreita.
-  Da esquerda para a direita:
-  Coluna 1: rotulo "P.15 %" → extraia como "p15"
-  Coluna 2: rotulo "P.14 %" → extraia como "p14"
-  Coluna 3: rotulo "P.13 %" → extraia como "p13"
-  Coluna 4: rotulo "P.12 %" → extraia como "p12"
-  Coluna 5: rotulo "P.11 %" → extraia como "p11"
-  Coluna 6: rotulo "P.10 %" → extraia como "p10"
-
-LINHA 5 — AP, GPI, Defeito e Impureza (4 campos lado a lado, largura igual):
-  Campo esquerdo: rotulo "AP %" → extraia como "ap"
-  Campo centro-esquerdo: rotulo "GPI" → extraia como "gpi"
-  Campo centro-direito: rotulo "Defeito" → extraia como "defeito"
-  Campo direito: rotulo "Impureza" → extraia como "impureza"
-
-LINHA 6 — Fundos (4 campos lado a lado, fundo bege claro):
-  Esta linha tem fundo bege e contem DOIS pares de fundos.
-  Primeiro par (fundo 1):
-    Campo 1 com rotulo "Fundo Pen." → extraia o identificador manuscrito como "fundo1_peneira" (ex: "B", "C12", "13")
-    Campo 2 com rotulo "%" → extraia o numero manuscrito como "fundo1_percentual" (ex: "1,5")
-  Segundo par (fundo 2):
-    Campo 3 com rotulo "Fundo Pen." → extraia como "fundo2_peneira"
-    Campo 4 com rotulo "%" → extraia como "fundo2_percentual"
-  Se apenas o primeiro fundo estiver preenchido, retorne null para fundo2_peneira e fundo2_percentual.
-
-LINHA 7 — Observacoes (campo unico, largura total da ficha):
-  Rotulo "Observações" no canto superior esquerdo.
-  Este campo pode conter QUALQUER texto manuscrito. Pode incluir:
-  - Valores numericos como "Pau 2", "Umid 11,5"
-  - Textos descritivos como "pedra", "cafe verde", "mofo"
-  - Qualquer combinacao dos exemplos acima
-  Extraia TODO o texto manuscrito deste campo como uma unica string.
-  Mantenha a grafia exata. Separe itens visivelmente distintos por virgula.
-  Se o campo estiver vazio, retorne null.
-  → extraia como "observacoes"
-
-ROTULOS IMPRESSOS DA FICHA (NUNCA retorne nenhum destes como valor extraido):
-LOTE, Sacas, Certif., Certif, Certificado, CAF\u00c9 BAIXO, Padrão, Catação, Aspecto, Bebida, Safra, Broca, PVA, Impureza, P.15 %, P.14 %, P.13 %, P.12 %, P.11 %, P.10 %, AP %, GPI, Defeito, Fundo Pen., %, Observações
-
-REGRAS DE FORMATO POR TIPO DE CAMPO:
-- Texto (padrao, catacao, aspecto, bebida, safra): retorne exatamente como escrito. Podem ser abreviacoes curtas (ex: "VGC", "L3 P3B", "Dura", "Rio", "25/26").
-- Peneiras percentuais (p15, p14, p13, p12, p11, p10, fundo1_percentual, fundo2_percentual): retorne SOMENTE o numero. Use virgula como separador decimal se escrito assim (ex: "36", "1,5", "0,8"). NAO inclua "%".
-- AP percentual (ap): retorne SOMENTE o numero (ex: "85", "92,5"). NAO inclua "%".
-- Defeito (defeito): retorne SOMENTE o numero (ex: "6", "15", "20").
-- Defeitos numericos (broca, pva, impureza, gpi): retorne SOMENTE o numero (ex: "2", "0,5", "20").
-- Fundo peneira (fundo1_peneira, fundo2_peneira): retorne o identificador exatamente como escrito (ex: "B", "C12", "13", "C").
-- Observacoes: retorne TODO o texto manuscrito como uma string unica.
-- Lote: retorne o codigo manuscrito grande da celula "LOTE" da LINHA 1 (ex: "5487", "5641").
-- Sacas: retorne SOMENTE o numero inteiro manuscrito da celula "Sacas" da LINHA 1 (ex: "100", "200", "350"). Se vazio, null.
-- Certif: retorne as siglas manuscritas do campo "Certif." na LINHA 2, exatamente como escritas (ex: "UTZ", "RA", "FLO", "UTZ/RA", "BIO", "ORG"). Se vazio, null.
-
-ERROS COMUNS A EVITAR:
-- NAO confunda o numero "0" (zero) com a letra "O".
-- NAO confunda o numero "1" com a letra "l" ou "I".
-- Se um valor parece ser texto impresso e nao manuscrito, retorne null.
-- Muitos campos ficam vazios (sem escrita) — retorne null para eles sem hesitar.
-- Na LINHA 4 com 6 colunas compactadas, preste atencao extra para nao confundir valores entre colunas adjacentes.
-
-Retorne SOMENTE o JSON abaixo, sem texto adicional:
-{
-  "classificacao": {
-    "padrao": "texto manuscrito ou null",
-    "catacao": "valor manuscrito ou null",
-    "aspecto": "texto manuscrito ou null",
-    "bebida": "texto manuscrito ou null",
-    "safra": "texto manuscrito ou null",
-    "broca": "numero ou null",
-    "pva": "numero ou null",
-    "impureza": "numero ou null",
-    "p15": "numero ou null",
-    "p14": "numero ou null",
-    "p13": "numero ou null",
-    "p12": "numero ou null",
-    "p11": "numero ou null",
-    "p10": "numero ou null",
-    "ap": "numero ou null",
-    "gpi": "numero ou null",
-    "defeito": "numero ou null",
-    "fundo1_peneira": "identificador manuscrito ou null",
-    "fundo1_percentual": "numero ou null",
-    "fundo2_peneira": "identificador manuscrito ou null",
-    "fundo2_percentual": "numero ou null",
-    "certif": "siglas manuscritas do campo Certif. ou null",
-    "observacoes": "texto manuscrito completo ou null"
-  },
-  "identificacao": {
-    "lote": "codigo manuscrito da L1 ou null",
-    "sacas": "numero manuscrito da L1 ou null",
-    "safra": "valor manuscrito da L2 (mesmo valor de classificacao.safra) ou null"
-  }
-}`;
+Retorne APENAS o JSON estruturado conforme o schema fornecido. Nenhum texto adicional.`;
 
 // ============================================================
-// PROMPT REGISTRY (keyed by ClassificationType enum value)
+// JSON SCHEMA (structured output, strict mode)
 // ============================================================
 
-const USER_PROMPTS = {
-  BICA: BICA_USER_PROMPT,
-  PREPARADO: PREPARADO_USER_PROMPT,
-  LOW_CAFF: LOW_CAFF_USER_PROMPT,
+const FIELD_NULLABLE_STRING = { type: ['string', 'null'] };
+
+const EXTRACTION_SCHEMA = {
+  name: 'classification_extraction',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['identificacao', 'classificacao'],
+    properties: {
+      identificacao: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['lote', 'sacas', 'safra'],
+        properties: {
+          lote: FIELD_NULLABLE_STRING,
+          sacas: FIELD_NULLABLE_STRING,
+          safra: FIELD_NULLABLE_STRING,
+        },
+      },
+      classificacao: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'padrao',
+          'aspecto',
+          'certif',
+          'peneiras',
+          'fundos',
+          'catacao',
+          'defeitos',
+          'observacoes',
+          'bebida',
+        ],
+        properties: {
+          padrao: FIELD_NULLABLE_STRING,
+          aspecto: FIELD_NULLABLE_STRING,
+          certif: FIELD_NULLABLE_STRING,
+          peneiras: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'],
+            properties: {
+              p18: FIELD_NULLABLE_STRING,
+              p17: FIELD_NULLABLE_STRING,
+              p16: FIELD_NULLABLE_STRING,
+              p15: FIELD_NULLABLE_STRING,
+              p14: FIELD_NULLABLE_STRING,
+              p13: FIELD_NULLABLE_STRING,
+              p12: FIELD_NULLABLE_STRING,
+              p11: FIELD_NULLABLE_STRING,
+              p10: FIELD_NULLABLE_STRING,
+              mk: FIELD_NULLABLE_STRING,
+            },
+          },
+          fundos: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['peneira', 'percentual'],
+              properties: {
+                peneira: FIELD_NULLABLE_STRING,
+                percentual: FIELD_NULLABLE_STRING,
+              },
+            },
+          },
+          catacao: FIELD_NULLABLE_STRING,
+          defeitos: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'],
+            properties: {
+              imp: FIELD_NULLABLE_STRING,
+              pva: FIELD_NULLABLE_STRING,
+              broca: FIELD_NULLABLE_STRING,
+              gpi: FIELD_NULLABLE_STRING,
+              ap: FIELD_NULLABLE_STRING,
+              defeito: FIELD_NULLABLE_STRING,
+            },
+          },
+          observacoes: FIELD_NULLABLE_STRING,
+          bebida: FIELD_NULLABLE_STRING,
+        },
+      },
+    },
+  },
 };
 
 // ============================================================
-// KNOWN LABELS (shared — covers all types to reject labels from any visible card)
+// KNOWN LABELS (rejected when accidentally extracted as values)
 // ============================================================
 
 const KNOWN_LABELS = new Set([
-  // ---- Field labels from SAFRAS classification forms (all types) ----
-  'broca',
-  'pva',
-  'impureza',
-  'imp',
-  'defeitos',
-  'defeito',
-  'umidade',
+  // Cabeçalho
+  'scs',
+  'safra',
+  'lote',
+  'sacas',
+  // Identificação
+  'padr',
+  'padr.',
   'padrao',
   'padrão',
-  'catacao',
-  'catação',
+  'asp',
+  'asp.',
   'aspecto',
-  'bebida',
-  'p19',
+  'cert',
+  'cert.',
+  'certif',
+  'certif.',
+  'certificado',
+  // Peneiras
   'p18',
   'p17',
   'p16',
@@ -409,31 +248,6 @@ const KNOWN_LABELS = new Set([
   'p11',
   'p10',
   'mk',
-  'fundo',
-  'fundo1',
-  'fundo2',
-  'fundos',
-  'peneira',
-  'percentual',
-  'fundo pen',
-  'fundo pen.',
-  'fundo %',
-  'pen.',
-  'pen',
-  'pau',
-  'ap',
-  'gpi',
-  'lote',
-  'sacas',
-  'safra',
-  'data',
-  'observações',
-  'observacoes',
-  'aproveitamento',
-  'ap %',
-
-  // ---- Punctuated labels (as printed on cards) ----
-  'p.19',
   'p.18',
   'p.17',
   'p.16',
@@ -443,65 +257,74 @@ const KNOWN_LABELS = new Set([
   'p.12',
   'p.11',
   'p.10',
-  'p.19 %',
-  'p.18 %',
-  'p.17 %',
-  'p.16 %',
-  'p.15 %',
-  'p.14 %',
-  'p.13 %',
-  'p.12 %',
-  'p.11 %',
-  'p.10 %',
-  'mk %',
-  'umid.',
-  'umid. %',
-
-  // ---- Type names printed on cards ----
+  // Fundos + catação
+  'fd',
+  'fundo',
+  'fundos',
+  'cat',
+  'cat.',
+  'catacao',
+  'catação',
+  // Defeitos
+  'imp',
+  'imp.',
+  'impureza',
+  'pva',
+  'broca',
+  'gpi',
+  'ap',
+  'def',
+  'def.',
+  'defeito',
+  'defeitos',
+  // Final
+  'obs',
+  'obs.',
+  'observacoes',
+  'observações',
+  'beb',
+  'beb.',
+  'bebida',
+  // Símbolos
+  '%',
+  '=',
+  // Tipos (atuais e legados — operador pode escrever a tipagem em algum lugar errado)
   'bica',
   'preparado',
-  'caf\u00e9 baixo',
+  'baixo',
+  'café baixo',
   'cafe baixo',
-
-  // ---- Header field labels ----
-  'lote',
-  'certif',
-  'certif.',
-  'certificado',
-
-  // ---- Form identifiers (legacy, still rejected defensively) ----
-  'classificador',
+  'low_caff',
+  'escolha',
+  // Contexto irrelevante (cabeçalhos/papéis externos)
   'safras',
-  '& negocios',
   'safras & negocios',
-
-  // ---- JSON schema placeholders (model might echo these) ----
-  'string ou null',
-  'null',
-  'string',
-  'numero manuscrito ou null',
-  'valor manuscrito ou null',
-  'numero ou null',
-  'codigo manuscrito ou null',
-  'codigo manuscrito do cabecalho ou null',
-  'texto manuscrito ou null',
-  'identificador manuscrito ou null',
-  'texto manuscrito completo ou null',
-
-  // ---- External reference tables that may appear in photo ----
   'green coffee',
   'volcafe',
-  'grade of imperfections',
-  'schedule of imperfections',
   'classificação de café',
   'classification',
+  'classificador',
+  // Schema noise (modelo pode ecoar)
+  'string',
+  'null',
+  'string ou null',
+  'numero ou null',
+  'texto manuscrito ou null',
+  'codigo manuscrito ou null',
+  'numero manuscrito ou null',
+  'identificador manuscrito ou null',
+  'valor manuscrito ou null',
 ]);
 
 // ============================================================
-// NORMALIZATION HELPERS
+// HELPERS
 // ============================================================
 
 const REQUEST_TIMEOUT_MS = 25_000;
+
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function toStringOrNull(value) {
   if (value === null || value === undefined) return null;
@@ -526,99 +349,76 @@ function toNumericOrNull(value) {
 }
 
 // ============================================================
-// TYPE-SPECIFIC NORMALIZERS
-// ============================================================
-
-function normalizeClassificacaoBica(raw) {
-  return {
-    padrao: rejectIfLabel(toStringOrNull(raw.padrao)),
-    catacao: rejectIfLabel(toStringOrNull(raw.catacao)),
-    aspecto: rejectIfLabel(toStringOrNull(raw.aspecto)),
-    bebida: rejectIfLabel(toStringOrNull(raw.bebida)),
-    safra: rejectIfLabel(toStringOrNull(raw.safra)),
-    broca: toNumericOrNull(raw.broca),
-    pva: toNumericOrNull(raw.pva),
-    impureza: toNumericOrNull(raw.impureza),
-    p17: toNumericOrNull(raw.p17),
-    mk: toNumericOrNull(raw.mk),
-    fundo1_peneira: rejectIfLabel(toStringOrNull(raw.fundo1_peneira)),
-    fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
-    fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
-    fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
-    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
-    observacoes: toStringOrNull(raw.observacoes),
-  };
-}
-
-function normalizeClassificacaoPreparado(raw) {
-  return {
-    padrao: rejectIfLabel(toStringOrNull(raw.padrao)),
-    catacao: rejectIfLabel(toStringOrNull(raw.catacao)),
-    aspecto: rejectIfLabel(toStringOrNull(raw.aspecto)),
-    bebida: rejectIfLabel(toStringOrNull(raw.bebida)),
-    safra: rejectIfLabel(toStringOrNull(raw.safra)),
-    broca: toNumericOrNull(raw.broca),
-    pva: toNumericOrNull(raw.pva),
-    impureza: toNumericOrNull(raw.impureza),
-    p19: toNumericOrNull(raw.p19),
-    p18: toNumericOrNull(raw.p18),
-    p17: toNumericOrNull(raw.p17),
-    p16: toNumericOrNull(raw.p16),
-    p15: toNumericOrNull(raw.p15),
-    p14: toNumericOrNull(raw.p14),
-    mk: toNumericOrNull(raw.mk),
-    defeito: toNumericOrNull(raw.defeito),
-    fundo1_peneira: rejectIfLabel(toStringOrNull(raw.fundo1_peneira)),
-    fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
-    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
-    observacoes: toStringOrNull(raw.observacoes),
-  };
-}
-
-function normalizeClassificacaoLowCaff(raw) {
-  return {
-    padrao: rejectIfLabel(toStringOrNull(raw.padrao)),
-    catacao: rejectIfLabel(toStringOrNull(raw.catacao)),
-    aspecto: rejectIfLabel(toStringOrNull(raw.aspecto)),
-    bebida: rejectIfLabel(toStringOrNull(raw.bebida)),
-    safra: rejectIfLabel(toStringOrNull(raw.safra)),
-    broca: toNumericOrNull(raw.broca),
-    pva: toNumericOrNull(raw.pva),
-    impureza: toNumericOrNull(raw.impureza),
-    p15: toNumericOrNull(raw.p15),
-    p14: toNumericOrNull(raw.p14),
-    p13: toNumericOrNull(raw.p13),
-    p12: toNumericOrNull(raw.p12),
-    p11: toNumericOrNull(raw.p11),
-    p10: toNumericOrNull(raw.p10),
-    ap: toNumericOrNull(raw.ap),
-    gpi: toNumericOrNull(raw.gpi),
-    defeito: toNumericOrNull(raw.defeito),
-    fundo1_peneira: rejectIfLabel(toStringOrNull(raw.fundo1_peneira)),
-    fundo1_percentual: toNumericOrNull(raw.fundo1_percentual),
-    fundo2_peneira: rejectIfLabel(toStringOrNull(raw.fundo2_peneira)),
-    fundo2_percentual: toNumericOrNull(raw.fundo2_percentual),
-    certif: rejectIfLabel(toStringOrNull(raw.certif ?? null)),
-    observacoes: toStringOrNull(raw.observacoes),
-  };
-}
-
-const NORMALIZERS = {
-  BICA: normalizeClassificacaoBica,
-  PREPARADO: normalizeClassificacaoPreparado,
-  LOW_CAFF: normalizeClassificacaoLowCaff,
-};
-
-// ============================================================
-// IDENTIFICATION NORMALIZER (shared)
+// NORMALIZERS
 // ============================================================
 
 function normalizeIdentificacao(raw) {
+  const safe = isPlainObject(raw) ? raw : {};
   return {
-    lote: toStringOrNull(raw.lote),
-    sacas: toStringOrNull(raw.sacas ?? null),
-    safra: toStringOrNull(raw.safra ?? null),
-    data: toStringOrNull(raw.data ?? null),
+    lote: toStringOrNull(safe.lote),
+    sacas: toStringOrNull(safe.sacas),
+    safra: toStringOrNull(safe.safra),
+  };
+}
+
+function normalizePeneiras(raw) {
+  const safe = isPlainObject(raw) ? raw : {};
+  return {
+    p18: toNumericOrNull(safe.p18),
+    p17: toNumericOrNull(safe.p17),
+    p16: toNumericOrNull(safe.p16),
+    p15: toNumericOrNull(safe.p15),
+    p14: toNumericOrNull(safe.p14),
+    p13: toNumericOrNull(safe.p13),
+    p12: toNumericOrNull(safe.p12),
+    p11: toNumericOrNull(safe.p11),
+    p10: toNumericOrNull(safe.p10),
+    mk: toNumericOrNull(safe.mk),
+  };
+}
+
+function normalizeFundoItem(item) {
+  const safe = isPlainObject(item) ? item : {};
+  return {
+    peneira: rejectIfLabel(toStringOrNull(safe.peneira)),
+    percentual: toNumericOrNull(safe.percentual),
+  };
+}
+
+function normalizeFundos(raw) {
+  // Sempre retornamos exatamente 2 elementos. Modelo pode retornar 0/1/3+;
+  // os slots ausentes viram { peneira: null, percentual: null }, e qualquer
+  // excedente e descartado. Decisao: 2 fundos e parte intrinseca da ficha.
+  const arr = Array.isArray(raw) ? raw : [];
+  return [normalizeFundoItem(arr[0]), normalizeFundoItem(arr[1])];
+}
+
+function normalizeDefeitos(raw) {
+  const safe = isPlainObject(raw) ? raw : {};
+  return {
+    imp: toNumericOrNull(safe.imp),
+    pva: toNumericOrNull(safe.pva),
+    broca: toNumericOrNull(safe.broca),
+    gpi: toNumericOrNull(safe.gpi),
+    ap: toNumericOrNull(safe.ap),
+    // "Def." e texto livre (decisao Q.cls.2 — pode conter numero, descricao
+    // curta, ou ambos). Por isso toStringOrNull, nao toNumericOrNull.
+    defeito: toStringOrNull(safe.defeito),
+  };
+}
+
+function normalizeClassificacao(raw) {
+  const safe = isPlainObject(raw) ? raw : {};
+  return {
+    padrao: rejectIfLabel(toStringOrNull(safe.padrao)),
+    aspecto: rejectIfLabel(toStringOrNull(safe.aspecto)),
+    certif: rejectIfLabel(toStringOrNull(safe.certif)),
+    peneiras: normalizePeneiras(safe.peneiras),
+    fundos: normalizeFundos(safe.fundos),
+    catacao: toNumericOrNull(safe.catacao),
+    defeitos: normalizeDefeitos(safe.defeitos),
+    observacoes: toStringOrNull(safe.observacoes),
+    bebida: rejectIfLabel(toStringOrNull(safe.bebida)),
   };
 }
 
@@ -631,25 +431,18 @@ export class ClassificationExtractionService {
     this.client = new OpenAI({ apiKey });
   }
 
-  async extractClassificationFromPhoto(absoluteImagePath, classificationType) {
-    const userPrompt = USER_PROMPTS[classificationType];
-    if (!userPrompt) {
-      const error = new HttpError(
-        422,
-        `Tipo de classificacao nao suportado para extracao: ${classificationType ?? 'nao informado'}`
-      );
-      error.code = 'UNSUPPORTED_TYPE';
-      throw error;
-    }
-
-    const normalizer = NORMALIZERS[classificationType];
-
+  /**
+   * Extrai dados manuscritos de uma foto de ficha de classificacao SAFRAS.
+   * Fase Q.cls.2: prompt e schema unicos (type-agnostic). O tipo
+   * (BICA/PREPARADO/BAIXO/ESCOLHA) e metadata pos-extracao e nao influencia
+   * a IA.
+   */
+  async extractClassificationFromPhoto(absoluteImagePath) {
     const imageBuffer = fs.readFileSync(absoluteImagePath);
     const base64Image = imageBuffer.toString('base64');
     const mimeType = absoluteImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
     const startTime = Date.now();
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -662,7 +455,7 @@ export class ClassificationExtractionService {
             {
               role: 'user',
               content: [
-                { type: 'text', text: userPrompt },
+                { type: 'text', text: USER_PROMPT },
                 {
                   type: 'image_url',
                   image_url: {
@@ -673,7 +466,7 @@ export class ClassificationExtractionService {
               ],
             },
           ],
-          response_format: { type: 'json_object' },
+          response_format: { type: 'json_schema', json_schema: EXTRACTION_SCHEMA },
           max_tokens: 1500,
           temperature: 0,
         },
@@ -696,8 +489,8 @@ export class ClassificationExtractionService {
         throw error;
       }
 
-      if (!parsed.classificacao || !parsed.identificacao) {
-        const error = new Error('Response missing required keys: classificacao, identificacao');
+      if (!isPlainObject(parsed) || !parsed.identificacao || !parsed.classificacao) {
+        const error = new Error('Response missing required keys: identificacao, classificacao');
         error.code = 'PARSE_ERROR';
         throw error;
       }
@@ -705,18 +498,21 @@ export class ClassificationExtractionService {
       const processingTimeMs = Date.now() - startTime;
 
       return {
-        classificacao: normalizer(parsed.classificacao),
         identificacao: normalizeIdentificacao(parsed.identificacao),
+        classificacao: normalizeClassificacao(parsed.classificacao),
         processingTimeMs,
       };
     } catch (err) {
-      if (err.code === 'PARSE_ERROR' || err.code === 'UNSUPPORTED_TYPE') throw err;
+      if (err.code === 'PARSE_ERROR') throw err;
 
       if (err.name === 'AbortError' || controller.signal.aborted) {
         const error = new Error('OpenAI request timed out');
         error.code = 'TIMEOUT';
         throw error;
       }
+
+      // Mantem HttpError (caso seja lancado em algum ponto futuro) com seu codigo.
+      if (err instanceof HttpError) throw err;
 
       const error = new Error(err.message ?? 'OpenAI API error');
       error.code = 'OPENAI_ERROR';

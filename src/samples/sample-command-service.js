@@ -1590,10 +1590,10 @@ export class SampleCommandService {
       if (this.extractionService && this.uploadService && !input.skipExtraction) {
         try {
           const absolutePath = path.join(this.uploadService.baseDir, saved.storagePath);
-          const raw = await this.extractionService.extractClassificationFromPhoto(
-            absolutePath,
-            sample.classificationType ?? null
-          );
+          // Fase Q.cls.2: extracao e type-agnostic (1 prompt unico para a
+          // ficha unificada). O classificationType e selecionado depois
+          // pelo operador via modal e nao influencia a IA.
+          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath);
           const crossValidation = crossValidateExtraction(raw.identificacao, sample);
           extraction = {
             extractedFields: raw.classificacao,

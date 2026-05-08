@@ -6,36 +6,70 @@
   "properties": {
     "extractedFields": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "padrao": { "type": ["string", "null"] },
-        "catacao": { "type": ["string", "null"] },
         "aspecto": { "type": ["string", "null"] },
-        "bebida": { "type": ["string", "null"] },
-        "safra": { "type": ["string", "null"] },
-        "broca": { "type": ["string", "null"] },
-        "pva": { "type": ["string", "null"] },
-        "impureza": { "type": ["string", "null"] },
-        "p19": { "type": ["string", "null"] },
-        "p18": { "type": ["string", "null"] },
-        "p17": { "type": ["string", "null"] },
-        "p16": { "type": ["string", "null"] },
-        "mk": { "type": ["string", "null"] },
-        "p15": { "type": ["string", "null"] },
-        "p14": { "type": ["string", "null"] },
-        "p13": { "type": ["string", "null"] },
-        "p12": { "type": ["string", "null"] },
-        "p11": { "type": ["string", "null"] },
-        "p10": { "type": ["string", "null"] },
-        "fundo1_peneira": { "type": ["string", "null"] },
-        "fundo1_percentual": { "type": ["string", "null"] },
-        "fundo2_peneira": { "type": ["string", "null"] },
-        "fundo2_percentual": { "type": ["string", "null"] },
-        "defeito": { "type": ["string", "null"] },
-        "ap": { "type": ["string", "null"] },
-        "gpi": { "type": ["string", "null"] },
-        "observacoes": { "type": ["string", "null"] }
+        "certif": { "type": ["string", "null"] },
+        "peneiras": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "p18": { "type": ["string", "null"] },
+            "p17": { "type": ["string", "null"] },
+            "p16": { "type": ["string", "null"] },
+            "p15": { "type": ["string", "null"] },
+            "p14": { "type": ["string", "null"] },
+            "p13": { "type": ["string", "null"] },
+            "p12": { "type": ["string", "null"] },
+            "p11": { "type": ["string", "null"] },
+            "p10": { "type": ["string", "null"] },
+            "mk": { "type": ["string", "null"] }
+          },
+          "required": ["p18", "p17", "p16", "p15", "p14", "p13", "p12", "p11", "p10", "mk"]
+        },
+        "fundos": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "peneira": { "type": ["string", "null"] },
+              "percentual": { "type": ["string", "null"] }
+            },
+            "required": ["peneira", "percentual"]
+          }
+        },
+        "catacao": { "type": ["string", "null"] },
+        "defeitos": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "imp": { "type": ["string", "null"] },
+            "pva": { "type": ["string", "null"] },
+            "broca": { "type": ["string", "null"] },
+            "gpi": { "type": ["string", "null"] },
+            "ap": { "type": ["string", "null"] },
+            "defeito": { "type": ["string", "null"] }
+          },
+          "required": ["imp", "pva", "broca", "gpi", "ap", "defeito"]
+        },
+        "observacoes": { "type": ["string", "null"] },
+        "bebida": { "type": ["string", "null"] }
       },
-      "additionalProperties": true
+      "required": [
+        "padrao",
+        "aspecto",
+        "certif",
+        "peneiras",
+        "fundos",
+        "catacao",
+        "defeitos",
+        "observacoes",
+        "bebida"
+      ]
     },
     "crossValidation": {
       "type": "object",
