@@ -5,8 +5,16 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
+import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
+import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
 import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
+import { ClassificationLotMismatchModal } from '../../components/samples/ClassificationLotMismatchModal';
 import { ClassificationManualConfirmModal } from '../../components/samples/ClassificationManualConfirmModal';
+import { ClassificationNotFoundModal } from '../../components/samples/ClassificationNotFoundModal';
+import {
+  ClassificationReclassifyModal,
+  type ReclassifyReasonCode,
+} from '../../components/samples/ClassificationReclassifyModal';
 import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
 import { ClassificationTypeModal } from '../../components/samples/ClassificationTypeModal';
 import {
@@ -183,13 +191,25 @@ function CameraPageContent() {
     null
   );
 
-  // Data mismatch (sacas/safra divergem do cadastro)
+  // Data mismatch (sacas/safra divergem do cadastro). Q.cls.2 sub-caminho 4:
+  // operador deve escolher campo a campo — sem default. choices e Partial
+  // pra que o tipo permita "ainda nao escolhido"; botao Aplicar so habilita
+  // quando todas as divergencias tem escolha.
   const [mismatchDivergences, setMismatchDivergences] = useState<IdentificationDivergence[]>([]);
   const [mismatchChoices, setMismatchChoices] = useState<
-    Record<IdentificationField, MismatchChoice>
-  >({} as Record<IdentificationField, MismatchChoice>);
+    Partial<Record<IdentificationField, MismatchChoice>>
+  >({});
   const [mismatchTargetSampleId, setMismatchTargetSampleId] = useState<string | null>(null);
   const [mismatchOverwriteAfter, setMismatchOverwriteAfter] = useState<boolean>(false);
+
+  // Reclassificacao (Q.cls.2 sub-caminho 5): reason code obrigatorio +
+  // reason text obrigatorio so quando code = OTHER. Sem persistencia
+  // backend ainda — Q.cls.2.7 inclui no payload de updateClassification.
+  const [reclassifyReasonCode, setReclassifyReasonCode] = useState<ReclassifyReasonCode | null>(
+    null
+  );
+  const [reclassifyReasonText, setReclassifyReasonText] = useState('');
+  const [reclassifyShowErrors, setReclassifyShowErrors] = useState(false);
 
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
@@ -489,9 +509,12 @@ function CameraPageContent() {
     setManualMode(false);
     setResolvedSample(null);
     setMismatchDivergences([]);
-    setMismatchChoices({} as Record<IdentificationField, MismatchChoice>);
+    setMismatchChoices({});
     setMismatchTargetSampleId(null);
     setMismatchOverwriteAfter(false);
+    setReclassifyReasonCode(null);
+    setReclassifyReasonText('');
+    setReclassifyShowErrors(false);
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
@@ -820,15 +843,8 @@ function CameraPageContent() {
       );
       if (divergences.length > 0) {
         setMismatchDivergences(divergences);
-        setMismatchChoices(
-          divergences.reduce(
-            (acc, d) => {
-              acc[d.field] = 'stored';
-              return acc;
-            },
-            {} as Record<IdentificationField, MismatchChoice>
-          )
-        );
+        // Q.cls.2 sub-caminho 4: sem default — operador deve escolher.
+        setMismatchChoices({});
         setMismatchTargetSampleId(contextSampleId);
         setMismatchOverwriteAfter(false);
         setFlowState('data-mismatch');
@@ -882,15 +898,8 @@ function CameraPageContent() {
         );
         if (divergences.length > 0) {
           setMismatchDivergences(divergences);
-          setMismatchChoices(
-            divergences.reduce(
-              (acc, d) => {
-                acc[d.field] = 'stored';
-                return acc;
-              },
-              {} as Record<IdentificationField, MismatchChoice>
-            )
-          );
+          // Q.cls.2 sub-caminho 4: sem default.
+          setMismatchChoices({});
           setMismatchTargetSampleId(resolved.sample.id);
           setMismatchOverwriteAfter(resolved.sample.status === 'CLASSIFIED');
           setFlowState('data-mismatch');
@@ -921,9 +930,20 @@ function CameraPageContent() {
     await saveClassification(mismatchTargetSampleId, updates);
   }
 
+  // Q.cls.2 sub-caminho 5: confirma reclassificacao (sample CLASSIFIED).
+  // Valida reason code obrigatorio + reason text obrigatorio se code=OTHER.
   async function handleConfirmOverwrite() {
     if (!resolvedSample) return;
+    const codeMissing = reclassifyReasonCode === null;
+    const textMissing =
+      reclassifyReasonCode === 'OTHER' && reclassifyReasonText.trim().length === 0;
+    if (codeMissing || textMissing) {
+      setReclassifyShowErrors(true);
+      return;
+    }
     const updates = buildApplySampleUpdatesFromMismatch();
+    // TODO Q.cls.2.7: incluir reclassifyReasonCode + reclassifyReasonText
+    // no payload de updateClassification quando o backend suportar.
     await saveClassification(resolvedSample.id, updates);
   }
 
@@ -1093,147 +1113,9 @@ function CameraPageContent() {
                   no nivel raiz (fora do .camera-hub) junto com os outros
                   modais. Veja <ClassificationTypeModal /> abaixo. */}
 
-              {/* Classifier phase */}
-              {flowState === 'selecting-classifier' ? (
-                <div
-                  className="app-modal-backdrop cam-type-backdrop"
-                  onClick={() => setFlowState('selecting-type')}
-                >
-                  <section
-                    className="app-modal cam-type-card cam-classifier-card"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Quem classificou esta amostra?"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <h3 className="cam-type-title">Quem classificou esta amostra?</h3>
-                    <p className="cam-classifier-hint">
-                      Voce ja esta incluido. Adicione co-classificadores se aplicavel.
-                    </p>
-
-                    <div className="cam-classifier-picker">
-                      {/* Chip fixo do user atual (nao removivel) */}
-                      <div className="cam-classifier-chips">
-                        <span
-                          className="cam-classifier-chip is-pinned"
-                          aria-label="Voce (classificador principal)"
-                        >
-                          {session.user.fullName ?? session.user.username}
-                          <span className="cam-classifier-chip-tag">voce</span>
-                        </span>
-                        {coClassifiers.map((entry) => (
-                          <span key={entry.id} className="cam-classifier-chip">
-                            {entry.fullName}
-                            <button
-                              type="button"
-                              className="cam-classifier-chip-x"
-                              onClick={() =>
-                                setCoClassifiers((prev) => prev.filter((c) => c.id !== entry.id))
-                              }
-                              aria-label={`Remover ${entry.fullName}`}
-                            >
-                              &times;
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-
-                      {loadingUsers ? (
-                        <div className="cam-classifier-loading">Carregando...</div>
-                      ) : userPickerError ? (
-                        <div className="cam-classifier-error">
-                          {userPickerError}
-                          <button
-                            type="button"
-                            className="cam-classifier-retry"
-                            onClick={() => {
-                              setAvailableUsers([]);
-                              void loadAvailableUsersOnce();
-                            }}
-                          >
-                            Tentar novamente
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            type="text"
-                            className="cam-classifier-search"
-                            placeholder="Buscar co-classificador por nome ou usuario"
-                            value={userPickerSearch}
-                            onChange={(event) => setUserPickerSearch(event.target.value)}
-                          />
-                          <div className="cam-classifier-list" role="listbox" aria-multiselectable>
-                            {(() => {
-                              const q = userPickerSearch.trim().toLowerCase();
-                              const filtered = q
-                                ? availableUsers.filter(
-                                    (u) =>
-                                      u.fullName.toLowerCase().includes(q) ||
-                                      u.username.toLowerCase().includes(q)
-                                  )
-                                : availableUsers;
-                              if (filtered.length === 0) {
-                                return (
-                                  <div className="cam-classifier-empty">
-                                    Nenhum usuario encontrado.
-                                  </div>
-                                );
-                              }
-                              return filtered.map((user) => {
-                                const selected = coClassifiers.some((c) => c.id === user.id);
-                                return (
-                                  <button
-                                    key={user.id}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={selected}
-                                    className={`cam-classifier-row${selected ? ' is-selected' : ''}`}
-                                    onClick={() => toggleCoClassifier(user)}
-                                  >
-                                    <span className="cam-classifier-row-check">
-                                      {selected ? (
-                                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                                          <path d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      ) : null}
-                                    </span>
-                                    <span className="cam-classifier-row-body">
-                                      <span className="cam-classifier-row-name">
-                                        {user.fullName}
-                                      </span>
-                                      <span className="cam-classifier-row-user">
-                                        @{user.username}
-                                      </span>
-                                    </span>
-                                  </button>
-                                );
-                              });
-                            })()}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="cam-classifier-actions">
-                      <button
-                        type="button"
-                        className="cam-classifier-back"
-                        onClick={() => setFlowState('selecting-type')}
-                      >
-                        Voltar
-                      </button>
-                      <button
-                        type="button"
-                        className="cam-classifier-continue"
-                        onClick={handleClassifierContinue}
-                      >
-                        Continuar
-                      </button>
-                    </div>
-                  </section>
-                </div>
-              ) : null}
+              {/* Q.cls.2.9: Classifier modal renderizado ao lado dos outros
+                  modais raiz, fora do .camera-hub. Veja
+                  <ClassificationClassifierModal /> abaixo. */}
 
               {/* Detecting form */}
               {flowState === 'detecting' ? (
@@ -1354,166 +1236,58 @@ function CameraPageContent() {
         />
       ) : null}
 
-      {/* Lot mismatch dialog (Flow B) */}
-      {flowState === 'lot-mismatch' ? (
-        <div className="app-modal-backdrop" onClick={() => {}}>
-          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-error-text">
-              O lote da classificacao nao confere com a respectiva amostra.
-            </p>
-            <div className="cam-already-actions">
-              <button type="button" className="cam-already-btn-no" onClick={() => router.back()}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="cam-already-btn-yes"
-                onClick={resetClassificationFlow}
-              >
-                Tentar novamente
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Q.cls.2 sub-caminho 2: lote diverge. Mostra valores comparados +
+          miniatura da foto. */}
+      <ClassificationLotMismatchModal
+        open={flowState === 'lot-mismatch'}
+        extractedLot={editableLot || extractionResult?.identification.lote || null}
+        expectedLot={contextSampleLot}
+        photoUrl={capturedPhotoUrl}
+        onCancel={() => router.back()}
+        onRetake={resetClassificationFlow}
+      />
 
-      {/* Data mismatch resolution modal (sacas/safra) */}
-      {flowState === 'data-mismatch' ? (
-        <div className="app-modal-backdrop" onClick={() => {}}>
-          <div className="app-modal cam-mismatch-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-mismatch-text">
-              Algumas informacoes da ficha divergem do cadastro da amostra. Escolha qual valor
-              manter em cada linha antes de salvar.
-            </p>
-            <div className="cam-mismatch-list">
-              {mismatchDivergences.map((divergence) => {
-                const label = divergence.field === 'sacks' ? 'Sacas' : 'Safra';
-                const choice = mismatchChoices[divergence.field];
-                const extractedText =
-                  divergence.extracted !== null && divergence.extracted !== undefined
-                    ? String(divergence.extracted)
-                    : '\u2014';
-                const storedText =
-                  divergence.stored !== null && divergence.stored !== undefined
-                    ? String(divergence.stored)
-                    : '\u2014';
-                return (
-                  <div key={divergence.field} className="cam-mismatch-row">
-                    <div className="cam-mismatch-row-label">{label}</div>
-                    <div className="cam-mismatch-options">
-                      <label
-                        className={`cam-mismatch-option${choice === 'extracted' ? ' is-selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name={`mismatch-${divergence.field}`}
-                          checked={choice === 'extracted'}
-                          onChange={() =>
-                            setMismatchChoices((prev) => ({
-                              ...prev,
-                              [divergence.field]: 'extracted',
-                            }))
-                          }
-                        />
-                        <span className="cam-mismatch-option-label">Ficha (extraido)</span>
-                        <span className="cam-mismatch-option-value">{extractedText}</span>
-                      </label>
-                      <label
-                        className={`cam-mismatch-option${choice === 'stored' ? ' is-selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name={`mismatch-${divergence.field}`}
-                          checked={choice === 'stored'}
-                          onChange={() =>
-                            setMismatchChoices((prev) => ({
-                              ...prev,
-                              [divergence.field]: 'stored',
-                            }))
-                          }
-                        />
-                        <span className="cam-mismatch-option-label">Cadastro</span>
-                        <span className="cam-mismatch-option-value">{storedText}</span>
-                      </label>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="cam-already-actions">
-              <button
-                type="button"
-                className="cam-already-btn-no"
-                onClick={resetClassificationFlow}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="cam-already-btn-yes"
-                onClick={() => void handleApplyMismatchResolution()}
-              >
-                Aplicar e salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Q.cls.2 sub-caminho 4: divergencia sacas/safra. Operador escolhe
+          campo a campo; sem default; Aplicar so habilita quando todas
+          as escolhas foram feitas. */}
+      <ClassificationDataMismatchModal
+        open={flowState === 'data-mismatch'}
+        divergences={mismatchDivergences}
+        choices={mismatchChoices}
+        onChoose={(field, choice) => setMismatchChoices((prev) => ({ ...prev, [field]: choice }))}
+        onCancel={resetClassificationFlow}
+        onApply={() => void handleApplyMismatchResolution()}
+        saving={false}
+      />
 
-      {/* Overwrite confirm dialog (Flow A) */}
-      {flowState === 'overwrite-confirm' && resolvedSample ? (
-        <div className="app-modal-backdrop" onClick={() => setFlowState('confirming')}>
-          <div className="app-modal cam-already-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-already-text">
-              A amostra <strong>{resolvedSample.internalLotNumber}</strong> ja possui classificacao.
-              Deseja sobrescrever?
-            </p>
-            <div className="cam-already-actions">
-              <button
-                type="button"
-                className="cam-already-btn-no"
-                onClick={() => setFlowState('confirming')}
-              >
-                Nao
-              </button>
-              <button
-                type="button"
-                className="cam-already-btn-yes"
-                onClick={() => void handleConfirmOverwrite()}
-              >
-                Sim, sobrescrever
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Q.cls.2 sub-caminho 5: reclassificacao. Reason code obrigatorio +
+          reason text obrigatorio se code=OTHER. */}
+      <ClassificationReclassifyModal
+        open={flowState === 'overwrite-confirm' && !!resolvedSample}
+        sampleLot={resolvedSample?.internalLotNumber ?? null}
+        reasonCode={reclassifyReasonCode}
+        reasonText={reclassifyReasonText}
+        showErrors={reclassifyShowErrors}
+        onReasonCodeChange={(code) => {
+          setReclassifyReasonCode(code);
+          setReclassifyShowErrors(false);
+        }}
+        onReasonTextChange={(text) => {
+          setReclassifyReasonText(text);
+          if (text.trim().length > 0) setReclassifyShowErrors(false);
+        }}
+        onCancel={() => setFlowState('confirming')}
+        onConfirm={() => void handleConfirmOverwrite()}
+        saving={false}
+      />
 
-      {/* Not found dialog (Flow A) */}
-      {flowState === 'not-found' ? (
-        <div className="app-modal-backdrop" onClick={() => {}}>
-          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-error-text">
-              Nenhuma amostra encontrada com o lote <strong>{editableLot}</strong>.
-            </p>
-            <div className="cam-already-actions">
-              <button
-                type="button"
-                className="cam-already-btn-no"
-                onClick={() => router.push('/dashboard')}
-              >
-                Sair
-              </button>
-              <button
-                type="button"
-                className="cam-already-btn-yes"
-                onClick={() => router.push('/samples/new')}
-              >
-                Cadastrar nova amostra
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Amostra nao encontrada (Flow A legacy fallback). */}
+      <ClassificationNotFoundModal
+        open={flowState === 'not-found'}
+        lot={editableLot}
+        onSair={() => router.push('/dashboard')}
+        onCadastrarNova={() => router.push('/samples/new')}
+      />
 
       {/* Q.cls.2.3: Modal de revisao da ficha unificada. Avancar dispara
           o modal de tipo (Q.cls.2.8) — save final acontece apos
@@ -1587,6 +1361,33 @@ function CameraPageContent() {
         open={flowState === 'manual-confirm'}
         onBack={() => setFlowState('extraction-error-technical')}
         onConfirm={startManualMode}
+      />
+
+      {/* Q.cls.2.9: Modal de classificadores. Substitui o JSX inline antigo
+          (cam-classifier-card). Continuar dispara o save direto — a
+          extracao+revisao+tipo ja aconteceram. Voltar volta pro modal
+          de tipo. */}
+      <ClassificationClassifierModal
+        open={flowState === 'selecting-classifier' && (!!extractionResult || manualMode)}
+        currentUser={{
+          fullName: session.user.fullName ?? null,
+          username: session.user.username,
+        }}
+        coClassifiers={coClassifiers}
+        availableUsers={availableUsers}
+        loadingUsers={loadingUsers}
+        userPickerError={userPickerError}
+        search={userPickerSearch}
+        onSearchChange={setUserPickerSearch}
+        onToggleUser={toggleCoClassifier}
+        onRemoveCoClassifier={(id) => setCoClassifiers((prev) => prev.filter((c) => c.id !== id))}
+        onRetryLoad={() => {
+          setAvailableUsers([]);
+          void loadAvailableUsersOnce();
+        }}
+        onBack={() => setFlowState('selecting-type')}
+        onContinue={handleClassifierContinue}
+        saving={flowState === 'submitting'}
       />
     </AppShell>
   );
