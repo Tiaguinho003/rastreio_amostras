@@ -215,11 +215,6 @@ function buildClassificationFormState(
     catacao: toText(mergedData.catacao),
     observacoes: toText(mergedData.observacoes),
     bebida: toText(mergedData.bebida),
-    // safra vive em sample.declaredHarvest (atualizada via applySampleUpdates).
-    // Mantida vazia aqui no form pra preservar shape legado.
-    safra: '',
-    // Peneiras (sem p19 — nao existe na ficha unificada).
-    peneiraP19: '',
     peneiraP18: toText(mergedPeneiras.p18),
     peneiraP17: toText(mergedPeneiras.p17),
     peneiraP16: toText(mergedPeneiras.p16),
@@ -1699,10 +1694,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(
-      classificationForm,
-      detail?.sample.classificationType
-    );
+    const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
@@ -1710,7 +1702,6 @@ export default function SampleDetailPage() {
 
     const classificationData = buildClassificationDataPayload(classificationForm, {
       includeAutomaticDate: true,
-      classificationType: detail?.sample.classificationType,
     });
     const technical = buildTechnicalFromClassificationData(classificationData);
 
@@ -1976,17 +1967,12 @@ export default function SampleDetailPage() {
   async function saveClassificationDetail() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') return;
 
-    const validationError = validateClassificationForm(
-      classificationDetailForm,
-      detail?.sample.classificationType
-    );
+    const validationError = validateClassificationForm(classificationDetailForm);
     if (validationError) return;
 
     setClassificationDetailSaving(true);
     try {
-      const classificationData = buildClassificationDataPayload(classificationDetailForm, {
-        classificationType: detail?.sample.classificationType,
-      });
+      const classificationData = buildClassificationDataPayload(classificationDetailForm);
       const technical = buildTechnicalFromClassificationData(classificationData);
 
       const classifiersChangedNow = classifiersChanged(
@@ -2036,10 +2022,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(
-      classificationForm,
-      detail?.sample.classificationType
-    );
+    const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setClassificationNotice({ kind: 'error', text: validationError });
       return;
@@ -2054,10 +2037,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const validationError = validateClassificationForm(
-      classificationForm,
-      detail?.sample.classificationType
-    );
+    const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setClassificationModalNotice({ kind: 'error', text: validationError });
       return;
@@ -2075,9 +2055,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const classificationData = buildClassificationDataPayload(classificationForm, {
-      classificationType: detail?.sample.classificationType,
-    });
+    const classificationData = buildClassificationDataPayload(classificationForm);
     const technical = buildTechnicalFromClassificationData(classificationData);
 
     setClassificationUpdating(true);

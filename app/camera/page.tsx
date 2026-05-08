@@ -702,7 +702,7 @@ function CameraPageContent() {
   // pra ser preenchido manualmente — comportamento legado.
   function handleExtractionResult(result: ExtractAndPrepareResponse) {
     setExtractionResult(result);
-    const extracted = mapExtractionToForm(result.extractedFields, null);
+    const extracted = mapExtractionToForm(result.extractedFields);
     setClassificationForm((prev) => ({ ...prev, ...extracted }));
 
     const lote = result.identification.lote ?? '';
@@ -761,7 +761,6 @@ function CameraPageContent() {
     try {
       const classificationData = buildClassificationDataPayload(classificationForm, {
         includeAutomaticDate: true,
-        classificationType,
       });
 
       // Classifiers = [actor, ...co-classificadores selecionados]. Backend
@@ -801,7 +800,7 @@ function CameraPageContent() {
     // operador ja preencheu lote/sacas/safra editaveis. Aceita ambos.
     if (!manualMode && !extractionResult) return;
 
-    const validationError = validateClassificationForm(classificationForm, classificationType);
+    const validationError = validateClassificationForm(classificationForm);
     if (validationError) {
       setFlowError(validationError);
       return;

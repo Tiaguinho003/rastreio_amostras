@@ -1,14 +1,25 @@
 import type { ClassificationType } from './types';
 
-// --- Types ---
+// ----------------------------------------------------------------------
+// Q.cls.2 ficha unificada — modelo TS do form + payloads enviados pro
+// backend. Espelha o schema CLASSIFICATION_COMPLETED.payload da
+// classificacao (peneiras/fundos/defeitos agrupados, sem safra/p19/
+// deprecated). Tipo da classificacao (BICA/PREPARADO/LOW_CAFF) virou
+// metadata pos-extracao — todos os campos sao validos pra qualquer tipo.
+// ----------------------------------------------------------------------
 
+// --- Form state ---
+
+// 22 campos editaveis no ReviewModal + dataClassificacao (set pelo
+// backend automaticamente). Sem peneiraP19 e safra (removidos no
+// cleanup Q.cls.2.7 — peneira P19 nao existe na ficha unificada,
+// safra vive em sample.declaredHarvest).
 export type ClassificationFormState = {
   dataClassificacao: string;
   padrao: string;
   catacao: string;
   aspecto: string;
   bebida: string;
-  safra: string;
   broca: string;
   pva: string;
   imp: string;
@@ -17,7 +28,6 @@ export type ClassificationFormState = {
   defeito: string;
   certif: string;
   observacoes: string;
-  peneiraP19: string;
   peneiraP18: string;
   peneiraP17: string;
   peneiraP16: string;
@@ -34,8 +44,38 @@ export type ClassificationFormState = {
   fundo2Percent: string;
 };
 
-// Q.cls.2.7: ficha unificada agrupada — peneiras sub-obj, fundos array
-// de 2, defeitos sub-obj. Espelha o schema CLASSIFICATION_COMPLETED.
+export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
+  dataClassificacao: '',
+  padrao: '',
+  catacao: '',
+  aspecto: '',
+  bebida: '',
+  broca: '',
+  pva: '',
+  imp: '',
+  ap: '',
+  gpi: '',
+  defeito: '',
+  certif: '',
+  observacoes: '',
+  peneiraP18: '',
+  peneiraP17: '',
+  peneiraP16: '',
+  peneiraMk: '',
+  peneiraP15: '',
+  peneiraP14: '',
+  peneiraP13: '',
+  peneiraP12: '',
+  peneiraP11: '',
+  peneiraP10: '',
+  fundo1Peneira: '',
+  fundo1Percent: '',
+  fundo2Peneira: '',
+  fundo2Percent: '',
+};
+
+// --- Payload types (mapeiam o schema do evento) ---
+
 export type ClassificationPeneirasPayload = {
   p18: number | null;
   p17: number | null;
@@ -83,11 +123,6 @@ export type ClassificationTechnicalPayload = {
   notes?: string | null;
 };
 
-export type NumericField = {
-  key: keyof ClassificationFormState;
-  label: string;
-};
-
 // --- Constants ---
 
 export const CLASSIFICATION_TYPE_LABEL: Record<ClassificationType, string> = {
@@ -96,232 +131,8 @@ export const CLASSIFICATION_TYPE_LABEL: Record<ClassificationType, string> = {
   BICA: 'BICA',
 };
 
-export const EMPTY_CLASSIFICATION_FORM: ClassificationFormState = {
-  dataClassificacao: '',
-  padrao: '',
-  catacao: '',
-  aspecto: '',
-  bebida: '',
-  safra: '',
-  broca: '',
-  pva: '',
-  imp: '',
-  ap: '',
-  gpi: '',
-  defeito: '',
-  certif: '',
-  observacoes: '',
-  peneiraP19: '',
-  peneiraP18: '',
-  peneiraP17: '',
-  peneiraP16: '',
-  peneiraMk: '',
-  peneiraP15: '',
-  peneiraP14: '',
-  peneiraP13: '',
-  peneiraP12: '',
-  peneiraP11: '',
-  peneiraP10: '',
-  fundo1Peneira: '',
-  fundo1Percent: '',
-  fundo2Peneira: '',
-  fundo2Percent: '',
-};
-
-// --- All fields (fallback for detail page / historical data) ---
-
-export const ALL_SIEVE_FIELDS: NumericField[] = [
-  { key: 'peneiraP19', label: 'P.19 (%)' },
-  { key: 'peneiraP18', label: 'P.18 (%)' },
-  { key: 'peneiraP17', label: 'P.17 (%)' },
-  { key: 'peneiraP16', label: 'P.16 (%)' },
-  { key: 'peneiraMk', label: 'MK (%)' },
-  { key: 'peneiraP15', label: 'P.15 (%)' },
-  { key: 'peneiraP14', label: 'P.14 (%)' },
-  { key: 'peneiraP13', label: 'P.13 (%)' },
-  { key: 'peneiraP12', label: 'P.12 (%)' },
-  { key: 'peneiraP11', label: 'P.11 (%)' },
-  { key: 'peneiraP10', label: 'P.10 (%)' },
-];
-
-export const ALL_NUMERIC_FIELDS: NumericField[] = [
-  { key: 'broca', label: 'Broca' },
-  { key: 'pva', label: 'PVA' },
-  { key: 'imp', label: 'Impureza' },
-  { key: 'ap', label: 'AP (%)' },
-  { key: 'gpi', label: 'GPI' },
-  { key: 'defeito', label: 'Defeito' },
-  ...ALL_SIEVE_FIELDS,
-];
-
-// Backward-compatible aliases
-export const SIEVE_FIELDS = ALL_SIEVE_FIELDS;
-export const NUMERIC_FIELDS = ALL_NUMERIC_FIELDS;
-
-// --- Type-specific configuration ---
-
-export interface ClassificationTypeConfig {
-  sieveFields: NumericField[];
-  defectFields: NumericField[];
-  hasFundo2: boolean;
-  hasDefeito: boolean;
-  extractionFieldMap: Record<string, keyof ClassificationFormState>;
-  sieveKeys: string[];
-}
-
-export const TYPE_CONFIGS: Record<ClassificationType, ClassificationTypeConfig> = {
-  PREPARADO: {
-    sieveFields: [
-      { key: 'peneiraP19', label: 'P.19 (%)' },
-      { key: 'peneiraP18', label: 'P.18 (%)' },
-      { key: 'peneiraP17', label: 'P.17 (%)' },
-      { key: 'peneiraP16', label: 'P.16 (%)' },
-      { key: 'peneiraP15', label: 'P.15 (%)' },
-      { key: 'peneiraP14', label: 'P.14 (%)' },
-      { key: 'peneiraMk', label: 'MK (%)' },
-    ],
-    defectFields: [
-      { key: 'broca', label: 'Broca' },
-      { key: 'pva', label: 'PVA' },
-      { key: 'imp', label: 'Impureza' },
-      { key: 'defeito', label: 'Defeito' },
-    ],
-    hasFundo2: false,
-    hasDefeito: true,
-    sieveKeys: ['p19', 'p18', 'p17', 'p16', 'p15', 'p14', 'mk'],
-    extractionFieldMap: {
-      padrao: 'padrao',
-      catacao: 'catacao',
-      aspecto: 'aspecto',
-      bebida: 'bebida',
-      safra: 'safra',
-      broca: 'broca',
-      pva: 'pva',
-      impureza: 'imp',
-      p19: 'peneiraP19',
-      p18: 'peneiraP18',
-      p17: 'peneiraP17',
-      p16: 'peneiraP16',
-      p15: 'peneiraP15',
-      p14: 'peneiraP14',
-      mk: 'peneiraMk',
-      defeito: 'defeito',
-      fundo1_peneira: 'fundo1Peneira',
-      fundo1_percentual: 'fundo1Percent',
-      certif: 'certif',
-      observacoes: 'observacoes',
-    },
-  },
-  LOW_CAFF: {
-    sieveFields: [
-      { key: 'peneiraP15', label: 'P.15 (%)' },
-      { key: 'peneiraP14', label: 'P.14 (%)' },
-      { key: 'peneiraP13', label: 'P.13 (%)' },
-      { key: 'peneiraP12', label: 'P.12 (%)' },
-      { key: 'peneiraP11', label: 'P.11 (%)' },
-      { key: 'peneiraP10', label: 'P.10 (%)' },
-    ],
-    defectFields: [
-      { key: 'broca', label: 'Broca' },
-      { key: 'pva', label: 'PVA' },
-      { key: 'imp', label: 'Impureza' },
-      { key: 'ap', label: 'AP (%)' },
-      { key: 'gpi', label: 'GPI' },
-      { key: 'defeito', label: 'Defeito' },
-    ],
-    hasFundo2: true,
-    hasDefeito: true,
-    sieveKeys: ['p15', 'p14', 'p13', 'p12', 'p11', 'p10'],
-    extractionFieldMap: {
-      padrao: 'padrao',
-      catacao: 'catacao',
-      aspecto: 'aspecto',
-      bebida: 'bebida',
-      safra: 'safra',
-      broca: 'broca',
-      pva: 'pva',
-      impureza: 'imp',
-      p15: 'peneiraP15',
-      p14: 'peneiraP14',
-      p13: 'peneiraP13',
-      p12: 'peneiraP12',
-      p11: 'peneiraP11',
-      p10: 'peneiraP10',
-      ap: 'ap',
-      gpi: 'gpi',
-      defeito: 'defeito',
-      fundo1_peneira: 'fundo1Peneira',
-      fundo1_percentual: 'fundo1Percent',
-      fundo2_peneira: 'fundo2Peneira',
-      fundo2_percentual: 'fundo2Percent',
-      certif: 'certif',
-      observacoes: 'observacoes',
-    },
-  },
-  BICA: {
-    sieveFields: [
-      { key: 'peneiraP17', label: 'P.17 (%)' },
-      { key: 'peneiraMk', label: 'MK (%)' },
-    ],
-    defectFields: [
-      { key: 'broca', label: 'Broca' },
-      { key: 'pva', label: 'PVA' },
-      { key: 'imp', label: 'Impureza' },
-    ],
-    hasFundo2: true,
-    hasDefeito: false,
-    sieveKeys: ['p17', 'mk'],
-    extractionFieldMap: {
-      padrao: 'padrao',
-      catacao: 'catacao',
-      aspecto: 'aspecto',
-      bebida: 'bebida',
-      safra: 'safra',
-      broca: 'broca',
-      pva: 'pva',
-      impureza: 'imp',
-      p17: 'peneiraP17',
-      mk: 'peneiraMk',
-      fundo1_peneira: 'fundo1Peneira',
-      fundo1_percentual: 'fundo1Percent',
-      fundo2_peneira: 'fundo2Peneira',
-      fundo2_percentual: 'fundo2Percent',
-      certif: 'certif',
-      observacoes: 'observacoes',
-    },
-  },
-};
-
-export function getTypeConfig(
-  classificationType: ClassificationType | null | undefined
-): ClassificationTypeConfig | null {
-  if (!classificationType) return null;
-  return TYPE_CONFIGS[classificationType] ?? null;
-}
-
-// --- Functions ---
-
-export function parseNumberInput(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const parsed = Number(trimmed.replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-export function getTodayDateInput(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// Q.cls.2.7: validacao e numerica apenas para peneiras + percentuais dos
-// fundos (campos numericos no payload). Os 6 campos de defeitos viraram
-// texto livre, sem validacao numerica.
+// Campos do form que vao pra peneiras + percentuais dos fundos (number
+// no payload final). Validados pra serem numericos parseaveis.
 const NUMERIC_FORM_KEYS: Array<keyof ClassificationFormState> = [
   'peneiraP18',
   'peneiraP17',
@@ -337,13 +148,58 @@ const NUMERIC_FORM_KEYS: Array<keyof ClassificationFormState> = [
   'fundo2Percent',
 ];
 
-export function validateClassificationForm(
-  form: ClassificationFormState,
-  // _classificationType nao e mais usado (ficha unificada — todos os
-  // campos sao validos pra qualquer tipo). Argumento mantido por compat
-  // com chamadas existentes; sera removido no cleanup do TYPE_CONFIGS.
-  _classificationType?: ClassificationType | null
-): string | null {
+// Mapeia chaves do extractedFields (o que o backend retorna ao extrair
+// a foto via IA) pras chaves do ClassificationFormState. Universal —
+// extracao e type-agnostic na Q.cls.2 (1 prompt cobre os 4 tipos).
+const EXTRACTION_FIELD_MAP: Record<string, keyof ClassificationFormState> = {
+  padrao: 'padrao',
+  catacao: 'catacao',
+  aspecto: 'aspecto',
+  bebida: 'bebida',
+  broca: 'broca',
+  pva: 'pva',
+  impureza: 'imp',
+  p18: 'peneiraP18',
+  p17: 'peneiraP17',
+  p16: 'peneiraP16',
+  mk: 'peneiraMk',
+  p15: 'peneiraP15',
+  p14: 'peneiraP14',
+  p13: 'peneiraP13',
+  p12: 'peneiraP12',
+  p11: 'peneiraP11',
+  p10: 'peneiraP10',
+  fundo1_peneira: 'fundo1Peneira',
+  fundo1_percentual: 'fundo1Percent',
+  fundo2_peneira: 'fundo2Peneira',
+  fundo2_percentual: 'fundo2Percent',
+  defeito: 'defeito',
+  ap: 'ap',
+  gpi: 'gpi',
+  certif: 'certif',
+  observacoes: 'observacoes',
+};
+
+// --- Helpers ---
+
+function parseNumberInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function getTodayDateInput(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// --- Validation ---
+
+export function validateClassificationForm(form: ClassificationFormState): string | null {
   for (const key of NUMERIC_FORM_KEYS) {
     const raw = form[key].trim();
     if (!raw) continue;
@@ -355,14 +211,11 @@ export function validateClassificationForm(
   return null;
 }
 
+// --- Payload builders ---
+
 export function buildClassificationDataPayload(
   form: ClassificationFormState,
-  options: {
-    includeAutomaticDate?: boolean;
-    // _classificationType ignorado — ficha unificada serializa os 22
-    // campos sempre. Mantido por compat com chamadas existentes.
-    classificationType?: ClassificationType | null;
-  } = {}
+  options: { includeAutomaticDate?: boolean } = {}
 ): ClassificationDataPayload {
   const peneiras: ClassificationPeneirasPayload = {
     p18: parseNumberInput(form.peneiraP18),
@@ -426,9 +279,9 @@ export function buildTechnicalFromClassificationData(
 ): ClassificationTechnicalPayload | undefined {
   const technical: ClassificationTechnicalPayload = {};
 
-  // Q.cls.2.7: defeito agora vive em data.defeitos.defeito (sub-obj).
-  // Pode ser texto livre — tenta parsear como int pra preencher
-  // defectsCount mas tolera string nao-numerica (fica undefined).
+  // defeito agora vive em data.defeitos.defeito (sub-obj). Pode ser
+  // texto livre — tenta parsear como int pra preencher defectsCount mas
+  // tolera string nao-numerica (fica undefined).
   const defeitoText = data.defeitos?.defeito ?? null;
   if (defeitoText !== null) {
     const parsed = parseInt(defeitoText, 10);
@@ -443,52 +296,17 @@ export function buildTechnicalFromClassificationData(
   return Object.keys(technical).length > 0 ? technical : undefined;
 }
 
-// Universal fallback map (superset of all types)
-const UNIVERSAL_EXTRACTION_MAP: Record<string, keyof ClassificationFormState> = {
-  padrao: 'padrao',
-  catacao: 'catacao',
-  aspecto: 'aspecto',
-  bebida: 'bebida',
-  safra: 'safra',
-  broca: 'broca',
-  pva: 'pva',
-  impureza: 'imp',
-  p19: 'peneiraP19',
-  p18: 'peneiraP18',
-  p17: 'peneiraP17',
-  p16: 'peneiraP16',
-  mk: 'peneiraMk',
-  p15: 'peneiraP15',
-  p14: 'peneiraP14',
-  p13: 'peneiraP13',
-  p12: 'peneiraP12',
-  p11: 'peneiraP11',
-  p10: 'peneiraP10',
-  fundo1_peneira: 'fundo1Peneira',
-  fundo1_percentual: 'fundo1Percent',
-  fundo2_peneira: 'fundo2Peneira',
-  fundo2_percentual: 'fundo2Percent',
-  defeito: 'defeito',
-  ap: 'ap',
-  gpi: 'gpi',
-  certif: 'certif',
-  observacoes: 'observacoes',
-};
+// --- Extraction mapping ---
 
 export function mapExtractionToForm(
-  fields: Record<string, string | null>,
-  classificationType?: ClassificationType | null
+  fields: Record<string, string | null>
 ): Partial<ClassificationFormState> {
-  const config = classificationType ? TYPE_CONFIGS[classificationType] : null;
-  const fieldMap = config ? config.extractionFieldMap : UNIVERSAL_EXTRACTION_MAP;
-
   const mapped: Partial<ClassificationFormState> = {};
-  for (const [extractedKey, formKey] of Object.entries(fieldMap)) {
+  for (const [extractedKey, formKey] of Object.entries(EXTRACTION_FIELD_MAP)) {
     const value = fields[extractedKey];
     if (value !== null && value !== undefined) {
       mapped[formKey] = String(value);
     }
   }
-
   return mapped;
 }
