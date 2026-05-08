@@ -1123,7 +1123,7 @@ Decisões e implementações concluídas:
 
 Próximas frentes pendentes (em ordem do fluxo do operador):
 
-- [ ] **Modal de classificadores** (Q.cls.2.9 a definir): revisar o atual; alinhar com a skill `modals` (`.app-modal.is-themed`); definir se UX muda (busca, multi-select, persistência ao voltar).
+- [x] **Modal de classificadores** (Q.cls.2.9) — refatorado no commit `9411ffe` em `components/samples/ClassificationClassifierModal.tsx`. Header verde com seta de Voltar (alinhado ao TypeModal), chip pinned do user atual + chips removíveis dos co-classificadores, busca multi-select, persistência ao voltar.
 - [ ] **Tipo selecionado depois → `CLASSIFICATION_UPDATED`** (audit): implementar fluxo de mudança de tipo na detail page.
 - [ ] **Backend `completeClassification`/`updateClassification`** ajustam payload pra ficha unificada (peneiras/fundos array/defeitos agrupados).
 - [x] **Cross-validation no fluxo da câmera**: sub-caminhos 2/3a/3b/4/5 implementados (`983ccc3` + `9411ffe`).
@@ -1144,9 +1144,22 @@ Próximas frentes pendentes (em ordem do fluxo do operador):
 - **Tipo previamente selecionado** fica destacado com borda verde + glow ao reabrir o modal (operador volta do classifier).
 - **ESC** volta pro modal de revisão.
 
-#### Q.cls.2.9. Open items (próximas decisões)
+#### Q.cls.2.9. Modal de classificadores (implementado)
 
-- [ ] **Modal de classificadores**: alinhar com a skill `modals` (`.app-modal.is-themed`)? Persistência de seleção ao voltar (decidido, mas verificar implementação)? Mudanças no UX da busca?
+> Decisões implementadas no commit `9411ffe`.
+
+- **Componente próprio**: `components/samples/ClassificationClassifierModal.tsx` — substitui o JSX inline antigo (`cam-classifier-card`).
+- **Padrão modal**: `.app-modal.is-themed` alinhado com a skill `modals`.
+- **Header**: verde brand com seta de Voltar à esquerda (igual ao `TypeModal`). **Sem X** — cancelar fica concentrado no modal de revisão.
+- **Chip pinned**: user atual sempre incluído, gradient verde, não-removível.
+- **Co-classificadores**: chips removíveis (X individual). Busca por nome ou usuário; lista filtrada com check visual quando selecionado.
+- **Persistência**: estado dos co-classificadores e da busca preservado ao voltar (vem do parent — `app/camera/page.tsx`).
+- **Estados**: loading, erro com retry, lista vazia.
+- **Continuar**: dispara `handleConfirmClassification` direto (a extração + revisão + tipo já aconteceram); muda para "Salvando..." durante submit.
+- **ESC**: volta pro modal de tipo.
+
+#### Q.cls.2.10. Open items (próximas decisões)
+
 - [ ] **CTA "Mudar tipo"** na detail page (já que "tipo" é audit) — fica como? Botão separado ou só dentro de "Reclassificar"?
 - [ ] **Cross-validation expandida**: além de lote/sacas/safra, comparar outros campos? (provavelmente não — outros são preenchidos só pelo classificador).
 
