@@ -646,8 +646,32 @@ function CameraPageContent() {
       const QrScanner = scannerClassRef.current;
       if (!(await QrScanner.hasCamera())) {
         setCameraStatus('unsupported');
-        setStatusMessage('Nenhuma camera disponivel neste dispositivo.');
+        setStatusMessage(
+          'Nenhuma camera disponivel neste dispositivo. Use a galeria pra selecionar uma foto.'
+        );
         return;
+      }
+
+      // Fase Q.cls.2: força câmera traseira. Sem traseira (devices sem
+      // câmera traseira ou desktops com webcam frontal) → cai no fallback
+      // de galeria. Teste explícito porque QrScanner.hasCamera() acima
+      // só verifica se há *alguma* câmera, sem distinguir traseira/frontal.
+      try {
+        const testStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: 'environment' } },
+        });
+        testStream.getTracks().forEach((track) => track.stop());
+      } catch (testError) {
+        if (testError instanceof DOMException && testError.name === 'OverconstrainedError') {
+          if (!mountedRef.current) return;
+          setCameraStatus('unsupported');
+          setCameraError('Camera traseira nao disponivel neste dispositivo.');
+          setStatusMessage('Use a galeria pra selecionar uma foto.');
+          return;
+        }
+        // Outras falhas (NotAllowedError, NotReadableError etc.) propagam
+        // pro catch externo, que classifica como permission-denied/unsupported.
+        throw testError;
       }
 
       if (!scannerRef.current) {
@@ -679,8 +703,8 @@ function CameraPageContent() {
       setCameraError(readErrorMessage(error, 'Falha ao abrir a camera.'));
       setStatusMessage(
         denied
-          ? 'Permita o uso da camera para leitura automatica de QR.'
-          : 'Nao foi possivel usar a camera neste navegador.'
+          ? 'Camera bloqueada. Use a galeria pra selecionar uma foto, ou habilite a camera nas configuracoes do navegador.'
+          : 'Camera nao disponivel. Use a galeria pra selecionar uma foto.'
       );
     }
   }, [clearRestartTimeout, handleDecodedQr, scannerBlocked]);
@@ -1192,8 +1216,11 @@ function CameraPageContent() {
               ) : null}
             </div>
 
-            {/* Gallery button — positioned relative to stage, not headline */}
-            {flowState === 'idle' && cameraStatus === 'scanning' ? (
+            {/* Gallery button — sempre visivel quando idle (Fase Q.cls.2):
+                operador pode usar galeria livremente quando camera OK, e ela
+                e o unico caminho quando camera falha (negacao, hardware
+                indisponivel, sem traseira). */}
+            {flowState === 'idle' ? (
               <>
                 <input
                   ref={galleryInputRef}
