@@ -141,14 +141,14 @@ test('qr print attempt uniqueness returns existing event for same sample/action/
 
   const first = service.appendEvent(
     qrPrintRequestedEvent(sampleId, {
-      payload: { printAction: 'PRINT', attemptNumber: 1, printerId: 'printer-1' },
+      payload: { attemptNumber: 1, printerId: 'printer-1' },
     }),
     { expectedVersion: 1 }
   );
 
   const second = service.appendEvent(
     qrPrintRequestedEvent(sampleId, {
-      payload: { printAction: 'PRINT', attemptNumber: 1, printerId: 'printer-1' },
+      payload: { attemptNumber: 1, printerId: 'printer-1' },
     }),
     { expectedVersion: 2 }
   );

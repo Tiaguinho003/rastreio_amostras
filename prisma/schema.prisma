@@ -8,12 +8,7 @@ datasource db {
 }
 
 enum SampleStatus {
-  PHYSICAL_RECEIVED
-  REGISTRATION_IN_PROGRESS
   REGISTRATION_CONFIRMED
-  QR_PENDING_PRINT
-  QR_PRINTED
-  CLASSIFICATION_IN_PROGRESS
   CLASSIFIED
   INVALIDATED
 }
@@ -39,23 +34,17 @@ enum ModuleType {
 enum IdempotencyScope {
   REGISTRATION_CONFIRM
   QR_PRINT
-  QR_REPRINT
   CLASSIFICATION_COMPLETE
   COMMERCIAL_STATUS_UPDATE
   INVALIDATE
 }
 
 enum SampleEventType {
-  SAMPLE_RECEIVED
-  REGISTRATION_STARTED
   PHOTO_ADDED
   REGISTRATION_CONFIRMED
   QR_PRINT_REQUESTED
   QR_PRINT_FAILED
   QR_PRINTED
-  QR_REPRINT_REQUESTED
-  CLASSIFICATION_STARTED
-  CLASSIFICATION_SAVED_PARTIAL
   CLASSIFICATION_COMPLETED
   REGISTRATION_UPDATED
   CLASSIFICATION_UPDATED
@@ -131,15 +120,11 @@ enum AttachmentKind {
   CLASSIFICATION_PHOTO
 }
 
-enum PrintAction {
-  PRINT
-  REPRINT
-}
-
 enum PrintJobStatus {
   PENDING
   SUCCESS
   FAILED
+  EXPIRED
 }
 
 enum UserRole {
@@ -298,7 +283,6 @@ model SampleAttachment {
 model PrintJob {
   id               String         @id @db.Uuid
   sampleId         String         @map("sample_id") @db.Uuid
-  printAction      PrintAction    @map("print_action")
   attemptNumber    Int            @map("attempt_number")
   status           PrintJobStatus
   printerId        String?        @map("printer_id")
@@ -312,7 +296,7 @@ model PrintJob {
   requestedEvent SampleEvent  @relation("PrintJobRequestedEvent", fields: [requestedEventId], references: [eventId], onDelete: Restrict, onUpdate: Cascade)
   resultEvent    SampleEvent? @relation("PrintJobResultEvent", fields: [resultEventId], references: [eventId], onDelete: Restrict, onUpdate: Cascade)
 
-  @@unique([sampleId, printAction, attemptNumber], map: "uq_print_job_sample_action_attempt")
+  @@unique([sampleId, attemptNumber], map: "uq_print_job_sample_attempt")
   @@index([status, createdAt], map: "idx_print_job_status_created")
   @@map("print_job")
 }

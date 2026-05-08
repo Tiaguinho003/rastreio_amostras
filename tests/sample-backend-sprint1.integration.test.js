@@ -342,7 +342,6 @@ if (!databaseUrl || !databaseReachable) {
       {
         sampleId,
         expectedVersion: 2,
-        printAction: 'PRINT',
         attemptNumber: 1,
         printerId: 'printer-main',
       },

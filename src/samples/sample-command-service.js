@@ -1714,12 +1714,12 @@ export class SampleCommandService {
     );
   }
 
-  // Q.print: requestQrPrint virou ACAO PURA (audit-only, fromStatus/
+  // Q.print + Q.final: requestQrPrint e ACAO PURA (audit-only, fromStatus/
   // toStatus null). Aceita qualquer status ≠ INVALIDATED. Antes de criar
-  // novo PrintJob, aplica lazy timeout (PENDING > 1min vira FAILED).
+  // novo PrintJob, aplica lazy timeout (PENDING > 1min vira EXPIRED).
   // Bloqueia 409 se houver PENDING valido pra essa amostra. Sem
-  // expectedVersion (nao muda sample). printAction='PRINT' hardcoded
-  // (drop da coluna fica em Q.final).
+  // expectedVersion (nao muda sample). PrintAction enum + coluna foram
+  // dropados em Q.final — todas as tentativas usam attemptNumber sequencial.
   async requestQrPrint(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'request QR print');
 
@@ -1765,7 +1765,6 @@ export class SampleCommandService {
       eventType: 'QR_PRINT_REQUESTED',
       sampleId: sample.id,
       payload: {
-        printAction: 'PRINT',
         attemptNumber,
         printerId: input.printerId ?? null,
       },
@@ -1780,9 +1779,9 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
-  // Q.print: recordQrPrintFailed virou audit-only sem distincao
-  // PRINT/REPRINT. Sem expectedVersion (nao muda sample). PrintJob.status
-  // atualizado em paralelo via projection.
+  // Q.print + Q.final: recordQrPrintFailed e audit-only. Sem expectedVersion
+  // (nao muda sample). PrintJob.status='FAILED' atualizado em paralelo
+  // via projection (chave: sample_id + attempt_number).
   async recordQrPrintFailed(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR print failure');
 
@@ -1795,7 +1794,6 @@ export class SampleCommandService {
       eventType: 'QR_PRINT_FAILED',
       sampleId: sample.id,
       payload: {
-        printAction: 'PRINT',
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null,
         error: input.error,
@@ -1809,8 +1807,8 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
-  // Q.print: recordQrPrinted virou audit-only. Sem hack de "se ja passou
-  // de QR_PENDING_PRINT" (status nao muda mais). Sem expectedVersion.
+  // Q.print + Q.final: recordQrPrinted e audit-only. Sem hack de "se ja
+  // passou de QR_PENDING_PRINT" (status nao muda mais). Sem expectedVersion.
   // PrintJob.status='SUCCESS' atualizado em paralelo via projection.
   async recordQrPrinted(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR printed');
@@ -1821,7 +1819,6 @@ export class SampleCommandService {
       eventType: 'QR_PRINTED',
       sampleId: sample.id,
       payload: {
-        printAction: 'PRINT',
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null,
       },

@@ -4,9 +4,6 @@
   "title": "QR_PRINTED payload",
   "type": "object",
   "properties": {
-    "printAction": {
-      "$ref": "../base/shared-defs.schema.json#/$defs/printAction"
-    },
     "attemptNumber": {
       "type": "integer",
       "minimum": 1
@@ -15,6 +12,6 @@
       "type": ["string", "null"]
     }
   },
-  "required": ["printAction", "attemptNumber", "printerId"],
+  "required": ["attemptNumber", "printerId"],
   "additionalProperties": false
 }

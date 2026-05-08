@@ -105,7 +105,6 @@ export function qrPrintRequestedEvent(sampleId, overrides = {}) {
     idempotencyScope: 'QR_PRINT',
     idempotencyKey: randomUUID(),
     payload: {
-      printAction: 'PRINT',
       attemptNumber: 1,
       printerId: null,
     },
@@ -142,7 +141,6 @@ export function qrPrintFailedEvent(sampleId, overrides = {}) {
     fromStatus: null,
     toStatus: null,
     payload: {
-      printAction: 'PRINT',
       attemptNumber: 1,
       printerId: null,
       error: 'printer offline',
@@ -160,7 +158,6 @@ export function qrPrintedEvent(sampleId, overrides = {}) {
     fromStatus: null,
     toStatus: null,
     payload: {
-      printAction: 'PRINT',
       attemptNumber: 1,
       printerId: null,
     },

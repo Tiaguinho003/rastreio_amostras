@@ -402,7 +402,6 @@ export class EventContractDbService {
         if (checksPrintAttempt) {
           const existingByAttempt = await tx.findEventByPrintAttempt(
             eventDraft.sampleId,
-            eventDraft.payload.printAction,
             eventDraft.payload.attemptNumber
           );
 
@@ -527,7 +526,7 @@ export class EventContractDbService {
           if (!completedJob) {
             throw new HttpError(
               409,
-              `Print job not found or already finalized for action=${event.payload.printAction} attempt=${event.payload.attemptNumber}`
+              `Print job not found or already finalized for attempt=${event.payload.attemptNumber}`
             );
           }
         }
@@ -565,7 +564,6 @@ export class EventContractDbService {
         if (checksPrintAttempt) {
           const existingByAttempt = await this.store.findEventByPrintAttempt(
             eventDraft.sampleId,
-            eventDraft.payload.printAction,
             eventDraft.payload.attemptNumber
           );
 

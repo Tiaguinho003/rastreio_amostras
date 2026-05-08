@@ -846,7 +846,6 @@ function mapPendingPrintJob(row) {
   return {
     jobId: row.id,
     sampleId: row.sampleId,
-    printAction: row.printAction,
     attemptNumber: row.attemptNumber,
     printerId: row.printerId ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -990,18 +989,9 @@ export class SampleQueryService {
     return sample;
   }
 
-  async findPendingPrintJobOrNull(sampleId, printAction = null) {
-    const where = {
-      sampleId,
-      status: 'PENDING',
-    };
-
-    if (printAction) {
-      where.printAction = printAction;
-    }
-
+  async findPendingPrintJobOrNull(sampleId) {
     const pending = await this.prisma.printJob.findFirst({
-      where,
+      where: { sampleId, status: 'PENDING' },
       orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }],
     });
 
@@ -1010,7 +1000,6 @@ export class SampleQueryService {
     }
 
     return {
-      printAction: pending.printAction,
       attemptNumber: pending.attemptNumber,
       printerId: pending.printerId ?? null,
       status: pending.status,
@@ -1023,7 +1012,6 @@ export class SampleQueryService {
       orderBy: [{ createdAt: 'desc' }],
       select: {
         id: true,
-        printAction: true,
         attemptNumber: true,
         status: true,
         printerId: true,
@@ -1036,7 +1024,6 @@ export class SampleQueryService {
 
     return {
       jobId: row.id,
-      printAction: row.printAction,
       attemptNumber: row.attemptNumber,
       status: row.status,
       printerId: row.printerId ?? null,

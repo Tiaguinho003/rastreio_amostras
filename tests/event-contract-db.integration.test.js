@@ -147,7 +147,6 @@ if (!databaseUrl || !databaseReachable) {
     const first = await service.appendEvent(
       qrPrintRequestedEvent(sampleId, {
         payload: {
-          printAction: 'PRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
         },
@@ -158,7 +157,6 @@ if (!databaseUrl || !databaseReachable) {
     const second = await service.appendEvent(
       qrPrintRequestedEvent(sampleId, {
         payload: {
-          printAction: 'PRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
         },
@@ -182,7 +180,6 @@ if (!databaseUrl || !databaseReachable) {
     const requested = await service.appendEvent(
       qrPrintRequestedEvent(sampleId, {
         payload: {
-          printAction: 'PRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
         },
@@ -193,7 +190,6 @@ if (!databaseUrl || !databaseReachable) {
     const failed = await service.appendEvent(
       qrPrintFailedEvent(sampleId, {
         payload: {
-          printAction: 'PRINT',
           attemptNumber: 1,
           printerId: 'printer-main',
           error: 'paper jam',
@@ -203,9 +199,8 @@ if (!databaseUrl || !databaseReachable) {
 
     const printJob = await prisma.printJob.findUnique({
       where: {
-        sampleId_printAction_attemptNumber: {
+        sampleId_attemptNumber: {
           sampleId,
-          printAction: 'PRINT',
           attemptNumber: 1,
         },
       },

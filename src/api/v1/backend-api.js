@@ -260,9 +260,9 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    // Q.print: recordQrPrintFailed/Printed audit-only (sem expectedVersion,
-    // sem distincao PRINT/REPRINT). Body.printAction ainda aceito por
-    // compat com print agent local atual; backend ignora se vier.
+    // Q.print + Q.final: recordQrPrintFailed/Printed audit-only (sem
+    // expectedVersion, sem PrintAction). Body.printAction se vier do print
+    // agent legacy e ignorado.
     recordQrPrintFailed: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);

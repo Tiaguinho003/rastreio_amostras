@@ -1125,8 +1125,8 @@ if (!databaseUrl || !databaseReachable) {
   // ============================================================
 
   // Helper: cria sample diretamente no DB vinculada ao cliente. Insere
-  // tambem o evento inicial SAMPLE_RECEIVED para satisfazer o trigger
-  // append-only de sample_event ("first event must be SAMPLE_RECEIVED").
+  // tambem o evento inicial REGISTRATION_CONFIRMED (Fase Q) para satisfazer
+  // o trigger append-only de sample_event.
   async function createSampleForClient(
     clientId,
     { status = 'CLASSIFIED', soldSacks = 0, lostSacks = 0 } = {}

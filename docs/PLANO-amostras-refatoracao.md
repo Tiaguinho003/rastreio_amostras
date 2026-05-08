@@ -36,7 +36,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
     - [x] Q.cls.2 ficha unificada (concluída — ficha física `a79626e`, CTA "Classificar" `f505926`, tela da câmera `e37deaa`, IA `864f619`, modal de revisão `a39e305`, modal de tipo `8dbe36f`, avisos 3a/3b + modo manual `983ccc3`, modais de cross-validation/reclassify/classifier `9411ffe`, payload ficha unificada + reason persistido + sub-caminho 5 Flow B `aa7c591`+`1aa4845`+`a2c7594`+`40d91e4`+`2bc3a36`, frontend cleanup TYPE_CONFIGS `c18e435`+`6659bd6`, audit do tipo na detail page `4e02fe1`+`15a5a07`; migration final do enum fica na Q.final)
     - [x] Q.print impressão como ação (commits `498e74b` backend + `b2253bb` frontend infra + `3584b73` seção Etiqueta+polling)
     - [x] Q.auto auto-print pós-classificação (`completeClassification` dispara `requestQrPrint` best-effort com idempotency derivada de `event.idempotencyKey`)
-    - [ ] Q.final migration de drop dos enums legados
+    - [x] Q.final migration de drop dos enums legados (`20260508163528_qfinal_drop_legacy_enums`: SampleStatus 3 values, SampleEventType drop 5, IdempotencyScope drop QR_REPRINT, PrintAction enum + coluna `print_job.print_action` dropados, PrintJobStatus add EXPIRED, constraint nova `uq_print_job_sample_attempt`)
 
 ---
 

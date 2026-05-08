@@ -4,9 +4,6 @@
   "title": "QR_PRINT_REQUESTED payload",
   "type": "object",
   "properties": {
-    "printAction": {
-      "const": "PRINT"
-    },
     "attemptNumber": {
       "type": "integer",
       "minimum": 1
@@ -15,6 +12,6 @@
       "type": ["string", "null"]
     }
   },
-  "required": ["printAction", "attemptNumber", "printerId"],
+  "required": ["attemptNumber", "printerId"],
   "additionalProperties": false
 }

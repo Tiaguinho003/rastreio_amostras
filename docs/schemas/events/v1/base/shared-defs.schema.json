@@ -41,8 +41,6 @@
       "type": "string",
       "enum": [
         "REGISTRATION_CONFIRMED",
-        "QR_PENDING_PRINT",
-        "QR_PRINTED",
         "CLASSIFIED",
         "INVALIDATED"
       ]
@@ -72,10 +70,6 @@
     "commercialStatus": {
       "type": "string",
       "enum": ["OPEN", "PARTIALLY_SOLD", "SOLD", "LOST"]
-    },
-    "printAction": {
-      "type": "string",
-      "enum": ["PRINT", "REPRINT"]
     },
     "updateReasonCode": {
       "type": "string",

@@ -102,13 +102,12 @@ export class PrismaEventStore {
     return mapDbEventToDomain(event);
   }
 
-  async findEventByPrintAttempt(sampleId, printAction, attemptNumber) {
+  async findEventByPrintAttempt(sampleId, attemptNumber) {
     const rows = await this.prisma.$queryRaw`
       SELECT event_id
       FROM sample_event
       WHERE sample_id = ${sampleId}::uuid
-        AND event_type IN ('QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED')
-        AND payload->>'printAction' = ${printAction}
+        AND event_type = 'QR_PRINT_REQUESTED'
         AND (payload->>'attemptNumber')::int = ${attemptNumber}
       ORDER BY sequence_number DESC
       LIMIT 1
@@ -155,13 +154,12 @@ class PrismaEventStoreTx {
     });
   }
 
-  async findEventByPrintAttempt(sampleId, printAction, attemptNumber) {
+  async findEventByPrintAttempt(sampleId, attemptNumber) {
     const rows = await this.tx.$queryRaw`
       SELECT event_id
       FROM sample_event
       WHERE sample_id = ${sampleId}::uuid
-        AND event_type IN ('QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED')
-        AND payload->>'printAction' = ${printAction}
+        AND event_type = 'QR_PRINT_REQUESTED'
         AND (payload->>'attemptNumber')::int = ${attemptNumber}
       ORDER BY sequence_number DESC
       LIMIT 1
@@ -246,7 +244,6 @@ class PrismaEventStoreTx {
       data: {
         id: requestedEventId,
         sampleId: event.sampleId,
-        printAction: event.payload.printAction,
         attemptNumber: event.payload.attemptNumber,
         status: 'PENDING',
         printerId: event.payload.printerId ?? null,
@@ -357,7 +354,6 @@ class PrismaEventStoreTx {
     const updateResult = await this.tx.printJob.updateMany({
       where: {
         sampleId: event.sampleId,
-        printAction: event.payload.printAction,
         attemptNumber: event.payload.attemptNumber,
         resultEventId: null,
       },
@@ -375,9 +371,8 @@ class PrismaEventStoreTx {
 
     return this.tx.printJob.findUnique({
       where: {
-        sampleId_printAction_attemptNumber: {
+        sampleId_attemptNumber: {
           sampleId: event.sampleId,
-          printAction: event.payload.printAction,
           attemptNumber: event.payload.attemptNumber,
         },
       },

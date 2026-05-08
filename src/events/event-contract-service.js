@@ -26,8 +26,8 @@ function idempotencyCompositeKey(sampleId, scope, key) {
   return `${sampleId}::${scope}::${key}`;
 }
 
-function printAttemptCompositeKey(sampleId, printAction, attemptNumber) {
-  return `${sampleId}::${printAction}::${attemptNumber}`;
+function printAttemptCompositeKey(sampleId, attemptNumber) {
+  return `${sampleId}::${attemptNumber}`;
 }
 
 function isMutatingEvent(event) {
@@ -69,11 +69,7 @@ export class EventContractService {
     }
 
     if (PRINT_ATTEMPT_EVENTS.has(event.eventType)) {
-      const attemptKey = printAttemptCompositeKey(
-        event.sampleId,
-        event.payload.printAction,
-        event.payload.attemptNumber
-      );
+      const attemptKey = printAttemptCompositeKey(event.sampleId, event.payload.attemptNumber);
       const existingAttemptEventId = this.store.printAttemptIndex.get(attemptKey);
       if (existingAttemptEventId) {
         const existing = this.store.getEventById(existingAttemptEventId);
@@ -257,11 +253,7 @@ export class EventContractService {
       }
 
       if (PRINT_ATTEMPT_EVENTS.has(event.eventType)) {
-        const attemptKey = printAttemptCompositeKey(
-          event.sampleId,
-          event.payload.printAction,
-          event.payload.attemptNumber
-        );
+        const attemptKey = printAttemptCompositeKey(event.sampleId, event.payload.attemptNumber);
         tx.printAttemptIndex.set(attemptKey, persistedEvent.eventId);
       }
 
