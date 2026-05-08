@@ -33,7 +33,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [ ] Fase Q (em andamento)
     - [x] Q registro (commits `6761a54` + `0b7c45f`)
     - [x] Q.cls.1 lifecycle classificação (commits `79385bc` + `d02eb73`)
-    - [ ] Q.cls.2 ficha unificada (parcial — ficha física `a79626e`, CTA "Classificar" `f505926`, tela da câmera `e37deaa`, IA `864f619`, modal de revisão `a39e305`; restam modais de tipo/classificadores, payload do completeClassification, cleanup do `TYPE_CONFIGS`, migration)
+    - [ ] Q.cls.2 ficha unificada (parcial — ficha física `a79626e`, CTA "Classificar" `f505926`, tela da câmera `e37deaa`, IA `864f619`, modal de revisão `a39e305`, modal de tipo + tipo pós-extração `8dbe36f`; restam modal de classificadores, payload do completeClassification, cleanup do `TYPE_CONFIGS`, migration)
     - [ ] Q.print impressão como ação
     - [ ] Q.auto auto-print pós-classificação
     - [ ] Q.final migration de drop dos enums legados
@@ -1118,12 +1118,12 @@ Decisões e implementações concluídas:
 - [x] CTA "Classificar" em RC (Q.cls.2.6) — commit `f505926`
 - [x] Ficha unificada física (HTML) — commit `a79626e`
 - [x] Modal de revisão dos dados extraídos (Q.cls.2.3) — commit `a39e305`
+- [x] Modal de tipo pós-extração (Q.cls.2.8) + cleanup do tipo pré-câmera — commit `8dbe36f`
 - [x] Caminho A da câmera (Q.cls.2.2) — decidido, **não implementado** (validação cruzada e avisos por sub-caminho)
 
 Próximas frentes pendentes (em ordem do fluxo do operador):
 
-- [ ] **Modal de seleção de tipo** (Q.cls.2.8 a definir): layout, 4 opções (BICA, PREPARADO, BAIXO, ESCOLHA), botão Voltar.
-- [ ] **Modal de classificadores** (Q.cls.2.9 a definir): revisar o atual; mudanças (se houver).
+- [ ] **Modal de classificadores** (Q.cls.2.9 a definir): revisar o atual; alinhar com a skill `modals` (`.app-modal.is-themed`); definir se UX muda (busca, multi-select, persistência ao voltar).
 - [ ] **Tipo selecionado depois → `CLASSIFICATION_UPDATED`** (audit): implementar fluxo de mudança de tipo na detail page.
 - [ ] **Backend `completeClassification`/`updateClassification`** ajustam payload pra ficha unificada (peneiras/fundos array/defeitos agrupados).
 - [ ] **Cross-validation no fluxo da câmera**: implementar avisos específicos dos sub-caminhos 2 (lote diverge), 3a (lote ilegível), 3b (erro técnico → continuar manual), 4 (sacas/safra divergem — escolha campo a campo), 5 (reclassificação).
@@ -1131,10 +1131,22 @@ Próximas frentes pendentes (em ordem do fluxo do operador):
 - [ ] **Migration de tipos**: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA` no enum Postgres (parte da migration final da Fase Q).
 - [ ] **Tests**: completeClassification/updateClassification com novo payload, frontend tests do modal de revisão / tipo / classificadores.
 
-#### Q.cls.2.8. Open items (próximas decisões)
+#### Q.cls.2.8. Modal de seleção de tipo (implementado)
 
-- [ ] **Modal de seleção de tipo**: layout (4 botões? lista? radio?), confirmação obrigatória, botão Voltar.
-- [ ] **Modal de classificadores**: o que muda em relação ao atual? Tipo de busca, validações.
+> Decisões implementadas no commit `8dbe36f`.
+
+- **Posição no fluxo**: entre o modal de revisão e o modal de classificadores. Tipo é metadata pós-extração (decisão de 2026-05-07).
+- **Layout**: grid 2x2 com 4 opções (BICA, PREPARADO, BAIXO, ESCOLHA).
+- **Botão Voltar**: ícone de seta no canto esquerdo do header verde. **Sem X de fechar** — cancelar fica concentrado no modal de revisão (decisão "Modal de tipo tem só Voltar" de 2026-05-08).
+- **ESCOLHA disabled** com hint "Em breve" — habilita junto com a migration final (Q.final) que adiciona `ESCOLHA` no enum.
+- **BAIXO** mapeia pro enum legado `LOW_CAFF` até a migration final renomear no banco.
+- **Click num tipo** seta `classificationType` e avança direto pro modal de classificadores (sem botão Avançar separado — click já é a seleção).
+- **Tipo previamente selecionado** fica destacado com borda verde + glow ao reabrir o modal (operador volta do classifier).
+- **ESC** volta pro modal de revisão.
+
+#### Q.cls.2.9. Open items (próximas decisões)
+
+- [ ] **Modal de classificadores**: alinhar com a skill `modals` (`.app-modal.is-themed`)? Persistência de seleção ao voltar (decidido, mas verificar implementação)? Mudanças no UX da busca?
 - [ ] **CTA "Mudar tipo"** na detail page (já que "tipo" é audit) — fica como? Botão separado ou só dentro de "Reclassificar"?
 - [ ] **Cross-validation expandida**: além de lote/sacas/safra, comparar outros campos? (provavelmente não — outros são preenchidos só pelo classificador).
 
@@ -1239,3 +1251,7 @@ Próximas frentes pendentes (em ordem do fluxo do operador):
 | 2026-05-08 | Validação "≥1 campo da classificação" via overlay de aviso interno                              | Não-bloqueante (botão Avançar sempre habilitado). Ao clicar com 0 campos preenchidos, abre overlay interno (sem novo backdrop) com ícone, mensagem e OK. OK preserva tudo e volta pro form. Decisão: lote, sacas e safra **não** contam (são identificação, não classificação).                 |
 | 2026-05-08 | `mapExtractionToForm(fields, null)` — universal map sempre                                      | Em vez de filtrar por tipo, mapeia os 22 campos da ficha unificada pro form. Modal mostra todos sempre. Filtro por tipo permanece em `buildClassificationDataPayload` (cleanup do `TYPE_CONFIGS` fica pra Q.cls.2.7).                                                                           |
 | 2026-05-08 | Foto da ficha no modal: clicável → `PhotoZoomViewer` existente                                  | Reusa o componente já existente (`components/PhotoZoomViewer.tsx`) com pinch/double-tap/wheel zoom + pan + share + ESC. Foto em cima do form não-sticky, rola junto com os campos. Hint visual "Ampliar" no canto inferior direito da thumb.                                                    |
+| 2026-05-08 | Modal de tipo (Q.cls.2.8) implementado em `ClassificationTypeModal.tsx` (commit `8dbe36f`)      | Grid 2x2 com 4 opções (BICA/PREPARADO/BAIXO/ESCOLHA), header verde com seta de Voltar à esquerda (sem X). Click num tipo seleciona e avança direto pro classifier (sem Avançar separado). ESC = Voltar. Tipo previamente selecionado fica destacado com glow verde ao reabrir.                  |
+| 2026-05-08 | Tipo selecionado pré-câmera (`selecting-type` antigo) **removido** do fluxo                     | Sequência nova: foto → IA extrai → revisão → tipo → classifier → save. IA é type-agnostic (commit `864f619`); `extractFromDetectedForm`/`extractAndPrepareClassification` agora chamados sem `classificationType`. `handleSendPhoto`/`handleContinueWithoutCrop` perdem o param `type`.         |
+| 2026-05-08 | `handleClassifierContinue` dispara `handleConfirmClassification` direto (era `handleSendPhoto`) | Como a extração já rolou antes do classifier modal, "Continuar" agora salva direto. O fluxo de cross-validation (lot-mismatch, data-mismatch) continua acontecendo dentro do `handleConfirmClassification` — sem mudança nesse path.                                                            |
+| 2026-05-08 | ESCOLHA disabled na UI até Q.final habilitar no enum                                            | UI mostra ESCOLHA com badge "Em breve" porque o enum Postgres ainda não tem o valor (será adicionado na migration final junto com o rename `LOW_CAFF` → `BAIXO`). Botão fica `disabled` com cursor `not-allowed`.                                                                               |
