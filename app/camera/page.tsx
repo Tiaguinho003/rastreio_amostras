@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
+import { ClassificationTypeModal } from '../../components/samples/ClassificationTypeModal';
 import {
   ApiError,
   type JsonValue,
@@ -22,7 +23,6 @@ import { compressImage, isHighQualityEnabled, pickQualityFromEnv } from '../../l
 import {
   type ClassificationFormState,
   EMPTY_CLASSIFICATION_FORM,
-  CLASSIFICATION_TYPE_LABEL,
   mapExtractionToForm,
   validateClassificationForm,
   buildClassificationDataPayload,
@@ -554,14 +554,20 @@ function CameraPageContent() {
     });
   }
 
+  // Q.cls.2.8: tipo selecionado DEPOIS da extracao. Continuar do modal de
+  // classificadores dispara o save direto (a IA ja rodou, o tipo e o
+  // classifier ja estao escolhidos). User atual sempre implicito;
+  // co-classificadores opcionais.
   function handleClassifierContinue() {
     if (!classificationType) return;
-    // User atual e sempre incluido implicitamente, entao o botao e sempre
-    // habilitado. Co-classificadores sao opcionais.
-    void handleSendPhoto(classificationType);
+    void handleConfirmClassification();
   }
 
-  async function handleSendPhoto(type: ClassificationType) {
+  // Q.cls.2.8: handleSendPhoto roda assim que o operador clica "Enviar"
+  // no preview da foto. NAO recebe mais tipo — IA e type-agnostic
+  // (commit 864f619). Fluxo: preview → detecting → detected → extracting →
+  // confirming (modal de revisao).
+  async function handleSendPhoto() {
     if (!session || !capturedPhoto) return;
 
     setFlowState('detecting');
@@ -587,14 +593,14 @@ function CameraPageContent() {
 
       // Step 3: Extract from cropped form
       setFlowState('extracting');
-      const result = await extractFromDetectedForm(session, detection.photoToken, type);
+      const result = await extractFromDetectedForm(session, detection.photoToken);
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
       // Q.cls.2.3: ficha unificada — mapeia TODOS os 22 campos pro form
-      // (universal map), independente do tipo selecionado. O modal de
-      // revisao mostra todos; o tipo continua sendo usado em
-      // buildClassificationDataPayload pra filtrar o que vai pro backend.
+      // (universal map). O modal de revisao mostra todos; o tipo,
+      // selecionado depois, e usado em buildClassificationDataPayload
+      // pra filtrar o que vai pro backend.
       const extracted = mapExtractionToForm(result.extractedFields, null);
       setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
@@ -606,8 +612,11 @@ function CameraPageContent() {
     }
   }
 
+  // Q.cls.2.8: continuar sem crop tambem nao recebe mais tipo (IA
+  // type-agnostic). Disparado quando detect-failed: operador opta por
+  // "Continuar assim" e a foto inteira vai pra extracao.
   async function handleContinueWithoutCrop() {
-    if (!session || !capturedPhoto || !classificationType) return;
+    if (!session || !capturedPhoto) return;
 
     setFlowState('extracting');
     setFlowError(null);
@@ -615,8 +624,8 @@ function CameraPageContent() {
     try {
       const compressed = await compressImage(capturedPhoto);
       const result = detectedPhotoToken
-        ? await extractFromDetectedForm(session, detectedPhotoToken, classificationType)
-        : await extractAndPrepareClassification(session, compressed, classificationType);
+        ? await extractFromDetectedForm(session, detectedPhotoToken)
+        : await extractAndPrepareClassification(session, compressed);
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
@@ -998,56 +1007,16 @@ function CameraPageContent() {
                   <button
                     type="button"
                     className="camera-hub-preview-btn-send"
-                    onClick={() => setFlowState('selecting-type')}
+                    onClick={() => void handleSendPhoto()}
                   >
                     Enviar
                   </button>
                 </div>
               ) : null}
 
-              {/* Type selection */}
-              {flowState === 'selecting-type' ? (
-                <div
-                  className="app-modal-backdrop cam-type-backdrop"
-                  onClick={() => setFlowState('preview')}
-                >
-                  <section
-                    className="app-modal cam-type-card"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Selecionar tipo de cafe"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <h3 className="cam-type-title">Qual o tipo do cafe?</h3>
-                    <div className="cam-type-options">
-                      {(['PREPARADO', 'LOW_CAFF', 'BICA'] as ClassificationType[]).map((type) => (
-                        <button
-                          key={type}
-                          type="button"
-                          className="cam-type-btn"
-                          onClick={() => {
-                            setClassificationType(type);
-                            setCoClassifiers([]);
-                            setUserPickerSearch('');
-                            setUserPickerError(null);
-                            void loadAvailableUsersOnce();
-                            setFlowState('selecting-classifier');
-                          }}
-                        >
-                          {CLASSIFICATION_TYPE_LABEL[type]}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="cam-type-cancel"
-                      onClick={() => setFlowState('preview')}
-                    >
-                      Cancelar
-                    </button>
-                  </section>
-                </div>
-              ) : null}
+              {/* Q.cls.2.8: tipo selecionado APOS extracao — modal renderizado
+                  no nivel raiz (fora do .camera-hub) junto com os outros
+                  modais. Veja <ClassificationTypeModal /> abaixo. */}
 
               {/* Classifier phase */}
               {flowState === 'selecting-classifier' ? (
@@ -1483,12 +1452,11 @@ function CameraPageContent() {
         </div>
       ) : null}
 
-      {/* Q.cls.2.3: Modal de revisao da ficha unificada (substitui o
-          ClassificationConfirmModal antigo). Os 22 campos da ficha sao
-          renderizados independentemente do tipo selecionado — tipo vira
-          metadata pos-extracao na Q.cls.2 (commit 864f619). */}
+      {/* Q.cls.2.3: Modal de revisao da ficha unificada. Avancar dispara
+          o modal de tipo (Q.cls.2.8) — save final acontece apos
+          classifier-modal. */}
       <ClassificationReviewModal
-        open={(flowState === 'confirming' || flowState === 'submitting') && !!extractionResult}
+        open={flowState === 'confirming' && !!extractionResult}
         photoUrl={capturedPhotoUrl}
         identification={{
           lote: extractionResult?.identification.lote ?? null,
@@ -1501,9 +1469,25 @@ function CameraPageContent() {
         form={classificationForm}
         onFormChange={updateFormField}
         errorMessage={flowError}
-        saving={flowState === 'submitting'}
+        saving={false}
         onCancel={resetClassificationFlow}
-        onAdvance={() => void handleConfirmClassification()}
+        onAdvance={() => setFlowState('selecting-type')}
+      />
+
+      {/* Q.cls.2.8: Modal de selecao de tipo (entre revisao e classifiers).
+          Click num tipo seta classificationType e avanca pro classifier
+          modal. Voltar (seta no header) volta pro modal de revisao. */}
+      <ClassificationTypeModal
+        open={flowState === 'selecting-type' && !!extractionResult}
+        selectedType={classificationType}
+        onBack={() => setFlowState('confirming')}
+        onSelect={(type) => {
+          setClassificationType(type);
+          setUserPickerSearch('');
+          setUserPickerError(null);
+          void loadAvailableUsersOnce();
+          setFlowState('selecting-classifier');
+        }}
       />
     </AppShell>
   );
