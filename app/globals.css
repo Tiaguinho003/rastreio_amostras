@@ -9988,6 +9988,12 @@ button:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Q.cls.2.7 cleanup: peneiras na ficha unificada usam 2 linhas de 5
+   campos (P18..P14 / P13..P10+MK). */
+.cld-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .cld-grid-6 {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }

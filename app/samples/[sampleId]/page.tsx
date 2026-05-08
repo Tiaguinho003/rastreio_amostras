@@ -62,16 +62,11 @@ import {
   type ClassificationTechnicalPayload,
   CLASSIFICATION_TYPE_LABEL,
   EMPTY_CLASSIFICATION_FORM,
-  SIEVE_FIELDS,
-  NUMERIC_FIELDS,
-  ALL_SIEVE_FIELDS,
-  parseNumberInput,
   getTodayDateInput,
   validateClassificationForm,
   buildClassificationDataPayload,
   buildTechnicalFromClassificationData,
   mapExtractionToForm,
-  getTypeConfig,
 } from '../../../lib/classification-form';
 
 type LabelModalStep = 'review' | 'completed';
@@ -3409,18 +3404,6 @@ export default function SampleDetailPage() {
                   </header>
 
                   {(() => {
-                    const typeConfig = getTypeConfig(detail.sample.classificationType);
-                    const sieveList = typeConfig?.sieveFields ?? ALL_SIEVE_FIELDS;
-                    const defectList = typeConfig?.defectFields ?? [
-                      { key: 'broca' as const, label: 'Broca' },
-                      { key: 'pva' as const, label: 'PVA' },
-                      { key: 'imp' as const, label: 'Impureza' },
-                      { key: 'defeito' as const, label: 'Defeito' },
-                      { key: 'ap' as const, label: 'AP' },
-                      { key: 'gpi' as const, label: 'GPI' },
-                    ];
-                    const showFundo2 = typeConfig?.hasFundo2 !== false;
-                    const classificationType = detail.sample.classificationType;
                     return (
                       <div className={`cld-body${saved ? ' is-saved' : ''}`}>
                         <div className="cld-photo-section">
@@ -3444,26 +3427,24 @@ export default function SampleDetailPage() {
                           )}
                         </div>
 
+                        {/* Q.cls.2.7 cleanup: ficha unificada — sem ramificacao
+                            por classificationType. Layout espelha o
+                            ClassificationReviewModal (identificacao → visual →
+                            peneiras 2x5 → fundos → catacao+defeitos → obs+beb). */}
                         <div className="cld-section is-general">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
-                            Geral
+                            Identificação
                           </div>
-                          <div className="cld-grid cld-grid-2">
+                          <div className="cld-grid cld-grid-3">
                             {renderStatic('Lote', detail.sample.internalLotNumber)}
                             {renderStatic('Sacas', detail.sample.declared.sacks)}
+                            {renderStatic('Safra', detail.sample.declared.harvest)}
                           </div>
-                          <div className="cld-grid cld-grid-4">
-                            {renderVal('padrao', 'Padrao')}
-                            {renderVal('safra', 'Safra')}
+                          <div className="cld-grid cld-grid-3">
+                            {renderVal('padrao', 'Padrão')}
                             {renderVal('aspecto', 'Aspecto')}
                             {renderVal('certif', 'Certif.')}
-                          </div>
-                          <div className="cld-grid cld-grid-4">
-                            {renderVal('catacao', 'Catacao')}
-                            {renderVal('broca', 'Broca', 'decimal')}
-                            {renderVal('pva', 'PVA', 'decimal')}
-                            {renderVal('bebida', 'Bebida')}
                           </div>
                         </div>
 
@@ -3598,111 +3579,70 @@ export default function SampleDetailPage() {
                           ) : null}
                         </div>
 
-                        {classificationType === 'BICA' && (
-                          <div className="cld-section is-sieves">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Peneiras <span className="cld-section-unit">%</span>
-                            </div>
-                            <div className="cld-grid cld-grid-3">
-                              {renderVal('peneiraP17', 'P.17', 'decimal')}
-                              {renderVal('peneiraMk', 'MK', 'decimal')}
-                              {renderVal('imp', 'Impureza', 'decimal')}
-                            </div>
+                        <div className="cld-section is-sieves">
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Peneiras <span className="cld-section-unit">%</span>
                           </div>
-                        )}
-                        {classificationType === 'LOW_CAFF' && (
-                          <div className="cld-section is-sieves">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Peneiras <span className="cld-section-unit">%</span>
-                            </div>
-                            <div className="cld-grid cld-grid-6">
-                              {renderVal('peneiraP15', 'P.15', 'decimal')}
-                              {renderVal('peneiraP14', 'P.14', 'decimal')}
-                              {renderVal('peneiraP13', 'P.13', 'decimal')}
-                              {renderVal('peneiraP12', 'P.12', 'decimal')}
-                              {renderVal('peneiraP11', 'P.11', 'decimal')}
-                              {renderVal('peneiraP10', 'P.10', 'decimal')}
-                            </div>
+                          <div className="cld-grid cld-grid-5">
+                            {renderVal('peneiraP18', 'P18', 'decimal')}
+                            {renderVal('peneiraP17', 'P17', 'decimal')}
+                            {renderVal('peneiraP16', 'P16', 'decimal')}
+                            {renderVal('peneiraP15', 'P15', 'decimal')}
+                            {renderVal('peneiraP14', 'P14', 'decimal')}
                           </div>
-                        )}
-                        {classificationType === 'PREPARADO' && (
-                          <div className="cld-section is-sieves">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Peneiras <span className="cld-section-unit">%</span>
-                            </div>
-                            <div className="cld-grid cld-grid-6">
-                              {renderVal('peneiraP19', 'P.19', 'decimal')}
-                              {renderVal('peneiraP18', 'P.18', 'decimal')}
-                              {renderVal('peneiraP17', 'P.17', 'decimal')}
-                              {renderVal('peneiraP16', 'P.16', 'decimal')}
-                              {renderVal('peneiraP15', 'P.15', 'decimal')}
-                              {renderVal('peneiraP14', 'P.14', 'decimal')}
-                            </div>
-                            <div className="cld-grid cld-grid-3">
-                              {renderVal('peneiraMk', 'MK', 'decimal')}
-                              {renderVal('defeito', 'Defeito', 'decimal')}
-                              {renderVal('imp', 'Impureza', 'decimal')}
-                            </div>
+                          <div className="cld-grid cld-grid-5">
+                            {renderVal('peneiraP13', 'P13', 'decimal')}
+                            {renderVal('peneiraP12', 'P12', 'decimal')}
+                            {renderVal('peneiraP11', 'P11', 'decimal')}
+                            {renderVal('peneiraP10', 'P10', 'decimal')}
+                            {renderVal('peneiraMk', 'MK', 'decimal')}
                           </div>
-                        )}
-                        {!classificationType && sieveList.length > 0 && (
-                          <div className="cld-section is-sieves">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Peneiras <span className="cld-section-unit">%</span>
-                            </div>
-                            <div className="cld-grid cld-grid-4">
-                              {sieveList.map((sf) => renderVal(sf.key, sf.label, 'decimal'))}
-                            </div>
-                          </div>
-                        )}
-
-                        {classificationType === 'LOW_CAFF' && (
-                          <div className="cld-section is-defects">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Defeitos e analises
-                            </div>
-                            <div className="cld-grid cld-grid-4">
-                              {renderVal('ap', 'AP (%)', 'decimal')}
-                              {renderVal('gpi', 'GPI', 'decimal')}
-                              {renderVal('defeito', 'Defeito', 'decimal')}
-                              {renderVal('imp', 'Impureza', 'decimal')}
-                            </div>
-                          </div>
-                        )}
-                        {!classificationType && defectList.length > 0 && (
-                          <div className="cld-section is-defects">
-                            <div className="cld-section-title">
-                              <span className="cld-dot" />
-                              Defeitos e analises
-                            </div>
-                            <div className="cld-grid cld-grid-4">
-                              {defectList.map((df) => renderVal(df.key, df.label, 'decimal'))}
-                            </div>
-                          </div>
-                        )}
+                        </div>
 
                         <div className="cld-section is-funds">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
                             Fundos
                           </div>
-                          <div className={`cld-grid ${showFundo2 ? 'cld-grid-4' : 'cld-grid-2'}`}>
+                          <div className="cld-grid cld-grid-4">
                             {renderVal('fundo1Peneira', 'FD1 Pen.')}
                             {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
-                            {showFundo2 && renderVal('fundo2Peneira', 'FD2 Pen.')}
-                            {showFundo2 && renderVal('fundo2Percent', 'FD2 %', 'decimal')}
+                            {renderVal('fundo2Peneira', 'FD2 Pen.')}
+                            {renderVal('fundo2Percent', 'FD2 %', 'decimal')}
                           </div>
+                        </div>
+
+                        <div className="cld-section is-defects">
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Catação e defeitos
+                          </div>
+                          <div className="cld-grid cld-grid-3">
+                            {renderVal('catacao', 'Cat.')}
+                            {renderVal('imp', 'Imp.')}
+                            {renderVal('pva', 'PVA')}
+                          </div>
+                          <div className="cld-grid cld-grid-3">
+                            {renderVal('broca', 'Broca')}
+                            {renderVal('gpi', 'GPI')}
+                            {renderVal('ap', 'AP')}
+                          </div>
+                          <div className="cld-grid cld-grid-1">{renderVal('defeito', 'Def.')}</div>
+                        </div>
+
+                        <div className="cld-section is-bebida">
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Bebida
+                          </div>
+                          {renderVal('bebida', 'Beb.')}
                         </div>
 
                         <div className="cld-section is-notes">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
-                            Observacoes
+                            Observações
                           </div>
                           {editing ? (
                             <textarea
