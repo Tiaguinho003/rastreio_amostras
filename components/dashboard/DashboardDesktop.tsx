@@ -159,12 +159,10 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     };
   }, [session]);
 
-  // Fase P4: card "Impressao pendente" escondido enquanto Fase Pb (impressao
-  // pos-classificacao) nao existe. Sample em REGISTRATION_CONFIRMED agora
-  // entra em CLASSIFICATION_PENDING. `printTotal` deixa de ser exibido
-  // (mantido no backend pra compat de API).
-  const classificationTotal =
-    (data?.classificationPending.total ?? 0) + (data?.classificationInProgress?.total ?? 0);
+  // Q.print: card "Impressao pendente" cortado definitivamente (decisao
+  // Q.1.c #20). PrintJob agora vive como informacao auxiliar dentro do
+  // detalhe da amostra, nao no dashboard.
+  const classificationTotal = data?.classificationPending.total ?? 0;
 
   return (
     <div className="dashboard-desktop">
@@ -172,8 +170,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         {error ? <p className="error">{error}</p> : null}
 
         <div className="dd-summary-row">
-          {/* Fase P4: card "Impressao pendente" removido (volta na Fase Pb
-              quando a impressao pos-classificacao for implementada). */}
           {data ? (
             <button
               type="button"

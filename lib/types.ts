@@ -36,19 +36,19 @@ export type ClientAuditEventType =
   | 'CLIENT_UNIT_INACTIVATED'
   | 'CLIENT_UNIT_REACTIVATED';
 
+// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos. Impressao virou acao
+// pura — PrintJob (PENDING/SUCCESS/FAILED/EXPIRED) e a fonte de verdade
+// e o status do sample fica em REGISTRATION_CONFIRMED ate a classificacao.
 export type SampleStatus =
   | 'PHYSICAL_RECEIVED'
   | 'REGISTRATION_IN_PROGRESS'
   | 'REGISTRATION_CONFIRMED'
-  | 'QR_PENDING_PRINT'
-  | 'QR_PRINTED'
   | 'CLASSIFICATION_IN_PROGRESS'
   | 'CLASSIFIED'
   | 'INVALIDATED';
 
 export type CommercialStatus = 'OPEN' | 'PARTIALLY_SOLD' | 'SOLD' | 'LOST';
-export type PrintAction = 'PRINT' | 'REPRINT';
-export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED';
 export type SampleMovementType = 'SALE' | 'LOSS';
 export type SampleMovementStatus = 'ACTIVE' | 'CANCELLED';
 
@@ -478,9 +478,10 @@ export interface SampleEvent {
   };
 }
 
+// Q.print: printAction nao distingue mais PRINT/REPRINT — toda impressao
+// usa attemptNumber sequencial (1, 2, 3...).
 export interface LatestPrintJob {
   jobId: string;
-  printAction: PrintAction;
   attemptNumber: number;
   status: PrintJobStatus;
   printerId: string | null;
@@ -536,34 +537,14 @@ export interface ListSamplesResponse {
   };
 }
 
+// Q.print: dashboard simplificou — printPending sumiu (card "Aguardando
+// impressao" cortado), pendingCounts/oldestPending/classificationInProgress
+// ficaram obsoletos. Resta apenas classificationPending (samples em RC).
 export interface DashboardPendingResponse {
-  pendingCounts: {
-    PHYSICAL_RECEIVED: number;
-    REGISTRATION_IN_PROGRESS: number;
-    QR_PENDING_PRINT: number;
-    CLASSIFICATION_IN_PROGRESS: number;
-  };
-  totalPending: number;
   todayReceivedTotal: number;
-  oldestPending: SampleSnapshot[];
-  printPending: {
-    counts: {
-      REGISTRATION_CONFIRMED: number;
-      QR_PENDING_PRINT: number;
-    };
-    total: number;
-    items: SampleSnapshot[];
-  };
   classificationPending: {
     counts: {
-      QR_PRINTED: number;
-    };
-    total: number;
-    items: SampleSnapshot[];
-  };
-  classificationInProgress: {
-    counts: {
-      CLASSIFICATION_IN_PROGRESS: number;
+      REGISTRATION_CONFIRMED: number;
     };
     total: number;
     items: SampleSnapshot[];
@@ -725,7 +706,6 @@ export interface CreateSampleResponse {
 export interface PendingPrintJob {
   jobId: string;
   sampleId: string;
-  printAction: PrintAction;
   attemptNumber: number;
   printerId: string | null;
   createdAt: string;

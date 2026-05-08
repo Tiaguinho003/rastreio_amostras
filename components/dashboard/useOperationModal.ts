@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
 
-export type OperationPanel = 'print_pending' | 'classification_pending' | null;
+// Q.print: card "Impressao pendente" cortado — so resta classification_pending.
+export type OperationPanel = 'classification_pending' | null;
 export type OperationPanelKey = Exclude<OperationPanel, null>;
 
 export interface OperationModalData {
@@ -25,23 +26,12 @@ function buildOperationModalData(
     return null;
   }
 
-  if (activePanel === 'print_pending') {
-    return {
-      modalId: 'dashboard-operation-modal-print-pending',
-      title: 'Impressao pendente',
-      emptyMessage: 'Nenhuma amostra com impressao pendente.',
-      total: data.printPending.total,
-      items: data.printPending.items,
-      themeClass: 'is-status-print-pending',
-    };
-  }
-
   return {
     modalId: 'dashboard-operation-modal-classification-pending',
     title: 'Aguardando classificacao',
     emptyMessage: 'Nenhuma amostra aguardando classificacao.',
-    total: data.classificationPending.total + (data.classificationInProgress?.total ?? 0),
-    items: [...data.classificationPending.items, ...(data.classificationInProgress?.items ?? [])],
+    total: data.classificationPending.total,
+    items: data.classificationPending.items,
     themeClass: 'is-status-classification-pending',
   };
 }

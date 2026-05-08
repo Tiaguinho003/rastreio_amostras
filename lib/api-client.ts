@@ -1139,55 +1139,25 @@ export function resolveSampleByLot(session: SessionData, lotNumber: string) {
   );
 }
 
+// Q.print: requestQrPrint virou acao pura — backend gerencia attemptNumber
+// e nao exige expectedVersion. requestQrReprint foi removido.
 export function requestQrPrint(
   session: SessionData,
   sampleId: string,
   data: {
-    expectedVersion: number;
-    attemptNumber?: number;
     printerId?: string | null;
-  }
+    idempotencyKey?: string;
+  } = {}
 ) {
   const body: { [key: string]: JsonValue } = {
-    expectedVersion: data.expectedVersion,
     printerId: data.printerId ?? null,
   };
-
-  if (typeof data.attemptNumber === 'number') {
-    body.attemptNumber = data.attemptNumber;
-  }
-
-  return request<CommandResponse>(`/samples/${sampleId}/qr/print/request`, {
-    method: 'POST',
-    session,
-    body,
-  });
-}
-
-export function requestQrReprint(
-  session: SessionData,
-  sampleId: string,
-  data: {
-    attemptNumber?: number;
-    printerId?: string | null;
-    reasonText?: string | null;
-    idempotencyKey?: string;
-  }
-) {
-  const body: { [key: string]: JsonValue } = {};
-
-  if (typeof data.attemptNumber === 'number') {
-    body.attemptNumber = data.attemptNumber;
-  }
-
-  body.printerId = data.printerId ?? null;
-  body.reasonText = data.reasonText ?? null;
 
   if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
     body.idempotencyKey = data.idempotencyKey;
   }
 
-  return request<CommandResponse>(`/samples/${sampleId}/qr/reprint/request`, {
+  return request<CommandResponse>(`/samples/${sampleId}/qr/print/request`, {
     method: 'POST',
     session,
     body,
@@ -1201,14 +1171,12 @@ export function recordQrPrintFailed(
     attemptNumber: number;
     printerId?: string | null;
     error: string;
-    printAction?: 'PRINT' | 'REPRINT';
   }
 ) {
   return request<CommandResponse>(`/samples/${sampleId}/qr/print/failed`, {
     method: 'POST',
     session,
     body: {
-      printAction: data.printAction ?? 'PRINT',
       attemptNumber: data.attemptNumber,
       printerId: data.printerId ?? null,
       error: data.error,
@@ -1220,18 +1188,14 @@ export function recordQrPrinted(
   session: SessionData,
   sampleId: string,
   data: {
-    expectedVersion: number;
     attemptNumber: number;
     printerId?: string | null;
-    printAction?: 'PRINT' | 'REPRINT';
   }
 ) {
   return request<CommandResponse>(`/samples/${sampleId}/qr/printed`, {
     method: 'POST',
     session,
     body: {
-      expectedVersion: data.expectedVersion,
-      printAction: data.printAction ?? 'PRINT',
       attemptNumber: data.attemptNumber,
       printerId: data.printerId ?? null,
     },

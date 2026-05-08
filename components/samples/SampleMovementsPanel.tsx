@@ -19,10 +19,10 @@ import type {
 } from '../../lib/types';
 
 // Mesmo conjunto do backend (src/samples/sample-command-service.js).
+// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos como status (impressao
+// virou acao pura).
 const COMMERCIAL_ALLOWED_STATUSES: readonly SampleStatus[] = [
   'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
   'CLASSIFIED',
 ];
 import { SampleMovementModal } from './SampleMovementModal';

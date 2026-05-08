@@ -7,6 +7,8 @@ import type { SampleStatus } from '../lib/types';
 // enum Postgres mas nenhum sample novo entra neles. Escondemos o badge pra
 // não vazar artefato técnico na UI. Drop dos enum values fica pra migration
 // final da Fase Q.
+// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em RC ate
+// a classificacao e a etiqueta vira informacao auxiliar via PrintJob.
 const HIDDEN_STATUS_BADGE = new Set<SampleStatus>([
   'PHYSICAL_RECEIVED',
   'REGISTRATION_IN_PROGRESS',
@@ -16,9 +18,7 @@ const HIDDEN_STATUS_BADGE = new Set<SampleStatus>([
 const STATUS_LABEL: Record<SampleStatus, string> = {
   PHYSICAL_RECEIVED: '',
   REGISTRATION_IN_PROGRESS: '',
-  REGISTRATION_CONFIRMED: 'Impressao pendente',
-  QR_PENDING_PRINT: 'Impressao pendente',
-  QR_PRINTED: 'Classificacao pendente',
+  REGISTRATION_CONFIRMED: 'Aguardando classificacao',
   CLASSIFICATION_IN_PROGRESS: '',
   CLASSIFIED: 'Classificada',
   INVALIDATED: 'Invalidada',
@@ -27,9 +27,7 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
 const STATUS_STYLE: Record<SampleStatus, string> = {
   PHYSICAL_RECEIVED: 'status-badge-neutral',
   REGISTRATION_IN_PROGRESS: 'status-badge-neutral',
-  REGISTRATION_CONFIRMED: 'status-badge-print-pending',
-  QR_PENDING_PRINT: 'status-badge-print-pending',
-  QR_PRINTED: 'status-badge-warning',
+  REGISTRATION_CONFIRMED: 'status-badge-warning',
   CLASSIFICATION_IN_PROGRESS: 'status-badge-neutral',
   CLASSIFIED: 'status-badge-success',
   INVALIDATED: 'status-badge-danger',

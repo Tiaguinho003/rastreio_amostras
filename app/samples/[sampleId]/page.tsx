@@ -23,7 +23,6 @@ import {
   listSampleMovements,
   lookupUsersForReference,
   recordPhysicalSampleSent,
-  requestQrReprint,
   requestQrPrint,
   updateClassification,
   updatePhysicalSampleSend,
@@ -47,7 +46,6 @@ import type {
   CommercialStatus,
   ExtractionResult,
   InvalidateReasonCode,
-  PrintAction,
   SampleDetailResponse,
   SampleEvent,
   SampleExportType,
@@ -73,13 +71,10 @@ import {
 type LabelModalStep = 'review' | 'completed';
 type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
-const CLASSIFICATION_STATUSES: SampleStatus[] = ['QR_PRINTED', 'CLASSIFIED'];
-const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFIED',
-];
+// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
+// REGISTRATION_CONFIRMED ate ser classificada.
+const CLASSIFICATION_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
+const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 
 const INVALIDATE_REASON_OPTIONS: Array<{ value: InvalidateReasonCode; label: string }> = [
   { value: 'DUPLICATE', label: 'Duplicada' },
@@ -183,7 +178,8 @@ function buildClassificationFormState(
     ? detail.sample.latestClassification.data
     : {};
   const draftData =
-    detail.sample.status === 'QR_PRINTED' && isRecord(detail.sample.classificationDraft.snapshot)
+    detail.sample.status === 'REGISTRATION_CONFIRMED' &&
+    isRecord(detail.sample.classificationDraft.snapshot)
       ? detail.sample.classificationDraft.snapshot
       : {};
   const mergedData = { ...latestData, ...draftData };
@@ -294,14 +290,14 @@ function canEditRegistrationStatus(status: SampleStatus): boolean {
   return REGISTRATION_EDITABLE_STATUSES.includes(status);
 }
 
+// Q.print: impressao virou acao pura — sempre permitida quando o sample
+// nao esta INVALIDATED. Mantido o nome legacy `Reprint` na UI por simetria.
 function canRequestReprintStatus(status: SampleStatus): boolean {
-  return status === 'QR_PENDING_PRINT' || status === 'QR_PRINTED' || status === 'CLASSIFIED';
+  return status !== 'INVALIDATED';
 }
 
 const PHYSICAL_SEND_ALLOWED_STATUSES = new Set<SampleStatus>([
   'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
   'CLASSIFIED',
 ]);
 
@@ -427,12 +423,10 @@ function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): 
   return `classificacao-${lot}-${datePart}.jpg`;
 }
 
+// Q.print: impressao virou acao pura — sample fica em RC ate a
+// classificacao, sem etapas QR_PENDING_PRINT/QR_PRINTED.
 function getOperationalStatusDotTone(status: SampleStatus) {
-  if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
-    return 'warning';
-  }
-
-  if (status === 'QR_PRINTED') {
+  if (status === 'REGISTRATION_CONFIRMED') {
     return 'pending';
   }
 
@@ -444,12 +438,8 @@ function getOperationalStatusDotTone(status: SampleStatus) {
 }
 
 function getOperationalStatusDotLabel(status: SampleStatus) {
-  if (status === 'REGISTRATION_CONFIRMED' || status === 'QR_PENDING_PRINT') {
-    return 'Impressao pendente';
-  }
-
-  if (status === 'QR_PRINTED') {
-    return 'Classificacao pendente';
+  if (status === 'REGISTRATION_CONFIRMED') {
+    return 'Aguardando classificacao';
   }
 
   if (status === 'CLASSIFIED') {
@@ -491,24 +481,17 @@ function getCommercialStatusDotLabel(status: CommercialStatus) {
   return 'Perdido';
 }
 
-function buildLabelModalTitle(step: LabelModalStep, action: PrintAction | null) {
+// Q.print: impressao virou acao pura — sem distinguir PRINT/REPRINT.
+function buildLabelModalTitle(step: LabelModalStep) {
   if (step === 'review') {
     return 'Confirme os dados da etiqueta';
   }
 
-  return action === 'REPRINT' ? 'Reimpressao enviada' : 'Impressao enviada';
+  return 'Impressao enviada';
 }
 
-function getLabelPrintActionForStatus(status: SampleStatus): PrintAction | null {
-  if (status === 'REGISTRATION_CONFIRMED') {
-    return 'PRINT';
-  }
-
-  if (canRequestReprintStatus(status)) {
-    return 'REPRINT';
-  }
-
-  return null;
+function getLabelPrintActionForStatus(status: SampleStatus): boolean {
+  return status !== 'INVALIDATED';
 }
 
 function mapSampleOwnerClientToSummary(
@@ -903,9 +886,7 @@ export default function SampleDetailPage() {
     () => detail?.sample.internalLotNumber ?? detail?.sample.id ?? '',
     [detail?.sample.internalLotNumber, detail?.sample.id]
   );
-  const printFailed = detail
-    ? detail.sample.status === 'QR_PENDING_PRINT' && detail.latestPrintJob?.status === 'FAILED'
-    : false;
+  const printFailed = detail?.latestPrintJob?.status === 'FAILED';
   const canQuickPrint = detail
     ? detail.sample.status === 'REGISTRATION_CONFIRMED' ||
       canRequestReprintStatus(detail.sample.status)
@@ -917,10 +898,11 @@ export default function SampleDetailPage() {
   const labelModalPrintAction = detail ? getLabelPrintActionForStatus(detail.sample.status) : null;
   const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationShowsWorkspace = Boolean(
-    detail && (detail.sample.status === 'QR_PRINTED' || detail.sample.status === 'CLASSIFIED')
+    detail &&
+    (detail.sample.status === 'REGISTRATION_CONFIRMED' || detail.sample.status === 'CLASSIFIED')
   );
   const classificationPhotoEditingAllowed =
-    detail?.sample.status === 'QR_PRINTED' ||
+    detail?.sample.status === 'REGISTRATION_CONFIRMED' ||
     (detail?.sample.status === 'CLASSIFIED' && classificationEditMode);
   const classificationFieldsReadOnly =
     detail?.sample.status === 'CLASSIFIED' && !classificationEditMode;
@@ -1460,25 +1442,15 @@ export default function SampleDetailPage() {
     try {
       const normalizedPrinterId = printerId.trim() || null;
 
-      if (printAction === 'PRINT') {
-        await requestQrPrint(session, sampleId, {
-          expectedVersion: detail.sample.version,
-          printerId: normalizedPrinterId,
-        });
-      } else {
-        await requestQrReprint(session, sampleId, {
-          printerId: normalizedPrinterId,
-          reasonText: null,
-        });
-      }
+      // Q.print: impressao virou acao pura — uma rota so, sem distinguir
+      // PRINT/REPRINT (attemptNumber e gerado no backend).
+      await requestQrPrint(session, sampleId, {
+        printerId: normalizedPrinterId,
+      });
 
       void refreshDetail();
       setLabelModalStep('completed');
-      setLabelModalMessage(
-        printAction === 'PRINT'
-          ? 'Etiqueta enviada para a fila de impressao.'
-          : 'Reimpressao enviada para a fila de impressao.'
-      );
+      setLabelModalMessage('Etiqueta enviada para a fila de impressao.');
     } catch (cause) {
       if (cause instanceof ApiError) {
         setLabelModalError(cause.message);
@@ -1678,11 +1650,7 @@ export default function SampleDetailPage() {
   }
 
   async function handleCompleteClassification() {
-    if (
-      !session ||
-      !detail ||
-      (detail.sample.status !== 'REGISTRATION_CONFIRMED' && detail.sample.status !== 'QR_PRINTED')
-    ) {
+    if (!session || !detail || detail.sample.status !== 'REGISTRATION_CONFIRMED') {
       return;
     }
 
@@ -3008,7 +2976,7 @@ export default function SampleDetailPage() {
           >
             <header className="new-sample-label-modal-header">
               <h3 id="sample-detail-label-modal-title" className="new-sample-label-modal-title">
-                {buildLabelModalTitle(labelModalStep, labelModalPrintAction)}
+                {buildLabelModalTitle(labelModalStep)}
               </h3>
 
               {canCloseLabelModal ? (
@@ -3070,11 +3038,7 @@ export default function SampleDetailPage() {
                     disabled={labelModalSubmitting}
                     onClick={() => void handleSubmitLabelReview()}
                   >
-                    {labelModalSubmitting
-                      ? 'Enviando...'
-                      : labelModalPrintAction === 'REPRINT'
-                        ? 'Reimprimir etiqueta'
-                        : 'Imprimir etiqueta'}
+                    {labelModalSubmitting ? 'Enviando...' : 'Imprimir etiqueta'}
                   </button>
                   <button
                     type="button"

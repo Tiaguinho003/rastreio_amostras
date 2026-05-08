@@ -102,12 +102,9 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                       <path d="m20 8.2-8.6 8.6a2.2 2.2 0 0 1-3.1 0L5.2 13.7a2.2 2.2 0 0 1 0-3.1L13.8 2 20 8.2Z" />
                       <circle cx="14.6" cy="6.1" r="1" />
                     </svg>
-                    {data.classificationPending.total +
-                      (data.classificationInProgress?.total ?? 0) >
-                    0 ? (
+                    {data.classificationPending.total > 0 ? (
                       <span className="dashboard-operation-badge">
-                        {data.classificationPending.total +
-                          (data.classificationInProgress?.total ?? 0)}
+                        {data.classificationPending.total}
                       </span>
                     ) : null}
                   </span>

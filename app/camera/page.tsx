@@ -818,7 +818,6 @@ function CameraPageContent() {
       if (
         contextSampleStatus &&
         contextSampleStatus !== 'REGISTRATION_CONFIRMED' &&
-        contextSampleStatus !== 'QR_PRINTED' &&
         contextSampleStatus !== 'CLASSIFIED'
       ) {
         setFlowError('Amostra nao pode ser classificada (status invalido).');
@@ -892,7 +891,6 @@ function CameraPageContent() {
 
         if (
           resolved.sample.status !== 'REGISTRATION_CONFIRMED' &&
-          resolved.sample.status !== 'QR_PRINTED' &&
           resolved.sample.status !== 'CLASSIFIED'
         ) {
           setFlowError('Amostra nao pode ser classificada (status invalido).');
