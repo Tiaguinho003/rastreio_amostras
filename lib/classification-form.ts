@@ -4,8 +4,9 @@ import type { ClassificationType } from './types';
 // Q.cls.2 ficha unificada — modelo TS do form + payloads enviados pro
 // backend. Espelha o schema CLASSIFICATION_COMPLETED.payload da
 // classificacao (peneiras/fundos/defeitos agrupados, sem safra/p19/
-// deprecated). Tipo da classificacao (BICA/PREPARADO/LOW_CAFF) virou
-// metadata pos-extracao — todos os campos sao validos pra qualquer tipo.
+// deprecated). Tipo da classificacao (BICA/PREPARADO/BAIXO/ESCOLHA, apos
+// Q.types) virou metadata pos-extracao — todos os campos sao validos pra
+// qualquer tipo.
 // ----------------------------------------------------------------------
 
 // --- Form state ---
@@ -126,9 +127,10 @@ export type ClassificationTechnicalPayload = {
 // --- Constants ---
 
 export const CLASSIFICATION_TYPE_LABEL: Record<ClassificationType, string> = {
-  PREPARADO: 'PREPARADO',
-  LOW_CAFF: 'CAFÉ BAIXO',
   BICA: 'BICA',
+  PREPARADO: 'PREPARADO',
+  BAIXO: 'BAIXO',
+  ESCOLHA: 'ESCOLHA',
 };
 
 // Campos do form que vao pra peneiras + percentuais dos fundos (number

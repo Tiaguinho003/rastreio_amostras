@@ -3440,13 +3440,8 @@ export default function SampleDetailPage() {
                               <option value="">— Sem tipo —</option>
                               <option value="BICA">BICA</option>
                               <option value="PREPARADO">PREPARADO</option>
-                              {/* BAIXO mapeia pro enum legado LOW_CAFF até a
-                                  migration final renomear no banco (Q.final). */}
-                              <option value="LOW_CAFF">BAIXO</option>
-                              {/* ESCOLHA disabled até Q.final adicionar no enum. */}
-                              <option value="ESCOLHA" disabled>
-                                ESCOLHA (Em breve)
-                              </option>
+                              <option value="BAIXO">BAIXO</option>
+                              <option value="ESCOLHA">ESCOLHA</option>
                             </select>
                           ) : (
                             <span className="cld-field-value">

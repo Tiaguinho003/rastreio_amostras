@@ -20,7 +20,7 @@ export interface UserLookupResponse {
 export type InitialPasswordDecision = 'PENDING' | 'KEPT' | 'CHANGED';
 export type UpdateReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 export type InvalidateReasonCode = 'DUPLICATE' | 'WRONG_SAMPLE' | 'DAMAGED' | 'CANCELLED' | 'OTHER';
-export type ClassificationType = 'PREPARADO' | 'LOW_CAFF' | 'BICA';
+export type ClassificationType = 'BICA' | 'PREPARADO' | 'BAIXO' | 'ESCOLHA';
 export type ClientPersonType = 'PF' | 'PJ';
 export type ClientStatus = 'ACTIVE' | 'INACTIVE';
 export type ClientUnitStatus = 'ACTIVE' | 'INACTIVE';

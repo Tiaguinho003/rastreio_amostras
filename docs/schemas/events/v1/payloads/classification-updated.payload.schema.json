@@ -22,7 +22,7 @@
     },
     "classificationType": {
       "type": ["string", "null"],
-      "enum": ["PREPARADO", "LOW_CAFF", "BICA", null]
+      "enum": ["BICA", "PREPARADO", "BAIXO", "ESCOLHA", null]
     }
   },
   "required": ["before", "after", "reasonText", "reasonCode"],

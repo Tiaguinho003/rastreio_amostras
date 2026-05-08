@@ -7,36 +7,23 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 
 // Q.cls.2.8: Modal de selecao do tipo da classificacao. Aparece DEPOIS
 // do modal de revisao (tipo virou metadata pos-extracao na Q.cls.2). Click
-// num tipo habilitado seleciona e avanca pro modal de classificadores
-// automaticamente (sem botao Avancar separado). Botao Voltar = seta no
-// canto esquerdo do header verde — sem X (cancelar fica concentrado no
-// modal de revisao).
+// num tipo seleciona e avanca pro modal de classificadores automaticamente
+// (sem botao Avancar separado). Botao Voltar = seta no canto esquerdo do
+// header verde — sem X (cancelar fica concentrado no modal de revisao).
 //
-// 4 tipos no plano: BICA, PREPARADO, BAIXO, ESCOLHA. Hoje, ESCOLHA fica
-// disabled com hint "Em breve" — sera habilitado em Q.final junto com a
-// migration que renomeia LOW_CAFF → BAIXO e adiciona ESCOLHA no enum.
+// Q.types: 4 tipos habilitados (BICA, PREPARADO, BAIXO, ESCOLHA). Antes,
+// "BAIXO" mapeava pro enum legado LOW_CAFF e ESCOLHA ficava disabled.
 
-type EnabledChoice = {
-  kind: 'enabled';
-  // Valor enviado pro backend. "BAIXO" usa enum legado LOW_CAFF ate a
-  // migration final renomear no banco.
+type Choice = {
   value: ClassificationType;
   label: string;
 };
 
-type DisabledChoice = {
-  kind: 'disabled';
-  label: string;
-  hint: string;
-};
-
-type Choice = EnabledChoice | DisabledChoice;
-
 const CHOICES: Choice[] = [
-  { kind: 'enabled', value: 'BICA', label: 'BICA' },
-  { kind: 'enabled', value: 'PREPARADO', label: 'PREPARADO' },
-  { kind: 'enabled', value: 'LOW_CAFF', label: 'BAIXO' },
-  { kind: 'disabled', label: 'ESCOLHA', hint: 'Em breve' },
+  { value: 'BICA', label: 'BICA' },
+  { value: 'PREPARADO', label: 'PREPARADO' },
+  { value: 'BAIXO', label: 'BAIXO' },
+  { value: 'ESCOLHA', label: 'ESCOLHA' },
 ];
 
 type ClassificationTypeModalProps = {
@@ -104,21 +91,7 @@ export function ClassificationTypeModal({
 
         <div className="app-modal-content type-modal-content">
           <div className="type-modal-grid">
-            {CHOICES.map((choice, index) => {
-              if (choice.kind === 'disabled') {
-                return (
-                  <button
-                    key={`disabled-${index}`}
-                    type="button"
-                    className="type-modal-choice is-disabled"
-                    disabled
-                    aria-disabled="true"
-                  >
-                    <span className="type-modal-choice-label">{choice.label}</span>
-                    <span className="type-modal-choice-hint">{choice.hint}</span>
-                  </button>
-                );
-              }
+            {CHOICES.map((choice) => {
               const isSelected = selectedType === choice.value;
               return (
                 <button

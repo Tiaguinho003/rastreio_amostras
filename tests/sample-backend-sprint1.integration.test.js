@@ -1223,13 +1223,13 @@ if (!databaseUrl || !databaseReachable) {
         after: { classificationData: { padrao: 'PADRAO-2' } },
         reasonCode: 'DATA_FIX',
         reasonText: 'Tipo + padrao corrigidos',
-        classificationType: 'LOW_CAFF',
+        classificationType: 'BAIXO',
       },
       actorClassifier
     );
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
-    assert.equal(detail.sample.classificationType, 'LOW_CAFF');
+    assert.equal(detail.sample.classificationType, 'BAIXO');
     const updateEvent = detail.events.find((event) => event.eventType === 'CLASSIFICATION_UPDATED');
     assert.ok(updateEvent);
     // Campos refletidos
@@ -1237,7 +1237,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updateEvent.payload.after.classificationData.padrao, 'PADRAO-2');
     // Tipo refletido em before/after também
     assert.equal(updateEvent.payload.before.classificationType, 'BICA');
-    assert.equal(updateEvent.payload.after.classificationType, 'LOW_CAFF');
+    assert.equal(updateEvent.payload.after.classificationType, 'BAIXO');
   });
 
   // ============================================================

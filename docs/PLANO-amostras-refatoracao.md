@@ -37,6 +37,7 @@ Reformular a lógica de **registro** e **classificação** de amostras:
     - [x] Q.print impressão como ação (commits `498e74b` backend + `b2253bb` frontend infra + `3584b73` seção Etiqueta+polling)
     - [x] Q.auto auto-print pós-classificação (`completeClassification` dispara `requestQrPrint` best-effort com idempotency derivada de `event.idempotencyKey`)
     - [x] Q.final migration de drop dos enums legados (`20260508163528_qfinal_drop_legacy_enums`: SampleStatus 3 values, SampleEventType drop 5, IdempotencyScope drop QR_REPRINT, PrintAction enum + coluna `print_job.print_action` dropados, PrintJobStatus add EXPIRED, constraint nova `uq_print_job_sample_attempt`)
+    - [x] Q.types migration de `ClassificationType` (`20260508183713_qtypes_classification_enum`: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA`; backfill column + JSONB events; drop+recreate enum)
 
 ---
 
@@ -762,18 +763,18 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 ##### Q.7.1. Backend — schema + migrations
 
 - [x] **Registro (`6761a54`)**: migration `20260507201156_phaseq_registration_confirmed_creator` atualiza trigger `fn_guard_sample_event_insert` pra exigir `REGISTRATION_CONFIRMED` (com `fromStatus=null`) como primeiro evento.
-- [ ] **Migration final**: Prisma única (passos Q.6.5 a Q.6.10) que dropa enum values legados de `SampleStatus`, `SampleEventType`, `IdempotencyScope` e a coluna `print_job.print_action`. Vai depois das frentes de classificação e impressão.
-- [ ] `prisma/schema.prisma`: enums reduzidos + Model `PrintJob` sem `printAction` + constraint renomeada (junto da migration final).
+- [x] **Migration final (`0220f1e`)**: `20260508163528_qfinal_drop_legacy_enums` dropa enum values legados de `SampleStatus`, `SampleEventType`, `IdempotencyScope` e a coluna `print_job.print_action`. `ClassificationType` (rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA`) ficou pra Q.types separada.
+- [x] **`prisma/schema.prisma` (`0220f1e`)**: enums reduzidos + Model `PrintJob` sem `printAction` + constraint renomeada `uq_print_job_sample_attempt`.
 
 ##### Q.7.2. Backend — comandos
 
 - [x] **Registro (`6761a54`)**: `createSample` emite 1 evento único `REGISTRATION_CONFIRMED` (`null` → `RC`). `receiveSample`, `startRegistration`, `confirmRegistration` deletados (sem callers fora do orquestrador) junto com handlers e endpoints REST.
 - [x] `appendEvent` em ambos `event-contract-service.js` e `event-contract-db-service.js`: aceita `REGISTRATION_CONFIRMED` como evento criador (era `SAMPLE_RECEIVED`). Bloqueia recriação com 409.
 - [x] `buildSampleCreateData` popula `declared.*` + `ownerClientId/UnitId` direto do payload do `REGISTRATION_CONFIRMED`.
-- [ ] **Classificação**: `startClassification` deletar, `saveClassificationPartial` deletar.
+- [x] **Classificação (Q.cls.1 `79385bc`)**: `startClassification` + `saveClassificationPartial` deletados (sem refs no codebase).
 - [x] **Q.auto**: `completeClassification` aceita partir de **RC apenas** (já era `assertSampleStatus(['REGISTRATION_CONFIRMED'])` desde Q.cls.1) e, após o `appendEvent`, dispara `requestQrPrint` com `idempotencyKey: ${event.idempotencyKey}:auto-print`. Best-effort (try/catch loga e segue se falhar).
-- [ ] **Classificação**: `confirmClassificationFromCamera` aceita **RC** ou **CLASSIFIED** (reclassificação). Se RC → `completeClassification` (dispara print). Se CLASSIFIED → `updateClassification` (sem print).
-- [ ] **Classificação**: `updateClassification` mantém comportamento atual. **Não dispara** print.
+- [x] **Classificação (Q.cls.1 + Q.auto)**: `confirmClassificationFromCamera` aceita **RC** ou **CLASSIFIED** (linha 2851 do command service). Se RC → `completeClassification` (dispara print via Q.auto). Se CLASSIFIED → `updateClassification` (sem print).
+- [x] **Classificação (Q.auto)**: `updateClassification` mantém comportamento. **Não dispara** print (validado em test `Q.auto: updateClassification (reclassificacao) NAO dispara auto-print`).
 - [x] **Impressão (`498e74b`)**: `requestQrPrint`:
   - aceita qualquer status **exceto** `INVALIDATED` ✓
   - cria `PrintJob(PENDING)` + emite `QR_PRINT_REQUESTED` audit (null/null) ✓
@@ -789,14 +790,14 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 - [x] **Registro (`6761a54`)**: `assertSampleStatus` em `createSample` removido (sample novo nunca está em status legado). `getNextInternalLotNumber` mantém (Fase P). Auditoria de callers de `receiveSample/startRegistration/confirmRegistration` feita — sem callers backend remanescentes.
 - [x] **Impressão (`498e74b`)**: `PRINT_PENDING_STATUSES` deletado; `getNextPrintAttemptNumber(sampleId)` sem `printAction`; `getSampleDetail` aplica lazy timeout (`applyPrintTimeout`) antes de retornar; `getDashboardPending` perde `printPending`/`oldestPending`.
-- [ ] **Classificação**: `CLASSIFICATION_PENDING_STATUSES` vira `['REGISTRATION_CONFIRMED']`.
-- [ ] **Classificação**: `assertSampleStatus` em `completeClassification`/`startClassification`/`saveClassificationPartial`/`confirmClassificationFromCamera` revisar (`grep` por `QR_PRINTED`, `CLASSIFICATION_IN_PROGRESS`, `QR_PENDING_PRINT`).
-- [ ] **Classificação**: `PHOTO_KINDS.CLASSIFICATION` (linha ~22 do command service) de `[QR_PRINTED, CLASSIFICATION_IN_PROGRESS, CLASSIFIED]` pra `[REGISTRATION_CONFIRMED, CLASSIFIED]`.
+- [x] **Classificação (Q.cls.1)**: `CLASSIFICATION_PENDING_STATUSES = ['REGISTRATION_CONFIRMED']` em `sample-query-service.js:7`.
+- [x] **Classificação (Q.cls.1)**: `assertSampleStatus` em `completeClassification` cobre `['REGISTRATION_CONFIRMED']`; `confirmClassificationFromCamera` cobre `['REGISTRATION_CONFIRMED', 'CLASSIFIED']`. `startClassification`/`saveClassificationPartial` deletados.
+- [x] **Classificação (Q.cls.1)**: `PHOTO_KINDS.CLASSIFICATION = ['REGISTRATION_CONFIRMED', 'CLASSIFIED']` em `sample-command-service.js:21`.
 
 ##### Q.7.4. Backend — schemas JSON (event contracts)
 
 - [x] **Registro (`6761a54`)**: schemas `sample-received.event/payload` e `registration-started.event/payload` deletados. `registration-confirmed.event` relax pra `fromStatus: null`. `registration-confirmed.payload` ganha `receivedChannel` (required) e `notes`. `shared-defs.schema.json` perde `SAMPLE_RECEIVED`, `REGISTRATION_STARTED`, `PHYSICAL_RECEIVED`, `REGISTRATION_IN_PROGRESS`.
-- [ ] **Classificação**: drop schemas `classification-started.event/payload`, `classification-saved-partial.event/payload`. `shared-defs` perde `CLASSIFICATION_IN_PROGRESS`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`.
+- [x] **Classificação (Q.cls.1)**: schemas `classification-started.event/payload`, `classification-saved-partial.event/payload` não existem mais em `docs/schemas/events/v1/`. `shared-defs.schema.json` sem `CLASSIFICATION_IN_PROGRESS`, `CLASSIFICATION_STARTED`, `CLASSIFICATION_SAVED_PARTIAL`.
 - [x] **Impressão (`498e74b`)**: drop `qr-reprint-requested.event/payload`. Relax `qr-print-requested.event` (null/null), `qr-printed.event` (null/null). `shared-defs` perde `QR_REPRINT_REQUESTED` + `IdempotencyScope.QR_REPRINT`. `QR_PENDING_PRINT`/`QR_PRINTED` enum + `printAction` ficam pra Q.final junto com a migration que dropa do Postgres.
 
 ##### Q.7.5. Frontend — detail page (Gargalo 4)
@@ -804,16 +805,16 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 > Revisão exaustiva. ~30 referências a `QR_PRINTED` / `QR_PENDING_PRINT` em `app/samples/[sampleId]/page.tsx`. **Sub-fase Q.r dentro da execução**.
 
 - [x] **Registro (`0b7c45f`)**: import `confirmRegistration` removido; `handleConfirmRegistration` + state `confirming` deletados; `REGISTRATION_EDITABLE_STATUSES` perde IP; helpers `getOperationalStatusDot*` perdem branches `PHYSICAL_RECEIVED`/`REGISTRATION_IN_PROGRESS`; modal de edição simplificado (header/labels/handler/validação sem condicionais de IP).
-- [ ] CTA principal por status (frente classificação + impressão):
-  - **RC**: "Iniciar classificação" (leva pra `/camera` com `sampleId` fixado) + secundário "Imprimir etiqueta" (override manual).
-  - **CLASSIFIED**: "Reclassificar" + secundário "Reimprimir etiqueta".
-  - **INVALIDATED**: nada (terminal).
-- [ ] Botão "Salvar rascunho": deletar.
+- [x] **CTA principal por status (Q.cls.2 + Q.print P3)**:
+  - **RC**: FAB "Classificar" (leva pra `/camera?sampleId=`) + seção Etiqueta no body com "Imprimir etiqueta".
+  - **CLASSIFIED**: botão "Reclassificar" abre `ClassificationReclassifyModal` (leva pra câmera com sampleId) + seção Etiqueta com "Imprimir novamente".
+  - **INVALIDATED**: sem CTAs (terminal).
+- [x] **Botão "Salvar rascunho" (Q.cls.1)**: deletado junto com `saveClassificationPartial`.
 - [x] **Painel "etiqueta" (`3584b73`)**: nova seção `sdv-print-section` no body do `sdv-general` mostra status do `latestPrintJob` (idle/pending/success/failed/expired) + tentativa atual + erro + botão "Imprimir etiqueta" / "Imprimir novamente". Substitui o card `sdv-print-failed-card` antigo. O botão "Imprimir" da `sdv-actions-bar` migrou pra essa seção.
 - [x] **Polling (`3584b73`)**: `useEffect` recarrega o detail a cada 3s enquanto `latestPrintJob.status === 'PENDING'`. Para automaticamente quando muda pra SUCCESS/FAILED/EXPIRED.
 - [x] **Modal de revisão (`3584b73`)**: step "completed" destaca o lote ("Lote N enviado pra impressao. Anote o numero na saca enquanto a etiqueta sai.") com botão "Anotei, fechar".
 - [x] **Limpeza Q.print (`b2253bb` + `3584b73`)**: condicionais contra `QR_PRINTED`/`QR_PENDING_PRINT` removidas; `printAction`/`PrintAction` removidos; `printFailed` deletado; `getOperationalStatusDot*` simplificado; `CLASSIFICATION_STATUSES`/`REGISTRATION_EDITABLE_STATUSES` cobrem só RC + CLASSIFIED.
-- [ ] Sem código morto.
+- [ ] **Sem código morto**: pendente sweep formal na detail page (~4200 linhas) + tipos `classificationDraft.snapshot` em `lib/types.ts` + colunas `classification_draft_*` no schema (sem produtor após corte de `CLASSIFICATION_SAVED_PARTIAL`).
 
 ##### Q.7.6. Frontend — modal de feedback do print (auto + manual)
 
@@ -831,7 +832,7 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 ##### Q.7.8. Frontend — api-client
 
 - [x] **Registro (`0b7c45f`)**: `receiveSample`, `startRegistration`, `confirmRegistration` deletados.
-- [ ] **Classificação**: `saveClassificationPartial`, `startClassification` deletar.
+- [x] **Classificação (Q.cls.1 `d02eb73`)**: `saveClassificationPartial`, `startClassification` deletados.
 - [x] **Impressão (`b2253bb`)**: `requestQrReprint` deletado; `requestQrPrint` perde `expectedVersion` + `attemptNumber` (backend gerencia); `recordQrPrinted`/`recordQrPrintFailed` perdem `printAction` + `expectedVersion`. `LatestPrintJob`/`PendingPrintJob` perdem `printAction`. `PrintJobStatus` ganha `EXPIRED`.
 
 ##### Q.7.9. Tests
@@ -846,9 +847,9 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 ##### Q.7.11. Skills + docs
 
-- [ ] `.claude/skills/prisma/SKILL.md`: atualizar significados — Sample com 3 statuses, eventos audit-only, `PrintJob` sem `printAction`, novo lifecycle.
-- [ ] `docs/PLANO-amostras-refatoracao.md` (este doc): marcar Fase Q como executada ao fim.
-- [ ] Outros skills se relevante (verificar `tests`, `conventions`).
+- [x] `.claude/skills/prisma/SKILL.md`: atualizado em Q.print P4 + Q.auto + Q.final — Sample com 3 statuses, eventos audit-only, `PrintJob` sem `printAction`, lifecycle simplificado documentado.
+- [x] `docs/PLANO-amostras-refatoracao.md` (este doc): Fase Q marcada executada (Q.print, Q.auto, Q.final).
+- [x] Outros skills: `tests` e `conventions` revisados — sem refs específicas que precisam atualização.
 
 #### Q.8. Commits — plano vs execução
 
@@ -897,14 +898,14 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 - [x] **Auditoria de callers do registro**: confirmado que `receiveSample`, `startRegistration`, `confirmRegistration` tinham handlers/endpoints REST e callers em testes (resolvido nos commits `6761a54` + `0b7c45f`).
 
-**Pendentes pras próximas frentes:**
+**Resolvidos durante a execução das frentes seguintes:**
 
-- [ ] **Auditoria de callers da classificação e impressão**: confirmar que `startClassification`, `saveClassificationPartial`, `requestQrReprint` têm callers só nos lugares já mapeados (frontend/api-client/tests).
-- [ ] **Tempo exato do polling** (2-3s? backoff exponencial até 10s? apenas constante?).
-- [ ] **Layout exato dos modals** (sucesso simples vs falha com opções) — pode ficar pra revisão visual durante implementação.
-- [ ] **`Sample.version` em audit-only events**: confirmar que `appendEvent` continua subindo `version` mesmo em null/null events. Audit não é "transparente" pro optimistic lock — concorrência segue protegida.
-- [ ] **Print agent local**: confirmar formato de polling (intervalo, batching) antes da migration final que dropa `print_action`.
-- [ ] **Eventos legados no DB local antes da migration final**: rodar `SELECT COUNT(*) WHERE event_type IN (legacy values)` pra confirmar que precisa do `DELETE` da Q.6.1.
+- [x] **Auditoria de callers da classificação e impressão**: confirmado em Q.cls.1 + Q.print + Q.final. `startClassification`/`saveClassificationPartial`/`requestQrReprint` deletados, sem callers órfãos.
+- [x] **Tempo exato do polling**: definido em Q.print P3 (`3584b73`) — 3s constante enquanto `latestPrintJob.status === 'PENDING'`. Para automaticamente em SUCCESS/FAILED/EXPIRED.
+- [x] **Layout dos modals**: implementado em Q.print P3 + Q.auto. Modal de revisão+confirmação com step "completed" destacando lote.
+- [x] **`Sample.version` em audit-only events**: confirmado — `MUTATING_EVENT_TYPES` em `event-contract-service.js` exclui QR\_\*. Audit não bumpa version; `expectedVersion` só é exigido pra mutating events.
+- [x] **Print agent local**: assinatura `recordQrPrinted`/`recordQrPrintFailed` mantida. Body.printAction se vier do agent legacy é ignorado (`backend-api.js`).
+- [x] **Eventos legados no DB antes da migration final**: Q.final (`0220f1e`) inclui DELETE de eventos com tipos legacy + UPDATE NULLIFY de from_status/to_status com valores legacy, com triggers append-only desabilitados temporariamente.
 
 ### Fase Q.cls.2 — Ficha unificada de classificação (em definição)
 
@@ -1116,7 +1117,7 @@ Próximas frentes pendentes (em ordem do fluxo do operador):
 - [x] **Backend `completeClassification`/`updateClassification`** ajustam payload pra ficha unificada — commits `aa7c591` (schemas), `1aa4845` (backend), `a2c7594` (frontend + sub-caminho 5 Flow B), `40d91e4` (tests + projection).
 - [x] **Cross-validation no fluxo da câmera**: sub-caminhos 2/3a/3b/4/5 implementados (`983ccc3` + `9411ffe`).
 - [x] **Frontend Q.cls.2 cleanup** — commits `c18e435` (detail page com layout unificado) + `6659bd6` (lib/classification-form.ts enxuto: deleta `TYPE_CONFIGS`, `ClassificationTypeConfig`, `getTypeConfig`, `NumericField`, `ALL_SIEVE_FIELDS`/`ALL_NUMERIC_FIELDS`/aliases, `peneiraP19` e `safra` do `ClassificationFormState`; simplifica `validateClassificationForm`/`buildClassificationDataPayload`/`mapExtractionToForm` removendo o param `classificationType`).
-- [ ] **Migration de tipos**: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA` no enum Postgres (parte da migration final da Fase Q).
+- [x] **Q.types**: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA` no enum `ClassificationType` (`20260508183713_qtypes_classification_enum`). Backfill em `sample.classification_type` + `sample_event.payload` (JSONB, classificationType raiz + before/after dos events `CLASSIFICATION_UPDATED`). Schema Prisma com 4 valores; JSON schemas atualizados; ClassificationTypeModal sem disabled ESCOLHA; detail page option `BAIXO` direto; tests refletem `BAIXO`.
 - [x] **Tests**: 4 testes de integração novos cobrindo a frente 1 (commit `40d91e4`). Frontend tests dos modais novos seguem como nice-to-have (commits separados).
 
 #### Q.cls.2.7.1. Resumo da execução da frente 1 (backend payload + reason)
@@ -1226,10 +1227,10 @@ Próximas frentes pendentes (em ordem do fluxo do operador):
 - **Continuar**: dispara `handleConfirmClassification` direto (a extração + revisão + tipo já aconteceram); muda para "Salvando..." durante submit.
 - **ESC**: volta pro modal de tipo.
 
-#### Q.cls.2.10. Open items (próximas decisões)
+#### Q.cls.2.10. Open items (resolvidos)
 
-- [ ] **CTA "Mudar tipo"** na detail page (já que "tipo" é audit) — fica como? Botão separado ou só dentro de "Reclassificar"?
-- [ ] **Cross-validation expandida**: além de lote/sacas/safra, comparar outros campos? (provavelmente não — outros são preenchidos só pelo classificador).
+- [x] **CTA "Mudar tipo" na detail page** — resolvido em commits `4e02fe1`+`15a5a07`: tipo é editável dentro do modal de classificação na detail page (`<select>` antes de "Identificação"). Sem botão separado. Reasoning auto "Tipo alterado de X pra Y".
+- [x] **Cross-validation expandida** — descartada. Apenas lote/sacas/safra entram na cross-validation; outros campos são preenchidos só pelo classificador, não há fonte de verdade pra comparar.
 
 ### Fase C — Refatoração da classificação (incorporada na Q.cls.2)
 

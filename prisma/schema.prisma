@@ -111,9 +111,10 @@ enum ClientAuditEventType {
 }
 
 enum ClassificationType {
-  PREPARADO
-  LOW_CAFF
   BICA
+  PREPARADO
+  BAIXO
+  ESCOLHA
 }
 
 enum AttachmentKind {
