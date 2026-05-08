@@ -95,12 +95,13 @@ export function photoAddedEvent(sampleId, overrides = {}) {
   });
 }
 
+// Q.print: QR_PRINT_REQUESTED virou audit-only (fromStatus/toStatus null).
 export function qrPrintRequestedEvent(sampleId, overrides = {}) {
   return buildEvent({
     eventType: 'QR_PRINT_REQUESTED',
     sampleId,
-    fromStatus: 'REGISTRATION_CONFIRMED',
-    toStatus: 'QR_PENDING_PRINT',
+    fromStatus: null,
+    toStatus: null,
     idempotencyScope: 'QR_PRINT',
     idempotencyKey: randomUUID(),
     payload: {
@@ -151,12 +152,13 @@ export function qrPrintFailedEvent(sampleId, overrides = {}) {
   });
 }
 
+// Q.print: QR_PRINTED virou audit-only (fromStatus/toStatus null).
 export function qrPrintedEvent(sampleId, overrides = {}) {
   return buildEvent({
     eventType: 'QR_PRINTED',
     sampleId,
-    fromStatus: 'QR_PENDING_PRINT',
-    toStatus: 'QR_PRINTED',
+    fromStatus: null,
+    toStatus: null,
     payload: {
       printAction: 'PRINT',
       attemptNumber: 1,
@@ -167,24 +169,8 @@ export function qrPrintedEvent(sampleId, overrides = {}) {
   });
 }
 
-export function qrReprintRequestedEvent(sampleId, overrides = {}) {
-  return buildEvent({
-    eventType: 'QR_REPRINT_REQUESTED',
-    sampleId,
-    fromStatus: null,
-    toStatus: null,
-    idempotencyScope: 'QR_REPRINT',
-    idempotencyKey: randomUUID(),
-    payload: {
-      printAction: 'REPRINT',
-      attemptNumber: 1,
-      printerId: null,
-      reasonText: null,
-    },
-    module: 'print',
-    ...overrides,
-  });
-}
+// Q.print: qrReprintRequestedEvent removido — toda impressao agora usa
+// QR_PRINT_REQUESTED com attemptNumber sequencial.
 
 export function reportExportedEvent(sampleId, overrides = {}) {
   const { payload: payloadOverrides = {}, ...eventOverrides } = overrides;

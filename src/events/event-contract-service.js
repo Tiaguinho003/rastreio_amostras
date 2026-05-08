@@ -1,9 +1,10 @@
 import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
 
+// Q.print: QR_PRINT_REQUESTED e QR_PRINTED viraram audit-only (nao mutam
+// status do sample). Removidos do MUTATING_EVENT_TYPES.
 const MUTATING_EVENT_TYPES = new Set([
   'REGISTRATION_CONFIRMED',
-  'QR_PRINT_REQUESTED',
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
@@ -17,7 +18,9 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_UPDATED',
 ]);
 
-const PRINT_ATTEMPT_EVENTS = new Set(['QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED']);
+// Q.print: QR_REPRINT_REQUESTED removido — toda impressao usa
+// QR_PRINT_REQUESTED com attemptNumber sequencial.
+const PRINT_ATTEMPT_EVENTS = new Set(['QR_PRINT_REQUESTED']);
 
 function idempotencyCompositeKey(sampleId, scope, key) {
   return `${sampleId}::${scope}::${key}`;
@@ -28,16 +31,7 @@ function printAttemptCompositeKey(sampleId, printAction, attemptNumber) {
 }
 
 function isMutatingEvent(event) {
-  if (MUTATING_EVENT_TYPES.has(event.eventType)) {
-    return true;
-  }
-
-  if (event.eventType === 'QR_PRINTED') {
-    const printAction = event?.payload?.printAction;
-    return printAction === 'PRINT' || event.fromStatus !== null || event.toStatus !== null;
-  }
-
-  return false;
+  return MUTATING_EVENT_TYPES.has(event.eventType);
 }
 
 export class EventContractService {

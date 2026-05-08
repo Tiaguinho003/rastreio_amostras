@@ -2,9 +2,11 @@ import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
 import { isPrismaUniqueViolation } from './prisma-event-store.js';
 
+// Q.print: QR_PRINT_REQUESTED e QR_PRINTED viraram audit-only (nao
+// mutam status do sample). Removidos do MUTATING_EVENT_TYPES — agora so
+// alimentam projecao via PrintJob (via PRINT_REQUEST_EVENTS / PRINT_RESULT_EVENTS).
 const MUTATING_EVENT_TYPES = new Set([
   'REGISTRATION_CONFIRMED',
-  'QR_PRINT_REQUESTED',
   'CLASSIFICATION_COMPLETED',
   'SAMPLE_INVALIDATED',
   'REGISTRATION_UPDATED',
@@ -18,21 +20,14 @@ const MUTATING_EVENT_TYPES = new Set([
   'CLASSIFICATION_UPDATED',
 ]);
 
-const PRINT_ATTEMPT_EVENTS = new Set(['QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED']);
-const PRINT_REQUEST_EVENTS = new Set(['QR_PRINT_REQUESTED', 'QR_REPRINT_REQUESTED']);
+// Q.print: QR_REPRINT_REQUESTED removido (cortado em P1). Toda impressao
+// vira via QR_PRINT_REQUESTED com attemptNumber sequencial.
+const PRINT_ATTEMPT_EVENTS = new Set(['QR_PRINT_REQUESTED']);
+const PRINT_REQUEST_EVENTS = new Set(['QR_PRINT_REQUESTED']);
 const PRINT_RESULT_EVENTS = new Set(['QR_PRINTED', 'QR_PRINT_FAILED']);
 
 function isMutatingEvent(event) {
-  if (MUTATING_EVENT_TYPES.has(event.eventType)) {
-    return true;
-  }
-
-  if (event.eventType === 'QR_PRINTED') {
-    const printAction = event?.payload?.printAction;
-    return printAction === 'PRINT' || event.fromStatus !== null || event.toStatus !== null;
-  }
-
-  return false;
+  return MUTATING_EVENT_TYPES.has(event.eventType);
 }
 
 function tryMapPrismaTriggerError(error) {

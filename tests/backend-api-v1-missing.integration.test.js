@@ -202,34 +202,12 @@ if (!databaseUrl || !databaseReachable) {
     await eventService.appendEvent(event);
   }
 
-  async function moveSampleToQrPrinted(sampleId) {
-    await moveSampleToRegistrationConfirmed(sampleId);
-
-    await commandService.requestQrPrint(
-      {
-        sampleId,
-        expectedVersion: 1,
-        attemptNumber: 1,
-        printerId: 'printer-main',
-        idempotencyKey: randomUUID(),
-      },
-      actorClassifier
-    );
-
-    await commandService.recordQrPrinted(
-      {
-        sampleId,
-        expectedVersion: 2,
-        printAction: 'PRINT',
-        attemptNumber: 1,
-        printerId: 'printer-main',
-      },
-      actorClassifier
-    );
-  }
+  // Q.print: helper moveSampleToQrPrinted removido. Impressao nao muta
+  // mais o status do sample, entao o caminho RC -> CLASSIFIED nao
+  // passa mais por QR_PENDING_PRINT/QR_PRINTED.
 
   async function moveSampleToClassified(sampleId) {
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     await commandService.addClassificationPhoto(
       {
@@ -244,7 +222,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: {
           padrao: 'PADRAO-A',
         },
@@ -354,111 +332,68 @@ if (!databaseUrl || !databaseReachable) {
     await resetDatabase();
   });
 
-  test('POST /qr/reprint/request supports idempotency and blocks INVALIDATED sample', async () => {
+  // Q.print: rota /qr/reprint/request foi removida. Toda impressao
+  // agora usa POST /qr/print/request com attemptNumber sequencial.
+  // Os testes POST /qr/printed/REPRINT e POST /qr/print/failed/REPRINT
+  // tambem foram removidos — o printAction nao distingue PRINT vs
+  // REPRINT no novo fluxo (impressao virou acao pura, audit-only).
+
+  test('POST /qr/print/request blocks INVALIDATED sample and 409 on pending PrintJob', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
-    const idempotencyKey = randomUUID();
-
-    const first = await api.requestQrReprint(
+    const first = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
-        body: {
-          attemptNumber: 2,
-          printerId: 'printer-main',
-          reasonText: 'etiqueta perdida',
-          idempotencyKey,
-        },
+        body: { printerId: 'printer-main' },
       })
     );
-
     assert.equal(first.status, 201);
-    assert.equal(first.body.event.eventType, 'QR_REPRINT_REQUESTED');
+    assert.equal(first.body.event.eventType, 'QR_PRINT_REQUESTED');
+    assert.equal(first.body.event.fromStatus, null);
+    assert.equal(first.body.event.toStatus, null);
 
-    const second = await api.requestQrReprint(
+    // Existe PrintJob PENDING — segunda chamada deve cair em 409
+    const second = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
-        body: {
-          attemptNumber: 2,
-          printerId: 'printer-main',
-          reasonText: 'etiqueta perdida',
-          idempotencyKey,
-        },
+        body: { printerId: 'printer-main' },
       })
     );
+    assert.equal(second.status, 409);
 
-    assert.equal(second.status, 200);
-    assert.equal(second.body.idempotent, true);
-    assert.equal(second.body.event.eventId, first.body.event.eventId);
-
+    // Apos invalidate, request deve cair em 409 mesmo sem job pendente
+    const sampleNow = await queryService.requireSample(sampleId);
     await commandService.invalidateSample(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: sampleNow.version,
         reasonCode: 'OTHER',
         reasonText: 'teste de bloqueio',
       },
       actorAdmin
     );
 
-    const blocked = await api.requestQrReprint(
+    const blocked = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
-        body: {
-          attemptNumber: 3,
-          reasonText: 'nova tentativa',
-        },
+        body: { printerId: 'printer-main' },
       })
     );
-
     assert.equal(blocked.status, 409);
   });
 
-  test('POST /qr/reprint/request auto-generates attempt number without reason', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
-
-    const first = await api.requestQrReprint(
-      buildInput({
-        params: { sampleId },
-        body: {
-          printerId: 'printer-main',
-        },
-      })
-    );
-
-    assert.equal(first.status, 201);
-    assert.equal(first.body.event.eventType, 'QR_REPRINT_REQUESTED');
-    assert.equal(first.body.event.payload.printAction, 'REPRINT');
-    assert.equal(first.body.event.payload.attemptNumber, 1);
-    assert.equal(first.body.event.payload.reasonText, null);
-
-    const second = await api.requestQrReprint(
-      buildInput({
-        params: { sampleId },
-        body: {
-          printerId: 'printer-main',
-        },
-      })
-    );
-
-    assert.equal(second.status, 201);
-    assert.equal(second.body.event.payload.attemptNumber, 2);
-  });
-
-  test('POST /qr/printed with REPRINT does not mutate sample version/status', async () => {
+  test('POST /qr/printed and /qr/print/failed are audit-only (no version/status change)', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
 
     const before = await queryService.requireSample(sampleId);
     assert.equal(before.status, 'CLASSIFIED');
 
-    const requested = await api.requestQrReprint(
+    const requested = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
-        body: {
-          printerId: 'printer-main',
-        },
+        body: { printerId: 'printer-main' },
       })
     );
     assert.equal(requested.status, 201);
@@ -467,113 +402,39 @@ if (!databaseUrl || !databaseReachable) {
     const printed = await api.recordQrPrinted(
       buildInput({
         params: { sampleId },
-        body: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-        },
+        body: { attemptNumber: 1, printerId: 'printer-main' },
       })
     );
-
     assert.equal(printed.status, 201);
     assert.equal(printed.body.event.eventType, 'QR_PRINTED');
     assert.equal(printed.body.event.fromStatus, null);
     assert.equal(printed.body.event.toStatus, null);
 
-    const after = await queryService.requireSample(sampleId);
-    assert.equal(after.status, 'CLASSIFIED');
-    assert.equal(after.version, before.version);
-  });
+    const afterPrint = await queryService.requireSample(sampleId);
+    assert.equal(afterPrint.status, 'CLASSIFIED');
+    assert.equal(afterPrint.version, before.version);
 
-  test('POST /qr/printed with REPRINT mutates when sample is QR_PENDING_PRINT', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToRegistrationConfirmed(sampleId);
-
-    await commandService.requestQrPrint(
-      {
-        sampleId,
-        expectedVersion: 1,
-        attemptNumber: 1,
-        printerId: 'printer-main',
-        idempotencyKey: randomUUID(),
-      },
-      actorClassifier
-    );
-
-    const requestedReprint = await api.requestQrReprint(
+    // Outro request + failed (tem que limpar pending antes; usar attempt 2)
+    const requested2 = await api.requestQrPrint(
       buildInput({
         params: { sampleId },
-        body: {
-          printerId: 'printer-main',
-          reasonText: 'nova tentativa antes da confirmacao',
-        },
+        body: { printerId: 'printer-main' },
       })
     );
-
-    assert.equal(requestedReprint.status, 201);
-    assert.equal(requestedReprint.body.event.payload.printAction, 'REPRINT');
-    assert.equal(requestedReprint.body.event.payload.attemptNumber, 1);
-
-    const before = await queryService.requireSample(sampleId);
-    assert.equal(before.status, 'QR_PENDING_PRINT');
-
-    const printed = await api.recordQrPrinted(
-      buildInput({
-        params: { sampleId },
-        body: {
-          expectedVersion: before.version,
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-        },
-      })
-    );
-
-    assert.equal(printed.status, 201);
-    assert.equal(printed.body.event.eventType, 'QR_PRINTED');
-    assert.equal(printed.body.event.fromStatus, 'QR_PENDING_PRINT');
-    assert.equal(printed.body.event.toStatus, 'QR_PRINTED');
-
-    const after = await queryService.requireSample(sampleId);
-    assert.equal(after.status, 'QR_PRINTED');
-    assert.equal(after.version, before.version + 1);
-  });
-
-  test('POST /qr/print/failed with REPRINT does not mutate sample version/status', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToClassified(sampleId);
-
-    const before = await queryService.requireSample(sampleId);
-    assert.equal(before.status, 'CLASSIFIED');
-
-    const requested = await api.requestQrReprint(
-      buildInput({
-        params: { sampleId },
-        body: {
-          printerId: 'printer-main',
-        },
-      })
-    );
-    assert.equal(requested.status, 201);
+    assert.equal(requested2.status, 201);
 
     const failed = await api.recordQrPrintFailed(
       buildInput({
         params: { sampleId },
-        body: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-          error: 'sem papel',
-        },
+        body: { attemptNumber: 2, printerId: 'printer-main', error: 'sem papel' },
       })
     );
-
     assert.equal(failed.status, 201);
     assert.equal(failed.body.event.eventType, 'QR_PRINT_FAILED');
 
-    const after = await queryService.requireSample(sampleId);
-    assert.equal(after.status, 'CLASSIFIED');
-    assert.equal(after.version, before.version);
+    const afterFail = await queryService.requireSample(sampleId);
+    assert.equal(afterFail.status, 'CLASSIFIED');
+    assert.equal(afterFail.version, before.version);
   });
 
   test('POST /samples/create requires owner client and prepares QR print', async () => {
@@ -1146,57 +1007,17 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('GET /samples supports statusGroup filter options', async () => {
-    const printPendingOwner = await createSellerClient({
-      legalName: 'Fazenda Print Pendente',
-      tradeName: 'Fazenda Print Pendente',
-    });
-
-    const printPending = await api.createSample(
-      buildInput({
-        body: {
-          clientDraftId: randomUUID(),
-          ownerClientId: printPendingOwner.client.id,
-          sacks: 20,
-          harvest: '25/26',
-          originLot: 'ORIG-PRINT',
-          receivedChannel: 'courier',
-        },
-      })
-    );
-    assert.equal(printPending.status, 201);
-    // Fase P2: createSample para em REGISTRATION_CONFIRMED. Pra testar
-    // o filtro PRINT_PENDING (que inclui QR_PENDING_PRINT) explicitamente,
-    // disparo o requestQrPrint manualmente — esse fluxo continua valido
-    // como override (decisao da Fase P).
-    await api.requestQrPrint(
-      buildInput({
-        params: { sampleId: printPending.body.sample.id },
-        body: { expectedVersion: printPending.body.sample.version, attemptNumber: 1 },
-      })
-    );
-
-    const classificationPendingRcSampleId = randomUUID();
-    await moveSampleToRegistrationConfirmed(classificationPendingRcSampleId);
-
-    const classificationPendingQrSampleId = randomUUID();
-    await moveSampleToQrPrinted(classificationPendingQrSampleId);
+    // Q.print: filtro PRINT_PENDING (e o status QR_PENDING_PRINT) sumiram.
+    // Toda amostra em RC vai pro grupo CLASSIFICATION_PENDING ate ser
+    // classificada.
+    const rcSampleA = randomUUID();
+    await moveSampleToRegistrationConfirmed(rcSampleA);
+    const rcSampleB = randomUUID();
+    await moveSampleToRegistrationConfirmed(rcSampleB);
 
     const classifiedSampleId = randomUUID();
     await moveSampleToClassified(classifiedSampleId);
 
-    const printPendingFiltered = await api.listSamples(
-      buildInput({
-        query: {
-          statusGroup: 'PRINT_PENDING',
-        },
-      })
-    );
-    assert.equal(printPendingFiltered.status, 200);
-    assert.equal(printPendingFiltered.body.page.total, 1);
-    assert.equal(printPendingFiltered.body.items[0].status, 'QR_PENDING_PRINT');
-
-    // Fase Q.cls.1: CLASSIFICATION_PENDING cobre RC + QR_PRINTED
-    // (CLASSIFICATION_IN_PROGRESS removido como status).
     const classificationPendingFiltered = await api.listSamples(
       buildInput({
         query: {
@@ -1209,7 +1030,7 @@ if (!databaseUrl || !databaseReachable) {
     const pendingStatuses = classificationPendingFiltered.body.items
       .map((item) => item.status)
       .sort();
-    assert.deepEqual(pendingStatuses, ['QR_PRINTED', 'REGISTRATION_CONFIRMED']);
+    assert.deepEqual(pendingStatuses, ['REGISTRATION_CONFIRMED', 'REGISTRATION_CONFIRMED']);
 
     const classifiedFiltered = await api.listSamples(
       buildInput({
@@ -1236,7 +1057,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1251,7 +1072,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.updateCommercialStatus(
       {
         sampleId: lostSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         toCommercialStatus: 'LOST',
         reasonText: 'extravio',
       },
@@ -1263,7 +1084,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: partialSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
@@ -1339,7 +1160,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: partialSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 4,
@@ -1355,7 +1176,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1371,7 +1192,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1410,7 +1231,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1430,7 +1251,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1459,7 +1280,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.updateCommercialStatus(
       {
         sampleId: lostSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         toCommercialStatus: 'LOST',
         reasonText: 'extravio',
       },
@@ -1476,7 +1297,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1505,7 +1326,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.invalidateSample(
       {
         sampleId: invalidatedSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         reasonCode: 'OTHER',
         reasonText: 'teste invalidada',
       },
@@ -1529,7 +1350,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.createSampleMovement(
       {
         sampleId: soldSampleId,
-        expectedVersion: 4,
+        expectedVersion: 2,
         movementType: 'SALE',
         buyerClientId: buyer.client.id,
         quantitySacks: 11,
@@ -1644,7 +1465,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('POST /samples/:sampleId/photos saves classification photo when sample is in classification phase', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const uploaded = await api.addLabelPhoto(
       buildInput({
@@ -1743,7 +1564,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('POST /samples/:sampleId/export/pdf blocks export when sample is not CLASSIFIED', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const blocked = await api.exportSamplePdf(
       buildInput({
@@ -1860,7 +1681,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           before: {
             classificationData: {
               padrao: 'PADRAO-A',
@@ -1885,7 +1706,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(sample.status, 'CLASSIFIED');
     assert.equal(sample.latestClassification.data?.padrao, 'PADRAO-B');
     assert.equal(sample.latestClassification.data?.bebida, 'DURA');
-    assert.equal(sample.version, 5);
+    assert.equal(sample.version, 3);
   });
 
   test('POST /registration/update keeps diff-only payload and blocks id fields', async () => {
@@ -1995,7 +1816,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           after: {
             classificationData: {
               padrao: 'PADRAO-REVERSIVEL',
@@ -2014,7 +1835,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 5,
+          expectedVersion: 3,
           targetEventId: changed.body.event.eventId,
           reasonCode: 'DATA_FIX',
           reasonText: 'reverter ajuste',
@@ -2027,7 +1848,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const sample = await queryService.requireSample(sampleId);
     assert.equal(sample.latestClassification.data?.padrao, 'PADRAO-A');
-    assert.equal(sample.version, 6);
+    assert.equal(sample.version, 4);
   });
 
   test('POST /commercial-status updates classified sample and enforces transition rules', async () => {
@@ -2038,7 +1859,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           toCommercialStatus: 'SOLD',
           reasonText: 'negocio fechado',
         },
@@ -2051,7 +1872,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           toCommercialStatus: 'LOST',
           reasonText: 'extravio total',
         },
@@ -2067,7 +1888,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 6,
+          expectedVersion: 4,
           toCommercialStatus: 'LOST',
           reasonText: 'segunda tentativa',
         },
@@ -2089,7 +1910,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId: partialSampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'SALE',
           buyerClientId: buyer.client.id,
           quantitySacks: 4,
@@ -2125,12 +1946,12 @@ if (!databaseUrl || !databaseReachable) {
     // bloqueada por check separado, e PHYSICAL_RECEIVED / REGISTRATION_IN_PROGRESS por
     // falta de declaredSacks.
     const preClassifiedSampleId = randomUUID();
-    await moveSampleToQrPrinted(preClassifiedSampleId);
+    await moveSampleToRegistrationConfirmed(preClassifiedSampleId);
     const preClassifiedLoss = await api.updateCommercialStatus(
       buildInput({
         params: { sampleId: preClassifiedSampleId },
         body: {
-          expectedVersion: 3,
+          expectedVersion: 1,
           toCommercialStatus: 'LOST',
           reasonText: 'registro antes da classificacao',
         },
@@ -2164,7 +1985,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'SALE',
           buyerClientId: buyerA.client.id,
           quantitySacks: 5,
@@ -2278,7 +2099,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'SALE',
           buyerClientId: inactiveBuyer.client.id,
           quantitySacks: 2,
@@ -2301,7 +2122,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'SALE',
           buyerClientId: sellerOnlyClient.client.id,
           quantitySacks: 2,
@@ -2315,7 +2136,7 @@ if (!databaseUrl || !databaseReachable) {
     // Venda e perda podem ser registradas antes da classificacao desde que a amostra
     // tenha sacas declaradas (REGISTRATION_CONFIRMED / QR_* / CLASSIFICATION_IN_PROGRESS).
     const preClassifiedSampleId = randomUUID();
-    await moveSampleToQrPrinted(preClassifiedSampleId);
+    await moveSampleToRegistrationConfirmed(preClassifiedSampleId);
     const validBuyer = await createSellerClient({
       legalName: 'Comprador Valido LTDA',
       tradeName: 'Comprador Valido LTDA',
@@ -2328,7 +2149,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId: preClassifiedSampleId },
         body: {
-          expectedVersion: 3,
+          expectedVersion: 1,
           movementType: 'SALE',
           buyerClientId: validBuyer.client.id,
           quantitySacks: 2,
@@ -2349,7 +2170,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'LOSS',
           quantitySacks: 2,
           movementDate: '2026-03-19',
@@ -2382,7 +2203,7 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          expectedVersion: 4,
+          expectedVersion: 2,
           movementType: 'SALE',
           buyerClientId: buyer.client.id,
           quantitySacks: 5,
@@ -2469,7 +2290,10 @@ if (!databaseUrl || !databaseReachable) {
 
   test('GET /events supports pagination and validates query params', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    // Q.print: precisa de >2 events na sample pra testar paginacao;
+    // moveSampleToClassified gera 3 (REGISTRATION_CONFIRMED, PHOTO_ADDED,
+    // CLASSIFICATION_COMPLETED).
+    await moveSampleToClassified(sampleId);
 
     const firstPage = await api.listSampleEvents(
       buildInput({

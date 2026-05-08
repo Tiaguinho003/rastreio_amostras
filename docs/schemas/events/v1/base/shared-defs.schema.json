@@ -20,7 +20,6 @@
         "QR_PRINT_REQUESTED",
         "QR_PRINT_FAILED",
         "QR_PRINTED",
-        "QR_REPRINT_REQUESTED",
         "CLASSIFICATION_COMPLETED",
         "REGISTRATION_UPDATED",
         "CLASSIFICATION_UPDATED",
@@ -65,7 +64,6 @@
       "enum": [
         "REGISTRATION_CONFIRM",
         "QR_PRINT",
-        "QR_REPRINT",
         "CLASSIFICATION_COMPLETE",
         "COMMERCIAL_STATUS_UPDATE",
         "INVALIDATE"

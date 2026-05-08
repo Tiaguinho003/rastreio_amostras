@@ -155,35 +155,11 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
-  async function moveSampleToQrPendingPrint(sampleId) {
-    await moveSampleToRegistrationConfirmed(sampleId);
-
-    await commandService.requestQrPrint(
-      {
-        sampleId,
-        expectedVersion: 1,
-        attemptNumber: 1,
-        printerId: 'printer-main',
-        idempotencyKey: randomUUID(),
-      },
-      actorClassifier
-    );
-  }
-
-  async function moveSampleToQrPrinted(sampleId) {
-    await moveSampleToQrPendingPrint(sampleId);
-
-    await commandService.recordQrPrinted(
-      {
-        sampleId,
-        expectedVersion: 2,
-        printAction: 'PRINT',
-        attemptNumber: 1,
-        printerId: 'printer-main',
-      },
-      actorClassifier
-    );
-  }
+  // Q.print: helpers moveSampleToQrPendingPrint/moveSampleToQrPrinted
+  // removidos. Impressao virou acao pura — sample termina em RC apos
+  // o registro e segue direto pra CLASSIFIED via classificacao. Tests
+  // que precisavam mover via QR_PENDING_PRINT/QR_PRINTED agora chamam
+  // moveSampleToRegistrationConfirmed direto.
 
   test.before(async () => {
     await prisma.$connect();
@@ -388,7 +364,7 @@ if (!databaseUrl || !databaseReachable) {
     const completed = await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
@@ -415,7 +391,7 @@ if (!databaseUrl || !databaseReachable) {
 
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
     assert.equal(detail.sample.status, 'CLASSIFIED');
-    assert.equal(detail.sample.version, 4);
+    assert.equal(detail.sample.version, 2);
     assert.match(detail.sample.internalLotNumber ?? '', /^\d+$/);
     assert.equal(detail.attachments.length, 1);
     assert.equal(detail.events.length, 5);
@@ -433,22 +409,19 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(printJobs[0].status, 'SUCCESS');
 
     const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.totalPending, 0);
-    assert.equal(dashboard.printPending.total, 0);
-    assert.equal(dashboard.printPending.items.length, 0);
     assert.equal(dashboard.classificationPending.total, 0);
   });
 
   test('requires classification photo before completing classification', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     await assert.rejects(
       () =>
         commandService.completeClassification(
           {
             sampleId,
-            expectedVersion: 3,
+            expectedVersion: 1,
             classificationData: {
               padrao: 'SEM-FOTO',
             },
@@ -466,7 +439,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('replaces classification photo when user retries capture', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const first = await commandService.addClassificationPhoto(
       {
@@ -501,57 +474,30 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('returns dedicated dashboard list for samples pending classification', async () => {
-    const rcSampleId = randomUUID();
-    const qrPrintedSampleId = randomUUID();
+    // Q.print: amostras em RC formam a unica fila pendente (impressao virou
+    // acao pura, nao move o sample por estados intermediarios). O card
+    // "Aguardando impressao" foi removido do dashboard.
+    const sampleA = randomUUID();
+    const sampleB = randomUUID();
 
-    await moveSampleToRegistrationConfirmed(rcSampleId);
-    await moveSampleToQrPrinted(qrPrintedSampleId);
+    await moveSampleToRegistrationConfirmed(sampleA);
+    await moveSampleToRegistrationConfirmed(sampleB);
 
     const dashboard = await queryService.getDashboardPending();
-    assert.equal(dashboard.printPending.total, 0);
-    // Fase Q.cls.1: classificationPending agora cobre RC + QR_PRINTED.
-    // CLASSIFICATION_IN_PROGRESS removido como status.
-    assert.equal(dashboard.classificationPending.counts.REGISTRATION_CONFIRMED, 1);
-    assert.equal(dashboard.classificationPending.counts.QR_PRINTED, 1);
+    assert.equal(dashboard.classificationPending.counts.REGISTRATION_CONFIRMED, 2);
     assert.equal(dashboard.classificationPending.total, 2);
+    // Q.print: removi `totalPending` do dashboard (propriedade obsoleta).
 
     const statusBySampleId = new Map(
       dashboard.classificationPending.items.map((sample) => [sample.id, sample.status])
     );
-    assert.equal(statusBySampleId.get(rcSampleId), 'REGISTRATION_CONFIRMED');
-    assert.equal(statusBySampleId.get(qrPrintedSampleId), 'QR_PRINTED');
-  });
-
-  test('returns dedicated dashboard list for samples with pending print (not printed yet)', async () => {
-    // Fase P4: REGISTRATION_CONFIRMED migrou de PRINT_PENDING para
-    // CLASSIFICATION_PENDING (sem etapa de impressao no registro). Apenas
-    // QR_PENDING_PRINT (reprint manual ou futura Fase Pb) entra em
-    // PRINT_PENDING agora.
-    const registrationConfirmedSampleId = randomUUID();
-    const qrPendingSampleId = randomUUID();
-    await moveSampleToRegistrationConfirmed(registrationConfirmedSampleId);
-    await moveSampleToQrPendingPrint(qrPendingSampleId);
-
-    const dashboard = await queryService.getDashboardPending();
-
-    // PRINT_PENDING agora so contem QR_PENDING_PRINT.
-    assert.equal(dashboard.printPending.counts.QR_PENDING_PRINT, 1);
-    assert.equal(dashboard.printPending.total, 1);
-    assert.equal(dashboard.printPending.items[0].id, qrPendingSampleId);
-    assert.equal(dashboard.printPending.items[0].status, 'QR_PENDING_PRINT');
-
-    // REGISTRATION_CONFIRMED agora aparece em CLASSIFICATION_PENDING.
-    const classificationItems = dashboard.classificationPending.items;
-    const regConfirmedItem = classificationItems.find(
-      (sample) => sample.id === registrationConfirmedSampleId
-    );
-    assert.ok(regConfirmedItem, 'REGISTRATION_CONFIRMED deve aparecer em classificationPending');
-    assert.equal(regConfirmedItem.status, 'REGISTRATION_CONFIRMED');
+    assert.equal(statusBySampleId.get(sampleA), 'REGISTRATION_CONFIRMED');
+    assert.equal(statusBySampleId.get(sampleB), 'REGISTRATION_CONFIRMED');
   });
 
   test('resolves sample from QR content for classification access', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const current = await queryService.requireSample(sampleId);
     assert.ok(current.internalLotNumber);
@@ -629,7 +575,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera preserves existing flow when applySampleUpdates is omitted', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken = randomUUID();
     await writeTempCameraPhoto(photoToken);
@@ -671,7 +617,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera updates declaredSacks when applySampleUpdates.declaredSacks is provided', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken = randomUUID();
     await writeTempCameraPhoto(photoToken);
@@ -712,7 +658,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera updates declaredHarvest when applySampleUpdates.declaredHarvest is provided', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken = randomUUID();
     await writeTempCameraPhoto(photoToken);
@@ -748,7 +694,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera updates both declaredSacks and declaredHarvest when both are provided', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken = randomUUID();
     await writeTempCameraPhoto(photoToken);
@@ -789,7 +735,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera tolerates applySampleUpdates that match current values (no-op)', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken = randomUUID();
     await writeTempCameraPhoto(photoToken);
@@ -830,7 +776,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera rejects applySampleUpdates.declaredSacks below sold+lost sacks with 409', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     // Avanca a amostra ate CLASSIFIED e registra uma venda de 8 sacas para
     // depois tentar reduzir declaredSacks para 5 via applySampleUpdates.
@@ -915,7 +861,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('completeClassification aceita ficha unificada com peneiras/fundos/defeitos agrupados', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -929,7 +875,7 @@ if (!databaseUrl || !databaseReachable) {
     const completed = await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: {
           padrao: 'P3B',
           aspecto: 'verde',
@@ -982,7 +928,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera persiste reasonCode/reasonText na reclassificacao', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     // Primeiro classifica.
     const photoToken1 = randomUUID();
@@ -1035,7 +981,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('confirmClassificationFromCamera fallback hardcoded quando reasonCode/Text omitidos (compat)', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
 
     const photoToken1 = randomUUID();
     await writeTempCameraPhoto(photoToken1);
@@ -1073,7 +1019,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('updateClassification aceita patch com peneiras/fundos/defeitos sub-objs', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -1086,7 +1032,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: {
           padrao: 'PADRAO-1',
           peneiras: {
@@ -1149,7 +1095,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('updateClassification aceita tipo-only update (sem campos no after)', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -1162,7 +1108,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: { padrao: 'PADRAO-1' },
         classifiers: classifiersOf(actorClassifier),
         classificationType: 'BICA',
@@ -1199,7 +1145,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('updateClassification rejeita 409 quando nem after nem tipo mudaram', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -1212,7 +1158,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: { padrao: 'PADRAO-1' },
         classifiers: classifiersOf(actorClassifier),
         classificationType: 'BICA',
@@ -1240,7 +1186,7 @@ if (!databaseUrl || !databaseReachable) {
 
   test('updateClassification em update combinado (campos + tipo) inclui tipo no before/after', async () => {
     const sampleId = randomUUID();
-    await moveSampleToQrPrinted(sampleId);
+    await moveSampleToRegistrationConfirmed(sampleId);
     await commandService.addClassificationPhoto(
       {
         sampleId,
@@ -1253,7 +1199,7 @@ if (!databaseUrl || !databaseReachable) {
     await commandService.completeClassification(
       {
         sampleId,
-        expectedVersion: 3,
+        expectedVersion: 1,
         classificationData: { padrao: 'PADRAO-1' },
         classifiers: classifiersOf(actorClassifier),
         classificationType: 'BICA',

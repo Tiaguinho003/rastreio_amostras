@@ -8,7 +8,6 @@
     { "$ref": "./events/qr-print-requested.event.schema.json" },
     { "$ref": "./events/qr-print-failed.event.schema.json" },
     { "$ref": "./events/qr-printed.event.schema.json" },
-    { "$ref": "./events/qr-reprint-requested.event.schema.json" },
     { "$ref": "./events/classification-completed.event.schema.json" },
     { "$ref": "./events/registration-updated.event.schema.json" },
     { "$ref": "./events/classification-updated.event.schema.json" },

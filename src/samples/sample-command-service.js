@@ -18,9 +18,13 @@ const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO',
 };
 const PHOTO_KIND_ALLOWED_STATUSES = {
-  [PHOTO_KINDS.CLASSIFICATION]: ['REGISTRATION_CONFIRMED', 'QR_PRINTED', 'CLASSIFIED'],
+  [PHOTO_KINDS.CLASSIFICATION]: ['REGISTRATION_CONFIRMED', 'CLASSIFIED'],
 };
-const REPRINT_ALLOWED_STATUSES = ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'];
+
+// Q.print: timeout pra PrintJob travado (lazy, sem worker/cron). Aplicado
+// em requestQrPrint (antes de criar novo) e em getSampleDetail (path de
+// leitura). PrintJobs PENDING > 1min sao marcados como FAILED.
+const PRINT_JOB_PENDING_TIMEOUT_MS = 60 * 1000;
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
 const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
 const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
@@ -28,20 +32,10 @@ const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOS
 // declaradas (REGISTRATION_CONFIRMED). Classificacao nao e pre-requisito comercial:
 // o operador pode vender/registrar perda antes mesmo de classificar. INVALIDATED
 // continua bloqueado via check separado.
-const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set([
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFIED',
-]);
+const COMMERCIAL_MUTABLE_OPERATIONAL_STATUSES = new Set(['REGISTRATION_CONFIRMED', 'CLASSIFIED']);
 // Envio fisico de amostra pode ser registrado assim que a amostra foi registrada
 // (REGISTRATION_CONFIRMED). Edicao e cancelamento do envio tambem usam esse range.
-const PHYSICAL_SEND_ALLOWED_STATUSES = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFIED',
-];
+const PHYSICAL_SEND_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const MOVEMENT_TYPES = {
   SALE: 'SALE',
   LOSS: 'LOSS',
@@ -54,18 +48,8 @@ const MAX_UPDATE_REASON_WORDS = 10;
 const DEFAULT_REGISTRATION_UPDATE_REASON_CODE = 'OTHER';
 const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
-const REGISTRATION_UPDATE_ALLOWED_STATUSES = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFIED',
-];
-const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = [
-  'REGISTRATION_CONFIRMED',
-  'QR_PENDING_PRINT',
-  'QR_PRINTED',
-  'CLASSIFIED',
-];
+const REGISTRATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
+const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const REGISTRATION_EDITABLE_FIELDS = ['owner', 'sacks', 'harvest', 'originLot', 'location'];
 // Q.cls.2.7: ficha unificada — campos do classificationData no payload
 // do evento CLASSIFICATION_COMPLETED. Mais detalhes no schema
@@ -1219,14 +1203,6 @@ function normalizePhotoKind(value) {
   throw new HttpError(422, 'photo kind is invalid');
 }
 
-function normalizePrintAction(value, fieldName = 'printAction') {
-  const action = normalizeRequiredText(value ?? 'PRINT', fieldName).toUpperCase();
-  if (action !== 'PRINT' && action !== 'REPRINT') {
-    throw new HttpError(422, `${fieldName} is invalid`);
-  }
-  return action;
-}
-
 function buildDeterministicUuid(seed) {
   const digest = createHash('sha256').update(seed).digest();
   const bytes = Buffer.from(digest.subarray(0, 16));
@@ -1738,16 +1714,35 @@ export class SampleCommandService {
     );
   }
 
+  // Q.print: requestQrPrint virou ACAO PURA (audit-only, fromStatus/
+  // toStatus null). Aceita qualquer status ≠ INVALIDATED. Antes de criar
+  // novo PrintJob, aplica lazy timeout (PENDING > 1min vira FAILED).
+  // Bloqueia 409 se houver PENDING valido pra essa amostra. Sem
+  // expectedVersion (nao muda sample). printAction='PRINT' hardcoded
+  // (drop da coluna fica em Q.final).
   async requestQrPrint(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'request QR print');
-    requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED'], 'request QR print');
-    const attemptNumber =
-      input.attemptNumber !== undefined
-        ? normalizeRequiredInteger(input.attemptNumber, 'attemptNumber', 1)
-        : await this.queryService.getNextPrintAttemptNumber(sample.id, 'PRINT');
+    if (sample.status === 'INVALIDATED') {
+      throw new HttpError(409, 'cannot print on INVALIDATED sample');
+    }
+
+    // Lazy timeout: marca PrintJobs PENDING > 1min como FAILED antes de
+    // criar/avaliar nova request. Evita bloqueio permanente quando o
+    // print agent fica offline.
+    await this.queryService.expireStalePrintJobs(sample.id, PRINT_JOB_PENDING_TIMEOUT_MS);
+
+    // Bloqueia se ainda houver PENDING valido (apos lazy timeout).
+    const pending = await this.queryService.prisma.printJob.findFirst({
+      where: { sampleId: sample.id, status: 'PENDING' },
+      select: { id: true },
+    });
+    if (pending) {
+      throw new HttpError(409, 'A print job is already pending for this sample');
+    }
+
+    const attemptNumber = await this.queryService.getNextPrintAttemptNumber(sample.id);
 
     const event = buildEventEnvelope({
       eventType: 'QR_PRINT_REQUESTED',
@@ -1757,64 +1752,33 @@ export class SampleCommandService {
         attemptNumber,
         printerId: input.printerId ?? null,
       },
-      fromStatus: 'REGISTRATION_CONFIRMED',
-      toStatus: 'QR_PENDING_PRINT',
+      fromStatus: null,
+      toStatus: null,
       module: 'print',
       actorContext: actor,
       idempotencyScope: 'QR_PRINT',
       idempotencyKey: input.idempotencyKey ?? randomUUID(),
     });
 
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
-  }
-
-  async requestQrReprint(input, actorContext) {
-    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'request QR reprint');
-
-    const sample = await this.queryService.requireSample(input.sampleId);
-    assertSampleStatus(sample, REPRINT_ALLOWED_STATUSES, 'request QR reprint');
-
-    const attemptNumber =
-      (input.attemptNumber !== undefined
-        ? normalizeRequiredInteger(input.attemptNumber, 'attemptNumber', 1)
-        : null) ?? (await this.queryService.getNextPrintAttemptNumber(sample.id, 'REPRINT'));
-
-    const event = buildEventEnvelope({
-      eventType: 'QR_REPRINT_REQUESTED',
-      sampleId: sample.id,
-      payload: {
-        printAction: 'REPRINT',
-        attemptNumber,
-        printerId: input.printerId ?? null,
-        reasonText: input.reasonText ?? null,
-      },
-      fromStatus: null,
-      toStatus: null,
-      module: 'print',
-      actorContext: actor,
-      idempotencyScope: 'QR_REPRINT',
-      idempotencyKey: input.idempotencyKey ?? randomUUID(),
-    });
-
     return this.eventService.appendEvent(event);
   }
 
+  // Q.print: recordQrPrintFailed virou audit-only sem distincao
+  // PRINT/REPRINT. Sem expectedVersion (nao muda sample). PrintJob.status
+  // atualizado em paralelo via projection.
   async recordQrPrintFailed(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR print failure');
-    const printAction = normalizePrintAction(input.printAction ?? 'PRINT');
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    if (printAction === 'PRINT') {
-      assertSampleStatus(sample, ['QR_PENDING_PRINT'], 'record QR print failure');
-    } else {
-      assertSampleStatus(sample, REPRINT_ALLOWED_STATUSES, 'record QR reprint failure');
-    }
+    // Aceita qualquer status — agent pode reportar failure mesmo apos o
+    // sample ter avancado (ex: timeout race). Idempotencia protege
+    // re-tentativas.
 
     const event = buildEventEnvelope({
       eventType: 'QR_PRINT_FAILED',
       sampleId: sample.id,
       payload: {
-        printAction,
+        printAction: 'PRINT',
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null,
         error: input.error,
@@ -1828,62 +1792,27 @@ export class SampleCommandService {
     return this.eventService.appendEvent(event);
   }
 
+  // Q.print: recordQrPrinted virou audit-only. Sem hack de "se ja passou
+  // de QR_PENDING_PRINT" (status nao muda mais). Sem expectedVersion.
+  // PrintJob.status='SUCCESS' atualizado em paralelo via projection.
   async recordQrPrinted(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'record QR printed');
-    const printAction = normalizePrintAction(input.printAction ?? 'PRINT');
+
     const sample = await this.queryService.requireSample(input.sampleId);
-
-    // If the sample already advanced past QR_PENDING_PRINT, the print was
-    // already accounted for.  Mark any orphaned PENDING print job as SUCCESS
-    // and return 200 so the print agent stops retrying.
-    if (printAction === 'PRINT' && sample.status !== 'QR_PENDING_PRINT') {
-      await this.queryService.prisma.printJob.updateMany({
-        where: {
-          sampleId: sample.id,
-          printAction: printAction,
-          attemptNumber: input.attemptNumber ?? 1,
-          status: 'PENDING',
-        },
-        data: { status: 'SUCCESS', updatedAt: new Date() },
-      });
-      return {
-        statusCode: 200,
-        idempotent: true,
-        message: 'Sample already advanced past print phase',
-      };
-    }
-
-    const mutatesSample =
-      printAction === 'PRINT' ||
-      (printAction === 'REPRINT' && sample.status === 'QR_PENDING_PRINT');
-
-    if (mutatesSample) {
-      requireExpectedVersion(input.expectedVersion);
-    }
-
-    if (printAction === 'PRINT') {
-      assertSampleStatus(sample, ['QR_PENDING_PRINT'], 'record QR printed');
-    } else {
-      assertSampleStatus(sample, REPRINT_ALLOWED_STATUSES, 'record QR reprint success');
-    }
 
     const event = buildEventEnvelope({
       eventType: 'QR_PRINTED',
       sampleId: sample.id,
       payload: {
-        printAction,
+        printAction: 'PRINT',
         attemptNumber: input.attemptNumber,
         printerId: input.printerId ?? null,
       },
-      fromStatus: mutatesSample ? 'QR_PENDING_PRINT' : null,
-      toStatus: mutatesSample ? 'QR_PRINTED' : null,
+      fromStatus: null,
+      toStatus: null,
       module: 'print',
       actorContext: actor,
     });
-
-    if (mutatesSample) {
-      return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
-    }
 
     return this.eventService.appendEvent(event);
   }
@@ -1893,10 +1822,9 @@ export class SampleCommandService {
     requireExpectedVersion(input.expectedVersion);
 
     const sample = await this.queryService.requireSample(input.sampleId);
-    // Fase Q.cls.1: classificação parte direto de REGISTRATION_CONFIRMED
-    // (sem CLASSIFICATION_IN_PROGRESS intermediário). QR_PRINTED mantido
-    // como compat até a Fase Q.print remover esse status.
-    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED', 'QR_PRINTED'], 'complete classification');
+    // Q.cls.1 + Q.print: classificacao parte direto de REGISTRATION_CONFIRMED
+    // (lifecycle simplificado, sem statuses intermediarios de print/classification).
+    assertSampleStatus(sample, ['REGISTRATION_CONFIRMED'], 'complete classification');
     const classificationPhoto = await this.queryService.findAttachmentByKind(
       sample.id,
       PHOTO_KINDS.CLASSIFICATION
@@ -2917,9 +2845,10 @@ export class SampleCommandService {
     const sampleUpdatesPatch = parseApplySampleUpdatesPatch(input.applySampleUpdates);
 
     const sample = await this.queryService.requireSample(sampleId);
-    // Fase Q.cls.1: câmera aceita partir de RC (1ª classificação) ou CLASSIFIED
-    // (reclassificação). QR_PRINTED mantido como compat até a Fase Q.print.
-    const classifiableStatuses = ['REGISTRATION_CONFIRMED', 'QR_PRINTED', 'CLASSIFIED'];
+    // Q.cls.1 + Q.print: camera aceita partir de RC (1a classificacao) ou
+    // CLASSIFIED (reclassificacao). Sem QR_PRINTED — print virou acao
+    // pura (audit-only, nao muda status).
+    const classifiableStatuses = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
     assertSampleStatus(sample, classifiableStatuses, 'confirm classification from camera');
 
     // Read photo from temp

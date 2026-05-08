@@ -239,6 +239,9 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
+    // Q.print: requestQrPrint virou acao pura. Sem expectedVersion,
+    // sem attemptNumber (backend calcula). requestQrReprint deletado —
+    // toda impressao usa requestQrPrint com attemptNumber sequencial.
     requestQrPrint: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
@@ -248,8 +251,6 @@ export function createBackendApiV1({
         const result = await commandService.requestQrPrint(
           {
             sampleId,
-            expectedVersion: body.expectedVersion,
-            attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
             idempotencyKey: body.idempotencyKey,
           },
@@ -259,26 +260,9 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
-    requestQrReprint: (input) =>
-      executeApiForInput(input, async () => {
-        const actor = await resolveActorContext(input, authService);
-        const sampleId = requireSampleId(input?.params);
-        const body = readRequestBody(input);
-
-        const result = await commandService.requestQrReprint(
-          {
-            sampleId,
-            attemptNumber: body.attemptNumber,
-            printerId: body.printerId ?? null,
-            reasonText: body.reasonText ?? null,
-            idempotencyKey: body.idempotencyKey,
-          },
-          actor
-        );
-
-        return { status: result.statusCode, body: result };
-      }),
-
+    // Q.print: recordQrPrintFailed/Printed audit-only (sem expectedVersion,
+    // sem distincao PRINT/REPRINT). Body.printAction ainda aceito por
+    // compat com print agent local atual; backend ignora se vier.
     recordQrPrintFailed: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
@@ -288,7 +272,6 @@ export function createBackendApiV1({
         const result = await commandService.recordQrPrintFailed(
           {
             sampleId,
-            printAction: body.printAction ?? 'PRINT',
             attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
             error: body.error,
@@ -308,8 +291,6 @@ export function createBackendApiV1({
         const result = await commandService.recordQrPrinted(
           {
             sampleId,
-            expectedVersion: body.expectedVersion,
-            printAction: body.printAction ?? 'PRINT',
             attemptNumber: body.attemptNumber,
             printerId: body.printerId ?? null,
           },

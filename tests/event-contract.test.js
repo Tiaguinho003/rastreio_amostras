@@ -122,7 +122,7 @@ test('sequenceNumber increments per sample', () => {
 
   const e1 = service.appendEvent(registrationConfirmedEvent(sampleId));
   const e2 = service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  const e3 = service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  const e3 = service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
 
   assert.equal(e1.event.sequenceNumber, 1);
   assert.equal(e2.event.sequenceNumber, 2);
@@ -160,14 +160,16 @@ test('qr print attempt uniqueness returns existing event for same sample/action/
   assert.equal(store.getEvents(sampleId).length, 2);
 });
 
-test('expectedVersion mismatch returns 409 and does not append event', () => {
+test('expectedVersion mismatch returns 409 on mutating event', () => {
   const { store, service } = createService();
   const sampleId = randomUUID();
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
 
+  // Q.print: QR_PRINT_REQUESTED virou audit-only e nao checa expectedVersion.
+  // Usamos sale como evento mutating pra validar o controle de versao.
   assert.throws(
-    () => service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 0 }),
+    () => service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 0 }),
     (error) => error instanceof HttpError && error.status === 409
   );
 
@@ -183,12 +185,12 @@ test('sale and loss events are accepted by the contract validator', () => {
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
   service.appendEvent(
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'QR_PRINTED',
+      fromStatus: 'REGISTRATION_CONFIRMED',
       toStatus: 'CLASSIFIED',
       payload: {
         classificationPhotoId: randomUUID(),
@@ -197,20 +199,20 @@ test('sale and loss events are accepted by the contract validator', () => {
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
     }),
-    { expectedVersion: 3 }
+    { expectedVersion: 1 }
   );
 
-  const created = service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 4 });
+  const created = service.appendEvent(saleCreatedEvent(sampleId), { expectedVersion: 2 });
   const updated = service.appendEvent(
     saleUpdatedEvent(sampleId, { payload: { movementId: created.event.payload.movementId } }),
     {
-      expectedVersion: 5,
+      expectedVersion: 3,
     }
   );
-  const loss = service.appendEvent(lossRecordedEvent(sampleId), { expectedVersion: 6 });
+  const loss = service.appendEvent(lossRecordedEvent(sampleId), { expectedVersion: 4 });
   const cancelled = service.appendEvent(
     lossCancelledEvent(sampleId, { payload: { movementId: loss.event.payload.movementId } }),
-    { expectedVersion: 7 }
+    { expectedVersion: 5 }
   );
 
   assert.equal(created.statusCode, 201);
@@ -246,7 +248,7 @@ test('classification completed requires classification photo reference and accep
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
 
   service.appendEvent(
     photoAddedEvent(sampleId, {
@@ -266,7 +268,7 @@ test('classification completed requires classification photo reference and accep
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'QR_PRINTED',
+      fromStatus: 'REGISTRATION_CONFIRMED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -275,7 +277,7 @@ test('classification completed requires classification photo reference and accep
       },
       module: 'classification',
     }),
-    { expectedVersion: 3 }
+    { expectedVersion: 1 }
   );
 
   assert.equal(completed.statusCode, 201);
@@ -288,7 +290,7 @@ test('classification completed accepts classifiers array with valid snapshots', 
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
   service.appendEvent(
     photoAddedEvent(sampleId, {
       payload: {
@@ -306,7 +308,7 @@ test('classification completed accepts classifiers array with valid snapshots', 
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'QR_PRINTED',
+      fromStatus: 'REGISTRATION_CONFIRMED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -327,7 +329,7 @@ test('classification completed accepts classifiers array with valid snapshots', 
       },
       module: 'classification',
     }),
-    { expectedVersion: 3 }
+    { expectedVersion: 1 }
   );
 
   assert.equal(completed.statusCode, 201);
@@ -340,7 +342,7 @@ test('classification completed rejects classifiers with empty array', () => {
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
   service.appendEvent(
     photoAddedEvent(sampleId, {
       payload: {
@@ -360,7 +362,7 @@ test('classification completed rejects classifiers with empty array', () => {
         buildEvent({
           eventType: 'CLASSIFICATION_COMPLETED',
           sampleId,
-          fromStatus: 'QR_PRINTED',
+          fromStatus: 'REGISTRATION_CONFIRMED',
           toStatus: 'CLASSIFIED',
           idempotencyScope: 'CLASSIFICATION_COMPLETE',
           idempotencyKey: randomUUID(),
@@ -370,7 +372,7 @@ test('classification completed rejects classifiers with empty array', () => {
           },
           module: 'classification',
         }),
-        { expectedVersion: 3 }
+        { expectedVersion: 1 }
       ),
     (error) => error instanceof HttpError && error.status === 422
   );
@@ -382,7 +384,7 @@ test('classification completed rejects classifiers with extra keys per item', ()
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
   service.appendEvent(
     photoAddedEvent(sampleId, {
       payload: {
@@ -402,7 +404,7 @@ test('classification completed rejects classifiers with extra keys per item', ()
         buildEvent({
           eventType: 'CLASSIFICATION_COMPLETED',
           sampleId,
-          fromStatus: 'QR_PRINTED',
+          fromStatus: 'REGISTRATION_CONFIRMED',
           toStatus: 'CLASSIFIED',
           idempotencyScope: 'CLASSIFICATION_COMPLETE',
           idempotencyKey: randomUUID(),
@@ -419,7 +421,7 @@ test('classification completed rejects classifiers with extra keys per item', ()
           },
           module: 'classification',
         }),
-        { expectedVersion: 3 }
+        { expectedVersion: 1 }
       ),
     (error) => error instanceof HttpError && error.status === 422
   );
@@ -431,7 +433,7 @@ test('report exported is accepted and does not mutate sample version/status', ()
 
   service.appendEvent(registrationConfirmedEvent(sampleId));
   service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 1 });
 
   service.appendEvent(
     photoAddedEvent(sampleId, {
@@ -451,7 +453,7 @@ test('report exported is accepted and does not mutate sample version/status', ()
     buildEvent({
       eventType: 'CLASSIFICATION_COMPLETED',
       sampleId,
-      fromStatus: 'QR_PRINTED',
+      fromStatus: 'REGISTRATION_CONFIRMED',
       toStatus: 'CLASSIFIED',
       idempotencyScope: 'CLASSIFICATION_COMPLETE',
       idempotencyKey: randomUUID(),
@@ -462,7 +464,7 @@ test('report exported is accepted and does not mutate sample version/status', ()
       },
       module: 'classification',
     }),
-    { expectedVersion: 3 }
+    { expectedVersion: 1 }
   );
 
   const beforeExport = store.getSample(sampleId);
@@ -501,63 +503,12 @@ test('commercial status updated is accepted and mutates commercial status/versio
   assert.equal(afterUpdate.version, beforeUpdate.version + 1);
 });
 
-test('qr reprint success is accepted without mutating sample version/status', () => {
-  const { store, service } = createService();
-  const sampleId = randomUUID();
-
-  service.appendEvent(registrationConfirmedEvent(sampleId));
-  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-  service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
-
-  const beforeReprint = store.getSample(sampleId);
-  const reprinted = service.appendEvent(
-    qrPrintedEvent(sampleId, {
-      fromStatus: null,
-      toStatus: null,
-      payload: {
-        printAction: 'REPRINT',
-        attemptNumber: 1,
-        printerId: 'printer-main',
-      },
-    })
-  );
-  const afterReprint = store.getSample(sampleId);
-
-  assert.equal(reprinted.statusCode, 201);
-  assert.equal(reprinted.event.eventType, 'QR_PRINTED');
-  assert.equal(afterReprint.status, 'QR_PRINTED');
-  assert.equal(afterReprint.version, beforeReprint.version);
-});
-
-test('qr reprint success mutates when sample is still QR_PENDING_PRINT', () => {
-  const { store, service } = createService();
-  const sampleId = randomUUID();
-
-  service.appendEvent(registrationConfirmedEvent(sampleId));
-  service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-
-  const beforeReprint = store.getSample(sampleId);
-  assert.equal(beforeReprint.status, 'QR_PENDING_PRINT');
-
-  const reprinted = service.appendEvent(
-    qrPrintedEvent(sampleId, {
-      fromStatus: 'QR_PENDING_PRINT',
-      toStatus: 'QR_PRINTED',
-      payload: {
-        printAction: 'REPRINT',
-        attemptNumber: 1,
-        printerId: 'printer-main',
-      },
-    }),
-    { expectedVersion: beforeReprint.version }
-  );
-  const afterReprint = store.getSample(sampleId);
-
-  assert.equal(reprinted.statusCode, 201);
-  assert.equal(reprinted.event.eventType, 'QR_PRINTED');
-  assert.equal(afterReprint.status, 'QR_PRINTED');
-  assert.equal(afterReprint.version, beforeReprint.version + 1);
-});
+// Q.print: tests "qr reprint success" deletados — distincao PRINT/REPRINT
+// foi cortada. Toda impressao usa QR_PRINT_REQUESTED audit-only com
+// attemptNumber sequencial. Cobertura "QR_PRINTED nao muta sample" ja
+// vem implicita nos tests "sequenceNumber increments per sample" e
+// "sale and loss events" (registration_confirmed → qrPrintRequested →
+// qrPrinted → ... — sample.version stays at 1 ate mutating event).
 
 test('classification extraction completed is accepted and does not mutate sample', () => {
   const { store, service } = createService();

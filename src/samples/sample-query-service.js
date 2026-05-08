@@ -1,17 +1,11 @@
 import { HttpError } from '../contracts/errors.js';
 
-const PENDING_STATUSES = ['QR_PENDING_PRINT'];
-// Fase P4: REGISTRATION_CONFIRMED migra de PRINT_PENDING para
-// CLASSIFICATION_PENDING. Como a etapa de impressao saiu do registro
-// (Fase P2), uma amostra recem-confirmada agora aguarda classificacao
-// (nao impressao). PRINT_PENDING ainda existe pra cobrir reprints
-// (QR_PENDING_PRINT) e a futura Fase Q.print (impressao pos-classificacao).
-const PRINT_PENDING_STATUSES = ['QR_PENDING_PRINT'];
-// Fase Q.cls.1: CLASSIFICATION_IN_PROGRESS removido. QR_PRINTED mantido
-// como compat até a Fase Q.print remover esse status do enum.
-const CLASSIFICATION_PENDING_STATUSES = ['REGISTRATION_CONFIRMED', 'QR_PRINTED'];
+// Q.print: PRINT_PENDING_STATUSES removido — impressao virou acao pura,
+// estado de impressao vive na tabela PrintJob.status='PENDING' (sem
+// inflagar status do sample). Card "Aguardando impressao" foi cortado
+// do dashboard (decisao Q.1.c #20).
+const CLASSIFICATION_PENDING_STATUSES = ['REGISTRATION_CONFIRMED'];
 const SAMPLE_STATUS_FILTER_GROUPS = {
-  PRINT_PENDING: PRINT_PENDING_STATUSES,
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
   CLASSIFIED: ['CLASSIFIED'],
 };
@@ -1053,22 +1047,11 @@ export class SampleQueryService {
 
   async listPendingPrintJobs(options = {}) {
     const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
+    // Q.print: print virou acao pura — PrintJob.status='PENDING' e a unica
+    // condicao. Sample pode estar em qualquer status nao-INVALIDATED.
     const where = {
       status: 'PENDING',
-      OR: [
-        // Print inicial: sample ainda aguardando primeira impressao.
-        { printAction: 'PRINT', sample: { status: 'QR_PENDING_PRINT' } },
-        // Reprint: evento nao altera status da amostra, entao o job
-        // precisa ser retornado em qualquer status permitido para reimprimir.
-        {
-          printAction: 'REPRINT',
-          sample: {
-            status: {
-              in: ['QR_PENDING_PRINT', 'QR_PRINTED', 'CLASSIFIED'],
-            },
-          },
-        },
-      ],
+      sample: { status: { not: 'INVALIDATED' } },
     };
 
     if (options.sampleId) {
@@ -1541,12 +1524,13 @@ export class SampleQueryService {
     return event;
   }
 
-  async getNextPrintAttemptNumber(sampleId, printAction = 'PRINT') {
+  // Q.print: getNextPrintAttemptNumber sem distincao printAction (toda
+  // impressao e igual; attemptNumber sequencial unico por sample cobre
+  // qualquer pergunta operacional). Drop da coluna `print_action` fica
+  // em Q.final — por enquanto a coluna ainda existe mas e sempre 'PRINT'.
+  async getNextPrintAttemptNumber(sampleId) {
     const lastPrintJob = await this.prisma.printJob.findFirst({
-      where: {
-        sampleId,
-        printAction,
-      },
+      where: { sampleId },
       orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }],
       select: { attemptNumber: true },
     });
@@ -1554,7 +1538,29 @@ export class SampleQueryService {
     return (lastPrintJob?.attemptNumber ?? 0) + 1;
   }
 
+  // Q.print: lazy timeout de PrintJob travado. Marca PrintJobs PENDING
+  // mais antigos que `timeoutMs` como FAILED com erro 'timeout 1min'.
+  // Aplicado em requestQrPrint (path de escrita) e em getSampleDetail
+  // (path de leitura) — sem worker/cron, decisao D3 do plano.
+  async expireStalePrintJobs(sampleId, timeoutMs) {
+    const cutoff = new Date(Date.now() - timeoutMs);
+    return this.prisma.printJob.updateMany({
+      where: {
+        sampleId,
+        status: 'PENDING',
+        createdAt: { lt: cutoff },
+      },
+      data: { status: 'FAILED', error: 'timeout 1min', updatedAt: new Date() },
+    });
+  }
+
   async getSampleDetail(sampleId, options = {}) {
+    // Q.print: lazy timeout antes de projetar — PrintJobs PENDING > 1min
+    // viram FAILED, refletindo no latestPrintJob retornado.
+    if (options.applyPrintTimeout !== false) {
+      await this.expireStalePrintJobs(sampleId, 60 * 1000);
+    }
+
     const sample = await this.requireSample(sampleId);
     const [attachments, events, movements, latestPrintJob] = await Promise.all([
       this.listAttachments(sampleId),
@@ -1572,113 +1578,66 @@ export class SampleQueryService {
     };
   }
 
+  // Q.print: getDashboardPending sem `printPending` (decisao Q.1.c #20 —
+  // card "Aguardando impressao" cortado definitivamente). `oldestPending`
+  // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
+  // status). Resta apenas `classificationPending` (samples em RC).
   async getDashboardPending() {
-    const ALL_DASHBOARD_STATUSES = [
-      ...new Set([
-        ...PENDING_STATUSES,
-        ...PRINT_PENDING_STATUSES,
-        ...CLASSIFICATION_PENDING_STATUSES,
-      ]),
-    ];
-
-    const [
-      allStatusCounts,
-      agedPending,
-      printPendingRows,
-      classificationPendingRows,
-      todayReceivedRows,
-    ] = await this.prisma.$transaction([
-      this.prisma.sample.groupBy({
-        by: ['status'],
-        where: {
-          status: { in: ALL_DASHBOARD_STATUSES },
-        },
-        _count: { status: true },
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: PENDING_STATUSES },
-        },
-        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: PRINT_PENDING_STATUSES },
-        },
-        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      this.prisma.sample.findMany({
-        where: {
-          status: { in: CLASSIFICATION_PENDING_STATUSES },
-        },
-        orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
-        take: DASHBOARD_LIST_LIMIT,
-        select: DASHBOARD_SAMPLE_SELECT,
-      }),
-      (() => {
-        const nowUtc = new Date();
-        const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-        const year = nowSp.getUTCFullYear();
-        const month = nowSp.getUTCMonth();
-        const day = nowSp.getUTCDate();
-        const startUtc = new Date(
-          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
-        );
-        const endUtc = new Date(
-          Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
-        );
-        return this.prisma.$queryRaw`
-          SELECT COUNT(*)::INTEGER AS total
-          FROM "sample" s
-          WHERE s."created_at" >= ${startUtc}
-            AND s."created_at" <= ${endUtc}
-        `;
-      })(),
-    ]);
+    const [allStatusCounts, classificationPendingRows, todayReceivedRows] =
+      await this.prisma.$transaction([
+        this.prisma.sample.groupBy({
+          by: ['status'],
+          where: {
+            status: { in: CLASSIFICATION_PENDING_STATUSES },
+          },
+          _count: { status: true },
+        }),
+        this.prisma.sample.findMany({
+          where: {
+            status: { in: CLASSIFICATION_PENDING_STATUSES },
+          },
+          orderBy: [{ updatedAt: 'asc' }, { internalLotNumber: 'asc' }, { id: 'asc' }],
+          take: DASHBOARD_LIST_LIMIT,
+          select: DASHBOARD_SAMPLE_SELECT,
+        }),
+        (() => {
+          const nowUtc = new Date();
+          const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+          const year = nowSp.getUTCFullYear();
+          const month = nowSp.getUTCMonth();
+          const day = nowSp.getUTCDate();
+          const startUtc = new Date(
+            Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 7, 0, 0, 0)
+          );
+          const endUtc = new Date(
+            Date.UTC(year, month, day, SAO_PAULO_UTC_OFFSET_HOURS + 18, 0, 0, 0)
+          );
+          return this.prisma.$queryRaw`
+            SELECT COUNT(*)::INTEGER AS total
+            FROM "sample" s
+            WHERE s."created_at" >= ${startUtc}
+              AND s."created_at" <= ${endUtc}
+          `;
+        })(),
+      ]);
 
     const countByStatus = {};
     for (const row of allStatusCounts) {
       countByStatus[row.status] = row._count.status;
     }
 
-    function sumStatuses(statuses) {
-      let total = 0;
-      for (const s of statuses) {
-        total += countByStatus[s] ?? 0;
-      }
-      return total;
+    const classificationPendingCounts = {};
+    let classificationPendingTotal = 0;
+    for (const s of CLASSIFICATION_PENDING_STATUSES) {
+      const count = countByStatus[s] ?? 0;
+      classificationPendingCounts[s] = count;
+      classificationPendingTotal += count;
     }
 
-    function pickCounts(statuses) {
-      const counts = {};
-      for (const s of statuses) {
-        counts[s] = countByStatus[s] ?? 0;
-      }
-      return counts;
-    }
-
-    const pendingCounts = pickCounts(PENDING_STATUSES);
-    const totalPending = sumStatuses(PENDING_STATUSES);
-    const printPendingCounts = pickCounts(PRINT_PENDING_STATUSES);
-    const printPendingTotal = sumStatuses(PRINT_PENDING_STATUSES);
-    const classificationPendingCounts = pickCounts(CLASSIFICATION_PENDING_STATUSES);
-    const classificationPendingTotal = sumStatuses(CLASSIFICATION_PENDING_STATUSES);
     const todayReceivedTotal = toIntegerOrZero(todayReceivedRows?.[0]?.total);
 
     return {
-      pendingCounts,
-      totalPending,
       todayReceivedTotal,
-      oldestPending: agedPending.map(mapDashboardSample),
-      printPending: {
-        counts: printPendingCounts,
-        total: printPendingTotal,
-        items: printPendingRows.map(mapDashboardSample),
-      },
       classificationPending: {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
@@ -1938,4 +1897,4 @@ export class SampleQueryService {
   }
 }
 
-export { PENDING_STATUSES, CLASSIFICATION_PENDING_STATUSES };
+export { CLASSIFICATION_PENDING_STATUSES };

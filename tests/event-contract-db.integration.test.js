@@ -11,7 +11,6 @@ import {
   registrationConfirmedEvent,
   photoAddedEvent,
   qrPrintRequestedEvent,
-  qrReprintRequestedEvent,
   qrPrintFailedEvent,
   qrPrintedEvent,
   saleCreatedEvent,
@@ -220,11 +219,16 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('returns 409 on version conflict and keeps database state consistent', async () => {
+    // Q.print: QR_PRINT_REQUESTED virou audit-only e nao checa expectedVersion.
+    // Usar SAMPLE_INVALIDATED (mutating) pra exercitar conflito de version.
     const sampleId = randomUUID();
     await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     await assert.rejects(
-      () => service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 0 }),
+      () =>
+        service.appendEvent(sampleInvalidatedEvent(sampleId, 'REGISTRATION_CONFIRMED'), {
+          expectedVersion: 0,
+        }),
       (error) => error instanceof HttpError && error.status === 409
     );
 
@@ -237,12 +241,15 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('rolls back transaction when failing after sample mutation', async () => {
+    // Q.print: QR_PRINT_REQUESTED virou audit-only — usar LOSS_RECORDED
+    // pra forcar mutacao do sample antes da falha simulada (LOSS nao
+    // tem FK pra buyerClientId).
     const sampleId = randomUUID();
     await service.appendEvent(registrationConfirmedEvent(sampleId));
 
     await assert.rejects(
       () =>
-        service.appendEvent(qrPrintRequestedEvent(sampleId), {
+        service.appendEvent(lossRecordedEvent(sampleId), {
           expectedVersion: 1,
           simulateFailureAfterSampleMutation: true,
         }),
@@ -290,11 +297,13 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('persists REPORT_EXPORTED without mutating sample version', async () => {
+    // Q.print: QR_PRINT_REQUESTED/QR_PRINTED viraram audit-only e o
+    // CLASSIFICATION_COMPLETED agora parte de RC direto.
     const sampleId = randomUUID();
 
     await service.appendEvent(registrationConfirmedEvent(sampleId));
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(qrPrintRequestedEvent(sampleId));
+    await service.appendEvent(qrPrintedEvent(sampleId));
 
     const classificationPhotoId = randomUUID();
     await service.appendEvent(
@@ -315,7 +324,7 @@ if (!databaseUrl || !databaseReachable) {
       buildEvent({
         eventType: 'CLASSIFICATION_COMPLETED',
         sampleId,
-        fromStatus: 'QR_PRINTED',
+        fromStatus: 'REGISTRATION_CONFIRMED',
         toStatus: 'CLASSIFIED',
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
@@ -324,7 +333,7 @@ if (!databaseUrl || !databaseReachable) {
         },
         module: 'classification',
       }),
-      { expectedVersion: 3 }
+      { expectedVersion: 1 }
     );
 
     const beforeExport = await prisma.sample.findUnique({ where: { id: sampleId } });
@@ -350,82 +359,10 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(afterExport.version, beforeExport.version);
   });
 
-  test('persists QR_PRINTED REPRINT without mutating sample version/status', async () => {
-    const sampleId = randomUUID();
-
-    await service.appendEvent(registrationConfirmedEvent(sampleId));
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
-    await service.appendEvent(
-      qrReprintRequestedEvent(sampleId, {
-        payload: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-          reasonText: 'etiqueta danificada',
-        },
-      })
-    );
-
-    const beforeReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
-
-    const reprintSuccess = await service.appendEvent(
-      qrPrintedEvent(sampleId, {
-        fromStatus: null,
-        toStatus: null,
-        payload: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-        },
-      })
-    );
-
-    const afterReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
-    assert.equal(reprintSuccess.statusCode, 201);
-    assert.equal(reprintSuccess.event.eventType, 'QR_PRINTED');
-    assert.equal(afterReprint.status, 'QR_PRINTED');
-    assert.equal(afterReprint.version, beforeReprint.version);
-  });
-
-  test('persists QR_PRINTED REPRINT with transition when sample is QR_PENDING_PRINT', async () => {
-    const sampleId = randomUUID();
-
-    await service.appendEvent(registrationConfirmedEvent(sampleId));
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(
-      qrReprintRequestedEvent(sampleId, {
-        payload: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-          reasonText: 'nova tentativa antes da confirmacao',
-        },
-      })
-    );
-
-    const beforeReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
-    assert.equal(beforeReprint.status, 'QR_PENDING_PRINT');
-
-    const reprintSuccess = await service.appendEvent(
-      qrPrintedEvent(sampleId, {
-        fromStatus: 'QR_PENDING_PRINT',
-        toStatus: 'QR_PRINTED',
-        payload: {
-          printAction: 'REPRINT',
-          attemptNumber: 1,
-          printerId: 'printer-main',
-        },
-      }),
-      { expectedVersion: beforeReprint.version }
-    );
-
-    const afterReprint = await prisma.sample.findUnique({ where: { id: sampleId } });
-    assert.equal(reprintSuccess.statusCode, 201);
-    assert.equal(reprintSuccess.event.eventType, 'QR_PRINTED');
-    assert.equal(afterReprint.status, 'QR_PRINTED');
-    assert.equal(afterReprint.version, beforeReprint.version + 1);
-  });
+  // Q.print: testes de QR_PRINTED com printAction=REPRINT removidos.
+  // QR_PRINTED virou audit-only e o printAction nao distingue mais
+  // PRINT/REPRINT no novo fluxo (toda impressao usa attemptNumber
+  // sequencial via QR_PRINT_REQUESTED).
 
   test('persists COMMERCIAL_STATUS_UPDATED and mutates commercial status/version', async () => {
     const sampleId = randomUUID();
@@ -488,9 +425,11 @@ if (!databaseUrl || !databaseReachable) {
       },
     });
 
+    // Q.print: QR_PRINT_REQUESTED/QR_PRINTED viraram audit-only.
+    // CLASSIFICATION_COMPLETED parte de RC direto.
     await service.appendEvent(registrationConfirmedEvent(sampleId));
-    await service.appendEvent(qrPrintRequestedEvent(sampleId), { expectedVersion: 1 });
-    await service.appendEvent(qrPrintedEvent(sampleId), { expectedVersion: 2 });
+    await service.appendEvent(qrPrintRequestedEvent(sampleId));
+    await service.appendEvent(qrPrintedEvent(sampleId));
     await service.appendEvent(
       photoAddedEvent(sampleId, {
         payload: {
@@ -508,7 +447,7 @@ if (!databaseUrl || !databaseReachable) {
       buildEvent({
         eventType: 'CLASSIFICATION_COMPLETED',
         sampleId,
-        fromStatus: 'QR_PRINTED',
+        fromStatus: 'REGISTRATION_CONFIRMED',
         toStatus: 'CLASSIFIED',
         payload: {
           classificationPhotoId,
@@ -517,7 +456,7 @@ if (!databaseUrl || !databaseReachable) {
         idempotencyScope: 'CLASSIFICATION_COMPLETE',
         idempotencyKey: randomUUID(),
       }),
-      { expectedVersion: 3 }
+      { expectedVersion: 1 }
     );
 
     const saleCreated = await service.appendEvent(
@@ -530,7 +469,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 4 }
+      { expectedVersion: 2 }
     );
     const saleMovement = await prisma.sampleMovement.findUnique({
       where: { id: saleCreated.event.payload.movementId },
@@ -578,7 +517,7 @@ if (!databaseUrl || !databaseReachable) {
           },
         },
       }),
-      { expectedVersion: 5 }
+      { expectedVersion: 3 }
     );
 
     const updatedSaleMovement = await prisma.sampleMovement.findUnique({
@@ -595,7 +534,7 @@ if (!databaseUrl || !databaseReachable) {
           commercialStatus: 'PARTIALLY_SOLD',
         },
       }),
-      { expectedVersion: 6 }
+      { expectedVersion: 4 }
     );
     const sampleAfterLoss = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sampleAfterLoss.lostSacks, 3);
@@ -607,7 +546,7 @@ if (!databaseUrl || !databaseReachable) {
           movementId: lossCreated.event.payload.movementId,
         },
       }),
-      { expectedVersion: 7 }
+      { expectedVersion: 5 }
     );
 
     const cancelledLossMovement = await prisma.sampleMovement.findUnique({
