@@ -23,16 +23,20 @@ Reformular a lógica de **registro** e **classificação** de amostras:
   - [x] Fase R — Refatoração do registro com filial obrigatória pra PF (definida + executada)
   - [ ] Fase D — Layout desktop do `/samples/new` (iterativa, em andamento)
   - [x] Fase P — Remove impressão do registro + lote numérico puro (definida + executada parcial: commits 1-4 + skill; commit #5 absorvido pela Fase Q)
-  - [x] Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação (definida; Fase Pb absorvida)
-  - [ ] Fase C — Refatoração da classificação (unificação 3 fichas → 1, layout aprovado em PDF)
+  - [x] Fase Q — Lifecycle simplificado + impressão como ação + auto-print pós-classificação (definida; Fase Pb absorvida; Fase C original incorporada como Q.cls.2)
 - [ ] **Etapa 4** — Execução
   - [x] Fase 0 (executada — commit `44fd144`)
   - [x] Fase 0.1 (executada — commit `d6f5d24`)
   - [x] Fase R (executada — commits `6d96aa7` + `62e54d7`)
   - [ ] Fase D (em andamento, sem prazo)
   - [x] Fase P (executada parcial — commits `0ae5a03`, `c4fb126`, `78b0621`, `9bd28f6` + skill prisma)
-  - [ ] Fase Q (em andamento — registro concluído nos commits `6761a54` (backend) + `0b7c45f` (frontend); classificação, impressão e migration final pendentes)
-  - [ ] Fase C
+  - [ ] Fase Q (em andamento)
+    - [x] Q registro (commits `6761a54` + `0b7c45f`)
+    - [x] Q.cls.1 lifecycle classificação (commits `79385bc` + `d02eb73`)
+    - [ ] Q.cls.2 ficha unificada (em definição — ficha física pronta em `print-templates/`; tipos e fluxo da câmera Caminho A decididos; restam revisão/tipo/classificadores/confirmação, IA, UI da app, migration)
+    - [ ] Q.print impressão como ação
+    - [ ] Q.auto auto-print pós-classificação
+    - [ ] Q.final migration de drop dos enums legados
 
 ---
 
@@ -914,11 +918,169 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 - [ ] **Print agent local**: confirmar formato de polling (intervalo, batching) antes da migration final que dropa `print_action`.
 - [ ] **Eventos legados no DB local antes da migration final**: rodar `SELECT COUNT(*) WHERE event_type IN (legacy values)` pra confirmar que precisa do `DELETE` da Q.6.1.
 
-### Fase C — Refatoração da classificação
+### Fase Q.cls.2 — Ficha unificada de classificação (em definição)
 
-> A definir após Fase Q.
+> **Absorve a Fase C original**. Aqui consolidamos as decisões e o caminho de execução. Mudanças do código ainda não foram iniciadas — apenas a ficha física (`print-templates/classification-form/`) e as decisões de produto.
+
+#### Q.cls.2.1. Decisões fechadas
+
+##### Ficha unificada (3 fichas → 1)
+
+- [x] **Layout físico**: HTML/CSS imprimível em `print-templates/classification-form/index.html`. 6 fichas por A4 (3 linhas × 2 colunas), grid uniforme de 30 colunas internas (alinhamento entre linhas), labels CAIXA ALTA, linhas-guia de corte (vertical entre colunas + 2 horizontais entre fileiras + outline externo), CAT com largura aumentada (~27%), `=` e `%` centralizados verticalmente nos campos FD.
+- [x] **22 campos da ficha** (lote no cabeçalho + 21 preenchíveis):
+  - **Cabeçalho** (3): lote (sem rótulo, hash do registro — não persiste no payload de classificação), `scs` (sacas), `safra` — usados pra cross-validation com o sample.
+  - **Identificação** (3): `padrao`, `aspecto`, `certif` — strings livres.
+  - **Peneiras** (10): `peneiraP18`, `P17`, `P16`, `P15`, `P14`, `P13`, `P12`, `P11`, `P10`, `peneiraMk` — strings (% retenção, nem todas preenchidas).
+  - **Fundos** (4): `fundo1Peneira` + `fundo1Percent`, `fundo2Peneira` + `fundo2Percent` — peneiras variáveis (operador escreve, ex: "fundo 13 = 8%").
+  - **Catação** (1): `catacao` — string (% catação).
+  - **Defeitos** (6): `imp`, `pva`, `broca`, `gpi` (Grão Perfeito Inteiro), `ap` (Aproveitamento), `defeito` (campo livre — "Def.", não é total calculado).
+  - **Final** (2): `observacoes` (texto livre), `bebida` (string livre).
+- [x] **Tipos de dado**: tudo como **string** (mantém padrão atual; IA extrai como string, UI trata como string com vírgula brasileira). Promover campos pra coluna decimal só se virar dor.
+- [x] **DB**: JSON em `latestClassification.data` no Sample (atual). Filtros via JSON path do Postgres (`->>`). Promover campos pra coluna só sob demanda.
+
+##### Tipos de classificação (ClassificationType)
+
+- [x] **4 valores**: `BICA`, `PREPARADO`, `BAIXO` (renomeado de `LOW_CAFF`), `ESCOLHA` (novo).
+- [x] **Labels iguais aos nomes**: `BICA`, `PREPARADO`, `BAIXO`, `ESCOLHA` (sem mais "CAFÉ BAIXO").
+- [x] **Tipo agora é só metadata** — não influencia mais a extração da IA (1 prompt único, type-agnostic).
+- [x] **Tipo obrigatório** (não pode ficar `null`).
+- [x] **Seleção do tipo migrou pra após a extração**: modal próprio, entre revisão dos dados e seleção dos classificadores.
+- [x] **Mudar tipo depois** = `CLASSIFICATION_UPDATED` (audit, mesmo evento da edição da classificação).
+- [x] **Migration**: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA` no enum Postgres. Postgres não permite rename direto de enum value — vai num passo da migration final da Fase Q (drop dos legados + recriação do enum).
+
+##### IA (extração)
+
+- [x] **1 prompt único**, type-agnostic. Substitui os 3 prompts/schemas/normalizadoras atuais.
+- [x] **Modelo**: continua GPT-4o-mini (sem mudança nesta frente).
+- [x] **Cross-validation com o sample**: mantém o que existe hoje (compara lote, sacas, safra extraídos da ficha contra os declarados no registro). Detalhe das mensagens de aviso definido no fluxo da câmera.
+- [x] **Resposta esperada**: JSON estruturado com os 22 campos + identificação (lote, sacas, safra) pra cross-validation.
+
+#### Q.cls.2.2. Fluxo da câmera — Caminho A (único caminho mantido)
+
+> **Operador entra exclusivamente pela detail page** clicando "Iniciar classificação" → URL `/camera?sampleId=X`. Acesso direto a `/camera` (sem sampleId) não existe mais. Caminho B (sem sampleId) descartado.
+
+##### Sub-caminho 1 — Foto bate com o sample
+
+Lote extraído = lote do sample, demais campos sem divergência crítica → segue pra modal de revisão.
+
+##### Sub-caminho 2 — Lote diverge
+
+- Aviso específico mostrando: lote extraído da ficha vs lote esperado do sample.
+- **Mostra miniatura da foto capturada** no aviso (ajuda confirmação visual).
+- Opções: **tirar outra foto** (volta pra câmera) ou **cancelar** (volta pra detail page).
+- Sem opção de "forçar" — operador é obrigado a corrigir (foto certa) ou desistir.
+
+##### Sub-caminho 3 — IA não lê o lote
+
+Distinção entre 2 tipos de falha:
+
+- **(3a) Lote ilegível** (IA rodou e não achou o lote na foto):
+  - Aviso "Não foi possível identificar o lote na foto."
+  - Opções: tirar outra foto / cancelar.
+- **(3b) Erro técnico** (timeout, OpenAI offline, falha na chamada):
+  - Aviso explicando o problema técnico (ex: "Erro ao processar a foto. Servico de extracao indisponivel.").
+  - Opções: tirar outra foto / cancelar / **continuar manual** (segue com a foto sem extração).
+  - Se continuar manual → 2º modal alertando "Analise bem as informações antes de salvar" → confirma → modal de revisão abre com **campos vazios** pro operador preencher manualmente. Foto continua salva como evidência.
+
+##### Sub-caminho 4 — Divergência de sacas/safra (não-bloqueante)
+
+- Aviso mostrando, **campo a campo**, valor extraído da ficha vs valor declarado no registro.
+- Operador é **obrigado a escolher**, pra cada campo divergente, qual valor usar:
+  - "Usar valor da ficha" → backend aplica `updateRegistration` com os novos valores antes de classificar (`applySampleUpdates`)
+  - "Manter valor do registro" → mantém registro intacto; valores extraídos da ficha são corrigidos no payload da classificação
+- Sem 2º modal de certeza (a obrigatoriedade da escolha campo a campo já garante que registro e ficha ficarão coerentes).
+
+##### Sub-caminho 5 — Sample já classificado (reclassificação)
+
+- Aviso "Esta amostra já foi classificada. Deseja reclassificá-la?" → confirmar / cancelar.
+- Reclassificação permite mudar **tudo**: campos da ficha, **tipo** (modal de tipo aparece de novo), **classificadores**.
+- **Reason code obrigatório** (operador escolhe entre `DATA_FIX`, `TYPO`, `MISSING_INFO`, `OTHER`).
+- **Reason text** condicional: obrigatório só se reason code = `OTHER` — campo vira vermelho com mensagem "Justificativa obrigatória" se vazio.
+- Backend: chama `updateClassification` (audit), não `completeClassification`.
+
+##### Sub-caminho 6 — Sample em INVALIDATED
+
+Erro upfront. Cenário raro (a detail page de INVALIDATED não tem CTA "Iniciar classificação" pós-Q.cls.1). Só aparece se URL acessada direto.
+
+##### Gargalos transversais decididos
+
+- **G1. Extração parcial**: IA lê o lote (válido) mas falha em peneiras/defeitos → continua o fluxo, modal de revisão abre com **campos vazios** nos que falharam (operador preenche).
+- **G2. UX da extração**: foto mostrada antes de enviar (operador pode rejeitar e tirar de novo); spinner durante extração — mantém comportamento atual.
+- **G3. Limite de tentativas / monitoramento de custo IA**: sem limite por enquanto, sem monitoramento. Reabrir se virar dor.
+- **G4. Cancelar volta pra detail page**: URL completa `/samples/[sampleId]`, mantém estado intacto.
+
+#### Q.cls.2.3. Modal de revisão dos dados extraídos
+
+Aparece logo após a extração da IA (ou logo após o operador escolher "continuar manual" no sub-caminho 3b). É o ponto onde o operador confere/corrige os dados antes de avançar pra escolha de tipo + classificadores.
+
+##### Layout
+
+- **Espelha a ordem da ficha física**: cabeçalho → identificação → peneiras (2 linhas) → fundos+catação → defeitos (2 linhas) → final (obs+beb).
+- **Foto da ficha em cima dos campos**, rola junto com o conteúdo (não-sticky).
+- **Edição inline em todos os campos** — sem botão "editar"; cada input já vem editável.
+- **Sem destaque visual** pra "campo extraído pela IA" vs "preenchido pelo operador" (nem na UI nem no payload — só o valor final entra).
+
+##### Campos do cabeçalho (lote, sacas, safra)
+
+Comportamento depende de como o operador chegou ao modal:
+
+- **Fluxo normal** (IA extraiu OK, sub-caminhos 2/4 já validaram): lote/sacas/safra **read-only** (só referência).
+- **Fluxo manual** (sub-caminho 3b — erro técnico de IA, operador escolheu "continuar manual"): lote/sacas/safra **pré-preenchidos com os valores do sample**, mas **editáveis**. Operador pode corrigir lendo da foto.
+  - **Revalidação no manual**: se ele editar pra valor diferente do sample, ao avançar **reativa cross-validation** (sub-caminho 2 pra lote, sub-caminho 4 pra sacas/safra).
+
+##### Campos da classificação (21 preenchíveis)
+
+Todos editáveis sempre (texto livre / string). Nenhum campo individual é obrigatório.
+
+- **Fundos**: layout fiel à ficha — `[peneira] = [%]`, com `=` e `%` decorativos (operador digita só os números).
+- **Observações**: input de 1 linha, limite 500 caracteres, **sem aviso de truncamento** (na prática nunca chega perto do limite).
+- **Bebida**: input de 1 linha (texto livre).
+
+##### Foto — comportamento e zoom
+
+- **Rola junto** com os campos (não-sticky).
+- **Click na foto → overlay de zoom**: foto se expande sobre o modal de revisão, com botão **X** pra fechar. Permite **zoom em qualquer ponto** (não só no centro).
+- **Campos do modal ficam bloqueados** durante o zoom (não-interagíveis até fechar o overlay).
+
+##### Botões e validação
+
+- **Botões**: somente `Cancelar` + `Avançar` (sem `Voltar` porque o modal de revisão é o **primeiro modal** pós-extração).
+- **`Cancelar`** → volta pra câmera, **descarta a foto** (operador tira nova).
+- **`Avançar`**: sempre habilitado, **valida ao clicar**. Se falhar, abre **modal de aviso** ("Falta de informação"); operador clica `OK`, volta pro modal de revisão **preservando todos os valores**.
+- **Critério de validação**: precisa ter **pelo menos 1 campo preenchido além do lote**. Nenhum campo individual é obrigatório, mas só o lote não basta. Critério "preenchido" = string não-vazia (campos só com espaços contam como vazios).
+- **Sucesso na validação** → modal de revisão fecha, **modal de seleção de tipo** abre.
+
+##### Persistência ao voltar
+
+- A partir do modal de tipo (e modais subsequentes), o operador pode clicar **`Voltar`** pra retornar ao modal de revisão.
+- **Todos os valores editados se mantêm** ao voltar (sem perder trabalho).
+
+#### Q.cls.2.4. Trabalho a fazer (preliminar — definir após próximas decisões)
+
+- [ ] Definir UX detalhada do **modal de revisão** dos dados extraídos (próximo passo)
+- [ ] Definir UX do **modal de seleção de tipo** (4 opções)
+- [ ] Definir UX do **modal de classificadores** (já existe — confirmar mudanças)
+- [ ] Definir **estrutura final do JSON** da classificação (sub-objetos vs flat, naming convention)
+- [ ] Implementar **prompt único da IA** + 1 schema + 1 normalizadora (substitui 3 atuais)
+- [ ] Refatorar `lib/classification-form.ts`: deletar `TYPE_CONFIGS`, deletar `extractionFieldMap` por tipo, criar form unificado
+- [ ] Backend: `completeClassification` e `updateClassification` ajustam payload pra ficha unificada
+- [ ] Frontend: form de classificação unificado na detail page, espelhando a ordem de blocos da ficha física
+- [ ] Migration: rename `LOW_CAFF` → `BAIXO` + add `ESCOLHA` (parte da migration final da Fase Q)
+- [ ] Tests: extração, completeClassification, updateClassification, frontend
+
+#### Q.cls.2.5. Open items (próximas decisões)
+
+- [ ] **Modal de seleção de tipo**: layout (4 botões? lista? radio?), confirmação obrigatória
+- [ ] **Modal de classificadores**: o que muda em relação ao atual? Tipo de busca, validações
+- [ ] **Cross-validation expandida**: além de lote/sacas/safra, comparar outros campos? (provavelmente não — outros são preenchidos só pelo classificador)
+- [ ] **Estrutura final do JSON** (flat vs sub-objetos, naming)
+- [ ] **CTA "Mudar tipo"** na detail page (já que "tipo" é audit) — fica como? Botão separado ou só dentro de "Reclassificar"?
+
+### Fase C — Refatoração da classificação (incorporada na Q.cls.2)
+
+> A Fase C original (unificação 3 fichas → 1) foi **absorvida pela Fase Q.cls.2** acima. Sem trabalho separado.
 >
-> **Escopo confirmado**: **unificação 3 fichas → 1 ficha única** (layout já desenhado e aprovado em PDF — ver §1.2.5 + histórico).
+> _Histórico_: a Fase C era originalmente planejada como pós-Q. Conforme o escopo da classificação se aprofundou na Fase Q (lifecycle simplificado + ficha unificada + tipos), fez sentido manter tudo dentro da mesma Fase Q em sub-frentes Q.cls.1 (lifecycle) e Q.cls.2 (ficha unificada).
 >
 > **Pré-requisito**: Fase Q (lifecycle simplificado e classificação sem IP/SAVED_PARTIAL). Sem isso, refatorar 3 prompts → 1 fica acoplado a uma máquina de estados que vai mudar.
 
@@ -926,51 +1088,80 @@ Executada em commits `6d96aa7` (backend + tests + zod) e `62e54d7` (frontend).
 
 ## 4. Histórico de decisões
 
-| Data       | Decisão                                                                  | Contexto                                                                                                                                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-07 | Unificar 3 fichas de classificação em ficha única                        | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado).                                                                   |
-| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento             | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                                                                                   |
-| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")                 | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                                                                                        |
-| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados                | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                                                                                      |
-| 2026-05-07 | Auto-create silencioso quando `units: []` explícito                      | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                                                                                                 |
-| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`                      | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                                                                                       |
-| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco                     | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                                                                                                |
-| 2026-05-07 | Fase 0.1 separada da Fase R                                              | Defesa em profundidade da invariante "PF ACTIVE tem ≥1 unit ACTIVE" no domínio de cliente. Fase R passa a confiar 100% nessa invariante.                                                                                                                |
-| 2026-05-07 | `reactivateClient` auto-cria Fazenda 1 quando PF tem 0 units             | Mesma estratégia da Fase 0: garante invariante silenciosamente. UX não falha por dados pré-Fase 0.                                                                                                                                                      |
-| 2026-05-07 | Fase R não toca SampleMovementModal                                      | Movements (vendas/perdas) é fluxo separado, mexe em buyer (não owner). Fica como "Fase R+1" se virar dor real.                                                                                                                                          |
-| 2026-05-07 | Etiqueta QR mantém minimalista                                           | Hoje só mostra lote/safra/sacas + QR. Adicionar fazenda mexeria em layout físico térmico (Elgin L42 Pro). Vínculo fica no banco/UI por enquanto.                                                                                                        |
-| 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`                | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                                                                                            |
-| 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                      | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                                                                                          |
-| 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado   | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                                                                                            |
-| 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                             | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                                                                                      |
-| 2026-05-07 | Etiqueta sai do registro e vai pra pós-classificação (Fase P + Pb)       | QR no registro era pro classificador escanear, mas a classificação hoje identifica lote sozinha (foto+AI). Etiqueta vale mais com dados completos pós-classificação.                                                                                    |
-| 2026-05-07 | Lote vira numérico puro (sem `A-`)                                       | Mais simples de escrever na saca à mão, mais simples de comunicar. AI já tolera. Sem migration (L3.2 wipou prod).                                                                                                                                       |
-| 2026-05-07 | Step `created` no modal mostra lote em destaque                          | Funcionário precisa anotar o lote na saca. Step pós-criação dentro do modal força a atenção ao número antes de seguir.                                                                                                                                  |
-| 2026-05-07 | Print pré-classificação fica como override manual                        | `requestQrPrint` continua aceitando REGISTRATION_CONFIRMED. Botão "Imprimir etiqueta" disponível como secundário na detail page.                                                                                                                        |
-| 2026-05-07 | `startClassification` aceita REGISTRATION_CONFIRMED                      | Sem essa mudança, samples ficariam presos sem caminho pra frente. Mantém também `QR_PRINTED` (compat com fluxo legado).                                                                                                                                 |
-| 2026-05-07 | Lifecycle do Sample reduzido a 3 estados (RC → CLASSIFIED → INVALIDATED) | Statuses intermediários (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS, QR_PENDING_PRINT, QR_PRINTED, CLASSIFICATION_IN_PROGRESS) eram fantasmas — usuário nunca via, só inflagiam o lifecycle e o event store. Lifecycle limpo facilita raciocínio e UI. |
-| 2026-05-07 | Registro emite 1 evento único (`REGISTRATION_CONFIRMED`, null → RC)      | Os 3 eventos sequenciais (RECEIVED + STARTED + CONFIRMED) eram artefato técnico — todos com timestamps quase iguais e sem usuário pra interagir nos intermediários. Reduz ruído no event store.                                                         |
-| 2026-05-07 | `CLASSIFICATION_IN_PROGRESS` cortado                                     | Era cerimonial — câmera já pulava direto pra CLASSIFIED, classificação parcial nunca foi usada na operação. `startClassification` virava handshake sem valor.                                                                                           |
-| 2026-05-07 | `CLASSIFICATION_SAVED_PARTIAL` e botão "Salvar rascunho" removidos       | Usuário confirmou: "nunca vi uma classificação ser salva pela metade." Botão presente na UI mas sem uso real. Sem essa feature, todo `saveClassificationPartial` cai junto.                                                                             |
-| 2026-05-07 | Câmera usa apenas caminho A (com `sampleId` fixado + validação cruzada)  | Validação cruzada protege contra erro humano de "peguei a saca errada da estante". Caminho B (câmera direta sem pré-seleção) descartado: não há valor de velocidade que justifique perder a proteção.                                                   |
-| 2026-05-07 | Botão "Iniciar classificação" mantém — só pra direcionar pra câmera      | Sem `startClassification` o botão perde efeito de status, mas continua útil como atalho da detail page pra `/camera` com `sampleId` fixado. UX não regride.                                                                                             |
-| 2026-05-07 | Impressão é ação, não estado                                             | `PrintJob` (PENDING/SUCCESS/FAILED + attemptNumber + error + timestamps) já é fonte da verdade. Replicar em `SampleStatus` era redundância e gerava hacks (ex: `recordQrPrinted` linha 1929-1947 com lógica "se sample já passou...").                  |
-| 2026-05-07 | Comandos `requestQrPrint` e `requestQrReprint` unificados                | Nada no produto distingue 1ª de N-ésima impressão. `attemptNumber` + `createdAt` cobrem qualquer pergunta operacional. Reduz API surface e elimina enum `PrintAction`.                                                                                  |
-| 2026-05-07 | Enum `PrintAction` e coluna `print_action` removidos                     | Toda impressão é igual; distinção PRINT/REPRINT era artefato. Constraint vira `(sample_id, attempt_number)`.                                                                                                                                            |
-| 2026-05-07 | 1 `PrintJob` PENDING por amostra (lock)                                  | Evita criar 2 jobs paralelos pra mesma amostra com agente lento. Nova request → 409 enquanto há PENDING válido.                                                                                                                                         |
-| 2026-05-07 | Timeout de 1 minuto, lazy (D3 — leitura E escrita)                       | `PrintJob` travado libera automaticamente. Lazy evita worker/cron na infra enxuta. Aplica em `getSampleDetail` E em `requestQrPrint` — cobre path de leitura e escrita.                                                                                 |
-| 2026-05-07 | Imprimir em `INVALIDATED` bloqueado                                      | Único veto — amostra terminal não tem etiqueta nova.                                                                                                                                                                                                    |
-| 2026-05-07 | Print automático ao concluir classificação (Fase Pb absorvida na Fase Q) | Etiqueta vale mais com classificação fechada. Operador não precisa apertar "Imprimir" — sai sozinho. Reduz fricção do classificador, alinha com decisão "etiqueta sai do registro" da Fase P.                                                           |
-| 2026-05-07 | Reclassificação NÃO dispara nova impressão                               | Etiqueta minimalista (lote/safra/sacas/QR) — dados não mudam ao reclassificar. Operador reimprime manualmente se quiser (impressão é ação livre).                                                                                                       |
-| 2026-05-07 | Layout da etiqueta mantém minimalista (decisão A1)                       | Sem mexer no layout físico Elgin L42 Pro. Justifica decisão de reclassificação não reimprimir. Eventual enriquecimento fica pra fase futura quando justificar redesenhar a etiqueta térmica.                                                            |
-| 2026-05-07 | UX da impressão automática em background (decisão C2)                    | Classificação fecha imediato, redireciona pra detail page. Polling detecta resultado e dispara modal. Operador classifica em série sem travar 1min esperando agente.                                                                                    |
-| 2026-05-07 | Modal rápido de feedback (sucesso/falha)                                 | Aparece uma vez quando o print termina. Não fixa em área da detail page (decisão Gargalo A do usuário). Mantém UI limpa em estado padrão.                                                                                                               |
-| 2026-05-07 | Override manual de print mantém em qualquer status não-INVALIDATED       | Impressão é ação — operador pode imprimir mesmo antes de classificar (caso raro mas possível). Coerente com "1 PrintJob PENDING por amostra".                                                                                                           |
-| 2026-05-07 | Card "Aguardando impressão" no dashboard cortado definitivamente         | Com timeout 1min + print manual de baixa frequência, fila pendente é minúscula. Toast + detail page bastam. Sem volta na Fase Pb (que foi absorvida).                                                                                                   |
-| 2026-05-07 | Idempotency derivada — `completeClassification` → `requestQrPrint`       | Hash composto (`hash(input.idempotencyKey + ':print')`) evita duplo `PrintJob` quando frontend retenta `completeClassification`.                                                                                                                        |
-| 2026-05-07 | Migration single-shot                                                    | Prod zerado (L3.2 wipou). Sem dados pra preservar — single-shot é suficiente e atômico. Faseada seria overkill.                                                                                                                                         |
-| 2026-05-07 | Eventos legados cortados (sem manter no enum)                            | Sem dados antigos a preservar. Manter como legado seria ruído permanente no enum.                                                                                                                                                                       |
-| 2026-05-07 | Print agent local sem mudança                                            | Endpoints `recordQrPrinted` / `recordQrPrintFailed` mantêm assinatura. Mudança é interna ao backend (não atualiza mais status do sample, só `PrintJob` e evento audit).                                                                                 |
-| 2026-05-07 | `requestQrPrint` sem `expectedVersion`                                   | Não muda o sample → optimistic lock desnecessário. Simplifica chamadas internas e externas (auto após classificação não precisa propagar version).                                                                                                      |
-| 2026-05-07 | Polling simples no frontend, intervalo curto                             | Detecta resultado do print rapidamente sem WebSocket/SSE (overkill). Tempo exato a definir durante implementação (provável 2-3s, só ativo enquanto há PENDING).                                                                                         |
-| 2026-05-07 | Fase Pb (impressão pós-classificação) absorvida pela Fase Q              | Decisão de "imprimir auto após classificação" entra junto com a simplificação de lifecycle pra evitar refatoração em duas etapas com retrabalho.                                                                                                        |
+| Data       | Decisão                                                                    | Contexto                                                                                                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-07 | Unificar 3 fichas de classificação em ficha única                          | Reduz complexidade do código (3 prompts IA → 1, 3 normalizadoras → 1, 3 layouts → 1). Layout final aprovado em PDF (Cat. estendida ao centro de P10, 2 FDs iguais, `=` centralizado).                                                                   |
+| 2026-05-07 | Plano vai cobrir registro + classificação no mesmo documento               | Os dois fluxos são acoplados; refatorar em conjunto evita retrabalho.                                                                                                                                                                                   |
+| 2026-05-07 | PF sempre nasce com ≥1 fazenda (auto-create "Fazenda 1")                   | Toda saca precisa rastreabilidade clara da origem. Auto-criar evita caso "PF com 0 units" e simplifica o registro de amostra (sempre há fazenda pra selecionar).                                                                                        |
+| 2026-05-07 | PJ não tem filial — sucursais viram clientes PJ separados                  | Cada CNPJ é um Client distinto. Decisão pré-existente do L5; explicitada no plano.                                                                                                                                                                      |
+| 2026-05-07 | Auto-create silencioso quando `units: []` explícito                        | Trata `undefined` e `[]` igual. Garante invariante independente de como o caller chama.                                                                                                                                                                 |
+| 2026-05-07 | Helper `ensureDefaultPfUnit` em `client-support.js`                        | Isolado, testável em unit puro, reutilizável por imports futuros.                                                                                                                                                                                       |
+| 2026-05-07 | Invariante PF≥1 unit só na app, sem trigger no banco                       | Único ponto de criação é `createClient`; trigger seria sobre-engenharia.                                                                                                                                                                                |
+| 2026-05-07 | Fase 0.1 separada da Fase R                                                | Defesa em profundidade da invariante "PF ACTIVE tem ≥1 unit ACTIVE" no domínio de cliente. Fase R passa a confiar 100% nessa invariante.                                                                                                                |
+| 2026-05-07 | `reactivateClient` auto-cria Fazenda 1 quando PF tem 0 units               | Mesma estratégia da Fase 0: garante invariante silenciosamente. UX não falha por dados pré-Fase 0.                                                                                                                                                      |
+| 2026-05-07 | Fase R não toca SampleMovementModal                                        | Movements (vendas/perdas) é fluxo separado, mexe em buyer (não owner). Fica como "Fase R+1" se virar dor real.                                                                                                                                          |
+| 2026-05-07 | Etiqueta QR mantém minimalista                                             | Hoje só mostra lote/safra/sacas + QR. Adicionar fazenda mexeria em layout físico térmico (Elgin L42 Pro). Vínculo fica no banco/UI por enquanto.                                                                                                        |
+| 2026-05-07 | Fazenda incompleta no dropdown ganha `<IncompleteIcon />`                  | Reusa o ícone SVG já presente em `components/clients/IncompleteIcon.tsx` (mesmo dos cards de cliente). Não bloqueia seleção.                                                                                                                            |
+| 2026-05-07 | ClientLookupField em `/samples/new` vira só-cliente                        | Sem hierarquia inline de units. Seleção exclusiva pelo novo `OwnerUnitField`. Compat preservada — basta omitir `onSelectUnit`.                                                                                                                          |
+| 2026-05-07 | Atalho "+ Nova fazenda" no dropdown abre `ClientUnitModal` reutilizado     | Cadastra inline sem sair do registro de amostra. Após criar, auto-seleciona.                                                                                                                                                                            |
+| 2026-05-07 | Fase D adicionada antes da Fase C, iterativa                               | Ajustes de layout desktop do `/samples/new` serão pedidos sob demanda. Constraints: mobile intacto, breakpoint ≥1024px, só visual.                                                                                                                      |
+| 2026-05-07 | Etiqueta sai do registro e vai pra pós-classificação (Fase P + Pb)         | QR no registro era pro classificador escanear, mas a classificação hoje identifica lote sozinha (foto+AI). Etiqueta vale mais com dados completos pós-classificação.                                                                                    |
+| 2026-05-07 | Lote vira numérico puro (sem `A-`)                                         | Mais simples de escrever na saca à mão, mais simples de comunicar. AI já tolera. Sem migration (L3.2 wipou prod).                                                                                                                                       |
+| 2026-05-07 | Step `created` no modal mostra lote em destaque                            | Funcionário precisa anotar o lote na saca. Step pós-criação dentro do modal força a atenção ao número antes de seguir.                                                                                                                                  |
+| 2026-05-07 | Print pré-classificação fica como override manual                          | `requestQrPrint` continua aceitando REGISTRATION_CONFIRMED. Botão "Imprimir etiqueta" disponível como secundário na detail page.                                                                                                                        |
+| 2026-05-07 | `startClassification` aceita REGISTRATION_CONFIRMED                        | Sem essa mudança, samples ficariam presos sem caminho pra frente. Mantém também `QR_PRINTED` (compat com fluxo legado).                                                                                                                                 |
+| 2026-05-07 | Lifecycle do Sample reduzido a 3 estados (RC → CLASSIFIED → INVALIDATED)   | Statuses intermediários (PHYSICAL_RECEIVED, REGISTRATION_IN_PROGRESS, QR_PENDING_PRINT, QR_PRINTED, CLASSIFICATION_IN_PROGRESS) eram fantasmas — usuário nunca via, só inflagiam o lifecycle e o event store. Lifecycle limpo facilita raciocínio e UI. |
+| 2026-05-07 | Registro emite 1 evento único (`REGISTRATION_CONFIRMED`, null → RC)        | Os 3 eventos sequenciais (RECEIVED + STARTED + CONFIRMED) eram artefato técnico — todos com timestamps quase iguais e sem usuário pra interagir nos intermediários. Reduz ruído no event store.                                                         |
+| 2026-05-07 | `CLASSIFICATION_IN_PROGRESS` cortado                                       | Era cerimonial — câmera já pulava direto pra CLASSIFIED, classificação parcial nunca foi usada na operação. `startClassification` virava handshake sem valor.                                                                                           |
+| 2026-05-07 | `CLASSIFICATION_SAVED_PARTIAL` e botão "Salvar rascunho" removidos         | Usuário confirmou: "nunca vi uma classificação ser salva pela metade." Botão presente na UI mas sem uso real. Sem essa feature, todo `saveClassificationPartial` cai junto.                                                                             |
+| 2026-05-07 | Câmera usa apenas caminho A (com `sampleId` fixado + validação cruzada)    | Validação cruzada protege contra erro humano de "peguei a saca errada da estante". Caminho B (câmera direta sem pré-seleção) descartado: não há valor de velocidade que justifique perder a proteção.                                                   |
+| 2026-05-07 | Botão "Iniciar classificação" mantém — só pra direcionar pra câmera        | Sem `startClassification` o botão perde efeito de status, mas continua útil como atalho da detail page pra `/camera` com `sampleId` fixado. UX não regride.                                                                                             |
+| 2026-05-07 | Impressão é ação, não estado                                               | `PrintJob` (PENDING/SUCCESS/FAILED + attemptNumber + error + timestamps) já é fonte da verdade. Replicar em `SampleStatus` era redundância e gerava hacks (ex: `recordQrPrinted` linha 1929-1947 com lógica "se sample já passou...").                  |
+| 2026-05-07 | Comandos `requestQrPrint` e `requestQrReprint` unificados                  | Nada no produto distingue 1ª de N-ésima impressão. `attemptNumber` + `createdAt` cobrem qualquer pergunta operacional. Reduz API surface e elimina enum `PrintAction`.                                                                                  |
+| 2026-05-07 | Enum `PrintAction` e coluna `print_action` removidos                       | Toda impressão é igual; distinção PRINT/REPRINT era artefato. Constraint vira `(sample_id, attempt_number)`.                                                                                                                                            |
+| 2026-05-07 | 1 `PrintJob` PENDING por amostra (lock)                                    | Evita criar 2 jobs paralelos pra mesma amostra com agente lento. Nova request → 409 enquanto há PENDING válido.                                                                                                                                         |
+| 2026-05-07 | Timeout de 1 minuto, lazy (D3 — leitura E escrita)                         | `PrintJob` travado libera automaticamente. Lazy evita worker/cron na infra enxuta. Aplica em `getSampleDetail` E em `requestQrPrint` — cobre path de leitura e escrita.                                                                                 |
+| 2026-05-07 | Imprimir em `INVALIDATED` bloqueado                                        | Único veto — amostra terminal não tem etiqueta nova.                                                                                                                                                                                                    |
+| 2026-05-07 | Print automático ao concluir classificação (Fase Pb absorvida na Fase Q)   | Etiqueta vale mais com classificação fechada. Operador não precisa apertar "Imprimir" — sai sozinho. Reduz fricção do classificador, alinha com decisão "etiqueta sai do registro" da Fase P.                                                           |
+| 2026-05-07 | Reclassificação NÃO dispara nova impressão                                 | Etiqueta minimalista (lote/safra/sacas/QR) — dados não mudam ao reclassificar. Operador reimprime manualmente se quiser (impressão é ação livre).                                                                                                       |
+| 2026-05-07 | Layout da etiqueta mantém minimalista (decisão A1)                         | Sem mexer no layout físico Elgin L42 Pro. Justifica decisão de reclassificação não reimprimir. Eventual enriquecimento fica pra fase futura quando justificar redesenhar a etiqueta térmica.                                                            |
+| 2026-05-07 | UX da impressão automática em background (decisão C2)                      | Classificação fecha imediato, redireciona pra detail page. Polling detecta resultado e dispara modal. Operador classifica em série sem travar 1min esperando agente.                                                                                    |
+| 2026-05-07 | Modal rápido de feedback (sucesso/falha)                                   | Aparece uma vez quando o print termina. Não fixa em área da detail page (decisão Gargalo A do usuário). Mantém UI limpa em estado padrão.                                                                                                               |
+| 2026-05-07 | Override manual de print mantém em qualquer status não-INVALIDATED         | Impressão é ação — operador pode imprimir mesmo antes de classificar (caso raro mas possível). Coerente com "1 PrintJob PENDING por amostra".                                                                                                           |
+| 2026-05-07 | Card "Aguardando impressão" no dashboard cortado definitivamente           | Com timeout 1min + print manual de baixa frequência, fila pendente é minúscula. Toast + detail page bastam. Sem volta na Fase Pb (que foi absorvida).                                                                                                   |
+| 2026-05-07 | Idempotency derivada — `completeClassification` → `requestQrPrint`         | Hash composto (`hash(input.idempotencyKey + ':print')`) evita duplo `PrintJob` quando frontend retenta `completeClassification`.                                                                                                                        |
+| 2026-05-07 | Migration single-shot                                                      | Prod zerado (L3.2 wipou). Sem dados pra preservar — single-shot é suficiente e atômico. Faseada seria overkill.                                                                                                                                         |
+| 2026-05-07 | Eventos legados cortados (sem manter no enum)                              | Sem dados antigos a preservar. Manter como legado seria ruído permanente no enum.                                                                                                                                                                       |
+| 2026-05-07 | Print agent local sem mudança                                              | Endpoints `recordQrPrinted` / `recordQrPrintFailed` mantêm assinatura. Mudança é interna ao backend (não atualiza mais status do sample, só `PrintJob` e evento audit).                                                                                 |
+| 2026-05-07 | `requestQrPrint` sem `expectedVersion`                                     | Não muda o sample → optimistic lock desnecessário. Simplifica chamadas internas e externas (auto após classificação não precisa propagar version).                                                                                                      |
+| 2026-05-07 | Polling simples no frontend, intervalo curto                               | Detecta resultado do print rapidamente sem WebSocket/SSE (overkill). Tempo exato a definir durante implementação (provável 2-3s, só ativo enquanto há PENDING).                                                                                         |
+| 2026-05-07 | Fase Pb (impressão pós-classificação) absorvida pela Fase Q                | Decisão de "imprimir auto após classificação" entra junto com a simplificação de lifecycle pra evitar refatoração em duas etapas com retrabalho.                                                                                                        |
+| 2026-05-07 | Fase C (unificação 3 fichas → 1) absorvida pela Q.cls.2                    | Conforme o escopo da classificação se aprofundou (lifecycle simplificado + ficha unificada + 4 tipos), fez sentido manter tudo dentro da Fase Q em sub-frentes (Q.cls.1 e Q.cls.2) em vez de tratar Fase C como fase pós-Q.                             |
+| 2026-05-07 | Ficha unificada física documentada como source HTML em `print-templates/`  | Em vez de PDF binário, o template é HTML/CSS impresso pelo navegador. Versionável no repo, fácil de iterar, qualquer um regenera. 6 fichas/A4, grid de 30 cols com alinhamento entre linhas, labels CAIXA ALTA, linhas-guia de corte.                   |
+| 2026-05-07 | 4 tipos de classificação: BICA, PREPARADO, BAIXO, ESCOLHA                  | LOW_CAFF renomeado pra BAIXO (label simplificado, era "CAFÉ BAIXO"). ESCOLHA novo. Labels iguais aos nomes.                                                                                                                                             |
+| 2026-05-07 | Tipo de classificação vira só metadata pós-extração                        | Antes, tipo definia qual ficha (3 layouts diferentes) e qual prompt da IA. Agora ficha é unificada e IA é type-agnostic. Tipo entra via modal entre revisão dos dados e seleção dos classificadores. Obrigatório.                                       |
+| 2026-05-07 | DB da classificação fica em JSON (`latestClassification.data`)             | Volume baixo (centenas/milhares), ficha pode iterar; JSON evita migration toda mudança. Filtros via JSON path do Postgres bastam. Promover campos pra coluna só sob demanda.                                                                            |
+| 2026-05-07 | Fluxo da câmera mantém só Caminho A (com sampleId fixado)                  | Operador entra exclusivamente pela detail page → `/camera?sampleId=X`. Caminho B (acesso direto sem sampleId) descartado. Validação cruzada de lote protege contra "saca errada da estante" — proteção real que o caminho B perderia.                   |
+| 2026-05-07 | Aviso de divergência de lote mostra miniatura da foto                      | Operador confirma visualmente qual ficha foi capturada antes de descartar/confirmar. Custo da foto perdida é baixo (chamada de IA), aceitável.                                                                                                          |
+| 2026-05-07 | Falha de IA distingue "lote ilegível" de "erro técnico"                    | Mensagens diferentes evitam empurrar operador a tirar mais fotos quando o problema é de servidor. Erro técnico oferece "continuar manual" (preencher sem extração); lote ilegível só permite tirar outra foto ou cancelar.                              |
+| 2026-05-07 | "Continuar manual" abre modal de revisão com campos vazios                 | Quando IA falha tecnicamente, operador pode preencher tudo manualmente (com a foto salva como evidência). 2º modal alerta "analise bem antes de salvar". Fallback essencial pra não bloquear classificação por falha de OpenAI/timeout.                 |
+| 2026-05-07 | Divergências sacas/safra obrigam escolha campo a campo (modelo c)          | Operador é forçado a decidir, pra cada divergência, "usar valor da ficha" ou "manter valor do registro". Sem 2º modal de certeza. Garante coerência entre registro e classificação após o salvar.                                                       |
+| 2026-05-07 | Reclassificação permite mudar tudo (campos, tipo, classificadores)         | Modal de tipo aparece de novo, classificadores podem mudar, reason code obrigatório (DATA_FIX/TYPO/MISSING_INFO/OTHER). Reason text obrigatório só se OTHER (campo vermelho com "Justificativa obrigatória" se vazio).                                  |
+| 2026-05-07 | Foto sempre obrigatória pra completar classificação                        | Mesmo no fallback "continuar manual" (após erro técnico de IA), a foto capturada é exigida e salva como evidência. Operador preenche os campos manualmente, mas a foto fica vinculada à classificação.                                                  |
+| 2026-05-08 | Modal de revisão espelha a ficha física (mesma ordem de blocos)            | Operador vê os campos na mesma sequência da ficha que tem em mãos — reduz fricção visual ao conferir.                                                                                                                                                   |
+| 2026-05-08 | Edição inline em todos os campos do modal de revisão                       | Sem botão "editar"; cada input já vem editável com o valor extraído (ou vazio). Reduz cliques em fluxo crítico.                                                                                                                                         |
+| 2026-05-08 | Foto da ficha em cima dos campos, rola junto                               | Foto fica como referência visual ao revisar. Não-sticky pra dar mais espaço aos campos quando o operador rola.                                                                                                                                          |
+| 2026-05-08 | Click na foto abre overlay de zoom (qualquer ponto), bloqueia campos       | Operador precisa ler valores apertados na foto. Overlay próprio com X pra fechar; zoom em qualquer ponto (não só no centro). Campos atrás bloqueados pra evitar interação acidental.                                                                    |
+| 2026-05-08 | Cabeçalho (lote/sacas/safra) read-only no fluxo normal, editável no manual | No fluxo normal, esses 3 campos já passaram por cross-validation; mostrar editáveis convidaria erro. No manual (sub-caminho 3b), operador precisa preencher tudo lendo da foto, então são editáveis.                                                    |
+| 2026-05-08 | Manual com edição de lote/sacas/safra reativa cross-validation             | Se operador editar lote/sacas/safra no manual pra valor diferente do sample, ao avançar reativa sub-caminhos 2 (lote) e 4 (sacas/safra). Protege contra erro de digitação no fallback.                                                                  |
+| 2026-05-08 | Modal de revisão sem destaque IA-vs-operador                               | Nem na UI nem no payload. Só o valor final entra no payload. Operador é responsável pelo conteúdo total.                                                                                                                                                |
+| 2026-05-08 | Cancelar do modal de revisão descarta a foto e volta pra câmera            | Foto perdida = chamada de IA já consumida; aceitável porque é raro o operador cancelar nesse ponto. Volta pra câmera limpa pra tirar nova foto.                                                                                                         |
+| 2026-05-08 | Modal de revisão tem só Cancelar + Avançar (sem Voltar)                    | É o 1º modal pós-extração; "Voltar" não faz sentido (volta pra câmera = cancelar). Modais subsequentes (tipo, classificadores) têm "Voltar" pra retornar.                                                                                               |
+| 2026-05-08 | Avançar sempre habilitado; valida ao clicar (modal de aviso se falhar)     | Bloquear botão até preencher 1 campo seria mais fricção; melhor o operador clicar e ver o aviso. OK no aviso preserva todos os valores e volta pro modal de revisão.                                                                                    |
+| 2026-05-08 | Critério de validação: pelo menos 1 campo preenchido além do lote          | Nenhum campo individual é obrigatório, mas salvar uma classificação só com o lote não faz sentido. "Preenchido" = string não-vazia (espaços contam como vazio).                                                                                         |
+| 2026-05-08 | Persistência de valores ao voltar entre modais                             | Operador pode avançar pro modal de tipo e voltar pro modal de revisão sem perder o que digitou. Mesmo princípio se aplica aos modais subsequentes.                                                                                                      |
+| 2026-05-08 | Modal de tipo tem só Voltar (sem Cancelar separado)                        | Cancelar fica concentrado no modal de revisão. Pra cancelar tudo, operador volta pro modal de revisão e clica Cancelar lá. Reduz duplicação de ações.                                                                                                   |
+| 2026-05-08 | Fundos: `=` e `%` decorativos; operador digita só os números               | Layout fiel à ficha (`[peneira] = [%]`), mas os símbolos não fazem parte do valor digitado — só são template visual.                                                                                                                                    |
+| 2026-05-08 | Bebida e Observações: input 1 linha; observações limite 500 sem aviso      | Texto livre. Limite alto o suficiente que nunca chega perto na prática; sem aviso/truncamento pra não atrapalhar o operador.                                                                                                                            |
+| 2026-05-08 | Confirmação final dispara direto (sem "tem certeza?")                      | Após o modal de classificadores, clicar confirmar dispara `completeClassification` direto. Os modais sequenciais (revisão → tipo → classificadores) já são confirmação suficiente — adicionar mais um seria fricção desnecessária.                      |
+| 2026-05-08 | Campos vazios pelo operador vão como string vazia no payload               | Sem distinção entre "operador deixou em branco" e "IA não extraiu". Payload mostra exatamente o que está nos inputs no momento da confirmação.                                                                                                          |
