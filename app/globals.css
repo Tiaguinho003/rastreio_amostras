@@ -16989,6 +16989,115 @@ button:disabled {
   color: rgba(0, 0, 0, 0.4);
 }
 
+/* ── Q.cls.2 sub-caminhos 3a/3b: avisos de erro da IA ── */
+
+.extraction-error-modal {
+  width: min(34rem, calc(100vw - 1.5rem));
+  max-width: min(34rem, calc(100vw - 1.5rem));
+}
+
+.extraction-error-content {
+  padding: clamp(1.1rem, 3.5vw, 1.5rem) !important;
+  gap: clamp(1rem, 2.5vw, 1.25rem) !important;
+}
+
+.extraction-error-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 2.5vw, 14px);
+}
+
+.extraction-error-icon {
+  width: clamp(48px, 12vw, 60px);
+  height: clamp(48px, 12vw, 60px);
+}
+
+.extraction-error-text {
+  margin: 0;
+  font-size: clamp(0.92rem, 3vw, 1rem);
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+.extraction-error-detail {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, 0.6);
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  word-break: break-word;
+}
+
+.extraction-error-detail-label {
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.72);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 0.72rem;
+  font-family: inherit;
+}
+
+/* Em 3b o card tem 3 botoes — permite wrap em telas estreitas */
+.extraction-error-actions {
+  flex-wrap: wrap;
+}
+
+/* ── Q.cls.2 sub-caminho 3b → 2o modal: confirma modo manual ── */
+
+.manual-confirm-modal {
+  width: min(34rem, calc(100vw - 1.5rem));
+  max-width: min(34rem, calc(100vw - 1.5rem));
+}
+
+.manual-confirm-content {
+  padding: clamp(1.1rem, 3.5vw, 1.5rem) !important;
+  gap: clamp(1rem, 2.5vw, 1.25rem) !important;
+}
+
+.manual-confirm-body {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(10px, 2.5vw, 14px);
+}
+
+.manual-confirm-icon {
+  flex-shrink: 0;
+  width: clamp(40px, 10vw, 48px);
+  height: clamp(40px, 10vw, 48px);
+  color: #d4a017;
+}
+
+.manual-confirm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.manual-confirm-text p {
+  margin: 0;
+  font-size: clamp(0.88rem, 2.8vw, 0.95rem);
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.manual-confirm-warning {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(212, 160, 23, 0.08);
+  border-left: 3px solid #d4a017;
+  color: rgba(0, 0, 0, 0.78) !important;
+}
+
+.manual-confirm-warning strong {
+  color: #b8860b;
+}
+
 /* ── Type selection modal (cam-type) ── */
 
 .cam-type-backdrop {

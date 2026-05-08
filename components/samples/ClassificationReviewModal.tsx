@@ -45,17 +45,21 @@ const CLASSIFICATION_FIELD_KEYS: Array<keyof ClassificationFormState> = [
 type ClassificationReviewModalProps = {
   open: boolean;
   photoUrl: string | null;
-  // Cabecalho lote/sacas/safra: vem da extracao da IA. Sempre mostrado.
-  identification: {
-    lote: string | null;
-    sacas: string | null;
-    safra: string | null;
-  };
-  // Flow A (sem sampleId no URL): operador edita lote pra resolver amostra.
-  // Flow B (com sampleId): lote read-only, vem do sample em context.
+  // Cabecalho lote/sacas/safra: 3 props de editabilidade controladas pelo
+  // parent. No fluxo normal so o lote pode ser editavel (Flow A); no
+  // modo manual (sub-caminho 3b — IA falhou tecnicamente) os 3 sao
+  // editaveis pra que o operador preencha lendo direto da foto. Todos
+  // os campos da identificacao tem valor + onChange separados; quando
+  // editable=false o input renderiza read-only.
   lotEditable: boolean;
+  sacksEditable: boolean;
+  harvestEditable: boolean;
   lotValue: string;
+  sacksValue: string;
+  harvestValue: string;
   onLotChange: (next: string) => void;
+  onSacksChange: (next: string) => void;
+  onHarvestChange: (next: string) => void;
   // Form com os 22 campos da ficha unificada. Mantido externo (no parent)
   // pra preservar valores entre reaberturas (lot-mismatch, data-mismatch,
   // erro de save → modal reabre com tudo preenchido).
@@ -71,10 +75,15 @@ type ClassificationReviewModalProps = {
 export function ClassificationReviewModal({
   open,
   photoUrl,
-  identification,
   lotEditable,
+  sacksEditable,
+  harvestEditable,
   lotValue,
+  sacksValue,
+  harvestValue,
   onLotChange,
+  onSacksChange,
+  onHarvestChange,
   form,
   onFormChange,
   errorMessage,
@@ -182,43 +191,44 @@ export function ClassificationReviewModal({
               <div className="review-grid review-grid-3">
                 <label className="review-field">
                   <span className="review-field-label">Lote</span>
-                  {lotEditable ? (
-                    <input
-                      type="text"
-                      className="review-field-input"
-                      value={lotValue}
-                      disabled={saving}
-                      onChange={(event) => onLotChange(event.target.value.toUpperCase())}
-                      placeholder="Número do lote"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      className="review-field-input is-readonly"
-                      value={lotValue || identification.lote || ''}
-                      readOnly
-                      disabled
-                    />
-                  )}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={`review-field-input${lotEditable ? '' : ' is-readonly'}`}
+                    value={lotValue}
+                    disabled={saving || !lotEditable}
+                    readOnly={!lotEditable}
+                    onChange={(event) =>
+                      lotEditable ? onLotChange(event.target.value.toUpperCase()) : undefined
+                    }
+                    placeholder={lotEditable ? 'Número do lote' : ''}
+                  />
                 </label>
                 <label className="review-field">
                   <span className="review-field-label">Sacas</span>
                   <input
                     type="text"
-                    className="review-field-input is-readonly"
-                    value={identification.sacas ?? ''}
-                    readOnly
-                    disabled
+                    inputMode="numeric"
+                    className={`review-field-input${sacksEditable ? '' : ' is-readonly'}`}
+                    value={sacksValue}
+                    disabled={saving || !sacksEditable}
+                    readOnly={!sacksEditable}
+                    onChange={(event) =>
+                      sacksEditable ? onSacksChange(event.target.value) : undefined
+                    }
                   />
                 </label>
                 <label className="review-field">
                   <span className="review-field-label">Safra</span>
                   <input
                     type="text"
-                    className="review-field-input is-readonly"
-                    value={identification.safra ?? ''}
-                    readOnly
-                    disabled
+                    className={`review-field-input${harvestEditable ? '' : ' is-readonly'}`}
+                    value={harvestValue}
+                    disabled={saving || !harvestEditable}
+                    readOnly={!harvestEditable}
+                    onChange={(event) =>
+                      harvestEditable ? onHarvestChange(event.target.value) : undefined
+                    }
                   />
                 </label>
               </div>

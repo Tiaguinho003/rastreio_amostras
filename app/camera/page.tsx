@@ -5,6 +5,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
+import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
+import { ClassificationManualConfirmModal } from '../../components/samples/ClassificationManualConfirmModal';
 import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
 import { ClassificationTypeModal } from '../../components/samples/ClassificationTypeModal';
 import {
@@ -56,7 +58,14 @@ type ClassificationFlowState =
   | 'detected'
   | 'detect-failed'
   | 'extracting'
-  | 'error'
+  // Q.cls.2 sub-caminhos 3a/3b: avisos de erro da IA. Substituem o
+  // estado 'error' generico antigo. 'illegible' = lote=null apos
+  // extracao OK; 'technical' = catch (timeout, OpenAI offline, network).
+  | 'extraction-error-illegible'
+  | 'extraction-error-technical'
+  // Q.cls.2 sub-caminho 3b → 2o modal: confirma "preencher manualmente"
+  // antes de abrir o ReviewModal em modo manual.
+  | 'manual-confirm'
   | 'confirming'
   | 'resolving'
   | 'overwrite-confirm'
@@ -158,8 +167,16 @@ function CameraPageContent() {
   const [userPickerSearch, setUserPickerSearch] = useState('');
   const [userPickerError, setUserPickerError] = useState<string | null>(null);
 
-  // Lot editing (Flow A)
+  // Lote editavel (Flow A sempre; Flow B so em modo manual). Sacas/safra
+  // editaveis apenas em modo manual (sub-caminho 3b apos confirmacao).
   const [editableLot, setEditableLot] = useState('');
+  const [editableSacks, setEditableSacks] = useState('');
+  const [editableHarvest, setEditableHarvest] = useState('');
+  // Q.cls.2 sub-caminho 3b: modo manual e ativado quando a extracao
+  // falha tecnicamente e o operador confirma "Preencher manualmente".
+  // Faz lote/sacas/safra editaveis no ReviewModal e permite reativar
+  // cross-validation se ele editar pra valor diferente do sample.
+  const [manualMode, setManualMode] = useState(false);
 
   // Resolve result (Flow A)
   const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(
@@ -230,7 +247,6 @@ function CameraPageContent() {
         setResultModalOpen(false);
       } else if (
         flowState === 'preview' ||
-        flowState === 'error' ||
         flowState === 'not-found' ||
         flowState === 'lot-mismatch' ||
         flowState === 'data-mismatch'
@@ -239,6 +255,8 @@ function CameraPageContent() {
       } else if (flowState === 'confirming' || flowState === 'overwrite-confirm') {
         resetClassificationFlow();
       }
+      // 'extraction-error-illegible' / 'extraction-error-technical' /
+      // 'manual-confirm' tem tratamento de ESC dentro dos proprios modais.
     };
 
     document.body.style.overflow = 'hidden';
@@ -466,6 +484,9 @@ function CameraPageContent() {
     setFlowError(null);
     setConfirmedSampleId(null);
     setEditableLot('');
+    setEditableSacks('');
+    setEditableHarvest('');
+    setManualMode(false);
     setResolvedSample(null);
     setMismatchDivergences([]);
     setMismatchChoices({} as Record<IdentificationField, MismatchChoice>);
@@ -474,6 +495,21 @@ function CameraPageContent() {
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
+  }
+
+  // Q.cls.2 sub-caminho 3b: confirma o modo manual depois do
+  // ManualConfirmModal. Pre-preenche editableLot/Sacks/Harvest com os
+  // valores do sample em context (Flow B); reseta o ExtractionResult
+  // existente (que poderia ser parcial) e abre o ReviewModal.
+  function startManualMode() {
+    setManualMode(true);
+    setEditableLot(contextSampleLot ?? '');
+    setEditableSacks(contextSampleSacks?.toString() ?? '');
+    setEditableHarvest(contextSampleHarvest ?? '');
+    setExtractionResult(null);
+    setClassificationForm(EMPTY_CLASSIFICATION_FORM);
+    setFlowError(null);
+    setFlowState('confirming');
   }
 
   async function captureFromVideoStream() {
@@ -580,8 +616,13 @@ function CameraPageContent() {
       const detection = await detectClassificationForm(session, compressed);
       if (!mountedRef.current) return;
 
+      // Q.cls.2: guarda o token sempre que a foto e enviada com sucesso
+      // (mesmo se detected=true). Necessario pra modo manual posterior:
+      // se a extracao tecnica falhar (3b), o operador pode "Continuar
+      // manual" e o save usa esse token pra anexar a foto na classificacao.
+      setDetectedPhotoToken(detection.photoToken);
+
       if (!detection.detected) {
-        setDetectedPhotoToken(detection.photoToken);
         setFlowState('detect-failed');
         return;
       }
@@ -596,19 +637,12 @@ function CameraPageContent() {
       const result = await extractFromDetectedForm(session, detection.photoToken);
       if (!mountedRef.current) return;
 
-      setExtractionResult(result);
-      // Q.cls.2.3: ficha unificada — mapeia TODOS os 22 campos pro form
-      // (universal map). O modal de revisao mostra todos; o tipo,
-      // selecionado depois, e usado em buildClassificationDataPayload
-      // pra filtrar o que vai pro backend.
-      const extracted = mapExtractionToForm(result.extractedFields, null);
-      setClassificationForm((prev) => ({ ...prev, ...extracted }));
-      setEditableLot(result.identification.lote ?? '');
-      setFlowState('confirming');
+      handleExtractionResult(result);
     } catch (error) {
       if (!mountedRef.current) return;
-      setFlowError(readErrorMessage(error, 'Falha na extracao. Tente novamente.'));
-      setFlowState('error');
+      // Q.cls.2 sub-caminho 3b: erro tecnico (timeout, OpenAI offline, network).
+      setFlowError(readErrorMessage(error, 'Erro ao processar a foto.'));
+      setFlowState('extraction-error-technical');
     }
   }
 
@@ -628,17 +662,39 @@ function CameraPageContent() {
         : await extractAndPrepareClassification(session, compressed);
       if (!mountedRef.current) return;
 
-      setExtractionResult(result);
-      // Q.cls.2.3: ficha unificada — vide comentario em handleSendPhoto.
-      const extracted = mapExtractionToForm(result.extractedFields, null);
-      setClassificationForm((prev) => ({ ...prev, ...extracted }));
-      setEditableLot(result.identification.lote ?? '');
-      setFlowState('confirming');
+      // Garantia: token sempre conhecido apos um extract bem-sucedido
+      // (necessario pra modo manual se o operador escolher esse caminho
+      // depois — ainda que aqui ele nao precise normalmente).
+      setDetectedPhotoToken(result.photoToken);
+      handleExtractionResult(result);
     } catch (error) {
       if (!mountedRef.current) return;
-      setFlowError(readErrorMessage(error, 'Falha na extracao. Tente novamente.'));
-      setFlowState('error');
+      setFlowError(readErrorMessage(error, 'Erro ao processar a foto.'));
+      setFlowState('extraction-error-technical');
     }
+  }
+
+  // Q.cls.2 sub-caminho 3a: a IA rodou OK mas nao identificou o lote.
+  // No Flow B (com sampleId), avisa e oferece tirar nova foto. No Flow
+  // A (sem sampleId), continua pro modal de revisao com o lote vazio
+  // pra ser preenchido manualmente — comportamento legado.
+  function handleExtractionResult(result: ExtractAndPrepareResponse) {
+    setExtractionResult(result);
+    const extracted = mapExtractionToForm(result.extractedFields, null);
+    setClassificationForm((prev) => ({ ...prev, ...extracted }));
+
+    const lote = result.identification.lote ?? '';
+    const sacas = result.identification.sacas ?? '';
+    const safra = result.identification.safra ?? '';
+    setEditableLot(lote);
+    setEditableSacks(sacas);
+    setEditableHarvest(safra);
+
+    if (hasContext && !lote) {
+      setFlowState('extraction-error-illegible');
+      return;
+    }
+    setFlowState('confirming');
   }
 
   function updateFormField(key: keyof ClassificationFormState, value: string) {
@@ -666,7 +722,16 @@ function CameraPageContent() {
     sampleId: string,
     applySampleUpdates: { declaredSacks?: number; declaredHarvest?: string } | null = null
   ) {
-    if (!session || !extractionResult) return;
+    if (!session) return;
+    // Em modo manual o extractionResult e null — usa o detectedPhotoToken
+    // (foto ja foi enviada e tem token, mesmo que a extracao tenha
+    // falhado tecnicamente depois).
+    const photoToken = manualMode ? detectedPhotoToken : (extractionResult?.photoToken ?? null);
+    if (!photoToken) {
+      setFlowError('Foto invalida ou expirada. Tire outra foto.');
+      setFlowState('confirming');
+      return;
+    }
 
     setFlowState('submitting');
     setFlowError(null);
@@ -687,7 +752,7 @@ function CameraPageContent() {
       await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
-        photoToken: extractionResult.photoToken,
+        photoToken,
         classificationType,
         classifiers,
         applySampleUpdates,
@@ -704,13 +769,23 @@ function CameraPageContent() {
   }
 
   async function handleConfirmClassification() {
-    if (!session || !extractionResult) return;
+    if (!session) return;
+    // Em modo manual o extractionResult e null (a IA falhou), mas o
+    // operador ja preencheu lote/sacas/safra editaveis. Aceita ambos.
+    if (!manualMode && !extractionResult) return;
 
     const validationError = validateClassificationForm(classificationForm, classificationType);
     if (validationError) {
       setFlowError(validationError);
       return;
     }
+
+    // Source da identificacao: editable* sempre (reflete extracao da IA
+    // OU o que o operador digitou no modo manual). Cross-validation
+    // reativa naturalmente — sub-caminho 2 (lot-mismatch) e 4 (data-
+    // mismatch) caem nos mesmos branches abaixo.
+    const sacasSource = editableSacks.trim() || null;
+    const harvestSource = editableHarvest.trim() || null;
 
     if (hasContext && contextSampleId) {
       // Flow B: validate status and lot match
@@ -724,10 +799,10 @@ function CameraPageContent() {
         return;
       }
 
-      const extractedLot = normalizeLot(extractionResult.identification.lote);
+      const enteredLot = normalizeLot(editableLot);
       const sampleLot = normalizeLot(contextSampleLot);
 
-      if (extractedLot && sampleLot && extractedLot !== sampleLot) {
+      if (enteredLot && sampleLot && enteredLot !== sampleLot) {
         setFlowState('lot-mismatch');
         return;
       }
@@ -735,8 +810,8 @@ function CameraPageContent() {
       const divergences = compareIdentification(
         {
           lote: null,
-          sacas: extractionResult.identification.sacas,
-          safra: extractionResult.identification.safra,
+          sacas: sacasSource,
+          safra: harvestSource,
         },
         {
           declaredSacks: contextSampleSacks,
@@ -797,8 +872,8 @@ function CameraPageContent() {
         const divergences = compareIdentification(
           {
             lote: null,
-            sacas: extractionResult.identification.sacas,
-            safra: extractionResult.identification.safra,
+            sacas: sacasSource,
+            safra: harvestSource,
           },
           {
             declaredSacks: resolved.sample.declared?.sacks ?? null,
@@ -1279,18 +1354,6 @@ function CameraPageContent() {
         />
       ) : null}
 
-      {/* Error overlay */}
-      {flowState === 'error' && flowError ? (
-        <div className="app-modal-backdrop" onClick={resetClassificationFlow}>
-          <div className="app-modal cam-error-card" onClick={(e) => e.stopPropagation()}>
-            <p className="cam-error-text">{flowError}</p>
-            <button type="button" className="cam-error-btn" onClick={resetClassificationFlow}>
-              Voltar
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {/* Lot mismatch dialog (Flow B) */}
       {flowState === 'lot-mismatch' ? (
         <div className="app-modal-backdrop" onClick={() => {}}>
@@ -1454,18 +1517,20 @@ function CameraPageContent() {
 
       {/* Q.cls.2.3: Modal de revisao da ficha unificada. Avancar dispara
           o modal de tipo (Q.cls.2.8) — save final acontece apos
-          classifier-modal. */}
+          classifier-modal. Em modo manual (3b), lote/sacas/safra ficam
+          editaveis pre-preenchidos com valores do sample em context. */}
       <ClassificationReviewModal
-        open={flowState === 'confirming' && !!extractionResult}
+        open={flowState === 'confirming' && (!!extractionResult || manualMode)}
         photoUrl={capturedPhotoUrl}
-        identification={{
-          lote: extractionResult?.identification.lote ?? null,
-          sacas: extractionResult?.identification.sacas ?? null,
-          safra: extractionResult?.identification.safra ?? null,
-        }}
-        lotEditable={!hasContext}
-        lotValue={hasContext ? (contextSampleLot ?? '') : editableLot}
+        lotEditable={!hasContext || manualMode}
+        sacksEditable={manualMode}
+        harvestEditable={manualMode}
+        lotValue={editableLot}
+        sacksValue={editableSacks}
+        harvestValue={editableHarvest}
         onLotChange={setEditableLot}
+        onSacksChange={setEditableSacks}
+        onHarvestChange={setEditableHarvest}
         form={classificationForm}
         onFormChange={updateFormField}
         errorMessage={flowError}
@@ -1478,7 +1543,7 @@ function CameraPageContent() {
           Click num tipo seta classificationType e avanca pro classifier
           modal. Voltar (seta no header) volta pro modal de revisao. */}
       <ClassificationTypeModal
-        open={flowState === 'selecting-type' && !!extractionResult}
+        open={flowState === 'selecting-type' && (!!extractionResult || manualMode)}
         selectedType={classificationType}
         onBack={() => setFlowState('confirming')}
         onSelect={(type) => {
@@ -1488,6 +1553,40 @@ function CameraPageContent() {
           void loadAvailableUsersOnce();
           setFlowState('selecting-classifier');
         }}
+      />
+
+      {/* Q.cls.2 sub-caminho 3a: lote ilegivel apos extracao OK.
+          Operador tira nova foto ou cancela (volta detail page). */}
+      <ClassificationExtractionErrorModal
+        open={flowState === 'extraction-error-illegible'}
+        kind="illegible"
+        onCancel={() => {
+          if (hasContext) router.back();
+          else resetClassificationFlow();
+        }}
+        onRetake={resetClassificationFlow}
+      />
+
+      {/* Q.cls.2 sub-caminho 3b: erro tecnico (timeout, OpenAI offline).
+          3 opcoes: tirar outra, continuar manual, cancelar. */}
+      <ClassificationExtractionErrorModal
+        open={flowState === 'extraction-error-technical'}
+        kind="technical"
+        technicalDetail={flowError}
+        onCancel={() => {
+          if (hasContext) router.back();
+          else resetClassificationFlow();
+        }}
+        onRetake={resetClassificationFlow}
+        onContinueManual={() => setFlowState('manual-confirm')}
+      />
+
+      {/* Q.cls.2 sub-caminho 3b → 2o modal: confirma o modo manual antes
+          de abrir o ReviewModal sem extracao da IA. */}
+      <ClassificationManualConfirmModal
+        open={flowState === 'manual-confirm'}
+        onBack={() => setFlowState('extraction-error-technical')}
+        onConfirm={startManualMode}
       />
     </AppShell>
   );
