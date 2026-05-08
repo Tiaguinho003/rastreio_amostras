@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ficha de classificacao</title>
+    <style>
+      /* ─────────────────────────────────────────────────────────────────
+         Ficha unificada de classificacao — 6 por A4 (3 linhas x 2 colunas).
+         Para imprimir: abra no navegador e Ctrl+P → "Salvar como PDF" ou
+         direto na impressora. Configurar margens da impressora como
+         "Padrao" (o @page abaixo controla o que importa).
+
+         Tunables (ajuste fino):
+         - --page-margin: margem externa do A4
+         - --grid-gap:    espaco entre fichas
+         - --label-size:  tamanho do label (PADR., P18, etc.)
+         - --field-h:     altura minima de cada linha de campo
+
+         Especificacoes Fase Q.cls.2:
+         - Labels em CAIXA ALTA
+         - Area da ficha aumentada (margem da pagina e gap reduzidos)
+         - Fonte +1pt em relacao ao layout antigo
+         ───────────────────────────────────────────────────────────────── */
+      :root {
+        --page-margin: 5mm;
+        --grid-gap: 3mm;
+        --border: 0.3mm solid #000;
+        --label-size: 8pt;
+        --field-h: 11mm;
+        --cut-thickness: 0.7mm; /* espessura das linhas guia de corte */
+        /* Espaco em branco entre a borda de uma ficha e a linha guia de
+           corte adjacente. Por construcao, vale (gap - thickness) / 2 —
+           o mesmo espaco que sobra entre uma ficha e a linha preta no
+           gap interno entre duas fichas. */
+        --cut-gap: calc((var(--grid-gap) - var(--cut-thickness)) / 2);
+        /* Padding real do .sheet. Em modo impressao = --cut-gap (so o
+           espaco da guia de corte). Em modo tela e sobrescrito para
+           somar a margem de pagina (simulacao do A4 cheio). */
+        --sheet-padding: var(--cut-gap);
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: var(--page-margin);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: var(--label-size);
+        color: #000;
+        background: #fff;
+        line-height: 1.1;
+      }
+
+      .sheet {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr;
+        gap: var(--grid-gap);
+        width: calc(210mm - var(--page-margin) * 2);
+        height: calc(297mm - var(--page-margin) * 2);
+        /* Padding interno cria o espaco em branco entre as fichas e a
+           linha guia de corte externa — mesmo gap que existe entre uma
+           ficha e a linha central interna. */
+        padding: var(--sheet-padding);
+        /* Outline grosso desenha a borda externa do conjunto de fichas
+           (linha guia de corte). Outline nao toma espaco no layout. */
+        outline: var(--cut-thickness) solid #000;
+      }
+
+      /* Cada ficha. Bordas finas (linhas internas entre celulas).
+         Position relative + z-index garante que a ficha cubra as linhas
+         guia de corte que correm pelo .sheet. */
+      .card {
+        border: var(--border);
+        display: grid;
+        grid-template-rows: repeat(8, 1fr);
+        position: relative;
+        z-index: 1;
+        background: #fff;
+      }
+
+      /* Linhas guia de corte centralizadas em cada gap.
+         z-index: 0 — ficam atras das fichas, so aparecem no espaco do gap.
+         pointer-events: none — nao interferem em interacao. */
+      .cut {
+        position: absolute;
+        background: #000;
+        pointer-events: none;
+        z-index: 0;
+      }
+      /* Linha vertical no meio do sheet (entre as 2 colunas). */
+      .cut-v {
+        top: 0;
+        bottom: 0;
+        left: calc(50% - (var(--cut-thickness) / 2));
+        width: var(--cut-thickness);
+      }
+      /* Linhas horizontais nos centros dos 2 gaps entre as 3 fileiras.
+         A area das fileiras e (100% - 2*sheet-padding - 2*grid-gap) e
+         se divide em 3. Linha 1 fica no centro do gap apos a 1a fileira;
+         linha 2 no centro do gap apos a 2a fileira. */
+      .cut-h {
+        left: 0;
+        right: 0;
+        height: var(--cut-thickness);
+      }
+      .cut-h1 {
+        top: calc(
+          var(--sheet-padding) +
+            (100% - var(--sheet-padding) * 2 - var(--grid-gap) * 2) / 3 +
+            var(--grid-gap) / 2 - (var(--cut-thickness) / 2)
+        );
+      }
+      .cut-h2 {
+        top: calc(
+          var(--sheet-padding) +
+            (100% - var(--sheet-padding) * 2 - var(--grid-gap) * 2) * 2 / 3 +
+            var(--grid-gap) * 1.5 - (var(--cut-thickness) / 2)
+        );
+      }
+
+      /* Linha generica: grid de 30 colunas iguais (MMC de 2,3,5,6).
+         Cada bloco define seus pesos como spans dentro dessas 30, assim
+         as divisoes verticais caem em pontos comuns entre linhas (10,
+         20 nas linhas de 3 partes; 6, 12, 18, 24 nas de 5 peneiras),
+         dando alinhamento visual entre fileiras. */
+      .row {
+        display: grid;
+        grid-template-columns: repeat(30, 1fr);
+        border-bottom: var(--border);
+        min-height: var(--field-h);
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+
+      /* Celula generica. Borda direita; ultima celula da linha sem borda. */
+      .cell {
+        border-right: var(--border);
+        padding: 0.6mm 1.2mm;
+        position: relative;
+        overflow: hidden;
+      }
+      .cell:last-child {
+        border-right: none;
+      }
+
+      /* Label posicionado no canto superior esquerdo da celula, deixando o
+         resto do espaco livre pro classificador escrever. */
+      .label {
+        font-size: var(--label-size);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      /* Spans de cada bloco no grid de 30 colunas ------------------- */
+
+      /* Cabecalho: lote 14, SCS 8, SAFRA 8 (~47% / 27% / 27%). */
+      .row-header > .cell:nth-child(1) {
+        grid-column: span 14;
+      }
+      .row-header > .cell:nth-child(2),
+      .row-header > .cell:nth-child(3) {
+        grid-column: span 8;
+      }
+
+      /* Identificacao: 3 partes iguais — divide 30 em 10:10:10. */
+      .row-id > .cell {
+        grid-column: span 10;
+      }
+
+      /* Peneiras: 5 partes iguais — 6 cols cada. */
+      .row-sieve > .cell {
+        grid-column: span 6;
+      }
+
+      /* Fundos + catacao: FDs 11 cols cada, CAT 8 cols (~37% / 37% / 27%) —
+         CAT mantem a largura aumentada que voce pediu. */
+      .row-fundos > .cell:nth-child(1),
+      .row-fundos > .cell:nth-child(2) {
+        grid-column: span 11;
+      }
+      .row-fundos > .cell:nth-child(3) {
+        grid-column: span 8;
+      }
+
+      /* Defeitos: 3 partes iguais — 10:10:10 (alinha com identificacao). */
+      .row-defects > .cell {
+        grid-column: span 10;
+      }
+
+      /* Final: OBS 20 cols, BEB 10 cols (~67% / 33% — borda em 20 alinha
+         com identificacao e defeitos). */
+      .row-final > .cell:nth-child(1) {
+        grid-column: span 20;
+      }
+      .row-final > .cell:nth-child(2) {
+        grid-column: span 10;
+      }
+
+      /* Bloco FD: peneira | = | percentual.
+         Sem align-items no grid: cada coluna estica (default stretch),
+         assim "%" e "=" ficam alinhados no mesmo eixo vertical. */
+      .fd {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        padding: 0;
+      }
+      .fd .label {
+        position: absolute;
+        top: 0.6mm;
+        left: 1.2mm;
+      }
+      .fd .fd-pene,
+      .fd .fd-perc {
+        padding: 0.6mm 1.2mm;
+        position: relative;
+      }
+      /* "=" centralizado horizontal E vertical na sua coluna. */
+      .fd .fd-eq {
+        font-weight: 700;
+        font-size: 11pt;
+        padding: 0 0.5mm;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* "%" no canto direito do campo do percentual, centralizado
+         verticalmente (mesma altura do "="). */
+      .fd .fd-perc::after {
+        content: '%';
+        position: absolute;
+        right: 1.2mm;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: var(--label-size);
+        opacity: 0.7;
+      }
+
+      /* Estilo de corte para exibir guias de impressao apenas na tela. */
+      @media screen {
+        :root {
+          /* Em tela o .sheet renderiza no tamanho A4 cheio (210x297),
+             entao o padding precisa absorver tanto a margem de pagina
+             quanto o gap das linhas de corte para que a area util das
+             fichas case com o que sai impresso. */
+          --sheet-padding: calc(var(--page-margin) + var(--cut-gap));
+        }
+        body {
+          background: #ddd;
+          padding: 12mm;
+        }
+        .sheet {
+          background: #fff;
+          box-shadow: 0 0 0 1px #888;
+          margin: 0 auto;
+          width: 210mm;
+          height: 297mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sheet" aria-label="Folha A4 com 6 fichas de classificacao">
+      <!-- Linhas guia de corte: 1 vertical no meio + 2 horizontais nos
+           gaps entre fileiras. Posicao absolute + z-index 0 — aparecem
+           somente no espaco entre as fichas. -->
+      <div class="cut cut-v" aria-hidden="true"></div>
+      <div class="cut cut-h cut-h1" aria-hidden="true"></div>
+      <div class="cut cut-h cut-h2" aria-hidden="true"></div>
+
+      <!-- 6 fichas identicas. Cada uma tem 8 linhas. -->
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+
+      <!-- prettier-ignore -->
+      <article class="card"><div class="row row-header"><div class="cell"></div><div class="cell"><span class="label">SCS</span></div><div class="cell"><span class="label">SAFRA</span></div></div><div class="row row-id"><div class="cell"><span class="label">PADR.</span></div><div class="cell"><span class="label">ASP.</span></div><div class="cell"><span class="label">CERT.</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P18</span></div><div class="cell"><span class="label">P17</span></div><div class="cell"><span class="label">P16</span></div><div class="cell"><span class="label">P15</span></div><div class="cell"><span class="label">P14</span></div></div><div class="row row-sieve"><div class="cell"><span class="label">P13</span></div><div class="cell"><span class="label">P12</span></div><div class="cell"><span class="label">P11</span></div><div class="cell"><span class="label">P10</span></div><div class="cell"><span class="label">MK</span></div></div><div class="row row-fundos"><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell fd"><span class="label">FD</span><span class="fd-pene"></span><span class="fd-eq">=</span><span class="fd-perc"></span></div><div class="cell"><span class="label">CAT.</span></div></div><div class="row row-defects"><div class="cell"><span class="label">IMP.</span></div><div class="cell"><span class="label">PVA</span></div><div class="cell"><span class="label">BROCA</span></div></div><div class="row row-defects"><div class="cell"><span class="label">GPI</span></div><div class="cell"><span class="label">AP</span></div><div class="cell"><span class="label">DEF.</span></div></div><div class="row row-final"><div class="cell"><span class="label">OBS.</span></div><div class="cell"><span class="label">BEB.</span></div></div></article>
+    </main>
+  </body>
+</html>
