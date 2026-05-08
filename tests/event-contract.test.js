@@ -282,7 +282,7 @@ test('classification completed requires classification photo reference and accep
   assert.equal(completed.event.eventType, 'CLASSIFICATION_COMPLETED');
 });
 
-test('classification completed accepts conferredBy array with valid snapshots', () => {
+test('classification completed accepts classifiers array with valid snapshots', () => {
   const { service } = createService();
   const sampleId = randomUUID();
 
@@ -312,7 +312,7 @@ test('classification completed accepts conferredBy array with valid snapshots', 
       idempotencyKey: randomUUID(),
       payload: {
         classificationPhotoId: 'classification-photo-1',
-        conferredBy: [
+        classifiers: [
           {
             id: '11111111-1111-4111-8111-111111111111',
             fullName: 'Joao Silva',
@@ -331,10 +331,10 @@ test('classification completed accepts conferredBy array with valid snapshots', 
   );
 
   assert.equal(completed.statusCode, 201);
-  assert.equal(completed.event.payload.conferredBy.length, 2);
+  assert.equal(completed.event.payload.classifiers.length, 2);
 });
 
-test('classification completed rejects conferredBy with empty array', () => {
+test('classification completed rejects classifiers with empty array', () => {
   const { service } = createService();
   const sampleId = randomUUID();
 
@@ -366,7 +366,7 @@ test('classification completed rejects conferredBy with empty array', () => {
           idempotencyKey: randomUUID(),
           payload: {
             classificationPhotoId: 'classification-photo-1',
-            conferredBy: [],
+            classifiers: [],
           },
           module: 'classification',
         }),
@@ -376,7 +376,7 @@ test('classification completed rejects conferredBy with empty array', () => {
   );
 });
 
-test('classification completed rejects conferredBy with extra keys per item', () => {
+test('classification completed rejects classifiers with extra keys per item', () => {
   const { service } = createService();
   const sampleId = randomUUID();
 
@@ -408,7 +408,7 @@ test('classification completed rejects conferredBy with extra keys per item', ()
           idempotencyKey: randomUUID(),
           payload: {
             classificationPhotoId: 'classification-photo-1',
-            conferredBy: [
+            classifiers: [
               {
                 id: '11111111-1111-4111-8111-111111111111',
                 fullName: 'Joao Silva',

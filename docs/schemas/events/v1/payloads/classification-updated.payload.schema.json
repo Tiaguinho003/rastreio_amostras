@@ -15,7 +15,7 @@
     "reasonText": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?:\\S+(?:\\s+\\S+){0,9})$"
+      "maxLength": 500
     },
     "reasonCode": {
       "$ref": "../base/shared-defs.schema.json#/$defs/updateReasonCode"

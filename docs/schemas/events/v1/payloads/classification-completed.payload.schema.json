@@ -18,134 +18,72 @@
     },
     "classificationData": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "dataClassificacao": {
           "type": ["string", "null"],
           "format": "date"
         },
-        "padrao": {
-          "type": ["string", "null"]
-        },
-        "catacao": {
-          "type": ["string", "null"]
-        },
-        "aspecto": {
-          "type": ["string", "null"]
-        },
-        "bebida": {
-          "type": ["string", "null"]
-        },
-        "safra": {
-          "type": ["string", "null"]
-        },
-        "broca": {
-          "type": ["string", "null"]
-        },
-        "pva": {
-          "type": ["string", "null"]
-        },
-        "imp": {
-          "type": ["string", "null"]
-        },
-        "ap": {
-          "type": ["string", "null"]
-        },
-        "gpi": {
-          "type": ["string", "null"]
-        },
-        "classificador": {
-          "type": ["string", "null"]
-        },
-        "peneirasPercentuais": {
+        "padrao": { "type": ["string", "null"] },
+        "aspecto": { "type": ["string", "null"] },
+        "certif": { "type": ["string", "null"] },
+        "catacao": { "type": ["string", "null"] },
+        "observacoes": { "type": ["string", "null"] },
+        "bebida": { "type": ["string", "null"] },
+        "peneiras": {
           "type": ["object", "null"],
+          "additionalProperties": false,
           "properties": {
-            "p19": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p18": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p17": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p16": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "mk": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p15": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p14": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p13": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p12": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p11": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
             "p10": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "fundos": {
-              "type": ["array", "null"],
-              "items": {
-                "type": "object",
-                "properties": {
-                  "peneira": { "type": "string", "minLength": 1 },
-                  "percentual": { "type": "number", "minimum": 0, "maximum": 100 }
-                },
-                "required": ["peneira", "percentual"]
-              },
-              "maxItems": 2
-            }
-          },
-          "additionalProperties": false
+            "mk": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+          }
         },
-        "defeito": {
-          "type": ["string", "null"]
+        "fundos": {
+          "type": ["array", "null"],
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "peneira": { "type": ["string", "null"] },
+              "percentual": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+            },
+            "required": ["peneira", "percentual"]
+          }
         },
-        "certif": {
-          "type": ["string", "null"]
-        },
-        "observacoes": {
-          "type": ["string", "null"]
+        "defeitos": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "imp": { "type": ["string", "null"] },
+            "pva": { "type": ["string", "null"] },
+            "broca": { "type": ["string", "null"] },
+            "gpi": { "type": ["string", "null"] },
+            "ap": { "type": ["string", "null"] },
+            "defeito": { "type": ["string", "null"] }
+          }
         }
-      },
-      "additionalProperties": false
+      }
     },
     "technical": {
       "type": "object",
       "properties": {
-        "type": {
-          "type": "string",
-          "minLength": 1
-        },
-        "screen": {
-          "type": "string",
-          "minLength": 1
-        },
-        "defectsCount": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "density": {
-          "type": ["number", "null"],
-          "minimum": 0
-        },
-        "notes": {
-          "type": ["string", "null"]
-        }
+        "type": { "type": "string", "minLength": 1 },
+        "screen": { "type": "string", "minLength": 1 },
+        "defectsCount": { "type": "integer", "minimum": 0 },
+        "density": { "type": ["number", "null"], "minimum": 0 },
+        "notes": { "type": ["string", "null"] }
       },
       "additionalProperties": false
-    },
-    "classifierUserId": {
-      "type": ["string", "null"],
-      "format": "uuid",
-      "deprecated": true
-    },
-    "classifierName": {
-      "type": ["string", "null"],
-      "deprecated": true
-    },
-    "conferredBy": {
-      "type": ["array", "null"],
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "fullName": { "type": "string", "minLength": 1 },
-          "username": { "type": "string", "minLength": 1 }
-        },
-        "required": ["id", "fullName", "username"],
-        "additionalProperties": false
-      },
-      "minItems": 1,
-      "maxItems": 50,
-      "deprecated": true
     },
     "classifiers": {
       "type": "array",
