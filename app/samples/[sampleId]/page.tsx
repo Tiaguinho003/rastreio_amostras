@@ -819,6 +819,22 @@ export default function SampleDetailPage() {
     };
   }, [loadDetail, sampleId]);
 
+  // Q.print P3: polling do PrintJob enquanto PENDING. O backend tem lazy
+  // timeout de 60s — apos isso o job vira EXPIRED na proxima request, entao
+  // tres segundos de cadencia e suficiente pra refletir o final do ciclo
+  // sem bombardear a API.
+  useEffect(() => {
+    if (detail?.latestPrintJob?.status !== 'PENDING') {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      void refreshDetail();
+    }, 3000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [detail?.latestPrintJob?.status, refreshDetail]);
+
   useEffect(() => {
     setExportTypeSelectorOpen(false);
     setExportConfirmationOpen(false);
@@ -886,7 +902,6 @@ export default function SampleDetailPage() {
     () => detail?.sample.internalLotNumber ?? detail?.sample.id ?? '',
     [detail?.sample.internalLotNumber, detail?.sample.id]
   );
-  const printFailed = detail?.latestPrintJob?.status === 'FAILED';
   const canQuickPrint = detail
     ? detail.sample.status === 'REGISTRATION_CONFIRMED' ||
       canRequestReprintStatus(detail.sample.status)
@@ -1450,7 +1465,9 @@ export default function SampleDetailPage() {
 
       void refreshDetail();
       setLabelModalStep('completed');
-      setLabelModalMessage('Etiqueta enviada para a fila de impressao.');
+      setLabelModalMessage(
+        `Lote ${detail.sample.internalLotNumber ?? detail.sample.id} enviado pra impressao. Anote o numero na saca enquanto a etiqueta sai.`
+      );
     } catch (cause) {
       if (cause instanceof ApiError) {
         setLabelModalError(cause.message);
@@ -2309,27 +2326,9 @@ export default function SampleDetailPage() {
 
             <NoticeSlot notice={pageNotice} />
 
-            {/* Bloco de ações fixo */}
+            {/* Q.print P3: botao "Imprimir" da barra de acoes migrou para a
+                secao Etiqueta no body do sdv-general. */}
             <div className="sdv-actions-bar">
-              <button
-                type="button"
-                className={`sdv-action-card is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                onClick={(event) => {
-                  setPrintHighlighted(false);
-                  openLabelReviewModal(event.currentTarget);
-                }}
-                disabled={!canQuickPrint || labelModalSubmitting}
-              >
-                <span className="sdv-action-card-icon">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M7 8V4.8h10V8" />
-                    <rect x="5" y="9" width="14" height="7" rx="1.8" />
-                    <path d="M8 14h8" />
-                    <path d="M8 16.8h8V20H8z" />
-                  </svg>
-                </span>
-                <span className="sdv-action-card-label">Imprimir</span>
-              </button>
               <button
                 type="button"
                 className="sdv-action-card is-report"
@@ -2403,32 +2402,59 @@ export default function SampleDetailPage() {
               <div className="sdv-content-inner">
                 {detailSection === 'GENERAL' ? (
                   <section className="sdv-general">
-                    {printFailed ? (
-                      <div className="sdv-card sdv-print-failed-card">
-                        <div className="sdv-print-failed-row">
-                          <div className="sdv-print-failed-icon">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                              <circle cx="12" cy="12" r="10" />
-                              <path d="M12 8v4" />
-                              <path d="M12 16h.01" />
-                            </svg>
-                          </div>
-                          <div className="sdv-print-failed-body">
-                            <span className="sdv-print-failed-title">Impressao falhou</span>
-                            <span className="sdv-print-failed-sub">
-                              Tentativa {detail!.latestPrintJob!.attemptNumber}
-                              {detail!.latestPrintJob!.error
-                                ? ` — ${detail!.latestPrintJob!.error}`
-                                : ''}
+                    {/* Q.print P3: secao Etiqueta — status do PrintJob +
+                        botao Imprimir/Imprimir novamente. Sumiu o card
+                        sdv-print-failed-card; tudo flui aqui agora. */}
+                    {detail.sample.status !== 'INVALIDATED' ? (
+                      <div
+                        className={`sdv-card sdv-print-section is-${detail.latestPrintJob?.status?.toLowerCase() ?? 'idle'}`}
+                      >
+                        <header className="sdv-print-section-header">
+                          <h3 className="sdv-print-section-title">Etiqueta</h3>
+                          <span className="sdv-print-section-status">
+                            {(() => {
+                              const job = detail.latestPrintJob;
+                              if (!job) return 'Nao impressa';
+                              if (job.status === 'PENDING') return 'Imprimindo...';
+                              if (job.status === 'SUCCESS') return 'Impressa';
+                              if (job.status === 'FAILED') return 'Falhou';
+                              if (job.status === 'EXPIRED') return 'Tempo esgotado';
+                              return job.status;
+                            })()}
+                          </span>
+                        </header>
+                        <div className="sdv-print-section-body">
+                          {detail.latestPrintJob ? (
+                            <>
+                              <span className="sdv-print-section-attempt">
+                                Tentativa {detail.latestPrintJob.attemptNumber}
+                              </span>
+                              {detail.latestPrintJob.error ? (
+                                <span className="sdv-print-section-error">
+                                  {detail.latestPrintJob.error}
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className="sdv-print-section-attempt">
+                              Nenhuma impressao registrada ainda.
                             </span>
-                          </div>
+                          )}
                         </div>
                         <button
                           type="button"
-                          className="sdv-print-failed-retry"
-                          onClick={(event) => openLabelReviewModal(event.currentTarget)}
+                          className={`sdv-print-section-action${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                          disabled={
+                            !canQuickPrint ||
+                            labelModalSubmitting ||
+                            detail.latestPrintJob?.status === 'PENDING'
+                          }
+                          onClick={(event) => {
+                            setPrintHighlighted(false);
+                            openLabelReviewModal(event.currentTarget);
+                          }}
                         >
-                          Tentar novamente
+                          {detail.latestPrintJob ? 'Imprimir novamente' : 'Imprimir etiqueta'}
                         </button>
                       </div>
                     ) : null}
@@ -3058,7 +3084,7 @@ export default function SampleDetailPage() {
                   className="new-sample-label-action-new"
                   onClick={resetLabelModal}
                 >
-                  Fechar
+                  Anotei, fechar
                 </button>
               ) : null}
             </div>
