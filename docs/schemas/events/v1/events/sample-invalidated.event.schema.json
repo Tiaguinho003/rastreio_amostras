@@ -12,15 +12,7 @@
         "payload": { "$ref": "../payloads/sample-invalidated.payload.schema.json" },
         "fromStatus": {
           "type": "string",
-          "enum": [
-            "PHYSICAL_RECEIVED",
-            "REGISTRATION_IN_PROGRESS",
-            "REGISTRATION_CONFIRMED",
-            "QR_PENDING_PRINT",
-            "QR_PRINTED",
-            "CLASSIFICATION_IN_PROGRESS",
-            "CLASSIFIED"
-          ]
+          "enum": ["REGISTRATION_CONFIRMED", "CLASSIFIED"]
         },
         "toStatus": { "const": "INVALIDATED" },
         "idempotencyScope": { "const": "INVALIDATE" },

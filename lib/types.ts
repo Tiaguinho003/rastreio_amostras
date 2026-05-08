@@ -36,16 +36,11 @@ export type ClientAuditEventType =
   | 'CLIENT_UNIT_INACTIVATED'
   | 'CLIENT_UNIT_REACTIVATED';
 
-// Q.print: QR_PENDING_PRINT/QR_PRINTED removidos. Impressao virou acao
-// pura — PrintJob (PENDING/SUCCESS/FAILED/EXPIRED) e a fonte de verdade
-// e o status do sample fica em REGISTRATION_CONFIRMED ate a classificacao.
-export type SampleStatus =
-  | 'PHYSICAL_RECEIVED'
-  | 'REGISTRATION_IN_PROGRESS'
-  | 'REGISTRATION_CONFIRMED'
-  | 'CLASSIFICATION_IN_PROGRESS'
-  | 'CLASSIFIED'
-  | 'INVALIDATED';
+// Q.final: enum reduzido a 3 valores no banco. Lifecycle do Sample passa
+// por REGISTRATION_CONFIRMED -> CLASSIFIED, com INVALIDATED como branch
+// terminal. Impressao virou acao pura (PrintJob como fonte de verdade,
+// PENDING/SUCCESS/FAILED/EXPIRED).
+export type SampleStatus = 'REGISTRATION_CONFIRMED' | 'CLASSIFIED' | 'INVALIDATED';
 
 export type CommercialStatus = 'OPEN' | 'PARTIALLY_SOLD' | 'SOLD' | 'LOST';
 export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED';
