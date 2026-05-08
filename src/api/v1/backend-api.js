@@ -1908,6 +1908,11 @@ export function createBackendApiV1({
             classificationType: body.classificationType ?? null,
             classifiers: body.classifiers,
             applySampleUpdates: body.applySampleUpdates ?? null,
+            // Q.cls.2.7: reasonCode/reasonText opcionais — usados na
+            // reclassificacao (sub-caminho 5). Em new classification
+            // o backend ignora.
+            reasonCode: body.reasonCode ?? null,
+            reasonText: body.reasonText ?? null,
           },
           actor
         );

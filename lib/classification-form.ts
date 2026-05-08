@@ -34,37 +34,48 @@ export type ClassificationFormState = {
   fundo2Percent: string;
 };
 
-export type ClassificationSievePayload = {
-  p19: number | null;
+// Q.cls.2.7: ficha unificada agrupada — peneiras sub-obj, fundos array
+// de 2, defeitos sub-obj. Espelha o schema CLASSIFICATION_COMPLETED.
+export type ClassificationPeneirasPayload = {
   p18: number | null;
   p17: number | null;
   p16: number | null;
-  mk: number | null;
   p15: number | null;
   p14: number | null;
   p13: number | null;
   p12: number | null;
   p11: number | null;
   p10: number | null;
-  fundos: Array<{ peneira: string; percentual: number }> | null;
+  mk: number | null;
+};
+
+export type ClassificationFundoEntry = {
+  peneira: string | null;
+  percentual: number | null;
+};
+
+export type ClassificationDefeitosPayload = {
+  imp: string | null;
+  pva: string | null;
+  broca: string | null;
+  gpi: string | null;
+  ap: string | null;
+  defeito: string | null;
 };
 
 export type ClassificationDataPayload = {
   dataClassificacao?: string | null;
   padrao: string | null;
-  catacao: string | null;
   aspecto: string | null;
-  bebida: string | null;
-  safra: string | null;
-  broca: string | null;
-  pva: string | null;
-  imp: string | null;
-  ap: string | null;
-  gpi: string | null;
-  peneirasPercentuais: Partial<ClassificationSievePayload> | null;
-  defeito: string | null;
   certif: string | null;
+  catacao: string | null;
   observacoes: string | null;
+  bebida: string | null;
+  peneiras: ClassificationPeneirasPayload | null;
+  // Sempre 2 elementos quando nao-null (peneira/percentual podem ser null
+  // individualmente). Schema do evento exige minItems:2 maxItems:2.
+  fundos: [ClassificationFundoEntry, ClassificationFundoEntry] | null;
+  defeitos: ClassificationDefeitosPayload | null;
 };
 
 export type ClassificationTechnicalPayload = {
@@ -308,109 +319,99 @@ export function getTodayDateInput(): string {
   return `${year}-${month}-${day}`;
 }
 
+// Q.cls.2.7: validacao e numerica apenas para peneiras + percentuais dos
+// fundos (campos numericos no payload). Os 6 campos de defeitos viraram
+// texto livre, sem validacao numerica.
+const NUMERIC_FORM_KEYS: Array<keyof ClassificationFormState> = [
+  'peneiraP18',
+  'peneiraP17',
+  'peneiraP16',
+  'peneiraP15',
+  'peneiraP14',
+  'peneiraP13',
+  'peneiraP12',
+  'peneiraP11',
+  'peneiraP10',
+  'peneiraMk',
+  'fundo1Percent',
+  'fundo2Percent',
+];
+
 export function validateClassificationForm(
   form: ClassificationFormState,
-  classificationType?: ClassificationType | null
+  // _classificationType nao e mais usado (ficha unificada — todos os
+  // campos sao validos pra qualquer tipo). Argumento mantido por compat
+  // com chamadas existentes; sera removido no cleanup do TYPE_CONFIGS.
+  _classificationType?: ClassificationType | null
 ): string | null {
-  const config = classificationType ? TYPE_CONFIGS[classificationType] : null;
-  const fieldsToValidate: NumericField[] = config
-    ? [...config.sieveFields, ...config.defectFields]
-    : ALL_NUMERIC_FIELDS;
-
-  for (const field of fieldsToValidate) {
-    const raw = form[field.key].trim();
-    if (!raw) {
-      continue;
-    }
-
+  for (const key of NUMERIC_FORM_KEYS) {
+    const raw = form[key].trim();
+    if (!raw) continue;
     const parsed = Number(raw.replace(',', '.'));
     if (!Number.isFinite(parsed)) {
-      return `${field.label} deve ser um numero valido.`;
+      return `Valor numerico invalido em ${key}.`;
     }
   }
-
   return null;
 }
-
-const ALL_SIEVE_KEYS = [
-  'p19',
-  'p18',
-  'p17',
-  'p16',
-  'mk',
-  'p15',
-  'p14',
-  'p13',
-  'p12',
-  'p11',
-  'p10',
-] as const;
-
-const SIEVE_FORM_KEY_TO_PAYLOAD: Record<string, string> = {
-  peneiraP19: 'p19',
-  peneiraP18: 'p18',
-  peneiraP17: 'p17',
-  peneiraP16: 'p16',
-  peneiraMk: 'mk',
-  peneiraP15: 'p15',
-  peneiraP14: 'p14',
-  peneiraP13: 'p13',
-  peneiraP12: 'p12',
-  peneiraP11: 'p11',
-  peneiraP10: 'p10',
-};
 
 export function buildClassificationDataPayload(
   form: ClassificationFormState,
   options: {
     includeAutomaticDate?: boolean;
+    // _classificationType ignorado — ficha unificada serializa os 22
+    // campos sempre. Mantido por compat com chamadas existentes.
     classificationType?: ClassificationType | null;
   } = {}
 ): ClassificationDataPayload {
-  const config = options.classificationType ? TYPE_CONFIGS[options.classificationType] : null;
-  const activeSieveKeys = new Set(config ? config.sieveKeys : ALL_SIEVE_KEYS);
+  const peneiras: ClassificationPeneirasPayload = {
+    p18: parseNumberInput(form.peneiraP18),
+    p17: parseNumberInput(form.peneiraP17),
+    p16: parseNumberInput(form.peneiraP16),
+    p15: parseNumberInput(form.peneiraP15),
+    p14: parseNumberInput(form.peneiraP14),
+    p13: parseNumberInput(form.peneiraP13),
+    p12: parseNumberInput(form.peneiraP12),
+    p11: parseNumberInput(form.peneiraP11),
+    p10: parseNumberInput(form.peneiraP10),
+    mk: parseNumberInput(form.peneiraMk),
+  };
+  const hasAnyPeneira = Object.values(peneiras).some((v) => v !== null);
 
-  // Build fundos
-  const fundos: Array<{ peneira: string; percentual: number }> = [];
-  const f1p = form.fundo1Peneira.trim();
-  const f1v = parseNumberInput(form.fundo1Percent);
-  if (f1p && f1v !== null) {
-    fundos.push({ peneira: f1p, percentual: f1v });
-  }
-  if (!config || config.hasFundo2) {
-    const f2p = form.fundo2Peneira.trim();
-    const f2v = parseNumberInput(form.fundo2Percent);
-    if (f2p && f2v !== null) {
-      fundos.push({ peneira: f2p, percentual: f2v });
-    }
-  }
+  const fundo1: ClassificationFundoEntry = {
+    peneira: form.fundo1Peneira.trim() || null,
+    percentual: parseNumberInput(form.fundo1Percent),
+  };
+  const fundo2: ClassificationFundoEntry = {
+    peneira: form.fundo2Peneira.trim() || null,
+    percentual: parseNumberInput(form.fundo2Percent),
+  };
+  const hasAnyFundo =
+    fundo1.peneira !== null ||
+    fundo1.percentual !== null ||
+    fundo2.peneira !== null ||
+    fundo2.percentual !== null;
 
-  // Build sieves — only include active sieve keys
-  const sieve: Record<string, number | null> = {};
-  for (const [formKey, payloadKey] of Object.entries(SIEVE_FORM_KEY_TO_PAYLOAD)) {
-    if (activeSieveKeys.has(payloadKey)) {
-      sieve[payloadKey] = parseNumberInput(form[formKey as keyof ClassificationFormState]);
-    }
-  }
-  (sieve as Record<string, unknown>).fundos = fundos.length > 0 ? fundos : null;
+  const defeitos: ClassificationDefeitosPayload = {
+    imp: form.imp.trim() || null,
+    pva: form.pva.trim() || null,
+    broca: form.broca.trim() || null,
+    gpi: form.gpi.trim() || null,
+    ap: form.ap.trim() || null,
+    defeito: form.defeito.trim() || null,
+  };
+  const hasAnyDefeito = Object.values(defeitos).some((v) => v !== null);
 
-  const hasSieve = Object.values(sieve).some((value) => value !== null);
   const payload: ClassificationDataPayload = {
     padrao: form.padrao.trim() || null,
-    catacao: form.catacao.trim() || null,
     aspecto: form.aspecto.trim() || null,
-    bebida: form.bebida.trim() || null,
-    safra: form.safra.trim() || null,
-    broca: form.broca.trim() || null,
-    pva: form.pva.trim() || null,
-    imp: form.imp.trim() || null,
-    ap: !config || config.defectFields.some((f) => f.key === 'ap') ? form.ap.trim() || null : null,
-    gpi:
-      !config || config.defectFields.some((f) => f.key === 'gpi') ? form.gpi.trim() || null : null,
-    peneirasPercentuais: hasSieve ? (sieve as Partial<ClassificationSievePayload>) : null,
-    defeito: !config || config.hasDefeito ? form.defeito.trim() || null : null,
     certif: form.certif.trim() || null,
+    catacao: form.catacao.trim() || null,
     observacoes: form.observacoes.trim() || null,
+    bebida: form.bebida.trim() || null,
+    peneiras: hasAnyPeneira ? peneiras : null,
+    fundos: hasAnyFundo ? [fundo1, fundo2] : null,
+    defeitos: hasAnyDefeito ? defeitos : null,
   };
 
   if (options.includeAutomaticDate) {
@@ -425,8 +426,12 @@ export function buildTechnicalFromClassificationData(
 ): ClassificationTechnicalPayload | undefined {
   const technical: ClassificationTechnicalPayload = {};
 
-  if (data.defeito !== null && data.defeito !== undefined) {
-    const parsed = parseInt(data.defeito, 10);
+  // Q.cls.2.7: defeito agora vive em data.defeitos.defeito (sub-obj).
+  // Pode ser texto livre — tenta parsear como int pra preencher
+  // defectsCount mas tolera string nao-numerica (fica undefined).
+  const defeitoText = data.defeitos?.defeito ?? null;
+  if (defeitoText !== null) {
+    const parsed = parseInt(defeitoText, 10);
     if (Number.isFinite(parsed)) {
       technical.defectsCount = Math.round(parsed);
     }

@@ -1099,6 +1099,12 @@ export function confirmClassificationFromCamera(
       declaredSacks?: number | null;
       declaredHarvest?: string | null;
     } | null;
+    // Q.cls.2.7: reasonCode/reasonText vem do ClassificationReclassifyModal
+    // quando o sample esta CLASSIFIED (sub-caminho 5). Backend so usa em
+    // reclassificacao; em new classification ignora. Default backend:
+    // 'DATA_FIX' / 'Reclassificacao via foto' (compat).
+    reasonCode?: 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER' | null;
+    reasonText?: string | null;
   }
 ) {
   return request<CommandResponse>('/classification/confirm', {

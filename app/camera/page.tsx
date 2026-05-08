@@ -772,6 +772,9 @@ function CameraPageContent() {
         ...coClassifiers.map((entry) => ({ userId: entry.id })),
       ];
 
+      // Q.cls.2.7: reasonCode/reasonText vem do ClassificationReclassifyModal
+      // quando sample esta CLASSIFIED (sub-caminho 5). Em new classification
+      // ficam null; o backend ignora.
       await confirmClassificationFromCamera(session, {
         sampleId,
         classificationData: classificationData as { [key: string]: JsonValue },
@@ -779,6 +782,8 @@ function CameraPageContent() {
         classificationType,
         classifiers,
         applySampleUpdates,
+        reasonCode: reclassifyReasonCode,
+        reasonText: reclassifyReasonText.trim() || null,
       });
 
       if (!mountedRef.current) return;
@@ -846,8 +851,20 @@ function CameraPageContent() {
         // Q.cls.2 sub-caminho 4: sem default — operador deve escolher.
         setMismatchChoices({});
         setMismatchTargetSampleId(contextSampleId);
-        setMismatchOverwriteAfter(false);
+        // Se sample ja esta CLASSIFIED (sub-caminho 5), ao "Aplicar" do
+        // data-mismatch o flow vai pra overwrite-confirm em vez de
+        // salvar direto.
+        setMismatchOverwriteAfter(contextSampleStatus === 'CLASSIFIED');
         setFlowState('data-mismatch');
+        return;
+      }
+
+      // Q.cls.2 sub-caminho 5: sample CLASSIFIED no Flow B → reclassificacao.
+      // Aciona o ClassificationReclassifyModal pra coletar reasonCode/text
+      // antes de salvar.
+      if (contextSampleStatus === 'CLASSIFIED') {
+        setMismatchTargetSampleId(contextSampleId);
+        setFlowState('overwrite-confirm');
         return;
       }
 
@@ -932,8 +949,11 @@ function CameraPageContent() {
 
   // Q.cls.2 sub-caminho 5: confirma reclassificacao (sample CLASSIFIED).
   // Valida reason code obrigatorio + reason text obrigatorio se code=OTHER.
+  // Funciona em ambos os flows: Flow A (resolvedSample) e Flow B
+  // (mismatchTargetSampleId === contextSampleId).
   async function handleConfirmOverwrite() {
-    if (!resolvedSample) return;
+    const targetSampleId = resolvedSample?.id ?? mismatchTargetSampleId;
+    if (!targetSampleId) return;
     const codeMissing = reclassifyReasonCode === null;
     const textMissing =
       reclassifyReasonCode === 'OTHER' && reclassifyReasonText.trim().length === 0;
@@ -942,9 +962,7 @@ function CameraPageContent() {
       return;
     }
     const updates = buildApplySampleUpdatesFromMismatch();
-    // TODO Q.cls.2.7: incluir reclassifyReasonCode + reclassifyReasonText
-    // no payload de updateClassification quando o backend suportar.
-    await saveClassification(resolvedSample.id, updates);
+    await saveClassification(targetSampleId, updates);
   }
 
   // --- QR result handlers ---
@@ -1263,8 +1281,8 @@ function CameraPageContent() {
       {/* Q.cls.2 sub-caminho 5: reclassificacao. Reason code obrigatorio +
           reason text obrigatorio se code=OTHER. */}
       <ClassificationReclassifyModal
-        open={flowState === 'overwrite-confirm' && !!resolvedSample}
-        sampleLot={resolvedSample?.internalLotNumber ?? null}
+        open={flowState === 'overwrite-confirm' && (!!resolvedSample || !!contextSampleId)}
+        sampleLot={resolvedSample?.internalLotNumber ?? contextSampleLot ?? null}
         reasonCode={reclassifyReasonCode}
         reasonText={reclassifyReasonText}
         showErrors={reclassifyShowErrors}

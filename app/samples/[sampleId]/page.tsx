@@ -59,7 +59,6 @@ import type {
 import {
   type ClassificationFormState,
   type ClassificationDataPayload,
-  type ClassificationSievePayload,
   type ClassificationTechnicalPayload,
   type NumericField,
   CLASSIFICATION_TYPE_LABEL,
@@ -194,55 +193,59 @@ function buildClassificationFormState(
       : {};
   const mergedData = { ...latestData, ...draftData };
 
-  const latestSieve = isRecord(latestData.peneirasPercentuais)
-    ? latestData.peneirasPercentuais
-    : {};
-  const draftSieve = isRecord(draftData.peneirasPercentuais) ? draftData.peneirasPercentuais : {};
-  const mergedSieve = { ...latestSieve, ...draftSieve };
+  // Q.cls.2.7: ficha unificada agrupada — peneiras (sub-obj p18..p10/mk),
+  // fundos (array top-level de 2), defeitos (sub-obj imp/pva/broca/gpi/ap/
+  // defeito). Sem mais peneirasPercentuais nem flat broca/pva/imp/etc.
+  const latestPeneiras = isRecord(latestData.peneiras) ? latestData.peneiras : {};
+  const draftPeneiras = isRecord(draftData.peneiras) ? draftData.peneiras : {};
+  const mergedPeneiras = { ...latestPeneiras, ...draftPeneiras };
+
+  const fundosSource = Array.isArray(draftData.fundos)
+    ? draftData.fundos
+    : Array.isArray(latestData.fundos)
+      ? latestData.fundos
+      : [];
+  const fundo0 = isRecord(fundosSource[0]) ? fundosSource[0] : {};
+  const fundo1 = isRecord(fundosSource[1]) ? fundosSource[1] : {};
+
+  const latestDefeitos = isRecord(latestData.defeitos) ? latestData.defeitos : {};
+  const draftDefeitos = isRecord(draftData.defeitos) ? draftData.defeitos : {};
+  const mergedDefeitos = { ...latestDefeitos, ...draftDefeitos };
 
   return {
     ...EMPTY_CLASSIFICATION_FORM,
     dataClassificacao: toDateInput(latestData.dataClassificacao),
     padrao: toText(mergedData.padrao),
-    catacao: toText(mergedData.catacao),
     aspecto: toText(mergedData.aspecto),
-    bebida: toText(mergedData.bebida),
-    broca: toText(mergedData.broca),
-    pva: toText(mergedData.pva),
-    imp: toText(mergedData.imp),
-    defeito: toText(mergedData.defeito),
     certif: toText(mergedData.certif),
+    catacao: toText(mergedData.catacao),
     observacoes: toText(mergedData.observacoes),
-    safra: toText(mergedData.safra),
-    peneiraP19: toText(mergedSieve.p19),
-    peneiraP18: toText(mergedSieve.p18),
-    peneiraP17: toText(mergedSieve.p17),
-    peneiraP16: toText(mergedSieve.p16),
-    peneiraMk: toText(mergedSieve.mk),
-    peneiraP15: toText(mergedSieve.p15),
-    peneiraP14: toText(mergedSieve.p14),
-    peneiraP13: toText(mergedSieve.p13),
-    peneiraP12: toText(mergedSieve.p12),
-    peneiraP11: toText(mergedSieve.p11),
-    peneiraP10: toText(mergedSieve.p10),
-    fundo1Peneira: (() => {
-      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
-      return f[0]?.peneira ?? '';
-    })(),
-    fundo1Percent: (() => {
-      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
-      return f[0]?.percentual != null ? String(f[0].percentual) : '';
-    })(),
-    fundo2Peneira: (() => {
-      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
-      return f[1]?.peneira ?? '';
-    })(),
-    fundo2Percent: (() => {
-      const f = Array.isArray(mergedSieve.fundos) ? mergedSieve.fundos : [];
-      return f[1]?.percentual != null ? String(f[1].percentual) : '';
-    })(),
-    ap: toText(mergedData.ap),
-    gpi: toText(mergedData.gpi),
+    bebida: toText(mergedData.bebida),
+    // safra vive em sample.declaredHarvest (atualizada via applySampleUpdates).
+    // Mantida vazia aqui no form pra preservar shape legado.
+    safra: '',
+    // Peneiras (sem p19 — nao existe na ficha unificada).
+    peneiraP19: '',
+    peneiraP18: toText(mergedPeneiras.p18),
+    peneiraP17: toText(mergedPeneiras.p17),
+    peneiraP16: toText(mergedPeneiras.p16),
+    peneiraP15: toText(mergedPeneiras.p15),
+    peneiraP14: toText(mergedPeneiras.p14),
+    peneiraP13: toText(mergedPeneiras.p13),
+    peneiraP12: toText(mergedPeneiras.p12),
+    peneiraP11: toText(mergedPeneiras.p11),
+    peneiraP10: toText(mergedPeneiras.p10),
+    peneiraMk: toText(mergedPeneiras.mk),
+    fundo1Peneira: toText(fundo0.peneira),
+    fundo1Percent: toText(fundo0.percentual),
+    fundo2Peneira: toText(fundo1.peneira),
+    fundo2Percent: toText(fundo1.percentual),
+    imp: toText(mergedDefeitos.imp),
+    pva: toText(mergedDefeitos.pva),
+    broca: toText(mergedDefeitos.broca),
+    gpi: toText(mergedDefeitos.gpi),
+    ap: toText(mergedDefeitos.ap),
+    defeito: toText(mergedDefeitos.defeito),
   };
 }
 
