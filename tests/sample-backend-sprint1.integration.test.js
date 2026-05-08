@@ -392,7 +392,8 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-1',
-          defeito: '9',
+          // Q.cls.2.7: defeito agora vive em sub-obj defeitos.
+          defeitos: { defeito: '9' },
           bebida: 'DURA',
           aspecto: 'verde',
           observacoes: 'ok',
@@ -640,7 +641,8 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           padrao: 'PADRAO-1',
           bebida: 'DURA',
-          defeito: '9',
+          // Q.cls.2.7: defeito agora vive em sub-obj defeitos.
+          defeitos: { defeito: '9' },
         },
         classifiers: classifiersOf(actorClassifier),
         idempotencyKey: randomUUID(),
@@ -851,7 +853,8 @@ if (!databaseUrl || !databaseReachable) {
         classificationData: {
           dataClassificacao: '2026-02-27',
           padrao: 'PADRAO-SOLD',
-          defeito: '9',
+          // Q.cls.2.7: defeito agora vive em sub-obj defeitos.
+          defeitos: { defeito: '9' },
           bebida: 'DURA',
         },
         classifiers: classifiersOf(actorClassifier),
@@ -905,6 +908,240 @@ if (!databaseUrl || !databaseReachable) {
         ),
       (error) => error instanceof HttpError && error.status === 409
     );
+  });
+
+  // Q.cls.2.7: ficha unificada (peneiras/fundos/defeitos agrupados)
+  // + reason persistido na reclassificacao.
+
+  test('completeClassification aceita ficha unificada com peneiras/fundos/defeitos agrupados', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+
+    const completed = await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 3,
+        classificationData: {
+          padrao: 'P3B',
+          aspecto: 'verde',
+          certif: 'UTZ',
+          catacao: '0,5',
+          observacoes: 'amostra ok',
+          bebida: 'DURA',
+          peneiras: {
+            p18: 12.5,
+            p17: 23.8,
+            p16: null,
+            p15: null,
+            p14: null,
+            p13: null,
+            p12: null,
+            p11: null,
+            p10: null,
+            mk: 5,
+          },
+          fundos: [
+            { peneira: '13', percentual: 8 },
+            { peneira: null, percentual: null },
+          ],
+          defeitos: {
+            imp: '2',
+            pva: '5',
+            broca: '3',
+            gpi: null,
+            ap: null,
+            defeito: '12',
+          },
+        },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+    assert.equal(completed.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.latestClassification.data?.padrao, 'P3B');
+    assert.equal(detail.sample.latestClassification.data?.peneiras?.p18, 12.5);
+    assert.equal(detail.sample.latestClassification.data?.peneiras?.mk, 5);
+    assert.equal(detail.sample.latestClassification.data?.fundos?.[0]?.peneira, '13');
+    assert.equal(detail.sample.latestClassification.data?.fundos?.[0]?.percentual, 8);
+    assert.equal(detail.sample.latestClassification.data?.fundos?.[1]?.peneira, null);
+    assert.equal(detail.sample.latestClassification.data?.defeitos?.imp, '2');
+    assert.equal(detail.sample.latestClassification.data?.defeitos?.defeito, '12');
+  });
+
+  test('confirmClassificationFromCamera persiste reasonCode/reasonText na reclassificacao', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    // Primeiro classifica.
+    const photoToken1 = randomUUID();
+    await writeTempCameraPhoto(photoToken1);
+    await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken: photoToken1,
+        classificationData: {
+          padrao: 'PADRAO-1',
+          bebida: 'DURA',
+        },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    // Reclassifica com reason customizado.
+    const photoToken2 = randomUUID();
+    await writeTempCameraPhoto(photoToken2);
+    const result = await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken: photoToken2,
+        classificationData: {
+          padrao: 'PADRAO-2',
+          bebida: 'MOLE',
+        },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+        reasonCode: 'TYPO',
+        reasonText: 'Padrao digitado errado na primeira classificacao',
+      },
+      actorClassifier
+    );
+    assert.equal(result.statusCode, 201);
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const updateEvents = detail.events.filter(
+      (event) => event.eventType === 'CLASSIFICATION_UPDATED'
+    );
+    assert.equal(updateEvents.length, 1);
+    assert.equal(updateEvents[0].payload.reasonCode, 'TYPO');
+    assert.equal(
+      updateEvents[0].payload.reasonText,
+      'Padrao digitado errado na primeira classificacao'
+    );
+  });
+
+  test('confirmClassificationFromCamera fallback hardcoded quando reasonCode/Text omitidos (compat)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+
+    const photoToken1 = randomUUID();
+    await writeTempCameraPhoto(photoToken1);
+    await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken: photoToken1,
+        classificationData: { padrao: 'PADRAO-1' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const photoToken2 = randomUUID();
+    await writeTempCameraPhoto(photoToken2);
+    await commandService.confirmClassificationFromCamera(
+      {
+        sampleId,
+        photoToken: photoToken2,
+        classificationData: { padrao: 'PADRAO-2' },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+        // reasonCode/Text omitidos
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const updateEvent = detail.events.find((event) => event.eventType === 'CLASSIFICATION_UPDATED');
+    assert.ok(updateEvent);
+    assert.equal(updateEvent.payload.reasonCode, 'DATA_FIX');
+    assert.equal(updateEvent.payload.reasonText, 'Reclassificacao via foto');
+  });
+
+  test('updateClassification aceita patch com peneiras/fundos/defeitos sub-objs', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToQrPrinted(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 3,
+        classificationData: {
+          padrao: 'PADRAO-1',
+          peneiras: {
+            p18: 10,
+            p17: 20,
+            p16: null,
+            p15: null,
+            p14: null,
+            p13: null,
+            p12: null,
+            p11: null,
+            p10: null,
+            mk: 5,
+          },
+          defeitos: { imp: '1', pva: '2', broca: null, gpi: null, ap: null, defeito: null },
+        },
+        classifiers: classifiersOf(actorClassifier),
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const currentBeforeUpdate = await queryService.requireSample(sampleId);
+    await commandService.updateClassification(
+      {
+        sampleId,
+        expectedVersion: currentBeforeUpdate.version,
+        after: {
+          classificationData: {
+            // Edita um campo de peneiras + um de defeitos + atualiza fundos.
+            peneiras: { p17: 25 },
+            fundos: [
+              { peneira: '13', percentual: 8 },
+              { peneira: '11', percentual: 4 },
+            ],
+            defeitos: { imp: '5' },
+          },
+        },
+        reasonCode: 'DATA_FIX',
+        reasonText: 'Correcao de peneiras + fundos',
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    const updateEvent = detail.events.find((event) => event.eventType === 'CLASSIFICATION_UPDATED');
+    assert.ok(updateEvent);
+    assert.equal(updateEvent.payload.before.classificationData.peneiras.p17, 20);
+    assert.equal(updateEvent.payload.after.classificationData.peneiras.p17, 25);
+    assert.equal(updateEvent.payload.before.classificationData.defeitos.imp, '1');
+    assert.equal(updateEvent.payload.after.classificationData.defeitos.imp, '5');
+    assert.deepEqual(updateEvent.payload.after.classificationData.fundos, [
+      { peneira: '13', percentual: 8 },
+      { peneira: '11', percentual: 4 },
+    ]);
   });
 }
 

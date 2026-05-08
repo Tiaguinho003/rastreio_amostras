@@ -54,78 +54,74 @@ function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Q.cls.2.7: ficha unificada — 6 flat fields (padrao/aspecto/certif/
+// catacao/observacoes/bebida) + dataClassificacao. Sem broca/pva/imp/
+// ap/gpi/defeito/safra (movidos pra sub-obj defeitos ou removidos).
 const CLASSIFICATION_DATA_KEYS = [
   'dataClassificacao',
   'padrao',
-  'catacao',
   'aspecto',
-  'bebida',
-  'safra',
-  'broca',
-  'pva',
-  'imp',
-  'ap',
-  'gpi',
-  'classificador',
-  'defeito',
+  'certif',
+  'catacao',
   'observacoes',
-  'classificadorUserId',
-  'consumoGramas',
-  'versaoClassificacao',
+  'bebida',
 ];
 
-const SIEVE_PERCENT_KEYS = [
-  'p19',
-  'p18',
-  'p17',
-  'p16',
-  'mk',
-  'p15',
-  'p14',
-  'p13',
-  'p12',
-  'p11',
-  'p10',
-];
+const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
+const DEFEITO_KEYS = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
 
 function applyClassificationDataPatch(target, source) {
   if (!isObject(source)) {
     return;
   }
 
+  // Flat fields (texto livre).
   for (const key of CLASSIFICATION_DATA_KEYS) {
     if (hasOwn(source, key)) {
       target[key] = source[key];
     }
   }
 
-  if (hasOwn(source, 'peneirasPercentuais')) {
-    const rawSieve = source.peneirasPercentuais;
-
+  // peneiras: sub-obj com 10 chaves (p18..p10/mk). Merge campo a campo.
+  if (hasOwn(source, 'peneiras')) {
+    const rawSieve = source.peneiras;
     if (rawSieve === null) {
-      target.peneirasPercentuais = null;
-      return;
-    }
-
-    if (!isObject(rawSieve)) {
-      return;
-    }
-
-    const existingSieve = isObject(target.peneirasPercentuais)
-      ? { ...target.peneirasPercentuais }
-      : {};
-    for (const key of SIEVE_PERCENT_KEYS) {
-      if (hasOwn(rawSieve, key)) {
-        existingSieve[key] = rawSieve[key];
+      target.peneiras = null;
+    } else if (isObject(rawSieve)) {
+      const existing = isObject(target.peneiras) ? { ...target.peneiras } : {};
+      for (const key of PENEIRA_KEYS) {
+        if (hasOwn(rawSieve, key)) {
+          existing[key] = rawSieve[key];
+        }
       }
+      target.peneiras = existing;
     }
+  }
 
-    if (hasOwn(rawSieve, 'fundos')) {
-      existingSieve.fundos = Array.isArray(rawSieve.fundos) ? rawSieve.fundos : null;
+  // fundos: array de 2 elementos top-level. Substitui inteiro (nao merge).
+  if (hasOwn(source, 'fundos')) {
+    const rawFundos = source.fundos;
+    if (rawFundos === null) {
+      target.fundos = null;
+    } else if (Array.isArray(rawFundos)) {
+      target.fundos = rawFundos;
     }
-    delete existingSieve.fundo;
+  }
 
-    target.peneirasPercentuais = existingSieve;
+  // defeitos: sub-obj com 6 chaves. Merge campo a campo.
+  if (hasOwn(source, 'defeitos')) {
+    const rawDefeitos = source.defeitos;
+    if (rawDefeitos === null) {
+      target.defeitos = null;
+    } else if (isObject(rawDefeitos)) {
+      const existing = isObject(target.defeitos) ? { ...target.defeitos } : {};
+      for (const key of DEFEITO_KEYS) {
+        if (hasOwn(rawDefeitos, key)) {
+          existing[key] = rawDefeitos[key];
+        }
+      }
+      target.defeitos = existing;
+    }
   }
 }
 
