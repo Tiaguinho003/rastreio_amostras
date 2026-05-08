@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 
 import { AppShell } from '../../components/AppShell';
 import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
+import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
 import {
   ApiError,
   type JsonValue,
@@ -89,299 +90,6 @@ function isPermissionLikeError(error: unknown) {
 
 function normalizeLot(lot: string | null | undefined): string {
   return (lot ?? '').trim().toUpperCase();
-}
-
-// --- Classification Confirmation Modal ---
-
-function ClassificationConfirmModal({
-  mode,
-  lotNumber,
-  onLotNumberChange,
-  sampleSacks,
-  form,
-  onFormChange,
-  onConfirm,
-  onCancel,
-  submitting,
-  classificationType,
-}: {
-  mode: 'no-context' | 'with-context';
-  lotNumber: string;
-  onLotNumberChange?: (value: string) => void;
-  sampleSacks: number | null;
-  form: ClassificationFormState;
-  onFormChange: (key: keyof ClassificationFormState, value: string) => void;
-  onConfirm: () => void;
-  onCancel: () => void;
-  submitting: boolean;
-  classificationType: ClassificationType | null;
-}) {
-  const trapRef = useFocusTrap(true);
-  const config = getTypeConfig(classificationType);
-
-  const sieveFields = config?.sieveFields ?? [
-    { key: 'peneiraP18' as const, label: 'P.18' },
-    { key: 'peneiraP17' as const, label: 'P.17' },
-    { key: 'peneiraP16' as const, label: 'P.16' },
-    { key: 'peneiraMk' as const, label: 'MK' },
-    { key: 'peneiraP15' as const, label: 'P.15' },
-    { key: 'peneiraP14' as const, label: 'P.14' },
-    { key: 'peneiraP13' as const, label: 'P.13' },
-    { key: 'peneiraP10' as const, label: 'P.10' },
-  ];
-
-  const defectFields = config?.defectFields ?? [
-    { key: 'broca' as const, label: 'Broca' },
-    { key: 'pva' as const, label: 'PVA' },
-    { key: 'imp' as const, label: 'Impureza' },
-    { key: 'defeito' as const, label: 'Defeito' },
-    { key: 'ap' as const, label: 'AP' },
-    { key: 'gpi' as const, label: 'GPI' },
-  ];
-
-  const hasFundo2 = config?.hasFundo2 ?? true;
-  const typeLabel = classificationType ?? 'Classificacao';
-
-  const renderField = (
-    f: { key: keyof ClassificationFormState; label: string },
-    inputMode: 'text' | 'decimal' = 'text'
-  ) => {
-    const filled = !!form[f.key];
-    return (
-      <label key={f.key} className={`cam-cf-field${filled ? ' is-filled' : ''}`}>
-        <span className="cam-cf-field-label">{f.label}</span>
-        <input
-          type="text"
-          inputMode={inputMode}
-          className="cam-cf-input"
-          value={form[f.key]}
-          onChange={(e) => {
-            const raw = e.target.value;
-            onFormChange(f.key, inputMode === 'decimal' ? raw : raw.toUpperCase());
-          }}
-          disabled={submitting}
-          placeholder="\u2014"
-        />
-      </label>
-    );
-  };
-
-  return (
-    <div className="app-modal-backdrop">
-      <section
-        ref={trapRef}
-        className="app-modal cam-cf-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Confirmar classificacao"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="cam-cf-header">
-          <h3 className="cam-cf-title">{typeLabel}</h3>
-          <button
-            type="button"
-            className="app-modal-close cam-cf-close"
-            onClick={onCancel}
-            aria-label="Fechar"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
-
-        <div className="cam-cf-body">
-          <div className="cam-cf-section is-general">
-            <div className="cam-cf-section-title">
-              <span className="cam-cf-dot" />
-              Geral
-            </div>
-            <div className="cam-cf-grid cam-cf-grid-2">
-              {mode === 'no-context' ? (
-                <label className="cam-cf-field">
-                  <span className="cam-cf-field-label">Lote</span>
-                  <input
-                    type="text"
-                    className="cam-cf-input"
-                    value={lotNumber}
-                    onChange={(e) => onLotNumberChange?.(e.target.value.toUpperCase())}
-                    disabled={submitting}
-                    placeholder="Numero do lote"
-                  />
-                </label>
-              ) : (
-                <div className="cam-cf-field">
-                  <span className="cam-cf-field-label">Lote</span>
-                  <span className="cam-cf-field-value">{lotNumber || '\u2014'}</span>
-                </div>
-              )}
-              <div className="cam-cf-field">
-                <span className="cam-cf-field-label">Sacas</span>
-                <span className="cam-cf-field-value">
-                  {sampleSacks !== null && sampleSacks !== undefined
-                    ? String(sampleSacks)
-                    : '\u2014'}
-                </span>
-              </div>
-            </div>
-            <div className="cam-cf-grid cam-cf-grid-4">
-              {renderField({ key: 'padrao', label: 'Padrao' })}
-              {renderField({ key: 'safra', label: 'Safra' })}
-              {renderField({ key: 'aspecto', label: 'Aspecto' })}
-              {renderField({ key: 'certif', label: 'Certif.' })}
-            </div>
-            <div className="cam-cf-grid cam-cf-grid-4">
-              {renderField({ key: 'catacao', label: 'Catacao' })}
-              {renderField({ key: 'broca', label: 'Broca' }, 'decimal')}
-              {renderField({ key: 'pva', label: 'PVA' }, 'decimal')}
-              {renderField({ key: 'bebida', label: 'Bebida' })}
-            </div>
-          </div>
-
-          {classificationType === 'BICA' && (
-            <div className="cam-cf-section is-sieves">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Peneiras <span className="cam-cf-section-unit">%</span>
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-3">
-                {renderField({ key: 'peneiraP17', label: 'P.17' }, 'decimal')}
-                {renderField({ key: 'peneiraMk', label: 'MK' }, 'decimal')}
-                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
-              </div>
-            </div>
-          )}
-          {classificationType === 'LOW_CAFF' && (
-            <div className="cam-cf-section is-sieves">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Peneiras <span className="cam-cf-section-unit">%</span>
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-6">
-                {renderField({ key: 'peneiraP15', label: 'P.15' }, 'decimal')}
-                {renderField({ key: 'peneiraP14', label: 'P.14' }, 'decimal')}
-                {renderField({ key: 'peneiraP13', label: 'P.13' }, 'decimal')}
-                {renderField({ key: 'peneiraP12', label: 'P.12' }, 'decimal')}
-                {renderField({ key: 'peneiraP11', label: 'P.11' }, 'decimal')}
-                {renderField({ key: 'peneiraP10', label: 'P.10' }, 'decimal')}
-              </div>
-            </div>
-          )}
-          {classificationType === 'PREPARADO' && (
-            <div className="cam-cf-section is-sieves">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Peneiras <span className="cam-cf-section-unit">%</span>
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-6">
-                {renderField({ key: 'peneiraP19', label: 'P.19' }, 'decimal')}
-                {renderField({ key: 'peneiraP18', label: 'P.18' }, 'decimal')}
-                {renderField({ key: 'peneiraP17', label: 'P.17' }, 'decimal')}
-                {renderField({ key: 'peneiraP16', label: 'P.16' }, 'decimal')}
-                {renderField({ key: 'peneiraP15', label: 'P.15' }, 'decimal')}
-                {renderField({ key: 'peneiraP14', label: 'P.14' }, 'decimal')}
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-3">
-                {renderField({ key: 'peneiraMk', label: 'MK' }, 'decimal')}
-                {renderField({ key: 'defeito', label: 'Defeito' }, 'decimal')}
-                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
-              </div>
-            </div>
-          )}
-          {!classificationType && sieveFields.length > 0 && (
-            <div className="cam-cf-section is-sieves">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Peneiras <span className="cam-cf-section-unit">%</span>
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-4">
-                {sieveFields.map((f) => renderField(f, 'decimal'))}
-              </div>
-            </div>
-          )}
-
-          {classificationType === 'LOW_CAFF' && (
-            <div className="cam-cf-section is-defects">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Defeitos e analises
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-4">
-                {renderField({ key: 'ap', label: 'AP (%)' }, 'decimal')}
-                {renderField({ key: 'gpi', label: 'GPI' }, 'decimal')}
-                {renderField({ key: 'defeito', label: 'Defeito' }, 'decimal')}
-                {renderField({ key: 'imp', label: 'Impureza' }, 'decimal')}
-              </div>
-            </div>
-          )}
-          {!classificationType && defectFields.length > 0 && (
-            <div className="cam-cf-section is-defects">
-              <div className="cam-cf-section-title">
-                <span className="cam-cf-dot" />
-                Defeitos e analises
-              </div>
-              <div className="cam-cf-grid cam-cf-grid-4">
-                {defectFields.map((f) => renderField(f, 'decimal'))}
-              </div>
-            </div>
-          )}
-
-          <div className="cam-cf-section is-funds">
-            <div className="cam-cf-section-title">
-              <span className="cam-cf-dot" />
-              Fundos
-            </div>
-            <div className={`cam-cf-grid ${hasFundo2 ? 'cam-cf-grid-4' : 'cam-cf-grid-2'}`}>
-              {renderField({ key: 'fundo1Peneira', label: 'FD1 Pen.' })}
-              {renderField({ key: 'fundo1Percent', label: 'FD1 %' }, 'decimal')}
-              {hasFundo2 && renderField({ key: 'fundo2Peneira', label: 'FD2 Pen.' })}
-              {hasFundo2 && renderField({ key: 'fundo2Percent', label: 'FD2 %' }, 'decimal')}
-            </div>
-          </div>
-
-          <div className="cam-cf-section is-notes">
-            <div className="cam-cf-section-title">
-              <span className="cam-cf-dot" />
-              Observacoes
-            </div>
-            <textarea
-              className="cam-cf-input cam-cf-textarea"
-              value={form.observacoes}
-              onChange={(e) => onFormChange('observacoes', e.target.value.toUpperCase())}
-              disabled={submitting}
-              placeholder="Pau, AP, umidade, ou qualquer observacao..."
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <div className="cam-cf-actions">
-          <button
-            type="button"
-            className="cam-cf-btn-cancel"
-            onClick={onCancel}
-            disabled={submitting}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="cam-cf-btn-confirm"
-            onClick={onConfirm}
-            disabled={submitting}
-          >
-            {submitting ? 'Salvando...' : 'Confirmar'}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
 }
 
 // --- Main Camera Page ---
@@ -883,7 +591,11 @@ function CameraPageContent() {
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
-      const extracted = mapExtractionToForm(result.extractedFields, type);
+      // Q.cls.2.3: ficha unificada — mapeia TODOS os 22 campos pro form
+      // (universal map), independente do tipo selecionado. O modal de
+      // revisao mostra todos; o tipo continua sendo usado em
+      // buildClassificationDataPayload pra filtrar o que vai pro backend.
+      const extracted = mapExtractionToForm(result.extractedFields, null);
       setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
@@ -908,7 +620,8 @@ function CameraPageContent() {
       if (!mountedRef.current) return;
 
       setExtractionResult(result);
-      const extracted = mapExtractionToForm(result.extractedFields, classificationType);
+      // Q.cls.2.3: ficha unificada — vide comentario em handleSendPhoto.
+      const extracted = mapExtractionToForm(result.extractedFields, null);
       setClassificationForm((prev) => ({ ...prev, ...extracted }));
       setEditableLot(result.identification.lote ?? '');
       setFlowState('confirming');
@@ -1770,28 +1483,28 @@ function CameraPageContent() {
         </div>
       ) : null}
 
-      {/* Confirmation modal */}
-      {(flowState === 'confirming' || flowState === 'submitting') && extractionResult ? (
-        <>
-          {flowError ? (
-            <div className="cam-confirm-error" role="alert">
-              {flowError}
-            </div>
-          ) : null}
-          <ClassificationConfirmModal
-            mode={hasContext ? 'with-context' : 'no-context'}
-            lotNumber={hasContext ? (contextSampleLot ?? '') : editableLot}
-            onLotNumberChange={hasContext ? undefined : setEditableLot}
-            sampleSacks={hasContext ? contextSampleSacks : null}
-            form={classificationForm}
-            onFormChange={updateFormField}
-            onConfirm={() => void handleConfirmClassification()}
-            onCancel={resetClassificationFlow}
-            submitting={flowState === 'submitting'}
-            classificationType={classificationType}
-          />
-        </>
-      ) : null}
+      {/* Q.cls.2.3: Modal de revisao da ficha unificada (substitui o
+          ClassificationConfirmModal antigo). Os 22 campos da ficha sao
+          renderizados independentemente do tipo selecionado — tipo vira
+          metadata pos-extracao na Q.cls.2 (commit 864f619). */}
+      <ClassificationReviewModal
+        open={(flowState === 'confirming' || flowState === 'submitting') && !!extractionResult}
+        photoUrl={capturedPhotoUrl}
+        identification={{
+          lote: extractionResult?.identification.lote ?? null,
+          sacas: extractionResult?.identification.sacas ?? null,
+          safra: extractionResult?.identification.safra ?? null,
+        }}
+        lotEditable={!hasContext}
+        lotValue={hasContext ? (contextSampleLot ?? '') : editableLot}
+        onLotChange={setEditableLot}
+        form={classificationForm}
+        onFormChange={updateFormField}
+        errorMessage={flowError}
+        saving={flowState === 'submitting'}
+        onCancel={resetClassificationFlow}
+        onAdvance={() => void handleConfirmClassification()}
+      />
     </AppShell>
   );
 }
