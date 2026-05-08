@@ -377,6 +377,9 @@ export function createBackendApiV1({
             after: body.after,
             reasonCode: body.reasonCode,
             reasonText: body.reasonText,
+            // Q.cls.2 audit do tipo: passa o tipo opcional pra suportar
+            // tipo-only update no detail page (sem after).
+            classificationType: body.classificationType,
           },
           actor
         );

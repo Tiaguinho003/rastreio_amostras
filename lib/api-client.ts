@@ -1364,6 +1364,10 @@ export function updateClassification(
     reasonCode?: UpdateReasonCode;
     reasonText?: string;
     before?: { [key: string]: JsonValue };
+    // Q.cls.2 audit do tipo: passado top-level. Backend detect mudanca
+    // (vs sample.classificationType) e inclui no payload do evento.
+    // Aceita tipo-only update — `after` pode ser {} se SO o tipo mudou.
+    classificationType?: ClassificationType | null;
   }
 ) {
   const body: { [key: string]: JsonValue } = {
@@ -1379,6 +1383,9 @@ export function updateClassification(
   }
   if (data.before) {
     body.before = data.before;
+  }
+  if (data.classificationType !== undefined) {
+    body.classificationType = data.classificationType;
   }
 
   return request<CommandResponse>(`/samples/${sampleId}/classification/update`, {

@@ -9786,6 +9786,9 @@ button:disabled {
 
 /* cld section accent variants */
 
+.cld-section.is-type {
+  --sc: #1f5d43;
+}
 .cld-section.is-general {
   --sc: #2f6b4a;
 }
@@ -10060,6 +10063,32 @@ button:disabled {
   resize: vertical;
   min-height: clamp(60px, 18vw, 80px);
   font-family: inherit;
+}
+
+/* Q.cls.2 audit do tipo: select nativo do tipo no modal de detalhe da
+   classificacao. Em view mode, .cld-type-value mostra o label estilizado. */
+.cld-type-select {
+  background-image: url(
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%231a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>'
+  );
+  background-repeat: no-repeat;
+  background-position: right clamp(8px, 2.5vw, 10px) center;
+  background-size: 14px;
+  padding-right: clamp(28px, 7vw, 32px);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.cld-type-value {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(31, 93, 67, 0.1);
+  color: #1f5d43;
+  font-weight: 700;
+  font-size: clamp(12px, 3.4vw, 14px);
+  letter-spacing: 0.02em;
 }
 
 .cld-actions {

@@ -40,6 +40,7 @@ import {
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
+  ClassificationType,
   ClassifierSnapshot,
   ClientUnitSummary,
   ClientSummary,
@@ -662,6 +663,13 @@ export default function SampleDetailPage() {
   const [classificationDetailUserError, setClassificationDetailUserError] = useState<string | null>(
     null
   );
+  // Q.cls.2 audit do tipo: classificationDetailType e editavel no modo
+  // edit do modal de detalhe da classificacao. Original guardado pra
+  // detect typeChanged ao salvar (gera reasonText automatico).
+  const [classificationDetailType, setClassificationDetailType] =
+    useState<ClassificationType | null>(null);
+  const [classificationDetailTypeOriginal, setClassificationDetailTypeOriginal] =
+    useState<ClassificationType | null>(null);
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
   const [classificationEditMode, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
@@ -1902,6 +1910,11 @@ export default function SampleDetailPage() {
     const initialClassifiers = readClassifiersFromDetail(detail.sample.latestClassification?.data);
     setClassificationDetailClassifiers(initialClassifiers);
     setClassificationDetailClassifiersOriginal(initialClassifiers);
+    // Q.cls.2 audit do tipo: inicializa tanto o state editavel quanto o
+    // original (pra detect typeChanged ao salvar).
+    const initialType = detail.sample.classificationType ?? null;
+    setClassificationDetailType(initialType);
+    setClassificationDetailTypeOriginal(initialType);
     setClassificationDetailPickerOpen(false);
     setClassificationDetailUserSearch('');
     setClassificationDetailUserError(null);
@@ -1995,11 +2008,26 @@ export default function SampleDetailPage() {
         }));
       }
 
+      // Q.cls.2 audit do tipo: detect mudanca + reasonText automatico.
+      // Tipo passa top-level pro updateClassification (backend aceita
+      // tipo-only update ou combinado com mudanca em campos).
+      const typeChanged = classificationDetailType !== classificationDetailTypeOriginal;
+      const reasonText = typeChanged
+        ? `Tipo alterado de ${
+            classificationDetailTypeOriginal
+              ? CLASSIFICATION_TYPE_LABEL[classificationDetailTypeOriginal]
+              : '—'
+          } pra ${
+            classificationDetailType ? CLASSIFICATION_TYPE_LABEL[classificationDetailType] : '—'
+          }`
+        : 'Edicao rapida';
+
       await updateClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         after: afterPayload as { [key: string]: import('../../../lib/api-client').JsonValue },
         reasonCode: 'DATA_FIX',
-        reasonText: 'Edicao rapida',
+        reasonText,
+        classificationType: classificationDetailType,
       });
 
       setClassificationDetailSaved(true);
@@ -3316,8 +3344,8 @@ export default function SampleDetailPage() {
                   <header className="cld-header">
                     <h3 className="cld-title">
                       Classificacao
-                      {detail.sample.classificationType
-                        ? ` \u2014 ${CLASSIFICATION_TYPE_LABEL[detail.sample.classificationType]}`
+                      {classificationDetailType
+                        ? ` \u2014 ${CLASSIFICATION_TYPE_LABEL[classificationDetailType]}`
                         : ''}
                     </h3>
                     <div className="cld-header-actions">
@@ -3407,8 +3435,47 @@ export default function SampleDetailPage() {
 
                         {/* Q.cls.2.7 cleanup: ficha unificada — sem ramificacao
                             por classificationType. Layout espelha o
-                            ClassificationReviewModal (identificacao → visual →
-                            peneiras 2x5 → fundos → catacao+defeitos → obs+beb). */}
+                            ClassificationReviewModal (tipo → identificacao →
+                            visual → peneiras 2x5 → fundos → catacao+defeitos →
+                            obs+beb). */}
+                        <div className="cld-section is-type">
+                          <div className="cld-section-title">
+                            <span className="cld-dot" />
+                            Tipo
+                          </div>
+                          {editing ? (
+                            <select
+                              className="cld-field-input cld-type-select"
+                              value={classificationDetailType ?? ''}
+                              onChange={(e) =>
+                                setClassificationDetailType(
+                                  e.target.value === ''
+                                    ? null
+                                    : (e.target.value as ClassificationType)
+                                )
+                              }
+                              disabled={saving}
+                            >
+                              <option value="">— Sem tipo —</option>
+                              <option value="BICA">BICA</option>
+                              <option value="PREPARADO">PREPARADO</option>
+                              {/* BAIXO mapeia pro enum legado LOW_CAFF até a
+                                  migration final renomear no banco (Q.final). */}
+                              <option value="LOW_CAFF">BAIXO</option>
+                              {/* ESCOLHA disabled até Q.final adicionar no enum. */}
+                              <option value="ESCOLHA" disabled>
+                                ESCOLHA (Em breve)
+                              </option>
+                            </select>
+                          ) : (
+                            <span className="cld-field-value cld-type-value">
+                              {classificationDetailType
+                                ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
+                                : '—'}
+                            </span>
+                          )}
+                        </div>
+
                         <div className="cld-section is-general">
                           <div className="cld-section-title">
                             <span className="cld-dot" />
@@ -3656,6 +3723,8 @@ export default function SampleDetailPage() {
                             buildClassificationFormState(detail, session.user)
                           );
                         setClassificationDetailClassifiers(classificationDetailClassifiersOriginal);
+                        // Q.cls.2 audit do tipo: cancelar restaura o tipo original.
+                        setClassificationDetailType(classificationDetailTypeOriginal);
                         setClassificationDetailPickerOpen(false);
                         setClassificationDetailUserSearch('');
                         setClassificationDetailEditing(false);
