@@ -60,7 +60,6 @@ import {
   type ClassificationFormState,
   type ClassificationDataPayload,
   type ClassificationTechnicalPayload,
-  type NumericField,
   CLASSIFICATION_TYPE_LABEL,
   EMPTY_CLASSIFICATION_FORM,
   SIEVE_FIELDS,

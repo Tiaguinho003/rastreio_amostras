@@ -36,7 +36,6 @@ import {
   mapExtractionToForm,
   validateClassificationForm,
   buildClassificationDataPayload,
-  getTypeConfig,
 } from '../../lib/classification-form';
 import {
   compareIdentification,

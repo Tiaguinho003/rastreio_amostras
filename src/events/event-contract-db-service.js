@@ -125,15 +125,15 @@ function applyClassificationDataPatch(target, source) {
   }
 }
 
+// Q.cls.2.7: technical.notes ainda copiado para observacoes flat por
+// compat. defectsCount NAO mais escrito em target.defeito (campo flat
+// nao existe na ficha unificada — defeito vive em sub-obj defeitos).
 function applyLegacyTechnicalPatch(target, source) {
   if (!isObject(source) || !isObject(source.technical)) {
     return;
   }
 
   const technical = source.technical;
-  if (hasOwn(technical, 'defectsCount')) {
-    target.defeito = technical.defectsCount;
-  }
   if (hasOwn(technical, 'notes')) {
     target.observacoes = technical.notes;
   }
@@ -159,20 +159,11 @@ function mergeClassificationData(currentData, fromPayload) {
   if (hasOwn(fromPayload, 'classificationVersion')) {
     merged.versaoClassificacao = fromPayload.classificationVersion;
   }
-  if (hasOwn(fromPayload, 'classifierUserId')) {
-    merged.classificadorUserId = fromPayload.classifierUserId;
-  }
-  if (hasOwn(fromPayload, 'classifierName')) {
-    merged.classificador = fromPayload.classifierName;
-  }
-  // Conferencia (legacy): wire "conferredBy" -> JSONB "conferidoPor". Mantido
-  // para leitura de eventos antigos; escritas novas usam `classifiers`.
-  if (hasOwn(fromPayload, 'conferredBy')) {
-    merged.conferidoPor = fromPayload.conferredBy;
-  }
 
-  // Classificadores (novo campo canonico): wire "classifiers" -> JSONB
-  // "classificadores". Array de snapshots {id, fullName, username}, min 1.
+  // classifiers e o campo canonico (array de snapshots {id, fullName,
+  // username}, minItems 1). Q.cls.2.7 removeu os legacy classifierUserId/
+  // classifierName/conferredBy do schema do evento, entao nao sao mais
+  // alcancaveis via fromPayload.
   if (hasOwn(fromPayload, 'classifiers')) {
     merged.classificadores = fromPayload.classifiers;
   }
