@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import { MobileTabbar } from './MobileTabbar';
 import { ProfileBottomSheet } from './ProfileBottomSheet';
 import { SampleSearchField } from './SampleSearchField';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
@@ -548,29 +549,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         onLogout={onLogout}
       />
 
-      <nav className="mobile-tabbar" aria-label="Paginas principais">
-        <div className="mobile-tabbar-inner">
-          {MOBILE_NAV_ITEMS.map((item) => {
-            const active = isMainNavItemActive(pathname, item.href);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`mobile-tabbar-link${item.emphasis === 'primary' ? ' is-primary' : ''}${active ? ' is-active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <span className="mobile-tabbar-pill">
-                  <span className="mobile-tabbar-icon" aria-hidden="true">
-                    {renderNavIcon(item.icon)}
-                  </span>
-                  <span className="mobile-tabbar-label">{item.mobileLabel}</span>
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <MobileTabbar
+        items={MOBILE_NAV_ITEMS.map((item) => ({
+          href: item.href,
+          mobileLabel: item.mobileLabel,
+          icon: renderNavIcon(item.icon),
+          emphasis: item.emphasis,
+        }))}
+        isActive={(href) => isMainNavItemActive(pathname, href)}
+      />
 
       {showPasswordDecisionModal ? (
         <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
