@@ -319,11 +319,37 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           document.body.classList.remove('is-keyboard-open');
           const target = savedScroll;
           savedScroll = null;
-          if (target !== null) {
-            window.setTimeout(() => {
-              window.scrollTo({ top: target.y, left: target.x, behavior: 'smooth' });
-            }, 320);
-          }
+          // CRITICO em iOS Safari standalone: quando user focusa em
+          // input abaixo da viewport, iOS desloca a layout viewport
+          // pra cima pra mostrar o input. Apos keyboard close,
+          // visualViewport.offsetTop e/ou scrollY ficam CACHEADOS num
+          // valor stale — position:fixed elements (tabbar) ficam
+          // visualmente desalinhados. WebKit bug 265578.
+          //
+          // Workaround: aguarda 300ms (animacao do teclado terminar) +
+          // force reflow + scrollTo INSTANT (sem smooth, smooth pode
+          // ser interrompido pelo iOS). Se ainda ha offset stuck depois
+          // de 300ms sem input focado, scrollTo(0,0) pra quebrar cache.
+          window.setTimeout(() => {
+            // Re-check: se algum input recebeu foco nesses 300ms, abortamos.
+            if (isKeyboardTarget(document.activeElement)) return;
+            // Force reflow pra iOS recompute layout viewport.
+            void document.body.offsetHeight;
+            const restoreY = target?.y ?? 0;
+            const restoreX = target?.x ?? 0;
+            // ScrollTo INSTANT (sem behavior:smooth) — smooth pode ser
+            // ignorado/interrompido pelo iOS durante keyboard close.
+            window.scrollTo(restoreX, restoreY);
+            document.documentElement.scrollTop = restoreY;
+            document.body.scrollTop = restoreY;
+            // Fallback: se visualViewport.offsetTop ainda > 0 (cache stuck),
+            // force scrollTo(0,0) pra quebrar.
+            const offsetTop = window.visualViewport?.offsetTop ?? 0;
+            if (offsetTop > 0 && restoreY === 0) {
+              void document.body.offsetHeight;
+              window.scrollTo(0, 0);
+            }
+          }, 300);
         }
       });
     }

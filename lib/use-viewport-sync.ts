@@ -95,12 +95,13 @@ export function useViewportSync() {
     };
 
     // Focus out: keyboard fechou, valores podem ter mudado.
+    // Atualiza safe-area sync. Scroll/layout viewport fix vive no AppShell
+    // (que tem savedScroll context) — aqui so cuidamos da safe-area.
     const onFocusOut = () => {
-      // Aguardar 1 frame antes de medir — keyboard close em iOS
-      // tem delay entre focusout e viewport settle.
       requestAnimationFrame(() => {
         scheduleUpdate();
-        window.setTimeout(scheduleUpdate, 200);
+        window.setTimeout(scheduleUpdate, 300);
+        window.setTimeout(scheduleUpdate, 600);
       });
     };
 

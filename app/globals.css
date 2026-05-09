@@ -14328,10 +14328,20 @@ button:disabled {
     box-shadow: none;
     overflow: visible;
     transition: transform 120ms ease-out;
+    /* GPU compositor layer: fix critico em iOS Safari standalone PWA
+       quando user focusa em input abaixo da viewport. iOS desloca a
+       layout viewport pra cima pra mostrar o input + position:fixed e
+       ancorado a layout viewport (nao a visual viewport), entao a tabbar
+       se move junto. Forcando um layer compositado proprio via
+       translate3d, a tabbar e renderizada pelo GPU em coordenadas de
+       VIEWPORT, nao do scroll do documento. Tambem ajuda em Android. */
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
   }
 
   body.is-keyboard-open .mobile-tabbar {
-    transform: translateY(100%);
+    /* Mantem o GPU layer (translate3d) somando com a translacao Y. */
+    transform: translate3d(0, 100%, 0);
     pointer-events: none;
     transition-duration: 0s;
   }
