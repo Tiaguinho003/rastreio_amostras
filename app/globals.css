@@ -14314,8 +14314,16 @@ button:disabled {
     right: 0;
     bottom: 0;
     z-index: 70;
+    /* Usa --app-safe-area-bottom (atualizada via JS em useViewportSync)
+       em vez de env(safe-area-inset-bottom) direto pra contornar bug
+       de cache do iOS Safari standalone apos orientationchange e
+       keyboard close. Fallback pra env() em browsers que nao tem o
+       hook ativo (SSR ou JS desabilitado). */
     padding: clamp(0.45rem, 1.8vw, 0.7rem) clamp(1rem, 4vw, 1.5rem)
-      calc(env(safe-area-inset-bottom) + clamp(0.45rem, 1.8vw, 0.7rem));
+      calc(
+        var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
+          clamp(0.45rem, 1.8vw, 0.7rem)
+      );
     background: transparent;
     box-shadow: none;
     overflow: visible;

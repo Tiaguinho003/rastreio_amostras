@@ -328,11 +328,27 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       });
     }
 
+    // Safety net: orientationchange + visualViewport.resize tambem
+    // limpam `is-keyboard-open` se ela tiver ficado presa (iOS standalone
+    // PWA as vezes nao dispara focusout em todos os fluxos de keyboard
+    // close). Sem isso, a tabbar fica `translateY(100%)` (escondida)
+    // ou — em variantes do bug — em posicao errada apos keyboard fechar.
+    function clearKeyboardOpen() {
+      if (!isKeyboardTarget(document.activeElement)) {
+        document.body.classList.remove('is-keyboard-open');
+        savedScroll = null;
+      }
+    }
+
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
+    window.addEventListener('orientationchange', clearKeyboardOpen);
+    window.visualViewport?.addEventListener('resize', clearKeyboardOpen);
     return () => {
       document.removeEventListener('focusin', onFocusIn);
       document.removeEventListener('focusout', onFocusOut);
+      window.removeEventListener('orientationchange', clearKeyboardOpen);
+      window.visualViewport?.removeEventListener('resize', clearKeyboardOpen);
       document.body.classList.remove('is-keyboard-open');
     };
   }, []);

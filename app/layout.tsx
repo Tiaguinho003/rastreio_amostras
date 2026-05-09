@@ -4,6 +4,7 @@ import { Poppins } from 'next/font/google';
 import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
+import { ViewportSync } from '../components/ViewportSync';
 import { SplashScreen } from '../components/SplashScreen';
 import { DirtyStateProvider } from '../lib/dirty-state/DirtyStateProvider';
 import { ScannerBridge } from '../lib/scanner/ScannerBridge';
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={poppins.variable}>
       <body>
         <PwaRegistration />
+        <ViewportSync />
         <ViewportDebugOverlay />
         <SplashScreen />
         <ToastProvider>
