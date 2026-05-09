@@ -44,6 +44,23 @@ export function useViewportSync() {
     document.body.appendChild(probe);
 
     let rafId: number | null = null;
+    // Tracking de setTimeouts criados por listeners (focusout, orientation,
+    // visualViewport.resize). Sem isso, user trocando foco rapidamente
+    // acumula timeouts pendentes — cada um forca reflow desnecessario.
+    let pendingTimeouts: number[] = [];
+
+    const scheduleAfterDelay = (ms: number) => {
+      const id = window.setTimeout(() => {
+        pendingTimeouts = pendingTimeouts.filter((t) => t !== id);
+        scheduleUpdate();
+      }, ms);
+      pendingTimeouts.push(id);
+    };
+
+    const clearPendingTimeouts = () => {
+      pendingTimeouts.forEach((id) => window.clearTimeout(id));
+      pendingTimeouts = [];
+    };
 
     const update = () => {
       // Force reflow lendo offsetHeight do body. Em iOS, isso obriga
@@ -74,18 +91,21 @@ export function useViewportSync() {
     };
 
     // Mount: 3 leituras pra cobrir cold start em iOS (env() pode
-    // settle alguns frames apos primeiro paint).
+    // settle alguns frames apos primeiro paint). Esses 2 timeouts
+    // tambem sao trackeados pra garantir cleanup no unmount.
     update();
-    const t100 = window.setTimeout(scheduleUpdate, 100);
-    const t500 = window.setTimeout(scheduleUpdate, 500);
+    scheduleAfterDelay(100);
+    scheduleAfterDelay(500);
 
     // Orientation change: iOS nao recompute env() automaticamente —
-    // forcamos via offsetHeight read + setTimeout pra cobrir os
-    // frames apos a transicao de orientation terminar.
+    // forcamos via offsetHeight read + delays pra cobrir os frames
+    // apos a transicao de orientation terminar. Cancela pendentes
+    // antes pra nao acumular.
     const onOrientation = () => {
+      clearPendingTimeouts();
       scheduleUpdate();
-      window.setTimeout(scheduleUpdate, 200);
-      window.setTimeout(scheduleUpdate, 600);
+      scheduleAfterDelay(200);
+      scheduleAfterDelay(600);
     };
 
     // Visual viewport resize: dispara em keyboard open/close +
@@ -97,11 +117,14 @@ export function useViewportSync() {
     // Focus out: keyboard fechou, valores podem ter mudado.
     // Atualiza safe-area sync. Scroll/layout viewport fix vive no AppShell
     // (que tem savedScroll context) — aqui so cuidamos da safe-area.
+    // Cancela timeouts pendentes pra nao acumular se user troca foco
+    // rapidamente entre inputs.
     const onFocusOut = () => {
+      clearPendingTimeouts();
       requestAnimationFrame(() => {
         scheduleUpdate();
-        window.setTimeout(scheduleUpdate, 300);
-        window.setTimeout(scheduleUpdate, 600);
+        scheduleAfterDelay(300);
+        scheduleAfterDelay(600);
       });
     };
 
@@ -111,8 +134,7 @@ export function useViewportSync() {
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
-      window.clearTimeout(t100);
-      window.clearTimeout(t500);
+      clearPendingTimeouts();
       window.removeEventListener('orientationchange', onOrientation);
       window.visualViewport?.removeEventListener('resize', onVisualResize);
       document.removeEventListener('focusout', onFocusOut);

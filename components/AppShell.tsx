@@ -299,6 +299,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       'input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select, [contenteditable="true"]';
 
     let savedScroll: { x: number; y: number } | null = null;
+    // Tracking do setTimeout do scroll reset. Sem isso, se o user navega
+    // pra outra rota dentro de 300ms apos focusout, o setTimeout dispara
+    // em DOM diferente — pode tentar scrollTo em pagina ja desmontada ou
+    // resetar scroll de uma rota nova. Cleanup cancela qualquer pendente.
+    let scrollResetTimeoutId: number | null = null;
 
     function isKeyboardTarget(el: EventTarget | null) {
       return el instanceof HTMLElement && el.matches(KEYBOARD_SELECTOR);
@@ -330,7 +335,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
           // force reflow + scrollTo INSTANT (sem smooth, smooth pode
           // ser interrompido pelo iOS). Se ainda ha offset stuck depois
           // de 300ms sem input focado, scrollTo(0,0) pra quebrar cache.
-          window.setTimeout(() => {
+          if (scrollResetTimeoutId !== null) {
+            window.clearTimeout(scrollResetTimeoutId);
+          }
+          scrollResetTimeoutId = window.setTimeout(() => {
+            scrollResetTimeoutId = null;
             // Re-check: se algum input recebeu foco nesses 300ms, abortamos.
             if (isKeyboardTarget(document.activeElement)) return;
             // Force reflow pra iOS recompute layout viewport.
@@ -376,6 +385,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       window.removeEventListener('orientationchange', clearKeyboardOpen);
       window.visualViewport?.removeEventListener('resize', clearKeyboardOpen);
       document.body.classList.remove('is-keyboard-open');
+      // Cancela qualquer scroll reset pendente — evita que dispare em
+      // DOM ja desmontado/em outra rota se user navega antes de 300ms.
+      if (scrollResetTimeoutId !== null) {
+        window.clearTimeout(scrollResetTimeoutId);
+        scrollResetTimeoutId = null;
+      }
     };
   }, []);
 

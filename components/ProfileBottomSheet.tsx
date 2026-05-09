@@ -106,7 +106,10 @@ export function ProfileBottomSheet({ session, open, onClose, onLogout }: Profile
   if (!visible) return null;
 
   const isOpen = visible && animatingIn && !animatingOut;
-  const sheetTransform = dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined;
+  // translate3d em vez de translateY mantem GPU layer durante drag,
+  // alinhado com o CSS base (.profile-sheet usa translate3d permanente
+  // pra prevenir scroll lock em iOS Safari standalone PWA).
+  const sheetTransform = dragOffset > 0 ? `translate3d(0, ${dragOffset}px, 0)` : undefined;
 
   return (
     <div

@@ -8394,7 +8394,10 @@ button:disabled {
 /* Floating classify button */
 .sdv-fab-classify {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + clamp(84px, 22vw, 96px));
+  /* Custom property atualizada via JS contorna cache do iOS standalone. */
+  bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(84px, 22vw, 96px)
+  );
   right: clamp(14px, 4vw, 18px);
   display: flex;
   align-items: center;
@@ -8415,6 +8418,10 @@ button:disabled {
   transition: transform 0.15s;
   z-index: 10;
   animation: sdv-fab-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s backwards;
+  /* GPU layer (sem translate3d permanente porque conflitaria com
+     :active scale + animation sdv-fab-in). will-change: transform
+     basta pra criar layer compositado em browsers modernos. */
+  will-change: transform;
 }
 
 .sdv-fab-classify:active {
@@ -18610,17 +18617,22 @@ button:disabled {
   z-index: var(--z-modal);
   background: var(--brand-cream-soft);
   border-radius: clamp(18px, 5vw, 24px) clamp(18px, 5vw, 24px) 0 0;
-  padding: 0 clamp(1.2rem, 5vw, 1.6rem) calc(env(safe-area-inset-bottom) + 1.5rem);
-  transform: translateY(100%);
+  /* Custom property atualizada via JS contorna cache do iOS standalone. */
+  padding: 0 clamp(1.2rem, 5vw, 1.6rem)
+    calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 1.5rem);
+  /* translate3d em vez de translateY pra GPU layer permanente — previne
+     scroll lock em iOS Safari standalone PWA. */
+  transform: translate3d(0, 100%, 0);
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   max-height: 85dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  will-change: transform;
 }
 
 .profile-sheet.is-open {
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
 }
 
 .profile-sheet.is-dragging {
@@ -22794,12 +22806,19 @@ button:disabled {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0.75rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom, 0));
+  /* Mesmo padding com fallback custom property pra contornar cache do
+     env(safe-area-inset-bottom) em iOS standalone. */
+  padding: 0.75rem 0.9rem
+    calc(0.9rem + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0)));
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
   pointer-events: none;
+  /* GPU compositor layer: previne scroll lock em iOS Safari standalone
+     PWA quando user focusa em input abaixo da viewport. */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .app-toast-viewport > * {
