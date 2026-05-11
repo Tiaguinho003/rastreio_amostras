@@ -93,6 +93,13 @@ export function BottomSheet({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     document.body.classList.add('is-bottom-sheet-open');
+    // Defesa contra is-keyboard-open ficando presa: se user abriu o sheet
+    // com teclado ainda aberto (focusout pode nao disparar em todos os fluxos
+    // iOS standalone), a classe ficaria ativa apos o sheet fechar, deixando
+    // a tabbar escondida indefinidamente. Como o focus-trap do sheet move o
+    // foco pra dentro dele, o teclado fecha — limpamos a classe pra
+    // garantir estado consistente.
+    document.body.classList.remove('is-keyboard-open');
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
