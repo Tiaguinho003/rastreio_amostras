@@ -4086,7 +4086,13 @@ button:disabled {
 }
 
 .samples-page-v2 .hero-search-wrap {
-  animation: samples-search-in 0.4s ease-out 0.1s both;
+  /* `backwards` (nao `both`): aplica o keyframe inicial antes da animacao
+     rodar, mas NAO mantem o `transform: translateY(0)` final apos terminar.
+     Critico pra que `.cv2-fab` (descendente com position:fixed) seja fixed
+     em relacao ao viewport — qualquer transform persistente neste ancestor
+     viraria containing block e prenderia o FAB dentro do wrapper. Mesmo
+     padrao usado em `.clients-page-v2 .hero-search-wrap`. */
+  animation: samples-search-in 0.4s ease-out 0.1s backwards;
 }
 
 .hero-search-bar {
@@ -20463,6 +20469,46 @@ button:disabled {
 
   .samples-page-v2 .hero-search-wrap .hero-search-filter-btn.has-filters svg {
     stroke: #ffffff;
+  }
+
+  /* FAB "+ Nova amostra" em desktop: inline a direita do filter-btn,
+     mesmo tamanho 56x56. Search bar (flex:1) encolhe automaticamente
+     pra dar espaco. Em mobile, esta regra nao se aplica — o FAB volta
+     ao default `.cv2-fab` (position:fixed bottom-right). */
+  .samples-page-v2 .hero-search-wrap .cv2-fab {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    top: auto;
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    border-radius: 16px;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    gap: 0;
+    box-shadow: 0 6px 16px rgba(31, 93, 67, 0.32);
+    transition:
+      transform 0.15s,
+      box-shadow 0.18s ease;
+    z-index: auto;
+  }
+
+  .samples-page-v2 .hero-search-wrap .cv2-fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(31, 93, 67, 0.42);
+  }
+
+  .samples-page-v2 .hero-search-wrap .cv2-fab:active {
+    transform: scale(0.96);
+  }
+
+  .samples-page-v2 .hero-search-wrap .cv2-fab svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 2.2;
   }
 
   .samples-page-v2 .spv2-aging-banner {
