@@ -28,7 +28,7 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 
 - Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`
 - `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
-- `padding-bottom` respeita tabbar: `calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance))`
+- `padding-bottom` respeita tabbar: `calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))` — usar a CSS var sincronizada (ver skill `responsive` §4), nunca `env()` direto
 - O sheet ocupa o restante da tela com `flex: 1`
 
 ### Paginas sem header verde
