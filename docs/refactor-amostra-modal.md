@@ -1,6 +1,6 @@
 # Refactor: Nova Amostra como Modal
 
-Status: Fases 1 e 2 CONCLUIDAS (2026-05-11). Fases 3 e 4 prontas pra execucao; Fase 5 aguarda Fases 1-4
+Status: Fases 1, 2 e 3 CONCLUIDAS (2026-05-11). Fase 4 pronta pra execucao; Fase 5 aguarda Fases 1-4
 Escopo: refatoracao da pagina `/samples/new` para modal acionado por FAB + reorganizacao da tabbar mobile + Perfil como item de tabbar + fusao /settings em /profile + sino de notificacoes placeholder
 Inicio do planejamento: 2026-05-11
 Foco da v1: mobile (desktop herda paralelamente apenas onde 5.11 e 5.15 exigem)
@@ -1143,15 +1143,20 @@ Implementada na branch `feat/fase2-modal-nova-amostra` em 7 commits sequenciais.
 - [ ] Dev manual mobile: drag-to-dismiss funciona; backdrop tap; back Android; sino visivel — **pendente validacao do usuario**
 - [ ] Dev manual desktop: modal centralizado; sem sino (oculto via CSS) — **pendente validacao do usuario**
 
-### Fase 3 — FAB e botao desktop
+### Fase 3 — FAB e botao desktop `[CONCLUIDA — 2026-05-11]`
 
-Pre-requisito: decisao 5.3 fechada (DECIDIDA — A: so `/samples` mobile), 5.15 fechada, Fase 2 completa.
+Pre-requisito: decisoes 5.3, 5.15, 5.17, 5.29-5.32 fechadas, Fase 2 completa.
 
-- [ ] Extrair `<SampleQuickCreateFab />` reusavel (espelhando `.cv2-fab`)
-- [ ] Adicionar FAB em `/samples` mobile (sem dashboard, por 5.17)
-- [ ] Adicionar botao "+ Nova amostra" no topo de `/samples` desktop (5.15)
-- [ ] Cabear FAB e botao para abrir o modal da Fase 2
-- [ ] Validar posicionamento, safe-area, conflito com tabbar
+Implementada na branch `feat/fase3-fab-botao-desktop` em 1 commit (`c5f326e`). Quality gates verdes (lint, format:check, typecheck, build, test:contracts 20/20, test:unit 177/177).
+
+- [x] Criar `<SampleQuickCreateFab />` em `components/SampleQuickCreateFab.tsx` reusando CSS `.cv2-fab` (mesmo padrao do FAB de Clientes — mobile fixed bottom-right; desktop inline 64x64 no `.hero-search-wrap`)
+- [x] Adicionar FAB em `/samples` mobile (sem dashboard, por 5.17) — renderizado dentro do `.hero-search-wrap` apos `.hero-search-filter-btn`
+- [x] Botao "+ Nova amostra" desktop usa o mesmo componente `<SampleQuickCreateFab />` (decisao 5.30 = a — ao lado da searchbar; CSS `.cv2-fab` ja tem variante desktop)
+- [x] Cabear FAB pro modal da Fase 2 via useState `newSampleModalOpen` em `app/samples/page.tsx`
+- [x] Customizar `onSuccessNavigate` (decisao 5.29 = b): em vez do default `router.push(/samples/[id])`, fecha modal + incrementa `newSampleRefetchKey` (state local) que dispara refetch via dep array do useEffect existente
+- [x] Validacao: posicionamento herdado de `.cv2-fab` ja consagrado em /clients (safe-area, conflito tabbar resolvidos no CSS existente em `globals.css:5789-5818` mobile + `20947-20957` desktop)
+
+**Decisao 5.32 (sempre visivel)** confirmada — sem listener de scroll adicional.
 
 ### Fase 4 — Refinamentos de UX
 
@@ -1181,30 +1186,30 @@ Pre-requisito: Fases 1-4 validadas em producao canary.
 
 Status global: **Em planejamento — Fase 1 pronta pra execucao**
 
-| Item                                    | Status                  | Notas                                                                    |
-| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------ |
-| Decisao 5.1 — Tabbar layout             | DECIDIDO (A)            | Inicio \| Amostras \| Camera\* \| Clientes \| Perfil                     |
-| Decisao 5.2 — Perfil rota vs sheet      | DECIDIDO (A)            | Rota dedicada                                                            |
-| Decisao 5.3 — FAB mobile                | DECIDIDO (A)            | So `/samples` mobile                                                     |
-| Decisao 5.4 — Formato do modal          | DECIDIDO (A)            | Bottom sheet mobile + `.app-modal.is-themed` desktop                     |
-| Decisao 5.5 — Persistencia do draft     | DECIDIDO (C)            | Auto-save sessionStorage + confirmacao isDirty                           |
-| Decisao 5.6 — Quick-create cliente      | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro                |
-| Decisao 5.7 — Integracao review+created | DECIDIDO (A)            | Wizard 3 steps (form/review/created) na mesma superficie                 |
-| Decisao 5.8 — Settings absorvido        | DECIDIDO (a)            | /profile substitui /settings                                             |
-| Decisao 5.9 — Avatar do header          | DECIDIDO (a)            | Some mobile, mantem desktop                                              |
-| Decisao 5.10 — Icone do Perfil          | DECIDIDO (b)            | Avatar do usuario                                                        |
-| Decisao 5.11 — Desktop perde new        | DECIDIDO (a)            | Sincroniza com mobile                                                    |
-| Decisao 5.12 — Layout /profile          | DECIDIDO (a)            | Secoes stackadas                                                         |
-| Decisao 5.13 — Destino /settings        | DECIDIDO (a)            | Redirect 302 + atualizar links                                           |
-| Decisao 5.14 — Tipo avatar              | DECIDIDO (a)            | Iniciais coloridas                                                       |
-| Decisao 5.15 — Entrada desktop          | DECIDIDO (b)            | Botao topo da lista                                                      |
-| Decisao 5.16 — Header mobile            | DECIDIDO (c custom)     | Sino placeholder                                                         |
-| Decisao 5.17 — Dashboard entrada        | DECIDIDO (b)            | Sem ponto de entrada                                                     |
-| Fase 1 — Tabbar, Perfil, Header, Avatar | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase1-tabbar-perfil-header-avatar; build verde         |
-| Fase 2 — Modal componente               | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase2-modal-nova-amostra; build verde; tests verdes    |
-| Fase 3 — FAB e botao desktop            | AGUARDA FASE 2          | Decisoes 5.3 e 5.15 fechadas; depende da Fase 2 estar completa           |
-| Fase 4 — Refinamentos                   | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa |
-| Fase 5 — Limpeza                        | PENDENTE                | Aguarda Fases 1-4                                                        |
+| Item                                    | Status                  | Notas                                                                               |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| Decisao 5.1 — Tabbar layout             | DECIDIDO (A)            | Inicio \| Amostras \| Camera\* \| Clientes \| Perfil                                |
+| Decisao 5.2 — Perfil rota vs sheet      | DECIDIDO (A)            | Rota dedicada                                                                       |
+| Decisao 5.3 — FAB mobile                | DECIDIDO (A)            | So `/samples` mobile                                                                |
+| Decisao 5.4 — Formato do modal          | DECIDIDO (A)            | Bottom sheet mobile + `.app-modal.is-themed` desktop                                |
+| Decisao 5.5 — Persistencia do draft     | DECIDIDO (C)            | Auto-save sessionStorage + confirmacao isDirty                                      |
+| Decisao 5.6 — Quick-create cliente      | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro                           |
+| Decisao 5.7 — Integracao review+created | DECIDIDO (A)            | Wizard 3 steps (form/review/created) na mesma superficie                            |
+| Decisao 5.8 — Settings absorvido        | DECIDIDO (a)            | /profile substitui /settings                                                        |
+| Decisao 5.9 — Avatar do header          | DECIDIDO (a)            | Some mobile, mantem desktop                                                         |
+| Decisao 5.10 — Icone do Perfil          | DECIDIDO (b)            | Avatar do usuario                                                                   |
+| Decisao 5.11 — Desktop perde new        | DECIDIDO (a)            | Sincroniza com mobile                                                               |
+| Decisao 5.12 — Layout /profile          | DECIDIDO (a)            | Secoes stackadas                                                                    |
+| Decisao 5.13 — Destino /settings        | DECIDIDO (a)            | Redirect 302 + atualizar links                                                      |
+| Decisao 5.14 — Tipo avatar              | DECIDIDO (a)            | Iniciais coloridas                                                                  |
+| Decisao 5.15 — Entrada desktop          | DECIDIDO (b)            | Botao topo da lista                                                                 |
+| Decisao 5.16 — Header mobile            | DECIDIDO (c custom)     | Sino placeholder                                                                    |
+| Decisao 5.17 — Dashboard entrada        | DECIDIDO (b)            | Sem ponto de entrada                                                                |
+| Fase 1 — Tabbar, Perfil, Header, Avatar | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase1-tabbar-perfil-header-avatar; build verde                    |
+| Fase 2 — Modal componente               | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase2-modal-nova-amostra; build verde; tests verdes               |
+| Fase 3 — FAB e botao desktop            | CONCLUIDA (2026-05-11)  | 1 commit em feat/fase3-fab-botao-desktop; SampleQuickCreateFab + refetch automatico |
+| Fase 4 — Refinamentos                   | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa            |
+| Fase 5 — Limpeza                        | PENDENTE                | Aguarda Fases 1-4                                                                   |
 
 ---
 
@@ -1270,3 +1275,4 @@ Riscos identificados na revisao critica pre-implementacao. Nao bloqueiam o codig
 | 2026-05-11 | v1.11 — Pre-implementacao da Fase 2: 10 decisoes granulares fechadas (5.18-5.27) + 1 pendente (5.28). 7 notas tecnicas novas (6.19-6.25). Revisao da Nota 6.6 (animacao entre steps mudou de slide horizontal 350ms para fade simples 200ms — 5.22). Detectado bug pos-Fase 1: `<NotificationBell />` invisivel em mobile porque CSS legacy esconde `.topbar-tools` em rotas layered; documentado fix completo na Nota 6.22 e adicionado como Bloco 0 da Fase 2. Fase 2 expandida com 4 blocos detalhados (Bloco 0 hotfix sino, Bloco 1 BottomSheet, Bloco 2 NewSampleModal com wizard, Bloco 3 wrapper /samples/new).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Flavio + Claude |
 | 2026-05-11 | v1.12 — Decisao 5.28 (estrutura do wrapper `/samples/new`) fechada: opcao (a) — `<AppShell>` envolvendo `<NewSampleModal />`, coerente com layout atual. Fase 2 totalmente desbloqueada (todas as 5.18-5.28 decididas), pronta pra implementacao.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Flavio + Claude |
 | 2026-05-11 | v1.13 — Fase 2 IMPLEMENTADA. 7 commits em branch `feat/fase2-modal-nova-amostra`: (Bloco 0) hotfix do sino — `<NotificationBell />` movido de `.topbar-tools` (sempre oculto em mobile pelo CSS legacy) para os 6 headers de pagina com CSS-only swap em `@media (max-width: 900px)`; (Bloco 1) `components/BottomSheet.tsx` reusavel com API controlled, drag-to-dismiss 60px, focus trap, back Android via `history.pushState`+`popstate`, ESC, fallback iOS `@supports not (height: 100dvh)`, desktop responsivo (>900px = modal centralizado 650px); (Bloco 2.a) skeleton de `components/NewSampleModal.tsx` com tipos `WizardState`/`WizardAction` e `useReducer` rejeitando transicoes invalidas durante `submitting`; (Bloco 2.b) migracao do form completo (7 campos, useEffects, helpers `loadOrCreateDraftId`/`renewDraftId`/`buildHarvestPresets`, validacao Zod, offline banner, harvest dropdown, `useRegisterDirtyState`); (Bloco 2.c) review step com card nao-editavel + 2 botoes circulares, `handleConfirmDraft` async via `createSample`, modal "Descartar?" inline replicando padrao de `DirtyStateProvider.ConfirmModal` com `.is-stacked` (z-index `--z-modal-stacked: 600`); (Bloco 2.d) created step com painel de lote em destaque e `aria-live="polite"`, animacao fade 200ms entre steps via CSS keyframe + `key={state.step}`; (Bloco 3) substituicao de `app/samples/new/page.tsx` (964 linhas) por wrapper de 30 linhas com Suspense + AppShell + NewSampleModal aberto. Quality gates verdes: lint, format:check, typecheck, build (`/samples/new` 9.26 kB), test:contracts (20/20), test:unit (177/177). Validacao manual mobile/desktop pendente do usuario. Total: 2 arquivos novos (BottomSheet, NewSampleModal), 9 modificados, 0 deletados (samples/new mantido como wrapper ate Fase 5). | Flavio + Claude |
+| 2026-05-11 | v1.14 — Fase 3 IMPLEMENTADA. 4 decisoes granulares novas fechadas (5.29 customizar onSuccessNavigate pra ficar em /samples; 5.30 botao "+ Nova amostra" ao lado da searchbar desktop; 5.31 refetch automatico ao criar; 5.32 FAB sempre visivel sem hide-on-scroll). Commit `c5f326e` em branch `feat/fase3-fab-botao-desktop`: novo componente `components/SampleQuickCreateFab.tsx` (~30 linhas, reusa CSS `.cv2-fab` ja consagrado em /clients — mobile fixed bottom-right, desktop inline 64x64), JSX adicionado no `.hero-search-wrap` de `/samples` apos o `.hero-search-filter-btn`, `<NewSampleModal />` integrado com `onSuccessNavigate` custom que fecha modal + incrementa `newSampleRefetchKey` (state local adicionado ao dep array do useEffect de fetch — dispara refetch automatico mostrando a nova amostra no topo da lista). Quality gates verdes (lint, format:check, typecheck, build, test:contracts 20/20, test:unit 177/177). `/samples/new` agora 442 B (wrapper minimo) e `/samples` 6.30 kB (com FAB + modal embarcado).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Flavio + Claude |
