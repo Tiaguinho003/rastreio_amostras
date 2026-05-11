@@ -54,6 +54,16 @@ export function BottomSheet({
     }
   }, [onDismissAttempt, onClose]);
 
+  // Ref estabilizada: o callback do consumidor muda a cada render (porque e
+  // funcao inline no consumidor), mas os useEffects de ESC e popstate
+  // precisam de identidade estavel pra nao re-rodar a cada render —
+  // re-roda dispararia cleanup do history.pushState, que chama history.back(),
+  // que dispara popstate, que dispara requestDismiss. Loop.
+  const requestDismissRef = useRef(requestDismiss);
+  useEffect(() => {
+    requestDismissRef.current = requestDismiss;
+  }, [requestDismiss]);
+
   // Lifecycle: monta + anima entrada quando `open` vira true. Anima saida
   // quando `open` vira false (mantem montado durante a animacao).
   useEffect(() => {
@@ -74,6 +84,7 @@ export function BottomSheet({
 
   // ESC dispara dismiss (com confirmacao do consumidor via onDismissAttempt).
   // body overflow:hidden enquanto sheet aberto pra evitar dual-scroll.
+  // NAO depende de requestDismiss (usa ref estabilizada) pra evitar re-runs.
   useEffect(() => {
     if (!visible) return;
 
@@ -83,7 +94,7 @@ export function BottomSheet({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        void requestDismiss();
+        void requestDismissRef.current();
       }
     };
     document.addEventListener('keydown', onKeyDown);
@@ -91,10 +102,14 @@ export function BottomSheet({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [visible, requestDismiss]);
+  }, [visible]);
 
   // Back Android: injeta history state ao abrir; popstate dispara dismiss.
   // Cleanup limpa state injetado se sheet fecha externamente (sem popstate).
+  // CRITICO: nao depende de requestDismiss — usa ref estabilizada. Se
+  // dependesse, o cleanup rodaria a cada render do consumidor (callback
+  // muda toda vez), disparando history.back() que dispara popstate que
+  // dispara requestDismiss(). Loop.
   useEffect(() => {
     if (!open || historyInjectedRef.current) return;
 
@@ -106,7 +121,7 @@ export function BottomSheet({
         // Caso raro: usuario navegou pra frente e voltou. Re-injeta.
         return;
       }
-      void requestDismiss();
+      void requestDismissRef.current();
     };
 
     window.addEventListener('popstate', onPopState);
@@ -120,7 +135,7 @@ export function BottomSheet({
         }
       }
     };
-  }, [open, requestDismiss]);
+  }, [open]);
 
   function handleTouchStart(event: React.TouchEvent) {
     if (!dragToDismiss || dragDisabled) return;
