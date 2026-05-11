@@ -232,15 +232,27 @@ Excecao a regra "nunca verde ao clicar":
 
 ### Bottom Sheet (padrao mobile)
 
-- Sobe de baixo com `transform: translateY(100%)` → `translateY(0)`
-- `transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1)`
-- Overlay: `rgba(0,0,0,0.45)`, fecha ao clicar
-- Drag handle no topo: barra `clamp(30px, 9vw, 36px)` x `4px`, `border-radius: 2px`, cor `rgba(0,0,0,0.08)` ou `#c5bfa8`
-- Swipe down para fechar (threshold 60px)
-- Fundo: `#fdf9ec` (creme quente, nao branco puro)
-- `border-radius` arredondado no topo: `clamp(18px, 5vw, 24px)`
-- `max-height: 85dvh`
-- Escape fecha, scroll interno com `-webkit-overflow-scrolling: touch`
+> Componente reusavel: `components/BottomSheet.tsx`. Usar este wrapper ao construir qualquer bottom sheet novo — nao replicar o CSS na mao. Em desktop (>900px) o mesmo componente transforma-se em modal centralizado via CSS responsivo.
+
+**API:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss?, dragDisabled?, ariaLabel? }` (controlled, declarativo). `onDismissAttempt` async permite cancelar fechamento (ex: modal de confirmacao "Descartar?").
+
+**Caracteristicas do CSS base (`bottom-sheet*` em globals.css):**
+
+- Mobile: `position: fixed`, `transform: translate3d(0, 100%, 0)` → `translate3d(0, 0, 0)` ao abrir
+- Transition: `0.35s cubic-bezier(0.16, 1, 0.3, 1)`
+- Overlay: `rgba(0, 0, 0, 0.4)` com `backdrop-filter: blur(16px) saturate(1.05)`, fecha ao clicar (passa por `onDismissAttempt`)
+- Drag handle: barra `clamp(2.4rem, 11vw, 3.2rem)` x `4px`, cor `var(--color-line)`
+- Swipe down para fechar (threshold 60px); pausa se `dragDisabled=true` ou se target tem scroll
+- Fundo: `var(--brand-cream-soft)`
+- `border-radius` topo: `clamp(20px, 5vw, 28px)`
+- `max-height: 98dvh` (fallback `calc(100vh - 2vh - env(safe-area-inset-top))` em iOS Safari < 15.4)
+- Body flex com `min-height: 0` + `overflow-y: auto` (crítico pra teclado virtual)
+- Footer sticky bottom (nao fixed) — acompanha scroll-into-view
+- ESC dispara `onDismissAttempt`; back Android via `history.pushState` + `popstate` listener
+- Focus trap via `useFocusTrap`; `role="dialog"` + `aria-modal="true"`
+- `translate3d` permanente: GPU layer; previne scroll lock iOS standalone PWA
+
+**Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
 
 ### Modal central (`.app-modal.is-themed`)
 
