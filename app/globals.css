@@ -24104,3 +24104,58 @@ button:disabled {
     display: inline-flex;
   }
 }
+
+/* ── Card de logout na pagina /profile ──
+   Visual coerente com os outros .stg-card mas com accent danger pra
+   sinalizar acao destrutiva (encerra sessao). Conteudo: titulo + texto
+   descritivo + botao "Sair" alinhado a esquerda. */
+.stg-card-icon.is-logout {
+  background: rgba(var(--color-danger-rgb), 0.12);
+  color: var(--color-danger);
+}
+
+.stg-card-icon.is-logout svg {
+  stroke: currentColor;
+}
+
+.stg-logout-description {
+  margin: 6px 0 12px;
+  font-size: clamp(13px, 3.4vw, 14px);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.stg-logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--color-danger-rgb), 0.4);
+  background: rgba(var(--color-danger-rgb), 0.06);
+  color: var(--color-danger);
+  font-size: clamp(13px, 3.4vw, 14px);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.stg-logout-button:hover {
+  background: rgba(var(--color-danger-rgb), 0.12);
+}
+
+.stg-logout-button:active {
+  transform: scale(0.98);
+}
+
+.stg-logout-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
