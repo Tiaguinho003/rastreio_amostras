@@ -1044,27 +1044,6 @@ function SamplesPage() {
               spellCheck={false}
             />
           </form>
-          <button
-            type="button"
-            className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-            aria-label="Filtros avancados"
-            onClick={(event) => {
-              if (filtersOpen) {
-                closeFilters();
-                return;
-              }
-              openFilters(event.currentTarget);
-            }}
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M4 6h16" />
-              <path d="M7 12h10" />
-              <path d="M10 18h4" />
-            </svg>
-            {activeHiddenFiltersCount > 0 ? (
-              <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
-            ) : null}
-          </button>
           <SampleQuickCreateFab onClick={() => setNewSampleModalOpen(true)} />
         </div>
 
@@ -1088,9 +1067,30 @@ function SamplesPage() {
             </div>
           ) : null}
 
-          {/* Section 2: Count */}
+          {/* Section 2: Count + filter btn */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} registros</span>
+            <button
+              type="button"
+              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
+              aria-label="Filtros avancados"
+              onClick={(event) => {
+                if (filtersOpen) {
+                  closeFilters();
+                  return;
+                }
+                openFilters(event.currentTarget);
+              }}
+            >
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M4 6h16" />
+                <path d="M7 12h10" />
+                <path d="M10 18h4" />
+              </svg>
+              {activeHiddenFiltersCount > 0 ? (
+                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
+              ) : null}
+            </button>
           </div>
 
           {/* Section 3: Card list */}
