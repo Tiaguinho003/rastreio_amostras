@@ -50,13 +50,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  // resizes-content: quando o teclado virtual abre em iOS PWA standalone,
-  // o LAYOUT viewport tambem encolhe (nao so o visual). Sem isso (default
-  // resizes-visual), iOS faz scroll-into-view do input focado mexendo no
-  // container scrollable mais proximo (.sdv-content, .bottom-sheet-body
-  // etc), e ao fechar o teclado o scrollTop do container fica preso —
-  // resultado visual: fundo bege do app-shell exposto entre conteudo
-  // (subido) e tabbar (fixed no fundo).
+  // interactiveWidget=resizes-content: ATIVO apenas em Chromium 108+ (Chrome
+  // Android, Edge, etc). iOS Safari (ate iOS 26) IGNORA essa diretiva — em
+  // iOS, o workaround real pro bug "viewport nao reseta apos keyboard close"
+  // (WebKit Bug 297779) vive em lib/use-viewport-sync.ts (scrollBy kick +
+  // dvh-evading svh no shell). Mantido aqui pra que clients Android se
+  // beneficiem; nao causa regressao em iOS.
   interactiveWidget: 'resizes-content',
 };
 

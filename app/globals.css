@@ -175,11 +175,17 @@ textarea {
 html,
 body {
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   overscroll-behavior: none;
 }
 
 html {
+  /* iOS PWA standalone: workaround classico (~20 anos) pra 100vh quirks
+     em iOS. Sem isso, em iOS standalone com WebKit Bug 297779, a altura
+     do html pode ficar dessincronizada com o viewport real apos keyboard
+     fechar. height: -webkit-fill-available forca o html a respeitar a
+     altura visivel atual. Browsers que nao suportam ignoram. */
+  height: -webkit-fill-available;
   background-color: var(--brand-cream);
 }
 
@@ -200,7 +206,7 @@ body {
 .app-shell-root {
   position: relative;
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
 }
@@ -247,7 +253,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
@@ -13926,7 +13932,7 @@ button:disabled {
     z-index: 0;
     isolation: isolate;
     min-height: 100vh;
-    min-height: 100dvh;
+    min-height: 100svh;
     background: var(--mobile-page-bg);
   }
 
@@ -13940,7 +13946,7 @@ button:disabled {
   }
 
   .app-shell-root {
-    min-height: 100dvh;
+    min-height: 100svh;
   }
 
   :root {
@@ -13959,7 +13965,7 @@ button:disabled {
     position: fixed;
     inset: 0;
     width: 100%;
-    min-height: 100dvh;
+    min-height: 100svh;
     margin: 0;
     overflow: hidden;
     overscroll-behavior: none;
@@ -14315,7 +14321,7 @@ button:disabled {
   .app-shell-main {
     position: relative;
     min-height: 100vh;
-    min-height: 100dvh;
+    min-height: 100svh;
     width: 100%;
     background: var(--mobile-page-bg);
     /* Usa --app-safe-area-bottom (sync via useViewportSync) pra evitar
@@ -14576,7 +14582,7 @@ button:disabled {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 100dvh;
+    height: 100svh;
   }
 
   .app-shell-main.is-dashboard-route .app-shell-page-content {
@@ -23485,7 +23491,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)

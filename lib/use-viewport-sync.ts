@@ -128,15 +128,55 @@ export function useViewportSync() {
       });
     };
 
+    // WORKAROUND para WebKit Bug 297779 (iOS 26): em PWA standalone,
+    // visualViewport.height e visualViewport.offsetTop NAO RESETAM apos
+    // o teclado virtual fechar. Apple confirmou o bug (Apple Developer
+    // Forums thread 800125, comentario 10 do bug WebKit: "bug in a
+    // system component"). Sintoma: depois de fechar teclado, viewport
+    // fica ~24px menor que innerHeight permanentemente; elementos
+    // position:fixed (tabbar) ficam deslocados; o gap entre o conteudo
+    // e a tabbar exibe o fundo bege do app-shell.
+    //
+    // Workaround documentado por apps em producao (LinkedIn, etc):
+    // forcar reconcile do compositor visual via scrollBy(0,-1) +
+    // scrollBy(0,1). O Safari interpreta esses dois scrolls minusculos
+    // como "trigger" pra recompute do visual viewport, e o offsetTop
+    // volta a 0. Aplicamos sempre que visualViewport.resize sinalizar
+    // dessincronia (offsetTop > 0 OU delta pequeno entre innerHeight e
+    // visualViewport.height que sugere keyboard fechado-mas-stuck).
+    const isStandalone =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(display-mode: standalone)').matches === true;
+
+    const reconcileVisualViewport = () => {
+      if (!isStandalone) return;
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const delta = window.innerHeight - vv.height;
+      // delta=0 significa viewport ok. delta grande (>100) significa
+      // keyboard aberto. delta pequeno mas > 0, OU offsetTop > 0,
+      // significa keyboard fechou mas viewport ficou stuck (bug 297779).
+      const stuck = vv.offsetTop > 0 || (delta > 0 && delta < 100);
+      if (stuck) {
+        window.scrollBy(0, -1);
+        window.scrollBy(0, 1);
+      }
+    };
+
+    const onVisualResizeWithReconcile = () => {
+      onVisualResize();
+      reconcileVisualViewport();
+    };
+
     window.addEventListener('orientationchange', onOrientation);
-    window.visualViewport?.addEventListener('resize', onVisualResize);
+    window.visualViewport?.addEventListener('resize', onVisualResizeWithReconcile);
     document.addEventListener('focusout', onFocusOut);
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
       clearPendingTimeouts();
       window.removeEventListener('orientationchange', onOrientation);
-      window.visualViewport?.removeEventListener('resize', onVisualResize);
+      window.visualViewport?.removeEventListener('resize', onVisualResizeWithReconcile);
       document.removeEventListener('focusout', onFocusOut);
       probe.remove();
     };
