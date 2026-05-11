@@ -1843,14 +1843,9 @@ export default function SampleDetailPage() {
                   </svg>
                 </Link>
                 <span className="sdv-header-title">Detalhes</span>
-                <button
-                  type="button"
-                  className="nsv2-avatar"
-                  aria-label="Abrir menu de perfil"
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-                >
+                <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
                   <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-                </button>
+                </Link>
               </div>
 
               <div className="sdv-identity-card">

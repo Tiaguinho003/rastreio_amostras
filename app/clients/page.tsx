@@ -875,14 +875,9 @@ function ClientsPage() {
           <div className="clients-v2-header-center">
             <h2 className="nsv2-title">Clientes</h2>
           </div>
-          <button
-            type="button"
-            className="nsv2-avatar"
-            aria-label="Abrir menu de perfil"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-          >
+          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-          </button>
+          </Link>
         </header>
 
         {/* Search bar + FAB inline a direita (desktop). No mobile o FAB

@@ -1009,14 +1009,9 @@ function SamplesPage() {
           <div className="samples-page-v2-header-center">
             <h2 className="nsv2-title">Amostras</h2>
           </div>
-          <button
-            type="button"
-            className="nsv2-avatar"
-            aria-label="Abrir menu de perfil"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-          >
+          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{avatarInitials}</span>
-          </button>
+          </Link>
         </header>
 
         {/* Search bar — in green area, dashboard style. Filtro fica

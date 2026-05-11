@@ -588,14 +588,9 @@ export default function UsersPage() {
           <div className="clients-v2-header-center">
             <h2 className="nsv2-title">Usuarios</h2>
           </div>
-          <button
-            type="button"
-            className="nsv2-avatar"
-            aria-label="Perfil"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-          >
+          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-          </button>
+          </Link>
         </header>
 
         <div className="hero-search-wrap">

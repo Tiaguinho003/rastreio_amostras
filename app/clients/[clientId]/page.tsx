@@ -1022,14 +1022,9 @@ export default function ClientDetailPage() {
                   </svg>
                 </Link>
                 <span className="sdv-header-title" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="nsv2-avatar"
-                  aria-label="Perfil"
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-                >
+                <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
                   <span className="nsv2-avatar-initials">{sessionInitials}</span>
-                </button>
+                </Link>
               </div>
 
               <div className="sdv-identity-card">

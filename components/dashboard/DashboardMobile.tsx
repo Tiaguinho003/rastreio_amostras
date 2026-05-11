@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
 import { getRoleLabel } from '../../lib/roles';
@@ -58,14 +60,9 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
               <span className="dashboard-greeting-name">{firstName}</span>
               <span className="dashboard-greeting-role">{roleLabel}</span>
             </div>
-            <button
-              type="button"
-              className="dashboard-hero-avatar"
-              aria-label="Abrir menu de perfil"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-profile-sheet'))}
-            >
+            <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
               <span className="dashboard-hero-avatar-initials">{initials}</span>
-            </button>
+            </Link>
           </div>
           <div className="dashboard-hero-search">
             <SampleSearchField session={session} placeholder="Buscar por lote" />
