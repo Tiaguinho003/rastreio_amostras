@@ -501,11 +501,10 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 
 ### 🚫 Excecoes legitimas (NAO refatorar)
 
-| Modal               | Por que e excecao                                                              |
-| ------------------- | ------------------------------------------------------------------------------ |
-| ProfileBottomSheet  | Bottom sheet (slide de baixo no mobile) — outro padrao, ver `design-system` §8 |
-| ForgotPasswordModal | Estilo da tela de login (`login-modal-*`), fora da app autenticada             |
-| PhotoZoomViewer     | Overlay full-screen pra zoom de foto — nao e modal de form                     |
+| Modal               | Por que e excecao                                                  |
+| ------------------- | ------------------------------------------------------------------ |
+| ForgotPasswordModal | Estilo da tela de login (`login-modal-*`), fora da app autenticada |
+| PhotoZoomViewer     | Overlay full-screen pra zoom de foto — nao e modal de form         |
 
 ### Mapa visual do fluxo da extracao
 

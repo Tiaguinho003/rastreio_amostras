@@ -1,6 +1,6 @@
 # Refactor: Nova Amostra como Modal
 
-Status: Decisoes finalizadas (todas as 17 decisoes fechadas) — Fases 1, 2 e 4 prontas pra execucao; Fases 3 e 5 com dependencias resolvidas
+Status: Fase 1 CONCLUIDA (2026-05-11); Fases 2 e 4 prontas pra execucao; Fases 3 e 5 com dependencias resolvidas
 Escopo: refatoracao da pagina `/samples/new` para modal acionado por FAB + reorganizacao da tabbar mobile + Perfil como item de tabbar + fusao /settings em /profile + sino de notificacoes placeholder
 Inicio do planejamento: 2026-05-11
 Foco da v1: mobile (desktop herda paralelamente apenas onde 5.11 e 5.15 exigem)
@@ -158,11 +158,11 @@ Quando uma decisao for tomada, adicionar uma subsecao **"Decidido"** logo abaixo
 
 Como organizar a tabbar com Camera mantendo posicao central destacada, removendo "Novo" e adicionando "Perfil"?
 
-| Opcao | Layout | Tradeoff |
-|-------|--------|----------|
+| Opcao | Layout                                                | Tradeoff                                                                |
+| ----- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
 | **A** | `Inicio \| Amostras \| Camera* \| Clientes \| Perfil` | Convencao mobile consagrada. Agrupa entidades ao redor da acao central. |
-| B | `Inicio \| Perfil \| Camera* \| Amostras \| Clientes` | Substituicao 1:1 do "Novo" — quebra convencao. |
-| C | `Inicio \| Clientes \| Camera* \| Amostras \| Perfil` | Espelha A invertendo Clientes/Amostras. |
+| B     | `Inicio \| Perfil \| Camera* \| Amostras \| Clientes` | Substituicao 1:1 do "Novo" — quebra convencao.                          |
+| C     | `Inicio \| Clientes \| Camera* \| Amostras \| Perfil` | Espelha A invertendo Clientes/Amostras.                                 |
 
 #### Decidido
 
@@ -177,11 +177,11 @@ Como organizar a tabbar com Camera mantendo posicao central destacada, removendo
 
 ### 5.2 Perfil: rota propria ou continua bottom sheet? `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| **A** | Vira rota dedicada. Bottom sheet removido. | Consistente com tabbar (item ativo natural via `usePathname`). |
-| B | Continua sheet, tabbar dispara evento custom. | Gambiarra pra estado ativo. |
-| C | Ambos coexistem. | Duplicidade confusa. |
+| Opcao | Comportamento                                 | Tradeoff                                                       |
+| ----- | --------------------------------------------- | -------------------------------------------------------------- |
+| **A** | Vira rota dedicada. Bottom sheet removido.    | Consistente com tabbar (item ativo natural via `usePathname`). |
+| B     | Continua sheet, tabbar dispara evento custom. | Gambiarra pra estado ativo.                                    |
+| C     | Ambos coexistem.                              | Duplicidade confusa.                                           |
 
 #### Decidido
 
@@ -198,11 +198,11 @@ Como organizar a tabbar com Camera mantendo posicao central destacada, removendo
 
 > Reinterpretada apos 5.17: agora trata apenas do FAB **mobile**. Desktop usa botao no topo da lista (5.15).
 
-| Opcao | Lugar(es) do FAB mobile | Tradeoff |
-|-------|-------------------------|----------|
-| **A** | So `/samples` mobile | Espelha 1:1 o padrao de Clientes. Consistente com 5.17 (dashboard sem ponto de entrada). |
-| B | `/samples` + `/dashboard` mobile | Descartada — 5.17 decidiu que dashboard nao tem ponto de entrada. |
-| C | So `/dashboard` mobile | Descartada por mesmo motivo. |
+| Opcao | Lugar(es) do FAB mobile          | Tradeoff                                                                                 |
+| ----- | -------------------------------- | ---------------------------------------------------------------------------------------- |
+| **A** | So `/samples` mobile             | Espelha 1:1 o padrao de Clientes. Consistente com 5.17 (dashboard sem ponto de entrada). |
+| B     | `/samples` + `/dashboard` mobile | Descartada — 5.17 decidiu que dashboard nao tem ponto de entrada.                        |
+| C     | So `/dashboard` mobile           | Descartada por mesmo motivo.                                                             |
 
 #### Decidido
 
@@ -219,11 +219,11 @@ Como organizar a tabbar com Camera mantendo posicao central destacada, removendo
 
 Form tem ~7 campos, sticky footer, abre modal aninhado (cliente quick-create) e modal pos-criacao (label).
 
-| Opcao | Mobile | Desktop | Tradeoff |
-|-------|--------|---------|----------|
-| **A** | Bottom sheet full-height (98dvh, slide-up) | `.app-modal.is-themed` (650px centralizado) | Padrao mobile moderno. Mais espaco. Melhor com teclado virtual. |
-| B | `.app-modal.is-themed` (650px, scroll interno) | Idem | Reusa CSS existente. Form pode ficar apertado em mobile pequeno. |
-| C | Full-screen modal page-like (100vh) | `.app-modal.is-themed` | Sensacao de pagina. |
+| Opcao | Mobile                                         | Desktop                                     | Tradeoff                                                         |
+| ----- | ---------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
+| **A** | Bottom sheet full-height (98dvh, slide-up)     | `.app-modal.is-themed` (650px centralizado) | Padrao mobile moderno. Mais espaco. Melhor com teclado virtual.  |
+| B     | `.app-modal.is-themed` (650px, scroll interno) | Idem                                        | Reusa CSS existente. Form pode ficar apertado em mobile pequeno. |
+| C     | Full-screen modal page-like (100vh)            | `.app-modal.is-themed`                      | Sensacao de pagina.                                              |
 
 #### Decidido
 
@@ -244,12 +244,12 @@ Form tem ~7 campos, sticky footer, abre modal aninhado (cliente quick-create) e 
 
 ### 5.5 Persistencia do draft e fechamento do modal `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| A | Confirmar antes de fechar se isDirty | Simples, sem auto-save. |
-| B | Auto-save silencioso + retomar | Robusto, mas usuario pode esquecer. |
-| **C** | Auto-save + confirmacao | Cobre todos os casos. |
-| D | Fechar sem confirmacao | Frustra usuario. |
+| Opcao | Comportamento                        | Tradeoff                            |
+| ----- | ------------------------------------ | ----------------------------------- |
+| A     | Confirmar antes de fechar se isDirty | Simples, sem auto-save.             |
+| B     | Auto-save silencioso + retomar       | Robusto, mas usuario pode esquecer. |
+| **C** | Auto-save + confirmacao              | Cobre todos os casos.               |
+| D     | Fechar sem confirmacao               | Frustra usuario.                    |
 
 #### Decidido
 
@@ -269,12 +269,12 @@ Form tem ~7 campos, sticky footer, abre modal aninhado (cliente quick-create) e 
 
 ### 5.6 Quick-create de cliente dentro do modal de amostra `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| A | Modal aninhado definitivo | Funciona, mas pesado visualmente. |
-| B (alvo final) | Inline expansivel | Sem stacking, mais limpo. |
-| **B-pragmatica** | Comecar com modal aninhado (A), migrar para inline (B) depois | Mais rapido agora, refator depois. |
-| C | Wizard step (substitui conteudo) | Adiciona complexidade ao wizard principal. |
+| Opcao            | Comportamento                                                 | Tradeoff                                   |
+| ---------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| A                | Modal aninhado definitivo                                     | Funciona, mas pesado visualmente.          |
+| B (alvo final)   | Inline expansivel                                             | Sem stacking, mais limpo.                  |
+| **B-pragmatica** | Comecar com modal aninhado (A), migrar para inline (B) depois | Mais rapido agora, refator depois.         |
+| C                | Wizard step (substitui conteudo)                              | Adiciona complexidade ao wizard principal. |
 
 #### Decidido
 
@@ -298,18 +298,19 @@ Form tem ~7 campos, sticky footer, abre modal aninhado (cliente quick-create) e 
 > Reformulada (v1.7): a decisao original falava de "label/print modal" mas o fluxo de criacao **nao tem mais QR/print** desde a Fase P3. A decisao real e como acomodar os 2 steps existentes (`review` + `created`) dentro do novo modal/sheet do form (5.4=A).
 
 **Fluxo atual** (no codigo, `app/samples/new/page.tsx:807-934`):
+
 - `review`: card nao-editavel com dados + [Editar] + [Confirmar]
 - `created`: painel grande com numero do lote em destaque + "Anote este numero na saca antes de seguir." + [Ir para amostra]
 - Sem QR, sem print — print de etiqueta e acao manual separada nos detalhes (ver 2.4b)
 
 Hoje sao 2 superficies (form e pagina + modal de review/created). Com 5.4=A o form tambem vira sheet/modal, entao precisamos decidir:
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| **A (recomendada)** | **Wizard de 3 steps na mesma superficie** (bottom sheet mobile ou `.app-modal.is-themed` desktop): `form` -> `review` -> `created`. Cada transicao troca apenas o conteudo (com animacao). | Sem stacking. 1 superficie visual unica. Coerente com 5.4=A. Padrao mobile wizard (Stripe Checkout, Apple Pay sheets). |
-| B | Sheet/modal do form fecha apos tap "Criar amostra"; **modal/sheet separado** abre com review+created por cima da lista. | Mantem o `NewSampleLabelModal` atual sem fundir com o sheet. Flash visual entre form -> review. Duas superficies pro usuario entender. |
-| C | Sheet do form continua aberto; modal de review/created abre **por cima** (stack: backdrop + sheet form + backdrop + modal review). | Pesado: 2 backdrops, 2 modais empilhados. |
-| D | Sem step `review` separado — apos tap "Criar amostra", submete direto e vai pro step `created`. A revisao acontece visualmente no proprio form preenchido (campos com valores ja visiveis). | Elimina 1 step (mais rapido). Risco: usuario envia sem conferir. Hoje o `review` serve como "checkout final" intencional. |
+| Opcao               | Comportamento                                                                                                                                                                               | Tradeoff                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **A (recomendada)** | **Wizard de 3 steps na mesma superficie** (bottom sheet mobile ou `.app-modal.is-themed` desktop): `form` -> `review` -> `created`. Cada transicao troca apenas o conteudo (com animacao).  | Sem stacking. 1 superficie visual unica. Coerente com 5.4=A. Padrao mobile wizard (Stripe Checkout, Apple Pay sheets).                 |
+| B                   | Sheet/modal do form fecha apos tap "Criar amostra"; **modal/sheet separado** abre com review+created por cima da lista.                                                                     | Mantem o `NewSampleLabelModal` atual sem fundir com o sheet. Flash visual entre form -> review. Duas superficies pro usuario entender. |
+| C                   | Sheet do form continua aberto; modal de review/created abre **por cima** (stack: backdrop + sheet form + backdrop + modal review).                                                          | Pesado: 2 backdrops, 2 modais empilhados.                                                                                              |
+| D                   | Sem step `review` separado — apos tap "Criar amostra", submete direto e vai pro step `created`. A revisao acontece visualmente no proprio form preenchido (campos com valores ja visiveis). | Elimina 1 step (mais rapido). Risco: usuario envia sem conferir. Hoje o `review` serve como "checkout final" intencional.              |
 
 Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom sheet e convencional. Mantem o `review` como protecao contra envio acidental. O `created` continua focado no lote pra anotar na saca.
 
@@ -335,12 +336,12 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 
 `/settings` ja existe (`app/settings/page.tsx`, 639 linhas) com perfil, email, senha, logout.
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| **a** | `/profile` absorve `/settings` (uma rota so) | Mais limpo, sem duplicidade. |
-| b | `/profile` substitui `/settings` (rename + atualiza links) | Similar, mas o destino conceitual e o mesmo. |
-| c | Mantem ambos separados | Confuso (perfil vs settings se sobrepoem). |
-| d | So renomeia label "Meu perfil", mantem rota `/settings` | Inconsistente com nomenclatura. |
+| Opcao | Comportamento                                              | Tradeoff                                     |
+| ----- | ---------------------------------------------------------- | -------------------------------------------- |
+| **a** | `/profile` absorve `/settings` (uma rota so)               | Mais limpo, sem duplicidade.                 |
+| b     | `/profile` substitui `/settings` (rename + atualiza links) | Similar, mas o destino conceitual e o mesmo. |
+| c     | Mantem ambos separados                                     | Confuso (perfil vs settings se sobrepoem).   |
+| d     | So renomeia label "Meu perfil", mantem rota `/settings`    | Inconsistente com nomenclatura.              |
 
 #### Decidido
 
@@ -355,12 +356,12 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 
 ### 5.9 Avatar do header apos perfil virar item da tabbar `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
+| Opcao | Comportamento                                                  | Tradeoff                                                |
+| ----- | -------------------------------------------------------------- | ------------------------------------------------------- |
 | **a** | Some em mobile (sem redundancia com tabbar); mantem em desktop | Mobile limpo; desktop tem ponto de entrada alternativo. |
-| b | Atalho pra `/profile` em ambos | Redundancia em mobile. |
-| c | Continua com Sair + atalhos | Complicado. |
-| d | Some totalmente | Desktop perde ponto de entrada. |
+| b     | Atalho pra `/profile` em ambos                                 | Redundancia em mobile.                                  |
+| c     | Continua com Sair + atalhos                                    | Complicado.                                             |
+| d     | Some totalmente                                                | Desktop perde ponto de entrada.                         |
 
 #### Decidido
 
@@ -375,11 +376,11 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 
 ### 5.10 Icone do item "Perfil" na tabbar `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| a | SVG generico (silhueta) | Simples, sem personalizacao. |
-| **b** | Avatar do usuario (foto/iniciais) | Convencao mobile (Instagram, X). Personaliza. |
-| c | Misto (foto se tem, fallback silhueta) | Adapta. |
+| Opcao | Comportamento                          | Tradeoff                                      |
+| ----- | -------------------------------------- | --------------------------------------------- |
+| a     | SVG generico (silhueta)                | Simples, sem personalizacao.                  |
+| **b** | Avatar do usuario (foto/iniciais)      | Convencao mobile (Instagram, X). Personaliza. |
+| c     | Misto (foto se tem, fallback silhueta) | Adapta.                                       |
 
 #### Decidido
 
@@ -394,11 +395,11 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 
 ### 5.11 Desktop nav tambem perde `/samples/new`? `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| **a** | Sincroniza agora — remove de DESKTOP_NAV_ITEMS | Mobile/desktop convergem. |
-| b | Posterga | Inconsistencia temporaria. |
-| c | Desktop nunca perde | Inconsistencia permanente. |
+| Opcao | Comportamento                                  | Tradeoff                   |
+| ----- | ---------------------------------------------- | -------------------------- |
+| **a** | Sincroniza agora — remove de DESKTOP_NAV_ITEMS | Mobile/desktop convergem.  |
+| b     | Posterga                                       | Inconsistencia temporaria. |
+| c     | Desktop nunca perde                            | Inconsistencia permanente. |
 
 #### Decidido
 
@@ -415,12 +416,12 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 
 Como organizar conteudo de `/settings` (perfil, email, senha) + bloco do antigo sheet (avatar, nome, role, logout) numa pagina so?
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
+| Opcao | Comportamento                                             | Tradeoff                      |
+| ----- | --------------------------------------------------------- | ----------------------------- |
 | **a** | Secoes stackadas (Identidade -> Email -> Senha -> Logout) | Mobile-first, scroll natural. |
-| b | Tabs (Perfil \| Seguranca \| Conta) | Mais denso, exige UI extra. |
-| c | Acordeao | Esconde conteudo. |
-| d | Sub-rotas (`/profile/email`, etc.) | Mais cliques. |
+| b     | Tabs (Perfil \| Seguranca \| Conta)                       | Mais denso, exige UI extra.   |
+| c     | Acordeao                                                  | Esconde conteudo.             |
+| d     | Sub-rotas (`/profile/email`, etc.)                        | Mais cliques.                 |
 
 #### Decidido
 
@@ -435,11 +436,11 @@ Como organizar conteudo de `/settings` (perfil, email, senha) + bloco do antigo 
 
 ### 5.13 Destino de `/settings` apos a fusao `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
+| Opcao | Comportamento                                                    | Tradeoff                     |
+| ----- | ---------------------------------------------------------------- | ---------------------------- |
 | **a** | Redirect 302 `/settings` -> `/profile` + atualiza links internos | Compat com bookmarks; clean. |
-| b | Deleta rota sem redirect | Quebra bookmarks. |
-| c | Redirect permanente forever | Cache eterno do browser/CDN. |
+| b     | Deleta rota sem redirect                                         | Quebra bookmarks.            |
+| c     | Redirect permanente forever                                      | Cache eterno do browser/CDN. |
 
 #### Decidido
 
@@ -456,12 +457,12 @@ Como organizar conteudo de `/settings` (perfil, email, senha) + bloco do antigo 
 
 Como nao ha campo de foto no schema do `SessionUser`:
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| **a** | Iniciais coloridas em circle (hash deterministico) | Simples, client-side, sem mudar schema. |
-| b | Silhueta SVG em circle | Sem personalizacao. |
-| c | Iniciais + permitir upload de foto | Escopo grande (schema, endpoint, storage, magic bytes). |
-| d | Iniciais hoje, preparar campo `avatarUrl` no schema | Mistura escopo. |
+| Opcao | Comportamento                                       | Tradeoff                                                |
+| ----- | --------------------------------------------------- | ------------------------------------------------------- |
+| **a** | Iniciais coloridas em circle (hash deterministico)  | Simples, client-side, sem mudar schema.                 |
+| b     | Silhueta SVG em circle                              | Sem personalizacao.                                     |
+| c     | Iniciais + permitir upload de foto                  | Escopo grande (schema, endpoint, storage, magic bytes). |
+| d     | Iniciais hoje, preparar campo `avatarUrl` no schema | Mistura escopo.                                         |
 
 #### Decidido
 
@@ -476,11 +477,11 @@ Como nao ha campo de foto no schema do `SessionUser`:
 
 ### 5.15 Ponto de entrada do registro em desktop `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| a | FAB tambem em desktop | Quebra padrao desktop. |
+| Opcao | Comportamento                                      | Tradeoff                               |
+| ----- | -------------------------------------------------- | -------------------------------------- |
+| a     | FAB tambem em desktop                              | Quebra padrao desktop.                 |
 | **b** | Botao "+ Nova amostra" no topo da lista `/samples` | Convencao desktop (data-table action). |
-| c | Botao no header desktop | Compete visualmente com nav. |
+| c     | Botao no header desktop                            | Compete visualmente com nav.           |
 
 #### Decidido
 
@@ -497,10 +498,10 @@ Como nao ha campo de foto no schema do `SessionUser`:
 
 Header mobile hoje tem: spacer + logo + search compact + avatar trigger. Com avatar removido (5.9=a):
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| a | Sem nada no canto direito | Minimalista. |
-| b | Mover search pro canto direito | Reorganiza. |
+| Opcao        | Comportamento                             | Tradeoff                                  |
+| ------------ | ----------------------------------------- | ----------------------------------------- |
+| a            | Sem nada no canto direito                 | Minimalista.                              |
+| b            | Mover search pro canto direito            | Reorganiza.                               |
 | **c custom** | Sino de notificacoes (placeholder visual) | Aproveita espaco; prepara feature futura. |
 
 #### Decidido
@@ -516,11 +517,11 @@ Header mobile hoje tem: spacer + logo + search compact + avatar trigger. Com ava
 
 ### 5.17 Dashboard tem ponto de entrada de nova amostra? `[DECIDIDO]`
 
-| Opcao | Comportamento | Tradeoff |
-|-------|---------------|----------|
-| a | Sim, botao em desktop e FAB em mobile no dashboard | Acesso em 1 clique a partir da home. |
+| Opcao | Comportamento                                           | Tradeoff                                                   |
+| ----- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| a     | Sim, botao em desktop e FAB em mobile no dashboard      | Acesso em 1 clique a partir da home.                       |
 | **b** | Nao, nem mobile nem desktop. So a partir de `/samples`. | 2 cliques a partir do dashboard, mas dashboard fica limpo. |
-| c | Card de atalho rapido no dashboard | Mais decorativo. |
+| c     | Card de atalho rapido no dashboard                      | Mais decorativo.                                           |
 
 #### Decidido
 
@@ -588,15 +589,15 @@ State machine: `'form' | 'review' | 'created'`.
 
 **Principio:** gestos universais (drag/backdrop/back) sempre **fecham**; navegacao entre steps e exclusiva de botoes explicitos.
 
-| Aspecto | Step `form` | Step `review` | Step `created` |
-|---------|-------------|---------------|----------------|
-| Titulo do header | "Nova amostra" | "Confirme os dados" | "Amostra criada" |
-| Conteudo do body | Form completo (7 campos) | Card nao-editavel com dados preenchidos | Painel "Lote XXXX" em destaque + texto pra anotar na saca |
-| Footer (acoes) | [Criar amostra] (sticky) | [Editar (circular sec)] [Confirmar (circular primary)] | [Ir para amostra] |
-| Backdrop tap | Fecha (com confirmacao se isDirty — 5.5=C) | **Fecha** (com confirmacao 5.5=C). **NAO volta pro form** — gesto universal de fechar deve sempre fechar. | **Fecha sheet, permanece na rota atual**. **NAO navega pra /samples/[id]** — gesto universal de fechar nao deve forcar navegacao. |
-| Drag-to-dismiss (mobile) | Fecha (com confirmacao se isDirty — 5.5=C) | **Fecha** (com confirmacao 5.5=C). NAO volta pro form. | **Fecha sheet, permanece na rota atual**. NAO navega. |
-| Back Android (mobile) | Identico ao backdrop tap | Identico ao backdrop tap | Identico ao backdrop tap |
-| Botao X do header | Fecha (com confirmacao 5.5=C) | Fecha (com confirmacao 5.5=C) | Fecha, permanece na rota atual |
+| Aspecto                  | Step `form`                                | Step `review`                                                                                             | Step `created`                                                                                                                    |
+| ------------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Titulo do header         | "Nova amostra"                             | "Confirme os dados"                                                                                       | "Amostra criada"                                                                                                                  |
+| Conteudo do body         | Form completo (7 campos)                   | Card nao-editavel com dados preenchidos                                                                   | Painel "Lote XXXX" em destaque + texto pra anotar na saca                                                                         |
+| Footer (acoes)           | [Criar amostra] (sticky)                   | [Editar (circular sec)] [Confirmar (circular primary)]                                                    | [Ir para amostra]                                                                                                                 |
+| Backdrop tap             | Fecha (com confirmacao se isDirty — 5.5=C) | **Fecha** (com confirmacao 5.5=C). **NAO volta pro form** — gesto universal de fechar deve sempre fechar. | **Fecha sheet, permanece na rota atual**. **NAO navega pra /samples/[id]** — gesto universal de fechar nao deve forcar navegacao. |
+| Drag-to-dismiss (mobile) | Fecha (com confirmacao se isDirty — 5.5=C) | **Fecha** (com confirmacao 5.5=C). NAO volta pro form.                                                    | **Fecha sheet, permanece na rota atual**. NAO navega.                                                                             |
+| Back Android (mobile)    | Identico ao backdrop tap                   | Identico ao backdrop tap                                                                                  | Identico ao backdrop tap                                                                                                          |
+| Botao X do header        | Fecha (com confirmacao 5.5=C)              | Fecha (com confirmacao 5.5=C)                                                                             | Fecha, permanece na rota atual                                                                                                    |
 
 **Voltar pro `form` a partir do `review`:** EXCLUSIVAMENTE pelo botao [Editar]. Auto-save (5.5=C) garante que o state do form e preservado integralmente — usuario volta com TODOS os dados como deixou (decisao explicita do usuario v1.9: "ao editar deve voltar para o modal de preenchimento com as informacoes ja preenchidas salvas").
 
@@ -701,15 +702,15 @@ Ordem sugerida: atualizar/criar tests **junto com cada Fase** (nao postergar pra
 
 Encontrados (sem testes/docs):
 
-| Arquivo | Linhas | O que faz | Acao na Fase 1 |
-|---------|--------|-----------|----------------|
-| `components/ProfileBottomSheet.tsx` | 167 | Link `<Link href="/settings">` "Meu perfil" | Componente sera deletado (Fase 1) — sem acao |
-| `components/AppShell.tsx` | 25 | `NavIcon` type inclui `'settings'` | Remover do tipo (NavIcon nao precisa mais — item Perfil usa `<UserAvatar />`) |
-| `components/AppShell.tsx` | 101-102 | `isMainNavItemActive` reconhece `/settings` | Substituir por regra de `/profile` |
-| `components/AppShell.tsx` | 162-169 | Render do icone `'settings'` (SVG silhueta) | Remover se NavIcon nao tiver mais `'settings'` (Fase 1) |
-| `components/AppShell.tsx` | 189 | `resolveMobileRouteMeta` retorna null para `/settings` | Substituir por regra de `/profile` (manter retornando null — pagina `/profile` renderiza seu proprio header) |
-| `components/AppShell.tsx` | 216 | `const isSettingsPage = pathname === '/settings'` | Renomear pra `isProfilePage` |
-| `components/AppShell.tsx` | 555 | `<Link href="/settings">` no dropdown desktop "Meu perfil" | Atualizar pra `/profile` |
+| Arquivo                             | Linhas  | O que faz                                                  | Acao na Fase 1                                                                                               |
+| ----------------------------------- | ------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `components/ProfileBottomSheet.tsx` | 167     | Link `<Link href="/settings">` "Meu perfil"                | Componente sera deletado (Fase 1) — sem acao                                                                 |
+| `components/AppShell.tsx`           | 25      | `NavIcon` type inclui `'settings'`                         | Remover do tipo (NavIcon nao precisa mais — item Perfil usa `<UserAvatar />`)                                |
+| `components/AppShell.tsx`           | 101-102 | `isMainNavItemActive` reconhece `/settings`                | Substituir por regra de `/profile`                                                                           |
+| `components/AppShell.tsx`           | 162-169 | Render do icone `'settings'` (SVG silhueta)                | Remover se NavIcon nao tiver mais `'settings'` (Fase 1)                                                      |
+| `components/AppShell.tsx`           | 189     | `resolveMobileRouteMeta` retorna null para `/settings`     | Substituir por regra de `/profile` (manter retornando null — pagina `/profile` renderiza seu proprio header) |
+| `components/AppShell.tsx`           | 216     | `const isSettingsPage = pathname === '/settings'`          | Renomear pra `isProfilePage`                                                                                 |
+| `components/AppShell.tsx`           | 555     | `<Link href="/settings">` no dropdown desktop "Meu perfil" | Atualizar pra `/profile`                                                                                     |
 
 **Decisoes pequenas derivadas (resolvidas sem virar decisao formal):**
 
@@ -760,6 +761,7 @@ Encontrados (sem testes/docs):
 ```
 
 Pontos a detalhar conforme decisoes 5.3 a 5.7 forem fechadas:
+
 - Comportamento do botao "voltar" do navegador / gesto Android com modal aberto
 - Acessibilidade: foco inicial, trap de teclado, ARIA
 - Comportamento quando ha draft pendente ao abrir o FAB (oferecer retomar?)
@@ -772,54 +774,67 @@ Decisoes 5.1, 5.2, 5.8-5.17 fechadas — Fase 1 totalmente pronta para execucao.
 Decisao 5.4 define a arquitetura do modal (Fase 2).
 Decisoes 5.3, 5.5, 5.6, 5.7 sao refinamentos.
 
-### Fase 1 — Estrutural: Tabbar, Perfil, Header, Avatar
+### Fase 1 — Estrutural: Tabbar, Perfil, Header, Avatar `[CONCLUIDA — 2026-05-11]`
 
 Pre-requisito: decisoes 5.1, 5.2, 5.8, 5.9, 5.10, 5.11, 5.12, 5.13, 5.14, 5.16 (todas fechadas).
 
+Implementada na branch `feat/fase1-tabbar-perfil-header-avatar` em 7 commits sequenciais. Quality gates (lint, typecheck, format:check, build) verdes.
+
 **Componentes novos:**
-- [ ] Criar componente `<UserAvatar size="sm|md|lg" />` (Nota 6.1)
-- [ ] Criar componente `<NotificationBell />` placeholder nao-clicavel (Nota 6.3)
+
+- [x] Criar componente `<UserAvatar size="sm|md|lg" />` (Nota 6.1) — `components/UserAvatar.tsx`
+- [x] Criar componente `<NotificationBell />` placeholder nao-clicavel (Nota 6.3) — `components/NotificationBell.tsx`
 
 **Rota `/profile`:**
-- [ ] Criar rota `/profile` (Next.js page) absorvendo conteudo de `app/settings/page.tsx`
-- [ ] Reorganizar conteudo em secoes stackadas (5.12=a): header (avatar lg + nome + role) -> Identidade (fullName, username, phone) -> Email (com codigo de verificacao) -> Senha -> [botao Sair fixo no fim]
-- [ ] Implementar redirect 302 `/settings` -> `/profile` com header `Cache-Control: no-store` (Nota 6.14)
+
+- [x] Criar rota `/profile` (Next.js page) absorvendo conteudo de `app/settings/page.tsx` — `app/profile/page.tsx`
+- [x] Reorganizar conteudo em secoes stackadas (5.12=a): header (avatar lg + nome + role) -> Identidade -> Email -> Senha -> [botao Sair em card proprio]
+- [x] Implementar redirect 302 `/settings` -> `/profile` (Server Component + `redirects()` em next.config.mjs)
 
 **`components/AppShell.tsx` — refatoracao baseada no mapeamento exaustivo (Nota 6.18):**
-- [ ] Atualizar `MOBILE_NAV_ITEMS` (linhas 47-78): nova ordem 5.1=A (`Inicio | Amostras | Camera* | Clientes | Perfil`); item Perfil renderiza `<UserAvatar size="sm" />` em vez de SVG
-- [ ] Atualizar `DESKTOP_NAV_ITEMS` (linhas 34-39): remover `/samples/new` (5.11=a)
-- [ ] Remover `'new-sample'` e `'settings'` do tipo `NavIcon` (linha 25) — nao usados mais
-- [ ] Atualizar `isMainNavItemActive`: remover regra `/samples/new` (linhas 89-91); remover regra `/settings` (linhas 101-103); adicionar regra `/profile`
-- [ ] Atualizar `renderNavIcon`: remover bloco `if (icon === 'settings')` (linhas 162-169) — nao usado mais
-- [ ] Atualizar `resolveMobileRouteMeta`: substituir regra `/settings` (linha 189) por `/profile` (retornando null — pagina renderiza seu proprio header)
-- [ ] Renomear const `isSettingsPage` (linha 216) -> `isProfilePage`; atualizar uso em `isLayeredRoute` (linhas 217-225)
-- [ ] Atualizar Link `href="/settings"` no dropdown desktop (linha 555) -> `/profile`
-- [ ] Remover avatar trigger do header mobile (linhas 512-519): remover dispatch `setProfileSheetOpen(true)` em mobile
-- [ ] Adicionar `<NotificationBell />` placeholder no canto direito do header mobile (Nota 6.4)
-- [ ] Remover state `profileSheetOpen` (linha 208) e referencias
-- [ ] Remover listener `'open-profile-sheet'` (linhas 286-295)
-- [ ] Remover `<ProfileBottomSheet>` do JSX (linhas 602-607)
 
-**Outras paginas — limpar dispatches do evento custom:**
-- [ ] Remover dispatch `'open-profile-sheet'` em `components/dashboard/DashboardMobile.tsx:65` (avatar do header dessa pagina)
-- [ ] Remover dispatch em `app/samples/new/page.tsx:596` (sera deletado na Fase 5, mas remover ja por consistencia)
-- [ ] Remover dispatch em `app/clients/[clientId]/page.tsx:1029`
-- [ ] Remover dispatch em `app/users/page.tsx:595`
-- [ ] Remover dispatch em `app/samples/page.tsx:1016`
-- [ ] Remover dispatch em `app/clients/page.tsx:882`
-- [ ] Remover dispatch em `app/samples/[sampleId]/page.tsx:1850`
+- [x] Atualizar `MOBILE_NAV_ITEMS`: nova ordem 5.1=A (`Inicio | Amostras | Camera* | Clientes | Perfil`); item Perfil usa `icon: 'avatar'`, `<UserAvatar />` renderizado em `renderNavIcon`
+- [x] Atualizar `DESKTOP_NAV_ITEMS`: remover `/samples/new` (5.11=a)
+- [x] Remover `'new-sample'` e `'settings'` do tipo `NavIcon`; adicionar `'avatar'`
+- [x] Atualizar `isMainNavItemActive`: remover regras `/samples/new` e `/settings`; adicionar `/profile`
+- [x] Atualizar `renderNavIcon`: remover blocos `'new-sample'` e `'settings'`; adicionar bloco `'avatar'` que renderiza `<UserAvatar />`
+- [x] Atualizar `resolveMobileRouteMeta`: substituir regra `/settings` por `/profile`
+- [x] Renomear const `isSettingsPage` -> `isProfilePage`; atualizar `isLayeredRoute`
+- [x] Atualizar Link `href="/settings"` no dropdown desktop -> `/profile`
+- [x] Simplificar `topbar-profile-trigger`: usa `<UserAvatar size="sm" />` em vez de SVG silhueta; `onClick` simplificado pra so toggle do menu (sem branching `window.innerWidth`)
+- [x] Adicionar `<NotificationBell />` placeholder no header mobile (CSS-only switch via `@media (max-width: 900px)`)
+- [x] Remover state `profileSheetOpen` e referencias
+- [x] Remover listener `'open-profile-sheet'`
+- [x] Remover `<ProfileBottomSheet>` do JSX
+- [x] Remover import de `ProfileBottomSheet`
+
+**Outras paginas — substituir 7 dispatches por `<Link href="/profile">`:**
+
+- [x] `components/dashboard/DashboardMobile.tsx:65` (com adicao do import de Link)
+- [x] `app/samples/new/page.tsx:596`
+- [x] `app/clients/[clientId]/page.tsx:1029`
+- [x] `app/users/page.tsx:595`
+- [x] `app/samples/page.tsx:1016`
+- [x] `app/clients/page.tsx:882`
+- [x] `app/samples/[sampleId]/page.tsx:1850`
 
 **Deletar componente e CSS:**
-- [ ] Deletar `components/ProfileBottomSheet.tsx`
-- [ ] Deletar CSS `.profile-sheet*` em `app/globals.css` (linhas ~18591+)
 
-**Validacao final da Fase 1:**
-- [ ] Item ativo da tabbar funciona (`/profile` marca Perfil)
-- [ ] Avatar com iniciais renderiza corretamente em todos os usuarios de teste
-- [ ] Sino visivel no header mobile, NAO-clicavel (cursor default)
-- [ ] Redirect `/settings` -> `/profile` funcional (testar com curl + bookmark)
-- [ ] Safe areas (notch + gesture bar) respeitadas
-- [ ] Sem warnings no console (referencias orfas)
+- [x] Deletar `components/ProfileBottomSheet.tsx`
+- [x] Deletar CSS `.profile-sheet*` em `app/globals.css` (linhas 18582-18787, ~205 linhas)
+
+**Validacao tecnica (quality gates):**
+
+- [x] `npm run lint` verde (1 warning pre-existente em eslint.config.mjs nao relacionada)
+- [x] `npm run format:check` verde
+- [x] `npm run typecheck` verde
+- [x] `npm run build` verde — rotas `/profile` (static, 4.48 kB) e `/settings` (dynamic, 320 B, redirect) registradas; `/samples/new` ainda presente (sera removida na Fase 5)
+- [x] `grep "open-profile-sheet"` retorna zero ocorrencias em `app/` e `components/`
+- [x] `grep "ProfileBottomSheet\|profile-sheet"` retorna zero em codigo (so em docs)
+
+**Validacao funcional manual:** pendente — sera feita em ambiente local antes do PR/deploy (nao bloqueia o commit da Fase 1).
+
+**Resumo da implementacao:** 3 arquivos novos (UserAvatar.tsx, NotificationBell.tsx, profile/page.tsx), 11 modificados (AppShell.tsx, settings/page.tsx, next.config.mjs, globals.css, 7 paginas com dispatch substituido por Link), 1 deletado (ProfileBottomSheet.tsx).
 
 ### Fase 2 — Componente: Modal de Nova Amostra
 
@@ -875,30 +890,30 @@ Pre-requisito: Fases 1-4 validadas em producao canary.
 
 Status global: **Em planejamento — Fase 1 pronta pra execucao**
 
-| Item | Status | Notas |
-|------|--------|-------|
-| Decisao 5.1 — Tabbar layout | DECIDIDO (A) | Inicio \| Amostras \| Camera* \| Clientes \| Perfil |
-| Decisao 5.2 — Perfil rota vs sheet | DECIDIDO (A) | Rota dedicada |
-| Decisao 5.3 — FAB mobile | DECIDIDO (A) | So `/samples` mobile |
-| Decisao 5.4 — Formato do modal | DECIDIDO (A) | Bottom sheet mobile + `.app-modal.is-themed` desktop |
-| Decisao 5.5 — Persistencia do draft | DECIDIDO (C) | Auto-save sessionStorage + confirmacao isDirty |
-| Decisao 5.6 — Quick-create cliente | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro |
-| Decisao 5.7 — Integracao review+created | DECIDIDO (A) | Wizard 3 steps (form/review/created) na mesma superficie |
-| Decisao 5.8 — Settings absorvido | DECIDIDO (a) | /profile substitui /settings |
-| Decisao 5.9 — Avatar do header | DECIDIDO (a) | Some mobile, mantem desktop |
-| Decisao 5.10 — Icone do Perfil | DECIDIDO (b) | Avatar do usuario |
-| Decisao 5.11 — Desktop perde new | DECIDIDO (a) | Sincroniza com mobile |
-| Decisao 5.12 — Layout /profile | DECIDIDO (a) | Secoes stackadas |
-| Decisao 5.13 — Destino /settings | DECIDIDO (a) | Redirect 302 + atualizar links |
-| Decisao 5.14 — Tipo avatar | DECIDIDO (a) | Iniciais coloridas |
-| Decisao 5.15 — Entrada desktop | DECIDIDO (b) | Botao topo da lista |
-| Decisao 5.16 — Header mobile | DECIDIDO (c custom) | Sino placeholder |
-| Decisao 5.17 — Dashboard entrada | DECIDIDO (b) | Sem ponto de entrada |
-| Fase 1 — Tabbar, Perfil, Header, Avatar | PRONTA P/ EXECUCAO | Todas as decisoes necessarias fechadas |
-| Fase 2 — Modal componente | PRONTA P/ EXECUCAO | Todas as decisoes necessarias fechadas |
-| Fase 3 — FAB e botao desktop | AGUARDA FASE 2 | Decisoes 5.3 e 5.15 fechadas; depende da Fase 2 estar completa |
-| Fase 4 — Refinamentos | PRONTA P/ EXECUCAO | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa |
-| Fase 5 — Limpeza | PENDENTE | Aguarda Fases 1-4 |
+| Item                                    | Status                  | Notas                                                                    |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------ |
+| Decisao 5.1 — Tabbar layout             | DECIDIDO (A)            | Inicio \| Amostras \| Camera\* \| Clientes \| Perfil                     |
+| Decisao 5.2 — Perfil rota vs sheet      | DECIDIDO (A)            | Rota dedicada                                                            |
+| Decisao 5.3 — FAB mobile                | DECIDIDO (A)            | So `/samples` mobile                                                     |
+| Decisao 5.4 — Formato do modal          | DECIDIDO (A)            | Bottom sheet mobile + `.app-modal.is-themed` desktop                     |
+| Decisao 5.5 — Persistencia do draft     | DECIDIDO (C)            | Auto-save sessionStorage + confirmacao isDirty                           |
+| Decisao 5.6 — Quick-create cliente      | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro                |
+| Decisao 5.7 — Integracao review+created | DECIDIDO (A)            | Wizard 3 steps (form/review/created) na mesma superficie                 |
+| Decisao 5.8 — Settings absorvido        | DECIDIDO (a)            | /profile substitui /settings                                             |
+| Decisao 5.9 — Avatar do header          | DECIDIDO (a)            | Some mobile, mantem desktop                                              |
+| Decisao 5.10 — Icone do Perfil          | DECIDIDO (b)            | Avatar do usuario                                                        |
+| Decisao 5.11 — Desktop perde new        | DECIDIDO (a)            | Sincroniza com mobile                                                    |
+| Decisao 5.12 — Layout /profile          | DECIDIDO (a)            | Secoes stackadas                                                         |
+| Decisao 5.13 — Destino /settings        | DECIDIDO (a)            | Redirect 302 + atualizar links                                           |
+| Decisao 5.14 — Tipo avatar              | DECIDIDO (a)            | Iniciais coloridas                                                       |
+| Decisao 5.15 — Entrada desktop          | DECIDIDO (b)            | Botao topo da lista                                                      |
+| Decisao 5.16 — Header mobile            | DECIDIDO (c custom)     | Sino placeholder                                                         |
+| Decisao 5.17 — Dashboard entrada        | DECIDIDO (b)            | Sem ponto de entrada                                                     |
+| Fase 1 — Tabbar, Perfil, Header, Avatar | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase1-tabbar-perfil-header-avatar; build verde         |
+| Fase 2 — Modal componente               | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas                                   |
+| Fase 3 — FAB e botao desktop            | AGUARDA FASE 2          | Decisoes 5.3 e 5.15 fechadas; depende da Fase 2 estar completa           |
+| Fase 4 — Refinamentos                   | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa |
+| Fase 5 — Limpeza                        | PENDENTE                | Aguarda Fases 1-4                                                        |
 
 ---
 
@@ -948,15 +963,16 @@ Riscos identificados na revisao critica pre-implementacao. Nao bloqueiam o codig
 
 ## 12. Historico de revisoes
 
-| Data | Mudanca | Autor |
-|------|---------|-------|
-| 2026-05-11 | Criacao do documento (v1) — objetivo, estado atual, 7 decisoes pendentes, ordem de execucao, tracking | Flavio + Claude |
-| 2026-05-11 | v1.1 — Adicionada secao 4 "Metodologia de analise de decisoes" como protocolo obrigatorio. Renumeracao consequente das secoes 5-10 e referencias internas. | Flavio + Claude |
-| 2026-05-11 | v1.2 — Decisoes 5.1 (A) e 5.2 (A) decididas com aplicacao do protocolo. Descobertas no codigo: rota /settings ja existe (639 linhas, conteudo de perfil+email+senha+logout). 4 decisoes derivadas adicionadas (5.8 a 5.11). | Flavio + Claude |
-| 2026-05-11 | v1.3 — Decisoes 5.8 (a), 5.9 (a), 5.10 (b), 5.11 (a) decididas. 5 decisoes derivadas adicionadas (5.12 a 5.16). Descoberta: SessionUser nao tem campo de foto. | Flavio + Claude |
-| 2026-05-11 | v1.4 — Decisoes 5.12 (a), 5.13 (a), 5.14 (a), 5.15 (b), 5.16 (c custom). 1 decisao derivada adicionada (5.17). 4 notas tecnicas registradas (secao 6). | Flavio + Claude |
-| 2026-05-11 | v1.5 — Decisao 5.17 (b). 5.3 reinterpretada como FAB mobile only com recomendacao automatica A em funcao de 5.17. Fase 1 totalmente desbloqueada para execucao. | Flavio + Claude |
-| 2026-05-11 | v1.6 — Decisoes 5.3 (A) e 5.4 (A) fechadas. Nota tecnica 6.5 adicionada (componente `<BottomSheet />` reusavel com API, fixes herdados de PWA standalone iOS, interceptacao de back Android). Fase 2 detalhada com 11 sub-tarefas e marcada PRONTA P/ EXECUCAO. | Flavio + Claude |
-| 2026-05-11 | v1.7 — Correcao de pontos desatualizados sobre o fluxo de criacao: QR e print foram REMOVIDOS do fluxo de criacao na Fase P3 (apenas o lote em destaque permanece no step `created`). Secao 2.4 expandida com detalhamento dos steps `review` e `created`. Nova secao 2.4b sobre print de etiqueta como acao manual nos detalhes (independente de classificacao). Secao 7 (fluxo do usuario) corrigida. Decisao 5.7 reformulada — agora trata de integracao do wizard `form -> review -> created` com o modal/sheet, sem qualquer relacao com print. | Flavio + Claude |
-| 2026-05-11 | v1.8 — Decisoes 5.5 (C: auto-save + confirmacao), 5.6 (B-pragmatica: modal aninhado inicial + debito tecnico) e 5.7 (A: wizard 3 steps na mesma superficie) fechadas. 3 notas tecnicas adicionadas (6.6, 6.7, 6.8). Fase 4 marcada PRONTA P/ EXECUCAO. **Todas as 17 decisoes da secao 5 estao fechadas — planejamento concluido, pronto pra execucao das fases.** | Flavio + Claude |
-| 2026-05-11 | v1.9 — Revisao critica pre-implementacao (THINK HARDER). Aplicados 2 ajustes criticos no comportamento do wizard (Nota 6.6): gestos universais (drag/backdrop/back) sempre fecham; navegacao entre steps e exclusiva de botoes (Editar volta pro form com state preservado via 5.5=C; Ir para amostra navega pra /samples/[id]). Adicionadas 10 novas notas tecnicas (6.9-6.18) cobrindo validacao client-side, erro de submit, acessibilidade, keyboard virtual, fallback dvh iOS, cache-control redirect, performance backdrop, identificacao usuario, estrategia de testes, mapeamento exaustivo /settings. Criada secao 11 com 3 riscos arquiteturais (Fases 1+2 sequenciais, tabbar com avatar, state machine explicita). Fase 1 expandida com sub-tarefas detalhadas (29 checkboxes) baseadas no grep exaustivo. Renumeracao: secao Historico passou de 11 -> 12. | Flavio + Claude |
+| Data       | Mudanca                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Autor           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 2026-05-11 | Criacao do documento (v1) — objetivo, estado atual, 7 decisoes pendentes, ordem de execucao, tracking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Flavio + Claude |
+| 2026-05-11 | v1.1 — Adicionada secao 4 "Metodologia de analise de decisoes" como protocolo obrigatorio. Renumeracao consequente das secoes 5-10 e referencias internas.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Flavio + Claude |
+| 2026-05-11 | v1.2 — Decisoes 5.1 (A) e 5.2 (A) decididas com aplicacao do protocolo. Descobertas no codigo: rota /settings ja existe (639 linhas, conteudo de perfil+email+senha+logout). 4 decisoes derivadas adicionadas (5.8 a 5.11).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Flavio + Claude |
+| 2026-05-11 | v1.3 — Decisoes 5.8 (a), 5.9 (a), 5.10 (b), 5.11 (a) decididas. 5 decisoes derivadas adicionadas (5.12 a 5.16). Descoberta: SessionUser nao tem campo de foto.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Flavio + Claude |
+| 2026-05-11 | v1.4 — Decisoes 5.12 (a), 5.13 (a), 5.14 (a), 5.15 (b), 5.16 (c custom). 1 decisao derivada adicionada (5.17). 4 notas tecnicas registradas (secao 6).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Flavio + Claude |
+| 2026-05-11 | v1.5 — Decisao 5.17 (b). 5.3 reinterpretada como FAB mobile only com recomendacao automatica A em funcao de 5.17. Fase 1 totalmente desbloqueada para execucao.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Flavio + Claude |
+| 2026-05-11 | v1.6 — Decisoes 5.3 (A) e 5.4 (A) fechadas. Nota tecnica 6.5 adicionada (componente `<BottomSheet />` reusavel com API, fixes herdados de PWA standalone iOS, interceptacao de back Android). Fase 2 detalhada com 11 sub-tarefas e marcada PRONTA P/ EXECUCAO.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Flavio + Claude |
+| 2026-05-11 | v1.7 — Correcao de pontos desatualizados sobre o fluxo de criacao: QR e print foram REMOVIDOS do fluxo de criacao na Fase P3 (apenas o lote em destaque permanece no step `created`). Secao 2.4 expandida com detalhamento dos steps `review` e `created`. Nova secao 2.4b sobre print de etiqueta como acao manual nos detalhes (independente de classificacao). Secao 7 (fluxo do usuario) corrigida. Decisao 5.7 reformulada — agora trata de integracao do wizard `form -> review -> created` com o modal/sheet, sem qualquer relacao com print.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Flavio + Claude |
+| 2026-05-11 | v1.8 — Decisoes 5.5 (C: auto-save + confirmacao), 5.6 (B-pragmatica: modal aninhado inicial + debito tecnico) e 5.7 (A: wizard 3 steps na mesma superficie) fechadas. 3 notas tecnicas adicionadas (6.6, 6.7, 6.8). Fase 4 marcada PRONTA P/ EXECUCAO. **Todas as 17 decisoes da secao 5 estao fechadas — planejamento concluido, pronto pra execucao das fases.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Flavio + Claude |
+| 2026-05-11 | v1.9 — Revisao critica pre-implementacao (THINK HARDER). Aplicados 2 ajustes criticos no comportamento do wizard (Nota 6.6): gestos universais (drag/backdrop/back) sempre fecham; navegacao entre steps e exclusiva de botoes (Editar volta pro form com state preservado via 5.5=C; Ir para amostra navega pra /samples/[id]). Adicionadas 10 novas notas tecnicas (6.9-6.18) cobrindo validacao client-side, erro de submit, acessibilidade, keyboard virtual, fallback dvh iOS, cache-control redirect, performance backdrop, identificacao usuario, estrategia de testes, mapeamento exaustivo /settings. Criada secao 11 com 3 riscos arquiteturais (Fases 1+2 sequenciais, tabbar com avatar, state machine explicita). Fase 1 expandida com sub-tarefas detalhadas (29 checkboxes) baseadas no grep exaustivo. Renumeracao: secao Historico passou de 11 -> 12.                                                                                                                                                                                                                                                                                             | Flavio + Claude |
+| 2026-05-11 | v1.10 — Fase 1 IMPLEMENTADA. 7 commits em branch `feat/fase1-tabbar-perfil-header-avatar`: (1) componentes UserAvatar + NotificationBell + CSS; (2) rota /profile absorvendo /settings + card de logout; (3) redirect 307 /settings -> /profile (Server Component + next.config.mjs); (4) refactor AppShell.tsx (14 edits — tabbar, NavIcon, isMainNavItemActive, renderNavIcon, dropdown desktop, NotificationBell, remocao de state/listener/JSX do bottom sheet); (5) 7 dispatches de 'open-profile-sheet' substituidos por `<Link href="/profile">`; (6) delete ProfileBottomSheet.tsx (~200 linhas) + bloco CSS .profile-sheet\* (~205 linhas); (7) atualizacao do doc com checkboxes marcados, tracking atualizado, novo historico. Quality gates verdes (lint, format:check, typecheck, build). `/profile` registrado como static (4.48 kB), `/settings` como dynamic (320 B, redirect). Decisoes implementacao: tabbar usa novo NavIcon `'avatar'` que delega pra `<UserAvatar />` quando user esta disponivel; header mobile esconde dropdown e mostra sino via CSS-only `@media (max-width: 900px)`. Total: 3 arquivos novos, 11 modificados, 1 deletado. | Flavio + Claude |
