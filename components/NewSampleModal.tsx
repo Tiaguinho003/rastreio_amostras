@@ -169,6 +169,11 @@ function getSchemaFieldErrors(
   return next;
 }
 
+function previewValue(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return 'Nao informado';
+  return String(value);
+}
+
 // ════════════════════════════════════════════════════════════════
 // Reducer
 // ════════════════════════════════════════════════════════════════
@@ -269,6 +274,8 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   const ownerInputRef = useRef<HTMLInputElement | null>(null);
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
@@ -506,9 +513,54 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     });
   }
 
-  // Bloco 2.c: abrira modal "Descartar?" se state.dirty=true.
+  async function handleConfirmDraft() {
+    if (!state.pendingDraft) return;
+
+    dispatch({ type: 'SUBMIT_START' });
+
+    try {
+      const result = await createSample(session, {
+        clientDraftId: state.pendingDraft.clientDraftId,
+        owner: state.pendingDraft.owner,
+        ownerClientId: state.pendingDraft.ownerClientId,
+        ownerUnitId: state.pendingDraft.ownerUnitId,
+        sacks: state.pendingDraft.sacks,
+        harvest: state.pendingDraft.harvest,
+        originLot: state.pendingDraft.originLot,
+        location: state.pendingDraft.location,
+        receivedChannel: state.pendingDraft.receivedChannel,
+        notes: state.pendingDraft.notes,
+      });
+
+      clearPersistedDraftId();
+      dispatch({
+        type: 'SUBMIT_SUCCESS',
+        sampleId: result.sample.id,
+        lotNumber: result.sample.internalLotNumber ?? result.sample.id,
+      });
+    } catch (cause) {
+      const message =
+        cause instanceof ApiError
+          ? cause.message
+          : cause instanceof Error
+            ? cause.message
+            : 'Falha ao criar amostra';
+      dispatch({ type: 'SUBMIT_ERROR', message });
+    }
+  }
+
+  function handleDiscard() {
+    setConfirmDiscardOpen(false);
+    resetDraft();
+    onClose();
+  }
+
   async function handleDismissAttempt(): Promise<boolean> {
     if (state.status === 'submitting') return false;
+    if (state.dirty) {
+      setConfirmDiscardOpen(true);
+      return false;
+    }
     return true;
   }
 
@@ -729,15 +781,64 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     </div>
   );
 
-  // Placeholders pros steps 2.c e 2.d (mantidos do skeleton)
+  // ── Review step
+  const previewDraft = state.pendingDraft;
   const reviewContent: ReactNode = (
-    <div style={{ padding: '1rem 0' }}>
-      <p>
-        <strong>[Skeleton]</strong> Review step (Bloco 2.c).
-      </p>
-      <p>Cliente: {state.pendingDraft?.owner ?? '—'}</p>
-      <button type="button" onClick={() => dispatch({ type: 'BACK_TO_FORM' })}>
-        Voltar para form
+    <>
+      <article className="label-print-card new-sample-label-print-card is-review-card">
+        <div className="label-meta">
+          <p>
+            <strong>Proprietario:</strong> {previewValue(previewDraft?.owner)}
+          </p>
+          <p>
+            <strong>Sacas:</strong> {previewValue(previewDraft?.sacks)}
+          </p>
+          <p>
+            <strong>Safra:</strong> {previewValue(previewDraft?.harvest)}
+          </p>
+          <p>
+            <strong>Lote origem:</strong> {previewValue(previewDraft?.originLot)}
+          </p>
+          {previewDraft?.location ? (
+            <p>
+              <strong>Local:</strong> {previewValue(previewDraft.location)}
+            </p>
+          ) : null}
+        </div>
+      </article>
+      {state.status === 'error' && state.error ? (
+        <p className="error new-sample-label-modal-feedback">{state.error}</p>
+      ) : null}
+    </>
+  );
+
+  const reviewFooter: ReactNode = (
+    <div className="new-sample-label-modal-actions">
+      <button
+        type="button"
+        className="new-sample-modal-circle is-secondary"
+        disabled={submitting}
+        onClick={() => dispatch({ type: 'BACK_TO_FORM' })}
+        aria-label="Editar"
+      >
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M17 3l4 4L7 21H3v-4L17 3z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="new-sample-modal-circle is-primary"
+        disabled={submitting}
+        onClick={() => void handleConfirmDraft()}
+        aria-label={submitting ? 'Criando' : 'Confirmar'}
+      >
+        {submitting ? (
+          <span className="new-sample-modal-circle-spinner" />
+        ) : (
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="m5 12.5 4.3 4.2L19 7" />
+          </svg>
+        )}
       </button>
     </div>
   );
@@ -762,7 +863,8 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
 
   const stepContent =
     state.step === 'form' ? formContent : state.step === 'review' ? reviewContent : createdContent;
-  const stepFooter = state.step === 'form' ? formFooter : null;
+  const stepFooter =
+    state.step === 'form' ? formFooter : state.step === 'review' ? reviewFooter : null;
 
   return (
     <>
@@ -798,6 +900,58 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           setMessage('Cliente criado e selecionado para a amostra.');
         }}
       />
+
+      {confirmDiscardOpen ? (
+        <div className="app-modal-backdrop is-stacked" onClick={() => setConfirmDiscardOpen(false)}>
+          <section
+            className="app-modal app-confirm-modal is-stacked"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="discard-sample-title"
+            aria-describedby="discard-sample-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="discard-sample-title" className="app-modal-title">
+                  Descartar amostra em andamento?
+                </h3>
+                <p id="discard-sample-description" className="app-modal-description">
+                  Os dados preenchidos serao perdidos. Esta acao nao pode ser desfeita.
+                </p>
+              </div>
+            </header>
+            <div className="app-confirm-modal-warning">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 9v4" />
+                <path d="M12 17v.01" />
+                <path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
+              </svg>
+              <span>Nova amostra em preenchimento</span>
+            </div>
+            <div className="app-modal-actions">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={() => setConfirmDiscardOpen(false)}
+                autoFocus
+              >
+                Continuar editando
+              </button>
+              <button type="button" className="app-modal-submit is-danger" onClick={handleDiscard}>
+                Descartar
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }
