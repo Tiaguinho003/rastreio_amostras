@@ -8395,9 +8395,7 @@ button:disabled {
 .sdv-fab-classify {
   position: fixed;
   /* Custom property atualizada via JS contorna cache do iOS standalone. */
-  bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(84px, 22vw, 96px)
-  );
+  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(84px, 22vw, 96px));
   right: clamp(14px, 4vw, 18px);
   display: flex;
   align-items: center;
@@ -10055,9 +10053,7 @@ button:disabled {
 /* Q.cls.2 audit do tipo: select nativo no modal de detalhe da
    classificacao. Estende .cld-field-input com chevron SVG inline. */
 .cld-type-select {
-  background-image: url(
-    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%231a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>'
-  );
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%231a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
   background-repeat: no-repeat;
   background-position: right clamp(8px, 2.5vw, 10px) center;
   background-size: 14px;
@@ -14327,10 +14323,7 @@ button:disabled {
        keyboard close. Fallback pra env() em browsers que nao tem o
        hook ativo (SSR ou JS desabilitado). */
     padding: clamp(0.45rem, 1.8vw, 0.7rem) clamp(1rem, 4vw, 1.5rem)
-      calc(
-        var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
-          clamp(0.45rem, 1.8vw, 0.7rem)
-      );
+      calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.45rem, 1.8vw, 0.7rem));
     background: transparent;
     box-shadow: none;
     overflow: visible;
@@ -20667,7 +20660,11 @@ button:disabled {
   /* Estado has-filters: gradient um pouco mais saturado pra sinalizar acao
      em uso. Badge no canto direito mantem visibilidade da contagem. */
   .samples-page-v2 .hero-search-wrap .hero-search-filter-btn.has-filters {
-    background: linear-gradient(135deg, var(--brand-green-deep, var(--brand-green)), var(--brand-green));
+    background: linear-gradient(
+      135deg,
+      var(--brand-green-deep, var(--brand-green)),
+      var(--brand-green)
+    );
   }
 
   .samples-page-v2 .hero-search-wrap .hero-search-filter-btn.has-filters svg {
@@ -22808,8 +22805,7 @@ button:disabled {
   bottom: 0;
   /* Mesmo padding com fallback custom property pra contornar cache do
      env(safe-area-inset-bottom) em iOS standalone. */
-  padding: 0.75rem 0.9rem
-    calc(0.9rem + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0)));
+  padding: 0.75rem 0.9rem calc(0.9rem + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0)));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -24013,4 +24009,98 @@ button:disabled {
   background: #f59e0b;
   color: white;
   border-color: #d97706;
+}
+
+/* ── User Avatar (iniciais coloridas, hash deterministico) ──
+   Componente reusavel para representar o usuario logado sem foto.
+   Cores neutras geradas client-side pelo hash do nome (componente
+   components/UserAvatar.tsx). Variante .is-active aplicada
+   externamente quando dentro de item ativo da tabbar mobile. */
+.user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.user-avatar__initials {
+  display: inline-block;
+  line-height: 1;
+  font-feature-settings: 'tnum';
+}
+
+.user-avatar--sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.7rem;
+}
+
+.user-avatar--md {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.95rem;
+}
+
+.user-avatar--lg {
+  width: 4rem;
+  height: 4rem;
+  font-size: 1.45rem;
+}
+
+/* Estado ativo do item Perfil na tabbar mobile: ring verde 2px ao redor
+   do avatar quando /profile esta ativo. Mantem distincao visual com
+   coerencia em relacao aos outros itens (cor verde no SVG). */
+.mobile-tabbar-link.is-active .user-avatar {
+  outline: 2px solid var(--brand-green);
+  outline-offset: 2px;
+}
+
+/* ── NotificationBell (placeholder visual nao-clicavel) ──
+   Reserva espaco visual e affordance para a feature futura de
+   notificacoes. Cursor default e ausencia de onClick deixam claro
+   que nao ha acao agora. */
+.notification-bell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: default;
+  flex-shrink: 0;
+}
+
+.notification-bell svg {
+  width: 55%;
+  height: 55%;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Topbar: visibilidade condicional do dropdown e do sino ──
+   Em mobile (<= 900px), o avatar dropdown do header some (Perfil ja
+   esta na tabbar). No lugar, fica o sino de notificacoes placeholder.
+   Em desktop, comportamento inverso. */
+.topbar-notification-bell {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .topbar-profile {
+    display: none;
+  }
+  .topbar-notification-bell {
+    display: inline-flex;
+  }
 }
