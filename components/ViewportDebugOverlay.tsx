@@ -162,15 +162,24 @@ export function ViewportDebugOverlay() {
   const [showRawJson, setShowRawJson] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // ⚠️ TEMPORARIO: ativado SEMPRE em prod pra capturar dados do bug
-  // "barra bege apos teclado" em iOS 26 PWA standalone. Em PWA instalada,
-  // localStorage e isolado da Safari (iOS quirk) — usuario nao consegue
-  // ativar via ?dvp=1 nem via DevTools (nao existe em standalone). Esta
-  // linha vai ser revertida pra ativacao condicional apos coletar o
-  // snapshot necessario.
+  // Ativacao: query string ?dvp=1 ou localStorage.debug-viewport === '1'.
+  // Em PWA standalone iOS, localStorage e isolado da Safari — pra ativar
+  // dentro da PWA voce precisa editar /components/ViewportDebugOverlay.tsx
+  // temporariamente pra `setActive(true)` e deployar. Apos coletar dados,
+  // reverte e deploya de novo.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setActive(true);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('dvp') === '1') {
+        window.localStorage.setItem('debug-viewport', '1');
+      } else if (params.get('dvp') === '0') {
+        window.localStorage.removeItem('debug-viewport');
+      }
+      setActive(window.localStorage.getItem('debug-viewport') === '1');
+    } catch {
+      setActive(false);
+    }
   }, []);
 
   // Captura timeline e atualiza snapshot atual.

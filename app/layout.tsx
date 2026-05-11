@@ -50,13 +50,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  // interactiveWidget=resizes-content: ATIVO apenas em Chromium 108+ (Chrome
-  // Android, Edge, etc). iOS Safari (ate iOS 26) IGNORA essa diretiva — em
-  // iOS, o workaround real pro bug "viewport nao reseta apos keyboard close"
-  // (WebKit Bug 297779) vive em lib/use-viewport-sync.ts (scrollBy kick +
-  // dvh-evading svh no shell). Mantido aqui pra que clients Android se
-  // beneficiem; nao causa regressao em iOS.
-  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
