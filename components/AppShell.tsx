@@ -6,8 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { MobileTabbar } from './MobileTabbar';
-import { ProfileBottomSheet } from './ProfileBottomSheet';
+import { NotificationBell } from './NotificationBell';
 import { SampleSearchField } from './SampleSearchField';
+import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { changePasswordSchema } from '../lib/form-schemas';
 import { getRoleLabel, isAdmin } from '../lib/roles';
@@ -22,7 +23,7 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'new-sample' | 'settings';
+type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -33,7 +34,6 @@ type MobileRouteMeta = {
 
 const DESKTOP_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' as NavIcon },
-  { href: '/samples/new', label: 'Novo Registro', icon: 'new-sample' as NavIcon },
   { href: '/samples', label: 'Registros', icon: 'samples' as NavIcon },
   { href: '/clients', label: 'Clientes', icon: 'clients' as NavIcon },
 ] as const;
@@ -52,9 +52,9 @@ const MOBILE_NAV_ITEMS = [
     emphasis: 'default' as const,
   },
   {
-    href: '/samples/new',
-    mobileLabel: 'Novo',
-    icon: 'new-sample' as NavIcon,
+    href: '/samples',
+    mobileLabel: 'Amostras',
+    icon: 'samples' as NavIcon,
     emphasis: 'default' as const,
   },
   {
@@ -64,15 +64,15 @@ const MOBILE_NAV_ITEMS = [
     emphasis: 'primary' as const,
   },
   {
-    href: '/samples',
-    mobileLabel: 'Amostras',
-    icon: 'samples' as NavIcon,
-    emphasis: 'default' as const,
-  },
-  {
     href: '/clients',
     mobileLabel: 'Clientes',
     icon: 'clients' as NavIcon,
+    emphasis: 'default' as const,
+  },
+  {
+    href: '/profile',
+    mobileLabel: 'Perfil',
+    icon: 'avatar' as NavIcon,
     emphasis: 'default' as const,
   },
 ] as const;
@@ -86,10 +86,6 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/camera';
   }
 
-  if (href === '/samples/new') {
-    return pathname === '/samples/new';
-  }
-
   if (href === '/samples') {
     return pathname === '/samples' || /^\/samples\/[^/]+$/.test(pathname);
   }
@@ -98,29 +94,20 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/clients' || pathname.startsWith('/clients/');
   }
 
-  if (href === '/settings') {
-    return pathname === '/settings';
+  if (href === '/profile') {
+    return pathname === '/profile';
   }
 
   return pathname === href;
 }
 
-function renderNavIcon(icon: NavIcon) {
+function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
   if (icon === 'dashboard') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
         <path d="M4.8 10.2 12 4.8l7.2 5.4" />
         <path d="M6.6 9.6V19h10.8V9.6" />
         <path d="M10.2 19v-5.2h3.6V19" />
-      </svg>
-    );
-  }
-
-  if (icon === 'new-sample') {
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
       </svg>
     );
   }
@@ -159,15 +146,11 @@ function renderNavIcon(icon: NavIcon) {
     );
   }
 
-  if (icon === 'settings') {
-    return (
-      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <path d="M12 12a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" />
-        <path d="M4.8 18.1a8.2 8.2 0 0 1 14.4 0" />
-      </svg>
-    );
+  if (icon === 'avatar' && user) {
+    return <UserAvatar size="sm" user={user} />;
   }
 
+  // Fallback generico (icon 'users' ou avatar sem usuario disponivel)
   return (
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
       <circle cx="12" cy="8.2" r="3.2" />
@@ -186,7 +169,7 @@ function resolveMobileRouteMeta(pathname: string): MobileRouteMeta | null {
     };
   }
 
-  if (pathname === '/settings') {
+  if (pathname === '/profile') {
     return null;
   }
 
@@ -205,7 +188,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const pathname = usePathname();
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
   const isDashboard = pathname === '/dashboard';
   const isNewSample = pathname === '/samples/new';
   const isSamplesList = pathname === '/samples';
@@ -213,7 +195,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isSampleDetail = pathname.startsWith('/samples/') && pathname !== '/samples/new';
   const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
-  const isSettingsPage = pathname === '/settings';
+  const isProfilePage = pathname === '/profile';
   const isLayeredRoute =
     isDashboard ||
     isNewSample ||
@@ -222,7 +204,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     isSampleDetail ||
     isClientDetail ||
     isUsersPage ||
-    isSettingsPage;
+    isProfilePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -282,17 +264,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       document.removeEventListener('keydown', onDocumentKeyDown);
     };
   }, [profileMenuOpen]);
-
-  useEffect(() => {
-    function handleOpenProfileSheet() {
-      setProfileSheetOpen(true);
-    }
-
-    window.addEventListener('open-profile-sheet', handleOpenProfileSheet);
-    return () => {
-      window.removeEventListener('open-profile-sheet', handleOpenProfileSheet);
-    };
-  }, []);
 
   useEffect(() => {
     const KEYBOARD_SELECTOR =
@@ -500,6 +471,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
               <SampleSearchField session={session} compact />
             </div>
 
+            <NotificationBell className="topbar-notification-bell" />
+
             <div className="topbar-profile" ref={profileMenuRef}>
               <button
                 ref={profileTriggerRef}
@@ -509,21 +482,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                 aria-expanded={profileMenuOpen}
                 aria-controls="topbar-profile-menu"
                 aria-label="Abrir menu de perfil"
-                onClick={() => {
-                  const isMobile = window.innerWidth < 769;
-                  if (isMobile) {
-                    setProfileSheetOpen(true);
-                  } else {
-                    setProfileMenuOpen((current) => !current);
-                  }
-                }}
+                onClick={() => setProfileMenuOpen((current) => !current)}
               >
-                <span className="topbar-profile-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                    <path d="M4 20a8 8 0 0 1 16 0" />
-                  </svg>
-                </span>
+                <UserAvatar size="sm" user={session.user} />
               </button>
 
               {profileMenuOpen ? (
@@ -552,7 +513,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                     Clientes
                   </Link>
                   <Link
-                    href="/settings"
+                    href="/profile"
                     className="topbar-profile-link"
                     onClick={() => setProfileMenuOpen(false)}
                   >
@@ -588,7 +549,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
             {mobileRouteMeta.ctaHref && mobileRouteMeta.ctaLabel ? (
               <Link href={mobileRouteMeta.ctaHref} className="app-shell-mobile-route-cta">
                 <span className="app-shell-mobile-route-cta-icon" aria-hidden="true">
-                  {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'new-sample')}
+                  {renderNavIcon(mobileRouteMeta.ctaIcon ?? 'samples')}
                 </span>
                 <span>{mobileRouteMeta.ctaLabel}</span>
               </Link>
@@ -599,18 +560,11 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         <div className="app-shell-page-content">{children}</div>
       </main>
 
-      <ProfileBottomSheet
-        session={session}
-        open={profileSheetOpen}
-        onClose={() => setProfileSheetOpen(false)}
-        onLogout={onLogout}
-      />
-
       <MobileTabbar
         items={MOBILE_NAV_ITEMS.map((item) => ({
           href: item.href,
           mobileLabel: item.mobileLabel,
-          icon: renderNavIcon(item.icon),
+          icon: renderNavIcon(item.icon, session.user),
           emphasis: item.emphasis,
         }))}
         isActive={(href) => isMainNavItemActive(pathname, href)}
