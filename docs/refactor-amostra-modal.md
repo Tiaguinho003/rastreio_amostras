@@ -1,6 +1,6 @@
 # Refactor: Nova Amostra como Modal
 
-Status: Fase 1 CONCLUIDA (2026-05-11); Fases 2 e 4 prontas pra execucao; Fases 3 e 5 com dependencias resolvidas
+Status: Fase 1 CONCLUIDA (2026-05-11); Fase 2 detalhada com TODAS as decisoes granulares 5.18-5.28 fechadas + Bloco 0 (hotfix sino) — pronta pra execucao; Fases 3 e 4 com dependencias resolvidas; Fase 5 aguarda Fases 1-4
 Escopo: refatoracao da pagina `/samples/new` para modal acionado por FAB + reorganizacao da tabbar mobile + Perfil como item de tabbar + fusao /settings em /profile + sino de notificacoes placeholder
 Inicio do planejamento: 2026-05-11
 Foco da v1: mobile (desktop herda paralelamente apenas onde 5.11 e 5.15 exigem)
@@ -320,7 +320,7 @@ Recomendacao: A. Coerencia total com 5.4=A (1 superficie). Wizard em bottom shee
 - **Justificativa:** Coerencia total com 5.4=A (1 superficie visual unica). Mantem os 2 steps existentes (`review` e `created`) que ja foram pensados na Fase P3 — preserva a UX de "checkout final" antes de submeter e a anotacao do lote apos criar. Sem stacking de modais. Combina perfeitamente com 5.5=C (auto-save preserva state ao navegar entre steps) e 5.6=B-pragmatica (cliente quick-create abre como modal aninhado quando step="form", nao interfere com o wizard).
 - **Gargalos aceitos:** Implementacao de state machine para gerenciar transicoes (`'form' | 'review' | 'created'`) — mais complexo que LabelModal atual mas mais coerente arquiteturalmente. Header e footer dinamicos por step. Comportamento do backdrop tap, drag-to-dismiss e back Android precisa ser diferente por step (Nota 6.6).
 - **Perguntas novas:**
-  - Animacao de transicao entre steps: fade (mais simples) vs slide horizontal (mais "wizard-y") vs scale (mais "modal-y") — Nota 6.6 propoe slide horizontal 350ms cubic-bezier
+  - Animacao de transicao entre steps: fade simples 200ms ease-out (decidido em 5.22; revisado de slide horizontal para fade durante o detalhamento da Fase 2 — slide fica como evolucao futura)
   - Header dinamico: titulo muda por step ("Nova amostra" -> "Confirme os dados" -> "Amostra criada") — Nota 6.6
   - Footer dinamico: [Criar amostra] -> [Editar | Confirmar] -> [Ir para amostra] — Nota 6.6
   - Backdrop tap por step: form (descartar com confirmacao via 5.5) / review (volta pro form sem perder dados) / created (fecha e vai pra amostra) — Nota 6.6
@@ -534,6 +534,104 @@ Header mobile hoje tem: spacer + logo + search compact + avatar trigger. Com ava
 
 ---
 
+### Decisoes granulares de implementacao da Fase 2
+
+Bloco de decisoes que detalham COMO a Fase 2 sera implementada — todas tomadas durante a analise pre-implementacao (v1.11). Numeracao continua a partir de 5.18 pra manter sequencia unica.
+
+#### 5.18 Localizacao dos arquivos `[DECIDIDO]`
+
+- **Escolha:** flat em `components/`
+- **Arquivos:** `components/BottomSheet.tsx` + `components/NewSampleModal.tsx`
+- **Justificativa:** padrao atual do projeto (`UserAvatar.tsx`, `NotificationBell.tsx` tambem sao flat). Subpastas `components/samples/` existem mas hoje so abrigam codigo MUITO especifico de pagina (ex: card de venda). `<NewSampleModal />` e um componente de feature compartilhada (sera invocado pelo FAB em `/samples` mobile e pelo botao em `/samples` desktop), entao flat faz sentido.
+- **Gargalos aceitos:** se `components/` crescer muito, futura reorganizacao por domain pode mover esses arquivos. Aceitavel.
+- **Impacto:** Bloco 1 da Fase 2 cria os 2 arquivos em `components/`.
+
+#### 5.19 API do `<BottomSheet />` (controlled vs uncontrolled) `[DECIDIDO]`
+
+- **Escolha:** controlled puro com `open` + `onClose`
+- **Props finais:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss? }` (ver Nota 6.5)
+- **Justificativa:** padrao React idiomatico, declarativo, testavel. Sem imperative handle (ref.close()) — mantem fluxo unidirecional. Permite o consumidor (`<NewSampleModal />`) controlar quando mostrar a confirmacao de "Descartar?" via `onDismissAttempt` async.
+- **Gargalos aceitos:** consumidor precisa manter state de `open`. Aceitavel — todos os modais do projeto seguem esse padrao.
+- **Impacto:** Bloco 1 da Fase 2 cria o componente com essa API.
+
+#### 5.20 API do `<NewSampleModal />` `[DECIDIDO]`
+
+- **Escolha:** controlled com `{ open, onClose, onSuccessNavigate? }`
+- **Justificativa:** coerente com 5.19 (mesmo padrao de controlled). `onSuccessNavigate` opcional permite o page wrapper (5.23) controlar pra onde ir apos criar — default e `router.push(\`/samples/\${sampleId}\`)`.
+- **Gargalos aceitos:** dependencia de `useRequireAuth` interno (pra session) cria acoplamento com `lib/use-auth`, mas e o mesmo padrao do resto da app.
+- **Impacto:** Bloco 2 da Fase 2.
+
+#### 5.21 State machine — implementacao `[DECIDIDO]`
+
+- **Escolha:** `useReducer` com action types tipados
+- **Tipos:** `WizardState`, `WizardAction` (ver Nota 6.5/6.6 pra detalhamento de actions)
+- **Justificativa:** testavel via unit (mesmo sem testes UI no projeto, o reducer pode ser testado isoladamente em principio). Transicoes validas declaradas explicitamente reduzem bugs de race condition durante async submit. Reducer + action types e padrao React idiomatico.
+- **Gargalos aceitos:** mais codigo que `useState` solto, mas justifica pela complexidade da state machine (3 steps x 3 status x dirty flag).
+- **Impacto:** Bloco 2 da Fase 2.
+
+#### 5.22 Animacao entre steps `[DECIDIDO]`
+
+- **Escolha:** fade simples 200ms ease-out na propriedade `opacity`
+- **Justificativa:** menor complexidade (CSS transition pura), performance melhor em devices low-end, suficiente pra dar feedback de transicao sem distrair. Slide horizontal (alvo aspiracional) pode entrar em refinamento futuro se UX pedir.
+- **Gargalos aceitos:** visual menos "wizard-y" que slide. Aceitavel pra v1 da Fase 2.
+- **Impacto:** Nota 6.6 atualizada (de slide 350ms para fade 200ms).
+- **Decisoes anteriores revisitadas:** Nota 6.6 — animacao revisada.
+
+#### 5.23 Repurpose de `/samples/new` como wrapper do modal `[DECIDIDO]`
+
+- **Escolha:** `/samples/new` vira pagina wrapper que renderiza `<NewSampleModal open={true} onClose={() => router.push('/samples')} />` dentro de `<AppShell />`
+- **Justificativa:** aproveita rota existente (sera deletada na Fase 5) sem precisar de codigo de teste descartavel. Permite usuario testar o fluxo completo do modal antes do FAB existir (Fase 3). Quando fecha o modal, navega pra `/samples`.
+- **Gargalos aceitos:** o conteudo antigo da pagina (form + LabelModal) sera substituido pelo wrapper minimo. Codigo antigo deletado.
+- **Perguntas novas:** estrutura visual do wrapper — AppShell visivel ou apenas modal? (resolvido em 5.28, abaixo)
+- **Impacto:** Bloco 3 da Fase 2 substitui conteudo de `app/samples/new/page.tsx` (de 964 linhas pra ~15 linhas).
+
+#### 5.24 Auto-save do draft — Fase 2 ou Fase 4? `[DECIDIDO]`
+
+- **Escolha:** auto-save fica na Fase 4 (conforme plano original); Fase 2 mantem `clientDraftId` em sessionStorage (igual hoje) mas NAO serializa form state
+- **Justificativa:** separar concerns — Fase 2 foca em estrutura visual + state machine. Fase 4 adiciona auto-save + retomar prompt. Modal fechado e reaberto na Fase 2 = form reseta. Aceitavel pra MVP da fase.
+- **Gargalos aceitos:** fechar/reabrir modal na Fase 2 perde state digitado. Aceitavel ate Fase 4 estar pronta.
+- **Impacto:** Bloco 2 da Fase 2 NAO implementa hook `useDraft<T>` (Nota 6.7).
+
+#### 5.25 Drag-to-dismiss — implementar na Fase 2 `[DECIDIDO]`
+
+- **Escolha:** implementar na Fase 2 (junto com criacao do `<BottomSheet />`)
+- **Justificativa:** drag e gesto central do "bottom sheet" — sem ele, o componente vira modal generico. Threshold 60px (mesmo do antigo ProfileBottomSheet). Resistencia elastica leve apos exceder. Smooth return se < threshold.
+- **Gargalos aceitos:** + tempo de implementacao no Bloco 1. Compensa porque e componente reusavel.
+- **Impacto:** Nota 6.5 valida; Bloco 1 da Fase 2 inclui touch handlers + state de drag.
+
+#### 5.26 Modal de confirmacao "Descartar?" — modal aninhado `[DECIDIDO]`
+
+- **Escolha:** modal aninhado sobre o sheet (usando `.app-modal` padrao com classe `.is-themed` se necessario)
+- **Justificativa:** coerente com 5.6=B-pragmatica (cliente quick-create tambem e modal aninhado). Visual conhecido pra usuario (mesma curve de animacao). Z-index `--z-modal-stacked` (Nota 6.19).
+- **Gargalos aceitos:** 2 camadas de backdrop (sheet + modal) durante a confirmacao — pesado em devices low-end. Aceitavel porque e flash rapido (1-2 segundos).
+- **Impacto:** Bloco 2 cria componente inline ou reusavel (a decidir durante implementacao se aparecer 2o uso); Nota 6.23 detalha animacao reusando `.app-modal-backdrop-in` + `.app-modal-card-in`.
+
+#### 5.27 `isDirty` detection — flag no reducer `[DECIDIDO]`
+
+- **Escolha:** flag `dirty: boolean` no estado do reducer, set `true` no primeiro `onChange` de qualquer campo
+- **Justificativa:** padrao Gmail/Notion. Simples, performatico, sem custo de comparacao a cada render. Falso positivo (usuario digita e apaga) e seguro pro lado da preservacao — pede confirmacao mesmo sem necessidade real, melhor que ignorar quando precisaria.
+- **Gargalos aceitos:** modal pede "Descartar?" mesmo quando form ficou identico ao inicial (digitou + apagou). UX pequeno trade — preferimos seguro.
+- **Impacto:** Bloco 2 da Fase 2.
+
+#### 5.28 Estrutura do wrapper `/samples/new` `[DECIDIDO]`
+
+Pergunta derivada de 5.23: como o page wrapper renderiza visualmente? O usuario ve algo "por baixo" do modal?
+
+- **(a)** Wrapper renderiza `<AppShell>` envolvendo o `<NewSampleModal>` — usuario ve tabbar mobile / topbar global por tras do backdrop do modal.
+- (b) Wrapper renderiza apenas o modal sem AppShell — fundo branco/transparente por baixo.
+- (c) Wrapper redireciona server-side pra `/samples` — nao funciona na Fase 2.
+
+#### Decidido
+
+- **Escolha:** a
+- **Justificativa:** coerente com como `/samples/new` aparece hoje (com AppShell). Backdrop do modal cobre o conteudo do shell. Usuario nao perde contexto visual durante a operacao. Quando modal fecha, navega pra `/samples` via `router.push`.
+- **Gargalos aceitos:** tabbar/topbar visiveis (com blur do backdrop) atras do modal. Em mobile durante drag-to-dismiss, parte do shell sera revelada — aceitavel (e UX esperado de bottom sheet).
+- **Perguntas novas:** nenhuma bloqueante. Logica de session/auth segue o padrao atual (`useRequireAuth` interno do wrapper).
+- **Decisoes anteriores revisitadas:** nenhuma.
+- **Impacto na ordem de execucao:** Bloco 3 da Fase 2 cria wrapper de ~15 linhas substituindo as 964 linhas atuais de `app/samples/new/page.tsx`. Estrutura final: `<AppShell><NewSampleModal open={true} onClose={() => router.push('/samples')} /></AppShell>` com `useRequireAuth` pra session/loading.
+
+---
+
 ## 6. Notas tecnicas (detalhes de implementacao registrados)
 
 Detalhes que sao implementacao (nao decisao formal) mas precisam ficar registrados pra nao se perderem.
@@ -603,7 +701,7 @@ State machine: `'form' | 'review' | 'created'`.
 
 **Navegar pra `/samples/[id]` a partir do `created`:** EXCLUSIVAMENTE pelo botao [Ir para amostra]. Lista de amostras ja foi atualizada pelo refresh apos criacao.
 
-**Animacao entre steps:** slide horizontal 350ms cubic-bezier (mesma curve do `.app-modal`). Direcao: form->review (slide pra esquerda); review->form (slide pra direita); review->created (slide pra esquerda). Fade alternativo se slide gerar problemas de performance.
+**Animacao entre steps:** fade simples 200ms ease-out na propriedade `opacity` (decisao 5.22). Sem slide horizontal — implementacao mais simples e performance melhor em devices low-end. Slide pode entrar como evolucao futura se UX pedir.
 
 ### 6.7 Auto-save do draft de Nova Amostra (Fase 4)
 
@@ -716,6 +814,93 @@ Encontrados (sem testes/docs):
 
 - **Icone `'settings'` em NavIcon:** remove. Item Perfil usa `<UserAvatar />` diretamente (5.10=b).
 - **Mobile route meta pra `/profile`:** retorna null (igual `/settings` hoje). Pagina `/profile` renderiza seu proprio header com avatar grande + nome + role (consistente com 5.12=a).
+
+### 6.19 Stacking de modais aninhados sobre o BottomSheet (Fase 2/4)
+
+Dois modais aninhados sao previstos: o de "Descartar?" (5.26, Fase 2) e o de cliente quick-create (5.6, Fase 4). Sao **mutuamente exclusivos** no fluxo:
+
+- Cliente quick-create abre apenas durante `step=form` antes de submeter
+- "Descartar?" abre apenas ao tentar fechar o sheet com `isDirty=true`
+
+Logo, **nao precisam coexistir**. Ambos usam o mesmo tier de z-index `--z-modal-stacked` (~600). Se no futuro a UX exigir overlap (caso de borda raro), avaliar refatoracao pra inline expansivel (alvo de 5.6 = B).
+
+### 6.20 Comportamento do botao X do BottomSheet (Fase 2)
+
+Botao X no header do sheet aciona o mesmo `onDismissAttempt` que backdrop tap, drag-to-dismiss, ESC e back Android. Comportamento uniforme:
+
+- Se `isDirty=true` -> abre modal "Descartar?" (5.26)
+- Se `isDirty=false` -> fecha sheet direto
+
+Sem branching por origem do evento. Logica concentrada em `onDismissAttempt`.
+
+### 6.21 `clientDraftId` em mount do modal (Fase 2)
+
+`<NewSampleModal />` ao montar (open false -> true) reusa a logica atual de `loadOrCreateDraftId()` em `sessionStorage` (key `'new-sample-draft-id'`). Comportamento identico ao atual `/samples/new` page:
+
+- Se ha draftId no storage -> usa
+- Senao -> gera novo UUID e persiste
+
+Garante idempotencia do `createSample` em caso de retry mid-submit. Auto-save de form state (Fase 4) virara key paralela `'new-sample-draft-state'`.
+
+### 6.22 Hotfix do sino — Bloco 0 da Fase 2
+
+Bug detectado pos-Fase 1: `<NotificationBell />` adicionado em `.topbar-tools` nunca aparece em mobile porque CSS legacy (`globals.css:14567-14569`) esconde `.topbar-tools` em rotas `topbar--dashboard-only` (todas as rotas layered).
+
+Em mobile, o "header" que o usuario ve sao os **headers de cada pagina** (`.dashboard-hero-avatar`, `.nsv2-avatar`), nao o topbar global.
+
+**Fix em 4 sub-etapas (Bloco 0 da Fase 2):**
+
+1. Remover `<NotificationBell />` de `.topbar-tools` em `components/AppShell.tsx` (linha adicionada no Passo 4 da Fase 1)
+2. Adicionar `<NotificationBell className="header-notification-bell" />` em cada um dos 7 headers de pagina (mesmos arquivos do Passo 5 da Fase 1)
+3. CSS — esconder o `<Link>` avatar em mobile e mostrar o sino no lugar:
+   ```css
+   @media (max-width: 900px) {
+     .nsv2-avatar,
+     .dashboard-hero-avatar {
+       display: none;
+     }
+     .header-notification-bell {
+       display: inline-flex;
+     }
+   }
+   @media (min-width: 901px) {
+     .header-notification-bell {
+       display: none;
+     }
+   }
+   ```
+4. Remover CSS orfao `.topbar-notification-bell` (nao usado mais)
+
+Trade aceito: em desktop ha 2 avatares visiveis (topbar global + header da pagina). Redundancia ja existia antes da Fase 1 (eram SVG silhuetas). Mantida pra evitar churn extra. Pode ser limpa em refatoracao futura.
+
+### 6.23 Animacao do modal de confirmacao "Descartar?" (Fase 2)
+
+Reusa keyframes existentes em `app/globals.css`:
+
+- `app-modal-backdrop-in` (0.3s — fade do backdrop)
+- `app-modal-card-in` (0.35s — scale subtil)
+
+Mesma curve e timing do resto dos modais do projeto. Sem inventar transicoes proprias. Conforme `design-system` §8.
+
+### 6.24 Acoes do modal "Descartar?" (Fase 2)
+
+| Botao                | Acao                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| [Descartar]          | Limpa state do reducer; fecha sheet inteiro; (Fase 4) limpa `'new-sample-draft-state'` do storage. |
+| [Continuar editando] | Fecha apenas o modal "Descartar?"; sheet permanece aberto no step atual.                           |
+
+Layout do modal: titulo "Descartar amostra em andamento?" + texto explicativo + 2 botoes em `.app-modal-actions`. Botao destrutivo [Descartar] estilo `.app-modal-submit.is-danger`; [Continuar editando] estilo `.app-modal-secondary`.
+
+### 6.25 `onSuccessNavigate` default (Fase 2)
+
+Prop opcional do `<NewSampleModal />`. Default:
+
+```ts
+const handleSuccessNavigate =
+  onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
+```
+
+Permite o consumidor (page wrapper de `/samples/new`, ou no futuro o FAB / botao desktop) sobrescrever pra controlar destino apos criar. Mantido o comportamento atual (vai pra detail da amostra).
 
 ---
 
@@ -838,19 +1023,60 @@ Implementada na branch `feat/fase1-tabbar-perfil-header-avatar` em 7 commits seq
 
 ### Fase 2 — Componente: Modal de Nova Amostra
 
-Pre-requisito: decisao 5.4 fechada (DECIDIDA — A: bottom sheet mobile + `.app-modal.is-themed` desktop).
+Pre-requisito: decisoes 5.4, 5.5-5.7, 5.18-5.27 fechadas. Decisao 5.28 pendente. Decisoes 5.24 (auto-save Fase 4) e 5.26 detalhada parcial.
 
-- [ ] Criar componente `<BottomSheet />` reusavel (Nota 6.5) — base que herda fixes do PWA standalone iOS
-- [ ] Criar componente `<NewSampleModal />` que escolhe renderizacao por breakpoint
-- [ ] Migrar JSX do form de `app/samples/new/page.tsx` para o componente
-- [ ] Mobile: usar `<BottomSheet />` com altura ~98dvh e drag-handle
-- [ ] Desktop: usar `.app-modal.is-themed` (650px centralizado, header verde)
-- [ ] Implementar interceptacao do botao voltar Android (fecha sheet em vez de navegar)
-- [ ] Orquestrar z-index pra suportar modal aninhado (cliente quick-create, dependente de 5.6)
-- [ ] Validar todos os campos, validacoes e mensagens
-- [ ] Validar comportamento com teclado virtual (mobile)
-- [ ] Validar rotacao de tela
-- [ ] Validar safe-area (notch iOS, gesture bar Android)
+**Bloco 0 — Hotfix do sino (Nota 6.22):**
+
+- [ ] Remover `<NotificationBell />` de `.topbar-tools` em `components/AppShell.tsx`
+- [ ] Adicionar `<NotificationBell className="header-notification-bell" />` em cada um dos 7 headers de pagina (DashboardMobile, samples, samples/new (sera repurposed), samples/[sampleId], clients, clients/[clientId], users)
+- [ ] Adicionar CSS em `globals.css`: media query 900px que esconde `.nsv2-avatar`/`.dashboard-hero-avatar` em mobile e mostra `.header-notification-bell`; inverso em desktop
+- [ ] Remover CSS orfao `.topbar-notification-bell`
+
+**Bloco 1 — `<BottomSheet />` reusavel (Notas 6.5, 6.12, 6.13, 6.20, 6.25; decisoes 5.19, 5.25):**
+
+- [ ] Criar `components/BottomSheet.tsx` com API controlled `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss? }`
+- [ ] Implementar slide-up animation 350ms cubic-bezier
+- [ ] Implementar drag-to-dismiss touch handlers (threshold 60px, resistencia elastica, smooth return se < threshold)
+- [ ] Header sticky com titulo + botao X; body scrollable; footer sticky
+- [ ] z-index `--z-modal` (overlay backdrop em `--z-modal-backdrop`)
+- [ ] Replicar fixes de `'is-keyboard-open'` do AppShell (visualViewport + scroll reset 300ms)
+- [ ] Fallback de dvh em iOS Safari < 15.4 (`@supports not (height: 100dvh)`)
+- [ ] Interceptacao de back Android (`history.pushState` ao abrir; `popstate` listener fecha)
+- [ ] Acessibilidade: `role="dialog"`, `aria-modal="true"`, focus trap via `useFocusTrap`, ESC dispara `onDismissAttempt`
+- [ ] Definir variavel CSS `--z-modal-stacked: 600` em `globals.css` (Nota 6.19)
+
+**Bloco 2 — `<NewSampleModal />` com wizard de 3 steps (Notas 6.6, 6.9, 6.10, 6.11, 6.23, 6.24; decisoes 5.7, 5.20, 5.21, 5.22, 5.26, 5.27):**
+
+- [ ] Criar `components/NewSampleModal.tsx` com API controlled `{ open, onClose, onSuccessNavigate? }`
+- [ ] Implementar state machine via `useReducer`: `WizardState { step, status, error, createdSampleId, dirty }`, action types `GO_TO_REVIEW | BACK_TO_FORM | SUBMIT_START | SUBMIT_SUCCESS | SUBMIT_ERROR | CLOSE`
+- [ ] Migrar JSX do form de `app/samples/new/page.tsx` (campos: Cliente, Owner units, Sacas, Safra, Lote origem, Local, Observacoes) preservando todas as validacoes existentes
+- [ ] Validacao client-side ANTES de transicionar form -> review (`getMissingRequiredFieldErrors`)
+- [ ] Step `review`: card nao-editavel + botoes [Editar (BACK_TO_FORM)] [Confirmar (SUBMIT_START + createSample)]
+- [ ] Step `created`: painel com lote em destaque + texto "Anote este numero na saca antes de seguir." + botao [Ir para amostra (onSuccessNavigate)]
+- [ ] Header e footer dinamicos por step
+- [ ] Animacao entre steps: fade 200ms ease-out (CSS opacity transition)
+- [ ] Mobile: usar `<BottomSheet />` com altura 98dvh + drag-handle visivel
+- [ ] Desktop: usar `.app-modal.is-themed` (650px centralizado)
+- [ ] `clientDraftId` carregado de `sessionStorage` ao mount (Nota 6.21)
+- [ ] Flag `dirty` setada true no primeiro onChange de qualquer campo (5.27)
+- [ ] Modal "Descartar?" aninhado: abre se `dirty=true` ao tentar fechar; ações `[Descartar]` (limpa state + fecha sheet) e `[Continuar editando]` (fecha so o modal aninhado)
+- [ ] Erro de submit aparece inline no step `review` (igual hoje em `new-sample-label-modal-feedback`)
+- [ ] Foco inicial: primeiro input editavel (ClientLookupField); `aria-live="polite"` no header pra step transitions
+
+**Bloco 3 — Repurpose `/samples/new` como wrapper (decisao 5.23 + 5.28):**
+
+- [ ] Substituir conteudo de `app/samples/new/page.tsx` (964 linhas) por wrapper de ~15 linhas: `<AppShell session={session}><NewSampleModal open={true} onClose={() => router.push('/samples')} /></AppShell>` (se 5.28 = a)
+- [ ] Garantir que apos criar a amostra, `onSuccessNavigate` (default `/samples/[id]`) eh chamada e modal fecha como side-effect
+
+**Bloco 4 — Quality gates e validacao manual:**
+
+- [ ] `npm run lint` verde
+- [ ] `npm run format:check` verde
+- [ ] `npm run typecheck` verde
+- [ ] `npm run build` verde (rotas registradas corretamente)
+- [ ] Dev manual: abrir `/samples/new` -> modal abre; preencher form -> transitar pra review; voltar pra form (Editar) preserva dados visualmente (sem auto-save mas state interno do reducer); submeter -> created -> Ir para amostra navega
+- [ ] Dev manual mobile: drag-to-dismiss funciona; backdrop tap; back Android; sino visivel
+- [ ] Dev manual desktop: modal centralizado; sem sino (oculto via CSS)
 
 ### Fase 3 — FAB e botao desktop
 
@@ -976,3 +1202,5 @@ Riscos identificados na revisao critica pre-implementacao. Nao bloqueiam o codig
 | 2026-05-11 | v1.8 — Decisoes 5.5 (C: auto-save + confirmacao), 5.6 (B-pragmatica: modal aninhado inicial + debito tecnico) e 5.7 (A: wizard 3 steps na mesma superficie) fechadas. 3 notas tecnicas adicionadas (6.6, 6.7, 6.8). Fase 4 marcada PRONTA P/ EXECUCAO. **Todas as 17 decisoes da secao 5 estao fechadas — planejamento concluido, pronto pra execucao das fases.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Flavio + Claude |
 | 2026-05-11 | v1.9 — Revisao critica pre-implementacao (THINK HARDER). Aplicados 2 ajustes criticos no comportamento do wizard (Nota 6.6): gestos universais (drag/backdrop/back) sempre fecham; navegacao entre steps e exclusiva de botoes (Editar volta pro form com state preservado via 5.5=C; Ir para amostra navega pra /samples/[id]). Adicionadas 10 novas notas tecnicas (6.9-6.18) cobrindo validacao client-side, erro de submit, acessibilidade, keyboard virtual, fallback dvh iOS, cache-control redirect, performance backdrop, identificacao usuario, estrategia de testes, mapeamento exaustivo /settings. Criada secao 11 com 3 riscos arquiteturais (Fases 1+2 sequenciais, tabbar com avatar, state machine explicita). Fase 1 expandida com sub-tarefas detalhadas (29 checkboxes) baseadas no grep exaustivo. Renumeracao: secao Historico passou de 11 -> 12.                                                                                                                                                                                                                                                                                             | Flavio + Claude |
 | 2026-05-11 | v1.10 — Fase 1 IMPLEMENTADA. 7 commits em branch `feat/fase1-tabbar-perfil-header-avatar`: (1) componentes UserAvatar + NotificationBell + CSS; (2) rota /profile absorvendo /settings + card de logout; (3) redirect 307 /settings -> /profile (Server Component + next.config.mjs); (4) refactor AppShell.tsx (14 edits — tabbar, NavIcon, isMainNavItemActive, renderNavIcon, dropdown desktop, NotificationBell, remocao de state/listener/JSX do bottom sheet); (5) 7 dispatches de 'open-profile-sheet' substituidos por `<Link href="/profile">`; (6) delete ProfileBottomSheet.tsx (~200 linhas) + bloco CSS .profile-sheet\* (~205 linhas); (7) atualizacao do doc com checkboxes marcados, tracking atualizado, novo historico. Quality gates verdes (lint, format:check, typecheck, build). `/profile` registrado como static (4.48 kB), `/settings` como dynamic (320 B, redirect). Decisoes implementacao: tabbar usa novo NavIcon `'avatar'` que delega pra `<UserAvatar />` quando user esta disponivel; header mobile esconde dropdown e mostra sino via CSS-only `@media (max-width: 900px)`. Total: 3 arquivos novos, 11 modificados, 1 deletado. | Flavio + Claude |
+| 2026-05-11 | v1.11 — Pre-implementacao da Fase 2: 10 decisoes granulares fechadas (5.18-5.27) + 1 pendente (5.28). 7 notas tecnicas novas (6.19-6.25). Revisao da Nota 6.6 (animacao entre steps mudou de slide horizontal 350ms para fade simples 200ms — 5.22). Detectado bug pos-Fase 1: `<NotificationBell />` invisivel em mobile porque CSS legacy esconde `.topbar-tools` em rotas layered; documentado fix completo na Nota 6.22 e adicionado como Bloco 0 da Fase 2. Fase 2 expandida com 4 blocos detalhados (Bloco 0 hotfix sino, Bloco 1 BottomSheet, Bloco 2 NewSampleModal com wizard, Bloco 3 wrapper /samples/new).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Flavio + Claude |
+| 2026-05-11 | v1.12 — Decisao 5.28 (estrutura do wrapper `/samples/new`) fechada: opcao (a) — `<AppShell>` envolvendo `<NewSampleModal />`, coerente com layout atual. Fase 2 totalmente desbloqueada (todas as 5.18-5.28 decididas), pronta pra implementacao.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Flavio + Claude |
