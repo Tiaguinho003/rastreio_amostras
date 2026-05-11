@@ -114,22 +114,18 @@ export function ViewportDebugOverlay() {
   const [snapshot, setSnapshot] = useState<ViewportSnapshot | null>(null);
   const [timeline, setTimeline] = useState<Timeline>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [showRawJson, setShowRawJson] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // Ativacao: query string ?dvp=1 ou localStorage.debug-viewport === '1'.
+  // ⚠️ TEMPORARIO: ativado SEMPRE em prod pra capturar dados do bug
+  // "barra bege apos teclado" em iOS 26 PWA standalone. Em PWA instalada,
+  // localStorage e isolado da Safari (iOS quirk) — usuario nao consegue
+  // ativar via ?dvp=1 nem via DevTools (nao existe em standalone). Esta
+  // linha vai ser revertida pra ativacao condicional apos coletar o
+  // snapshot necessario.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('dvp') === '1') {
-        window.localStorage.setItem('debug-viewport', '1');
-      } else if (params.get('dvp') === '0') {
-        window.localStorage.removeItem('debug-viewport');
-      }
-      setActive(window.localStorage.getItem('debug-viewport') === '1');
-    } catch {
-      setActive(false);
-    }
+    setActive(true);
   }, []);
 
   // Captura timeline e atualiza snapshot atual.
@@ -192,11 +188,15 @@ export function ViewportDebugOverlay() {
       current: snapshot,
       timeline,
     };
+    const json = JSON.stringify(data, null, 2);
     try {
-      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-      alert('Snapshot copiado pro clipboard.');
+      await navigator.clipboard.writeText(json);
+      alert('Snapshot copiado.');
     } catch {
-      alert('Falhou copiar. Selecione o texto manualmente:\n\n' + JSON.stringify(data, null, 2));
+      // Fallback iOS standalone PWA: clipboard pode falhar sem gesture
+      // explicito. Mostra modal com textarea selecionavel onde o user
+      // pode dar tap-and-hold pra "Selecionar Tudo" + "Copiar".
+      setShowRawJson(json);
     }
   };
 
@@ -305,6 +305,54 @@ export function ViewportDebugOverlay() {
             </button>
           </div>
         </>
+      )}
+      {showRawJson && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.92)',
+            zIndex: 9999999,
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>
+            Tap-and-hold no texto abaixo → Selecionar Tudo → Copiar
+          </div>
+          <textarea
+            readOnly
+            value={showRawJson}
+            style={{
+              flex: 1,
+              width: '100%',
+              background: '#111',
+              color: '#0f0',
+              font: '10px/1.4 ui-monospace, monospace',
+              padding: '8px',
+              border: '1px solid #444',
+              borderRadius: '4px',
+              resize: 'none',
+            }}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+          <button
+            onClick={() => setShowRawJson(null)}
+            style={{
+              background: '#800',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '10px',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            Fechar
+          </button>
+        </div>
       )}
     </div>
   );
