@@ -251,7 +251,7 @@ body {
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
-    calc(env(safe-area-inset-bottom) + clamp(20px, 6vw, 32px));
+    calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(20px, 6vw, 32px));
   background: linear-gradient(
     160deg,
     var(--brand-green-deep) 0%,
@@ -2693,7 +2693,7 @@ button:disabled {
 
   .sample-detail-page {
     height: calc(
-      100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+      100dvh - env(safe-area-inset-top) - var(--app-safe-area-bottom, env(safe-area-inset-bottom)) -
         var(--mobile-shell-top-offset) - var(--mobile-tabbar-clearance) - 0.32rem
     );
     gap: clamp(0.18rem, 0.8vw, 0.28rem);
@@ -4218,7 +4218,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(10px, 3vw, 14px) clamp(10px, 3vw, 14px) 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.4rem);
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
@@ -4776,7 +4776,7 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(4px, 1vw, 6px) 0 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.4rem);
   overflow: hidden;
   min-height: 0;
 }
@@ -5794,7 +5794,7 @@ button:disabled {
 
 .cv2-fab {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 4.6rem);
+  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem);
   right: clamp(14px, 4vw, 20px);
   width: clamp(46px, 13vw, 52px);
   height: clamp(46px, 13vw, 52px);
@@ -6718,7 +6718,7 @@ button:disabled {
   overflow-x: hidden;
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   padding: clamp(12px, 3.5vw, 16px) clamp(14px, 4vw, 20px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 5.4rem);
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.4rem);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   animation: sdv-card-in 0.5s ease-out 0.25s backwards;
@@ -9798,7 +9798,7 @@ button:disabled {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)) + 28px);
   padding: 10px 18px;
   border-radius: 999px;
   background: rgba(20, 20, 20, 0.88);
@@ -14318,9 +14318,11 @@ button:disabled {
     min-height: 100dvh;
     width: 100%;
     background: var(--mobile-page-bg);
+    /* Usa --app-safe-area-bottom (sync via useViewportSync) pra evitar
+       dessincronizacao com .mobile-tabbar quando iOS cacheia env(). */
     padding: calc(env(safe-area-inset-top) + var(--mobile-shell-top-offset))
       clamp(0.35rem, 2vw, 0.75rem)
-      calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance));
+      calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance));
     margin: 0;
     box-sizing: border-box;
     overflow: hidden;
@@ -14370,6 +14372,9 @@ button:disabled {
   body.is-bottom-sheet-open .mobile-tabbar {
     transform: translate3d(0, 100%, 0);
     pointer-events: none;
+    /* transition-duration: 0s evita "tabbar no meio do caminho" quando
+       focusout/focusin dispara durante a animacao de 120ms do bottomsheet. */
+    transition-duration: 0s;
   }
 
   .mobile-tabbar-inner {
@@ -14739,7 +14744,7 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(1.2rem, 4.5vw, 1.8rem) clamp(1rem, 4vw, 1.4rem);
-    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + 0.8rem);
+    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) + 0.8rem);
     display: flex;
     flex-direction: column;
     gap: clamp(2rem, 7vw, 3rem);
@@ -14895,7 +14900,7 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(0.6rem, 1.5dvh, 1rem) 1rem;
-    padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + 0.3rem);
+    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) + 0.3rem);
     display: flex;
     flex-direction: column;
     gap: clamp(0.4rem, 1dvh, 0.8rem);
@@ -15872,7 +15877,7 @@ button:disabled {
 
   .camera-hub-page {
     height: calc(
-      100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+      100dvh - env(safe-area-inset-top) - var(--app-safe-area-bottom, env(safe-area-inset-bottom)) -
         var(--mobile-tabbar-clearance) - 0.6rem
     );
     min-height: 0;
@@ -15917,7 +15922,7 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + clamp(18px, 5vw, 28px));
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(18px, 5vw, 28px));
   pointer-events: none;
   z-index: 2;
   animation: cam-slide-up 0.5s ease-out 0.1s backwards;
@@ -18429,7 +18434,7 @@ button:disabled {
 
 .splash-footer {
   position: absolute;
-  bottom: max(env(safe-area-inset-bottom, 0px), clamp(2rem, 6dvh, 4rem));
+  bottom: max(var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)), clamp(2rem, 6dvh, 4rem));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -18954,7 +18959,8 @@ button:disabled {
   min-height: 0;
   padding: clamp(16px, 4.5vw, 24px) clamp(16px, 5vw, 24px);
   padding-bottom: calc(
-    env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(8px, 2vw, 12px)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
+      clamp(8px, 2vw, 12px)
   );
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
@@ -19010,7 +19016,7 @@ button:disabled {
 .nsv2-body-form {
   position: relative;
   padding: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) - 4px);
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) - 4px);
   align-items: stretch;
   justify-content: flex-start;
   background: #f4f0e7;
@@ -19339,7 +19345,8 @@ button:disabled {
 .nsv2-offline-banner {
   position: fixed;
   bottom: calc(
-    env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance) + clamp(4px, 1.5vw, 6px)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
+      clamp(4px, 1.5vw, 6px)
   );
   left: 50%;
   transform: translateX(-50%);
@@ -23482,7 +23489,7 @@ button:disabled {
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
-    calc(env(safe-area-inset-bottom) + clamp(20px, 6vw, 32px));
+    calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(20px, 6vw, 32px));
   background: linear-gradient(
     160deg,
     var(--brand-green-deep) 0%,
@@ -24024,7 +24031,7 @@ button:disabled {
   flex-direction: column;
   background: var(--brand-cream-soft);
   border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
-  padding: 0 clamp(1rem, 4vw, 1.4rem) calc(env(safe-area-inset-bottom) + clamp(0.6rem, 2vw, 0.9rem));
+  padding: 0 clamp(1rem, 4vw, 1.4rem) calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem));
   /* translate3d permanente: GPU layer; previne scroll lock iOS standalone */
   transform: translate3d(0, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
