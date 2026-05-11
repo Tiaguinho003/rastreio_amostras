@@ -1,4 +1,14 @@
-const CACHE_NAME = 'rastreio-shell-v2';
+// IMPORTANTE: bumpar a versao do CACHE_NAME (ex: v3 -> v4) sempre que mudar
+// STATIC_PATHS, comportamento de cache, ou quando precisar invalidar cache
+// dos clients ja instalados. O nome muda -> browser detecta byte diff no
+// /sw.js -> baixa novo SW -> activate roda -> caches antigos sao deletados
+// (filtro key !== CACHE_NAME) -> clients.claim assume controle ->
+// PwaRegistration detecta controllerchange e faz reload automatico.
+// Sem o bump, o browser nao detecta mudanca no SW e clients continuam
+// servidos do cache antigo eternamente. Foi a causa do bug "barra bege
+// nao some" persistir por 13 tentativas de fix — todos os fixes estavam
+// em prod mas os clients viam HTML/JS cacheado do SW antigo.
+const CACHE_NAME = 'rastreio-shell-v3-2026-05-11';
 const STATIC_PATHS = ['/', '/login', '/offline', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 
 self.addEventListener('install', (event) => {
