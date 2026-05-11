@@ -1,10 +1,75 @@
 'use client';
 
-import { useReducer, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { BottomSheet } from './BottomSheet';
-import type { SessionData } from '../lib/types';
+import { ClientLookupField } from './clients/ClientLookupField';
+import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
+import { OwnerUnitField } from './samples/OwnerUnitField';
+import { ApiError, createSample, getClient } from '../lib/api-client';
+import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
+import { createSampleDraftSchema } from '../lib/form-schemas';
+import type {
+  ClientSummary,
+  ClientUnitSummary,
+  CreateSampleResponse,
+  SessionData,
+} from '../lib/types';
+
+// ════════════════════════════════════════════════════════════════
+// Constantes e helpers (escopo de modulo)
+// ════════════════════════════════════════════════════════════════
+
+const DRAFT_ID_STORAGE_KEY = 'new-sample-draft-id';
+const REQUIRED_FIELD_MESSAGE = 'Obrigatório';
+
+function buildDraftId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function persistDraftId(id: string) {
+  try {
+    sessionStorage.setItem(DRAFT_ID_STORAGE_KEY, id);
+  } catch {}
+}
+
+function loadOrCreateDraftId(): string {
+  try {
+    const stored = sessionStorage.getItem(DRAFT_ID_STORAGE_KEY);
+    if (stored) return stored;
+  } catch {}
+  const id = buildDraftId();
+  persistDraftId(id);
+  return id;
+}
+
+function renewDraftId(): string {
+  const id = buildDraftId();
+  persistDraftId(id);
+  return id;
+}
+
+function clearPersistedDraftId() {
+  try {
+    sessionStorage.removeItem(DRAFT_ID_STORAGE_KEY);
+  } catch {}
+}
+
+function buildHarvestPresets(): readonly string[] {
+  const year = new Date().getFullYear() % 100;
+  return [
+    `${year - 2}/${year - 1}`,
+    `${year - 1}/${year}`,
+    `${year}/${year + 1}`,
+    `${year + 1}/${year + 2}`,
+  ];
+}
+
+const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 
 // ════════════════════════════════════════════════════════════════
 // Types
@@ -77,11 +142,35 @@ const initialState: WizardState = {
   fieldErrors: EMPTY_REQUIRED_FIELD_ERRORS,
 };
 
+function hasRequiredFieldErrors(fieldErrors: RequiredFieldErrors) {
+  return Object.values(fieldErrors).some((value) => Boolean(value));
+}
+
+function getMissingRequiredFieldErrors(
+  values: Record<'owner' | 'sacks' | 'harvest', string>
+): RequiredFieldErrors {
+  return {
+    owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
+    ownerUnit: null,
+    sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
+    harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
+  };
+}
+
+function getSchemaFieldErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>
+): RequiredFieldErrors {
+  const next = { ...EMPTY_REQUIRED_FIELD_ERRORS };
+  for (const issue of issues) {
+    const path = issue.path[0];
+    if (path !== 'owner' && path !== 'sacks' && path !== 'harvest') continue;
+    next[path] = issue.message;
+  }
+  return next;
+}
+
 // ════════════════════════════════════════════════════════════════
 // Reducer
-//
-// Transicoes invalidas sao IGNORADAS (state inalterado) — evita race
-// conditions como tap "Confirmar" duplo, ou tentar fechar durante submit.
 // ════════════════════════════════════════════════════════════════
 
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
@@ -156,117 +245,565 @@ const TITLE_BY_STEP: Record<WizardStep, string> = {
   created: 'Amostra criada',
 };
 
-export function NewSampleModal({
-  open,
-  onClose,
-  session: _session,
-  onSuccessNavigate,
-}: NewSampleModalProps) {
+export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: NewSampleModalProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
+
+  // ── State local do form (separado do reducer pra evitar
+  // verbosidade desnecessaria; mudancas disparam MARK_DIRTY no reducer)
+  const [clientDraftId, setClientDraftId] = useState<string>(() => '');
+  const [owner, setOwner] = useState('');
+  const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
+  const [ownerUnits, setOwnerUnits] = useState<ClientUnitSummary[]>([]);
+  const [selectedOwnerUnitId, setSelectedOwnerUnitId] = useState<string | null>(null);
+  const [ownerUnitLoading, setOwnerUnitLoading] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateSeed, setQuickCreateSeed] = useState('');
+  const [sacks, setSacks] = useState('');
+  const [harvest, setHarvest] = useState('');
+  const [originLot, setOriginLot] = useState('');
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+  const [harvestOptionsOpen, setHarvestOptionsOpen] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+
+  const ownerInputRef = useRef<HTMLInputElement | null>(null);
+  const sacksInputRef = useRef<HTMLInputElement | null>(null);
+  const harvestInputRef = useRef<HTMLInputElement | null>(null);
+  const harvestFieldRef = useRef<HTMLDivElement | null>(null);
+  const invalidFocusTimeoutRef = useRef<number | null>(null);
+  const draftInitializedRef = useRef(false);
+
+  // Hidratacao do clientDraftId: roda APENAS no primeiro mount com open=true.
+  // Mantem comportamento atual (continua draft entre fechamentos via sessionStorage).
+  useEffect(() => {
+    if (!open || draftInitializedRef.current) return;
+    draftInitializedRef.current = true;
+    setClientDraftId(loadOrCreateDraftId());
+  }, [open]);
 
   const navigateToSample =
     onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
 
-  // Bloco 2.c: abrira modal "Descartar?" se state.dirty=true.
-  // Por enquanto sempre permite fechar.
-  async function handleDismissAttempt(): Promise<boolean> {
-    if (state.status === 'submitting') {
-      return false;
+  // ── Owner units load (mesmo padrao do form atual)
+  useEffect(() => {
+    if (!session || !selectedOwnerClient) {
+      setOwnerUnits([]);
+      setSelectedOwnerUnitId(null);
+      setOwnerUnitLoading(false);
+      setOwner(selectedOwnerClient?.displayName ?? '');
+      return;
     }
+
+    let active = true;
+    setOwnerUnitLoading(true);
+    setError(null);
+    setOwner(selectedOwnerClient.displayName ?? '');
+
+    getClient(session, selectedOwnerClient.id)
+      .then((response) => {
+        if (!active) return;
+        const activeUnits = response.units.filter((unit) => unit.status === 'ACTIVE');
+        setOwnerUnits(activeUnits);
+        setSelectedOwnerUnitId((current) =>
+          activeUnits.some((unit) => unit.id === current) ? current : null
+        );
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setOwnerUnits([]);
+        setSelectedOwnerUnitId(null);
+        setError(
+          cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do proprietario'
+        );
+      })
+      .finally(() => {
+        if (active) setOwnerUnitLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOwnerClient, session]);
+
+  // ── Cleanup timeouts ao desmontar
+  useEffect(() => {
+    return () => {
+      if (invalidFocusTimeoutRef.current !== null) {
+        window.clearTimeout(invalidFocusTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ── Outside-click pra fechar dropdown de presets de safra
+  useEffect(() => {
+    if (!harvestOptionsOpen) return;
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!harvestFieldRef.current?.contains(target)) {
+        setHarvestOptionsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', onDocumentMouseDown);
+  }, [harvestOptionsOpen]);
+
+  // ── Online/offline listeners
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // ── DirtyState global (router Link / back interception)
+  useRegisterDirtyState('samples/new', state.dirty, 'Nova amostra em preenchimento');
+
+  function markDirty() {
+    if (!state.dirty) dispatch({ type: 'MARK_DIRTY' });
+  }
+
+  function clearFieldError(field: RequiredFieldName) {
+    dispatch({ type: 'CLEAR_FIELD_ERROR', field });
+  }
+
+  function focusRequiredField(field: RequiredFieldName) {
+    if (invalidFocusTimeoutRef.current !== null) {
+      window.clearTimeout(invalidFocusTimeoutRef.current);
+    }
+    invalidFocusTimeoutRef.current = window.setTimeout(() => {
+      const target =
+        field === 'owner'
+          ? ownerInputRef.current
+          : field === 'sacks'
+            ? sacksInputRef.current
+            : field === 'harvest'
+              ? harvestInputRef.current
+              : null;
+      target?.focus();
+      target?.scrollIntoView({ block: 'nearest' });
+      invalidFocusTimeoutRef.current = null;
+    }, 60);
+  }
+
+  function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
+    const firstInvalid = (['owner', 'ownerUnit', 'sacks', 'harvest'] as const).find((f) =>
+      Boolean(fieldErrors[f])
+    );
+    if (firstInvalid) focusRequiredField(firstInvalid);
+  }
+
+  function resetDraft() {
+    setClientDraftId(renewDraftId());
+    setOwner('');
+    setSelectedOwnerClient(null);
+    setOwnerUnits([]);
+    setSelectedOwnerUnitId(null);
+    setOwnerUnitLoading(false);
+    setQuickCreateOpen(false);
+    setQuickCreateSeed('');
+    setSacks('');
+    setHarvest('');
+    setOriginLot('');
+    setLocation('');
+    setNotes('');
+    setHarvestOptionsOpen(false);
+    setError(null);
+    setMessage(null);
+    dispatch({ type: 'RESET' });
+  }
+
+  function hasUnsavedData() {
+    return Boolean(
+      owner.trim() ||
+      sacks.trim() ||
+      harvest.trim() ||
+      originLot.trim() ||
+      location.trim() ||
+      notes.trim()
+    );
+  }
+
+  function openReviewModal() {
+    setError(null);
+    setMessage(null);
+
+    if (!selectedOwnerClient) {
+      dispatch({
+        type: 'SET_FIELD_ERRORS',
+        errors: { ...state.fieldErrors, owner: REQUIRED_FIELD_MESSAGE },
+      });
+      focusRequiredField('owner');
+      return;
+    }
+
+    if (selectedOwnerClient.personType === 'PF' && ownerUnits.length === 0) {
+      setError(
+        'Este cliente PF nao tem fazenda ativa. Cadastre uma fazenda na pagina do cliente antes de registrar amostras.'
+      );
+      return;
+    }
+
+    const missingRequiredFieldErrors = getMissingRequiredFieldErrors({ owner, sacks, harvest });
+
+    if (selectedOwnerClient.personType === 'PF' && !selectedOwnerUnitId) {
+      missingRequiredFieldErrors.ownerUnit = REQUIRED_FIELD_MESSAGE;
+    }
+
+    if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
+      dispatch({ type: 'SET_FIELD_ERRORS', errors: missingRequiredFieldErrors });
+      focusFirstInvalidField(missingRequiredFieldErrors);
+      return;
+    }
+
+    const parsed = createSampleDraftSchema.safeParse({
+      owner,
+      sacks,
+      harvest,
+      originLot: originLot.trim() ? originLot : null,
+      location: location.trim() ? location : null,
+      notes: notes.trim() ? notes : null,
+    });
+
+    if (!parsed.success) {
+      const schemaFieldErrors = getSchemaFieldErrors(parsed.error.issues);
+      if (hasRequiredFieldErrors(schemaFieldErrors)) {
+        dispatch({ type: 'SET_FIELD_ERRORS', errors: schemaFieldErrors });
+        focusFirstInvalidField(schemaFieldErrors);
+      } else {
+        setError(parsed.error.issues[0]?.message ?? 'Dados invalidos para criar amostra');
+      }
+      return;
+    }
+
+    dispatch({ type: 'SET_FIELD_ERRORS', errors: EMPTY_REQUIRED_FIELD_ERRORS });
+
+    dispatch({
+      type: 'GO_TO_REVIEW',
+      pendingDraft: {
+        clientDraftId,
+        owner: parsed.data.owner,
+        ownerClientId: selectedOwnerClient?.id ?? null,
+        ownerUnitId: selectedOwnerUnitId ?? null,
+        sacks: parsed.data.sacks,
+        harvest: parsed.data.harvest,
+        originLot: parsed.data.originLot ?? null,
+        location: parsed.data.location ?? null,
+        receivedChannel: parsed.data.receivedChannel,
+        notes: parsed.data.notes ?? null,
+      },
+    });
+  }
+
+  // Bloco 2.c: abrira modal "Descartar?" se state.dirty=true.
+  async function handleDismissAttempt(): Promise<boolean> {
+    if (state.status === 'submitting') return false;
     return true;
   }
 
-  let stepContent: ReactNode;
-  let stepFooter: ReactNode = null;
+  const fieldErrors = state.fieldErrors;
+  const submitting = state.status === 'submitting';
 
-  if (state.step === 'form') {
-    stepContent = (
-      <div style={{ padding: '1rem 0' }}>
-        <p>
-          <strong>[Skeleton]</strong> Form step (Bloco 2.b).
-        </p>
-        <button
-          type="button"
-          onClick={() =>
-            dispatch({
-              type: 'GO_TO_REVIEW',
-              pendingDraft: {
-                clientDraftId: 'placeholder',
-                owner: 'Cliente placeholder',
-                ownerClientId: null,
-                ownerUnitId: null,
-                sacks: 1,
-                harvest: '24/25',
-                originLot: null,
-                location: null,
-                receivedChannel: 'in_person',
-                notes: null,
-              },
-            })
-          }
-        >
-          Avançar para revisão
-        </button>
+  // ── Renderizacao do step "form"
+  const formContent: ReactNode = (
+    <>
+      {error ? <p className="nsv2-inline-error">{error}</p> : null}
+      {message ? <p className="nsv2-inline-success">{message}</p> : null}
+
+      <div className="nsv2-form-grid">
+        <div className="nsv2-grid-full">
+          <ClientLookupField
+            session={session}
+            label="Proprietario"
+            kind="owner"
+            required
+            inputRef={ownerInputRef}
+            invalid={Boolean(fieldErrors.owner)}
+            invalidText={fieldErrors.owner ?? 'Obrigatorio'}
+            selectedClient={selectedOwnerClient}
+            onSelectClient={(client) => {
+              markDirty();
+              setSelectedOwnerClient(client);
+              setOwner(client?.displayName ?? '');
+              if (!client) {
+                setSelectedOwnerUnitId(null);
+              } else if (selectedOwnerClient?.id !== client.id) {
+                setSelectedOwnerUnitId(null);
+              }
+              clearFieldError('owner');
+              clearFieldError('ownerUnit');
+              setError(null);
+            }}
+            onRequestCreate={(searchTerm) => {
+              setQuickCreateSeed(searchTerm);
+              setQuickCreateOpen(true);
+            }}
+            createLabel="+ Novo cliente"
+            createButtonStyle="inline-cta"
+          />
+        </div>
+
+        <div className="nsv2-grid-full">
+          <OwnerUnitField
+            session={session}
+            client={selectedOwnerClient}
+            units={ownerUnits}
+            loading={ownerUnitLoading}
+            selectedUnitId={selectedOwnerUnitId}
+            onSelect={(unitId) => {
+              markDirty();
+              setSelectedOwnerUnitId(unitId);
+              clearFieldError('ownerUnit');
+            }}
+            onUnitCreated={(unit) => {
+              setOwnerUnits((prev) => [...prev, unit]);
+            }}
+            required={selectedOwnerClient?.personType === 'PF'}
+            invalid={Boolean(fieldErrors.ownerUnit)}
+            invalidText={fieldErrors.ownerUnit ?? 'Obrigatório'}
+            onClearError={() => clearFieldError('ownerUnit')}
+          />
+        </div>
+
+        <div className="nsv2-grid-half">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">
+              Sacas<span className="nsv2-required-star"> *</span>
+            </span>
+            <input
+              ref={sacksInputRef}
+              value={sacks}
+              className={`nsv2-field-input ${fieldErrors.sacks ? 'has-error' : ''}`}
+              aria-invalid={Boolean(fieldErrors.sacks)}
+              onChange={(event) => {
+                markDirty();
+                setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                clearFieldError('sacks');
+              }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder={fieldErrors.sacks ? fieldErrors.sacks : 'Ex: 40'}
+            />
+          </label>
+        </div>
+
+        <div className="nsv2-grid-half" ref={harvestFieldRef}>
+          <label className="nsv2-field" htmlFor="nsv2-harvest-input-modal">
+            <span className="nsv2-field-label">
+              Safra<span className="nsv2-required-star"> *</span>
+            </span>
+            <input
+              id="nsv2-harvest-input-modal"
+              ref={harvestInputRef}
+              className={`nsv2-field-input ${fieldErrors.harvest ? 'has-error' : ''}`}
+              aria-invalid={Boolean(fieldErrors.harvest)}
+              value={harvest}
+              onFocus={() => setHarvestOptionsOpen(true)}
+              onChange={(event) => {
+                markDirty();
+                setHarvest(event.target.value.toUpperCase());
+                clearFieldError('harvest');
+              }}
+              placeholder={
+                fieldErrors.harvest
+                  ? fieldErrors.harvest
+                  : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
+              }
+            />
+          </label>
+          {harvestOptionsOpen ? (
+            <div className="new-sample-harvest-options">
+              {HARVEST_PRESET_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`new-sample-harvest-option${harvest.trim() === option ? ' is-active' : ''}`}
+                  onClick={() => {
+                    markDirty();
+                    setHarvest(option);
+                    clearFieldError('harvest');
+                    setHarvestOptionsOpen(false);
+                  }}
+                  disabled={submitting}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="nsv2-grid-half">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">Lote de origem</span>
+            <input
+              value={originLot}
+              className="nsv2-field-input"
+              onChange={(event) => {
+                markDirty();
+                setOriginLot(event.target.value.toUpperCase());
+              }}
+              placeholder="Codigo do lote"
+            />
+          </label>
+        </div>
+
+        <div className="nsv2-grid-half">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">Local</span>
+            <input
+              value={location}
+              className="nsv2-field-input"
+              onChange={(event) => {
+                markDirty();
+                setLocation(event.target.value.toUpperCase());
+              }}
+              placeholder="Ex: BM, Patos"
+              maxLength={30}
+            />
+          </label>
+        </div>
+
+        <div className="nsv2-grid-full">
+          <label className="nsv2-field">
+            <span className="nsv2-field-label">Observacoes</span>
+            <input
+              value={notes}
+              className="nsv2-field-input"
+              onChange={(event) => {
+                markDirty();
+                setNotes(event.target.value.toUpperCase());
+              }}
+              placeholder=""
+            />
+          </label>
+        </div>
       </div>
-    );
-  } else if (state.step === 'review') {
-    stepContent = (
-      <div style={{ padding: '1rem 0' }}>
-        <p>
-          <strong>[Skeleton]</strong> Review step (Bloco 2.c).
-        </p>
-        <p>Cliente: {state.pendingDraft?.owner ?? '—'}</p>
-        <button type="button" onClick={() => dispatch({ type: 'BACK_TO_FORM' })}>
-          Voltar para form
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            dispatch({
-              type: 'SUBMIT_SUCCESS',
-              sampleId: 'placeholder-id',
-              lotNumber: 'A-0001',
-            })
-          }
-        >
-          Simular sucesso
-        </button>
-      </div>
-    );
-  } else {
-    stepContent = (
-      <div style={{ padding: '1rem 0' }}>
-        <p>
-          <strong>[Skeleton]</strong> Created step (Bloco 2.d).
-        </p>
-        <p>Lote: {state.createdLotNumber ?? '—'}</p>
-        <button
-          type="button"
-          onClick={() => {
-            if (state.createdSampleId) {
-              navigateToSample(state.createdSampleId);
-            }
-            onClose();
-          }}
-        >
-          Ir para amostra
-        </button>
-      </div>
-    );
-  }
+
+      {!isOnline ? (
+        <div className="nsv2-offline-banner" role="status">
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M1 1l22 22" />
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+            <line x1="12" y1="20" x2="12.01" y2="20" />
+          </svg>
+          <span>Sem conexao</span>
+        </div>
+      ) : null}
+    </>
+  );
+
+  const formFooter: ReactNode = (
+    <div className="nsv2-submit-wrap">
+      <button
+        type="button"
+        className="nsv2-clear-btn"
+        disabled={submitting || !hasUnsavedData()}
+        onClick={resetDraft}
+      >
+        <span>Limpar</span>
+      </button>
+      <button
+        type="button"
+        className="nsv2-submit-btn"
+        disabled={submitting || !isOnline}
+        onClick={() => {
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          openReviewModal();
+        }}
+      >
+        <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
+      </button>
+    </div>
+  );
+
+  // Placeholders pros steps 2.c e 2.d (mantidos do skeleton)
+  const reviewContent: ReactNode = (
+    <div style={{ padding: '1rem 0' }}>
+      <p>
+        <strong>[Skeleton]</strong> Review step (Bloco 2.c).
+      </p>
+      <p>Cliente: {state.pendingDraft?.owner ?? '—'}</p>
+      <button type="button" onClick={() => dispatch({ type: 'BACK_TO_FORM' })}>
+        Voltar para form
+      </button>
+    </div>
+  );
+
+  const createdContent: ReactNode = (
+    <div style={{ padding: '1rem 0' }}>
+      <p>
+        <strong>[Skeleton]</strong> Created step (Bloco 2.d).
+      </p>
+      <p>Lote: {state.createdLotNumber ?? '—'}</p>
+      <button
+        type="button"
+        onClick={() => {
+          if (state.createdSampleId) navigateToSample(state.createdSampleId);
+          onClose();
+        }}
+      >
+        Ir para amostra
+      </button>
+    </div>
+  );
+
+  const stepContent =
+    state.step === 'form' ? formContent : state.step === 'review' ? reviewContent : createdContent;
+  const stepFooter = state.step === 'form' ? formFooter : null;
 
   return (
-    <BottomSheet
-      open={open}
-      onClose={onClose}
-      onDismissAttempt={handleDismissAttempt}
-      title={TITLE_BY_STEP[state.step]}
-      footer={stepFooter}
-      ariaLabel="Nova amostra"
-      dragToDismiss={state.step === 'form'}
-    >
-      {stepContent}
-    </BottomSheet>
+    <>
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        onDismissAttempt={handleDismissAttempt}
+        title={TITLE_BY_STEP[state.step]}
+        footer={stepFooter}
+        ariaLabel="Nova amostra"
+        dragToDismiss={state.step === 'form'}
+        dragDisabled={quickCreateOpen}
+      >
+        {stepContent}
+      </BottomSheet>
+
+      <ClientQuickCreateModal
+        session={session}
+        open={quickCreateOpen}
+        title="Novo proprietario"
+        initialSearch={quickCreateSeed}
+        initialPersonType="PJ"
+        initialIsSeller
+        initialIsBuyer={false}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={(client: ClientSummary) => {
+          setQuickCreateOpen(false);
+          markDirty();
+          setSelectedOwnerClient(client);
+          setOwner(client.displayName ?? '');
+          setSelectedOwnerUnitId(null);
+          clearFieldError('owner');
+          setMessage('Cliente criado e selecionado para a amostra.');
+        }}
+      />
+    </>
   );
 }
+
+// Export tipo pra reuso em outros lugares (Fase 3 wrapper, Fase 4)
+export type { NewSampleModalProps, PendingDraftPayload };
+// CreateSampleResponse retornado pelo backend nao e mais exposto pelo
+// componente (o sheet so navega via onSuccessNavigate).
+export type { CreateSampleResponse };
