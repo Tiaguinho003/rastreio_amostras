@@ -31,6 +31,14 @@ type ViewportSnapshot = {
   scrollY: number;
   documentH: number;
   bodyH: number;
+  // Estado do DOM/CSS adicional pra diagnostico do bug "barra bege":
+  bodyClasses: string;
+  bodyOverflow: string;
+  appShellMainH: number | null; // altura computed do .app-shell-main
+  appShellMainMinH: string | null; // min-height computed
+  tabbarBottom: string | null; // bottom computed da .mobile-tabbar
+  tabbarTransform: string | null; // transform computed
+  containerScrolls: Record<string, number>; // scrollTop dos scrollables internos
 };
 
 type Timeline = ViewportSnapshot[];
@@ -70,6 +78,36 @@ function readSafeArea(): {
 
 function captureSnapshot(label: string, startTime: number): ViewportSnapshot {
   const safe = readSafeArea();
+
+  // Captura estado de elementos DOM criticos pra diagnosticar onde
+  // o layout fica errado mesmo quando viewport metrics estao OK.
+  const appShellMain = document.querySelector('.app-shell-main') as HTMLElement | null;
+  const tabbar = document.querySelector('.mobile-tabbar') as HTMLElement | null;
+  const appShellStyle = appShellMain ? window.getComputedStyle(appShellMain) : null;
+  const tabbarStyle = tabbar ? window.getComputedStyle(tabbar) : null;
+
+  const scrollableSelectors = [
+    '.sdv-content',
+    '.dashboard-sheet',
+    '.bottom-sheet-body',
+    '.new-sample-step-body-content-details',
+    '.client-detail-modal-form',
+    '.client-quick-create-body',
+    '.client-reg-modal-body',
+    '.sample-classification-step-body',
+    '.samples-page-v2-sheet',
+    '.clients-v2-sheet',
+    '.nsv2-body',
+    '.nsv2-body-form',
+  ];
+  const containerScrolls: Record<string, number> = {};
+  for (const sel of scrollableSelectors) {
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (el && el.scrollTop !== undefined) {
+      containerScrolls[sel] = el.scrollTop;
+    }
+  }
+
   return {
     t: Math.round(performance.now() - startTime),
     label,
@@ -87,6 +125,13 @@ function captureSnapshot(label: string, startTime: number): ViewportSnapshot {
     scrollY: window.scrollY,
     documentH: document.documentElement.clientHeight,
     bodyH: document.body.clientHeight,
+    bodyClasses: document.body.className,
+    bodyOverflow: window.getComputedStyle(document.body).overflow,
+    appShellMainH: appShellMain?.clientHeight ?? null,
+    appShellMainMinH: appShellStyle?.minHeight ?? null,
+    tabbarBottom: tabbarStyle?.bottom ?? null,
+    tabbarTransform: tabbarStyle?.transform ?? null,
+    containerScrolls,
   };
 }
 
