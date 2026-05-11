@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { MobileTabbar } from './MobileTabbar';
-import { NotificationBell } from './NotificationBell';
 import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
@@ -470,8 +469,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
             <div className="topbar-search-slot">
               <SampleSearchField session={session} compact />
             </div>
-
-            <NotificationBell className="topbar-notification-bell" />
 
             <div className="topbar-profile" ref={profileMenuRef}>
               <button

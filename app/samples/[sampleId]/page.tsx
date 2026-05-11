@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
+import { NotificationBell } from '../../../components/NotificationBell';
 import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
@@ -1843,6 +1844,7 @@ export default function SampleDetailPage() {
                   </svg>
                 </Link>
                 <span className="sdv-header-title">Detalhes</span>
+                <NotificationBell className="header-notification-bell" />
                 <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
                   <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
                 </Link>

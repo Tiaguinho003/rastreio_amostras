@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { NotificationBell } from '../../components/NotificationBell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
 import { ClientUserFilterButton } from '../../components/clients/ClientUserFilterButton';
 import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
@@ -875,6 +876,7 @@ function ClientsPage() {
           <div className="clients-v2-header-center">
             <h2 className="nsv2-title">Clientes</h2>
           </div>
+          <NotificationBell className="header-notification-bell" />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
           </Link>

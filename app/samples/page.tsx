@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { NotificationBell } from '../../components/NotificationBell';
 import { ApiError, listSamples } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SampleSnapshot } from '../../lib/types';
@@ -1009,6 +1010,7 @@ function SamplesPage() {
           <div className="samples-page-v2-header-center">
             <h2 className="nsv2-title">Amostras</h2>
           </div>
+          <NotificationBell className="header-notification-bell" />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{avatarInitials}</span>
           </Link>

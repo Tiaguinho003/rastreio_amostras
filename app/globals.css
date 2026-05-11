@@ -23881,19 +23881,29 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* ── Topbar: visibilidade condicional do dropdown e do sino ──
+/* ── Topbar: visibilidade condicional do dropdown desktop ──
    Em mobile (<= 900px), o avatar dropdown do header some (Perfil ja
-   esta na tabbar). No lugar, fica o sino de notificacoes placeholder.
-   Em desktop, comportamento inverso. */
-.topbar-notification-bell {
-  display: none;
-}
-
+   esta na tabbar). Em desktop, o dropdown e o ponto de entrada do perfil. */
 @media (max-width: 900px) {
   .topbar-profile {
     display: none;
   }
-  .topbar-notification-bell {
+}
+
+/* ── Sino de notificacoes nos headers de pagina (placeholder) ──
+   Em mobile (<= 900px), o avatar do header de cada pagina some e da lugar
+   ao sino de notificacoes (decisao 5.16 + Nota 6.22). Em desktop, o avatar
+   permanece visivel (Link pra /profile) e o sino fica oculto. */
+.header-notification-bell {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .nsv2-avatar,
+  .dashboard-hero-avatar {
+    display: none;
+  }
+  .header-notification-bell {
     display: inline-flex;
   }
 }

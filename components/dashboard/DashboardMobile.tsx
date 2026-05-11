@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { NotificationBell } from '../NotificationBell';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
 import { getRoleLabel } from '../../lib/roles';
@@ -60,6 +61,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
               <span className="dashboard-greeting-name">{firstName}</span>
               <span className="dashboard-greeting-role">{roleLabel}</span>
             </div>
+            <NotificationBell className="header-notification-bell" />
             <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
               <span className="dashboard-hero-avatar-initials">{initials}</span>
             </Link>
