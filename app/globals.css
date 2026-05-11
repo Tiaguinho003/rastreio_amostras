@@ -23993,6 +23993,9 @@ button:disabled {
 }
 
 .bottom-sheet {
+  /* Espaco reservado no topo (abaixo do header da pagina). Sobreescreva
+     em contextos especificos via classe (`.bottom-sheet.is-tall` etc.). */
+  --bottom-sheet-top-gap: 5.5rem;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -24006,8 +24009,10 @@ button:disabled {
   /* translate3d permanente: GPU layer; previne scroll lock iOS standalone */
   transform: translate3d(0, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 98dvh;
-  height: 98dvh;
+  /* Sobe ate logo abaixo do header da pagina (deixa visivel o titulo +
+     avatar/sino, conforme pedido do usuario). */
+  max-height: calc(100dvh - env(safe-area-inset-top) - var(--bottom-sheet-top-gap));
+  height: calc(100dvh - env(safe-area-inset-top) - var(--bottom-sheet-top-gap));
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
@@ -24017,8 +24022,8 @@ button:disabled {
 /* Fallback iOS Safari < 15.4 (sem suporte a dvh) */
 @supports not (height: 100dvh) {
   .bottom-sheet {
-    max-height: calc(100vh - 2vh - env(safe-area-inset-top));
-    height: calc(100vh - 2vh - env(safe-area-inset-top));
+    max-height: calc(100vh - env(safe-area-inset-top) - var(--bottom-sheet-top-gap));
+    height: calc(100vh - env(safe-area-inset-top) - var(--bottom-sheet-top-gap));
   }
 }
 
