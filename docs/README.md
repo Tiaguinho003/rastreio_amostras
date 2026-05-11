@@ -46,6 +46,8 @@ Documentos relacionados: `README.md`, `docs/Documentation-Inventory.md`
    Uso: especificacao funcional/tecnica de clientes, proprietarios, movimentacoes comerciais e auditoria. Status: Ativo (implementado).
 5. `docs/archive/Reorganizacao-2026Q2-Decisions.md`
    Uso: historico de decisoes da reorganizacao Q2 2026 (14 ADRs). Referencia para entender escolhas arquiteturais.
+6. `docs/refactor-amostra-modal.md`
+   Uso: plano ativo da refatoracao de Nova Amostra (pagina -> modal acionado por FAB) + reorganizacao da tabbar mobile com Perfil. Status: Em planejamento.
 
 ## Relatorios da reorganizacao
 
