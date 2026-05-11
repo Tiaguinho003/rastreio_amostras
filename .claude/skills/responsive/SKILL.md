@@ -52,14 +52,15 @@ Valores fixos em px quebram a proporcionalidade entre telas diferentes. Use semp
 Toda pagina deve respeitar as safe areas do dispositivo:
 
 - **Topo (status bar/notch)**: `env(safe-area-inset-top)`
-- **Base (home indicator)**: `env(safe-area-inset-bottom)`
-- Sempre somar com o padding do conteudo: `padding-top: calc(env(safe-area-inset-top) + 1rem)`
+- **Base (home indicator)**: `var(--app-safe-area-bottom, env(safe-area-inset-bottom))`
+- **Importante (base)**: usar a CSS var sincronizada — nunca `env(safe-area-inset-bottom)` direto. iOS Safari standalone PWA cacheia `env()` apos keyboard close / orientationchange, e o hook `lib/use-viewport-sync.ts` mantem `--app-safe-area-bottom` atualizada via probe div + force reflow. Usar `env()` direto faz o container dessincronizar com a tabbar (que ja usa a var), expondo o fundo bege entre os dois.
+- Sempre somar com o padding do conteudo: `padding-top: calc(env(safe-area-inset-top) + 1rem)` / `padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 1rem)`
 
 ### 5. Tabbar e conteudo
 
 - O conteudo NUNCA deve ficar atras da tabbar de navegacao
 - Usar `var(--mobile-tabbar-clearance)` para garantir espaco
-- Exemplo: `padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-tabbar-clearance))`
+- Exemplo: `padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))`
 
 ### 6. Status bar integrada
 
@@ -107,7 +108,8 @@ Sempre usar as variaveis ja definidas:
 - `--mobile-shell-top-offset` - offset do topo do shell
 - `--mobile-edge-fill` - cor/gradiente da borda (verde)
 - `--mobile-page-bg` - background da pagina
-- `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` - safe areas do dispositivo
+- `env(safe-area-inset-top)` - safe area do topo
+- `var(--app-safe-area-bottom, env(safe-area-inset-bottom))` - safe area da base (CSS var sincronizada por `lib/use-viewport-sync.ts`; fallback pra `env()` em SSR / browsers sem JS). **Nunca usar `env(safe-area-inset-bottom)` direto** — ver §4.
 
 ### 11. Botoes sem destaque verde
 
