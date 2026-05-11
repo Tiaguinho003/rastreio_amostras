@@ -69,6 +69,18 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    // /settings foi absorvida em /profile (Fase 1 da refatoracao).
+    // Mantido como redirect 307 (temporario, sem cache do navegador)
+    // pra evitar quebra de bookmarks/links externos antigos.
+    return [
+      {
+        source: '/settings',
+        destination: '/profile',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
