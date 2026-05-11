@@ -84,12 +84,15 @@ export function BottomSheet({
 
   // ESC dispara dismiss (com confirmacao do consumidor via onDismissAttempt).
   // body overflow:hidden enquanto sheet aberto pra evitar dual-scroll.
+  // body.is-bottom-sheet-open esconde a tabbar mobile pra que o footer do
+  // sheet (sticky bottom) nao fique atras dela.
   // NAO depende de requestDismiss (usa ref estabilizada) pra evitar re-runs.
   useEffect(() => {
     if (!visible) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('is-bottom-sheet-open');
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -100,6 +103,7 @@ export function BottomSheet({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove('is-bottom-sheet-open');
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [visible]);

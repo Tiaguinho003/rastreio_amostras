@@ -14362,6 +14362,16 @@ button:disabled {
     transition-duration: 0s;
   }
 
+  /* Esconde a tabbar enquanto um BottomSheet esta aberto. O footer sticky
+     do sheet (com botoes [Limpar] / [Criar amostra]) precisa estar livre
+     no bottom da viewport — sem isso o botao ficava obstruido pela tabbar
+     mesmo com z-index maior, dependendo do device. Mesma curva da
+     animacao do keyboard-open pra coerencia visual. */
+  body.is-bottom-sheet-open .mobile-tabbar {
+    transform: translate3d(0, 100%, 0);
+    pointer-events: none;
+  }
+
   .mobile-tabbar-inner {
     width: 100%;
     max-width: 28rem;
@@ -24110,14 +24120,14 @@ button:disabled {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: clamp(0.7rem, 3vw, 1rem) 0;
+  padding: clamp(0.7rem, 3vw, 1rem) 0 clamp(0.25rem, 1vw, 0.4rem);
 }
 
 .bottom-sheet-footer {
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
-  padding: clamp(0.6rem, 2vw, 0.9rem) 0 0;
+  padding: clamp(0.4rem, 1.2vw, 0.55rem) 0 0;
   background: var(--brand-cream-soft);
   border-top: 1px solid var(--color-line);
 }
