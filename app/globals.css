@@ -24144,3 +24144,19 @@ button:disabled {
 .app-modal.is-stacked {
   z-index: calc(var(--z-modal-stacked) + 10);
 }
+
+/* Animacao fade entre steps do wizard de Nova Amostra (decisao 5.22).
+   O container que envolve o step content recebe key={state.step} no
+   JSX — ao trocar de step, React re-monta o div e o keyframe roda. */
+.new-sample-step-content {
+  animation: new-sample-step-fade-in 200ms ease-out;
+}
+
+@keyframes new-sample-step-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -844,16 +844,24 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   );
 
   const createdContent: ReactNode = (
-    <div style={{ padding: '1rem 0' }}>
-      <p>
-        <strong>[Skeleton]</strong> Created step (Bloco 2.d).
-      </p>
-      <p>Lote: {state.createdLotNumber ?? '—'}</p>
+    <div className="new-sample-created-panel" role="status" aria-live="polite" aria-atomic="true">
+      <span className="new-sample-created-panel__label">Lote</span>
+      <strong className="new-sample-created-panel__lot">{state.createdLotNumber ?? '—'}</strong>
+      <p className="new-sample-created-panel__hint">Anote este número na saca antes de seguir.</p>
+    </div>
+  );
+
+  const createdFooter: ReactNode = (
+    <div className="new-sample-label-modal-actions">
       <button
         type="button"
+        className="nsv2-submit-btn new-sample-created-cta"
         onClick={() => {
-          if (state.createdSampleId) navigateToSample(state.createdSampleId);
-          onClose();
+          if (state.createdSampleId) {
+            // Modal desmonta quando a rota muda (page wrapper /samples/new
+            // sai). Sem precisar chamar onClose() explicitamente.
+            navigateToSample(state.createdSampleId);
+          }
         }}
       >
         Ir para amostra
@@ -864,7 +872,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const stepContent =
     state.step === 'form' ? formContent : state.step === 'review' ? reviewContent : createdContent;
   const stepFooter =
-    state.step === 'form' ? formFooter : state.step === 'review' ? reviewFooter : null;
+    state.step === 'form' ? formFooter : state.step === 'review' ? reviewFooter : createdFooter;
 
   return (
     <>
@@ -878,7 +886,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         dragToDismiss={state.step === 'form'}
         dragDisabled={quickCreateOpen}
       >
-        {stepContent}
+        {/* key={state.step} re-cria o container ao trocar de step,
+            disparando a animacao CSS fade-in (200ms ease-out) */}
+        <div key={state.step} className="new-sample-step-content">
+          {stepContent}
+        </div>
       </BottomSheet>
 
       <ClientQuickCreateModal
