@@ -268,7 +268,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     const KEYBOARD_SELECTOR =
       'input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select, [contenteditable="true"]';
 
-    let savedScroll: { x: number; y: number } | null = null;
+    // Salva tanto o scroll do window quanto o scrollTop do container
+    // scrollable mais proximo do input. Necessario porque em paginas com
+    // .app-shell-main { overflow: hidden }, o scroll real acontece em
+    // containers internos (.sdv-content, .bottom-sheet-body, etc) — o
+    // scroll-into-view do iOS scrolla esses containers, nao a window.
+    let savedScroll: {
+      x: number;
+      y: number;
+      container: HTMLElement | null;
+      containerScrollTop: number;
+    } | null = null;
     // Tracking do setTimeout do scroll reset. Sem isso, se o user navega
     // pra outra rota dentro de 300ms apos focusout, o setTimeout dispara
     // em DOM diferente — pode tentar scrollTo em pagina ja desmontada ou
@@ -279,10 +289,35 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
       return el instanceof HTMLElement && el.matches(KEYBOARD_SELECTOR);
     }
 
+    // Sobe na arvore procurando o primeiro ancestor com overflow-y
+    // auto/scroll que tem conteudo overflowing (scrollHeight > clientHeight).
+    // Esse e o container que o iOS mexe ao fazer scroll-into-view do input.
+    function findScrollableAncestor(element: HTMLElement | null): HTMLElement | null {
+      let el: HTMLElement | null = element?.parentElement ?? null;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        if (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        ) {
+          return el;
+        }
+        el = el.parentElement;
+      }
+      return null;
+    }
+
     function onFocusIn(event: FocusEvent) {
       if (isKeyboardTarget(event.target)) {
         if (savedScroll === null) {
-          savedScroll = { x: window.scrollX, y: window.scrollY };
+          const target = event.target as HTMLElement;
+          const container = findScrollableAncestor(target);
+          savedScroll = {
+            x: window.scrollX,
+            y: window.scrollY,
+            container,
+            containerScrollTop: container?.scrollTop ?? 0,
+          };
         }
         document.body.classList.add('is-keyboard-open');
       }
@@ -321,6 +356,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
             window.scrollTo(restoreX, restoreY);
             document.documentElement.scrollTop = restoreY;
             document.body.scrollTop = restoreY;
+            // CRITICO: restaura scrollTop do container scrollable interno
+            // (.sdv-content, .bottom-sheet-body, .new-sample-step-body-content-details
+            // etc). Em paginas com app-shell-main { overflow: hidden }, o
+            // window NUNCA scrolla — o scroll-into-view do iOS mexe no
+            // container interno mais proximo do input. Sem este reset, o
+            // container fica com scrollTop > 0 apos keyboard fechar, e o
+            // conteudo da pagina aparece "subido", expondo o fundo bege
+            // entre o conteudo e a tabbar (fixed).
+            if (target?.container) {
+              target.container.scrollTop = target.containerScrollTop;
+            }
             // Fallback: se visualViewport.offsetTop ainda > 0 (cache stuck),
             // force scrollTo(0,0) pra quebrar.
             const offsetTop = window.visualViewport?.offsetTop ?? 0;

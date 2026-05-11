@@ -50,6 +50,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
+  // resizes-content: quando o teclado virtual abre em iOS PWA standalone,
+  // o LAYOUT viewport tambem encolhe (nao so o visual). Sem isso (default
+  // resizes-visual), iOS faz scroll-into-view do input focado mexendo no
+  // container scrollable mais proximo (.sdv-content, .bottom-sheet-body
+  // etc), e ao fechar o teclado o scrollTop do container fica preso —
+  // resultado visual: fundo bege do app-shell exposto entre conteudo
+  // (subido) e tabbar (fixed no fundo).
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
