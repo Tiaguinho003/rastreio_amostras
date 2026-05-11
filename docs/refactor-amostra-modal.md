@@ -632,6 +632,64 @@ Pergunta derivada de 5.23: como o page wrapper renderiza visualmente? O usuario 
 
 ---
 
+### Decisoes granulares de implementacao da Fase 3
+
+Bloco de decisoes de detalhe pra implementacao da Fase 3 (FAB mobile + botao desktop em `/samples`). Continuacao da numeracao 5.X.
+
+#### 5.29 Comportamento apos criar amostra via FAB/botao em `/samples` `[DECIDIDO]`
+
+- (a) Mantem default do NewSampleModal: navega pra `/samples/[id]`
+- **(b)** Customiza: fica em `/samples` com lista atualizada (refetch)
+- (c) Dois botoes no step `created`: [Ver amostra] + [Concluir]
+
+##### Decidido
+
+- **Escolha:** b
+- **Justificativa:** A pagina `/samples` e o entrypoint pra registro recorrente. Apos criar uma amostra, e provavel o usuario querer registrar outra (lote de amostras) ou ver a nova na lista sem precisar voltar. O step `created` ja mostra o lote em destaque dentro do modal — usuario pega a info do lote ali mesmo. Tap "Ir para amostra" agora fecha modal e fica em `/samples` com lista atualizada.
+- **Gargalos aceitos:** Discrepancia com o wrapper `/samples/new`: la o default (navega) e mantido (porque o wrapper nao tem contexto pra refetch — ele desmonta com a navegacao). Em `/samples`, o `onSuccessNavigate` e customizado pelo consumidor (a page). Tradeoff aceitavel pois `/samples/new` sera deletado na Fase 5.
+- **Impacto:** Bloco 2 da Fase 3 — `/samples` passa `onSuccessNavigate` custom ao NewSampleModal que fecha modal + dispara refetch (5.31).
+
+#### 5.30 Localizacao do botao "+ Nova amostra" em desktop `[DECIDIDO]`
+
+- **(a)** Ao lado da searchbar, canto direito do bloco
+- (b) Acima da searchbar, alinhado a direita do titulo
+- (c) Substitui o avatar do canto direito do header
+
+##### Decidido
+
+- **Escolha:** a
+- **Justificativa:** Espelha o padrao ja usado em `/clients` (FAB inline no `.hero-search-wrap` em desktop via CSS responsivo). Mantem densidade visual, acoes relacionadas agrupadas (busca + criar) e reusa CSS existente (`.cv2-fab` ja tem variante desktop em `globals.css:20947-20957`).
+- **Gargalos aceitos:** Botao visualmente identico ao FAB de Clientes (mesmo gradiente, mesmo icone +). No contexto da pagina `/samples` o usuario entende que e "+ Nova amostra" pelo titulo da pagina e tooltip/aria-label. Aceitavel.
+- **Impacto:** Bloco 2 da Fase 3 — adicionar JSX do FAB em `.hero-search-wrap` apos `.hero-search-filter-btn` em `app/samples/page.tsx`. CSS responsivo do `.cv2-fab` cuida de mobile (fixed bottom-right) vs desktop (inline 64x64).
+
+#### 5.31 Atualizacao da lista apos criar amostra `[DECIDIDO]`
+
+- **(a)** Refetch automatico ao fechar o modal com sucesso
+- (b) Optimistic update (adiciona local sem refetch)
+- (c) Nao refazer
+
+##### Decidido
+
+- **Escolha:** a
+- **Justificativa:** Garante dados frescos (refletindo eventuais mudancas concorrentes do backend) sem complexidade de optimistic update + sync de shape. Pode mostrar loading sutil durante refetch (ja existe padrao em `runLoadMore` em `app/samples/page.tsx:616-662`).
+- **Gargalos aceitos:** Custo de 1 round-trip extra. Aceitavel — `listSamples` e leve e o usuario espera ver a amostra criada na lista.
+- **Impacto:** Bloco 2 da Fase 3 — `onSuccessNavigate` custom dispara `dispatchSamples({ type: 'fetch-initial' })` ou equivalente.
+
+#### 5.32 Hide-on-scroll do FAB mobile `[DECIDIDO]`
+
+- **(a)** Sempre visivel (MVP)
+- (b) Esconder ao scrollar pra baixo, mostrar ao scrollar pra cima
+- (c) Esconder ao chegar no fim da lista
+
+##### Decidido
+
+- **Escolha:** a
+- **Justificativa:** Mesmo comportamento do FAB de Clientes (sempre visivel). Sem scroll listener adicional, sem logica de direcao. Pode evoluir pra (b) em fase futura se UX feedback pedir.
+- **Gargalos aceitos:** FAB ocupa espaco visual permanente no canto inferior direito; pode cobrir ultimo item da lista. Mitigacao: padding bottom no container da lista respeitando `env(safe-area-inset-bottom) + altura do FAB`. Provavelmente ja existe (FAB de Clientes ja funciona assim).
+- **Impacto:** Bloco 1 da Fase 3 — componente FAB sem listener de scroll.
+
+---
+
 ## 6. Notas tecnicas (detalhes de implementacao registrados)
 
 Detalhes que sao implementacao (nao decisao formal) mas precisam ficar registrados pra nao se perderem.

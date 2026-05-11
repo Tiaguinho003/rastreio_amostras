@@ -15,7 +15,9 @@ import {
 } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { NewSampleModal } from '../../components/NewSampleModal';
 import { NotificationBell } from '../../components/NotificationBell';
+import { SampleQuickCreateFab } from '../../components/SampleQuickCreateFab';
 import { ApiError, listSamples } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SampleSnapshot } from '../../lib/types';
@@ -452,6 +454,10 @@ function SamplesPage() {
     () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
+  // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
+  // (decisao 5.31 = a — refetch automatico).
+  const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
 
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
@@ -730,7 +736,7 @@ function SamplesPage() {
       active = false;
       abortController.abort();
     };
-  }, [activeAging, appliedHiddenFilters, appliedSearch, session]);
+  }, [activeAging, appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey]);
 
   useEffect(() => {
     if (!session) return;
@@ -1059,6 +1065,7 @@ function SamplesPage() {
               <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
             ) : null}
           </button>
+          <SampleQuickCreateFab onClick={() => setNewSampleModalOpen(true)} />
         </div>
 
         <section className="samples-page-v2-sheet">
@@ -1219,6 +1226,19 @@ function SamplesPage() {
           </section>
         </div>
       ) : null}
+
+      <NewSampleModal
+        open={newSampleModalOpen}
+        session={session}
+        onClose={() => setNewSampleModalOpen(false)}
+        onSuccessNavigate={() => {
+          // Decisao 5.29 = b: nao navega pra /samples/[id]. Em vez disso
+          // fecha o modal e dispara refetch da lista (5.31 = a) — a amostra
+          // criada aparece no topo da lista atualizada.
+          setNewSampleModalOpen(false);
+          setNewSampleRefetchKey((current) => current + 1);
+        }}
+      />
     </AppShell>
   );
 }
