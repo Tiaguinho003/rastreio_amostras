@@ -116,8 +116,9 @@
   --z-modal-backdrop: 400;
   --z-modal: 410;
   --z-popover: 500;
-  --z-toast: 600;
-  --z-tooltip: 700;
+  --z-modal-stacked: 600;
+  --z-toast: 700;
+  --z-tooltip: 800;
 
   /* ══════════════════════════════════════════════════════════════
      BREAKPOINTS — documentacao + consumo via JS
@@ -23961,4 +23962,185 @@ button:disabled {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BottomSheet — componente reusavel mobile-first
+   (components/BottomSheet.tsx). Mobile: sheet desliza de baixo
+   (98dvh). Desktop (>900px): modal centralizado (max-width 650px,
+   ~84dvh). Drag-to-dismiss com threshold 60px. Animacao 350ms
+   cubic-bezier (mesma curve do antigo ProfileBottomSheet).
+   ══════════════════════════════════════════════════════════════ */
+.bottom-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition:
+    background 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    backdrop-filter 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    -webkit-backdrop-filter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.bottom-sheet-backdrop.is-open {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px) saturate(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  pointer-events: auto;
+}
+
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--brand-cream-soft);
+  border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
+  padding: 0 clamp(1rem, 4vw, 1.4rem) calc(env(safe-area-inset-bottom) + clamp(0.6rem, 2vw, 0.9rem));
+  /* translate3d permanente: GPU layer; previne scroll lock iOS standalone */
+  transform: translate3d(0, 100%, 0);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 98dvh;
+  height: 98dvh;
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  will-change: transform;
+}
+
+/* Fallback iOS Safari < 15.4 (sem suporte a dvh) */
+@supports not (height: 100dvh) {
+  .bottom-sheet {
+    max-height: calc(100vh - 2vh - env(safe-area-inset-top));
+    height: calc(100vh - 2vh - env(safe-area-inset-top));
+  }
+}
+
+.bottom-sheet.is-open {
+  transform: translate3d(0, 0, 0);
+}
+
+.bottom-sheet.is-dragging {
+  transition: none;
+}
+
+.bottom-sheet-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.55rem, 2vw, 0.75rem) 0 clamp(0.35rem, 1.5vw, 0.55rem);
+  cursor: grab;
+}
+
+.bottom-sheet-drag-handle-bar {
+  width: clamp(2.4rem, 11vw, 3.2rem);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-line);
+}
+
+.bottom-sheet-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: clamp(0.3rem, 1vw, 0.5rem) 0 clamp(0.6rem, 2vw, 0.9rem);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.bottom-sheet-title {
+  margin: 0;
+  font-size: clamp(1.05rem, 4.2vw, 1.2rem);
+  font-weight: 700;
+  color: var(--color-ink);
+  flex: 1;
+  min-width: 0;
+}
+
+.bottom-sheet-close {
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-ink);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.bottom-sheet-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.bottom-sheet-close:active {
+  transform: scale(0.92);
+}
+
+.bottom-sheet-body {
+  flex: 1;
+  /* CRITICO: min-height: 0 permite flex item encolher e overflow disparar */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(0.7rem, 3vw, 1rem) 0;
+}
+
+.bottom-sheet-footer {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  padding: clamp(0.6rem, 2vw, 0.9rem) 0 0;
+  background: var(--brand-cream-soft);
+  border-top: 1px solid var(--color-line);
+}
+
+/* Desktop responsivo: transforma sheet em modal centralizado.
+   Sem drag-handle, com border-radius completo, max-width 650px. */
+@media (min-width: 901px) {
+  .bottom-sheet {
+    bottom: auto;
+    left: 50%;
+    top: 50%;
+    right: auto;
+    transform: translate3d(-50%, calc(-50% + 20px), 0) scale(0.96);
+    max-width: 650px;
+    width: min(650px, calc(100vw - 2rem));
+    max-height: min(88dvh, 44rem);
+    height: auto;
+    border-radius: clamp(22px, 2vw, 28px);
+    padding: 0 clamp(1.2rem, 1.5vw, 1.6rem) clamp(1rem, 1.5vw, 1.2rem);
+    opacity: 0;
+  }
+  .bottom-sheet.is-open {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+    opacity: 1;
+  }
+  .bottom-sheet-drag-handle {
+    display: none;
+  }
+}
+
+/* Modais aninhados (cliente quick-create, "Descartar?") sobre o
+   BottomSheet: classe .is-stacked eleva backdrop+card pra um tier acima
+   do --z-modal. Mantem .app-modal-* CSS existente intacto. */
+.app-modal-backdrop.is-stacked {
+  z-index: var(--z-modal-stacked);
+}
+
+.app-modal.is-stacked {
+  z-index: calc(var(--z-modal-stacked) + 10);
 }
