@@ -8,7 +8,7 @@
 // servidos do cache antigo eternamente. Foi a causa do bug "barra bege
 // nao some" persistir por 13 tentativas de fix — todos os fixes estavam
 // em prod mas os clients viam HTML/JS cacheado do SW antigo.
-const CACHE_NAME = 'rastreio-shell-v4-2026-05-11-ios26-svh';
+const CACHE_NAME = 'rastreio-shell-v5-2026-05-11-revert-svh';
 const STATIC_PATHS = ['/', '/login', '/offline', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 
 self.addEventListener('install', (event) => {

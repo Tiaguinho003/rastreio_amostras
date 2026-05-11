@@ -175,7 +175,7 @@ textarea {
 html,
 body {
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100dvh;
   overscroll-behavior: none;
 }
 
@@ -206,7 +206,7 @@ body {
 .app-shell-root {
   position: relative;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -253,7 +253,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100dvh;
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
@@ -13932,7 +13932,7 @@ button:disabled {
     z-index: 0;
     isolation: isolate;
     min-height: 100vh;
-    min-height: 100svh;
+    min-height: 100dvh;
     background: var(--mobile-page-bg);
   }
 
@@ -13946,7 +13946,7 @@ button:disabled {
   }
 
   .app-shell-root {
-    min-height: 100svh;
+    min-height: 100dvh;
   }
 
   :root {
@@ -13965,7 +13965,7 @@ button:disabled {
     position: fixed;
     inset: 0;
     width: 100%;
-    min-height: 100svh;
+    min-height: 100dvh;
     margin: 0;
     overflow: hidden;
     overscroll-behavior: none;
@@ -14321,7 +14321,7 @@ button:disabled {
   .app-shell-main {
     position: relative;
     min-height: 100vh;
-    min-height: 100svh;
+    min-height: 100dvh;
     width: 100%;
     background: var(--mobile-page-bg);
     /* Usa --app-safe-area-bottom (sync via useViewportSync) pra evitar
@@ -14582,7 +14582,7 @@ button:disabled {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 100svh;
+    height: 100dvh;
   }
 
   .app-shell-main.is-dashboard-route .app-shell-page-content {
@@ -23491,7 +23491,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100dvh;
   width: 100%;
   margin: 0;
   padding: calc(env(safe-area-inset-top) + clamp(20px, 6vw, 32px)) clamp(20px, 6vw, 28px)
