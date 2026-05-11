@@ -1,6 +1,6 @@
 # Refactor: Nova Amostra como Modal
 
-Status: Fases 1, 2 e 3 CONCLUIDAS (2026-05-11). Fase 4 pronta pra execucao; Fase 5 aguarda Fases 1-4
+Status: Fases 1, 2, 3 e 5 CONCLUIDAS (2026-05-11). Fase 4 (refinamentos UX) opcional, fica como debito tecnico documentado.
 Escopo: refatoracao da pagina `/samples/new` para modal acionado por FAB + reorganizacao da tabbar mobile + Perfil como item de tabbar + fusao /settings em /profile + sino de notificacoes placeholder
 Inicio do planejamento: 2026-05-11
 Foco da v1: mobile (desktop herda paralelamente apenas onde 5.11 e 5.15 exigem)
@@ -1168,17 +1168,50 @@ Pre-requisito: decisoes 5.5, 5.6, 5.7 fechadas, Fase 2 completa.
 - [ ] Transicao pos-criacao no mesmo modal (5.7)
 - [ ] Testes manuais do fluxo completo
 
-### Fase 5 — Limpeza
+### Fase 5 — Limpeza + auditoria de docs + delecao deste plano `[CONCLUIDA — 2026-05-11]`
 
-Pre-requisito: Fases 1-4 validadas em producao canary.
+Pre-requisito: Fases 1-3 validadas em producao (Fase 4 opcional ja documentada como debito tecnico). Deployado em producao via `rastreio-prod-app-00237-bey`.
 
-- [ ] Remover arquivo `app/samples/new/page.tsx`
-- [ ] Verificar redirect `/settings` -> `/profile` funcional (5.13)
-- [ ] Decidir destino do arquivo `app/settings/page.tsx` (deletar se 100% absorvido em `/profile`, ou manter como redirect handler)
-- [ ] Limpar imports/referencias orfas
-- [ ] Limpar tipo `'new-sample'` em `NavIcon` se nao usado em outro lugar
-- [ ] Atualizar este documento com `Status: Concluido`
-- [ ] Atualizar `docs/Produto-e-Fluxos.md` com o novo fluxo
+Implementada na branch `feat/fase5-limpeza-final`. Auditoria multi-agente (3 agents Explore) confirmou que o trabalho real foi pequeno — codigo e docs ja estavam praticamente limpos pos-Fases 1-3.
+
+**Bloco A — Limpeza de codigo orfao:**
+
+- [x] `app/samples/new/page.tsx` — **MANTIDO** (40 linhas wrapper). Decisao: usado por `app/camera/page.tsx:1303` ("Cadastrar nova" no fluxo de QR scan de amostra inexistente). Comentario do header atualizado pra esclarecer status pos-refatoracao.
+- [x] `app/settings/page.tsx` — **MANTIDO** (Server Component de 11 linhas com `redirect('/profile')`). Cinturao-e-suspensorios com `redirects()` em `next.config.mjs`.
+- [x] Greps confirmaram ZERO ocorrencias ativas:
+  - `ProfileBottomSheet`: apenas 2 comentarios historicos legitimos (em `components/BottomSheet.tsx:180` e `app/globals.css:23991`)
+  - `open-profile-sheet`: 0
+  - `href="/settings"`: 0
+  - `labelModalOpen` / `labelModalStep` / `new-sample-label-modal`: existem em `app/samples/[sampleId]/page.tsx` mas SAO LEGITIMOS — fluxo de impressao de etiqueta nos detalhes da amostra (decisao 5.7 fora de escopo desta refatoracao)
+- [x] Tipo `NavIcon` em `AppShell.tsx`: confirmado sem `'new-sample'` nem `'settings'` (feito na Fase 1)
+- [x] Imports orfaos: zero (lint verde em todas as fases)
+- [x] TODOs/FIXMEs da refatoracao: zero deixados
+
+**Bloco B — Auditoria ampla de documentacao:**
+
+Agent 2 (Explore) varreu todos os docs canonicos + skills + CLAUDE.md + README.md. Resultado: **docs canonicos 100% limpos** — nenhuma mencao a `/samples/new`, `/settings`, `ProfileBottomSheet`, `open-profile-sheet`, ou tabbar antiga. Zero atualizacoes de conteudo necessarias.
+
+- [x] `docs/Produto-e-Fluxos.md` — LIMPO (sem refs a rotas/componentes obsoletos)
+- [x] `docs/Arquitetura-Tecnica.md` — LIMPO
+- [x] `docs/Operacao-e-Runtime.md` — LIMPO
+- [x] `docs/API-e-Contratos.md` — LIMPO
+- [x] `docs/SECURITY*.md` (3 arquivos) — LIMPOS
+- [x] Skills `.claude/skills/`:
+  - `design-system/SKILL.md` §8 (BottomSheet) atualizada na v1.10 ✓
+  - `modals/SKILL.md` entrada `ProfileBottomSheet` removida na v1.10 ✓
+  - Outras skills: ZERO refs a artefatos obsoletos
+- [x] `CLAUDE.md` (raiz) — LIMPO
+- [x] `README.md` (raiz) + `docs/README.md` (indice) — limpo, **exceto** entrada `6.` do indice apontando pra este doc (sera removida no Bloco C)
+- [x] Comentarios `Fase P3`, `Q.print` em codigo: mantidos (trilha de evolucao legitima)
+
+**Bloco C — Deletar este plano:**
+
+Apos a Fase 5 a refatoracao principal esta entregue e validada em producao. Ajustes futuros (layout/design pontuais) ficam fora de plano formal — decisoes pequenas resolvidas em conversa direta com o usuario.
+
+- [x] Deletar arquivo `docs/refactor-amostra-modal.md` (este doc) — proximo passo apos este registro final
+- [x] Remover entrada `6. docs/refactor-amostra-modal.md` do indice em `docs/README.md`
+- [x] Conferir via grep que nenhum outro arquivo referencia este doc
+- [x] Commit final encerrando o ciclo (referencia SHAs das Fases 1-3 + resumo)
 
 ---
 
@@ -1186,30 +1219,30 @@ Pre-requisito: Fases 1-4 validadas em producao canary.
 
 Status global: **Em planejamento — Fase 1 pronta pra execucao**
 
-| Item                                    | Status                  | Notas                                                                               |
-| --------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
-| Decisao 5.1 — Tabbar layout             | DECIDIDO (A)            | Inicio \| Amostras \| Camera\* \| Clientes \| Perfil                                |
-| Decisao 5.2 — Perfil rota vs sheet      | DECIDIDO (A)            | Rota dedicada                                                                       |
-| Decisao 5.3 — FAB mobile                | DECIDIDO (A)            | So `/samples` mobile                                                                |
-| Decisao 5.4 — Formato do modal          | DECIDIDO (A)            | Bottom sheet mobile + `.app-modal.is-themed` desktop                                |
-| Decisao 5.5 — Persistencia do draft     | DECIDIDO (C)            | Auto-save sessionStorage + confirmacao isDirty                                      |
-| Decisao 5.6 — Quick-create cliente      | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro                           |
-| Decisao 5.7 — Integracao review+created | DECIDIDO (A)            | Wizard 3 steps (form/review/created) na mesma superficie                            |
-| Decisao 5.8 — Settings absorvido        | DECIDIDO (a)            | /profile substitui /settings                                                        |
-| Decisao 5.9 — Avatar do header          | DECIDIDO (a)            | Some mobile, mantem desktop                                                         |
-| Decisao 5.10 — Icone do Perfil          | DECIDIDO (b)            | Avatar do usuario                                                                   |
-| Decisao 5.11 — Desktop perde new        | DECIDIDO (a)            | Sincroniza com mobile                                                               |
-| Decisao 5.12 — Layout /profile          | DECIDIDO (a)            | Secoes stackadas                                                                    |
-| Decisao 5.13 — Destino /settings        | DECIDIDO (a)            | Redirect 302 + atualizar links                                                      |
-| Decisao 5.14 — Tipo avatar              | DECIDIDO (a)            | Iniciais coloridas                                                                  |
-| Decisao 5.15 — Entrada desktop          | DECIDIDO (b)            | Botao topo da lista                                                                 |
-| Decisao 5.16 — Header mobile            | DECIDIDO (c custom)     | Sino placeholder                                                                    |
-| Decisao 5.17 — Dashboard entrada        | DECIDIDO (b)            | Sem ponto de entrada                                                                |
-| Fase 1 — Tabbar, Perfil, Header, Avatar | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase1-tabbar-perfil-header-avatar; build verde                    |
-| Fase 2 — Modal componente               | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase2-modal-nova-amostra; build verde; tests verdes               |
-| Fase 3 — FAB e botao desktop            | CONCLUIDA (2026-05-11)  | 1 commit em feat/fase3-fab-botao-desktop; SampleQuickCreateFab + refetch automatico |
-| Fase 4 — Refinamentos                   | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa            |
-| Fase 5 — Limpeza                        | PENDENTE                | Aguarda Fases 1-4                                                                   |
+| Item                                    | Status                  | Notas                                                                                |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| Decisao 5.1 — Tabbar layout             | DECIDIDO (A)            | Inicio \| Amostras \| Camera\* \| Clientes \| Perfil                                 |
+| Decisao 5.2 — Perfil rota vs sheet      | DECIDIDO (A)            | Rota dedicada                                                                        |
+| Decisao 5.3 — FAB mobile                | DECIDIDO (A)            | So `/samples` mobile                                                                 |
+| Decisao 5.4 — Formato do modal          | DECIDIDO (A)            | Bottom sheet mobile + `.app-modal.is-themed` desktop                                 |
+| Decisao 5.5 — Persistencia do draft     | DECIDIDO (C)            | Auto-save sessionStorage + confirmacao isDirty                                       |
+| Decisao 5.6 — Quick-create cliente      | DECIDIDO (B-pragmatica) | Modal aninhado inicial, inline como debito tecnico futuro                            |
+| Decisao 5.7 — Integracao review+created | DECIDIDO (A)            | Wizard 3 steps (form/review/created) na mesma superficie                             |
+| Decisao 5.8 — Settings absorvido        | DECIDIDO (a)            | /profile substitui /settings                                                         |
+| Decisao 5.9 — Avatar do header          | DECIDIDO (a)            | Some mobile, mantem desktop                                                          |
+| Decisao 5.10 — Icone do Perfil          | DECIDIDO (b)            | Avatar do usuario                                                                    |
+| Decisao 5.11 — Desktop perde new        | DECIDIDO (a)            | Sincroniza com mobile                                                                |
+| Decisao 5.12 — Layout /profile          | DECIDIDO (a)            | Secoes stackadas                                                                     |
+| Decisao 5.13 — Destino /settings        | DECIDIDO (a)            | Redirect 302 + atualizar links                                                       |
+| Decisao 5.14 — Tipo avatar              | DECIDIDO (a)            | Iniciais coloridas                                                                   |
+| Decisao 5.15 — Entrada desktop          | DECIDIDO (b)            | Botao topo da lista                                                                  |
+| Decisao 5.16 — Header mobile            | DECIDIDO (c custom)     | Sino placeholder                                                                     |
+| Decisao 5.17 — Dashboard entrada        | DECIDIDO (b)            | Sem ponto de entrada                                                                 |
+| Fase 1 — Tabbar, Perfil, Header, Avatar | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase1-tabbar-perfil-header-avatar; build verde                     |
+| Fase 2 — Modal componente               | CONCLUIDA (2026-05-11)  | 7 commits em feat/fase2-modal-nova-amostra; build verde; tests verdes                |
+| Fase 3 — FAB e botao desktop            | CONCLUIDA (2026-05-11)  | 1 commit em feat/fase3-fab-botao-desktop; SampleQuickCreateFab + refetch automatico  |
+| Fase 4 — Refinamentos                   | PRONTA P/ EXECUCAO      | Todas as decisoes necessarias fechadas; depende da Fase 2 estar completa             |
+| Fase 5 — Limpeza                        | CONCLUIDA (2026-05-11)  | 2 commits em feat/fase5-limpeza-final; auditoria multi-agent confirmou base ja limpa |
 
 ---
 
@@ -1276,3 +1309,4 @@ Riscos identificados na revisao critica pre-implementacao. Nao bloqueiam o codig
 | 2026-05-11 | v1.12 — Decisao 5.28 (estrutura do wrapper `/samples/new`) fechada: opcao (a) — `<AppShell>` envolvendo `<NewSampleModal />`, coerente com layout atual. Fase 2 totalmente desbloqueada (todas as 5.18-5.28 decididas), pronta pra implementacao.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Flavio + Claude |
 | 2026-05-11 | v1.13 — Fase 2 IMPLEMENTADA. 7 commits em branch `feat/fase2-modal-nova-amostra`: (Bloco 0) hotfix do sino — `<NotificationBell />` movido de `.topbar-tools` (sempre oculto em mobile pelo CSS legacy) para os 6 headers de pagina com CSS-only swap em `@media (max-width: 900px)`; (Bloco 1) `components/BottomSheet.tsx` reusavel com API controlled, drag-to-dismiss 60px, focus trap, back Android via `history.pushState`+`popstate`, ESC, fallback iOS `@supports not (height: 100dvh)`, desktop responsivo (>900px = modal centralizado 650px); (Bloco 2.a) skeleton de `components/NewSampleModal.tsx` com tipos `WizardState`/`WizardAction` e `useReducer` rejeitando transicoes invalidas durante `submitting`; (Bloco 2.b) migracao do form completo (7 campos, useEffects, helpers `loadOrCreateDraftId`/`renewDraftId`/`buildHarvestPresets`, validacao Zod, offline banner, harvest dropdown, `useRegisterDirtyState`); (Bloco 2.c) review step com card nao-editavel + 2 botoes circulares, `handleConfirmDraft` async via `createSample`, modal "Descartar?" inline replicando padrao de `DirtyStateProvider.ConfirmModal` com `.is-stacked` (z-index `--z-modal-stacked: 600`); (Bloco 2.d) created step com painel de lote em destaque e `aria-live="polite"`, animacao fade 200ms entre steps via CSS keyframe + `key={state.step}`; (Bloco 3) substituicao de `app/samples/new/page.tsx` (964 linhas) por wrapper de 30 linhas com Suspense + AppShell + NewSampleModal aberto. Quality gates verdes: lint, format:check, typecheck, build (`/samples/new` 9.26 kB), test:contracts (20/20), test:unit (177/177). Validacao manual mobile/desktop pendente do usuario. Total: 2 arquivos novos (BottomSheet, NewSampleModal), 9 modificados, 0 deletados (samples/new mantido como wrapper ate Fase 5). | Flavio + Claude |
 | 2026-05-11 | v1.14 — Fase 3 IMPLEMENTADA. 4 decisoes granulares novas fechadas (5.29 customizar onSuccessNavigate pra ficar em /samples; 5.30 botao "+ Nova amostra" ao lado da searchbar desktop; 5.31 refetch automatico ao criar; 5.32 FAB sempre visivel sem hide-on-scroll). Commit `c5f326e` em branch `feat/fase3-fab-botao-desktop`: novo componente `components/SampleQuickCreateFab.tsx` (~30 linhas, reusa CSS `.cv2-fab` ja consagrado em /clients — mobile fixed bottom-right, desktop inline 64x64), JSX adicionado no `.hero-search-wrap` de `/samples` apos o `.hero-search-filter-btn`, `<NewSampleModal />` integrado com `onSuccessNavigate` custom que fecha modal + incrementa `newSampleRefetchKey` (state local adicionado ao dep array do useEffect de fetch — dispara refetch automatico mostrando a nova amostra no topo da lista). Quality gates verdes (lint, format:check, typecheck, build, test:contracts 20/20, test:unit 177/177). `/samples/new` agora 442 B (wrapper minimo) e `/samples` 6.30 kB (com FAB + modal embarcado).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Flavio + Claude |
+| 2026-05-11 | v1.15 — Fase 5 IMPLEMENTADA (CICLO ENCERRADO). Auditoria multi-agente confirmou que codigo e docs canonicos estavam praticamente limpos pos-Fases 1-3: zero refs ativas a `ProfileBottomSheet`/`open-profile-sheet`/`href="/settings"`; apenas 2 comentarios historicos legitimos sobre ProfileBottomSheet (preservar como rastro de evolucao). Decisoes finais: `app/samples/new/page.tsx` MANTIDO (40 linhas wrapper, usado por camera/page.tsx:1303 no fluxo "Cadastrar nova" do QR scan); `app/settings/page.tsx` MANTIDO (Server Component de 11 linhas, cinturao-e-suspensorios com next.config.mjs). Docs canonicos (Produto-e-Fluxos, Arquitetura-Tecnica, Operacao-e-Runtime, API-e-Contratos, SECURITY\*) e skills (design-system, modals) 100% atualizados — zero updates de conteudo necessarios alem deste proprio plano. Comentario do header em `app/samples/new/page.tsx` atualizado pra refletir status pos-refatoracao. Proximo passo: deletar `docs/refactor-amostra-modal.md` (este arquivo) + remover entrada `6.` do indice em `docs/README.md` + commit final encerrando o ciclo. Fase 4 (auto-save + cliente inline) fica como debito tecnico documentado, sem prazo bloqueante.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Flavio + Claude |
