@@ -197,6 +197,17 @@ export function UserMultiSelect({
                   type="button"
                   key={user.id}
                   className="user-multi-select__option"
+                  // iOS PWA / mobile: input ficava focado com teclado virtual
+                  // aberto; tap na opcao disparava blur -> keyboard collapse
+                  // -> reflow -> o click final caia fora do botao e a selecao
+                  // nao acontecia. Mousedown + preventDefault mantem o foco
+                  // no input, evita o reflow e dispara handleAdd antes de
+                  // qualquer layout shift. onClick fica como fallback pra
+                  // ativacao por teclado/AT (handleAdd e idempotente).
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleAdd(user.id);
+                  }}
                   onClick={() => handleAdd(user.id)}
                   role="option"
                   aria-selected="false"
