@@ -1858,9 +1858,11 @@ export class SampleQueryService {
 
   async getNextInternalLotNumber() {
     // Fase P1: lote vira numerico puro (ex: "5641"). Antes era "A-####".
-    // Sequencia continua de onde a empresa parou no historico em papel:
-    // proxima amostra apos initialSequence=5640 sera "5641".
-    const initialSequence = 5640;
+    // Sequencia continua de onde a empresa parou no historico em papel.
+    // 2026-05-12: empresa retomou uso do app apos reset do banco —
+    // initialSequence bumpada de 5640 -> 5657 pra que a proxima amostra
+    // criada (com tabela sample vazia) seja a "5658" definida pelo Flavio.
+    const initialSequence = 5657;
 
     const result = await this.prisma.$queryRaw`
       SELECT internal_lot_number FROM sample
