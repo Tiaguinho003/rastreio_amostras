@@ -49,7 +49,7 @@ Se houver MULTIPLAS fichas semelhantes na imagem (varias recortadas lado a lado)
 LAYOUT DA FICHA (8 LINHAS, de cima para baixo):
 
 LINHA 1 — CABECALHO (3 celulas, larguras aproximadas 47% / 27% / 27%):
-  Celula 1 (mais larga, a esquerda): SEM ROTULO IMPRESSO. Contem o numero do LOTE escrito a mao em tamanho grande — geralmente o maior texto manuscrito da ficha. Tipicamente um numero de 4-5 digitos (ex: "5567", "5640"). → identificacao.lote
+  Celula 1 (mais larga, a esquerda): rotulo "LOTE" no canto superior esquerdo. Contem o numero do LOTE escrito a mao em tamanho grande — geralmente o maior texto manuscrito da ficha. Tipicamente um numero de 4-5 digitos (ex: "5567", "5640"). → identificacao.lote
   Celula 2 (centro): rotulo "SCS" no canto superior esquerdo (abreviacao de "Sacas"). Contem um numero manuscrito inteiro (ex: "100", "200", "350"). → identificacao.sacas
   Celula 3 (a direita): rotulo "SAFRA" no canto superior esquerdo. Contem a safra manuscrita, tipicamente no formato "AA/AA" (ex: "25/26", "24/25"). → identificacao.safra
 
@@ -58,16 +58,16 @@ LINHA 2 — IDENTIFICACAO (3 celulas iguais, ~33% cada):
   Celula 2: rotulo "ASP." (Aspecto) — texto livre manuscrito. → classificacao.aspecto
   Celula 3: rotulo "CERT." (Certificacao). Pode conter siglas como "UTZ", "RA", "FLO", "4C", "ORG", "BIO", ou texto livre. → classificacao.certif
 
-LINHA 3 — PENEIRAS GRANDES (5 celulas iguais, 20% cada):
-  Cada celula tem rotulo "P18", "P17", "P16", "P15", "P14" (da esquerda pra direita).
-  Cada uma contem um percentual manuscrito (ex: "12,5", "8", "0,5"). Sem o simbolo "%".
+LINHA 3 — PRIMEIRA LINHA DE PENEIRAS (5 celulas iguais, 20% cada):
+  Cada celula tem rotulo "P18", "P17", "P16", "MK", "P15" (da esquerda pra direita).
+  Atencao: o MK aparece nesta linha (4a posicao, entre P16 e P15), NAO na proxima. Cada uma contem um percentual manuscrito (ex: "12,5", "8", "0,5"). Sem o simbolo "%".
   Nem todas as peneiras estarao preenchidas — retorne null para vazias.
-  → classificacao.peneiras.p18, p17, p16, p15, p14 (na ordem)
+  → classificacao.peneiras.p18, p17, p16, mk, p15 (na ordem visual da linha)
 
-LINHA 4 — PENEIRAS PEQUENAS (5 celulas iguais, 20% cada):
-  Cada celula tem rotulo "P13", "P12", "P11", "P10", "MK" (da esquerda pra direita).
-  Mesmo formato da LINHA 3.
-  → classificacao.peneiras.p13, p12, p11, p10, mk
+LINHA 4 — SEGUNDA LINHA DE PENEIRAS (5 celulas iguais, 20% cada):
+  Cada celula tem rotulo "P14", "P13", "P12", "P11", "P10" (da esquerda pra direita).
+  Mesmo formato da LINHA 3. Esta linha NAO contem MK (MK fica na LINHA 3).
+  → classificacao.peneiras.p14, p13, p12, p11, p10 (na ordem visual da linha)
 
 LINHA 5 — FUNDOS + CATACAO (3 celulas, larguras ~37% / 37% / 27%):
   Celulas 1 e 2 (FUNDOS): cada uma tem rotulo "FD" no canto superior esquerdo. Cada celula esta dividida visualmente em 3 partes lado a lado:
