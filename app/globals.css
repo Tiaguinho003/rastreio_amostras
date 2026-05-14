@@ -14364,23 +14364,37 @@ button:disabled {
   }
 
   body.is-keyboard-open .mobile-tabbar {
-    /* Mantem o GPU layer (translate3d) somando com a translacao Y. */
+    /* Mantem o GPU layer (translate3d) somando com a translacao Y.
+       Mantemos translate aqui (e nao visibility) porque o feedback visual
+       de "tabbar saindo" enquanto teclado abre faz sentido. */
     transform: translate3d(0, 100%, 0);
     pointer-events: none;
     transition-duration: 0s;
   }
 
-  /* Esconde a tabbar enquanto um BottomSheet esta aberto. O footer sticky
-     do sheet (com botoes [Limpar] / [Criar amostra]) precisa estar livre
-     no bottom da viewport — sem isso o botao ficava obstruido pela tabbar
-     mesmo com z-index maior, dependendo do device. Mesma curva da
-     animacao do keyboard-open pra coerencia visual. */
-  body.is-bottom-sheet-open .mobile-tabbar {
-    transform: translate3d(0, 100%, 0);
+  /* Esconde a tabbar enquanto um overlay esta aberto:
+     - BottomSheet (flag via JS body.is-bottom-sheet-open, pra cobrir browsers
+       sem :has() — atualmente bem suportado, mas defensivo)
+     - QUALQUER .app-modal-backdrop no DOM (via :has(), pega todos os 38+
+       modais centrais automaticamente — modal de novo cliente, detalhe do
+       cliente, edicao, classificacao, decisao de senha, etc — sem precisar
+       de useEffect em cada componente).
+     Usamos visibility:hidden em vez de transform:translateY pra:
+     (a) remover da arvore de acessibilidade,
+     (b) nao interagir com position:fixed/visualViewport do iOS PWA (raiz das
+         antigas race conditions de "tabbar no meio do caminho"),
+     (c) nao causar layout shift do main (espaco continua ocupado). */
+  body.is-bottom-sheet-open .mobile-tabbar,
+  body:has(.app-modal-backdrop) .mobile-tabbar {
+    visibility: hidden;
     pointer-events: none;
-    /* transition-duration: 0s evita "tabbar no meio do caminho" quando
-       focusout/focusin dispara durante a animacao de 120ms do bottomsheet. */
-    transition-duration: 0s;
+  }
+
+  /* Rotas declaradas em ROUTES_WITHOUT_MOBILE_TABBAR (AppShell): a tabbar
+     nem renderiza (Portal nao monta), entao so precisamos zerar a
+     clearance pra que o main reganhe o espaco do bottom. */
+  .app-shell-root.is-tabbar-hidden .app-shell-main {
+    --mobile-tabbar-clearance: 0rem;
   }
 
   .mobile-tabbar-inner {
@@ -18884,6 +18898,33 @@ button:disabled {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Mobile: nao mostrar o back button nas listas (samples, clients) nem em
+   /profile — a tabbar mobile e a navegacao primaria, back vira redundante.
+   As paginas de detalhe (.sdv-header) re-exibem o back com destaque maximo
+   abaixo. Mesma estrategia ja usada no desktop (linhas ~21804+). */
+@media (max-width: 900px) {
+  .nsv2-back {
+    display: none;
+  }
+
+  .sdv-header .nsv2-back {
+    display: inline-grid;
+    width: clamp(42px, 11.5vw, 48px);
+    min-width: clamp(42px, 11.5vw, 48px);
+    height: clamp(42px, 11.5vw, 48px);
+    border-radius: clamp(12px, 3.4vw, 14px);
+    background: #ffffff;
+    box-shadow: 0 6px 16px rgba(7, 22, 8, 0.22);
+  }
+
+  .sdv-header .nsv2-back svg {
+    width: clamp(22px, 6vw, 26px);
+    height: clamp(22px, 6vw, 26px);
+    stroke: var(--brand-green);
+    stroke-width: 2.4;
+  }
 }
 
 .nsv2-header-center {

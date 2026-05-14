@@ -205,6 +205,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     isUsersPage ||
     isProfilePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
+  // Rotas onde a tabbar mobile NAO deve renderizar (paginas de detalhe com
+  // header proprio + back button; a tabbar so polui visualmente). A tabbar
+  // some do DOM, sem visibility:hidden — zero risco de bug visual iOS PWA.
+  // Para modais/sheets que escondem dinamicamente, ver body.is-bottom-sheet-open
+  // / body.is-app-modal-open em globals.css.
+  const hideMobileTabbar = isSampleDetail || isClientDetail;
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [passwordModalStep, setPasswordModalStep] = useState<'decision' | 'change'>('decision');
@@ -483,7 +489,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   }
 
   return (
-    <div className="app-shell-root mobile-edge-shell mobile-edge-shell-auth">
+    <div
+      className={`app-shell-root mobile-edge-shell mobile-edge-shell-auth${hideMobileTabbar ? ' is-tabbar-hidden' : ''}`}
+    >
       <header className={`topbar ${headerMobileClass}`}>
         <div className="topbar-inner">
           <div className="topbar-mobile-spacer" aria-hidden="true" />
@@ -603,15 +611,17 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
         <div className="app-shell-page-content">{children}</div>
       </main>
 
-      <MobileTabbar
-        items={MOBILE_NAV_ITEMS.map((item) => ({
-          href: item.href,
-          mobileLabel: item.mobileLabel,
-          icon: renderNavIcon(item.icon, session.user),
-          emphasis: item.emphasis,
-        }))}
-        isActive={(href) => isMainNavItemActive(pathname, href)}
-      />
+      {!hideMobileTabbar ? (
+        <MobileTabbar
+          items={MOBILE_NAV_ITEMS.map((item) => ({
+            href: item.href,
+            mobileLabel: item.mobileLabel,
+            icon: renderNavIcon(item.icon, session.user),
+            emphasis: item.emphasis,
+          }))}
+          isActive={(href) => isMainNavItemActive(pathname, href)}
+        />
+      ) : null}
 
       {showPasswordDecisionModal ? (
         <div className="app-modal-backdrop app-modal-backdrop-no-dismiss">
