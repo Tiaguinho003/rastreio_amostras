@@ -61,6 +61,8 @@ Toda pagina deve respeitar as safe areas do dispositivo:
 - O conteudo NUNCA deve ficar atras da tabbar de navegacao
 - Usar `var(--mobile-tabbar-clearance)` para garantir espaco
 - Exemplo: `padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))`
+- **Rotas sem tabbar**: paginas listadas em `hideMobileTabbar` no `AppShell.tsx` (ex: `/samples/[id]`, `/clients/[id]`) — a tabbar nem renderiza e `--mobile-tabbar-clearance` e zerada automaticamente via `.app-shell-root.is-tabbar-hidden` no globals.css. Nao precisa ajustar padding por pagina.
+- **Esconder em modais**: `body:has(.app-modal-backdrop) .mobile-tabbar` (`:has()`) cobre todos os 38+ modais centrais automaticamente; `body.is-bottom-sheet-open` cobre BottomSheets. Tecnica e `visibility: hidden` (nao `translateY`) — nao precisa adicionar useEffect em cada modal novo.
 
 ### 6. Status bar integrada
 
