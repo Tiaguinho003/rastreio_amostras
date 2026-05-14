@@ -249,15 +249,15 @@ export function ClassificationReviewModal({
                 {renderField('peneiraP18', 'P18', { inputMode: 'decimal' })}
                 {renderField('peneiraP17', 'P17', { inputMode: 'decimal' })}
                 {renderField('peneiraP16', 'P16', { inputMode: 'decimal' })}
+                {renderField('peneiraMk', 'MK', { inputMode: 'decimal' })}
                 {renderField('peneiraP15', 'P15', { inputMode: 'decimal' })}
-                {renderField('peneiraP14', 'P14', { inputMode: 'decimal' })}
               </div>
               <div className="review-grid review-grid-5">
+                {renderField('peneiraP14', 'P14', { inputMode: 'decimal' })}
                 {renderField('peneiraP13', 'P13', { inputMode: 'decimal' })}
                 {renderField('peneiraP12', 'P12', { inputMode: 'decimal' })}
                 {renderField('peneiraP11', 'P11', { inputMode: 'decimal' })}
                 {renderField('peneiraP10', 'P10', { inputMode: 'decimal' })}
-                {renderField('peneiraMk', 'MK', { inputMode: 'decimal' })}
               </div>
             </section>
 

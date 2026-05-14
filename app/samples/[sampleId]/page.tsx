@@ -3184,15 +3184,15 @@ export default function SampleDetailPage() {
                             {renderVal('peneiraP18', 'P18', 'decimal')}
                             {renderVal('peneiraP17', 'P17', 'decimal')}
                             {renderVal('peneiraP16', 'P16', 'decimal')}
+                            {renderVal('peneiraMk', 'MK', 'decimal')}
                             {renderVal('peneiraP15', 'P15', 'decimal')}
-                            {renderVal('peneiraP14', 'P14', 'decimal')}
                           </div>
                           <div className="cld-grid cld-grid-5">
+                            {renderVal('peneiraP14', 'P14', 'decimal')}
                             {renderVal('peneiraP13', 'P13', 'decimal')}
                             {renderVal('peneiraP12', 'P12', 'decimal')}
                             {renderVal('peneiraP11', 'P11', 'decimal')}
                             {renderVal('peneiraP10', 'P10', 'decimal')}
-                            {renderVal('peneiraMk', 'MK', 'decimal')}
                           </div>
                         </div>
 
