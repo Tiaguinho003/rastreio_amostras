@@ -139,10 +139,7 @@ export function ClientUnitDetailModal({
   if (!open || !unit) return null;
 
   const submitDisabled =
-    saving ||
-    !form.name.trim() ||
-    !form.reasonText.trim() ||
-    (cnpjMask.digits.length > 0 && !cnpjMask.isValid);
+    saving || !form.name.trim() || (cnpjMask.digits.length > 0 && !cnpjMask.isValid);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -420,7 +417,7 @@ export function ClientUnitDetailModal({
                 />
               </label>
               <label className="app-modal-field is-full">
-                <span className="app-modal-label">Motivo da edição (obrigatório)</span>
+                <span className="app-modal-label">Motivo da edição (opcional)</span>
                 <textarea
                   className="app-modal-input"
                   value={form.reasonText}
