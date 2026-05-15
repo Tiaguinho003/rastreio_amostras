@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -330,13 +329,7 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="sdv-header stg-header">
           <div className="sdv-header-top">
-            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </Link>
             <span className="sdv-header-title">Meu Perfil</span>
-            <span className="stg-header-spacer" />
           </div>
           <div className="stg-header-wrap">
             <UserAvatar size="lg" user={session.user} />

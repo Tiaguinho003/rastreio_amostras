@@ -19045,6 +19045,17 @@ button:disabled {
     display: none;
   }
 
+  /* Sem o back a esquerda, o .header-notification-bell (2.55rem) a direita
+     desbalanceia o flex e o titulo fica off-center pra esquerda. Adiciona
+     pseudo-element invisivel com mesma largura do bell pra restaurar o
+     centro visual. */
+  .samples-page-v2-header::before,
+  .clients-v2-header::before {
+    content: '';
+    flex-shrink: 0;
+    width: 2.55rem;
+  }
+
   .sdv-header .nsv2-back {
     display: inline-grid;
     width: clamp(42px, 11.5vw, 48px);
