@@ -1219,6 +1219,63 @@ body {
   font-weight: 600;
 }
 
+/* SVG dentro do botao de fechar (modais que usam icone vetorial em vez do
+   glyph "x"). Sem fill/stroke explicitos no markup, o <path> de linha pura
+   ficava invisivel — currentColor + stroke-width corrige. */
+.app-modal-close svg {
+  width: clamp(1rem, 3.6vw, 1.2rem);
+  height: clamp(1rem, 3.6vw, 1.2rem);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* SampleCreatedSuccessModal — header com titulo centralizado + close
+   absoluto (mesmo padrao do BottomSheet "Nova amostra" pra coerencia do
+   fluxo de registro). Mais especifico que .app-modal.is-themed por
+   classe escopada — nao afeta outros modais. */
+.sample-created-modal .app-modal-header {
+  position: relative;
+  justify-content: center;
+  padding-right: clamp(3.6rem, 12vw, 4.2rem);
+  padding-left: clamp(3.6rem, 12vw, 4.2rem);
+}
+
+.sample-created-modal .app-modal-title-wrap {
+  text-align: center;
+  width: 100%;
+}
+
+.sample-created-modal .app-modal-title {
+  /* +8% em relacao ao .is-themed default (1.15-1.45rem). */
+  font-size: clamp(1.25rem, 3.4vw, 1.55rem);
+}
+
+.sample-created-modal .app-modal-close {
+  position: absolute;
+  right: clamp(1.1rem, 3.5vw, 1.4rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sample-created-modal .app-modal-close:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.94);
+}
+
+/* Botoes do footer: altura uniforme (default difere 0.2rem entre secondary
+   e submit) + width 100% pra preencher cada coluna do grid. */
+.sample-created-modal .app-modal-actions {
+  align-items: center;
+}
+
+.sample-created-modal .app-modal-actions .app-modal-secondary,
+.sample-created-modal .app-modal-actions .app-modal-submit {
+  min-height: 3.2rem;
+  width: 100%;
+}
+
 .app-modal.is-themed .app-modal-content {
   padding: clamp(1rem, 3vw, 1.4rem);
   flex: 1;
@@ -24221,26 +24278,33 @@ button:disabled {
 
 .bottom-sheet-header {
   flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.6rem;
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
-  padding: clamp(0.5rem, 1.6vw, 0.75rem) clamp(1rem, 4vw, 1.4rem) clamp(0.7rem, 2.2vw, 1rem);
+  padding: clamp(0.5rem, 1.6vw, 0.75rem) clamp(3.6rem, 12vw, 4.2rem) clamp(0.7rem, 2.2vw, 1rem);
   background: var(--brand-green);
 }
 
 .bottom-sheet-title {
   margin: 0;
-  font-size: clamp(1.05rem, 4.2vw, 1.2rem);
+  /* +12% em relacao ao tamanho anterior (1.05-1.2rem -> 1.18-1.34rem) */
+  font-size: clamp(1.18rem, 4.7vw, 1.34rem);
   font-weight: 700;
   color: #ffffff;
-  flex: 1;
+  text-align: center;
   min-width: 0;
 }
 
 .bottom-sheet-close {
-  flex-shrink: 0;
+  /* Position absolute pra deixar o titulo flutuar centralizado no header.
+     O padding-right do .bottom-sheet-header reserva o espaco visual. */
+  position: absolute;
+  right: clamp(1rem, 4vw, 1.4rem);
+  top: 50%;
+  transform: translateY(-50%);
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 999px;
@@ -24274,7 +24338,8 @@ button:disabled {
 }
 
 .bottom-sheet-close:active {
-  transform: scale(0.92);
+  /* transform composto: mantem o translateY do absolute + active scale */
+  transform: translateY(-50%) scale(0.92);
 }
 
 .bottom-sheet-body {
