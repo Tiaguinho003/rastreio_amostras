@@ -540,6 +540,9 @@ export interface DashboardPendingResponse {
     total: number;
     items: SampleSnapshot[];
   };
+  clientsIncomplete: {
+    total: number;
+  };
 }
 
 export interface DashboardSalesAvailabilityResponse {

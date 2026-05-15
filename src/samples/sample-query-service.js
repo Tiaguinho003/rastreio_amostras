@@ -1,3 +1,4 @@
+import { buildCompletenessWhere } from '../clients/client-service.js';
 import { HttpError } from '../contracts/errors.js';
 
 // Q.print: PRINT_PENDING_STATUSES removido — impressao virou acao pura,
@@ -1563,7 +1564,7 @@ export class SampleQueryService {
   // tambem deletado (cobria QR_PENDING_PRINT que nao existe mais como
   // status). Resta apenas `classificationPending` (samples em RC).
   async getDashboardPending() {
-    const [allStatusCounts, classificationPendingRows, todayReceivedRows] =
+    const [allStatusCounts, classificationPendingRows, todayReceivedRows, clientsIncompleteTotal] =
       await this.prisma.$transaction([
         this.prisma.sample.groupBy({
           by: ['status'],
@@ -1599,6 +1600,14 @@ export class SampleQueryService {
               AND s."created_at" <= ${endUtc}
           `;
         })(),
+        // Contagem de clientes com cadastro incompleto. Reusa o WHERE clause
+        // canonico de client-service (mesma regra do chip filtro em /clients).
+        this.prisma.client.count({
+          where: {
+            status: 'ACTIVE',
+            ...buildCompletenessWhere('incomplete'),
+          },
+        }),
       ]);
 
     const countByStatus = {};
@@ -1622,6 +1631,9 @@ export class SampleQueryService {
         counts: classificationPendingCounts,
         total: classificationPendingTotal,
         items: classificationPendingRows.map(mapDashboardSample),
+      },
+      clientsIncomplete: {
+        total: clientsIncompleteTotal,
       },
     };
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   type FormEvent,
   Suspense,
@@ -349,6 +350,7 @@ export default function ClientsPageWrapper() {
 
 function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
+  const searchParams = useSearchParams();
 
   // 14.7.K: snapshot persistente — restaura filtros + items + scroll
   // ao retornar pra pagina dentro do TTL (10min).
@@ -393,8 +395,12 @@ function ClientsPage() {
   const [commercialUserFilter, setCommercialUserFilter] = useState<string>(
     () => initialSnapshot?.commercialUserFilter ?? ''
   );
+  // URL ?incomplete=true tem precedencia sobre o snapshot — quando o user
+  // clica no card "Cadastros pendentes" do dashboard, a intencao explicita e
+  // ver a lista filtrada, independente do estado anterior salvo.
+  const incompleteFromUrl = searchParams.get('incomplete') === 'true';
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(
-    () => initialSnapshot?.showOnlyIncomplete ?? false
+    () => incompleteFromUrl || (initialSnapshot?.showOnlyIncomplete ?? false)
   );
   const [users, setUsers] = useState<UserLookupItem[]>([]);
 

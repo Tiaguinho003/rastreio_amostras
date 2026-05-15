@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { NotificationBell } from '../NotificationBell';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
@@ -37,6 +38,7 @@ interface DashboardMobileProps {
 }
 
 export function DashboardMobile({ session, data, salesData, error }: DashboardMobileProps) {
+  const router = useRouter();
   const {
     activeOperationPanel,
     focusTrapRef,
@@ -104,6 +106,28 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                     ) : null}
                   </span>
                   <span className="dashboard-operation-label">Classificação</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="dashboard-operation-card dashboard-op-clients"
+                  onClick={() => router.push('/clients?incomplete=true')}
+                  aria-label={`Cadastros pendentes (${data.clientsIncomplete.total})`}
+                >
+                  <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                      <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                      <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    </svg>
+                    {data.clientsIncomplete.total > 0 ? (
+                      <span className="dashboard-operation-badge">
+                        {data.clientsIncomplete.total}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="dashboard-operation-label">Cadastros</span>
                 </button>
               </div>
             ) : (

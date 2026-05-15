@@ -3724,6 +3724,21 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(212, 160, 23, 0.5);
 }
 
+.dashboard-op-clients::before {
+  background: #d4a017;
+}
+.dashboard-op-clients .dashboard-operation-icon-wrap {
+  background: linear-gradient(135deg, rgba(212, 160, 23, 0.15), rgba(212, 160, 23, 0.08));
+  border: 1.5px solid rgba(212, 160, 23, 0.25);
+}
+.dashboard-op-clients .dashboard-operation-icon-wrap svg {
+  stroke: #d4a017;
+}
+.dashboard-op-clients .dashboard-operation-badge {
+  background: #d4a017;
+  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.5);
+}
+
 .dashboard-op-progress .dashboard-operation-icon-wrap {
   background: linear-gradient(135deg, rgba(41, 128, 185, 0.15), rgba(41, 128, 185, 0.08));
   border: 1.5px solid rgba(41, 128, 185, 0.25);
@@ -19634,7 +19649,9 @@ button:disabled {
 
   .dd-summary-row {
     display: grid;
-    grid-template-columns: 3fr 3fr 4fr;
+    /* 3 cards (classificacao + cadastros + sales). Sales mantem destaque
+       maior por ter donut chart embutido. */
+    grid-template-columns: 2.5fr 2.5fr 3.5fr;
     gap: clamp(0.75rem, 1.5vw, 1.5rem);
   }
 
@@ -19718,6 +19735,11 @@ button:disabled {
   }
 
   .dd-card-classification {
+    --dd-card-accent: #d4a017;
+    --dd-card-accent-bg: rgba(212, 160, 23, 0.09);
+  }
+
+  .dd-card-clients {
     --dd-card-accent: #d4a017;
     --dd-card-accent-bg: rgba(212, 160, 23, 0.09);
   }

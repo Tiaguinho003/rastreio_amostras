@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import {
@@ -110,6 +111,7 @@ interface DashboardDesktopProps {
 }
 
 export function DashboardDesktop({ session, data, salesData, error }: DashboardDesktopProps) {
+  const router = useRouter();
   const {
     activeOperationPanel,
     focusTrapRef,
@@ -188,6 +190,32 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
               </span>
               <strong className="dd-card-count">{classificationTotal}</strong>
               <span className="dd-card-label">Classificacao pendente</span>
+            </button>
+          ) : (
+            <div className="dd-card dd-card-skeleton" aria-hidden="true">
+              <span className="dd-card-icon-placeholder" />
+              <span className="dd-card-count-placeholder" />
+              <span className="dd-card-label-placeholder" />
+            </div>
+          )}
+
+          {data ? (
+            <button
+              type="button"
+              className="dd-card dd-card-clients"
+              onClick={() => router.push('/clients?incomplete=true')}
+              aria-label={`Cadastros pendentes (${data.clientsIncomplete.total})`}
+            >
+              <span className="dd-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                  <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                  <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                </svg>
+              </span>
+              <strong className="dd-card-count">{data.clientsIncomplete.total}</strong>
+              <span className="dd-card-label">Cadastros pendentes</span>
             </button>
           ) : (
             <div className="dd-card dd-card-skeleton" aria-hidden="true">

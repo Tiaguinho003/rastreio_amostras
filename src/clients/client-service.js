@@ -249,7 +249,7 @@ function fieldNullOrEmpty(field) {
   return { OR: [{ [field]: null }, { [field]: '' }] };
 }
 
-function buildCompletenessWhere(mode) {
+export function buildCompletenessWhere(mode) {
   // mode: 'incomplete' | 'complete'
   const pjMissingAny = { OR: PJ_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };
   const pfClientMissingAny = { OR: PF_CLIENT_RECOMMENDED_FIELDS.map(fieldNullOrEmpty) };
