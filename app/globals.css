@@ -4147,7 +4147,7 @@ button:disabled {
   height: clamp(28px, 8vw, 32px);
   border: 0;
   border-radius: clamp(8px, 2.2vw, 10px);
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--brand-green);
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -4162,14 +4162,14 @@ button:disabled {
   width: 56%;
   height: 56%;
   fill: none;
-  stroke: #6b8a74;
+  stroke: #ffffff;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .hero-search-filter-btn.has-filters svg {
-  stroke: var(--brand-green-soft);
+  stroke: #ffffff;
 }
 
 .hero-search-filter-badge {
@@ -5802,9 +5802,13 @@ button:disabled {
   position: fixed;
   bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem);
   right: clamp(14px, 4vw, 20px);
-  width: clamp(46px, 13vw, 52px);
-  height: clamp(46px, 13vw, 52px);
-  border-radius: clamp(14px, 4vw, 16px);
+  /* +15% em todos os tamanhos (mobile): bases 46→53, 13vw→14.95vw, 52→60.
+     Border-radius e svg seguem a mesma proporcao. Em desktop o tamanho
+     e fixo 56x56 (regra `.samples-page-v2 .hero-search-wrap .cv2-fab`) —
+     nao mexer ali pra nao empurrar a search bar. */
+  width: clamp(53px, 14.95vw, 60px);
+  height: clamp(53px, 14.95vw, 60px);
+  border-radius: clamp(16px, 4.6vw, 18px);
   border: 0;
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
   box-shadow: 0 4px 20px rgba(27, 94, 32, 0.4);
@@ -5821,8 +5825,8 @@ button:disabled {
 }
 
 .cv2-fab svg {
-  width: clamp(18px, 5vw, 22px);
-  height: clamp(18px, 5vw, 22px);
+  width: clamp(21px, 5.75vw, 25px);
+  height: clamp(21px, 5.75vw, 25px);
   fill: none;
   stroke: #ffffff;
   stroke-width: 2.5;

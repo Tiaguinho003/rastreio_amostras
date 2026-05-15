@@ -51,12 +51,7 @@ export function SampleCreatedSuccessModal({
               Amostra criada
             </h3>
           </div>
-          <button
-            type="button"
-            className="app-modal-close"
-            onClick={onClose}
-            aria-label="Fechar"
-          >
+          <button type="button" className="app-modal-close" onClick={onClose} aria-label="Fechar">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
