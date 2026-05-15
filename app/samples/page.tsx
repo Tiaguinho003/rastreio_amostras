@@ -1227,18 +1227,20 @@ function SamplesPage() {
         </div>
       ) : null}
 
-      <NewSampleModal
-        open={newSampleModalOpen}
-        session={session}
-        onClose={() => setNewSampleModalOpen(false)}
-        onSuccessNavigate={() => {
-          // Decisao 5.29 = b: nao navega pra /samples/[id]. Em vez disso
-          // fecha o modal e dispara refetch da lista (5.31 = a) — a amostra
-          // criada aparece no topo da lista atualizada.
-          setNewSampleModalOpen(false);
-          setNewSampleRefetchKey((current) => current + 1);
-        }}
-      />
+      {newSampleModalOpen ? (
+        <NewSampleModal
+          open={newSampleModalOpen}
+          session={session}
+          onClose={() => setNewSampleModalOpen(false)}
+          onSuccessNavigate={() => {
+            // Decisao 5.29 = b: nao navega pra /samples/[id]. Em vez disso
+            // fecha o modal e dispara refetch da lista (5.31 = a) — a amostra
+            // criada aparece no topo da lista atualizada.
+            setNewSampleModalOpen(false);
+            setNewSampleRefetchKey((current) => current + 1);
+          }}
+        />
+      ) : null}
     </AppShell>
   );
 }
