@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useFocusTrap } from '../lib/use-focus-trap';
 
 const SWIPE_THRESHOLD = 60;
-const ANIMATION_MS = 350;
+export const ANIMATION_MS = 350;
 
 interface BottomSheetProps {
   open: boolean;
@@ -220,7 +220,9 @@ export function BottomSheet({
             onClick={() => void requestDismiss()}
             aria-label="Fechar"
           >
-            <span aria-hidden="true">×</span>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </header>
 

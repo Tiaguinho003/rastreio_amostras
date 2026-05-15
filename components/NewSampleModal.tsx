@@ -3,10 +3,11 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { BottomSheet } from './BottomSheet';
+import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ClientLookupField } from './clients/ClientLookupField';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
 import { OwnerUnitField } from './samples/OwnerUnitField';
+import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
 import { ApiError, createSample, getClient } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
@@ -75,24 +76,11 @@ const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 // Types
 // ════════════════════════════════════════════════════════════════
 
-type WizardStep = 'form' | 'review' | 'created';
+type WizardStep = 'form' | 'created';
 type WizardStatus = 'idle' | 'submitting' | 'error';
 
 type RequiredFieldName = 'owner' | 'ownerUnit' | 'sacks' | 'harvest';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
-
-interface PendingDraftPayload {
-  clientDraftId: string;
-  owner: string;
-  ownerClientId: string | null;
-  ownerUnitId: string | null;
-  sacks: number;
-  harvest: string;
-  originLot: string | null;
-  location: string | null;
-  receivedChannel: 'in_person' | 'courier' | 'driver' | 'other';
-  notes: string | null;
-}
 
 interface WizardState {
   step: WizardStep;
@@ -101,7 +89,6 @@ interface WizardState {
   createdSampleId: string | null;
   createdLotNumber: string | null;
   dirty: boolean;
-  pendingDraft: PendingDraftPayload | null;
   fieldErrors: RequiredFieldErrors;
 }
 
@@ -109,8 +96,6 @@ type WizardAction =
   | { type: 'MARK_DIRTY' }
   | { type: 'SET_FIELD_ERRORS'; errors: RequiredFieldErrors }
   | { type: 'CLEAR_FIELD_ERROR'; field: RequiredFieldName }
-  | { type: 'GO_TO_REVIEW'; pendingDraft: PendingDraftPayload }
-  | { type: 'BACK_TO_FORM' }
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_SUCCESS'; sampleId: string; lotNumber: string }
   | { type: 'SUBMIT_ERROR'; message: string }
@@ -138,7 +123,6 @@ const initialState: WizardState = {
   createdSampleId: null,
   createdLotNumber: null,
   dirty: false,
-  pendingDraft: null,
   fieldErrors: EMPTY_REQUIRED_FIELD_ERRORS,
 };
 
@@ -169,11 +153,6 @@ function getSchemaFieldErrors(
   return next;
 }
 
-function previewValue(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === '') return 'Nao informado';
-  return String(value);
-}
-
 // ════════════════════════════════════════════════════════════════
 // Reducer
 // ════════════════════════════════════════════════════════════════
@@ -193,20 +172,6 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         ...state,
         fieldErrors: { ...state.fieldErrors, [action.field]: null },
       };
-
-    case 'GO_TO_REVIEW':
-      if (state.status === 'submitting') return state;
-      return {
-        ...state,
-        step: 'review',
-        pendingDraft: action.pendingDraft,
-        error: null,
-        status: 'idle',
-      };
-
-    case 'BACK_TO_FORM':
-      if (state.status === 'submitting') return state;
-      return { ...state, step: 'form', error: null, status: 'idle' };
 
     case 'SUBMIT_START':
       if (state.status === 'submitting') return state;
@@ -244,12 +209,6 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 // Component
 // ════════════════════════════════════════════════════════════════
 
-const TITLE_BY_STEP: Record<WizardStep, string> = {
-  form: 'Nova amostra',
-  review: 'Confirme os dados',
-  created: 'Amostra criada',
-};
-
 export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: NewSampleModalProps) {
   const router = useRouter();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
@@ -276,6 +235,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [isOnline, setIsOnline] = useState(true);
 
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   const ownerInputRef = useRef<HTMLInputElement | null>(null);
   const sacksInputRef = useRef<HTMLInputElement | null>(null);
@@ -291,6 +251,18 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     draftInitializedRef.current = true;
     setClientDraftId(loadOrCreateDraftId());
   }, [open]);
+
+  // Apos SUBMIT_SUCCESS, state.step vira 'created'. O BottomSheet recebe
+  // open={false} (animacao de saida ~ANIMATION_MS). Aguardamos esse tempo +
+  // pequena margem e abrimos o modal central de sucesso.
+  useEffect(() => {
+    if (state.step !== 'created') {
+      setSuccessModalOpen(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSuccessModalOpen(true), ANIMATION_MS + 30);
+    return () => window.clearTimeout(timer);
+  }, [state.step]);
 
   const navigateToSample =
     onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
@@ -442,7 +414,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     );
   }
 
-  function openReviewModal() {
+  async function handleConfirmDraft() {
     setError(null);
     setMessage(null);
 
@@ -495,41 +467,20 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     }
 
     dispatch({ type: 'SET_FIELD_ERRORS', errors: EMPTY_REQUIRED_FIELD_ERRORS });
+    dispatch({ type: 'SUBMIT_START' });
 
-    dispatch({
-      type: 'GO_TO_REVIEW',
-      pendingDraft: {
+    try {
+      const result = await createSample(session, {
         clientDraftId,
         owner: parsed.data.owner,
-        ownerClientId: selectedOwnerClient?.id ?? null,
-        ownerUnitId: selectedOwnerUnitId ?? null,
+        ownerClientId: selectedOwnerClient.id,
+        ownerUnitId: selectedOwnerUnitId,
         sacks: parsed.data.sacks,
         harvest: parsed.data.harvest,
         originLot: parsed.data.originLot ?? null,
         location: parsed.data.location ?? null,
         receivedChannel: parsed.data.receivedChannel,
         notes: parsed.data.notes ?? null,
-      },
-    });
-  }
-
-  async function handleConfirmDraft() {
-    if (!state.pendingDraft) return;
-
-    dispatch({ type: 'SUBMIT_START' });
-
-    try {
-      const result = await createSample(session, {
-        clientDraftId: state.pendingDraft.clientDraftId,
-        owner: state.pendingDraft.owner,
-        ownerClientId: state.pendingDraft.ownerClientId,
-        ownerUnitId: state.pendingDraft.ownerUnitId,
-        sacks: state.pendingDraft.sacks,
-        harvest: state.pendingDraft.harvest,
-        originLot: state.pendingDraft.originLot,
-        location: state.pendingDraft.location,
-        receivedChannel: state.pendingDraft.receivedChannel,
-        notes: state.pendingDraft.notes,
       });
 
       clearPersistedDraftId();
@@ -773,7 +724,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         disabled={submitting || !isOnline}
         onClick={() => {
           if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-          openReviewModal();
+          void handleConfirmDraft();
         }}
       >
         <span>{submitting ? 'Criando...' : 'Criar amostra'}</span>
@@ -781,117 +732,49 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     </div>
   );
 
-  // ── Review step
-  const previewDraft = state.pendingDraft;
-  const reviewContent: ReactNode = (
-    <>
-      <article className="label-print-card new-sample-label-print-card is-review-card">
-        <div className="label-meta">
-          <p>
-            <strong>Proprietario:</strong> {previewValue(previewDraft?.owner)}
-          </p>
-          <p>
-            <strong>Sacas:</strong> {previewValue(previewDraft?.sacks)}
-          </p>
-          <p>
-            <strong>Safra:</strong> {previewValue(previewDraft?.harvest)}
-          </p>
-          <p>
-            <strong>Lote origem:</strong> {previewValue(previewDraft?.originLot)}
-          </p>
-          {previewDraft?.location ? (
-            <p>
-              <strong>Local:</strong> {previewValue(previewDraft.location)}
-            </p>
-          ) : null}
-        </div>
-      </article>
-      {state.status === 'error' && state.error ? (
-        <p className="error new-sample-label-modal-feedback">{state.error}</p>
-      ) : null}
-    </>
-  );
+  // Handlers do modal central de sucesso.
+  function handleNavigateToSample() {
+    if (state.createdSampleId) {
+      navigateToSample(state.createdSampleId);
+    }
+  }
 
-  const reviewFooter: ReactNode = (
-    <div className="new-sample-label-modal-actions">
-      <button
-        type="button"
-        className="new-sample-modal-circle is-secondary"
-        disabled={submitting}
-        onClick={() => dispatch({ type: 'BACK_TO_FORM' })}
-        aria-label="Editar"
-      >
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path d="M17 3l4 4L7 21H3v-4L17 3z" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="new-sample-modal-circle is-primary"
-        disabled={submitting}
-        onClick={() => void handleConfirmDraft()}
-        aria-label={submitting ? 'Criando' : 'Confirmar'}
-      >
-        {submitting ? (
-          <span className="new-sample-modal-circle-spinner" />
-        ) : (
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="m5 12.5 4.3 4.2L19 7" />
-          </svg>
-        )}
-      </button>
-    </div>
-  );
+  function handleCreateAnother() {
+    setSuccessModalOpen(false);
+    resetDraft();
+  }
 
-  const createdContent: ReactNode = (
-    <div className="new-sample-created-panel" role="status" aria-live="polite" aria-atomic="true">
-      <span className="new-sample-created-panel__label">Lote</span>
-      <strong className="new-sample-created-panel__lot">{state.createdLotNumber ?? '—'}</strong>
-      <p className="new-sample-created-panel__hint">Anote este número na saca antes de seguir.</p>
-    </div>
-  );
-
-  const createdFooter: ReactNode = (
-    <div className="new-sample-label-modal-actions">
-      <button
-        type="button"
-        className="nsv2-submit-btn new-sample-created-cta"
-        onClick={() => {
-          if (state.createdSampleId) {
-            // Modal desmonta quando a rota muda (page wrapper /samples/new
-            // sai). Sem precisar chamar onClose() explicitamente.
-            navigateToSample(state.createdSampleId);
-          }
-        }}
-      >
-        Ir para amostra
-      </button>
-    </div>
-  );
-
-  const stepContent =
-    state.step === 'form' ? formContent : state.step === 'review' ? reviewContent : createdContent;
-  const stepFooter =
-    state.step === 'form' ? formFooter : state.step === 'review' ? reviewFooter : createdFooter;
+  function handleSuccessClose() {
+    // Mesmo destino do botao primario: o user fechou o modal apos criar com
+    // sucesso. Em /samples/new -> navega pra detail; em /samples (FAB) ->
+    // override fecha + refetch (Decisao 5.29 = b).
+    if (state.createdSampleId) {
+      navigateToSample(state.createdSampleId);
+    }
+  }
 
   return (
     <>
       <BottomSheet
-        open={open}
+        open={open && state.step === 'form'}
         onClose={onClose}
         onDismissAttempt={handleDismissAttempt}
-        title={TITLE_BY_STEP[state.step]}
-        footer={stepFooter}
+        title="Nova amostra"
+        footer={formFooter}
         ariaLabel="Nova amostra"
-        dragToDismiss={state.step === 'form'}
+        dragToDismiss
         dragDisabled={quickCreateOpen}
       >
-        {/* key={state.step} re-cria o container ao trocar de step,
-            disparando a animacao CSS fade-in (200ms ease-out) */}
-        <div key={state.step} className="new-sample-step-content">
-          {stepContent}
-        </div>
+        <div className="new-sample-step-content">{formContent}</div>
       </BottomSheet>
+
+      <SampleCreatedSuccessModal
+        open={successModalOpen}
+        lotNumber={state.createdLotNumber ?? '—'}
+        onNavigateToSample={handleNavigateToSample}
+        onCreateAnother={handleCreateAnother}
+        onClose={handleSuccessClose}
+      />
 
       <ClientQuickCreateModal
         session={session}
@@ -968,8 +851,5 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   );
 }
 
-// Export tipo pra reuso em outros lugares (Fase 3 wrapper, Fase 4)
-export type { NewSampleModalProps, PendingDraftPayload };
-// CreateSampleResponse retornado pelo backend nao e mais exposto pelo
-// componente (o sheet so navega via onSuccessNavigate).
+export type { NewSampleModalProps };
 export type { CreateSampleResponse };

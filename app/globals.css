@@ -13079,6 +13079,66 @@ button:disabled {
   }
 }
 
+/* Modal central de "Amostra criada" — reaproveita os keyframes
+   client-success-circle/tick acima. Cor do check casa com o header verde
+   do .app-modal.is-themed. */
+.sample-created-body {
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.55rem, 1.8vw, 0.8rem);
+  padding-top: clamp(1.4rem, 5vw, 2.2rem);
+  padding-bottom: clamp(1.4rem, 5vw, 2.2rem);
+}
+
+.sample-created-check {
+  width: clamp(4rem, 14vw, 5rem);
+  height: clamp(4rem, 14vw, 5rem);
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-bottom: clamp(0.4rem, 1.5vw, 0.7rem);
+}
+
+.sample-created-check circle {
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  animation: client-success-circle 0.5s ease forwards;
+}
+
+.sample-created-check path {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: client-success-tick 0.35s 0.35s ease forwards;
+}
+
+.sample-created-label {
+  margin: 0;
+  font-size: clamp(0.78rem, 2.4vw, 0.88rem);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sample-created-lot {
+  margin: 0;
+  font-size: clamp(2.6rem, 9vw, 3.4rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--brand-green);
+  line-height: 1;
+}
+
+.sample-created-hint {
+  margin: clamp(0.3rem, 1vw, 0.5rem) 0 0;
+  font-size: clamp(0.82rem, 2.6vw, 0.92rem);
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .client-modal-header {
   display: flex;
   justify-content: space-between;
@@ -19155,6 +19215,9 @@ button:disabled {
   color: #aaa;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+  /* nowrap evita que o " *" (required-star) caia em uma segunda linha
+     quando o container do campo fica apertado (ex: Filial em 320px). */
+  white-space: nowrap;
 }
 
 .nsv2-required-star {
@@ -24108,11 +24171,18 @@ button:disabled {
   transition: none;
 }
 
+/* Drag handle e header formam uma faixa verde unica no topo do sheet,
+   transbordando o padding horizontal do .bottom-sheet via margem negativa
+   pra cobrir edge-to-edge. Border-radius do drag handle acompanha a curva
+   superior do sheet. */
 .bottom-sheet-drag-handle {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
   padding: clamp(0.55rem, 2vw, 0.75rem) 0 clamp(0.35rem, 1.5vw, 0.55rem);
+  margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
+  background: var(--brand-green);
+  border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
   cursor: grab;
 }
 
@@ -24120,7 +24190,7 @@ button:disabled {
   width: clamp(2.4rem, 11vw, 3.2rem);
   height: 4px;
   border-radius: 2px;
-  background: var(--color-line);
+  background: rgba(255, 255, 255, 0.45);
 }
 
 .bottom-sheet-header {
@@ -24129,15 +24199,16 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: clamp(0.3rem, 1vw, 0.5rem) 0 clamp(0.6rem, 2vw, 0.9rem);
-  border-bottom: 1px solid var(--color-line);
+  margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
+  padding: clamp(0.5rem, 1.6vw, 0.75rem) clamp(1rem, 4vw, 1.4rem) clamp(0.7rem, 2.2vw, 1rem);
+  background: var(--brand-green);
 }
 
 .bottom-sheet-title {
   margin: 0;
   font-size: clamp(1.05rem, 4.2vw, 1.2rem);
   font-weight: 700;
-  color: var(--color-ink);
+  color: #ffffff;
   flex: 1;
   min-width: 0;
 }
@@ -24148,10 +24219,13 @@ button:disabled {
   height: 2.2rem;
   border-radius: 999px;
   border: 0;
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--color-ink);
-  font-size: 1.4rem;
-  line-height: 1;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  /* inline-grid + place-items garante centralizacao perfeita do SVG
+     (sem dependencia de line-height/baseline do glyph "x"). */
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -24159,8 +24233,18 @@ button:disabled {
     transform 0.1s ease;
 }
 
+.bottom-sheet-close svg {
+  width: clamp(0.95rem, 3.6vw, 1.1rem);
+  height: clamp(0.95rem, 3.6vw, 1.1rem);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .bottom-sheet-close:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .bottom-sheet-close:active {
