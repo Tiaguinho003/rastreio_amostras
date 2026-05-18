@@ -1889,4 +1889,111 @@ export class SampleQueryService {
 
     return String(nextSequence);
   }
+
+  // Liga A2.1: CTE recursiva carregando a arvore inteira de descendentes
+  // de uma liga (Liga T0.D — cascata recursiva, profundidade ilimitada
+  // mas com guarda defensiva de 10 niveis).
+  //
+  // Inclui a propria raiz como primeira linha (depth=0, parent=null,
+  // contributedSacks=null). Cada descendente carrega seu parent imediato
+  // + contribuicao + dados do sample necessarios pra validacao/cascata
+  // (version, sold/lost/declaredSacks, status, isBlend).
+  //
+  // Aceita transacao opcional (executor) — usar dentro de uma tx aberta
+  // pra coletar versions consistente. Sem executor, usa this.prisma.
+  async loadBlendTree(rootSampleId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      WITH RECURSIVE blend_tree AS (
+        SELECT
+          s.id AS sample_id,
+          NULL::uuid AS parent_blend_id,
+          NULL::int AS contributed_sacks,
+          0 AS depth,
+          s.is_blend,
+          s.version,
+          s.declared_sacks,
+          s.sold_sacks,
+          s.lost_sacks,
+          s.status::text AS status,
+          s.internal_lot_number
+        FROM sample s
+        WHERE s.id = ${rootSampleId}::uuid
+
+        UNION ALL
+
+        SELECT
+          child.id AS sample_id,
+          bc.sample_id AS parent_blend_id,
+          bc.contributed_sacks,
+          bt.depth + 1 AS depth,
+          child.is_blend,
+          child.version,
+          child.declared_sacks,
+          child.sold_sacks,
+          child.lost_sacks,
+          child.status::text AS status,
+          child.internal_lot_number
+        FROM blend_tree bt
+        JOIN sample_blend_component bc ON bc.sample_id = bt.sample_id
+        JOIN sample child ON child.id = bc.origin_sample_id
+        WHERE bt.depth < 10
+      )
+      SELECT
+        sample_id,
+        parent_blend_id,
+        contributed_sacks,
+        depth,
+        is_blend,
+        version,
+        declared_sacks,
+        sold_sacks,
+        lost_sacks,
+        status,
+        internal_lot_number
+      FROM blend_tree
+      ORDER BY depth ASC, sample_id ASC
+    `;
+
+    return rows.map((row) => ({
+      sampleId: row.sample_id,
+      parentBlendId: row.parent_blend_id,
+      contributedSacks: row.contributed_sacks === null ? null : Number(row.contributed_sacks),
+      depth: Number(row.depth),
+      isBlend: Boolean(row.is_blend),
+      version: Number(row.version),
+      declaredSacks: row.declared_sacks === null ? null : Number(row.declared_sacks),
+      soldSacks: Number(row.sold_sacks),
+      lostSacks: Number(row.lost_sacks),
+      status: row.status,
+      internalLotNumber: row.internal_lot_number,
+    }));
+  }
+
+  // Liga A2.1: encontra ligas ativas (status != INVALIDATED) que contem
+  // a amostra dada como originSampleId em sample_blend_component. Usado
+  // por invalidateSample (Liga F7.2 + F7.D) e pra validacao de overcommit
+  // (Liga T0.B — committedSacks por amostra). Aceita executor opcional.
+  async findActiveBlendsContainingOrigin(originSampleId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      SELECT
+        s.id AS sample_id,
+        s.internal_lot_number,
+        s.status::text AS status,
+        bc.contributed_sacks
+      FROM sample_blend_component bc
+      JOIN sample s ON s.id = bc.sample_id
+      WHERE bc.origin_sample_id = ${originSampleId}::uuid
+        AND s.status <> 'INVALIDATED'
+      ORDER BY s.internal_lot_number ASC
+    `;
+
+    return rows.map((row) => ({
+      sampleId: row.sample_id,
+      lotNumber: row.internal_lot_number,
+      status: row.status,
+      contributedSacks: Number(row.contributed_sacks),
+    }));
+  }
 }
