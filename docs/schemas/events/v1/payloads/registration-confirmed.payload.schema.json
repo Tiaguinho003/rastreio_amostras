@@ -11,7 +11,11 @@
     "declared": {
       "type": "object",
       "properties": {
-        "owner": { "type": "string", "minLength": 1 },
+        "owner": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Nome do dono em texto livre. Pode ser null em registros de liga (isBlend=true) quando ownerClientId tambem e null — Liga F3.1 + F3.3 (carteira da corretora). Quando string, minLength=1."
+        },
         "sacks": { "type": "integer", "minimum": 1 },
         "harvest": { "type": "string", "minLength": 1 },
         "originLot": { "type": ["string", "null"] },

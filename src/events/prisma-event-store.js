@@ -396,6 +396,16 @@ class PrismaEventStoreTx {
     });
   }
 
+  // Liga A2.2: marca um sample como liga (isBlend=true) na mesma tx do
+  // REGISTRATION_CONFIRMED + BLEND_CREATED. Não bumpa version (é apenas
+  // a denormalização da existência de SampleBlendComponent).
+  async markAsBlend(sampleId) {
+    return this.tx.sample.update({
+      where: { id: sampleId },
+      data: { isBlend: true },
+    });
+  }
+
   async insertEvent(event) {
     return this.tx.sampleEvent.create({
       data: {

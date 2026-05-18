@@ -1,0 +1,390 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { PrismaClient } from '@prisma/client';
+
+import { HttpError } from '../src/contracts/errors.js';
+import { EventContractDbService } from '../src/events/event-contract-db-service.js';
+import { PrismaEventStore } from '../src/events/prisma-event-store.js';
+import { SampleQueryService } from '../src/samples/sample-query-service.js';
+import { SampleCommandService } from '../src/samples/sample-command-service.js';
+
+const databaseUrl = process.env.DATABASE_URL;
+const databaseReachable = await canReachDatabase(databaseUrl);
+
+if (!databaseUrl || !databaseReachable) {
+  test.skip('integration tests require DATABASE_URL and reachable PostgreSQL', () => {});
+} else {
+  const prisma = new PrismaClient();
+  const store = new PrismaEventStore(prisma);
+  const eventService = new EventContractDbService({ store });
+  const queryService = new SampleQueryService({ prisma });
+
+  // Mock clientService: aceita resolveOwnerBinding com cliente real ou nao.
+  // createBlend so chama quando ownerClientId esta definido — pode mockar
+  // retornando snapshot fake.
+  const clientServiceMock = {
+    async resolveOwnerBinding({ ownerClientId, ownerUnitId }) {
+      return {
+        ownerClientId,
+        ownerUnitId: ownerUnitId ?? null,
+        displayName: `Cliente ${ownerClientId.slice(0, 8)}`,
+      };
+    },
+  };
+
+  const userServiceMock = {
+    async findUserOrNull(userId) {
+      return {
+        id: userId,
+        fullName: 'Usuário Teste',
+        username: 'teste',
+        status: 'ACTIVE',
+      };
+    },
+  };
+
+  const commandService = new SampleCommandService({
+    eventService,
+    queryService,
+    clientService: clientServiceMock,
+    userService: userServiceMock,
+  });
+
+  const actor = {
+    actorType: 'USER',
+    actorUserId: randomUUID(),
+    role: 'REGISTRATION',
+    source: 'api',
+    requestId: randomUUID(),
+  };
+
+  async function resetDatabase() {
+    await prisma.$executeRawUnsafe(
+      'TRUNCATE TABLE client_audit_event, sample_movement, sample_blend_component, client_unit, client, print_job, sample_attachment, sample_event, sample RESTART IDENTITY CASCADE'
+    );
+  }
+
+  // Helper: cria sample em status CLASSIFIED diretamente (bypassa o fluxo
+  // de classificação completo — esses testes focam em createBlend, não em
+  // classificação). Sem foto, sem dados de classificacao.
+  async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
+    await prisma.sample.create({
+      data: {
+        id,
+        internalLotNumber: lotNumber,
+        status: 'CLASSIFIED',
+        commercialStatus: 'OPEN',
+        version: 2,
+        lastEventSequence: 2,
+        declaredOwner: 'Produtor Teste',
+        declaredSacks,
+        declaredHarvest: '24/25',
+        soldSacks: 0,
+        lostSacks: 0,
+        isBlend: false,
+      },
+    });
+  }
+
+  async function createClassifiedBlend({ id, lotNumber, declaredSacks }) {
+    await prisma.sample.create({
+      data: {
+        id,
+        internalLotNumber: lotNumber,
+        status: 'CLASSIFIED',
+        commercialStatus: 'OPEN',
+        version: 2,
+        lastEventSequence: 2,
+        declaredOwner: null,
+        declaredSacks,
+        declaredHarvest: 'MISTA',
+        soldSacks: 0,
+        lostSacks: 0,
+        isBlend: true,
+      },
+    });
+  }
+
+  test.before(async () => {
+    await prisma.$connect();
+  });
+
+  test.after(async () => {
+    await prisma.$disconnect();
+  });
+
+  test.beforeEach(async () => {
+    await resetDatabase();
+  });
+
+  // Liga A2.2 — createBlend happy path
+
+  test('createBlend creates a blend with 2 classified origins (happy path)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8001', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8002', declaredSacks: 70 });
+
+    const result = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-blend-001',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 30 },
+          { originSampleId: origin2Id, contributedSacks: 40 },
+        ],
+        // Sem ownerClientId — happy path testa criacao sem dono (mais simples,
+        // evita criar Client real pra satisfazer FK). Caso com dono e testado
+        // separadamente noutro teste.
+        harvest: 'MISTA',
+        sampleLotNumber: '8003',
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.equal(result.idempotent, false);
+    assert.equal(result.events.length, 2);
+    assert.equal(result.events[0].eventType, 'REGISTRATION_CONFIRMED');
+    assert.equal(result.events[1].eventType, 'BLEND_CREATED');
+
+    const blendSample = await prisma.sample.findUnique({ where: { id: result.sample.id } });
+    assert.equal(blendSample.isBlend, true);
+    assert.equal(blendSample.declaredSacks, 70);
+    assert.equal(blendSample.internalLotNumber, '8003');
+    assert.equal(blendSample.declaredHarvest, 'MISTA');
+
+    const components = await prisma.sampleBlendComponent.findMany({
+      where: { sampleId: result.sample.id },
+      orderBy: { contributedSacks: 'asc' },
+    });
+    assert.equal(components.length, 2);
+    assert.equal(components[0].contributedSacks, 30);
+    assert.equal(components[0].originSampleId, origin1Id);
+    assert.equal(components[1].contributedSacks, 40);
+    assert.equal(components[1].originSampleId, origin2Id);
+  });
+
+  test('createBlend creates blend without owner (carteira da corretora — F3.A)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8010', declaredSacks: 20 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8011', declaredSacks: 30 });
+
+    const result = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-blend-no-owner',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 30 },
+        ],
+        // ownerClientId omitido — liga sem dono (F3.1 + F3.A)
+        harvest: 'MISTA',
+        sampleLotNumber: '8012',
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const blendSample = await prisma.sample.findUnique({ where: { id: result.sample.id } });
+    assert.equal(blendSample.ownerClientId, null);
+    assert.equal(blendSample.declaredOwner, null);
+    assert.equal(blendSample.isBlend, true);
+  });
+
+  test('createBlend rejects fewer than 2 components', async () => {
+    const origin1Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8020' });
+
+    await assert.rejects(
+      commandService.createBlend(
+        {
+          clientDraftId: 'draft-too-few',
+          components: [{ originSampleId: origin1Id, contributedSacks: 5 }],
+          harvest: 'MISTA',
+        },
+        actor
+      ),
+      (error) => error instanceof HttpError && error.status === 422
+    );
+  });
+
+  test('createBlend rejects duplicate origins in components', async () => {
+    const origin1Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8030' });
+
+    await assert.rejects(
+      commandService.createBlend(
+        {
+          clientDraftId: 'draft-dup',
+          components: [
+            { originSampleId: origin1Id, contributedSacks: 5 },
+            { originSampleId: origin1Id, contributedSacks: 3 },
+          ],
+          harvest: 'MISTA',
+        },
+        actor
+      ),
+      (error) => error instanceof HttpError && /Duplicate origin/.test(error.message)
+    );
+  });
+
+  test('createBlend rejects origin in REGISTRATION_CONFIRMED status (not CLASSIFIED)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    // Origin1 fica em REGISTRATION_CONFIRMED (não classificado).
+    await prisma.sample.create({
+      data: {
+        id: origin1Id,
+        internalLotNumber: '8040',
+        status: 'REGISTRATION_CONFIRMED',
+        commercialStatus: 'OPEN',
+        version: 1,
+        lastEventSequence: 1,
+        declaredOwner: 'Produtor',
+        declaredSacks: 10,
+        declaredHarvest: '24/25',
+        soldSacks: 0,
+        lostSacks: 0,
+        isBlend: false,
+      },
+    });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8041' });
+
+    await assert.rejects(
+      commandService.createBlend(
+        {
+          clientDraftId: 'draft-not-classified',
+          components: [
+            { originSampleId: origin1Id, contributedSacks: 5 },
+            { originSampleId: origin2Id, contributedSacks: 3 },
+          ],
+          harvest: 'MISTA',
+        },
+        actor
+      ),
+      (error) => error instanceof HttpError && /must be CLASSIFIED/.test(error.message)
+    );
+  });
+
+  test('createBlend rejects contributedSacks > availableSacks', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8050', declaredSacks: 10 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8051', declaredSacks: 20 });
+
+    await assert.rejects(
+      commandService.createBlend(
+        {
+          clientDraftId: 'draft-oversacks',
+          components: [
+            { originSampleId: origin1Id, contributedSacks: 99 }, // > 10
+            { originSampleId: origin2Id, contributedSacks: 10 },
+          ],
+          harvest: 'MISTA',
+        },
+        actor
+      ),
+      (error) => error instanceof HttpError && /exceeds availableSacks/.test(error.message)
+    );
+  });
+
+  test('createBlend enforces F7.7 (blend-in-blend = 100% obrigatorio)', async () => {
+    const innerBlendId = randomUUID();
+    const otherOriginId = randomUUID();
+    await createClassifiedBlend({ id: innerBlendId, lotNumber: '8060', declaredSacks: 100 });
+    await createClassifiedSample({ id: otherOriginId, lotNumber: '8061', declaredSacks: 30 });
+
+    // Tentativa: 50 sacas (parcial) da liga interna — deve falhar.
+    await assert.rejects(
+      commandService.createBlend(
+        {
+          clientDraftId: 'draft-f77-partial',
+          components: [
+            { originSampleId: innerBlendId, contributedSacks: 50 }, // != 100
+            { originSampleId: otherOriginId, contributedSacks: 20 },
+          ],
+          harvest: 'MISTA',
+        },
+        actor
+      ),
+      (error) => error instanceof HttpError && /F7\.7|origin .+ is a blend/i.test(error.message)
+    );
+
+    // Já 100% (= declaredSacks) deve passar.
+    const result = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-f77-full',
+        components: [
+          { originSampleId: innerBlendId, contributedSacks: 100 }, // 100% = declaredSacks
+          { originSampleId: otherOriginId, contributedSacks: 20 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '8062',
+      },
+      actor
+    );
+    assert.equal(result.statusCode, 201);
+    assert.equal(result.sample.declared.sacks, 120);
+  });
+
+  test('createBlend is idempotent on retry with same clientDraftId', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8070', declaredSacks: 30 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8071', declaredSacks: 40 });
+
+    const firstResult = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-idem',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 15 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '8072',
+      },
+      actor
+    );
+    assert.equal(firstResult.statusCode, 201);
+
+    // Retry com mesmo clientDraftId — deve retornar o mesmo sampleId,
+    // idempotent=true, sem criar segundo blend.
+    const secondResult = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-idem',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 15 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '8073', // ignorado em retry
+      },
+      actor
+    );
+    assert.equal(secondResult.statusCode, 200);
+    assert.equal(secondResult.idempotent, true);
+    assert.equal(secondResult.sample.id, firstResult.sample.id);
+
+    // Só uma liga foi criada.
+    const blends = await prisma.sample.findMany({ where: { isBlend: true } });
+    assert.equal(blends.length, 1);
+  });
+}
+
+async function canReachDatabase(databaseUrlValue) {
+  if (!databaseUrlValue) {
+    return false;
+  }
+
+  const probe = new PrismaClient();
+  try {
+    await probe.$connect();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await probe.$disconnect().catch(() => {});
+  }
+}

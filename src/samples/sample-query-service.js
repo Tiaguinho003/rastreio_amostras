@@ -1970,6 +1970,41 @@ export class SampleQueryService {
     }));
   }
 
+  // Liga A2.2: retorna o subset minimo de campos do sample necessario
+  // pra validacoes de createBlend (status, isBlend, sacks, lot). Sem
+  // include de relacoes — mais barato que findSampleOrNull. Retorna null
+  // se o sample nao existe.
+  async loadSampleSummary(sampleId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const row = await client.sample.findUnique({
+      where: { id: sampleId },
+      select: {
+        id: true,
+        status: true,
+        isBlend: true,
+        declaredSacks: true,
+        soldSacks: true,
+        lostSacks: true,
+        internalLotNumber: true,
+        version: true,
+      },
+    });
+    if (!row) {
+      return null;
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      isBlend: row.isBlend,
+      declaredSacks: row.declaredSacks,
+      soldSacks: row.soldSacks,
+      lostSacks: row.lostSacks,
+      availableSacks: (row.declaredSacks ?? 0) - row.soldSacks - row.lostSacks,
+      internalLotNumber: row.internalLotNumber,
+      version: row.version,
+    };
+  }
+
   // Liga A2.1: encontra ligas ativas (status != INVALIDATED) que contem
   // a amostra dada como originSampleId em sample_blend_component. Usado
   // por invalidateSample (Liga F7.2 + F7.D) e pra validacao de overcommit

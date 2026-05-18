@@ -1568,6 +1568,208 @@ export class SampleCommandService {
     throw new HttpError(409, 'Could not generate a unique sample lot number');
   }
 
+  // Liga A2.2 (Liga F2.3 + Q0.1 + F3.* + Wave A1/A2):
+  // Cria uma liga (Sample com isBlend=true) a partir de N (>=2) origens.
+  // - Valida componentes: array >=2, sem duplicatas, todos CLASSIFIED,
+  //   contributedSacks dentro de availableSacks (Q0.2), F7.7 (liga em
+  //   liga = 100% obrigatorio).
+  // - Idempotencia: sampleId determinístico (`buildDeterministicUuid`)
+  //   permite retry sem duplicar.
+  // - Emite 2 eventos atomicamente via appendEventBatch:
+  //   REGISTRATION_CONFIRMED (mutating) + BLEND_CREATED (audit-only).
+  // - beforeCommit insere linhas em sample_blend_component + marca
+  //   sample.isBlend=true na mesma tx.
+  async createBlend(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'create blend');
+
+    const clientDraftId = normalizeRequiredText(input.clientDraftId, 'clientDraftId');
+
+    // 1. Componentes — minimo 2, sem duplicatas.
+    if (!Array.isArray(input.components) || input.components.length < 2) {
+      throw new HttpError(422, 'A blend requires at least 2 components');
+    }
+    const normalizedComponents = [];
+    const seenOrigins = new Set();
+    for (const candidate of input.components) {
+      const originSampleId = normalizeNullableUuid(candidate?.originSampleId, 'originSampleId');
+      if (!originSampleId) {
+        throw new HttpError(422, 'originSampleId is required for each component');
+      }
+      if (seenOrigins.has(originSampleId)) {
+        throw new HttpError(422, `Duplicate origin ${originSampleId} in components`);
+      }
+      seenOrigins.add(originSampleId);
+      const contributedSacks = normalizeSacks(candidate?.contributedSacks);
+      normalizedComponents.push({ originSampleId, contributedSacks });
+    }
+
+    // 2. Validacao por origem: status, saldo, F7.7 (liga em liga = 100%).
+    for (const component of normalizedComponents) {
+      const origin = await this.queryService.loadSampleSummary(component.originSampleId);
+      if (!origin) {
+        throw new HttpError(404, `Origin sample ${component.originSampleId} does not exist`);
+      }
+      if (origin.status !== 'CLASSIFIED') {
+        throw new HttpError(
+          422,
+          `Origin ${component.originSampleId} must be CLASSIFIED (current: ${origin.status})`
+        );
+      }
+      if (origin.availableSacks <= 0) {
+        throw new HttpError(
+          422,
+          `Origin ${component.originSampleId} has no available sacks (available: ${origin.availableSacks})`
+        );
+      }
+      if (component.contributedSacks > origin.availableSacks) {
+        throw new HttpError(
+          422,
+          `contributedSacks ${component.contributedSacks} exceeds availableSacks ${origin.availableSacks} for origin ${component.originSampleId}`
+        );
+      }
+      // F7.7: quando origem e liga, contribuicao tem que ser 100%.
+      if (origin.isBlend && component.contributedSacks !== origin.declaredSacks) {
+        throw new HttpError(
+          422,
+          `When origin ${component.originSampleId} is a blend (F7.7), contributedSacks must equal declaredSacks. Got ${component.contributedSacks}, expected ${origin.declaredSacks}`
+        );
+      }
+    }
+
+    const declaredSacks = normalizedComponents.reduce(
+      (sum, component) => sum + component.contributedSacks,
+      0
+    );
+
+    // 3. Owner binding manual (resolveStructuredOwnerForWrite em mode=create
+    // obriga ownerClientId; aqui ele e opcional — F3.1 permite null pra liga
+    // sem dono / carteira da corretora).
+    const inputOwnerClientId = normalizeNullableUuid(input.ownerClientId, 'ownerClientId');
+    const inputOwnerUnitId = normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId');
+    let ownerBinding = null;
+    if (inputOwnerClientId) {
+      ownerBinding = await this.clientService.resolveOwnerBinding({
+        ownerClientId: inputOwnerClientId,
+        ownerUnitId: inputOwnerUnitId ?? null,
+      });
+    } else if (inputOwnerUnitId) {
+      throw new HttpError(422, 'ownerUnitId requires ownerClientId');
+    }
+
+    // 4. declared.* — owner pode ser null (F3.3 / T0.C docstring Prisma).
+    const declared = {
+      owner: ownerBinding?.displayName ?? null,
+      sacks: declaredSacks,
+      harvest: normalizeRequiredText(input.harvest, 'harvest'),
+      // Liga F3.5: declaredOriginLot intencionalmente null em liga.
+      originLot: null,
+      location: normalizeOptionalText(input.location, 'location', 30),
+    };
+
+    const notes = normalizeOptionalText(input.notes, 'notes', 500);
+
+    const sampleId =
+      normalizeNullableUuid(input.sampleId, 'sampleId') ??
+      buildDeterministicUuid(`blend:${actor.actorUserId}:${clientDraftId}`);
+
+    // 5. Idempotencia — se ja existe, retornar idempotent (mesmo padrao
+    // de createSample). Se INVALIDATED, rejeita (nao da pra recriar).
+    const existing = await this.queryService.findSampleOrNull(sampleId);
+    if (existing) {
+      if (existing.status === 'INVALIDATED') {
+        throw new HttpError(409, `Blend ${existing.id} is INVALIDATED and cannot be recreated`);
+      }
+      return {
+        statusCode: 200,
+        idempotent: true,
+        events: [],
+        sample: existing,
+        draft: { clientDraftId, sampleId: existing.id },
+      };
+    }
+
+    // 6. Retry lot number (mesmo padrao do createSample).
+    const fixedLotNumber = input.sampleLotNumber ?? null;
+    const maxRetries = fixedLotNumber ? 1 : AUTO_LOT_NUMBER_MAX_RETRIES;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+      const sampleLotNumber =
+        fixedLotNumber ?? (await this.queryService.getNextInternalLotNumber());
+
+      const regConfirmedEvent = buildEventEnvelope({
+        eventType: 'REGISTRATION_CONFIRMED',
+        sampleId,
+        payload: {
+          sampleLotNumber,
+          declared,
+          ownerClientId: ownerBinding?.ownerClientId ?? null,
+          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
+          // Liga T0.C: 'internal' substitui 'in_person' silencioso.
+          receivedChannel: 'internal',
+          notes,
+        },
+        fromStatus: null,
+        toStatus: 'REGISTRATION_CONFIRMED',
+        module: 'registration',
+        actorContext: actor,
+        idempotencyScope: 'REGISTRATION_CONFIRM',
+        idempotencyKey: input.idempotencyKey ?? `blend:${clientDraftId}:registration-confirm`,
+      });
+
+      const blendCreatedEvent = buildEventEnvelope({
+        eventType: 'BLEND_CREATED',
+        sampleId,
+        payload: {
+          components: normalizedComponents,
+          declaredSacks,
+        },
+        // Audit-only — fromStatus/toStatus null (Liga A1 + plano).
+        fromStatus: null,
+        toStatus: null,
+        module: 'registration',
+        actorContext: actor,
+        idempotencyScope: 'BLEND_CREATE',
+        idempotencyKey: input.idempotencyKey
+          ? `${input.idempotencyKey}:blend-created`
+          : `blend:${clientDraftId}:create`,
+      });
+
+      const componentRows = normalizedComponents.map((component) => ({
+        id: randomUUID(),
+        sampleId,
+        originSampleId: component.originSampleId,
+        contributedSacks: component.contributedSacks,
+      }));
+
+      try {
+        const results = await this.eventService.appendEventBatch(
+          [regConfirmedEvent, blendCreatedEvent],
+          [{}, {}],
+          async (tx) => {
+            await tx.createBlendComponents(componentRows);
+            await tx.markAsBlend(sampleId);
+          }
+        );
+
+        const mappedSample = await this.queryService.requireSample(sampleId);
+        return {
+          statusCode: 201,
+          idempotent: false,
+          events: results.map((r) => r.event),
+          sample: mappedSample,
+          draft: { clientDraftId, sampleId },
+        };
+      } catch (error) {
+        if (!fixedLotNumber && isInternalLotNumberUniqueConflict(error) && attempt < maxRetries) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new HttpError(409, 'Could not generate a unique blend lot number');
+  }
+
   async addSamplePhoto(input, actorContext) {
     const kind = normalizePhotoKind(input.kind);
     const actionLabel = 'add classification photo';
