@@ -371,6 +371,96 @@ if (!databaseUrl || !databaseReachable) {
     const blends = await prisma.sample.findMany({ where: { isBlend: true } });
     assert.equal(blends.length, 1);
   });
+
+  // Liga A2.3 — revertBlend
+
+  async function createBlendForRevert(lotBase) {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: `${lotBase}0`, declaredSacks: 30 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: `${lotBase}1`, declaredSacks: 40 });
+    const result = await commandService.createBlend(
+      {
+        clientDraftId: `draft-revert-${lotBase}`,
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 15 },
+          { originSampleId: origin2Id, contributedSacks: 20 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: `${lotBase}2`,
+      },
+      actor
+    );
+    return result.sample;
+  }
+
+  test('revertBlend transitions blend to INVALIDATED and preserves composition', async () => {
+    const blend = await createBlendForRevert('900');
+
+    const result = await commandService.revertBlend(
+      {
+        blendId: blend.id,
+        reasonText: 'cancelado por engano',
+        expectedVersion: blend.version,
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.events.length, 2);
+    assert.equal(result.events[0].eventType, 'BLEND_REVERTED');
+    assert.equal(result.events[1].eventType, 'SAMPLE_INVALIDATED');
+
+    const dbSample = await prisma.sample.findUnique({ where: { id: blend.id } });
+    assert.equal(dbSample.status, 'INVALIDATED');
+    assert.equal(dbSample.isBlend, true);
+
+    // Composição preservada (F8.3).
+    const components = await prisma.sampleBlendComponent.findMany({
+      where: { sampleId: blend.id },
+    });
+    assert.equal(components.length, 2);
+  });
+
+  test('revertBlend rejects non-blend sample', async () => {
+    const normalSampleId = randomUUID();
+    await createClassifiedSample({ id: normalSampleId, lotNumber: '9010' });
+
+    await assert.rejects(
+      commandService.revertBlend({ blendId: normalSampleId, expectedVersion: 1 }, actor),
+      (error) => error instanceof HttpError && /is not a blend/.test(error.message)
+    );
+  });
+
+  test('revertBlend rejects blend already INVALIDATED', async () => {
+    const blend = await createBlendForRevert('902');
+    // Invalida diretamente via DB pra simular ja-invalidated.
+    await prisma.sample.update({
+      where: { id: blend.id },
+      data: { status: 'INVALIDATED' },
+    });
+
+    await assert.rejects(
+      commandService.revertBlend({ blendId: blend.id, expectedVersion: blend.version }, actor),
+      (error) =>
+        error instanceof HttpError &&
+        /must be REGISTRATION_CONFIRMED or CLASSIFIED/.test(error.message)
+    );
+  });
+
+  test('revertBlend rejects blend with sold or lost sacks (F8.4)', async () => {
+    const blend = await createBlendForRevert('903');
+    // Simula venda direta no DB pra forçar soldSacks > 0.
+    await prisma.sample.update({
+      where: { id: blend.id },
+      data: { soldSacks: 10 },
+    });
+
+    await assert.rejects(
+      commandService.revertBlend({ blendId: blend.id, expectedVersion: blend.version }, actor),
+      (error) => error instanceof HttpError && /sold or lost sacks/.test(error.message)
+    );
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

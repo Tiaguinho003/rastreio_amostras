@@ -1770,6 +1770,93 @@ export class SampleCommandService {
     throw new HttpError(409, 'Could not generate a unique blend lot number');
   }
 
+  // Liga A2.3 (Liga F8.1-4 + Q0.3/T0.A + F8.3):
+  // Reverte uma liga existente, transicionando-a para INVALIDATED.
+  // - Restricoes: sample.isBlend=true, status ∈ {REGISTRATION_CONFIRMED,
+  //   CLASSIFIED}, soldSacks=0, lostSacks=0 (Liga F8.4 — reversao bloqueada
+  //   apos venda/perda).
+  // - Origens permanecem intactas (Q0.3/T0.A — origens nunca foram afetadas
+  //   pela criacao). SampleBlendComponent NAO e apagado (Liga F8.3 — composicao
+  //   preservada como historico no detalhe da liga invalidada).
+  // - Emite 2 eventos atomicamente via appendEventBatch:
+  //   BLEND_REVERTED (audit-only, carrega reasonText) + SAMPLE_INVALIDATED
+  //   (mutating, status → INVALIDATED).
+  async revertBlend(input, actorContext) {
+    const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'revert blend');
+    requireExpectedVersion(input.expectedVersion);
+
+    const blendId = normalizeRequiredText(input.blendId, 'blendId');
+
+    const blend = await this.queryService.loadSampleSummary(blendId);
+    if (!blend) {
+      throw new HttpError(404, `Blend ${blendId} does not exist`);
+    }
+    if (!blend.isBlend) {
+      throw new HttpError(422, `Sample ${blendId} is not a blend`);
+    }
+    if (blend.status !== 'REGISTRATION_CONFIRMED' && blend.status !== 'CLASSIFIED') {
+      throw new HttpError(
+        409,
+        `Blend ${blendId} must be REGISTRATION_CONFIRMED or CLASSIFIED to revert (current: ${blend.status})`
+      );
+    }
+    // F8.4: bloqueia reversao pos-venda/perda.
+    if (blend.soldSacks > 0 || blend.lostSacks > 0) {
+      throw new HttpError(
+        409,
+        `Cannot revert blend ${blendId}: has sold or lost sacks. Reversion only allowed pre-commercialization (Liga F8.4)`
+      );
+    }
+
+    const reasonText = normalizeOptionalText(input.reasonText, 'reasonText', 500);
+
+    const idempotencyBase = input.idempotencyKey ?? `blend:${blendId}:revert`;
+
+    const blendRevertedEvent = buildEventEnvelope({
+      eventType: 'BLEND_REVERTED',
+      sampleId: blendId,
+      payload: {
+        reasonText: reasonText ?? null,
+      },
+      // Audit-only — fromStatus/toStatus null (carrega motivo da reversao
+      // mas nao move status; quem move e o SAMPLE_INVALIDATED logo apos).
+      fromStatus: null,
+      toStatus: null,
+      module: 'registration',
+      actorContext: actor,
+      idempotencyScope: 'BLEND_REVERT',
+      idempotencyKey: idempotencyBase,
+    });
+
+    const sampleInvalidatedEvent = buildEventEnvelope({
+      eventType: 'SAMPLE_INVALIDATED',
+      sampleId: blendId,
+      payload: {
+        reasonCode: 'OTHER',
+        reasonText: reasonText ?? null,
+      },
+      fromStatus: blend.status,
+      toStatus: 'INVALIDATED',
+      module: 'registration',
+      actorContext: actor,
+      idempotencyScope: 'INVALIDATE',
+      idempotencyKey: `${idempotencyBase}:invalidate`,
+    });
+
+    const results = await this.eventService.appendEventBatch(
+      [blendRevertedEvent, sampleInvalidatedEvent],
+      [{}, { expectedVersion: input.expectedVersion }]
+    );
+
+    const mappedSample = await this.queryService.requireSample(blendId);
+    return {
+      statusCode: 200,
+      idempotent: false,
+      events: results.map((r) => r.event),
+      sample: mappedSample,
+    };
+  }
+
   async addSamplePhoto(input, actorContext) {
     const kind = normalizePhotoKind(input.kind);
     const actionLabel = 'add classification photo';
