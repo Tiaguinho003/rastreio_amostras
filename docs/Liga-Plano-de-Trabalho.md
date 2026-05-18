@@ -1315,3 +1315,25 @@ Usuário trouxe especificação detalhada da etapa 2 do fluxo (modo seleção + 
 1. Quality gate inicial — rodar `npm run lint && npm run format:check && npm run typecheck && npm run validate:schemas && npm run build` no estado atual pra garantir baseline limpo.
 2. Iniciar **Wave A1** — migration Prisma de `SampleBlendComponent` + flag `isBlend` + docstrings + extensão de enum `RECEIVED_CHANNELS` + novos eventos `BLEND_CREATED`/`BLEND_REVERTED` + JSON schemas dos payloads.
 3. Em paralelo (opcional, em outro PR): atualização dos JSON schemas existentes (`sale-created`, `loss-recorded`, `registration-confirmed`) pra incluir notas de F7.A + `'internal'` em `receivedChannel`.
+
+### 2026-05-18 — Wave A1 (implementação backend schema + eventos) ✅
+
+Wave A1 implementada em **3 commits temáticos** após baseline limpo:
+
+- **`168d694` `feat(prisma): liga A1 - SampleBlendComponent + isBlend + docstrings`** — Migration aditiva (`prisma/migrations/20260518154156_liga_a1_blend_component_and_isblend/`) com a tabela `sample_blend_component` + coluna `sample.is_blend` + índice + 2 valores em `SampleEventType` + 2 valores em `IdempotencyScope` + docstrings em `declaredOwner`/`declaredOriginLot`/`ownerClientId`. Migration criada **manualmente** (não via `prisma migrate dev`) por causa de drift preexistente no `schema.prisma` do branch (estilo de índices `_trgm`, partial UNIQUEs, generated columns defaults — herança de L5/Q-XX; sem impacto funcional, banco está correto em prod). Drift fica como dívida técnica separada (memória `project_schema_drift_2026_05_18`).
+- **`82162c2` `feat(events): liga A1 - eventos BLEND_* + channel internal`** — JSON schemas novos pros payloads e envelopes de `BLEND_CREATED` e `BLEND_REVERTED` (audit-only — `fromStatus: null`, `toStatus: null`). `shared-defs.schema.json` atualizado com novos `eventType` e `idempotencyScope`. `event.schema.json` (oneOf aggregate) ganhou refs. `registration-confirmed.payload.schema.json` ganhou `'internal'` no enum `receivedChannel` (T0.C). `RECEIVED_CHANNELS` em `sample-command-service.js:16` também atualizado.
+- **`6764e06` `docs(schemas): document cascade behavior in sale/loss payloads`** — Campo `description` adicionado nos schemas `sale-created.payload.schema.json` e `loss-recorded.payload.schema.json` documentando comportamento de cascata (F7.A — buyer replicado em todos os níveis + trace via `causationId`).
+
+**Quality gates**:
+
+- ✅ `lint`, `format:check`, `typecheck`, `validate:schemas` (51 schemas), `build` (Next.js)
+- ✅ `test:contracts` (20/20), `test:unit` (177/177), `test:integration:db` (145/145)
+
+**Skill `prisma` atualizada** mencionando `SampleBlendComponent`, flag `isBlend`, `BLEND_*` events e `'internal'` no `RECEIVED_CHANNELS` (referenciando este doc).
+
+**Descobertas durante a implementação** (registradas conforme `feedback_document_plan_changes_during_implementation`):
+
+- Drift preexistente no schema.prisma (não-funcional) — tratado criando migration manualmente; documentado em memória dedicada.
+- BLEND_CREATED e BLEND_REVERTED ficaram como **audit-only** no JSON schema (`fromStatus: null`, `toStatus: null`). A criação de liga muta o status via `REGISTRATION_CONFIRMED` (não via BLEND_CREATED); a reversão muta via `SAMPLE_INVALIDATED` (não via BLEND_REVERTED). Decisão consistente com Q.print que já trata audit-only.
+
+**Próximos passos**: Wave A2 (services + validações + cascata) — `createBlend`, `revertBlend`, `recordSale`/`recordLoss` ajustadas pra cascata recursiva, `invalidateSample` com bloqueio + erro estruturado `SAMPLE_HAS_ACTIVE_BLENDS`, validações de domínio (mínimo 2 origens, F7.7 quando origem é liga, hard block recursivo F7.6).
