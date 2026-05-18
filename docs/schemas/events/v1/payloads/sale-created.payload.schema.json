@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://amostras-safras.local/schemas/events/v1/payloads/sale-created.payload.schema.json",
   "title": "SALE_CREATED payload",
+  "description": "Venda de sacas (parcial ou total). Em cascata de venda de liga (Liga F7.4 + T0.D), `buyerClientId` e `buyerClientSnapshot` sao replicados em todos os SALE_CREATED descendentes da arvore (origens diretas, intermediarias e folhas). Filtros por buyer funcionam diretamente em qualquer nivel. Trace de cascata via `causationId` no envelope (aponta pro evento pai imediato). Vendedor implicito de cada SALE_CREATED e `sample.ownerClientId` da Sample associada (Liga F3.A — resolvido via JOIN).",
   "type": "object",
   "properties": {
     "movementId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
