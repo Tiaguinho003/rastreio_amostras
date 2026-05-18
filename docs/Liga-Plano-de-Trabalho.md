@@ -1337,3 +1337,38 @@ Wave A1 implementada em **3 commits temáticos** após baseline limpo:
 - BLEND_CREATED e BLEND_REVERTED ficaram como **audit-only** no JSON schema (`fromStatus: null`, `toStatus: null`). A criação de liga muta o status via `REGISTRATION_CONFIRMED` (não via BLEND_CREATED); a reversão muta via `SAMPLE_INVALIDATED` (não via BLEND_REVERTED). Decisão consistente com Q.print que já trata audit-only.
 
 **Próximos passos**: Wave A2 (services + validações + cascata) — `createBlend`, `revertBlend`, `recordSale`/`recordLoss` ajustadas pra cascata recursiva, `invalidateSample` com bloqueio + erro estruturado `SAMPLE_HAS_ACTIVE_BLENDS`, validações de domínio (mínimo 2 origens, F7.7 quando origem é liga, hard block recursivo F7.6).
+
+### 2026-05-18 — Wave A2 (implementação backend services + cascata) ✅
+
+Wave A2 implementada em **6 commits temáticos** após Wave A1, mantendo isolamento por escopo e quality gates verdes em cada um:
+
+- **`3f37bbc` `feat(events): liga A2.0 - appendEventBatch + eventId opcional`** — Foundation: refactor extraindo `_processEventInTx` em `event-contract-db-service.js`; novo método `appendEventBatch(drafts, options, beforeCommit?)` que abraça N eventos numa única `prisma.$transaction`. `buildEventEnvelope` aceita `eventId` e `causationId` opcionais. `PrismaEventStoreTx.createBlendComponents` pra bulk insert dentro da mesma tx. 4 testes integration novos cobrindo paridade, version-step, rollback e beforeCommit hook.
+
+- **`5c85310` `feat(samples): liga A2.1 - CTE recursiva para arvore de ligas`** — `loadBlendTree(rootSampleId)` em `SampleQueryService` usando primeira CTE recursiva do projeto (limite `depth < 10` defensivo). `findActiveBlendsContainingOrigin(originSampleId)` lista ligas ativas que contêm uma amostra. 6 testes integration novos cobrindo árvore simples (1 sample), liga simples (depth 1) e liga em liga (depth 2).
+
+- **`9a0daf7` `feat(samples): liga A2.2 - createBlend service`** — `createBlend({ components, blendData, actor })` em `SampleCommandService`. Validações: ≥2 componentes, sem duplicatas, todos CLASSIFIED, saldo suficiente, F7.7 (liga em liga = 100%). Owner binding manual (F3.1 permite null). Emite `REGISTRATION_CONFIRMED + BLEND_CREATED` via `appendEventBatch`. `beforeCommit` insere `SampleBlendComponent` rows + marca `isBlend=true`. Idempotency via `buildDeterministicUuid(\`blend:\${actor}:\${clientDraftId}\`)`. Schema do REGISTRATION_CONFIRMED atualizado: `declared.owner`agora aceita string|null (necessário pra liga sem dono — F3.1). Novo helper`loadSampleSummary`em`SampleQueryService`. Novo método `markAsBlend`em`PrismaEventStoreTx`. 8 testes integration cobrindo happy path, sem dono, < 2 componentes, duplicatas, origem não-classificada, saldo insuficiente, F7.7 parcial/100%, idempotência.
+
+- **`6fdb152` `feat(samples): liga A2.3 - revertBlend service`** — `revertBlend({ blendId, reasonText?, expectedVersion, actor })`. Valida `isBlend=true`, status pré-comercializado, `soldSacks=0`, `lostSacks=0` (F8.4). Emite `BLEND_REVERTED + SAMPLE_INVALIDATED` via `appendEventBatch`. Composição preservada (F8.3). 4 testes integration cobrindo happy path, não-blend, já INVALIDATED, com vendas. Texto padrão pra `SAMPLE_INVALIDATED.reasonText` quando `BLEND_REVERTED` não tem motivo (schema do payload exige minLength=1 — motivo real fica em `BLEND_REVERTED`).
+
+- **`5b63716` `feat(samples): liga A2.4 - cascata recursiva em createSampleMovement`** — A maior mudança: `createSampleMovement` ganha branch `isBlend`. Helper `_createBlendCascadeMovement` carrega árvore via `loadBlendTree`, aplica hard block F7.6 (descendentes com sold/lost > 0 → 409 `BLEND_HAS_BLOCKED_DESCENDANTS`), constrói N drafts em pré-order com causation chain encadeada (eventId mapeado por sampleId), idempotency derivada (`buildDeterministicUuid(rootKey::cascade::descendantId)`), e emite tudo via `appendEventBatch`. Caminho non-blend intocado. **Bugfix colateral**: `mapSample` expõe `isBlend` no shape mapeado (estava invisível antes, fazia o branch nunca executar). 4 testes cascata: liga simples 2 origens, liga-em-liga 3 níveis (B→A→{x1,x2}), F7.6 hard block, LOSS com `lossReasonText` replicado.
+
+- **`b4dada5` `feat(samples): liga A2.5 - invalidateSample bloqueia origem em liga ativa`** — Guarda em `invalidateSample`: antes do appendEvent, chama `findActiveBlendsContainingOrigin`. Se não-vazio: `HttpError(409, msg, { code: 'SAMPLE_HAS_ACTIVE_BLENDS', activeBlends: [...] })` conforme F7.D. Caminho normal intocado. 2 testes integration: bloqueia origem em liga ativa, permite após reversão. Helper de teste `createClassifiedSample` reescrito pra criar via `REGISTRATION_CONFIRMED` real + UPDATE (triggers do event store exigem 1o evento).
+
+**Quality gates totais**:
+
+- ✅ lint, format:check, typecheck, validate:schemas (51), build (Next.js)
+- ✅ test:contracts (20/20)
+- ✅ test:unit (177/177)
+- ✅ test:integration:db (173/173, antes 145; **+28 testes** novos da Wave A2)
+
+**Skill `prisma` atualizada** mencionando `SampleBlendComponent` queries (loadBlendTree primeira CTE recursiva, findActiveBlendsContainingOrigin), `appendEventBatch` (transação multi-evento), e que `BLEND_*` events são audit-only (não checam `expectedVersion`).
+
+**Descobertas durante a implementação** (registradas conforme `feedback_document_plan_changes_during_implementation`):
+
+- **Schema do `REGISTRATION_CONFIRMED` precisou aceitar `declared.owner: string | null`** — antes exigia string non-empty, conflitando com F3.3 (liga sem dono). Atualizado mantendo `minLength: 1` quando string (compat com Sample normal).
+- **`mapSample` não expunha `isBlend`** — bug silencioso que fazia o branch de cascata nunca executar. Corrigido em A2.4.
+- **`SAMPLE_INVALIDATED.reasonText`** exige minLength=1 no payload, mas `BLEND_REVERTED.reasonText` é opcional. `revertBlend` usa texto padrão "Liga revertida (sem motivo informado)" quando operador não informa — o motivo real, quando fornecido, fica em `BLEND_REVERTED`.
+- **`BLEND_CREATED` e `BLEND_REVERTED`** confirmados como **audit-only** (`fromStatus: null`, `toStatus: null`). REGISTRATION*CONFIRMED muta status na criação; SAMPLE_INVALIDATED muta na reversão. Os BLEND*\* só carregam contexto pra audit.
+- **Cascata respeita F7.7** rigorosamente: liga-em-liga = 100% obrigatório garantido na validação da criação; cascata replica em qualquer profundidade sem frações.
+
+**Próximos passos**: Wave A3 (API endpoints REST) — `POST /samples/blends` (createBlend), `POST /samples/:id/revert-blend` (revertBlend), enriquecer `GET /samples?eligibleForBlend=true` com `committedSacks`/`eligibility`/`activeBlends`, ajustar `POST /samples/:id/movements` pra cascata (sem mudança de contrato — usa o mesmo endpoint).
