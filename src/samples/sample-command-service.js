@@ -13,7 +13,7 @@ const USER_ACTION_ROLES = [
   USER_ROLES.COMMERCIAL,
 ];
 const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
-const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other']);
+const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other', 'internal']);
 const PHOTO_KINDS = {
   CLASSIFICATION: 'CLASSIFICATION_PHOTO',
 };

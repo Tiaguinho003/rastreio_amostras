@@ -36,7 +36,9 @@
         "PHYSICAL_SAMPLE_SEND_UPDATED",
         "PHYSICAL_SAMPLE_SEND_CANCELLED",
         "CLASSIFICATION_EXTRACTION_COMPLETED",
-        "CLASSIFICATION_EXTRACTION_FAILED"
+        "CLASSIFICATION_EXTRACTION_FAILED",
+        "BLEND_CREATED",
+        "BLEND_REVERTED"
       ]
     },
     "sampleStatus": {
@@ -66,7 +68,9 @@
         "QR_PRINT",
         "CLASSIFICATION_COMPLETE",
         "COMMERCIAL_STATUS_UPDATE",
-        "INVALIDATE"
+        "INVALIDATE",
+        "BLEND_CREATE",
+        "BLEND_REVERT"
       ]
     },
     "commercialStatus": {

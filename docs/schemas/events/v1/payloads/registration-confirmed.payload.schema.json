@@ -30,7 +30,7 @@
     },
     "receivedChannel": {
       "type": "string",
-      "enum": ["in_person", "courier", "driver", "other"]
+      "enum": ["in_person", "courier", "driver", "other", "internal"]
     },
     "notes": {
       "type": ["string", "null"]

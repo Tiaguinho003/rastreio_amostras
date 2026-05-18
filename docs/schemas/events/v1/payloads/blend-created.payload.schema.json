@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/blend-created.payload.schema.json",
+  "title": "BLEND_CREATED payload",
+  "description": "Emitido junto com REGISTRATION_CONFIRMED quando uma liga e criada (Liga Q0.1 + F2.3 + Wave A2). Audit-only: registra a composicao da liga (origens + contribuicoes em sacas). A criacao dos registros em sample_blend_component acontece na mesma transacao. Backend valida que declaredSacks == sum(components[].contributedSacks).",
+  "type": "object",
+  "properties": {
+    "components": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "originSampleId": { "$ref": "../base/shared-defs.schema.json#/$defs/uuid" },
+          "contributedSacks": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["originSampleId", "contributedSacks"],
+        "additionalProperties": false
+      }
+    },
+    "declaredSacks": {
+      "type": "integer",
+      "minimum": 2
+    }
+  },
+  "required": ["components", "declaredSacks"],
+  "additionalProperties": false
+}

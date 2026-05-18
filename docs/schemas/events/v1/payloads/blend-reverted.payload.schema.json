@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amostras-safras.local/schemas/events/v1/payloads/blend-reverted.payload.schema.json",
+  "title": "BLEND_REVERTED payload",
+  "description": "Emitido junto com SAMPLE_INVALIDATED quando uma liga e revertida (Liga F8). Audit-only: registra a intencao de reversao com motivo opcional. Origens nao sao afetadas (Q0.3 revisado / T0.A) — composicao em sample_blend_component e preservada como historico (F8.3). Restricao: so permitido se liga.soldSacks == 0 AND liga.lostSacks == 0.",
+  "type": "object",
+  "properties": {
+    "reasonText": {
+      "type": ["string", "null"],
+      "maxLength": 500
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
