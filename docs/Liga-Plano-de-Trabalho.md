@@ -631,14 +631,18 @@ Cada fase é um commit/PR pequeno e isolado, executado **com aprovação explíc
 
 **Fase A1 — Schema + eventos novos** (migration aditiva + extensão de enum sem migration)
 
+> **Implementada em 2026-05-18** (commit a vir). Migration: `prisma/migrations/20260518154156_liga_a1_blend_component_and_isblend/`. Criada **manualmente** (não via `prisma migrate dev`) por causa de drift preexistente no `schema.prisma` do branch (mudanças de estilo em índices `_trgm`, defaults de generated columns e PK rename do `client_unit` herdadas de commits L5/Q-XX que nunca foram migradas). O drift é **estilo, não funcional** — banco está OK em produção, comportamento idêntico. Tratamento separado fica como dívida técnica fora do escopo da Liga.
+
 - Migration Prisma:
   - Nova tabela `SampleBlendComponent` (`id`, `sampleId` FK → Sample (a liga), `originSampleId` FK → Sample (a origem), `contributedSacks: Int`, `createdAt`).
   - Índices: `(sampleId)` e `(originSampleId)` pra rastreabilidade nas 2 direções.
   - Constraint: `uq_blend_component (sampleId, originSampleId)` — uma origem só aparece 1 vez por liga.
   - Flag `isBlend: Boolean default false` no `Sample` (mais barato que `count(components) > 0` em listagens).
+  - Índice `idx_sample_is_blend` na coluna `is_blend` pra filtros eficientes (D.2).
   - **Docstrings Prisma** (T0.C) em `declaredOwner` e `declaredOriginLot` registrando que são intencionalmente null em registros com `isBlend = true`.
   - **Docstring Prisma** (F3.A) em `ownerClientId` do Sample registrando: "Também serve como vendedor implícito em SampleMovement — relatórios financeiros derivam vendedor desta coluna via JOIN. Pra liga sem dono, venda aparece como 'sem vendedor identificado' (carteira da corretora)".
 - Enum `SampleEventType` ganha: `BLEND_CREATED`, `BLEND_REVERTED`.
+- Enum `IdempotencyScope` ganha: `BLEND_CREATE` (idempotência de `createBlend`) e `BLEND_REVERT` (idempotência de `revertBlend`) — consumidos na Wave A2.
 - **Extensão do enum `RECEIVED_CHANNELS`** (T0.C): adicionar `'internal'` em `src/samples/sample-command-service.js:16` e em `docs/schemas/events/v1/payloads/registration-confirmed.payload.schema.json`. Mudança não-quebra (eventos antigos com valores existentes continuam válidos).
 - **Documentação no JSON schema do `SALE_CREATED`/`LOSS_RECORDED`** (F7.A): adicionar campo `"description"` no topo dos schemas `sale-created.payload.schema.json` e `loss-recorded.payload.schema.json` esclarecendo: "Em cascata de venda/perda de liga (F7.4 + T0.D), `buyerClientId` e `buyerClientSnapshot` (ou `lossReasonText` para perda) são replicados em todos os eventos descendentes da árvore. Trace de cascata via `causationId` no envelope. Vendedor implícito é `sample.ownerClientId` (F3.A)."
 - JSON schemas dos payloads desses eventos em `docs/schemas/events/v1/payloads/`.

@@ -37,6 +37,8 @@ enum IdempotencyScope {
   CLASSIFICATION_COMPLETE
   COMMERCIAL_STATUS_UPDATE
   INVALIDATE
+  BLEND_CREATE
+  BLEND_REVERT
 }
 
 enum SampleEventType {
@@ -62,6 +64,8 @@ enum SampleEventType {
   PHYSICAL_SAMPLE_SEND_CANCELLED
   CLASSIFICATION_EXTRACTION_COMPLETED
   CLASSIFICATION_EXTRACTION_FAILED
+  BLEND_CREATED
+  BLEND_REVERTED
 }
 
 enum CommercialStatus {
@@ -178,40 +182,55 @@ enum UserAuditEventType {
 }
 
 model Sample {
-  id                                   String              @id @db.Uuid
-  internalLotNumber                    String?             @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
-  status                               SampleStatus
-  commercialStatus                     CommercialStatus    @default(OPEN) @map("commercial_status")
-  version                              Int                 @default(0)
-  lastEventSequence                    Int                 @default(0) @map("last_event_sequence")
-  ownerClientId                        String?             @map("owner_client_id") @db.Uuid
-  ownerUnitId                          String?             @map("owner_unit_id") @db.Uuid
-  declaredOwner                        String?             @map("declared_owner")
-  declaredSacks                        Int?                @map("declared_sacks")
-  declaredHarvest                      String?             @map("declared_harvest")
-  declaredOriginLot                    String?             @map("declared_origin_lot")
-  declaredLocation                     String?             @map("declared_location") @db.VarChar(30)
-  classificationType                   ClassificationType? @map("classification_type")
-  soldSacks                            Int                 @default(0) @map("sold_sacks")
-  lostSacks                            Int                 @default(0) @map("lost_sacks")
-  latestClassificationVersion          Int?                @map("latest_classification_version")
-  latestClassificationData             Json?               @map("latest_classification_data")
-  latestType                           String?             @map("latest_type")
-  latestScreen                         String?             @map("latest_screen")
-  latestDefectsCount                   Int?                @map("latest_defects_count")
-  latestDensity                        Decimal?            @map("latest_density") @db.Decimal(6, 2)
-  latestColorAspect                    String?             @map("latest_color_aspect")
-  latestNotes                          String?             @map("latest_notes")
-  classifiedAt                         DateTime?           @map("classified_at") @db.Timestamptz(6)
-  updatedAt                            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdAt                            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                String           @id @db.Uuid
+  internalLotNumber String?          @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
+  status            SampleStatus
+  commercialStatus  CommercialStatus @default(OPEN) @map("commercial_status")
+  version           Int              @default(0)
+  lastEventSequence Int              @default(0) @map("last_event_sequence")
+  /// Dono da amostra (cliente vinculado). Tambem serve como vendedor implicito
+  /// em SampleMovement — relatorios financeiros derivam vendedor desta coluna
+  /// via JOIN (Liga F3.A). Em liga sem dono (isBlend=true + ownerClientId=null),
+  /// venda aparece como "sem vendedor identificado" (carteira da corretora).
+  ownerClientId String? @map("owner_client_id") @db.Uuid
+  ownerUnitId   String? @map("owner_unit_id") @db.Uuid
+  /// Nome do dono em texto livre (snapshot). Em registros com isBlend=true
+  /// sem ownerClientId, e intencionalmente null (Liga T0.C / F3.3).
+  declaredOwner   String? @map("declared_owner")
+  declaredSacks   Int?    @map("declared_sacks")
+  declaredHarvest String? @map("declared_harvest")
+  /// Lote de origem em texto livre (Sample normal). Em registros com
+  /// isBlend=true, e intencionalmente null — origem real fica em
+  /// SampleBlendComponent (Liga T0.C / F3.5).
+  declaredOriginLot           String?             @map("declared_origin_lot")
+  declaredLocation            String?             @map("declared_location") @db.VarChar(30)
+  classificationType          ClassificationType? @map("classification_type")
+  soldSacks                   Int                 @default(0) @map("sold_sacks")
+  lostSacks                   Int                 @default(0) @map("lost_sacks")
+  latestClassificationVersion Int?                @map("latest_classification_version")
+  latestClassificationData    Json?               @map("latest_classification_data")
+  latestType                  String?             @map("latest_type")
+  latestScreen                String?             @map("latest_screen")
+  latestDefectsCount          Int?                @map("latest_defects_count")
+  latestDensity               Decimal?            @map("latest_density") @db.Decimal(6, 2)
+  latestColorAspect           String?             @map("latest_color_aspect")
+  latestNotes                 String?             @map("latest_notes")
+  classifiedAt                DateTime?           @map("classified_at") @db.Timestamptz(6)
+  /// Flag denotando que esta Sample e uma liga (composta de outras
+  /// amostras via SampleBlendComponent). Default false — Samples normais
+  /// herdam o comportamento atual sem mudanca. Ver docs/Liga-Plano-de-Trabalho.md.
+  isBlend   Boolean  @default(false) @map("is_blend")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  ownerClient Client?            @relation("SampleOwnerClient", fields: [ownerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  ownerUnit   ClientUnit?        @relation("SampleOwnerUnit", fields: [ownerUnitId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  events      SampleEvent[]
-  attachments SampleAttachment[]
-  printJobs   PrintJob[]
-  movements   SampleMovement[]
+  ownerClient               Client?                @relation("SampleOwnerClient", fields: [ownerClientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ownerUnit                 ClientUnit?            @relation("SampleOwnerUnit", fields: [ownerUnitId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events                    SampleEvent[]
+  attachments               SampleAttachment[]
+  printJobs                 PrintJob[]
+  movements                 SampleMovement[]
+  blendComponents           SampleBlendComponent[] @relation("SampleBlendComponentBlend")
+  asOriginInBlendComponents SampleBlendComponent[] @relation("SampleBlendComponentOrigin")
 
   @@index([status], map: "idx_sample_status")
   @@index([commercialStatus], map: "idx_sample_commercial_status")
@@ -225,7 +244,36 @@ model Sample {
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")
+  @@index([isBlend], map: "idx_sample_is_blend")
   @@map("sample")
+}
+
+/// Composicao de uma liga (Sample com isBlend=true). Cada registro vincula
+/// a liga (sampleId) a uma amostra de origem (originSampleId) com a quantidade
+/// de sacas contribuidas (contributedSacks). Ver Liga F2.3 + T0.D (cascata
+/// recursiva). Sem flag de "ativo": registros sao append-only conceitualmente
+/// — apos criacao, so podem ser apagados via reversao da liga (BLEND_REVERTED
+/// preserva o registro como historico — F8.3).
+model SampleBlendComponent {
+  id               String   @id @db.Uuid
+  /// FK pra Sample que e a liga (isBlend=true).
+  sampleId String @map("sample_id") @db.Uuid
+  /// FK pra Sample que e origem da contribuicao. Pode ser Sample normal ou
+  /// outra liga (Liga Q0.5 — cascata recursiva permitida).
+  originSampleId   String   @map("origin_sample_id") @db.Uuid
+  /// Sacas contribuidas da origem para a liga. Inteiro (Liga Q0.4).
+  /// Quando origem e liga (origin.isBlend=true), e forcado a igualar
+  /// origin.declaredSacks (Liga F7.7 — liga em liga = 100% obrigatorio).
+  contributedSacks Int      @map("contributed_sacks")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sample       Sample @relation("SampleBlendComponentBlend", fields: [sampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  originSample Sample @relation("SampleBlendComponentOrigin", fields: [originSampleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([sampleId, originSampleId], map: "uq_blend_component_blend_origin")
+  @@index([sampleId], map: "idx_blend_component_sample")
+  @@index([originSampleId], map: "idx_blend_component_origin")
+  @@map("sample_blend_component")
 }
 
 model SampleEvent {
