@@ -48,6 +48,14 @@ export function buildEventEnvelope({
   idempotencyScope = null,
   idempotencyKey = null,
   occurredAt = new Date().toISOString(),
+  // Liga A2.0: eventId opcional para permitir construir causation chain
+  // antes do batch (caller pode gerar eventId via randomUUID, mapear pai
+  // -> filho, e passar causationId do filho referenciando o pai). Se
+  // ausente, mantém comportamento legado (geração interna).
+  eventId,
+  // causationId opcional sobrescreve o que vier do actorContext quando
+  // precisamos passar o pai imediato na cascata.
+  causationId,
 }) {
   if (!MODULE_TYPES.includes(module)) {
     throw new HttpError(422, `Invalid module ${module}`);
@@ -56,7 +64,7 @@ export function buildEventEnvelope({
   const actor = normalizeActorContext(actorContext);
 
   const event = {
-    eventId: randomUUID(),
+    eventId: eventId ?? randomUUID(),
     eventType,
     sampleId,
     occurredAt,
@@ -67,7 +75,7 @@ export function buildEventEnvelope({
     payload,
     requestId: actor.requestId,
     correlationId: actor.correlationId,
-    causationId: actor.causationId,
+    causationId: causationId !== undefined ? causationId : actor.causationId,
     fromStatus,
     toStatus,
     metadata: {

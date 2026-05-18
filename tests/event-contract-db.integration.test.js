@@ -552,6 +552,116 @@ if (!databaseUrl || !databaseReachable) {
     const sampleAfterLossCancel = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(sampleAfterLossCancel.lostSacks, 0);
   });
+
+  // Liga A2.0: appendEventBatch — abraça N appendEvent em 1 transação.
+  test('appendEventBatch with single event matches appendEvent behavior', async () => {
+    const sampleId = randomUUID();
+
+    const results = await service.appendEventBatch([registrationConfirmedEvent(sampleId)]);
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].statusCode, 201);
+    assert.equal(results[0].event.sequenceNumber, 1);
+    assert.equal(results[0].event.eventType, 'REGISTRATION_CONFIRMED');
+
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sample.version, 1);
+    assert.equal(sample.lastEventSequence, 1);
+  });
+
+  test('appendEventBatch processes multiple events on same sample in single transaction', async () => {
+    const sampleId = randomUUID();
+
+    // Primeiro evento independente (cria sample).
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+
+    // Batch de 2 eventos no mesmo sample: LOSS_RECORDED (mutating, sem FK externa)
+    // + REPORT_EXPORTED (audit-only). LOSS precisa expectedVersion=1; REPORT não.
+    const results = await service.appendEventBatch(
+      [lossRecordedEvent(sampleId), reportExportedEvent(sampleId)],
+      [{ expectedVersion: 1 }, {}]
+    );
+
+    assert.equal(results.length, 2);
+    assert.equal(results[0].statusCode, 201);
+    assert.equal(results[0].event.eventType, 'LOSS_RECORDED');
+    assert.equal(results[1].statusCode, 201);
+    assert.equal(results[1].event.eventType, 'REPORT_EXPORTED');
+
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    // version=2 (REGISTRATION_CONFIRMED bumped to 1, LOSS_RECORDED bumped to 2,
+    // REPORT_EXPORTED é audit-only — não bumpa).
+    assert.equal(sample.version, 2);
+    assert.equal(sample.lastEventSequence, 3);
+  });
+
+  test('appendEventBatch rolls back entire transaction when later event fails', async () => {
+    const sampleId = randomUUID();
+
+    await service.appendEvent(registrationConfirmedEvent(sampleId));
+
+    // Tentativa: LOSS_RECORDED com expectedVersion correto + segundo LOSS_RECORDED
+    // que vai falhar por expectedVersion errado.
+    await assert.rejects(
+      service.appendEventBatch(
+        [lossRecordedEvent(sampleId), lossRecordedEvent(sampleId)],
+        [{ expectedVersion: 1 }, { expectedVersion: 999 }]
+      ),
+      HttpError
+    );
+
+    // Verifica rollback completo: só o evento original de registro + sample v=1.
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    assert.equal(sample.version, 1);
+    assert.equal(sample.lastEventSequence, 1);
+
+    const events = await prisma.sampleEvent.findMany({
+      where: { sampleId },
+      orderBy: { sequenceNumber: 'asc' },
+    });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].eventType, 'REGISTRATION_CONFIRMED');
+  });
+
+  test('appendEventBatch with beforeCommit hook inserts blend components atomically', async () => {
+    // Cria 2 samples elegíveis pra serem origens (lot numbers únicos).
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await service.appendEvent(
+      registrationConfirmedEvent(origin1Id, { payload: { sampleLotNumber: '6001' } })
+    );
+    await service.appendEvent(
+      registrationConfirmedEvent(origin2Id, { payload: { sampleLotNumber: '6002' } })
+    );
+
+    const blendId = randomUUID();
+    const componentRows = [
+      { id: randomUUID(), sampleId: blendId, originSampleId: origin1Id, contributedSacks: 10 },
+      { id: randomUUID(), sampleId: blendId, originSampleId: origin2Id, contributedSacks: 20 },
+    ];
+
+    // Emite REGISTRATION_CONFIRMED na nova "liga" + beforeCommit insere rows.
+    const results = await service.appendEventBatch(
+      [registrationConfirmedEvent(blendId, { payload: { sampleLotNumber: '6003' } })],
+      [{}],
+      async (tx) => {
+        await tx.createBlendComponents(componentRows);
+      }
+    );
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].statusCode, 201);
+
+    const components = await prisma.sampleBlendComponent.findMany({
+      where: { sampleId: blendId },
+      orderBy: { contributedSacks: 'asc' },
+    });
+    assert.equal(components.length, 2);
+    assert.equal(components[0].originSampleId, origin1Id);
+    assert.equal(components[0].contributedSacks, 10);
+    assert.equal(components[1].originSampleId, origin2Id);
+    assert.equal(components[1].contributedSacks, 20);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

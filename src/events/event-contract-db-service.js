@@ -374,167 +374,174 @@ export class EventContractDbService {
     this.validator = validator;
   }
 
-  async appendEvent(eventDraft, options = {}) {
+  // Liga A2.0: processa um único evento dentro de uma transação já aberta.
+  // Extraído do appendEvent original pra ser reutilizado por appendEventBatch
+  // (que abraça N eventos numa única tx). Retorna o mesmo shape que
+  // appendEvent: { statusCode, idempotent, sample?, event }.
+  async _processEventInTx(tx, eventDraft, options = {}) {
     const { expectedVersion, simulateFailureAfterSampleMutation = false } = options;
+    const hasIdempotency = Boolean(eventDraft.idempotencyScope && eventDraft.idempotencyKey);
+    const checksPrintAttempt = PRINT_ATTEMPT_EVENTS.has(eventDraft.eventType);
+
+    if (hasIdempotency) {
+      const existingByIdempotency = await tx.findEventByIdempotency(
+        eventDraft.sampleId,
+        eventDraft.idempotencyScope,
+        eventDraft.idempotencyKey
+      );
+
+      if (existingByIdempotency) {
+        return {
+          statusCode: 200,
+          idempotent: true,
+          event: tx.mapEvent(existingByIdempotency),
+        };
+      }
+    }
+
+    if (checksPrintAttempt) {
+      const existingByAttempt = await tx.findEventByPrintAttempt(
+        eventDraft.sampleId,
+        eventDraft.payload.attemptNumber
+      );
+
+      if (existingByAttempt) {
+        return {
+          statusCode: 200,
+          idempotent: true,
+          event: tx.mapEvent(existingByAttempt),
+        };
+      }
+    }
+
+    const sample = await tx.getSampleForUpdate(eventDraft.sampleId);
+    if (!sample && eventDraft.eventType !== 'REGISTRATION_CONFIRMED') {
+      throw new HttpError(404, `Sample ${eventDraft.sampleId} does not exist`);
+    }
+
+    if (sample?.status === 'INVALIDATED') {
+      throw new HttpError(
+        409,
+        `Sample ${eventDraft.sampleId} is INVALIDATED and cannot receive new events`
+      );
+    }
+
+    if (
+      sample &&
+      eventDraft.eventType === 'REGISTRATION_CONFIRMED' &&
+      eventDraft.fromStatus === null
+    ) {
+      throw new HttpError(409, `Sample ${eventDraft.sampleId} already exists`);
+    }
+
+    const sequenceNumber = (sample?.lastEventSequence ?? 0) + 1;
+    const event = {
+      ...eventDraft,
+      sequenceNumber,
+    };
+
+    this.validator.validate(event);
+
+    const hasStatusTransition = event.fromStatus !== null || event.toStatus !== null;
+    const mutatesSample = isMutatingEvent(event);
+
+    if (
+      sample &&
+      hasStatusTransition &&
+      event.fromStatus !== null &&
+      sample.status !== event.fromStatus
+    ) {
+      throw new HttpError(
+        409,
+        `Invalid status transition. current=${sample.status} fromStatus=${event.fromStatus}`
+      );
+    }
+
+    let persistedSample;
+    if (!sample) {
+      persistedSample = await tx.createSample(buildSampleCreateData(event));
+    } else {
+      if (mutatesSample) {
+        if (typeof expectedVersion !== 'number') {
+          throw new HttpError(409, 'expectedVersion is required for sample mutations');
+        }
+        if (sample.version !== expectedVersion) {
+          throw new HttpError(
+            409,
+            `Version conflict. expected=${expectedVersion} current=${sample.version}`
+          );
+        }
+      }
+
+      const updateData = buildSampleUpdateData(sample, event, mutatesSample);
+
+      if (mutatesSample) {
+        persistedSample = await tx.updateSampleByVersion(sample.id, expectedVersion, updateData);
+        if (!persistedSample) {
+          throw new HttpError(409, 'Version conflict while updating sample');
+        }
+      } else {
+        persistedSample = await tx.updateSample(sample.id, updateData);
+      }
+    }
+
+    if (event.eventType === 'PHOTO_ADDED') {
+      await tx.createAttachmentFromEvent(event);
+    }
+
+    if (event.eventType === 'SALE_CREATED' || event.eventType === 'LOSS_RECORDED') {
+      await tx.createSampleMovementFromEvent(event);
+    }
+
+    if (event.eventType === 'SALE_UPDATED' || event.eventType === 'LOSS_UPDATED') {
+      const updatedMovement = await tx.updateSampleMovementFromEvent(event);
+      if (!updatedMovement) {
+        throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
+      }
+    }
+
+    if (event.eventType === 'SALE_CANCELLED' || event.eventType === 'LOSS_CANCELLED') {
+      const cancelledMovement = await tx.cancelSampleMovementFromEvent(event);
+      if (!cancelledMovement) {
+        throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
+      }
+    }
+
+    if (simulateFailureAfterSampleMutation) {
+      throw new HttpError(500, 'Simulated failure after sample mutation');
+    }
+
+    const eventRecord = await tx.insertEvent(event);
+
+    if (PRINT_REQUEST_EVENTS.has(event.eventType)) {
+      await tx.createPrintJobFromRequestedEvent(event, eventRecord.eventId);
+    }
+
+    if (PRINT_RESULT_EVENTS.has(event.eventType)) {
+      const completedJob = await tx.completePrintJobFromResultEvent(event, eventRecord.eventId);
+      if (!completedJob) {
+        throw new HttpError(
+          409,
+          `Print job not found or already finalized for attempt=${event.payload.attemptNumber}`
+        );
+      }
+    }
+
+    return {
+      statusCode: 201,
+      idempotent: false,
+      sample: persistedSample,
+      event: tx.mapEvent(eventRecord),
+    };
+  }
+
+  async appendEvent(eventDraft, options = {}) {
     const hasIdempotency = Boolean(eventDraft.idempotencyScope && eventDraft.idempotencyKey);
     const checksPrintAttempt = PRINT_ATTEMPT_EVENTS.has(eventDraft.eventType);
 
     try {
       return await this.store.withTransaction(async (tx) => {
-        if (hasIdempotency) {
-          const existingByIdempotency = await tx.findEventByIdempotency(
-            eventDraft.sampleId,
-            eventDraft.idempotencyScope,
-            eventDraft.idempotencyKey
-          );
-
-          if (existingByIdempotency) {
-            return {
-              statusCode: 200,
-              idempotent: true,
-              event: tx.mapEvent(existingByIdempotency),
-            };
-          }
-        }
-
-        if (checksPrintAttempt) {
-          const existingByAttempt = await tx.findEventByPrintAttempt(
-            eventDraft.sampleId,
-            eventDraft.payload.attemptNumber
-          );
-
-          if (existingByAttempt) {
-            return {
-              statusCode: 200,
-              idempotent: true,
-              event: tx.mapEvent(existingByAttempt),
-            };
-          }
-        }
-
-        const sample = await tx.getSampleForUpdate(eventDraft.sampleId);
-        if (!sample && eventDraft.eventType !== 'REGISTRATION_CONFIRMED') {
-          throw new HttpError(404, `Sample ${eventDraft.sampleId} does not exist`);
-        }
-
-        if (sample?.status === 'INVALIDATED') {
-          throw new HttpError(
-            409,
-            `Sample ${eventDraft.sampleId} is INVALIDATED and cannot receive new events`
-          );
-        }
-
-        if (
-          sample &&
-          eventDraft.eventType === 'REGISTRATION_CONFIRMED' &&
-          eventDraft.fromStatus === null
-        ) {
-          throw new HttpError(409, `Sample ${eventDraft.sampleId} already exists`);
-        }
-
-        const sequenceNumber = (sample?.lastEventSequence ?? 0) + 1;
-        const event = {
-          ...eventDraft,
-          sequenceNumber,
-        };
-
-        this.validator.validate(event);
-
-        const hasStatusTransition = event.fromStatus !== null || event.toStatus !== null;
-        const mutatesSample = isMutatingEvent(event);
-
-        if (
-          sample &&
-          hasStatusTransition &&
-          event.fromStatus !== null &&
-          sample.status !== event.fromStatus
-        ) {
-          throw new HttpError(
-            409,
-            `Invalid status transition. current=${sample.status} fromStatus=${event.fromStatus}`
-          );
-        }
-
-        let persistedSample;
-        if (!sample) {
-          persistedSample = await tx.createSample(buildSampleCreateData(event));
-        } else {
-          if (mutatesSample) {
-            if (typeof expectedVersion !== 'number') {
-              throw new HttpError(409, 'expectedVersion is required for sample mutations');
-            }
-            if (sample.version !== expectedVersion) {
-              throw new HttpError(
-                409,
-                `Version conflict. expected=${expectedVersion} current=${sample.version}`
-              );
-            }
-          }
-
-          const updateData = buildSampleUpdateData(sample, event, mutatesSample);
-
-          if (mutatesSample) {
-            persistedSample = await tx.updateSampleByVersion(
-              sample.id,
-              expectedVersion,
-              updateData
-            );
-            if (!persistedSample) {
-              throw new HttpError(409, 'Version conflict while updating sample');
-            }
-          } else {
-            persistedSample = await tx.updateSample(sample.id, updateData);
-          }
-        }
-
-        if (event.eventType === 'PHOTO_ADDED') {
-          await tx.createAttachmentFromEvent(event);
-        }
-
-        if (event.eventType === 'SALE_CREATED' || event.eventType === 'LOSS_RECORDED') {
-          await tx.createSampleMovementFromEvent(event);
-        }
-
-        if (event.eventType === 'SALE_UPDATED' || event.eventType === 'LOSS_UPDATED') {
-          const updatedMovement = await tx.updateSampleMovementFromEvent(event);
-          if (!updatedMovement) {
-            throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
-          }
-        }
-
-        if (event.eventType === 'SALE_CANCELLED' || event.eventType === 'LOSS_CANCELLED') {
-          const cancelledMovement = await tx.cancelSampleMovementFromEvent(event);
-          if (!cancelledMovement) {
-            throw new HttpError(404, `Sample movement ${event.payload.movementId} does not exist`);
-          }
-        }
-
-        if (simulateFailureAfterSampleMutation) {
-          throw new HttpError(500, 'Simulated failure after sample mutation');
-        }
-
-        const eventRecord = await tx.insertEvent(event);
-
-        if (PRINT_REQUEST_EVENTS.has(event.eventType)) {
-          await tx.createPrintJobFromRequestedEvent(event, eventRecord.eventId);
-        }
-
-        if (PRINT_RESULT_EVENTS.has(event.eventType)) {
-          const completedJob = await tx.completePrintJobFromResultEvent(event, eventRecord.eventId);
-          if (!completedJob) {
-            throw new HttpError(
-              409,
-              `Print job not found or already finalized for attempt=${event.payload.attemptNumber}`
-            );
-          }
-        }
-
-        return {
-          statusCode: 201,
-          idempotent: false,
-          sample: persistedSample,
-          event: tx.mapEvent(eventRecord),
-        };
+        return this._processEventInTx(tx, eventDraft, options);
       });
     } catch (error) {
       const mappedTriggerError = tryMapPrismaTriggerError(error);
@@ -575,6 +582,49 @@ export class EventContractDbService {
         }
       }
 
+      throw error;
+    }
+  }
+
+  // Liga A2.0: abraça N appendEvent calls em UMA única transação Postgres.
+  // Usado pela cascata recursiva (Liga F7.4 + T0.D) e por createBlend/
+  // revertBlend que emitem 2 eventos atomicamente.
+  //
+  // - eventDrafts: array ordenado de drafts. Drafts sobre o mesmo sampleId
+  //   devem ter expectedVersion ajustado incrementalmente (a transação
+  //   processa em ordem; cada evento mutating bumpa version).
+  // - optionsByIndex: array paralelo de options ({ expectedVersion?,
+  //   simulateFailureAfterSampleMutation? }). Opcional.
+  // - Pode opcionalmente receber um beforeCommit callback (tx-aware) pra
+  //   executar trabalho extra dentro da mesma transação (ex: inserir
+  //   linhas em sample_blend_component depois dos events).
+  //
+  // Retorna array de resultados (mesma ordem). Se qualquer item joga,
+  // a transação inteira rola atrás. Não faz handling de Prisma unique
+  // violation pós-falha — caller deve garantir idempotencyKeys únicas no
+  // batch ou aceitar que o batch inteiro falha.
+  async appendEventBatch(eventDrafts, optionsByIndex = [], beforeCommit = null) {
+    if (!Array.isArray(eventDrafts) || eventDrafts.length === 0) {
+      throw new HttpError(422, 'eventDrafts must be a non-empty array');
+    }
+
+    try {
+      return await this.store.withTransaction(async (tx) => {
+        const results = [];
+        for (let i = 0; i < eventDrafts.length; i += 1) {
+          const result = await this._processEventInTx(tx, eventDrafts[i], optionsByIndex[i] ?? {});
+          results.push(result);
+        }
+        if (typeof beforeCommit === 'function') {
+          await beforeCommit(tx, results);
+        }
+        return results;
+      });
+    } catch (error) {
+      const mappedTriggerError = tryMapPrismaTriggerError(error);
+      if (mappedTriggerError) {
+        throw mappedTriggerError;
+      }
       throw error;
     }
   }

@@ -379,6 +379,23 @@ class PrismaEventStoreTx {
     });
   }
 
+  // Liga A2.0: bulk insert de linhas em sample_blend_component dentro da
+  // transação corrente. Usado por createBlend pra registrar composição da
+  // liga atomicamente com os eventos REGISTRATION_CONFIRMED + BLEND_CREATED.
+  async createBlendComponents(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { count: 0 };
+    }
+    return this.tx.sampleBlendComponent.createMany({
+      data: rows.map((row) => ({
+        id: row.id,
+        sampleId: row.sampleId,
+        originSampleId: row.originSampleId,
+        contributedSacks: row.contributedSacks,
+      })),
+    });
+  }
+
   async insertEvent(event) {
     return this.tx.sampleEvent.create({
       data: {
