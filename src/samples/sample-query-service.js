@@ -882,6 +882,9 @@ function mapSample(row) {
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
     ownerUnitId: row.ownerUnitId ?? null,
+    // Liga A2.4: expor flag isBlend pra branches de cascata em
+    // createSampleMovement e checagens de domínio.
+    isBlend: row.isBlend ?? false,
     soldSacks: row.soldSacks ?? 0,
     lostSacks: row.lostSacks ?? 0,
     availableSacks:

@@ -2415,7 +2415,6 @@ export class SampleCommandService {
     }
 
     const movementType = normalizeMovementType(input.movementType);
-    const quantitySacks = normalizeMovementQuantity(input.quantitySacks);
     const movementDate = normalizeMovementDate(input.movementDate);
     const notes = normalizeMovementNotes(input.notes, 'notes');
 
@@ -2444,6 +2443,25 @@ export class SampleCommandService {
       }
       lossReasonText = normalizeLossReasonText(input.lossReasonText);
     }
+
+    // Liga A2.4 (Liga F7.1 + F7.4 + F7.5 + F7.6 + T0.D): venda/perda de liga
+    // dispara cascata recursiva. Caminho de Sample normal (isBlend=false)
+    // permanece intocado abaixo.
+    if (sample.isBlend) {
+      return this._createBlendCascadeMovement({
+        rootSample: sample,
+        movementType,
+        movementDate,
+        notes,
+        buyerBinding,
+        lossReasonText,
+        actor,
+        rootExpectedVersion: input.expectedVersion,
+        rootIdempotencyKey: input.idempotencyKey ?? randomUUID(),
+      });
+    }
+
+    const quantitySacks = normalizeMovementQuantity(input.quantitySacks);
 
     const projection = buildCommercialProjection({
       declaredSacks,
@@ -2478,6 +2496,163 @@ export class SampleCommandService {
     });
 
     return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+  }
+
+  // Liga A2.4 (Liga F7.1 + F7.4 + F7.5 recursivo + F7.6 + F7.7 + T0.D):
+  // Cascata de venda/perda quando o sample raiz é uma liga.
+  //
+  // - F7.1: venda da liga = 100% das sacas (quantitySacks input ignorado;
+  //   forçado a availableSacks da raiz).
+  // - F7.6 hard block recursivo: nenhum descendente pode ter
+  //   soldSacks > 0 OR lostSacks > 0 (qualquer venda/perda anterior
+  //   bloqueia a cascata — operador precisa cancelar ou usar a liga
+  //   sem essa origem).
+  // - F7.5 cascata recursiva (T0.D): emite SALE_CREATED/LOSS_RECORDED
+  //   em CADA descendente da árvore via loadBlendTree. quantitySacks
+  //   no descendente = contributedSacks do pai imediato (F7.7 garante
+  //   1:1 quando origem é liga).
+  // - F7.4: buyerClientSnapshot/lossReasonText replicado em todos os
+  //   eventos (filtros financeiros funcionam por sample.ownerClientId
+  //   via JOIN — F3.A).
+  // - causationId encadeado: cada filho aponta pro evento do pai
+  //   imediato.
+  // - appendEventBatch (A2.0): tudo numa única transação atômica.
+  async _createBlendCascadeMovement({
+    rootSample,
+    movementType,
+    movementDate,
+    notes,
+    buyerBinding,
+    lossReasonText,
+    actor,
+    rootExpectedVersion,
+    rootIdempotencyKey,
+  }) {
+    const tree = await this.queryService.loadBlendTree(rootSample.id);
+
+    // F7.6 hard block: descendentes (excluindo a raiz) com soldSacks
+    // ou lostSacks > 0.
+    const blockedDescendants = tree
+      .filter((node) => node.sampleId !== rootSample.id)
+      .filter((node) => node.soldSacks > 0 || node.lostSacks > 0);
+    if (blockedDescendants.length > 0) {
+      throw new HttpError(
+        409,
+        `Cannot complete cascade: ${blockedDescendants.length} descendant(s) have prior commercial movements.`,
+        {
+          code: 'BLEND_HAS_BLOCKED_DESCENDANTS',
+          blockedDescendants: blockedDescendants.map((node) => ({
+            sampleId: node.sampleId,
+            lotNumber: node.internalLotNumber,
+            soldSacks: node.soldSacks,
+            lostSacks: node.lostSacks,
+          })),
+        }
+      );
+    }
+
+    // Sanity check: nenhum nó pode estar INVALIDATED (deveria ser
+    // bloqueado pela cascata anterior, mas guarda defensiva).
+    for (const node of tree) {
+      if (node.status === 'INVALIDATED') {
+        throw new HttpError(
+          409,
+          `Tree node ${node.sampleId} (lot ${node.internalLotNumber}) is INVALIDATED`
+        );
+      }
+    }
+
+    // Pré-order traversal: tree vem ORDER BY depth ASC, sampleId ASC
+    // — parent sempre antes do filho (atende causation chain).
+    const eventIdBySampleId = new Map();
+    const drafts = [];
+    const optionsByIndex = [];
+
+    const eventType = movementType === MOVEMENT_TYPES.SALE ? 'SALE_CREATED' : 'LOSS_RECORDED';
+    const idempotencyScope = 'COMMERCIAL_STATUS_UPDATE';
+
+    for (const node of tree) {
+      const isRoot = node.sampleId === rootSample.id;
+      const eventId = randomUUID();
+      eventIdBySampleId.set(node.sampleId, eventId);
+
+      // Pra raiz (a liga sendo vendida): 100% do disponivel (F7.1).
+      // Pra descendente: contribuicao direta do pai imediato (que e
+      // 100% do declaredSacks quando origem e liga — F7.7).
+      const declaredSacks = node.declaredSacks ?? 0;
+      const availableSacks = declaredSacks - node.soldSacks - node.lostSacks;
+      const quantitySacks = isRoot ? availableSacks : node.contributedSacks;
+
+      if (quantitySacks <= 0) {
+        throw new HttpError(
+          422,
+          `Cascade computed quantitySacks=${quantitySacks} for sample ${node.sampleId} — cannot proceed`
+        );
+      }
+
+      const projection = buildCommercialProjection({
+        declaredSacks,
+        soldSacks: node.soldSacks + (movementType === MOVEMENT_TYPES.SALE ? quantitySacks : 0),
+        lostSacks: node.lostSacks + (movementType === MOVEMENT_TYPES.LOSS ? quantitySacks : 0),
+      });
+
+      const payload = {
+        movementId: randomUUID(),
+        movementType,
+        status: MOVEMENT_STATUSES.ACTIVE,
+        quantitySacks,
+        movementDate,
+        notes,
+        ...(movementType === MOVEMENT_TYPES.SALE ? buildBuyerSnapshot(buyerBinding) : {}),
+        ...(movementType === MOVEMENT_TYPES.LOSS ? { lossReasonText } : {}),
+        soldSacks: projection.soldSacks,
+        lostSacks: projection.lostSacks,
+        availableSacks: projection.availableSacks,
+        commercialStatus: projection.commercialStatus,
+      };
+
+      // causationId: raiz tem null (e o evento "pai" do trace);
+      // filhos apontam pro evento do parentBlendId imediato.
+      const causationId = isRoot ? null : eventIdBySampleId.get(node.parentBlendId);
+
+      // Idempotency: raiz usa key fornecida pelo input; cascata deriva
+      // chave deterministica a partir da raiz + sampleId do descendente,
+      // pra retry da operacao raiz dedup tambem nos descendentes.
+      const idempotencyKey = isRoot
+        ? rootIdempotencyKey
+        : buildDeterministicUuid(`${rootIdempotencyKey}::cascade::${node.sampleId}`);
+
+      const draft = buildEventEnvelope({
+        eventType,
+        sampleId: node.sampleId,
+        payload,
+        fromStatus: null,
+        toStatus: null,
+        module: 'commercial',
+        actorContext: actor,
+        eventId,
+        causationId,
+        idempotencyScope,
+        idempotencyKey,
+      });
+
+      drafts.push(draft);
+      optionsByIndex.push({
+        expectedVersion: isRoot ? rootExpectedVersion : node.version,
+      });
+    }
+
+    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex);
+
+    // Retorno coerente com appendEvent (raiz primeiro) + events da
+    // arvore inteira pra audit/observability.
+    return {
+      statusCode: 201,
+      idempotent: false,
+      event: results[0].event,
+      events: results.map((r) => r.event),
+      sample: results[0].sample,
+    };
   }
 
   async updateSampleMovement(input, actorContext) {
