@@ -1833,7 +1833,12 @@ export class SampleCommandService {
       sampleId: blendId,
       payload: {
         reasonCode: 'OTHER',
-        reasonText: reasonText ?? null,
+        // SAMPLE_INVALIDATED.reasonText e obrigatorio (minLength 1) no
+        // schema do payload; quando o operador nao informa motivo
+        // (F8.2 — motivo opcional), usamos um texto padrao referenciando
+        // a reversao da liga (BLEND_REVERTED carrega o reasonText real,
+        // possivelmente null). Mantem o contrato sem quebrar.
+        reasonText: reasonText ?? 'Liga revertida (sem motivo informado)',
       },
       fromStatus: blend.status,
       toStatus: 'INVALIDATED',
@@ -2987,6 +2992,23 @@ export class SampleCommandService {
       throw new HttpError(
         409,
         'Nao e possivel invalidar uma amostra com movimentacoes comerciais ativas. Cancele as movimentacoes antes de invalidar.'
+      );
+    }
+
+    // Liga A2.5 (Liga F7.2 revisado + F7.D): bloqueia invalidacao se a
+    // amostra contribui em alguma liga ATIVA (status != INVALIDATED).
+    // Evita "ligas zumbis" (componente invalido + liga ainda viva).
+    // Retorna erro estruturado com lista de ligas pra UI renderizar
+    // modal informativo (Liga F7.D).
+    const activeBlends = await this.queryService.findActiveBlendsContainingOrigin(sample.id);
+    if (activeBlends.length > 0) {
+      throw new HttpError(
+        409,
+        `Esta amostra contribui pra ${activeBlends.length} liga(s) ativa(s). Reverta-as antes de invalidar.`,
+        {
+          code: 'SAMPLE_HAS_ACTIVE_BLENDS',
+          activeBlends,
+        }
       );
     }
 

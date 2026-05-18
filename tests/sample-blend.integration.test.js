@@ -8,6 +8,7 @@ import { EventContractDbService } from '../src/events/event-contract-db-service.
 import { PrismaEventStore } from '../src/events/prisma-event-store.js';
 import { SampleQueryService } from '../src/samples/sample-query-service.js';
 import { SampleCommandService } from '../src/samples/sample-command-service.js';
+import { registrationConfirmedEvent } from './helpers/event-builders.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -65,44 +66,49 @@ if (!databaseUrl || !databaseReachable) {
     );
   }
 
-  // Helper: cria sample em status CLASSIFIED diretamente (bypassa o fluxo
-  // de classificação completo — esses testes focam em createBlend, não em
-  // classificação). Sem foto, sem dados de classificacao.
+  // Helper: cria sample CLASSIFIED com REGISTRATION_CONFIRMED real
+  // (necessario porque triggers do event store exigem 1o evento como
+  // REGISTRATION_CONFIRMED). Apos o evento, faz UPDATE direto pra
+  // CLASSIFIED bypassa fluxo de classificacao completo (esses testes
+  // focam em createBlend/revertBlend/invalidateSample, nao em
+  // classificacao).
   async function createClassifiedSample({ id, lotNumber, declaredSacks = 10 }) {
-    await prisma.sample.create({
-      data: {
-        id,
-        internalLotNumber: lotNumber,
-        status: 'CLASSIFIED',
-        commercialStatus: 'OPEN',
-        version: 2,
-        lastEventSequence: 2,
-        declaredOwner: 'Produtor Teste',
-        declaredSacks,
-        declaredHarvest: '24/25',
-        soldSacks: 0,
-        lostSacks: 0,
-        isBlend: false,
-      },
+    await eventService.appendEvent(
+      registrationConfirmedEvent(id, {
+        payload: {
+          sampleLotNumber: lotNumber,
+          declared: {
+            owner: 'Produtor Teste',
+            sacks: declaredSacks,
+            harvest: '24/25',
+            originLot: 'LOTE-ORIGEM',
+          },
+        },
+      })
+    );
+    await prisma.sample.update({
+      where: { id },
+      data: { status: 'CLASSIFIED' },
     });
   }
 
   async function createClassifiedBlend({ id, lotNumber, declaredSacks }) {
-    await prisma.sample.create({
-      data: {
-        id,
-        internalLotNumber: lotNumber,
-        status: 'CLASSIFIED',
-        commercialStatus: 'OPEN',
-        version: 2,
-        lastEventSequence: 2,
-        declaredOwner: null,
-        declaredSacks,
-        declaredHarvest: 'MISTA',
-        soldSacks: 0,
-        lostSacks: 0,
-        isBlend: true,
-      },
+    await eventService.appendEvent(
+      registrationConfirmedEvent(id, {
+        payload: {
+          sampleLotNumber: lotNumber,
+          declared: {
+            owner: null,
+            sacks: declaredSacks,
+            harvest: 'MISTA',
+            originLot: null,
+          },
+        },
+      })
+    );
+    await prisma.sample.update({
+      where: { id },
+      data: { status: 'CLASSIFIED', isBlend: true },
     });
   }
 
@@ -460,6 +466,101 @@ if (!databaseUrl || !databaseReachable) {
       commandService.revertBlend({ blendId: blend.id, expectedVersion: blend.version }, actor),
       (error) => error instanceof HttpError && /sold or lost sacks/.test(error.message)
     );
+  });
+
+  // Liga A2.5 — invalidateSample com SAMPLE_HAS_ACTIVE_BLENDS
+
+  test('invalidateSample rejects origin participating in active blend (F7.2/F7.D)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '9100', declaredSacks: 20 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '9101', declaredSacks: 30 });
+
+    // Cria liga ativa contendo origin1.
+    await commandService.createBlend(
+      {
+        clientDraftId: 'draft-block-invalidate',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 10 },
+          { originSampleId: origin2Id, contributedSacks: 15 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '9102',
+      },
+      actor
+    );
+
+    // Tenta invalidar origin1 → deve falhar com SAMPLE_HAS_ACTIVE_BLENDS.
+    let caughtError = null;
+    try {
+      await commandService.invalidateSample(
+        {
+          sampleId: origin1Id,
+          reasonCode: 'OTHER',
+          reasonText: 'tentativa',
+          expectedVersion: 1,
+        },
+        actor
+      );
+    } catch (err) {
+      caughtError = err;
+    }
+
+    assert.ok(caughtError instanceof HttpError, 'should throw HttpError');
+    assert.equal(caughtError.status, 409);
+    assert.equal(caughtError.details?.code, 'SAMPLE_HAS_ACTIVE_BLENDS');
+    assert.ok(Array.isArray(caughtError.details?.activeBlends));
+    assert.equal(caughtError.details.activeBlends.length, 1);
+    assert.equal(caughtError.details.activeBlends[0].lotNumber, '9102');
+    assert.equal(caughtError.details.activeBlends[0].contributedSacks, 10);
+  });
+
+  test('invalidateSample allows origin when its blend was already INVALIDATED', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '9200', declaredSacks: 15 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '9201', declaredSacks: 25 });
+
+    const blendResult = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-then-revert',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 5 },
+          { originSampleId: origin2Id, contributedSacks: 10 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '9202',
+      },
+      actor
+    );
+
+    // Reverte a liga.
+    await commandService.revertBlend(
+      {
+        blendId: blendResult.sample.id,
+        expectedVersion: blendResult.sample.version,
+      },
+      actor
+    );
+
+    // Agora invalidar origin1 deve passar (a liga ja esta INVALIDATED,
+    // findActiveBlendsContainingOrigin filtra ela fora).
+    // version=1 porque createClassifiedSample cria via REGISTRATION_CONFIRMED
+    // (v=1) + UPDATE direto pra CLASSIFIED (sem bump de version).
+    const result = await commandService.invalidateSample(
+      {
+        sampleId: origin1Id,
+        reasonCode: 'OTHER',
+        reasonText: 'sem mais usos',
+        expectedVersion: 1,
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+
+    const dbSample = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    assert.equal(dbSample.status, 'INVALIDATED');
   });
 }
 
