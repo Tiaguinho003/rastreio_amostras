@@ -211,6 +211,54 @@ export function createBackendApiV1({
         return { status: result.statusCode, body: result };
       }),
 
+    // Liga A3.1: cria uma liga (Sample com isBlend=true) a partir de N
+    // amostras-origem. Wrapper REST do commandService.createBlend (Wave A2.2).
+    createBlend: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+
+        const result = await commandService.createBlend(
+          {
+            clientDraftId: body.clientDraftId,
+            components: body.components,
+            ownerClientId: body.ownerClientId,
+            ownerUnitId: body.ownerUnitId,
+            harvest: body.harvest,
+            location: body.location,
+            notes: body.notes ?? null,
+            sampleId: body.sampleId,
+            sampleLotNumber: body.sampleLotNumber,
+            idempotencyKey: body.idempotencyKey,
+          },
+          actor
+        );
+
+        return { status: result.statusCode, body: result };
+      }),
+
+    // Liga A3.2: reverte uma liga (status -> INVALIDATED). Wrapper REST
+    // do commandService.revertBlend (Wave A2.3). Restrita a liga sem
+    // venda/perda (F8.4).
+    revertBlend: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        const blendId = requireSampleId(input?.params);
+        const body = readRequestBody(input);
+
+        const result = await commandService.revertBlend(
+          {
+            blendId,
+            expectedVersion: body.expectedVersion,
+            reasonText: body.reasonText,
+            idempotencyKey: body.idempotencyKey,
+          },
+          actor
+        );
+
+        return { status: result.statusCode, body: result };
+      }),
+
     addLabelPhoto: (input) =>
       executeApiForInput(input, async () => {
         const actor = await resolveActorContext(input, authService);
