@@ -382,6 +382,17 @@ export interface PasswordResetCodeVerificationResponse {
   };
 }
 
+// Liga B1.1 (Liga F1.B): elegibilidade de um sample pra contribuir em
+// uma liga (resposta de GET /samples?eligibleForBlend=true).
+// Backend e dono da regra; frontend mapeia reason -> tooltip pt-BR via
+// lib/samples/eligibility-labels.ts.
+export type SampleEligibilityReason = 'INVALIDATED' | 'NOT_CLASSIFIED' | 'NO_BALANCE' | null;
+
+export interface SampleEligibility {
+  eligible: boolean;
+  reason: SampleEligibilityReason;
+}
+
 export interface SampleSnapshot {
   id: string;
   internalLotNumber: string | null;
@@ -392,6 +403,14 @@ export interface SampleSnapshot {
   lastEventSequence: number;
   ownerClientId?: string | null;
   ownerUnitId?: string | null;
+  // Liga A1: flag denotando se este sample é uma liga (Sample com
+  // composição em SampleBlendComponent). Sample normal: false.
+  isBlend?: boolean;
+  // Liga B1.1 (Liga F1.B + T0.B): só presentes quando o listSamples for
+  // chamado com eligibleForBlend=true ou getSampleDetail correspondente.
+  // Em outros consumidores (dashboard etc), ficam undefined.
+  eligibility?: SampleEligibility;
+  committedSacks?: number;
   declared: {
     owner: string | null;
     sacks: number | null;
