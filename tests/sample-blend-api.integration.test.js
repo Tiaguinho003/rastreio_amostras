@@ -267,6 +267,81 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.status, 422);
     assert.ok(/is not a blend/.test(result.body.error.message));
   });
+
+  // Liga A3.3 — GET /samples?eligibleForBlend=true
+
+  test('GET /samples without eligibleForBlend returns plain list', async () => {
+    const o1 = randomUUID();
+    await createClassifiedSample({ id: o1, lotNumber: '20300' });
+
+    const result = await api.listSamples(buildInput({ query: {} }));
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+    // Sem enrichment.
+    assert.equal(result.body.items[0].eligibility, undefined);
+    assert.equal(result.body.items[0].committedSacks, undefined);
+  });
+
+  test('GET /samples?eligibleForBlend=true enriches items with eligibility', async () => {
+    const classified = randomUUID();
+    const registered = randomUUID();
+    await createClassifiedSample({ id: classified, lotNumber: '20310' });
+    // Sample sem CLASSIFIED — fica em REGISTRATION_CONFIRMED.
+    await eventService.appendEvent(
+      registrationConfirmedEvent(registered, {
+        payload: {
+          sampleLotNumber: '20311',
+          declared: { owner: 'Produtor', sacks: 5, harvest: '24/25', originLot: 'X' },
+        },
+      })
+    );
+
+    const result = await api.listSamples(buildInput({ query: { eligibleForBlend: 'true' } }));
+
+    assert.equal(result.status, 200);
+    const items = result.body.items;
+    assert.equal(items.length, 2);
+    items.forEach((item) => {
+      assert.ok(item.eligibility);
+      assert.equal(typeof item.eligibility.eligible, 'boolean');
+      assert.equal(typeof item.committedSacks, 'number');
+    });
+
+    const classifiedItem = items.find((i) => i.id === classified);
+    const registeredItem = items.find((i) => i.id === registered);
+    assert.equal(classifiedItem.eligibility.eligible, true);
+    assert.equal(classifiedItem.eligibility.reason, null);
+    assert.equal(registeredItem.eligibility.eligible, false);
+    assert.equal(registeredItem.eligibility.reason, 'NOT_CLASSIFIED');
+  });
+
+  test('GET /samples?eligibleForBlend=true reports committedSacks for origin in active blend', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createClassifiedSample({ id: o1, lotNumber: '20320', declaredSacks: 30 });
+    await createClassifiedSample({ id: o2, lotNumber: '20321', declaredSacks: 40 });
+
+    await api.createBlend(
+      buildInput({
+        body: {
+          clientDraftId: 'draft-committed',
+          components: [
+            { originSampleId: o1, contributedSacks: 12 },
+            { originSampleId: o2, contributedSacks: 18 },
+          ],
+          harvest: 'MISTA',
+          sampleLotNumber: '20322',
+        },
+      })
+    );
+
+    const result = await api.listSamples(buildInput({ query: { eligibleForBlend: 'true' } }));
+    assert.equal(result.status, 200);
+    const byId = Object.fromEntries(result.body.items.map((i) => [i.id, i]));
+    assert.equal(byId[o1].committedSacks, 12);
+    assert.equal(byId[o2].committedSacks, 18);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

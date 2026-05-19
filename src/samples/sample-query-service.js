@@ -965,6 +965,22 @@ function parseAttemptNumberFromPayload(payload) {
   return null;
 }
 
+// Liga A3.3 (F1.B): regra de elegibilidade pra contribuir em liga.
+// Retorna { eligible, reason } onde reason e null quando eligible=true.
+// Reasons mapeados pelo frontend pra tooltips em pt-BR (F1.B).
+function computeBlendEligibility(sample) {
+  if (sample.status === 'INVALIDATED') {
+    return { eligible: false, reason: 'INVALIDATED' };
+  }
+  if (sample.status !== 'CLASSIFIED') {
+    return { eligible: false, reason: 'NOT_CLASSIFIED' };
+  }
+  if ((sample.availableSacks ?? 0) <= 0) {
+    return { eligible: false, reason: 'NO_BALANCE' };
+  }
+  return { eligible: true, reason: null };
+}
+
 export class SampleQueryService {
   constructor({ prisma }) {
     this.prisma = prisma;
@@ -1222,6 +1238,11 @@ export class SampleQueryService {
     createdMonth = null,
     createdYear = null,
     classifiedAging = null,
+    // Liga A3.3: quando true, enriquece cada sample com
+    // `eligibility: { eligible, reason }` (F1.B) e `committedSacks`
+    // (T0.B). NAO filtra inelegiveis fora — frontend renderiza
+    // acinzentados (F1.4).
+    eligibleForBlend = false,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const cursor = resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber });
@@ -1396,8 +1417,21 @@ export class SampleQueryService {
     const hasPrev = cursor ? false : resolvedPage > 1;
     const hasNext = cursor ? nextCursor !== null : resolvedPage < totalPages;
 
+    let items = rows.map(mapSample);
+
+    // Liga A3.3: enrichment quando eligibleForBlend=true. F1.B + T0.B.
+    if (eligibleForBlend && items.length > 0) {
+      const sampleIds = items.map((s) => s.id);
+      const committedSacksMap = await this._loadCommittedSacksMap(sampleIds);
+      items = items.map((sample) => ({
+        ...sample,
+        eligibility: computeBlendEligibility(sample),
+        committedSacks: committedSacksMap.get(sample.id) ?? 0,
+      }));
+    }
+
     return {
-      items: rows.map(mapSample),
+      items,
       page: {
         limit: safeLimit,
         page: resolvedPage,
@@ -1409,6 +1443,34 @@ export class SampleQueryService {
         nextCursor,
       },
     };
+  }
+
+  // Liga A3.3: query agregada que retorna Map<sampleId, committedSacks>
+  // para um conjunto de samples — soma de contributedSacks em ligas
+  // ativas pre-comercializacao (T0.B). Sem entradas pra samples nao-
+  // comprometidos (callers usam map.get(id) ?? 0).
+  async _loadCommittedSacksMap(sampleIds, { executor = null } = {}) {
+    if (!Array.isArray(sampleIds) || sampleIds.length === 0) {
+      return new Map();
+    }
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      SELECT
+        bc.origin_sample_id AS sample_id,
+        SUM(bc.contributed_sacks)::bigint AS committed
+      FROM sample_blend_component bc
+      JOIN sample s ON s.id = bc.sample_id
+      WHERE s.status <> 'INVALIDATED'
+        AND s.sold_sacks = 0
+        AND s.lost_sacks = 0
+        AND bc.origin_sample_id = ANY(${sampleIds}::uuid[])
+      GROUP BY bc.origin_sample_id
+    `;
+    const map = new Map();
+    for (const row of rows) {
+      map.set(row.sample_id, Number(row.committed));
+    }
+    return map;
   }
 
   async listSampleEvents(sampleId, { limit = 200, afterSequence = null } = {}) {
