@@ -195,7 +195,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **Header durante o modo seleção** (substitui o header normal):
   - **Esquerda**: ícone `X` — tap sai do modo (limpa seleção + volta `/samples` neutra).
   - **Centro**: título **"Selecionar amostras"** (substitui "Amostras").
-  - **Direita** (lugar do botão de filtro): contador **"N selecionadas"** clicável — tap abre o bottom-sheet unificado (mesma tela que o tap na seta abre — ver F1.D).
+  - **Direita** (lugar do botão de filtro): contador **"N selecionadas"** clicável — tap abre o **popover de revisão** ancorado abaixo do contador (lista compacta com `lote · sacas` + X individual por linha + scroll após 3 cards). Substitui a abertura do bottom-sheet completo, decidido em 2026-05-19 (ver Log de sessões). O bottom-sheet completo continua sendo aberto **apenas pela seta `→`** (finalização).
 - **Input de busca por texto continua ativo** no header secundário (lot/cliente). Apenas o botão de filtro avançado some.
 - **Navbar/tabbar inferior some** durante o modo (foco máximo na tarefa).
 - **FAB vira seta `→`** (Continuar) no mesmo lugar do "+":
@@ -211,23 +211,25 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - Não há permissão diferenciada. Qualquer usuário autenticado consegue iniciar fluxo de criação de liga. Mesma regra do "Nova amostra" hoje.
 - **Implicação**: backend não rejeita por role, só por status da sessão.
 
-**F1.3 — REVISADA em 2026-05-18 (F1.D). Próximo passo: bottom-sheet unificado com contribuições + modal F3.**
+**F1.3 — REVISADA em 2026-05-18 (F1.D), 2026-05-19. Dois caminhos distintos: contador = revisão; seta = criação direta.**
 
-- Depois de tap na seta (ou no contador), abre **bottom-sheet unificado** com a lista das selecionadas + inputs de contribuição embutidos (F1.D / F2.1 atualizada).
-- Dentro do bottom-sheet: cada amostra vira uma linha com `[lot · cliente · X disp.] [input contrib: total]` + botão `×` pra remover. Soma rodando "Total da liga: N sc". Botão "Continuar" no rodapé (disabled se < 2 ou inputs inválidos).
-- Tap "Continuar" → fecha o bottom-sheet e **abre o modal central F3** ("Nova liga": dono, safra, local, obs).
-- Tap "Voltar" no bottom-sheet → fecha + permanece no modo seleção.
+- **Tap no contador "N selecionadas"** → abre o **popover de revisão** (B1.5) ancorado abaixo do botão: lista compacta com `lote · sacas` + X por linha + scroll após 3 cards. Click fora fecha; remoção da última amostra fecha o popover mas mantém o modo seleção.
+- **Tap na seta `→`** do FAB → abre **bottom-sheet de confirmação** (B2.1) com inputs de contribuição embutidos.
+  - Cada amostra vira uma linha com `[lot · cliente · X disp.] [input contrib: total]` + botão `×` pra remover. Soma rodando "Total da liga: N sc". Botão **"Criar liga"** no rodapé (disabled se < 2 ou inputs inválidos).
+  - Tap "Criar liga" → chama `createBlend` direto. Sucesso → fecha sheet + abre `<SampleCreatedSuccessModal entity="blend">`. Não há modal F3 intermediário (removido em 2026-05-19 — características da liga são derivadas das origens, ver Log de sessões).
+  - Tap "Voltar" → fecha + permanece no modo seleção.
 - Reusa o padrão `BottomSheet` cabeçalho verde pra coerência visual.
 
-**F1.4 — Elegibilidade: só amostras CLASSIFIED com saldo disponível.**
+**F1.4 — Elegibilidade: amostras REGISTRATION_CONFIRMED ou CLASSIFIED com saldo disponível.**
 
-- Aparece como selecionável na lista durante o modo seleção apenas quem atende: `status = CLASSIFIED AND availableSacks > 0 AND status != INVALIDATED`.
+> **Relaxada em 2026-05-19**: antes era "só CLASSIFIED com saldo". Agora amostras ainda em REGISTRATION_CONFIRMED também podem ser ligadas — a liga nasce em branco (F4.b) e segue o fluxo normal de classificação. Cascata de venda/perda emite SALE_CREATED/LOSS_RECORDED em origens REGISTERED diretamente (sem precisar passar por CLASSIFIED — sem trigger Prisma bloqueando). Reason `NOT_CLASSIFIED` removida do enum.
+
+- Aparece como selecionável na lista durante o modo seleção apenas quem atende: `status != INVALIDATED AND availableSacks > 0`. Como o enum `SampleStatus` só tem 3 valores (`REGISTRATION_CONFIRMED | CLASSIFIED | INVALIDATED`), a regra prática é "qualquer status ativo com saldo".
 - Como `availableSacks = declaredSacks - soldSacks - lostSacks` (fórmula idêntica ao Sample normal — Q0.2 revisada), amostras totalmente vendidas ou perdidas naturalmente saem da seleção. Amostras já comprometidas em outras ligas **continuam elegíveis** — overcommit é permitido por design (Q0.2 + T0.B resolvida).
-- **Contrato backend ↔ frontend** (F1.B resolvida): a resposta de cada amostra inclui o campo estruturado `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NOT_CLASSIFIED' | 'NO_BALANCE' | null }`. `reason` é `null` quando `eligible = true`. Single source of truth da regra fica no backend; frontend mapeia `reason` → texto pt-BR local (sem acoplamento de mensagens no payload).
+- **Contrato backend ↔ frontend** (F1.B resolvida): a resposta de cada amostra inclui o campo estruturado `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NO_BALANCE' | null }`. `reason` é `null` quando `eligible = true`. Single source of truth da regra fica no backend; frontend mapeia `reason` → texto pt-BR local (sem acoplamento de mensagens no payload).
 - **Implicação backend**: filtro `eligibleForBlend: true` em `listSamples` (ou variante de endpoint) retorna **todos os samples** (elegíveis e não) com o campo `eligibility`. Não filtra inelegíveis fora — frontend precisa renderizá-los acinzentados (decisão F1.4). Resposta também inclui, por amostra: `availableSacks` (físico) e `committedSacks` (soma de `contributedSacks` em ligas ativas pré-comercialização — ver T0.B). Frontend deriva `realFreeSacks = availableSacks - committedSacks` para UX (F2.4).
 - **Implicação frontend**: amostras com `eligibility.eligible === false` renderizadas acinzentadas (e checkbox desabilitado) com tooltip texto mapeado de `reason`:
   - `INVALIDATED` → "Amostra inválida"
-  - `NOT_CLASSIFIED` → "Aguardando classificação"
   - `NO_BALANCE` → "Sem saldo disponível"
 
 **F1.5 — Pode misturar amostras de clientes diferentes (livre).**
@@ -282,7 +284,9 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **Implicação backend**: `listSamples` (modo `eligibleForBlend`) retorna `committedSacks` por amostra. `GET /samples/:id` também retorna `committedSacks` + `activeBlends: [{sampleId, lotNumber, contributedSacks}]` pra alimentar a seção do detalhe (ver Wave B3).
 - **Implicação frontend**: componente novo (ex: `<CommittedWarning />`) renderiza o aviso inline. Backend computa `committedSacks` via query (sem campo persistido — evita risco de drift).
 
-### Bloco F3 — Formulário do novo lote (campos próprios da liga)
+### Bloco F3 — Características da liga
+
+> **Revisão radical em 2026-05-19**: o **modal F3 foi removido**. A liga é definida primariamente pela sua **composição** (origens + contribuições, em `SampleBlendComponent`). Características próprias (dono, safra, local, observações) viram nada coletado no momento da criação — owner fica null por padrão (carteira da corretora), safra é derivada automaticamente das origens no backend (distinct ordenado, join ', '), location e notes ficam null. Edição posterior permite refinar via detalhe da liga. Ver Log de sessões 2026-05-19. As entradas F3.1, F3.2, F3.B, F3.6, F3.7 abaixo descrevem **o estado anterior** — mantidas como histórico de decisão e contexto pra futuras edições no detalhe da liga.
 
 **F3.1 — Dono da liga: operador escolhe livremente, podendo deixar nulo.**
 
@@ -292,12 +296,16 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **F3.A (vendedor implícito)** — REGISTRADO em 2026-05-18: o modelo `SampleMovement` não tem campo de vendedor. O vendedor de qualquer venda é sempre **implícito**: `sample.ownerClientId` da Sample associada ao movimento (resolvido via JOIN no banco ou via include no Prisma). Para liga sem dono (`liga.ownerClientId = null`), o SALE_CREATED na liga aparece como "venda sem vendedor identificado" — a venda da liga é implicitamente "carteira da corretora". A cascata em origens (F7.4 + T0.D) **mantém integridade**: cada origem tem seu próprio `ownerClientId` (real, produtor) e a venda em cascata é registrada corretamente como "produtor X → comprador C". Nenhuma mudança no modelo é necessária no MVP. Docstring Prisma em `Sample.ownerClientId` registra: "Também serve como vendedor implícito em SampleMovement — relatórios financeiros derivam vendedor desta coluna via JOIN".
 - **UI da venda quando liga sem dono** (F3.A): modal de venda detecta `liga.isBlend && liga.ownerClientId === null` e exibe bloco destacado com 2 botões: **"Atribuir dono primeiro"** (abre seleção de cliente, faz PATCH no Sample, reabre modal de venda com owner preenchido) + **"Vender mesmo assim"** (prossegue como venda normal sem owner). Operador escolhe — sistema **não bloqueia** (F3.1 mantém dono opcional). Estimula boa prática sem fricção.
 
-**F3.2 — Safra: operador sempre digita manualmente, sem pré-preenchimento.**
+**F3.2 — REVOGADA em 2026-05-19. Safra deriva automaticamente das origens.**
+
+> Decisão substituída: no momento da criação, backend agrega `distinct(originHarvests).sort().join(', ')` e grava em `declared.harvest`. Quando todas as origens têm a mesma safra (ex: todas 24/25), fica `'24/25'`. Quando mistas (ex: 24/25 + 25/26), fica `'24/25, 25/26'`. Quando nenhuma origem tem safra (raro), fica `null` — schema do payload `REGISTRATION_CONFIRMED` atualizado pra aceitar `harvest: null` apenas em registros de liga (sample normal continua obrigando string non-empty via form). Operador pode editar a safra depois via detalhe da liga (wave futura). **F3.B (hint embaixo do input)** também revogada — sem input, sem hint.
+
+**F3.2 (HISTÓRICO — operador sempre digita manualmente, sem pré-preenchimento)**
 
 - Campo `declaredHarvest` vazio por default. Operador informa explicitamente (formato livre, ex: `25/26`, `MISTA`, `2024-2025`).
 - Sem auto-derivação da "safra dominante" — mesmo se todas as origens têm a mesma safra, operador re-digita conscientemente.
 - **Implicação**: validação mantém o mesmo do Sample normal (string obrigatória, não-vazia). UI mostra o input com placeholder mas sem valor inicial.
-- **F3.B (hint informativo)** — REGISTRADO em 2026-05-18: o modal "Nova liga" mostra, **embaixo do input** `declaredHarvest`, um texto pequeno em cinza listando as safras distintas das origens selecionadas. Ex: _"Origens contêm safras: 24/25, 25/26"_. Operador vê o contexto e digita conscientemente — pode escolher escrever "MISTA", "25/26 (predominante)", "24/25 e 25/26", ou outra coisa. **Não pré-preenche o campo** (F3.2 mantida intacta). Frontend agrega a lista a partir de `components.map(c => c.origin.declaredHarvest).distinct()` — sem campo novo na API.
+- **F3.B (hint informativo)** — REGISTRADO em 2026-05-18 / REVOGADA em 2026-05-19: o modal "Nova liga" mostraria, embaixo do input `declaredHarvest`, um texto pequeno em cinza listando as safras distintas das origens. Sem modal, sem hint.
 
 **F3.4 — `classificationType` nulo até a classificação oficial.**
 
@@ -317,13 +325,14 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - Em liga, "origem" é a composição (`SampleBlendComponent`) — não faz sentido um campo de texto livre. Visualmente, a origem aparece em outro lugar (lista de componentes na tela de detalhe).
 - **Implicação**: campo não aparece no form da liga. Backend grava `declaredOriginLot: null` na criação. Telas de detalhe (que hoje mostram `declaredOriginLot`) precisam ser ajustadas pra renderizar a composição em vez do campo (em ligas). **Docstring Prisma** (T0.C) deve registrar: "Em registros com `isBlend = true`, é intencionalmente null — origem real fica em `SampleBlendComponent`".
 
-**F3.6 + F3.7 + F3.8 — Local e Observações opcionais (igual Sample). `receivedChannel` = `'internal'` (T0.C revisado).**
+**F3.6 + F3.7 — REVOGADAS em 2026-05-19. Local e Observações não coletados na criação.**
 
-- `declaredLocation`: campo opcional no formulário, idêntico ao Sample (operador preenche se quiser indicar onde a liga vai ficar fisicamente).
-- `notes`: campo opcional, idêntico ao Sample.
+> Sem modal F3, esses campos ficam `null` na criação da liga. Edição posterior via detalhe da liga (wave futura) permite preencher. Backend não muda — `declaredLocation` e `notes` já são nullable no schema.
+
+**F3.8 — `receivedChannel` = `'internal'` (T0.C revisado).**
+
 - `receivedChannel`: **não aparece na UI**. Backend usa `'internal'` em liga (novo valor adicionado ao enum em T0.C — substitui o `'in_person'` silencioso anterior). Semanticamente correto: liga é gerada internamente, não recebida.
 - **Implicação técnica (T0.C)**: o enum `RECEIVED_CHANNELS` (`src/samples/sample-command-service.js:16`) e o JSON schema `docs/schemas/events/v1/payloads/registration-confirmed.payload.schema.json` ganham `'internal'` como valor válido. `receivedChannel` é **payload de evento** (não coluna SQL), portanto a mudança é trivial: 2 linhas + 1 entrada no enum. Sem migration de banco.
-- **Implicação**: sem mudança no enum. UI da liga só mostra Local e Obs como opcionais. Caso futuramente queiramos diferenciar formalmente, basta adicionar `'internal'` no enum (migration aditiva, baixo custo).
 
 **Bloco F3 fechado em 2026-05-15.** ✅
 
@@ -411,7 +420,7 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - [x] **F1.1** ⚠️ **REVISADO em 2026-05-18 (F1.D)** — Modo seleção: cards com bolinhas (vazia/verde+✓/cinza opaca), header `[X] "Selecionar amostras" [N selecionadas]`, sem navbar, FAB vira seta `→` (disabled se < 2).
 - [x] **F1.2** — Sem restrição de role: todos podem criar liga.
 - [x] **F1.3** ⚠️ **REVISADO em 2026-05-18 (F1.D)** — Próximo passo: bottom-sheet unificado com contribuições embutidas + modal F3 (dono/safra/local/obs).
-- [x] **F1.4** ⚠️ **REVISADO em 2026-05-18 (T0.A + T0.B + F1.B)** — Elegíveis: `CLASSIFIED + availableSacks > 0 + status != INVALIDATED`. Backend retorna `eligibility: { eligible, reason }` estruturado + `committedSacks` por amostra.
+- [x] **F1.4** ⚠️ **REVISADO em 2026-05-18 (T0.A + T0.B + F1.B)** + **RELAXADO em 2026-05-19** — Elegíveis: `status != INVALIDATED AND availableSacks > 0`. REGISTRATION_CONFIRMED também é aceito (antes era CLASSIFIED only). Backend retorna `eligibility: { eligible, reason }` estruturado (`reason` ∈ `'INVALIDATED' | 'NO_BALANCE' | null`) + `committedSacks` por amostra.
 - [x] **F1.5** — Sim, pode misturar clientes diferentes.
 - [x] **F1.6** — Sim, pode misturar safras diferentes.
 - [x] **F1.7** — Mínimo 2 amostras, sem máximo (botão Continuar bloqueado se < 2).
@@ -675,7 +684,7 @@ Cada fase é um commit/PR pequeno e isolado, executado **com aprovação explíc
 - `POST /api/v1/samples/:id/revert-blend` (ou `DELETE /api/v1/samples/blends/:id` semanticamente) → 200.
 - `GET /api/v1/samples` (existente) ganha query param `eligibleForBlend=true` (lista samples no contexto de seleção pra liga — **inclui inelegíveis** com flag, frontend renderiza acinzentado). Resposta enriquecida por amostra com:
   - `committedSacks` (T0.B / F2.4): soma de `contributedSacks` em `SampleBlendComponent` cujas ligas estão ativas pré-comercialização. Calculado on-the-fly via subquery/CTE (sem coluna persistida — evita drift).
-  - `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NOT_CLASSIFIED' | 'NO_BALANCE' | null }` (F1.B): single source of truth da regra de elegibilidade pra liga. `reason` é `null` quando `eligible = true`. Sem texto de UI no payload (frontend mapeia).
+  - `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NO_BALANCE' | null }` (F1.B): single source of truth da regra de elegibilidade pra liga. `reason` é `null` quando `eligible = true`. Sem texto de UI no payload (frontend mapeia). _F1.4 relaxada em 2026-05-19: `NOT_CLASSIFIED` removida; REGISTRATION_CONFIRMED agora é elegível._
 - `GET /api/v1/samples/:id` retorna:
   - `components: [...]` quando `isBlend = true` (composição da liga atual).
   - `committedSacks` (sempre que > 0) e `activeBlends: [{sampleId, lotNumber, contributedSacks}]` (lista das ligas ativas que usam essa amostra como origem — alimenta a seção "Comprometida em N ligas" no detalhe, ver Wave B3 / T0.B).
@@ -737,17 +746,52 @@ Cada fase é um commit/PR pequeno e isolado, executado **com aprovação explíc
 - Reusa `<SampleCreatedSuccessModal>` com prop nova `entity?: 'sample' | 'blend'` (default `'sample'`): troca textos ("Liga criada", "Ir para liga", "Criar outra liga").
 - "Criar outra liga" → fecha modal, limpa state local, retorna `/samples` em estado neutro (FAB fechado, sem modo seleção).
 
-**Fase B3 — Badge + detalhe da liga + reversão + seção "Comprometida em N ligas" + trace de cascata**
+**Fase B3 — Detalhe da liga, reversão, modal erro F7.D, trace de cascata**
 
-- Componente `<BlendBadge />` em `components/samples/`: badge "Liga" + ícone (SVG de merge/junção). Estilo discreto.
-- Tela de detalhe (`/samples/[id]`) de **amostra não-liga**: nova seção "Comprometida em N ligas ativas" quando `committedSacks > 0` (T0.B). Lista cada liga em `activeBlends` (lot number + contribuição em sc + status da liga) com link pro detalhe da liga. Se `committedSacks === 0`, seção não aparece. Pré-requisito: API expor `activeBlends` (Fase A3).
-- Tela de detalhe (`/samples/[id]`) de **liga** (`isBlend = true`): seção "Composição" listando cada origem com: lot + cliente + **safra (`declaredHarvest`)** + contribuição em sc (F3.B / I — lista por origem, sem resumo agregado no MVP). Origens com link pro detalhe individual. Mantida visível mesmo após reversão (F8.3).
-- **Trace de cascata** (T0.D): quando o detalhe de um sample mostra eventos `SALE_CREATED` / `LOSS_RECORDED` com `causationId` preenchido (= veio de cascata), renderizar inline "vendida via cascata da Liga {lotNumberPai}" com link clicável. Quando o pai também é cascateado, expandir o trace completo "vendida via cascata da Liga A (vendida via cascata da Liga B)" — construído a partir do encadeamento de `causationId`. API `GET /samples/:id` retorna eventos com `causationId` e `causedByLotNumber` resolvido (lookup já feito no backend).
-- Listagens (`/samples`, dashboard, etc): renderiza `<BlendBadge>` quando `sample.isBlend`.
-- Tela de detalhe (`/samples/[id]`): seção nova "Composição" quando `isBlend`, listando origens (lot number + cliente + contribuição). Preservada visualmente mesmo se `status === INVALIDATED` (F8.3).
+Sub-fases numeradas, na ordem de execução recomendada:
+
+**B3.1 — `<BlendBadge>` nas listagens** ✅ _(implementada 2026-05-19)_
+
+- Componente `<BlendBadge />` em `components/samples/`: pill lilás com ícone de merge + texto "Liga".
+- Renderizado em: `/samples` (SampleCard), dashboard (RecentActivityList), detalhe da amostra, `/clients/[id]` (lista de amostras do cliente).
+
+**B3.2 — Seção "Composição da liga" no detalhe** ✅ _(implementada 2026-05-19)_
+
+- Detalhe da liga (`isBlend = true`): seção "Composição" listando cada origem com lote + dono + safra + contribuição em sc, link pro detalhe individual.
+- Preservada visível mesmo após reversão (F8.3 — backend mantém `components`).
+
+**B3.3 — Seção "Comprometida em N ligas ativas" no detalhe** ✅ _(implementada 2026-05-19)_
+
+- Detalhe de amostra normal: seção "Comprometida em N ligas ativas" quando `activeBlends.length > 0`.
+- Lista cada liga em `activeBlends` (lote + status + contribuição em sc) com link pro detalhe da liga.
+- Backend filtra INVALIDATED (Wave A2.5) — liga revertida desaparece automaticamente desta seção.
+- Componente reusável `<RelatedSampleRow>` compartilhado com B3.2.
+
+**B3.4 — Botão "Reverter liga" + modal de confirmação** _(pendente)_
+
 - Botão "Reverter liga" no detalhe (visível se `isBlend && status !== INVALIDATED && soldSacks === 0 && lostSacks === 0`).
-- Modal de confirmação de reversão: padrão `.app-confirm-modal`, campo `reasonText` opcional (F8.2), botão "Reverter" vermelho.
-- **Modal de erro de invalidação bloqueada** (F7.D): quando o operador tenta invalidar uma amostra que é origem em liga ativa, backend devolve `409 SAMPLE_HAS_ACTIVE_BLENDS` + `activeBlends`. Frontend renderiza modal `.app-modal.is-themed` com cabeçalho "Não foi possível invalidar", lista de cada liga (lot + status + contribuição + botão "Ver liga" navegando pro detalhe), e rodapé com "Entendi". Sem "Reverter aqui" — reverter opera-se no contexto da liga.
+- Modal de confirmação: padrão `.app-confirm-modal`, campo `reasonText` opcional (F8.2), botão "Reverter" vermelho.
+- Chama `revertBlend` (endpoint A3.2 pronto).
+- **Importante operacional**: sem B3.4, ligas teste/equivocadas ficam no banco até remoção manual via DB. Recomendado fazer antes de subir pra prod em uso regular.
+
+**B3.5 — Modal de erro F7.D (`SAMPLE_HAS_ACTIVE_BLENDS`)** _(pendente)_
+
+- Quando operador tenta invalidar amostra que é origem em liga ativa, backend devolve `409 SAMPLE_HAS_ACTIVE_BLENDS` + `activeBlends`.
+- Frontend renderiza modal `.app-modal.is-themed` com cabeçalho "Não foi possível invalidar", lista de cada liga (lot + status + contribuição + botão "Ver liga" navegando pro detalhe), rodapé com "Entendi". Sem "Reverter aqui" — reverter opera-se no contexto da liga.
+- **Sem B3.5**: o erro 409 cai no toast genérico de erro, mostrando mensagem técnica do backend (operador não entende a ação).
+
+**B3.6 — Trace de cascata via `causationId`** _(opcional, polish)_
+
+- Quando detalhe mostra eventos `SALE_CREATED`/`LOSS_RECORDED` com `causationId` preenchido (cascata), renderiza inline "vendida via cascata da Liga {lotNumberPai}" com link clicável.
+- Quando o pai também é cascateado, expandir trace completo encadeando os `causationId`.
+- API `GET /samples/:id` já retorna eventos com `causationId`. Backend pode resolver `causedByLotNumber` no payload (lookup) ou frontend faz batch de lookups conforme necessidade.
+
+**B3.7 — Enrichment de `activeBlends` com owner + harvest da liga** _(post-MVP, opcional)_
+
+- Hoje (limitação MVP B3.3): cada item em `activeBlends[]` retorna apenas `{ sampleId, lotNumber, status, contributedSacks }`. Frontend renderiza `'—'` em owner e harvest.
+- **Trabalho previsto**: backend (`findActiveBlendsContainingOrigin` em `src/samples/sample-query-service.js:2140`) passa a incluir `declaredOwner: string | null` e `declaredHarvest: string | null` (snapshot da liga). Frontend (`ActiveBlendDetail` em `lib/types.ts` + `RelatedSampleRow` no detalhe) usa os novos campos no lugar dos fallbacks.
+- **Quando fazer**: quando a falta de contexto ("liga LG-1024 · — · — · 20 sc") atrapalhar a navegação do operador. Pra ligas que tipicamente são sem dono ("carteira da corretora"), owner viria sempre vazio mesmo com enrichment; **harvest** é o ganho real desta sub-fase.
+- Custo estimado: ~30 min (backend select novo + tipo TS + UI pega valor em vez de hardcoded null).
 
 **Fase B4 — Venda/perda da liga (UI ajustada)**
 
@@ -926,14 +970,13 @@ A justificativa original de F7.5 ("evitar frações com Int — Q0.4") não se s
 
 **Decisão**: alternativa **(B) Backend retorna campo `eligibility` estruturado**, sem texto de UI.
 
-- Resposta de `listSamples` (modo `eligibleForBlend`) enriquecida por amostra: `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NOT_CLASSIFIED' | 'NO_BALANCE' | null }`.
+- Resposta de `listSamples` (modo `eligibleForBlend`) enriquecida por amostra: `eligibility: { eligible: boolean, reason: 'INVALIDATED' | 'NO_BALANCE' | null }`. _(Originalmente o enum tinha `'NOT_CLASSIFIED'` também; reason removida em 2026-05-19 quando F1.4 foi relaxada — ver Log de sessões.)_
 - Backend é dono da regra de elegibilidade. `reason` segue enum estável.
 - Frontend mapeia `reason → texto pt-BR` em constante local (sem i18n no payload por enquanto — over-engineering antes de virar requisito real).
 
-**Mapeamento de tooltips (frontend)**:
+**Mapeamento de tooltips (frontend)** (`NOT_CLASSIFIED` removido em 2026-05-19 com o relaxamento de F1.4):
 
 - `INVALIDATED` → "Amostra inválida"
-- `NOT_CLASSIFIED` → "Aguardando classificação"
 - `NO_BALANCE` → "Sem saldo disponível"
 
 **Trechos atualizados no doc**:
@@ -1447,3 +1490,154 @@ Wave B1 implementada em **4 commits temáticos** seguindo o plano arquitetural. 
 - **`is-tabbar-hidden` no AppShell** existe mas é calculado por pathname interno do componente. Usar body class `is-selection-mode` é mais limpo pra esse caso (sem refator do AppShell).
 
 **Próximos passos**: Wave B2 — `<BlendConfirmationSheet>` (bottom-sheet unificado com inputs de contribuição pré-preenchidos com `availableSacks` — F1.D/F2.1) + `<BlendCreateModal>` (modal F3 central com dono opcional + safra com hint das origens + local + obs) + reuso de `SampleCreatedSuccessModal` com prop `entity='blend'`. Tap no contador ou seta em /samples deixa de ser placeholder e abre o `<BlendConfirmationSheet>`.
+
+### 2026-05-19 — F1.4 relaxada: amostras REGISTRATION_CONFIRMED tambem ligaveis ✅
+
+Mudanca de regra solicitada pelo product owner: amostras registradas (status REGISTRATION_CONFIRMED) podem entrar em liga sem precisar estar classificadas. Antes a regra era "so CLASSIFIED com saldo" (F1.4 original).
+
+**Analise de impacto**:
+
+- O enum `SampleStatus` no Prisma tem apenas 3 valores (`REGISTRATION_CONFIRMED | CLASSIFIED | INVALIDATED`). Com a mudanca, a regra de elegibilidade simplifica drasticamente: basta bloquear INVALIDATED + saldo zerado. Reason `NOT_CLASSIFIED` deixa de existir.
+- Cascata de venda/perda (Wave A2.4) ja iterava sem validar status individual das origens — emite SALE_CREATED/LOSS_RECORDED em qualquer status (exceto INVALIDATED). Quando origem REGISTERED e cascateada, `sample.status` permanece REGISTRATION_CONFIRMED; apenas `commercialStatus` evolui (PARTIALLY_SOLD/SOLD/LOST). Schema do payload nao exige `fromStatus = CLASSIFIED`, sem trigger Prisma bloqueando.
+- F4.b (liga nasce em branco e segue classificacao normal) **nao muda** — origem ja-classificada ou nao, a liga comeca em `classificationType: null` e usa o fluxo normal.
+- F7.7 (liga em liga = 100%) **nao muda** — continua valido independente de status da origem.
+
+**Implementacao** (3 arquivos backend + 2 arquivos frontend + 2 arquivos de teste + este doc):
+
+- `src/samples/sample-query-service.js:971` — `computeBlendEligibility` simplificada: remove check de `status !== 'CLASSIFIED'`, mantem `INVALIDATED` + `NO_BALANCE`.
+- `src/samples/sample-command-service.js:1612` — `createBlend` valida `origin.status !== 'INVALIDATED'` (antes era `!== 'CLASSIFIED'`).
+- `lib/types.ts:389` — `SampleEligibilityReason` reduzido de 4 para 3 variants (removido `'NOT_CLASSIFIED'`).
+- `lib/samples/eligibility-labels.ts` — removido mapping `NOT_CLASSIFIED → 'Aguardando classificação'`.
+- `tests/sample-blend.integration.test.js:239` — teste invertido (de "rejects REGISTRATION_CONFIRMED" para "accepts REGISTRATION_CONFIRMED"). Novo teste pra INVALIDATED rejeitado.
+- `tests/sample-blend-cascade.integration.test.js` — novo helper `createRegisteredSample` + novo teste "SALE cascades to REGISTRATION_CONFIRMED origin".
+- `tests/sample-blend-api.integration.test.js:316` — espera `eligibility.eligible: true` pra REGISTERED.
+- `tests/eligibility-labels.test.js` — removido teste do label NOT_CLASSIFIED.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, validate:schemas (51), build
+- ✅ test:contracts (20/20)
+- ✅ test:unit (com `eligibility-labels.test.js` reduzido)
+- ✅ test:integration:db (185/185, antes 183 — +2 testes novos: aceita REGISTERED + rejeita INVALIDATED, +1 cascata com REGISTERED, -2 modificados in-place)
+
+### 2026-05-19 — Wave B1.5: popover de revisao das selecionadas ✅
+
+Decisao do product owner: simplificar fluxo da liga separando **revisao rapida** (contador) de **finalizacao** (seta `→`). Antes ambos abriam o mesmo bottom-sheet com inputs de contribuicao — gesto duplicado e confuso. Decisao revisada:
+
+- **Contador "N selecionadas"** vira um popover leve ancorado abaixo do botao: lista compacta com `lote · sacas` + X individual + scroll apos 3 cards visiveis. So pra ver/remover seleções.
+- **Seta `→` do FAB** continua sendo o caminho exclusivo da finalizacao (Wave B2 futura — bottom-sheet com inputs de contribuicao).
+
+**Implementacao (4 arquivos + doc)**:
+
+- `components/samples/SelectedSamplesDropdown.tsx` (novo): popover ancorado com backdrop transparente click-outside, lista scrollable, animacao slide-out + fade ~150ms ao remover individual. Reusa `--ease-spring` e padrao de backdrop do `SampleCreateRadialFab` (`fab-radial-backdrop`).
+- `app/samples/page.tsx`: state `selectionDropdownOpen`, handler `handleRemoveFromSelection` (fecha popover se Set vazio mas **mantem** modo selecao), `openFinalizeBlendPlaceholder` separado pra FAB-seta. Wrapper `.spv2-selection-counter-wrap` (position relative) ao redor do contador, chevron-down rotativo via `aria-expanded`.
+- `app/globals.css`: novos blocos `.spv2-selection-counter-wrap`, `.spv2-selection-counter__chevron` (rotaciona -180° com `[aria-expanded="true"]`), `.selected-samples-dropdown-backdrop` (z=`var(--z-popover)`), `.selected-samples-dropdown` (animacao spring scale+translateY+fade), `.selected-samples-dropdown__card` (animacao `selected-samples-card-out` ao receber `.is-removing`), `.selected-samples-dropdown__remove`.
+- `docs/Liga-Plano-de-Trabalho.md`: F1.1 e F1.3 revisadas registrando a separacao contador/seta.
+
+**Decisoes UX confirmadas com o usuario**:
+
+- Conteudo do card: `lote · sacas disponiveis` (sem cliente, foco no saldo pra liga).
+- Substitui o bottom-sheet B2 no caminho do contador (B2 reservado pro caminho da seta).
+- Ultima amostra removida: fecha popover + **mantem modo selecao**.
+- Click fora fecha (backdrop transparente).
+
+**Edge / limitacao MVP**: o popover lista samples filtrando `samplesState.items` por `selectedIds`. Se o usuario aplicar filtros que escondem itens da view, esses itens nao aparecem no popover (mas continuam contados no `selectedIds.size`). Aceito pra MVP; cobertura 100% exigiria um `Map<id, snapshot>` cacheado no momento da selecao — futura iteracao se virar problema.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, build
+- 🟡 Smoke manual visual: usuario confere.
+
+### 2026-05-19 — Modal F3 removido: criação direta do sheet ✅
+
+Decisão do product owner após análise: a liga é primariamente uma **composição** (origens + contribuições em `SampleBlendComponent`). Características próprias (dono, safra, local, observações) viram fricção desnecessária no momento da criação — vêm em etapas posteriores (classificação oficial, edição, venda). Modal F3 (`<BlendCreateModal>`, recém-criado em B2.2) **removido** e substituído por chamada direta `createBlend` a partir do botão "Criar liga" no `<BlendConfirmationSheet>`.
+
+**Decisões UX consolidadas:**
+
+- **Dono**: `ownerClientId: null` por padrão (carteira da corretora — F3.A). Edição posterior via detalhe.
+- **Safra**: backend deriva automaticamente — `distinct(originHarvests).sort().join(', ')`. Origens com mesma safra → `'24/25'`. Origens mistas → `'24/25, 25/26'`. Nenhuma origem com safra → `null` (raro). Operador pode editar depois.
+- **Local**: `null` na criação. Edição posterior.
+- **Observações**: `null` na criação. Edição posterior.
+
+**Implementação (6 arquivos + doc)**:
+
+- `src/samples/sample-command-service.js:createBlend` — loop de validação de origens passou a coletar `originHarvests: Set<string>`. Após o loop, deriva `harvest` (join distinct ordenado). `input.harvest` ainda aceito como override (preserva compat com testes integration existentes que passam `harvest: 'MISTA'` manual).
+- `src/samples/sample-query-service.js:loadSampleSummary` — agora retorna `declaredHarvest` (campo extra no select e no return). Necessário pra derivação acima.
+- `docs/schemas/events/v1/payloads/registration-confirmed.payload.schema.json` — `declared.harvest` agora aceita `["string", "null"]` (era `"string"`). Sample normal continua exigindo non-empty via Zod do form (`createSampleDraftSchema`); liga é o único caso onde fica null.
+- `lib/api-client.ts:createBlend` — type simplificado: agora aceita só `clientDraftId`, `components`, `ownerClientId?`, `ownerUnitId?`, `idempotencyKey?`. `harvest`/`location`/`notes` removidos da API client (não enviados pelo frontend).
+- `lib/form-schemas.ts` — `createBlendDraftSchema` (Zod) **removido**.
+- `components/samples/BlendCreateModal.tsx` — **arquivo deletado**.
+- `components/samples/BlendConfirmationSheet.tsx` — botão "Continuar" virou **"Criar liga"**. Prop nova `submitting?: boolean` (controlado pelo parent). Quando submitting, bloqueia backdrop/ESC e desabilita botões.
+- `app/samples/page.tsx` — state `createModalOpen`, `pendingContributions` removidos. State novo `creatingBlend: boolean`, `blendDraftIdRef`. `handleProceedToCreate` virou async: gera `clientDraftId`, chama `createBlend(session, { components, ownerClientId: null, ownerUnitId: null })`, em sucesso dispara success modal + refetch da lista, em erro toast.error (skill `feedback-messages`). Helper `buildBlendDraftId()` em escopo de módulo.
+- `app/globals.css` — bloco `.blend-create-*` e `.blend-harvest-hint` removidos.
+
+**Quality gates totais**:
+
+- ✅ lint, format:check, typecheck, build
+- ✅ test:contracts (20/20), test:unit (180/180), test:integration:db (185/185)
+- 🟡 Smoke manual visual: usuário confere.
+
+**Trade-off conhecido**: operador perde a chance de marcar dono/safra/local/notes na criação. Se quiser registrar essas características, precisa esperar a Wave de **edição no detalhe da liga** (parte da Wave B3). Aceito porque ~100% das ligas começam sem dono ("carteira da corretora") e safra é derivada automaticamente do conteúdo real (origens). Local e notes são raros na criação.
+
+### 2026-05-19 — Wave B3.1: BlendBadge nas listagens ✅
+
+Primeira sub-fase da Wave B3 entregue. Pill lilás (`linear-gradient #7c3aed → #6d28d9`) com ícone de merge + texto "Liga", renderizada ao lado do número do lote em 4 superfícies:
+
+- **`components/samples/BlendBadge.tsx`** (novo) — componente reusável, props `size?: 'sm' | 'md'` + `className?` + `style?`. `role="img"` + `aria-label="Liga"`. Sem hover (não-clicável).
+- **`components/samples/SampleCard.tsx`** — badge `sm` ao lado de `internalLotNumber` em ambos os modos (idle Link e blend button).
+- **`components/dashboard/RecentActivityList.tsx`** — badge `sm` no lote das atividades recentes.
+- **`app/samples/[sampleId]/page.tsx`** — badge `md` no header do detalhe (mais visível na página de foco).
+- **`app/clients/[clientId]/page.tsx`** — badge `sm` na lista `commercialSamples` do cliente.
+
+**Mudanças backend (mínimas)**:
+
+- `src/samples/sample-query-service.js:getDashboardRecentActivity` — raw query adiciona `s.is_blend`, mapper retorna `isBlend: Boolean(row.isBlend)`.
+- `src/clients/client-service.js:listClientSamples` — `select` ganha `isBlend: true`, return inclui `isBlend: Boolean(it.isBlend)`.
+- `lib/types.ts` — `isBlend: boolean` adicionado em `DashboardRecentActivityItem` e `ClientSampleListItem`.
+
+**CSS**:
+
+- Bloco `.blend-badge` (+ variantes `sm`/`md` + `.blend-badge__icon`/`__text`).
+- `.spv2-card-top`, `.dd-activity-lot`, `.sdv-commercial-list-lot` viraram `inline-flex; align-items: center; gap: 6px` pra acomodar o badge inline com o texto do lote (text-overflow: ellipsis removido onde redundante).
+
+**Tom de cor escolhido**: lilás pra **não competir** com verde (sucesso/brand), vermelho (perigo) e âmbar (warning) já usados no sistema.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, build
+- ✅ test:contracts (20/20), test:unit (180/180), test:integration:db (185/185)
+- 🟡 Smoke manual visual: usuário confere.
+
+### 2026-05-19 — Wave B3.2 + B3.3: detalhe da liga (Composição + Comprometida em N ligas) ✅
+
+Duas seções novas no detalhe da amostra (`/samples/[sampleId]`) expondo os relacionamentos da Liga:
+
+- **"Composição da liga"** (B3.2) — quando `sample.isBlend === true`, lista cada origem da liga com lote (+ `<BlendBadge>` se origem é liga aninhada), dono, safra e contribuição em sc. Link clicável pro detalhe individual da origem. Permanece visível em liga revertida (F8.3 — backend preserva `components`).
+- **"Comprometida em N ligas ativas"** (B3.3) — quando `sample.isBlend === false` e `activeBlends.length > 0`, lista cada liga ativa que usa a amostra como origem. Backend filtra INVALIDATED (Wave A2.5), então liga revertida desaparece dessa seção automaticamente. Owner/harvest da liga não vêm no payload — fallback `'—'` aceito como limitação MVP.
+
+**Decisões UX confirmadas**:
+
+- **Posição**: logo após "Informações" (antes de "Histórico de envios" / "Classificação").
+- **Conteúdo**: Lote + dono + safra + contribuição.
+- **Componente reusável**: `<RelatedSampleRow>` compartilhado pelas duas seções.
+
+**Arquivos**:
+
+- `components/samples/RelatedSampleRow.tsx` (novo) — link clicável reusando `.sdv-commercial-list-row`, com `<BlendBadge>` condicional, owner/harvest com fallback `'—'`, status bar colorida via `deriveStatusClass()` (INVALIDATED → cinza; outros → azul). Animação escalonada via `animationDelay`.
+- `lib/types.ts:505` — interfaces novas `BlendComponentDetail` e `ActiveBlendDetail`. Adicionados `components?` e `activeBlends?` em `SampleDetailResponse`. Backend já enviava esses campos (Wave A3.4); só o tipo TS estava faltando.
+- `app/samples/[sampleId]/page.tsx` — depois do bloco "Informações" (`.sdv-info-compact`), renderização condicional das 2 seções usando `.sdv-card` + `.sdv-card-title` + `.sdv-related-list`.
+- `app/globals.css` — classe nova `.sdv-related-list` (lista vertical sem altura fixa, ao contrário do `.sdv-commercial-list` do `/clients/[id]` que tem scroll interno).
+
+**Edge cases tratados**:
+
+- `originSample === null` (origem inacessível) → renderiza `<li className="sdv-empty-text">Origem removida ou inacessível</li>`.
+- Origem ainda é uma liga (`originSample.isBlend === true`) → `<BlendBadge>` aparece ao lado do lote; link continua pro detalhe da origem-liga; operador navega recursivamente.
+- Liga revertida → "Composição" visível (F8.3); "Comprometida em N" sumiria do lado da origem (já filtrado pelo backend).
+- `owner / harvest` null → fallback `'—'`.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, build
+- 🟡 Smoke manual visual: usuário confere.
+
+**Próximas sub-fases B3**: B3.4 (botão "Reverter liga" + modal `.app-confirm-modal`), B3.5 (modal de erro F7.D `SAMPLE_HAS_ACTIVE_BLENDS`), B3.6 opcional (trace de cascata via `causationId`).
