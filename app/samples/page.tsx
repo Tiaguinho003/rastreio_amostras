@@ -17,6 +17,7 @@ import {
 import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { NotificationBell } from '../../components/NotificationBell';
+import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleQuickCreateFab } from '../../components/SampleQuickCreateFab';
 import { ApiError, listSamples } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -73,25 +74,6 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'sacks',
   'period',
 ];
-
-type CardStatusKind = 'open' | 'sold' | 'lost' | 'invalidated';
-
-function deriveCardStatus(sample: SampleSnapshot): {
-  kind: CardStatusKind;
-  label: string;
-  className: string;
-} {
-  if (sample.status === 'INVALIDATED') {
-    return { kind: 'invalidated', label: 'Invalidada', className: 'is-card-invalid' };
-  }
-  if (sample.commercialStatus === 'SOLD') {
-    return { kind: 'sold', label: 'Vendido', className: 'is-card-sold' };
-  }
-  if (sample.commercialStatus === 'LOST') {
-    return { kind: 'lost', label: 'Perdido', className: 'is-card-lost' };
-  }
-  return { kind: 'open', label: 'Em aberto', className: 'is-card-open' };
-}
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
@@ -1119,48 +1101,14 @@ function SamplesPage() {
             </div>
           ) : (
             <div ref={samplesScrollRef} className="spv2-list-scroll">
-              {samplesState.items.map((sample, i) => {
-                const cardStatus = deriveCardStatus(sample);
-                const availableSacks = sample.availableSacks;
-                return (
-                  <Link
-                    key={sample.id}
-                    href={`/samples/${sample.id}`}
-                    className={`spv2-card ${cardStatus.className}`}
-                    style={{ animationDelay: `${i * 0.04}s` }}
-                    onClick={saveSnapshotBeforeLeave}
-                  >
-                    <span className="spv2-card-bar" />
-                    <div className="spv2-card-content">
-                      <div className="spv2-card-top">
-                        <span className="spv2-card-code">
-                          {sample.internalLotNumber ?? sample.id}
-                        </span>
-                        <span className="spv2-card-badge">{cardStatus.label}</span>
-                      </div>
-                      <div className="spv2-card-bottom">
-                        <span className="spv2-card-owner">
-                          {sample.declared.owner || 'Nao informado'}
-                        </span>
-                        <span className="spv2-card-sep" />
-                        <span className="spv2-card-detail">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <rect x="2" y="7" width="20" height="14" rx="2" />
-                            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-                          </svg>
-                          {availableSacks === null || availableSacks === undefined
-                            ? '—'
-                            : availableSacks}{' '}
-                          sacas
-                        </span>
-                      </div>
-                    </div>
-                    <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </Link>
-                );
-              })}
+              {samplesState.items.map((sample, i) => (
+                <SampleCard
+                  key={sample.id}
+                  sample={sample}
+                  index={i}
+                  onClickCapture={saveSnapshotBeforeLeave}
+                />
+              ))}
 
               {isLoadingMore
                 ? Array.from({ length: 3 }).map((_, i) => (
