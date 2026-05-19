@@ -19,9 +19,12 @@ import { NewSampleModal } from '../../components/NewSampleModal';
 import { NotificationBell } from '../../components/NotificationBell';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
+import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
 import { ApiError, listSamples } from '../../lib/api-client';
+import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
+import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
-import type { SampleSnapshot } from '../../lib/types';
+import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
 const SAMPLE_PAGE_LIMIT = 20;
@@ -441,6 +444,14 @@ function SamplesPage() {
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
 
+  // Liga B1.4 (F1.D): modo selecao pra criar liga. Disparado via FAB → Liga.
+  // selectionMode controla render do header (SelectionModeHeader vs normal),
+  // navbar (body class is-selection-mode), e shape dos cards (com bolinha).
+  // selectedIds persiste entre buscas/filtros — contador SEMPRE de .size.
+  const [selectionMode, setSelectionMode] = useState<'idle' | 'blend'>('idle');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const toast = useToast();
+
   const filtersTrapRef = useFocusTrap(filtersOpen);
   const [activeFilterSection, setActiveFilterSection] = useState<FilterSectionId | null>(() =>
     initialSnapshot ? getInitialFilterSection(initialSnapshot.appliedHiddenFilters) : 'owner'
@@ -720,6 +731,97 @@ function SamplesPage() {
     };
   }, [activeAging, appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey]);
 
+  // Liga B1.4 — refetch otimista quando entra em modo selecao.
+  // Lista atual permanece visivel; quando refetch retorna, atualiza com
+  // eligibility + committedSacks por amostra. Selecionadas que viram
+  // inelegiveis sao removidas + toast. Erro de refetch sai do modo +
+  // toast.
+  useEffect(() => {
+    if (!session) return;
+    if (selectionMode !== 'blend') return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await listSamples(
+          session,
+          {
+            limit: SAMPLE_PAGE_LIMIT,
+            search: appliedSearch || undefined,
+            owner: appliedHiddenFilters.owner || undefined,
+            buyer: appliedHiddenFilters.buyer || undefined,
+            displayStatus: appliedHiddenFilters.displayStatus || undefined,
+            harvest: appliedHiddenFilters.harvest || undefined,
+            sacksMin: appliedHiddenFilters.sacksMin || undefined,
+            sacksMax: appliedHiddenFilters.sacksMax || undefined,
+            classifiedAging: activeAging || undefined,
+            eligibleForBlend: true,
+          },
+          { signal: controller.signal }
+        );
+
+        if (cancelled) return;
+
+        dispatchSamples({
+          type: 'success-initial',
+          items: response.items,
+          total: response.page.total,
+          nextCursor: response.page.nextCursor,
+        });
+
+        // Reconciliacao: pra cada selectedId, ver se virou inelegivel
+        // -> deselecionar + toast.
+        setSelectedIds((prev) => {
+          if (prev.size === 0) return prev;
+          const itemsById = new Map(response.items.map((s) => [s.id, s]));
+          const next = new Set(prev);
+          let didChange = false;
+          for (const id of prev) {
+            const item = itemsById.get(id);
+            if (!item) continue; // não visível com filtros atuais — mantém
+            if (item.eligibility && !item.eligibility.eligible) {
+              next.delete(id);
+              didChange = true;
+              const reasonLabel = mapEligibilityReasonToLabel(item.eligibility.reason);
+              toast.info({
+                title: `Amostra ${item.internalLotNumber ?? '—'} removida da seleção`,
+                description: reasonLabel ?? undefined,
+              });
+            }
+          }
+          return didChange ? next : prev;
+        });
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        toast.error({
+          title: 'Não foi possível carregar amostras pra liga',
+          description: 'Tente novamente.',
+        });
+        setSelectionMode('idle');
+        setSelectedIds(new Set());
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionMode, session]);
+
+  // Liga B1.4 — body class pra esconder navbar/header normal no modo selecao.
+  useEffect(() => {
+    if (selectionMode === 'blend') {
+      document.body.classList.add('is-selection-mode');
+      return () => {
+        document.body.classList.remove('is-selection-mode');
+      };
+    }
+    return undefined;
+  }, [selectionMode]);
+
   useEffect(() => {
     if (!session) return;
     if (samplesState.status !== 'idle') return;
@@ -805,6 +907,43 @@ function SamplesPage() {
     setDraftHiddenFilters(appliedHiddenFilters);
     setActiveFilterSection(getInitialFilterSection(appliedHiddenFilters));
     setFiltersOpen(true);
+  }
+
+  // Liga B1.4 — handlers de modo selecao.
+  function enterBlendMode() {
+    setSelectionMode('blend');
+    setSelectedIds(new Set());
+  }
+
+  function exitBlendMode() {
+    setSelectionMode('idle');
+    setSelectedIds(new Set());
+  }
+
+  function toggleSampleSelection(sampleId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sampleId)) next.delete(sampleId);
+      else next.add(sampleId);
+      return next;
+    });
+  }
+
+  function showIneligibleReason(reason: SampleEligibilityReason) {
+    const label = mapEligibilityReasonToLabel(reason);
+    toast.info({
+      title: 'Amostra indisponível pra liga',
+      description: label ?? undefined,
+    });
+  }
+
+  function openReviewPlaceholder() {
+    // B1 placeholder — B2 vai abrir o bottom-sheet de confirmacao com inputs
+    // de contribuicao pre-preenchidos (Liga F1.D).
+    toast.info({
+      title: 'Tela de confirmação em desenvolvimento',
+      description: 'Próxima fase (B2)',
+    });
   }
 
   function closeFilters() {
@@ -989,6 +1128,16 @@ function SamplesPage() {
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="samples-page-v2">
+        {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
+            o usuario entra em modo selecao pra criar liga. CSS body class
+            is-selection-mode tambem esconde o header normal por seguranca. */}
+        {selectionMode === 'blend' ? (
+          <SelectionModeHeader
+            selectedCount={selectedIds.size}
+            onExit={exitBlendMode}
+            onOpenReview={openReviewPlaceholder}
+          />
+        ) : null}
         <header className="samples-page-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -1026,13 +1175,19 @@ function SamplesPage() {
               spellCheck={false}
             />
           </form>
-          <SampleCreateRadialFab
-            mode="idle"
-            onCreateUnit={() => setNewSampleModalOpen(true)}
-            onStartBlendSelection={() => {
-              // B1.4: cabear pra entrar em modo seleção. Placeholder.
-            }}
-          />
+          {selectionMode === 'blend' ? (
+            <SampleCreateRadialFab
+              mode="blendArrow"
+              selectedCount={selectedIds.size}
+              onContinue={openReviewPlaceholder}
+            />
+          ) : (
+            <SampleCreateRadialFab
+              mode="idle"
+              onCreateUnit={() => setNewSampleModalOpen(true)}
+              onStartBlendSelection={enterBlendMode}
+            />
+          )}
         </div>
 
         <section className="samples-page-v2-sheet">
@@ -1113,6 +1268,10 @@ function SamplesPage() {
                   sample={sample}
                   index={i}
                   onClickCapture={saveSnapshotBeforeLeave}
+                  selectionMode={selectionMode === 'blend' ? 'blend' : 'idle'}
+                  isSelected={selectedIds.has(sample.id)}
+                  onToggleSelect={toggleSampleSelection}
+                  onShowIneligibleReason={showIneligibleReason}
                 />
               ))}
 

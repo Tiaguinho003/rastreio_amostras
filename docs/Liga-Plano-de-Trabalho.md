@@ -1412,3 +1412,38 @@ GET    /api/v1/samples/:sampleId               -> getSampleDetail com components
 - Helper `computeBlendEligibility` ficou no escopo de `sample-query-service.js` (não como método de classe) porque é função pura sem dependência de `this.prisma`. Mantém modularidade.
 
 **Próximos passos**: Wave B (Frontend PWA) — implementar a UI da feature Liga conforme decisões F1.D + F2.4 + F3 + F8 + Dashboard. Em sub-fases B1 (FAB radial + modo seleção em `/samples`), B2 (bottom-sheet de confirmação + modal F3), B3 (badge + detalhe da liga + reversão), B4 (venda/perda da liga com bloco "Atribuir dono primeiro"). Dependências de backend (A1-A3) todas resolvidas.
+
+### 2026-05-19 — Wave B1 (FAB radial + modo seleção em `/samples`) ✅
+
+Wave B1 implementada em **4 commits temáticos** seguindo o plano arquitetural. Sub-fases pequenas e reversíveis; sem regressão visual em modo idle (verificado por commit isolado de refator antes de adicionar lógica nova).
+
+- **`afd2e3e` `feat(types): liga B1.1 - SampleEligibility + param eligibleForBlend + helper labels`** — Fundação compartilhada (F1.B). `SampleEligibility` em `lib/types.ts` (campos opcionais em `SampleSnapshot`). `listSamples` aceita `eligibleForBlend`. `lib/samples/eligibility-labels.ts` com `mapEligibilityReasonToLabel` (3 reasons + null). 4 unit tests em `tests/eligibility-labels.test.js` (Node test runner com `--experimental-strip-types` pra rodar `.ts`).
+
+- **`000b9ce` `refactor(samples): liga B1.2 - extrair SampleCard pra componente reusavel`** — Refator puro extraindo JSX inline (`/samples/page.tsx:1122-1162`) pra `components/samples/SampleCard.tsx`. Zero mudança visual. `deriveCardStatus` movido pra dentro do componente (uso único). Base limpa pra B1.4 estender com bolinha.
+
+- **`5282505` `feat(samples): liga B1.3 - SampleCreateRadialFab com 2 satelites (Unidade/Liga)`** — Componente novo com 2 modos: `idle` (FAB "+" expandindo em 2 satélites com slide+fade ~180ms + pulse ~150ms ao tap) e `blendArrow` (FAB seta `→` com estado disabled quando `selectedCount < 2`). CSS puro reusando `.cv2-fab` base + easing spring `cubic-bezier(0.34, 1.56, 0.64, 1)`. Acessibilidade (`aria-expanded`, `role="menuitem"`, Escape fecha). Race protection via `actionFiredRef` pra taps rápidos em sequência. `SampleQuickCreateFab.tsx` removido (zero consumers).
+
+- **`<próximo>` `feat(samples): liga B1.4 - modo selecao para liga com refetch otimista`** — Modo seleção completo:
+  - State em `/samples/page.tsx`: `selectionMode: 'idle' | 'blend'` + `selectedIds: Set<string>` (persiste entre filtros — contador SEMPRE de `selectedIds.size`).
+  - **Effect de refetch otimista** (Liga F1.C): quando entra em `'blend'`, dispara `listSamples({ ...filtros, eligibleForBlend: true })` com `AbortController`. Lista atual permanece visível durante refetch; quando chega, `dispatchSamples({ type: 'success-initial', items })` substitui in-place. Reconciliação: pra cada `selectedId`, se item retornou com `eligibility.eligible === false`, remove do Set + `toast.info("Amostra removida da seleção")` com motivo mapeado em pt-BR. Erro de refetch → `setSelectionMode('idle')` + `toast.error`.
+  - **Effect de body class** `is-selection-mode` — esconde tabbar + header normal + botão filtro via CSS.
+  - **`<SelectionModeHeader>`** novo (`components/samples/SelectionModeHeader.tsx`): `[X]` (sair) + título "Selecionar amostras" + contador clicável `[N selecionadas]`.
+  - **`<SampleCard>` estendido** com prop `selectionMode`. Em `'blend'` + elegível: vira `<button>` com bolinha à esquerda (3 estados: vazia/verde+✓/cinza opaca) + classe `.is-blend-selected` (fundo verde claro). Em `'blend'` + inelegível: `.is-ineligible-blend` (acinzentado), tap dispara `onShowIneligibleReason` (toast info com motivo).
+  - **FAB alternado**: modo `idle` (normal) ↔ modo `blendArrow` (seta direita, disabled se `<2`).
+  - Tap no contador ou na seta → `toast.info("Tela de confirmação em desenvolvimento (B2)")` — placeholder até B2.
+  - CSS em `app/globals.css` (block dedicado ao final do arquivo): bolinha, header de seleção, body class rules, variantes do card.
+
+**Quality gates totais Wave B1**:
+
+- ✅ lint, format:check, typecheck, validate:schemas (51), build (Next.js)
+- ✅ test:contracts (20/20), test:unit (181/181, antes 177; +4 do eligibility-labels), test:integration:db (183/183 — não afetado por B1)
+- 🟡 Smoke test manual visual: a fazer (não há UI integration tests no CI). Tap "+" expande satélites, tap "Liga" entra modo, tap em card elegível toggla seleção, tap em inelegível mostra reason, X sai, refetch otimista funciona.
+
+**Descobertas durante a implementação**:
+
+- **`displayStatus` é literal union (`'' | 'OPEN' | ...`), não array** — tentei usar `.join(',')` por reflexo (corrigido pra passar `value || undefined` direto). Padrão é consistente com o effect principal de fetch (linha ~690).
+- **`SampleSnapshot.isBlend` adicionado** como opcional — o backend já expõe (Wave A2.4 corrigiu `mapSample`), mas precisava do type pra `<SampleCard>` em B3 acessar (preparado).
+- **`--experimental-strip-types` no `test:unit`** — necessário porque o helper `eligibility-labels.ts` está em TypeScript (consistente com `lib/`). Node 22.6+ suporta a flag; CI já roda Node 22. Sem deps adicionais (ts-node/tsx).
+- **`is-tabbar-hidden` no AppShell** existe mas é calculado por pathname interno do componente. Usar body class `is-selection-mode` é mais limpo pra esse caso (sem refator do AppShell).
+
+**Próximos passos**: Wave B2 — `<BlendConfirmationSheet>` (bottom-sheet unificado com inputs de contribuição pré-preenchidos com `availableSacks` — F1.D/F2.1) + `<BlendCreateModal>` (modal F3 central com dono opcional + safra com hint das origens + local + obs) + reuso de `SampleCreatedSuccessModal` com prop `entity='blend'`. Tap no contador ou seta em /samples deixa de ser placeholder e abre o `<BlendConfirmationSheet>`.

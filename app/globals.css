@@ -24598,3 +24598,177 @@ button:disabled {
 .cv2-fab.is-disabled:active {
   transform: none;
 }
+
+/* ============================================================
+   Liga B1.4 — Modo seleção em /samples
+   ============================================================
+   Quando o usuário entra em modo seleção pra criar liga (FAB → Liga):
+   - body ganha classe .is-selection-mode (set por useEffect na page).
+   - header normal + navbar inferior + botão filtro são escondidos.
+   - SelectionModeHeader é renderizado em vez.
+   - Cards ganham bolinha de seleção (3 estados) e variantes
+     .is-blend-selectable / .is-blend-selected / .is-ineligible-blend.
+*/
+
+body.is-selection-mode .mobile-tabbar {
+  display: none;
+}
+
+body.is-selection-mode .samples-page-v2-header {
+  display: none;
+}
+
+body.is-selection-mode .hero-search-filter-btn {
+  display: none;
+}
+
+.samples-selection-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: calc(var(--app-safe-area-top, env(safe-area-inset-top)) + 0.85rem) 1.1rem 0.85rem;
+  background: var(--brand-green);
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  animation: samples-header-in 0.35s ease-out backwards;
+}
+
+.samples-selection-header__exit {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+
+.samples-selection-header__exit:active {
+  transform: scale(0.92);
+}
+
+.samples-selection-header__exit svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.samples-selection-header__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+  text-align: center;
+}
+
+.samples-selection-header__counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.samples-selection-header__counter:hover,
+.samples-selection-header__counter:active {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.samples-selection-header__counter-num {
+  font-size: 1rem;
+}
+
+.samples-selection-header__counter-label {
+  font-size: 0.8rem;
+  opacity: 0.92;
+}
+
+/* Bolinha de seleção. 3 estados: vazia, selecionada, desabilitada. */
+.sample-card-selection-circle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 0.85rem;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    opacity 0.15s;
+}
+
+.sample-card-selection-circle.is-empty {
+  border: 2px solid #c4c4c4;
+  background: transparent;
+}
+
+.sample-card-selection-circle.is-selected {
+  border: 2px solid var(--brand-green);
+  background: var(--brand-green);
+}
+
+.sample-card-selection-circle.is-selected svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sample-card-selection-circle.is-disabled {
+  border: 2px solid #c4c4c4;
+  background: #d8d8d8;
+  opacity: 0.5;
+}
+
+.spv2-card.is-blend-selectable {
+  display: flex;
+  align-items: center;
+  padding-left: 1rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
+  border: 0;
+}
+
+.spv2-card.is-blend-selected {
+  background: linear-gradient(180deg, #f0faf3 0%, #e6f4e9 100%);
+  box-shadow: 0 0 0 1.5px var(--brand-green) inset;
+}
+
+.spv2-card.is-ineligible-blend {
+  opacity: 0.55;
+  background: #f3f3f3;
+  cursor: not-allowed;
+}
+
+.spv2-card.is-ineligible-blend:active {
+  transform: none;
+}
+
+.spv2-card.is-blend-selectable .spv2-card-chevron {
+  display: none;
+}
