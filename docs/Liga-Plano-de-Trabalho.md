@@ -1641,3 +1641,46 @@ Duas seções novas no detalhe da amostra (`/samples/[sampleId]`) expondo os rel
 - 🟡 Smoke manual visual: usuário confere.
 
 **Próximas sub-fases B3**: B3.4 (botão "Reverter liga" + modal `.app-confirm-modal`), B3.5 (modal de erro F7.D `SAMPLE_HAS_ACTIVE_BLENDS`), B3.6 opcional (trace de cascata via `causationId`).
+
+### 2026-05-19 — Deploy canary → prod ✅
+
+Liga foi pra produção com o ciclo de criação + visualização completo (sub-fases F1.4 relax, B1.5, B2, B3.1–B3.3). Smoke manual no canary OK, promote pra 100% LATEST executado.
+
+**Imagem deployada**: `d300db2`
+**Revisão Cloud Run ativa**: `rastreio-prod-app-00263-kop`
+**3 commits aplicados nesta sessão**:
+
+1. `fix(samples,bottom-sheet): 2 bugs encontrados em revisao do fluxo de criar amostra` — BottomSheet history race + location passthrough.
+2. `feat(blend): ciclo completo de criacao + visualizacao (waves F1.4 relax + B1.5 + B2 + B3.1-3 + cv2-fab fix)` — 24 arquivos.
+3. `docs(liga,skills): plano Liga atualizado + nova skill feedback-messages`.
+
+**Migrate job executado** (mesmo sem migration nova — regra `feedback_always_run_migrate_job` do projeto).
+
+**Em produção agora**:
+
+- FAB radial card glass (Unidade / Liga)
+- Modo seleção (cards com bolinha + header simplificado + contador na list-meta)
+- Popover de revisão das selecionadas (B1.5) com pill verde no lote
+- Sheet de confirmação com inputs de contribuição (B2) — "Criar liga" chama API direto
+- Liga sem modal F3 (safra derivada automaticamente das origens — distinct ordenado, join `', '`)
+- F1.4 relaxada (REGISTRATION_CONFIRMED elegível pra liga)
+- BlendBadge lilás em /samples, dashboard, detalhe, /clients/[id]
+- Seção "Composição da liga" no detalhe quando isBlend
+- Seção "Comprometida em N ligas ativas" no detalhe da origem
+
+**Riscos conhecidos em produção (sem B3.4/B3.5/B4 ainda)**:
+
+- Liga errada criada → fica permanente até remoção manual via DB (sem reverter via UI).
+- Tentar invalidar origem de liga ativa → toast com mensagem técnica `SAMPLE_HAS_ACTIVE_BLENDS` (modal amigável F7.D não foi feito).
+- Tentar vender/perder liga via `SampleMovementModal` → comportamento imprevisível (Wave B4 não foi feita).
+
+Operador comunicado dos riscos; uso inicial limitado a teste de criação + visualização.
+
+**Próximas sub-fases priorizadas (próxima conversa)**:
+
+1. **B3.4** — botão "Reverter liga" + modal de confirmação (escape hatch crítico).
+2. **B3.5** — modal de erro F7.D estruturado (UX de invalidação bloqueada).
+3. **B4** — venda/perda da liga + bloco "Atribuir dono primeiro" (F3.A).
+4. **B3.7** — enrichment de `activeBlends[]` com owner/harvest (post-MVP, polish).
+5. **B3.6** — trace de cascata via `causationId` (opcional).
+6. **C1** — testes + smoke + canary→prod da Wave B3.4/B3.5/B4 (próximo ciclo de deploy).
