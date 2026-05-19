@@ -1372,3 +1372,43 @@ Wave A2 implementada em **6 commits temáticos** após Wave A1, mantendo isolame
 - **Cascata respeita F7.7** rigorosamente: liga-em-liga = 100% obrigatório garantido na validação da criação; cascata replica em qualquer profundidade sem frações.
 
 **Próximos passos**: Wave A3 (API endpoints REST) — `POST /samples/blends` (createBlend), `POST /samples/:id/revert-blend` (revertBlend), enriquecer `GET /samples?eligibleForBlend=true` com `committedSacks`/`eligibility`/`activeBlends`, ajustar `POST /samples/:id/movements` pra cascata (sem mudança de contrato — usa o mesmo endpoint).
+
+### 2026-05-19 — Wave A3 (REST API endpoints) ✅
+
+Wave A3 implementada em **4 commits temáticos** + atualização final do log. Wrappers HTTP sobre os services da Wave A2; padrão idêntico aos endpoints existentes (createSample, invalidateSample) — zero invenção arquitetural.
+
+- **`ee8e26f` `feat(api): liga A3.1+A3.2 - REST endpoints POST blends + revert-blend`** —
+  - **POST /api/v1/samples/blends** (`app/api/v1/samples/blends/route.ts`) chamando `commandService.createBlend`. Body: `{ clientDraftId, components: [{originSampleId, contributedSacks}], ownerClientId?, ownerUnitId?, harvest, location?, notes?, sampleId?, sampleLotNumber?, idempotencyKey? }`. Retorno: 201 com `{ sample, events, draft }` ou 200 idempotent.
+  - **POST /api/v1/samples/:sampleId/revert-blend** (`app/api/v1/samples/[sampleId]/revert-blend/route.ts`) chamando `commandService.revertBlend`. Body: `{ expectedVersion, reasonText?, idempotencyKey? }`. Retorno: 200 com `{ sample, events }`.
+  - Backend handlers em `src/api/v1/backend-api.js` seguem template idêntico ao `createSample` (linha 191) e `invalidateSample` (linha 391). Erros estruturados (`HttpError` com `details`) serializados pelo `toHttpErrorResponse` global — F7.D `SAMPLE_HAS_ACTIVE_BLENDS` e cascata `BLEND_HAS_BLOCKED_DESCENDANTS` chegam ao cliente sem código novo de error handling.
+  - 5 testes integration (happy path + 422 < 2 components + 404 origem inexistente + reverter happy path + 422 não-blend).
+
+- **`8c3c0bf` `feat(api): liga A3.3 - GET /samples?eligibleForBlend=true enriquecido`** — `listSamples` (queryService + backend-api) aceita filtro opcional `eligibleForBlend`. Quando `true`, cada item é enriquecido com `eligibility: { eligible, reason }` (F1.B) e `committedSacks` (T0.B). Helper interno `computeBlendEligibility` (regra do backend, single source of truth — F1.B). Query agregada `_loadCommittedSacksMap(sampleIds)` calcula committed em 1 roundtrip pra toda a página (sem N+1). 3 testes integration (sem filtro, com filtro distinguindo CLASSIFIED vs REGISTRATION_CONFIRMED, committedSacks correto).
+
+- **`53b7985` `feat(api): liga A3.4 - GET /samples/:id enriquecido (components + activeBlends)`** — `getSampleDetail` retorna 2 campos novos: `components` (composição da liga, com snapshot da origem — vazia em sample normal) e `activeBlends` (ligas ativas onde este sample é origem — sempre incluído). Helper `_listBlendComponents` com `include` da `originSample` (sem JOIN no frontend). Reusa `findActiveBlendsContainingOrigin` (Wave A2.1). 2 testes integration (detalhe de liga com components, detalhe de sample normal que é origem em liga ativa).
+
+**Quality gates totais Wave A3**:
+
+- ✅ lint, format:check, typecheck, validate:schemas (51), build (Next.js)
+- ✅ test:contracts (20/20)
+- ✅ test:unit (177/177)
+- ✅ **test:integration:db (183/183, antes 173; +10 testes Wave A3)**
+
+**Endpoints HTTP disponíveis após A3**:
+
+```
+POST   /api/v1/samples/blends                  -> createBlend
+POST   /api/v1/samples/:sampleId/revert-blend  -> revertBlend
+POST   /api/v1/samples/:sampleId/movements     -> createSampleMovement (com cascata se isBlend)
+POST   /api/v1/samples/:sampleId/invalidate    -> invalidateSample (com SAMPLE_HAS_ACTIVE_BLENDS)
+GET    /api/v1/samples?eligibleForBlend=true   -> listSamples enriquecido
+GET    /api/v1/samples/:sampleId               -> getSampleDetail com components + activeBlends
+```
+
+**Descobertas durante a implementação**:
+
+- `mapSample` já expunha `isBlend` (corrigido na Wave A2.4) — testes A3 validam diretamente no body.
+- Erros estruturados (`HttpError` com `details: { code, ... }`) **funcionam automaticamente** pela infra existente (`http-utils.toHttpErrorResponse`) — não foi necessário código novo no caminho da API pra propagar `SAMPLE_HAS_ACTIVE_BLENDS` e `BLEND_HAS_BLOCKED_DESCENDANTS`.
+- Helper `computeBlendEligibility` ficou no escopo de `sample-query-service.js` (não como método de classe) porque é função pura sem dependência de `this.prisma`. Mantém modularidade.
+
+**Próximos passos**: Wave B (Frontend PWA) — implementar a UI da feature Liga conforme decisões F1.D + F2.4 + F3 + F8 + Dashboard. Em sub-fases B1 (FAB radial + modo seleção em `/samples`), B2 (bottom-sheet de confirmação + modal F3), B3 (badge + detalhe da liga + reversão), B4 (venda/perda da liga com bloco "Atribuir dono primeiro"). Dependências de backend (A1-A3) todas resolvidas.
