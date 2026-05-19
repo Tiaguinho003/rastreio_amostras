@@ -202,6 +202,7 @@ export function createBackendApiV1({
             sacks: body.sacks,
             harvest: body.harvest,
             originLot: body.originLot,
+            location: body.location,
             receivedChannel: body.receivedChannel,
             notes: body.notes ?? null,
           },

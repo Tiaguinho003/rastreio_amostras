@@ -7,6 +7,18 @@ import { useFocusTrap } from '../lib/use-focus-trap';
 const SWIPE_THRESHOLD = 60;
 export const ANIMATION_MS = 350;
 
+// Contador module-level pra distinguir popstate causado pelo nosso proprio
+// cleanup (history.back()) vs back externo do usuario (gesto/botao do
+// sistema Android). Cada cleanup que chama history.back() incrementa; o
+// listener popstate, ao receber um evento sem `event.state.bottomSheet`,
+// decrementa e ignora em vez de chamar requestDismiss(). Resolve corrida
+// em React Strict Mode dev, onde mount #1 → cleanup #1 (back agendado) →
+// mount #2 (push novo) → popstate captura o back do cleanup #1 no listener
+// do mount #2, que sem o counter chamaria requestDismiss() e fecharia o
+// sheet recem-aberto antes do user ver. Em prod (strict mode off) o
+// counter fica em 0 e o comportamento e identico ao anterior.
+let pendingInternalBacks = 0;
+
 interface BottomSheetProps {
   open: boolean;
   onClose: () => void;
@@ -121,6 +133,13 @@ export function BottomSheet({
   // dependesse, o cleanup rodaria a cada render do consumidor (callback
   // muda toda vez), disparando history.back() que dispara popstate que
   // dispara requestDismiss(). Loop.
+  //
+  // Strict Mode dev: o useEffect roda mount → cleanup → mount. O cleanup
+  // do primeiro mount chama history.back() que enfileira um popstate; o
+  // listener registrado no segundo mount captura esse pop e — sem o
+  // counter `pendingInternalBacks` — chamaria requestDismiss() fechando o
+  // sheet recem-aberto. O counter sinaliza ao listener que aquele pop foi
+  // gerado pelo nosso proprio cleanup (back interno) e deve ser ignorado.
   useEffect(() => {
     if (!open || historyInjectedRef.current) return;
 
@@ -130,6 +149,10 @@ export function BottomSheet({
     const onPopState = (event: PopStateEvent) => {
       if (event.state?.bottomSheet) {
         // Caso raro: usuario navegou pra frente e voltou. Re-injeta.
+        return;
+      }
+      if (pendingInternalBacks > 0) {
+        pendingInternalBacks--;
         return;
       }
       void requestDismissRef.current();
@@ -142,6 +165,7 @@ export function BottomSheet({
         historyInjectedRef.current = false;
         // Se ainda estamos na entry que injetamos, volta uma pra limpar.
         if (window.history.state?.bottomSheet) {
+          pendingInternalBacks++;
           window.history.back();
         }
       }
