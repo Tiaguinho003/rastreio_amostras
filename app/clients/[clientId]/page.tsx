@@ -13,6 +13,7 @@ import {
 } from '../../../components/clients/ClientInactivateWithCascadeModal';
 import { ClientUnitModal } from '../../../components/clients/ClientUnitModal';
 import { ClientUnitDetailModal } from '../../../components/clients/ClientUnitDetailModal';
+import { BlendBadge } from '../../../components/samples/BlendBadge';
 import {
   ApiError,
   getClient,
@@ -1496,6 +1497,7 @@ export default function ClientDetailPage() {
                               <span className="sdv-commercial-list-bar" aria-hidden="true" />
                               <span className="sdv-commercial-list-lot">
                                 {s.internalLotNumber ?? '—'}
+                                {s.isBlend ? <BlendBadge size="sm" /> : null}
                               </span>
                               <span className="sdv-commercial-list-meta">
                                 {s.createdAt

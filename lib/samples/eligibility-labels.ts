@@ -4,9 +4,11 @@
 //
 // Reasons retornados pelo backend (GET /samples?eligibleForBlend=true):
 // - INVALIDATED: sample.status === 'INVALIDATED'
-// - NOT_CLASSIFIED: sample.status !== 'CLASSIFIED'
 // - NO_BALANCE: availableSacks === 0
 // - null: elegível
+//
+// F1.4 relaxada em 2026-05-19: amostras REGISTRATION_CONFIRMED também
+// são elegíveis (antes só CLASSIFIED). Reason 'NOT_CLASSIFIED' removida.
 //
 // Usado por:
 // - B1.4: tooltip no card inelegível + toast quando selecionado vira inel
@@ -16,7 +18,6 @@ import type { SampleEligibilityReason } from '../types';
 
 const LABEL_BY_REASON: Record<NonNullable<SampleEligibilityReason>, string> = {
   INVALIDATED: 'Amostra inválida',
-  NOT_CLASSIFIED: 'Aguardando classificação',
   NO_BALANCE: 'Sem saldo disponível',
 };
 

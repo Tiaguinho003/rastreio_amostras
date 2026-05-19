@@ -3,21 +3,23 @@
 // Liga B1.3 (Liga F1.0 + F1.C): FAB radial que substitui o "+" simples
 // na pagina /samples. Dois modos:
 //
-// - 'idle': mostra "+". Tap expande backdrop transparente + 2 satelites
-//   (Unidade / Liga) em arco com slide+fade. Tap em satelite faz pulse
-//   rapido + close + dispara acao. Tap fora do FAB/satelites (backdrop)
-//   fecha sem acao.
+// - 'idle': mostra "+". Tap expande um card glass (vidro embacado) que
+//   emerge de dentro do FAB com transform-origin bottom + spring easing.
+//   O card tem largura do FAB e duas opcoes empilhadas (Unidade / Liga),
+//   cada uma com icone + label. Tap em opcao faz pulse rapido + close +
+//   dispara acao. Tap fora do FAB/card (backdrop) fecha sem acao.
 //
 // - 'blendArrow' (Liga F1.1 + F1.D): substitui "+" por seta direita ->.
 //   Disabled (opacity 40% + cursor not-allowed) quando selectedCount < 2.
-//   Tap habilitado dispara onContinue. Sera cabeado em B1.4 (modo selecao).
+//   Tap habilitado dispara onContinue. Cabeado em B1.4 (modo selecao).
 //
-// CSS em app/globals.css reutiliza tokens existentes (--brand-green,
-// .cv2-fab base, easing cubic-bezier(0.34, 1.56, 0.64, 1)).
+// CSS em app/globals.css: .fab-menu-card (glass + spring emerge),
+// .fab-menu-option (icone grande + label), .fab-radial-backdrop
+// (capta tap-fora). Reusa tokens existentes (--brand-green, .cv2-fab).
 
 import { useEffect, useRef, useState } from 'react';
 
-type SatelliteAction = 'unit' | 'blend';
+type MenuAction = 'unit' | 'blend';
 
 type SampleCreateRadialFabProps =
   | {
@@ -36,9 +38,9 @@ const TOOLTIP_BLEND_DISABLED = 'Selecione pelo menos 2 amostras';
 
 export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
   const [expanded, setExpanded] = useState(false);
-  const [pulsingSatellite, setPulsingSatellite] = useState<SatelliteAction | null>(null);
-  // Guard contra taps rápidos em sequência: depois que uma ação é
-  // disparada, ignora outros taps até o pulse terminar + cleanup.
+  const [pulsingOption, setPulsingOption] = useState<MenuAction | null>(null);
+  // Guard contra taps rapidos em sequencia: depois que uma acao e
+  // disparada, ignora outros taps ate o pulse terminar + cleanup.
   const actionFiredRef = useRef(false);
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -88,17 +90,17 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
     setExpanded((prev) => !prev);
   };
 
-  const handleSatelliteTap = (action: SatelliteAction) => {
+  const handleOptionTap = (action: MenuAction) => {
     if (actionFiredRef.current) return; // race protection
     actionFiredRef.current = true;
-    setPulsingSatellite(action);
+    setPulsingOption(action);
     pulseTimeoutRef.current = setTimeout(() => {
-      setPulsingSatellite(null);
+      setPulsingOption(null);
       setExpanded(false);
-      // Dispara a ação só DEPOIS do pulse pra UX feel mais suave.
+      // Dispara a acao so DEPOIS do pulse pra UX feel mais suave.
       if (action === 'unit') props.onCreateUnit();
       else props.onStartBlendSelection();
-      // Reset guard pra próxima abertura.
+      // Reset guard pra proxima abertura.
       actionFiredRef.current = false;
     }, 150);
   };
@@ -115,36 +117,48 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       )}
 
       {expanded && (
-        <>
+        <div className="fab-menu-card" role="menu" aria-label="Opções de criação">
           <button
             type="button"
-            className={`fab-radial-satellite is-pos-unit${pulsingSatellite === 'unit' ? ' is-pulsing' : ''}`}
+            className={`fab-menu-option${pulsingOption === 'unit' ? ' is-pulsing' : ''}`}
             aria-label="Nova amostra unidade"
             role="menuitem"
-            onClick={() => handleSatelliteTap('unit')}
+            onClick={() => handleOptionTap('unit')}
           >
-            <span className="fab-radial-satellite-label">Unidade</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              className="fab-menu-option-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
               <rect x="4" y="6" width="16" height="14" rx="2" />
               <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
             </svg>
+            <span className="fab-menu-option-label">Unidade</span>
           </button>
+
+          <div className="fab-menu-option-separator" aria-hidden="true" />
 
           <button
             type="button"
-            className={`fab-radial-satellite is-pos-blend${pulsingSatellite === 'blend' ? ' is-pulsing' : ''}`}
+            className={`fab-menu-option${pulsingOption === 'blend' ? ' is-pulsing' : ''}`}
             aria-label="Nova liga"
             role="menuitem"
-            onClick={() => handleSatelliteTap('blend')}
+            onClick={() => handleOptionTap('blend')}
           >
-            <span className="fab-radial-satellite-label">Liga</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              className="fab-menu-option-icon"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
               <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
               <path d="M10 14v6" />
               <path d="M14 14v6" />
             </svg>
+            <span className="fab-menu-option-label">Liga</span>
           </button>
-        </>
+        </div>
       )}
 
       <button

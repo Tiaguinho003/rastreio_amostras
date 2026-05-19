@@ -312,8 +312,9 @@ if (!databaseUrl || !databaseReachable) {
     const registeredItem = items.find((i) => i.id === registered);
     assert.equal(classifiedItem.eligibility.eligible, true);
     assert.equal(classifiedItem.eligibility.reason, null);
-    assert.equal(registeredItem.eligibility.eligible, false);
-    assert.equal(registeredItem.eligibility.reason, 'NOT_CLASSIFIED');
+    // Liga F1.4 relaxada (2026-05-19): REGISTRATION_CONFIRMED tambem e elegivel.
+    assert.equal(registeredItem.eligibility.eligible, true);
+    assert.equal(registeredItem.eligibility.reason, null);
   });
 
   test('GET /samples?eligibleForBlend=true reports committedSacks for origin in active blend', async () => {

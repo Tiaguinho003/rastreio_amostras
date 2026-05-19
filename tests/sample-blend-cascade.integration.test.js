@@ -101,6 +101,24 @@ if (!databaseUrl || !databaseReachable) {
     await prisma.sample.update({ where: { id }, data: { status: 'CLASSIFIED' } });
   }
 
+  // F1.4 relaxada (2026-05-19): origens REGISTRATION_CONFIRMED tambem
+  // podem entrar em liga, sem UPDATE pra CLASSIFIED.
+  async function createRegisteredSample({ id, lotNumber, declaredSacks = 10 }) {
+    await eventService.appendEvent(
+      registrationConfirmedEvent(id, {
+        payload: {
+          sampleLotNumber: lotNumber,
+          declared: {
+            owner: 'Produtor',
+            sacks: declaredSacks,
+            harvest: '24/25',
+            originLot: 'LOTE-ORIGEM',
+          },
+        },
+      })
+    );
+  }
+
   test.before(async () => {
     await prisma.$connect();
   });
@@ -181,6 +199,64 @@ if (!databaseUrl || !databaseReachable) {
     childEvents.forEach((event) => {
       assert.equal(event.payload.buyerClientId, buyerId);
     });
+  });
+
+  test('createSampleMovement SALE cascades to REGISTRATION_CONFIRMED origin (F1.4 relaxed)', async () => {
+    // Origem registrada (nao classificada) entra na liga; quando a liga
+    // e vendida, a cascata emite SALE_CREATED na origem direto e a
+    // origem fica com soldSacks > 0 sem nunca ter passado por CLASSIFIED.
+    const registeredOriginId = randomUUID();
+    const classifiedOriginId = randomUUID();
+    const buyerId = randomUUID();
+    await createRegisteredSample({
+      id: registeredOriginId,
+      lotNumber: '10500',
+      declaredSacks: 25,
+    });
+    await createClassifiedSample({
+      id: classifiedOriginId,
+      lotNumber: '10501',
+      declaredSacks: 40,
+    });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cascade-registered',
+        components: [
+          { originSampleId: registeredOriginId, contributedSacks: 10 },
+          { originSampleId: classifiedOriginId, contributedSacks: 30 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10502',
+      },
+      actor
+    );
+
+    const result = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.equal(result.events.length, 3);
+
+    // Origem registered cascateada: soldSacks atualizado, status do
+    // sample permanece REGISTRATION_CONFIRMED (cascata nao muta status
+    // do sample — apenas commercialStatus).
+    const registeredOrigin = await prisma.sample.findUnique({
+      where: { id: registeredOriginId },
+    });
+    assert.equal(registeredOrigin.status, 'REGISTRATION_CONFIRMED');
+    assert.equal(registeredOrigin.soldSacks, 10);
+    assert.equal(registeredOrigin.commercialStatus, 'PARTIALLY_SOLD');
   });
 
   test('createSampleMovement SALE on blend-of-blend propagates 3 levels (Liga em Liga)', async () => {

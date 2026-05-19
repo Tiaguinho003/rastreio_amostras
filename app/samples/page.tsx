@@ -19,8 +19,17 @@ import { NewSampleModal } from '../../components/NewSampleModal';
 import { NotificationBell } from '../../components/NotificationBell';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
+import {
+  BlendConfirmationSheet,
+  type BlendContribution,
+} from '../../components/samples/BlendConfirmationSheet';
+import { SampleCreatedSuccessModal } from '../../components/samples/SampleCreatedSuccessModal';
+import {
+  SelectedSamplesDropdown,
+  type SelectedSampleSummary,
+} from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
-import { ApiError, listSamples } from '../../lib/api-client';
+import { ApiError, createBlend, listSamples } from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -153,6 +162,16 @@ function getPeriodInputLabel(periodMode: PeriodMode) {
   }
 
   return 'Data';
+}
+
+// Liga B2.2: gera clientDraftId pra idempotencia do createBlend.
+// Mantido aqui (page-level) porque a chamada vem diretamente do sheet
+// sem passar por um modal F3 dedicado (removido em 2026-05-19).
+function buildBlendDraftId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `blend-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function getPeriodPlaceholder(periodMode: PeriodMode) {
@@ -450,6 +469,24 @@ function SamplesPage() {
   // selectedIds persiste entre buscas/filtros — contador SEMPRE de .size.
   const [selectionMode, setSelectionMode] = useState<'idle' | 'blend'>('idle');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Liga B1.5: popover de revisao das selecionadas (lista + X individual).
+  // Abre via tap no contador, fecha via click fora / Escape / remocao da
+  // ultima amostra.
+  const [selectionDropdownOpen, setSelectionDropdownOpen] = useState(false);
+  // Liga B2.1: bottom-sheet de confirmacao com inputs de contribuicao
+  // por amostra. Abre via tap na seta -> do FAB. Fecha por Voltar /
+  // backdrop / ESC / remocao da ultima amostra dentro do sheet.
+  const [confirmationSheetOpen, setConfirmationSheetOpen] = useState(false);
+  // Liga B2.2: loading do createBlend disparado direto do sheet (modal F3
+  // removido em 2026-05-19 — caracteristicas da liga sao derivadas das
+  // origens; nada coletado do operador no momento da criacao).
+  const [creatingBlend, setCreatingBlend] = useState(false);
+  // Liga B2.3: success modal reusando <SampleCreatedSuccessModal entity="blend">.
+  const [createdBlend, setCreatedBlend] = useState<{
+    sampleId: string;
+    lotNumber: string;
+  } | null>(null);
+  const blendDraftIdRef = useRef<string>('');
   const toast = useToast();
 
   const filtersTrapRef = useFocusTrap(filtersOpen);
@@ -811,6 +848,15 @@ function SamplesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionMode, session]);
 
+  // Liga B2.1 — quando todas as amostras forem removidas via X dentro do
+  // sheet, selectedIds zera e o sheet fecha automaticamente. Modo selecao
+  // permanece ativo (decisao UX confirmada).
+  useEffect(() => {
+    if (confirmationSheetOpen && selectedIds.size === 0) {
+      setConfirmationSheetOpen(false);
+    }
+  }, [confirmationSheetOpen, selectedIds]);
+
   // Liga B1.4 — body class pra esconder navbar/header normal no modo selecao.
   useEffect(() => {
     if (selectionMode === 'blend') {
@@ -918,6 +964,10 @@ function SamplesPage() {
   function exitBlendMode() {
     setSelectionMode('idle');
     setSelectedIds(new Set());
+    setSelectionDropdownOpen(false);
+    setConfirmationSheetOpen(false);
+    setCreatingBlend(false);
+    blendDraftIdRef.current = '';
   }
 
   function toggleSampleSelection(sampleId: string) {
@@ -937,13 +987,92 @@ function SamplesPage() {
     });
   }
 
-  function openReviewPlaceholder() {
-    // B1 placeholder — B2 vai abrir o bottom-sheet de confirmacao com inputs
-    // de contribuicao pre-preenchidos (Liga F1.D).
-    toast.info({
-      title: 'Tela de confirmação em desenvolvimento',
-      description: 'Próxima fase (B2)',
+  // Liga B1.5: remover individual via X no popover. Se for a ultima,
+  // fecha o popover automaticamente mas mantem o modo selecao ativo
+  // (decisao UX confirmada: nao sai do modo).
+  function handleRemoveFromSelection(sampleId: string) {
+    setSelectedIds((prev) => {
+      if (!prev.has(sampleId)) return prev;
+      const next = new Set(prev);
+      next.delete(sampleId);
+      if (next.size === 0) setSelectionDropdownOpen(false);
+      return next;
     });
+  }
+
+  // Liga B2.1: abre o bottom-sheet de confirmacao. Disparado pelo FAB-seta
+  // -> em /samples quando ha >=2 amostras selecionadas.
+  function openConfirmation() {
+    if (selectedIds.size < 2) return; // safety; seta ja vem disabled
+    // Fecha o popover de revisao se estiver aberto (mutuamente exclusivos).
+    setSelectionDropdownOpen(false);
+    setConfirmationSheetOpen(true);
+  }
+
+  // "Voltar" no sheet ou fechamento via backdrop / ESC. Mantem modo
+  // selecao + selectedIds preservados.
+  function closeConfirmation() {
+    setConfirmationSheetOpen(false);
+  }
+
+  // Liga B2.2 refinada em 2026-05-19: tap "Criar liga" no sheet chama
+  // createBlend direto (sem modal F3 intermediario). Caracteristicas da
+  // liga (dono / safra / local / notes) NAO sao coletadas — owner fica
+  // null (carteira da corretora — F3.A), safra deriva das origens no
+  // backend (distinct ', '), local/notes ficam null. Edicao posterior
+  // permite refinar via detalhe.
+  async function handleProceedToCreate(components: BlendContribution[]) {
+    if (creatingBlend) return;
+    if (!session) return;
+    if (components.length < 2) {
+      toast.error({
+        title: 'Não foi possível criar liga',
+        description: 'Selecione pelo menos 2 amostras antes de continuar.',
+      });
+      return;
+    }
+    if (!blendDraftIdRef.current) {
+      blendDraftIdRef.current = buildBlendDraftId();
+    }
+    setCreatingBlend(true);
+    try {
+      const result = await createBlend(session, {
+        clientDraftId: blendDraftIdRef.current,
+        components,
+        ownerClientId: null,
+        ownerUnitId: null,
+      });
+      const sampleId = result.sample.id;
+      const lotNumber = result.sample.internalLotNumber ?? sampleId;
+      blendDraftIdRef.current = '';
+      setCreatedBlend({ sampleId, lotNumber });
+      setConfirmationSheetOpen(false);
+      setSelectionMode('idle');
+      setSelectedIds(new Set());
+      setSelectionDropdownOpen(false);
+      setNewSampleRefetchKey((current) => current + 1);
+    } catch (cause) {
+      const description =
+        cause instanceof ApiError
+          ? cause.message
+          : cause instanceof Error
+            ? cause.message
+            : 'Tente novamente.';
+      toast.error({
+        title: 'Não foi possível criar liga',
+        description: description || 'Tente novamente.',
+      });
+    } finally {
+      setCreatingBlend(false);
+    }
+  }
+
+  // Liga B2.3: tap em "Ir para liga" / "Criar outra liga" / X do success
+  // modal — todos fecham o modal sem navegar pro detalhe (decisao 5.29).
+  // A liga ja apareceu no topo da lista via refetch disparado em
+  // handleProceedToCreate.
+  function handleBlendSuccessClose() {
+    setCreatedBlend(null);
   }
 
   function closeFilters() {
@@ -1131,13 +1260,7 @@ function SamplesPage() {
         {/* Liga B1.4: SelectionModeHeader substitui o header normal quando
             o usuario entra em modo selecao pra criar liga. CSS body class
             is-selection-mode tambem esconde o header normal por seguranca. */}
-        {selectionMode === 'blend' ? (
-          <SelectionModeHeader
-            selectedCount={selectedIds.size}
-            onExit={exitBlendMode}
-            onOpenReview={openReviewPlaceholder}
-          />
-        ) : null}
+        {selectionMode === 'blend' ? <SelectionModeHeader onExit={exitBlendMode} /> : null}
         <header className="samples-page-v2-header">
           <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
@@ -1179,7 +1302,7 @@ function SamplesPage() {
             <SampleCreateRadialFab
               mode="blendArrow"
               selectedCount={selectedIds.size}
-              onContinue={openReviewPlaceholder}
+              onContinue={openConfirmation}
             />
           ) : (
             <SampleCreateRadialFab
@@ -1210,30 +1333,70 @@ function SamplesPage() {
             </div>
           ) : null}
 
-          {/* Section 2: Count + filter btn */}
+          {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} registros</span>
-            <button
-              type="button"
-              className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
-              aria-label="Filtros avancados"
-              onClick={(event) => {
-                if (filtersOpen) {
-                  closeFilters();
-                  return;
-                }
-                openFilters(event.currentTarget);
-              }}
-            >
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M4 6h16" />
-                <path d="M7 12h10" />
-                <path d="M10 18h4" />
-              </svg>
-              {activeHiddenFiltersCount > 0 ? (
-                <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
-              ) : null}
-            </button>
+            {selectionMode === 'blend' ? (
+              <div className="spv2-selection-counter-wrap">
+                <button
+                  type="button"
+                  className="spv2-selection-counter"
+                  aria-label={`${selectedIds.size} amostras selecionadas — abrir revisão`}
+                  aria-expanded={selectionDropdownOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setSelectionDropdownOpen((open) => !open)}
+                  disabled={selectedIds.size === 0}
+                >
+                  <span className="spv2-selection-counter__num">{selectedIds.size}</span>
+                  <span className="spv2-selection-counter__label">
+                    {selectedIds.size === 1 ? 'selecionada' : 'selecionadas'}
+                  </span>
+                  <svg
+                    className="spv2-selection-counter__chevron"
+                    viewBox="0 0 24 24"
+                    focusable="false"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {selectionDropdownOpen && selectedIds.size > 0 ? (
+                  <SelectedSamplesDropdown
+                    samples={samplesState.items
+                      .filter((s) => selectedIds.has(s.id))
+                      .map<SelectedSampleSummary>((s) => ({
+                        id: s.id,
+                        lot: s.internalLotNumber ?? s.id.slice(0, 8),
+                        availableSacks: s.availableSacks ?? null,
+                      }))}
+                    onRemove={handleRemoveFromSelection}
+                    onClose={() => setSelectionDropdownOpen(false)}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`hero-search-filter-btn${activeHiddenFiltersCount > 0 ? ' has-filters' : ''}`}
+                aria-label="Filtros avancados"
+                onClick={(event) => {
+                  if (filtersOpen) {
+                    closeFilters();
+                    return;
+                  }
+                  openFilters(event.currentTarget);
+                }}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M4 6h16" />
+                  <path d="M7 12h10" />
+                  <path d="M10 18h4" />
+                </svg>
+                {activeHiddenFiltersCount > 0 ? (
+                  <span className="hero-search-filter-badge">{activeHiddenFiltersCount}</span>
+                ) : null}
+              </button>
+            )}
           </div>
 
           {/* Section 3: Card list */}
@@ -1354,6 +1517,32 @@ function SamplesPage() {
           }}
         />
       ) : null}
+
+      {/* Liga B2.1: bottom-sheet de confirmacao com inputs de contribuicao.
+          Abre via seta -> do FAB. Modal F3 removido em 2026-05-19 — tap
+          em "Criar liga" no sheet chama createBlend direto. Caracteristicas
+          da liga (dono / safra / local / notes) sao derivadas das origens
+          no backend; nada coletado do operador na criacao. */}
+      <BlendConfirmationSheet
+        open={confirmationSheetOpen && selectionMode === 'blend'}
+        samples={samplesState.items.filter((s) => selectedIds.has(s.id))}
+        submitting={creatingBlend}
+        onClose={closeConfirmation}
+        onRemove={handleRemoveFromSelection}
+        onProceed={handleProceedToCreate}
+      />
+
+      {/* Liga B2.3: success modal reusado com entity="blend". Tap em
+          qualquer botao (Ir para liga / Criar outra liga / X) fecha sem
+          navegar — refetch ja foi disparado em handleProceedToCreate. */}
+      <SampleCreatedSuccessModal
+        open={createdBlend !== null}
+        lotNumber={createdBlend?.lotNumber ?? '—'}
+        onNavigateToSample={handleBlendSuccessClose}
+        onCreateAnother={handleBlendSuccessClose}
+        onClose={handleBlendSuccessClose}
+        entity="blend"
+      />
     </AppShell>
   );
 }

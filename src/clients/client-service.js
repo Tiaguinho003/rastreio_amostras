@@ -1367,6 +1367,8 @@ export class ClientService {
           createdAt: true,
           commercialStatus: true,
           status: true,
+          // Liga B3.1: flag pra renderizar <BlendBadge> ao lado do lote.
+          isBlend: true,
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * limit,
@@ -1384,6 +1386,7 @@ export class ClientService {
         createdAt: it.createdAt?.toISOString() ?? null,
         commercialStatus: it.commercialStatus,
         status: it.status,
+        isBlend: Boolean(it.isBlend),
       })),
       page: buildClientListPage(total, page, limit),
     };

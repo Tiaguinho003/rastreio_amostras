@@ -10,6 +10,8 @@ import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientUnitSelect } from '../../../components/clients/ClientUnitSelect';
+import { BlendBadge } from '../../../components/samples/BlendBadge';
+import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import {
   ApiError,
@@ -1856,6 +1858,7 @@ export default function SampleDetailPage() {
                     <span className="sdv-identity-code">
                       {detail.sample.internalLotNumber ?? detail.sample.id}
                     </span>
+                    {detail.sample.isBlend ? <BlendBadge size="md" /> : null}
                     {sdvStatus ? (
                       <span
                         className="sdv-identity-badge"
@@ -2099,6 +2102,71 @@ export default function SampleDetailPage() {
                       ) : null}
                       <NoticeSlot notice={generalNotice} />
                     </div>
+
+                    {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
+                        Backend mantem `components` em liga revertida (F8.3) —
+                        a secao continua visivel como historico. */}
+                    {detail.sample.isBlend && detail.components && detail.components.length > 0 ? (
+                      <div className="sdv-card">
+                        <span className="sdv-card-title">Composição da liga</span>
+                        <ul className="sdv-related-list">
+                          {detail.components.map((component, idx) => {
+                            const origin = component.originSample;
+                            if (!origin) {
+                              return (
+                                <li key={component.id} className="sdv-empty-text">
+                                  Origem removida ou inacessível
+                                </li>
+                              );
+                            }
+                            return (
+                              <li key={component.id}>
+                                <RelatedSampleRow
+                                  href={`/samples/${origin.id}`}
+                                  lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
+                                  isBlend={origin.isBlend}
+                                  owner={origin.declaredOwner}
+                                  harvest={origin.declaredHarvest}
+                                  contribution={component.contributedSacks}
+                                  status={origin.status}
+                                  animationDelay={`${Math.min(idx, 10) * 0.025}s`}
+                                />
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* Liga B3.3: amostra normal comprometida em liga(s) ativa(s).
+                        Backend filtra INVALIDATED em activeBlends (Wave A2.5),
+                        entao quando liga e revertida a secao desaparece aqui. */}
+                    {!detail.sample.isBlend &&
+                    detail.activeBlends &&
+                    detail.activeBlends.length > 0 ? (
+                      <div className="sdv-card">
+                        <span className="sdv-card-title">
+                          Comprometida em {detail.activeBlends.length}{' '}
+                          {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}
+                        </span>
+                        <ul className="sdv-related-list">
+                          {detail.activeBlends.map((blend, idx) => (
+                            <li key={blend.sampleId}>
+                              <RelatedSampleRow
+                                href={`/samples/${blend.sampleId}`}
+                                lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
+                                isBlend={true}
+                                owner={null}
+                                harvest={null}
+                                contribution={blend.contributedSacks}
+                                status={blend.status}
+                                animationDelay={`${Math.min(idx, 10) * 0.025}s`}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
                     {sendHistoryItems.length > 0 ? (
                       <div className="sdv-card">

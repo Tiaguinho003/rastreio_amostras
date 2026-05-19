@@ -11,10 +11,6 @@ test('mapEligibilityReasonToLabel maps INVALIDATED to pt-BR label', () => {
   assert.equal(mapEligibilityReasonToLabel('INVALIDATED'), 'Amostra inválida');
 });
 
-test('mapEligibilityReasonToLabel maps NOT_CLASSIFIED to pt-BR label', () => {
-  assert.equal(mapEligibilityReasonToLabel('NOT_CLASSIFIED'), 'Aguardando classificação');
-});
-
 test('mapEligibilityReasonToLabel maps NO_BALANCE to pt-BR label', () => {
   assert.equal(mapEligibilityReasonToLabel('NO_BALANCE'), 'Sem saldo disponível');
 });

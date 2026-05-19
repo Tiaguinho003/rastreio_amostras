@@ -900,6 +900,38 @@ export function createSample(
   });
 }
 
+// Liga B2.2: cria uma liga a partir de origens selecionadas + contribuicoes.
+// Endpoint REST: POST /api/v1/samples/blends (Wave A3.1). Backend monta
+// um Sample com isBlend=true + N registros em SampleBlendComponent.
+// Idempotente via clientDraftId.
+//
+// F3.* revogadas em 2026-05-19: liga nao coleta mais dono / safra / local /
+// notes no momento da criacao. Tudo opcional aqui. Backend deriva a safra
+// automaticamente das origens (distinct ordenado, join ', ').
+export function createBlend(
+  session: SessionData,
+  data: {
+    clientDraftId: string;
+    components: Array<{ originSampleId: string; contributedSacks: number }>;
+    ownerClientId?: string | null;
+    ownerUnitId?: string | null;
+    idempotencyKey?: string;
+  }
+) {
+  const body: { [key: string]: JsonValue } = {
+    clientDraftId: data.clientDraftId,
+    components: data.components,
+    ownerClientId: data.ownerClientId ?? null,
+    ownerUnitId: data.ownerUnitId ?? null,
+  };
+  if (data.idempotencyKey) body.idempotencyKey = data.idempotencyKey;
+  return request<CreateSampleResponse>('/samples/blends', {
+    method: 'POST',
+    session,
+    body,
+  });
+}
+
 export function getSampleDetail(
   session: SessionData,
   sampleId: string,

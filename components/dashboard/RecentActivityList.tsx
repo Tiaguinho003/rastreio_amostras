@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import type { DashboardRecentActivityItem, DashboardRecentActivityType } from '../../lib/types';
+import { BlendBadge } from '../samples/BlendBadge';
 
 const EVENT_CONFIG: Record<
   DashboardRecentActivityType,
@@ -124,6 +125,7 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
             >
               <span className="dd-activity-lot">
                 {formatLot(item.internalLotNumber, item.sampleId)}
+                {item.isBlend ? <BlendBadge size="sm" /> : null}
               </span>
               <span className="dd-activity-producer">{formatProducer(item.producer)}</span>
               <span className="dd-activity-event" style={{ color: cfg.color, background: cfg.bg }}>

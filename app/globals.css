@@ -5931,7 +5931,7 @@ button:disabled {
   animation: samples-sheet-in 0.5s ease-out 0.15s backwards;
 }
 
-.cv2-fab {
+.clients-page-v2 .cv2-fab {
   animation: cv2-fabIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s backwards;
 }
 
@@ -6979,6 +6979,27 @@ button:disabled {
   min-height: clamp(320px, 42vw, 460px);
 }
 
+/* Liga B3.2 + B3.3: lista de samples relacionados no detail page.
+   Herda visual de .sdv-commercial-list-row mas sem altura fixa/scroll
+   (a pagina ja faz scroll). Cards crescem naturalmente. */
+.sdv-related-list {
+  list-style: none;
+  margin: 0;
+  padding: clamp(10px, 2.5vw, 14px) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2vw, 12px);
+}
+
+.sdv-related-list li {
+  display: block;
+}
+
+.sdv-related-list .sdv-empty-text {
+  padding: clamp(12px, 3vw, 16px);
+  text-align: center;
+}
+
 .sdv-commercial-list {
   list-style: none;
   margin: 0;
@@ -7142,12 +7163,14 @@ button:disabled {
 }
 
 .sdv-commercial-list-lot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: clamp(17px, 1.9vw, 20px);
   font-weight: 700;
   color: #1f1f1f;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sdv-commercial-list-meta {
@@ -20126,12 +20149,14 @@ button:disabled {
   }
 
   .dd-activity-lot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: clamp(0.84rem, 0.92vw, 0.92rem);
     font-weight: 700;
     color: #243a28;
     letter-spacing: 0.01em;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -24442,15 +24467,18 @@ button:disabled {
 }
 
 /* ============================================================
-   Liga B1.3 — FAB radial (Sample / Liga) + variantes
+   Liga B1.3 — FAB + menu glass-card (Sample / Liga)
    ============================================================
-   Reutiliza .cv2-fab como base do botão principal. Adiciona:
+   Reutiliza .cv2-fab como base do botao principal. Adiciona:
    - .fab-radial-backdrop: overlay transparente full-screen pra
      captar tap-fora quando expandido.
-   - .fab-radial-satellite: botões satélite "Unidade" e "Liga"
-     em posições fixas relativas ao FAB (acima e acima-esquerda).
-   - Variante .cv2-fab.is-blend-arrow: substitui SVG do "+" por "→"
-     no modo de seleção (B1.4).
+   - .fab-menu-card: card retangular vidro-embacado que emerge de
+     dentro do FAB (transform-origin bottom + spring easing). Largura
+     igual ao FAB pra alinhamento visual com o "+".
+   - .fab-menu-option: cada opcao empilhada (icone grande + label).
+   - .fab-menu-option-separator: linha fina dividindo as opcoes.
+   - Variante .cv2-fab.is-blend-arrow: substitui SVG do "+" por "->"
+     no modo de selecao (B1.4).
    - Variante .cv2-fab.is-disabled: opacity 0.4 + cursor not-allowed
      (quando selectedCount < 2 no modo blendArrow).
 */
@@ -24459,12 +24487,12 @@ button:disabled {
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 49; /* abaixo do FAB (.cv2-fab = 50), acima do conteúdo */
+  z-index: 49; /* abaixo do FAB (.cv2-fab = 50), acima do conteudo */
   pointer-events: auto;
-  animation: fab-radial-backdrop-in 0.18s ease-out;
+  animation: fab-menu-backdrop-in 0.2s ease-out;
 }
 
-@keyframes fab-radial-backdrop-in {
+@keyframes fab-menu-backdrop-in {
   from {
     opacity: 0;
   }
@@ -24473,121 +24501,122 @@ button:disabled {
   }
 }
 
-.fab-radial-satellite {
+.fab-menu-card {
   position: fixed;
-  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem);
+  /* Alinhado com o FAB (mesmo right) + acima dele com gap de 10px.
+     Calculo: bottom do FAB + altura do FAB + gap. */
+  bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem +
+      clamp(53px, 14.95vw, 60px) + 10px
+  );
   right: clamp(14px, 4vw, 20px);
-  width: clamp(46px, 12vw, 52px);
-  height: clamp(46px, 12vw, 52px);
-  border-radius: clamp(14px, 3.8vw, 16px);
-  border: 0;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
-  box-shadow: 0 3px 14px rgba(27, 94, 32, 0.35);
-  display: inline-grid;
-  place-items: center;
-  cursor: pointer;
+  width: clamp(53px, 14.95vw, 60px);
   z-index: 51;
-  -webkit-tap-highlight-color: transparent;
-  animation: fab-radial-satellite-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-radius: clamp(16px, 4.6vw, 18px);
+  /* Vidro embacado: blur intenso + tom verde-translucido + highlight
+     interno no topo + sombra suave. Em fundo claro fica como cristal
+     escuro; em fundo escuro como vidro fosco. */
+  background: linear-gradient(180deg, rgba(31, 93, 67, 0.78), rgba(20, 60, 44, 0.82));
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 16px 38px rgba(10, 30, 18, 0.36),
+    0 2px 6px rgba(10, 30, 18, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transform-origin: bottom center;
+  animation: fab-menu-card-in 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  overflow: hidden;
 }
 
-.fab-radial-satellite svg {
-  width: clamp(18px, 4.8vw, 22px);
-  height: clamp(18px, 4.8vw, 22px);
+@keyframes fab-menu-card-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.32) translateY(30%);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.fab-menu-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: clamp(10px, 2.6vw, 12px) 6px;
+  background: transparent;
+  border: 0;
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease,
+    transform 0.15s ease;
+}
+
+.fab-menu-option:hover,
+.fab-menu-option:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.fab-menu-option:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.fab-menu-option-icon {
+  width: clamp(22px, 5.8vw, 26px);
+  height: clamp(22px, 5.8vw, 26px);
   fill: none;
   stroke: #ffffff;
-  stroke-width: 2.5;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-/* Label flutuante à esquerda do satélite. */
-.fab-radial-satellite-label {
-  position: absolute;
-  right: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(23, 60, 48, 0.92);
-  color: #ffffff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+.fab-menu-option-label {
+  font-size: clamp(10px, 2.6vw, 11.5px);
   font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  line-height: 1;
 }
 
-/* Posições relativas ao FAB.
-   - Unidade fica imediatamente acima (offset = altura do FAB + 14px gap).
-   - Liga fica acima-esquerda.
-   Uso de transform em vez de top/left pra preservar a base bottom-right
-   do .cv2-fab e permitir keyframes spring sem flicker de layout. */
-.fab-radial-satellite.is-pos-unit {
-  transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px)));
-  animation-delay: 0ms;
+.fab-menu-option-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.16);
+  margin: 0 10px;
 }
 
-.fab-radial-satellite.is-pos-blend {
-  transform: translate(
-    calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
-    calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
-  );
-  animation-delay: 40ms;
+.fab-menu-option.is-pulsing {
+  animation: fab-menu-option-pulse 0.16s ease-out;
 }
 
-.fab-radial-satellite.is-pulsing.is-pos-unit {
-  animation: fab-radial-satellite-pulse-unit 0.15s ease-out;
-}
-
-.fab-radial-satellite.is-pulsing.is-pos-blend {
-  animation: fab-radial-satellite-pulse-blend 0.15s ease-out;
-}
-
-@keyframes fab-radial-satellite-in {
-  from {
-    opacity: 0;
-    transform: scale(0) translateY(0);
-  }
-}
-
-@keyframes fab-radial-satellite-pulse-unit {
+@keyframes fab-menu-option-pulse {
   0% {
-    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1);
+    transform: scale(1);
+    background: rgba(255, 255, 255, 0.1);
   }
   50% {
-    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1.18);
+    transform: scale(0.94);
+    background: rgba(255, 255, 255, 0.34);
   }
   100% {
-    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1);
+    transform: scale(1);
+    background: rgba(255, 255, 255, 0.2);
   }
 }
 
-@keyframes fab-radial-satellite-pulse-blend {
-  0% {
-    transform: translate(
-        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
-        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
-      )
-      scale(1);
-  }
-  50% {
-    transform: translate(
-        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
-        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
-      )
-      scale(1.18);
-  }
-  100% {
-    transform: translate(
-        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
-        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
-      )
-      scale(1);
-  }
-}
-
-/* Modo blendArrow (Liga F1.D — seta no FAB durante modo seleção). */
+/* Modo blendArrow (Liga F1.D — seta no FAB durante modo selecao). */
 .cv2-fab.is-disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -24623,8 +24652,11 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 .samples-selection-header {
+  /* Grid simetrico 36px | 1fr | 36px: o spacer invisivel à direita tem
+     a mesma largura do botao [X] pra manter o titulo opticamente
+     centralizado na linha. */
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 36px 1fr 36px;
   align-items: center;
   gap: 1rem;
   padding: calc(var(--app-safe-area-top, env(safe-area-inset-top)) + 0.85rem) 1.1rem 0.85rem;
@@ -24637,17 +24669,28 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 .samples-selection-header__exit {
+  /* Botao 36x36 com SVG centralizado via grid place-items. SVG 18px
+     (mantem ~9px de respiro em cada lado) pra peso visual confortavel. */
   display: inline-grid;
   place-items: center;
   width: 36px;
   height: 36px;
+  padding: 0;
   border-radius: 10px;
   border: 0;
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+
+.samples-selection-header__exit:hover,
+.samples-selection-header__exit:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+  outline: none;
 }
 
 .samples-selection-header__exit:active {
@@ -24655,6 +24698,7 @@ body.is-selection-mode .hero-search-filter-btn {
 }
 
 .samples-selection-header__exit svg {
+  display: block;
   width: 18px;
   height: 18px;
   fill: none;
@@ -24671,35 +24715,662 @@ body.is-selection-mode .hero-search-filter-btn {
   text-align: center;
 }
 
-.samples-selection-header__counter {
+/* Spacer invisivel à direita do titulo — mantem grid simetrico e o
+   titulo opticamente centralizado mesmo sem botao do lado direito. */
+.samples-selection-header__spacer {
+  display: block;
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+}
+
+/* Contador "N selecionadas" — na mesma linha do "X registros"
+   (.spv2-list-meta), aparecendo no lugar do botao filtro durante o
+   modo selecao. Usa pill verde da marca pra contrastar com fundo
+   claro e bater com o header. */
+.spv2-selection-counter {
   display: inline-flex;
   align-items: baseline;
   gap: 0.3rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.32rem 0.75rem;
   border-radius: 999px;
   border: 0;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--brand-green);
   color: #ffffff;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: clamp(12px, 3.4vw, 13.5px);
+  line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s;
 }
 
-.samples-selection-header__counter:hover,
-.samples-selection-header__counter:active {
-  background: rgba(255, 255, 255, 0.26);
+.spv2-selection-counter:hover,
+.spv2-selection-counter:focus-visible {
+  background: var(--brand-green-soft, #2c7a5a);
+  outline: none;
 }
 
-.samples-selection-header__counter-num {
-  font-size: 1rem;
+.spv2-selection-counter:active {
+  transform: scale(0.96);
 }
 
-.samples-selection-header__counter-label {
-  font-size: 0.8rem;
-  opacity: 0.92;
+/* ============================================================
+   Liga B3.1 — BlendBadge (pill lilas "Liga" + icone merge)
+   ============================================================
+   Inline ao lado do internalLotNumber em listagens, detalhe e dashboard.
+   Tom lilas pra nao competir com verde (sucesso), vermelho (perigo) e
+   ambar (warning). Sem hover — badge nao e acionavel.
+*/
+
+.blend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(76, 29, 149, 0.25);
 }
+
+.blend-badge--sm {
+  font-size: clamp(10.5px, 2.8vw, 11.5px);
+  padding: 2px 6px;
+}
+
+.blend-badge--sm .blend-badge__icon {
+  width: 10px;
+  height: 10px;
+}
+
+.blend-badge--md {
+  font-size: clamp(12px, 3.2vw, 13px);
+  padding: 3px 8px;
+}
+
+.blend-badge--md .blend-badge__icon {
+  width: 12px;
+  height: 12px;
+}
+
+.blend-badge__icon {
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.blend-badge__text {
+  font-weight: 600;
+}
+
+.spv2-selection-counter__num {
+  font-size: clamp(13.5px, 3.8vw, 15px);
+  font-weight: 700;
+}
+
+.spv2-selection-counter__label {
+  opacity: 0.94;
+}
+
+.spv2-selection-counter__chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+  align-self: center;
+}
+
+.spv2-selection-counter[aria-expanded='true'] .spv2-selection-counter__chevron {
+  transform: rotate(-180deg);
+}
+
+/* Quando o popover esta aberto, eleva o contador acima do backdrop full-screen
+   (z=var(--z-popover)) pra que o click no proprio botao chegue no contador
+   (toggle do dropdownOpen) em vez de ser capturado pelo backdrop. Sem isso,
+   o usuario nao consegue fechar o popover clicando no proprio contador. */
+.spv2-selection-counter[aria-expanded='true'] {
+  position: relative;
+  z-index: calc(var(--z-popover, 500) + 2);
+}
+
+.spv2-selection-counter:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Liga B1.5 — Popover de revisao das amostras selecionadas. Anchored
+   ao .spv2-selection-counter via wrapper relative. Backdrop transparente
+   fixed pra captar click-outside (pattern do FAB radial). */
+
+.spv2-selection-counter-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.selected-samples-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: var(--z-popover, 500);
+  pointer-events: auto;
+}
+
+.selected-samples-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 24px));
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(10, 30, 18, 0.08);
+  box-shadow:
+    0 16px 36px rgba(10, 30, 18, 0.18),
+    0 2px 6px rgba(10, 30, 18, 0.08);
+  z-index: calc(var(--z-popover, 500) + 1);
+  overflow: hidden;
+  transform-origin: top right;
+  animation: selected-samples-dropdown-in 0.22s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1))
+    backwards;
+}
+
+@keyframes selected-samples-dropdown-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.selected-samples-dropdown__scroll {
+  /* 3 cards visiveis (cada um ~52px de altura). Pra mais que isso o
+     usuario rola dentro do popover. */
+  max-height: calc(3 * 52px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(10, 30, 18, 0.18) transparent;
+}
+
+.selected-samples-dropdown__scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.selected-samples-dropdown__scroll::-webkit-scrollbar-thumb {
+  background: rgba(10, 30, 18, 0.18);
+  border-radius: 3px;
+}
+
+.selected-samples-dropdown__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 12px 11px 14px;
+  border-bottom: 1px solid rgba(10, 30, 18, 0.06);
+  font-size: clamp(12.5px, 3.4vw, 13.5px);
+  line-height: 1.2;
+  /* max-height fixo pra animacao de saida (slide-out) animar a altura
+     sem usar JS pra medir. 52px casa com o calc(3 * 52px) do scroll. */
+  max-height: 52px;
+  overflow: hidden;
+  transition: none;
+}
+
+.selected-samples-dropdown__card:last-child {
+  border-bottom: 0;
+}
+
+.selected-samples-dropdown__card.is-removing {
+  animation: selected-samples-card-out 0.15s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes selected-samples-card-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 52px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(22px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.selected-samples-dropdown__card-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f1f1f;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Pill verde com numero do lote — destaca a identificacao da amostra. */
+.selected-samples-dropdown__card-lot {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--brand-green);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: clamp(11.5px, 3vw, 12.5px);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.selected-samples-dropdown__card-meta {
+  font-weight: 500;
+  color: #777;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.selected-samples-dropdown__remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.selected-samples-dropdown__remove:hover,
+.selected-samples-dropdown__remove:focus-visible {
+  background: rgba(220, 60, 60, 0.1);
+  color: #d33;
+  outline: none;
+}
+
+.selected-samples-dropdown__remove:active {
+  transform: scale(0.9);
+}
+
+.selected-samples-dropdown__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.selected-samples-dropdown__remove svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+/* ============================================================
+   Liga B2.1 — BlendConfirmationSheet (bottom-sheet de confirmacao)
+   ============================================================
+   Abre via seta -> do FAB em /samples com >=2 amostras selecionadas.
+   Lista cada amostra em uma linha com input de contribuicao em sacas,
+   total rodando no rodape, e "Voltar / Continuar". Reusa o BottomSheet
+   base (header verde + body scroll + footer sticky). Padroes visuais
+   clonados do popover B1.5 (pill verde do lote, botao X 28x28) e do
+   NewSampleModal (input numerico com placeholder vermelho em erro).
+*/
+
+.blend-conf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.blend-conf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(10, 30, 18, 0.06);
+  max-height: 180px;
+  overflow: hidden;
+}
+
+.blend-conf-row:last-child {
+  border-bottom: 0;
+}
+
+.blend-conf-row.is-removing {
+  animation: blend-conf-row-out 0.15s ease-in forwards;
+  pointer-events: none;
+}
+
+.blend-conf-row.is-locked .blend-conf-row__input {
+  background: rgba(10, 30, 18, 0.04);
+  color: #888;
+  cursor: not-allowed;
+}
+
+@keyframes blend-conf-row-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 180px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(22px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.blend-conf-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Pill verde do lote — mesmo padrao do popover B1.5. */
+.blend-conf-row__lot {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--brand-green);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: clamp(11.5px, 3vw, 12.5px);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.blend-conf-row__client {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #555;
+  font-size: clamp(12.5px, 3.2vw, 13.5px);
+  font-weight: 500;
+}
+
+.blend-conf-row__avail {
+  flex-shrink: 0;
+  color: #888;
+  font-size: clamp(11.5px, 3vw, 12.5px);
+  font-weight: 500;
+}
+
+.blend-conf-row__remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.blend-conf-row__remove:hover,
+.blend-conf-row__remove:focus-visible {
+  background: rgba(220, 60, 60, 0.1);
+  color: #d33;
+  outline: none;
+}
+
+.blend-conf-row__remove:active {
+  transform: scale(0.9);
+}
+
+.blend-conf-row__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.blend-conf-row__remove svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.blend-conf-row__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.blend-conf-row__input {
+  width: 100%;
+  padding: 0.7rem 36px 0.7rem 0.85rem;
+  border: 1px solid rgba(10, 30, 18, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: clamp(13.5px, 3.6vw, 15px);
+  font-weight: 600;
+  color: #1f1f1f;
+  letter-spacing: 0.01em;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.blend-conf-row__input:focus {
+  outline: none;
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 3px rgba(31, 93, 67, 0.16);
+}
+
+.blend-conf-row__input.has-error {
+  border-color: rgba(196, 92, 92, 0.55);
+}
+
+.blend-conf-row__input.has-error::placeholder {
+  color: #c45c5c;
+  opacity: 1;
+}
+
+.blend-conf-row__input:disabled {
+  /* Background ja vem de .blend-conf-row.is-locked acima. */
+  border-color: rgba(10, 30, 18, 0.08);
+}
+
+.blend-conf-row__input-suffix {
+  position: absolute;
+  right: 12px;
+  color: #888;
+  font-size: clamp(12px, 3vw, 13px);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.blend-conf-row__error {
+  margin: 0;
+  color: #c45c5c;
+  font-size: clamp(11.5px, 3vw, 12.5px);
+  font-weight: 500;
+}
+
+.blend-conf-row__warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #8a5a11;
+  font-size: clamp(11.5px, 3vw, 12.5px);
+  font-weight: 500;
+}
+
+.blend-conf-row__warning-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Footer sticky — total à esquerda + acoes à direita. Em mobile estreito
+   (< 480px) empilha vertical com botoes em largura total. */
+.blend-conf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+}
+
+.blend-conf-footer__total {
+  color: #555;
+  font-size: clamp(13px, 3.4vw, 14.5px);
+  font-weight: 500;
+}
+
+.blend-conf-footer__total strong {
+  color: var(--brand-green);
+  font-weight: 700;
+  font-size: clamp(14px, 3.8vw, 16px);
+  margin-left: 4px;
+}
+
+.blend-conf-footer__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.blend-conf-footer__back {
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(10, 30, 18, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #555;
+  font-weight: 600;
+  font-size: clamp(13px, 3.4vw, 14px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.blend-conf-footer__back:hover,
+.blend-conf-footer__back:focus-visible {
+  background: rgba(10, 30, 18, 0.04);
+  outline: none;
+}
+
+.blend-conf-footer__back:active {
+  transform: scale(0.96);
+}
+
+.blend-conf-footer__continue {
+  padding: 0.55rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(13px, 3.4vw, 14px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 14px rgba(31, 93, 67, 0.28);
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    opacity 0.15s;
+}
+
+.blend-conf-footer__continue:hover,
+.blend-conf-footer__continue:focus-visible {
+  box-shadow: 0 6px 18px rgba(31, 93, 67, 0.36);
+  outline: none;
+}
+
+.blend-conf-footer__continue:active {
+  transform: scale(0.96);
+}
+
+.blend-conf-footer__continue:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  .blend-conf-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .blend-conf-footer__total {
+    text-align: center;
+  }
+  .blend-conf-footer__actions {
+    width: 100%;
+  }
+  .blend-conf-footer__back,
+  .blend-conf-footer__continue {
+    flex: 1;
+    text-align: center;
+  }
+}
+
 
 /* Bolinha de seleção. 3 estados: vazia, selecionada, desabilitada. */
 .sample-card-selection-circle {

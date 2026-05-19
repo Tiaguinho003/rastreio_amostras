@@ -158,6 +158,9 @@ function mapRecentActivityRow(row) {
     producer: row.declaredOwner ?? null,
     sacks,
     recipient,
+    // Liga B3.1: flag pra renderizar <BlendBadge> ao lado do lote no
+    // dashboard recent activity.
+    isBlend: Boolean(row.isBlend),
     activity: {
       type: eventType,
       at:
@@ -968,12 +971,18 @@ function parseAttemptNumberFromPayload(payload) {
 // Liga A3.3 (F1.B): regra de elegibilidade pra contribuir em liga.
 // Retorna { eligible, reason } onde reason e null quando eligible=true.
 // Reasons mapeados pelo frontend pra tooltips em pt-BR (F1.B).
+//
+// F1.4 relaxada em 2026-05-19: aceita REGISTRATION_CONFIRMED ou
+// CLASSIFIED (antes era CLASSIFIED only). SampleStatus enum so tem 3
+// valores (REGISTRATION_CONFIRMED, CLASSIFIED, INVALIDATED) — entao
+// basta bloquear INVALIDATED + saldo zerado. Amostras nao-classificadas
+// podem ser ligadas; a liga nasce em branco (F4.b) e segue o fluxo de
+// classificacao normal. Quando a liga e vendida/perdida, a cascata
+// recursiva emite SALE_CREATED/LOSS_RECORDED nas origens (nao ha
+// trigger Prisma bloqueando transicoes de commercialStatus).
 function computeBlendEligibility(sample) {
   if (sample.status === 'INVALIDATED') {
     return { eligible: false, reason: 'INVALIDATED' };
-  }
-  if (sample.status !== 'CLASSIFIED') {
-    return { eligible: false, reason: 'NOT_CLASSIFIED' };
   }
   if ((sample.availableSacks ?? 0) <= 0) {
     return { eligible: false, reason: 'NO_BALANCE' };
@@ -1970,7 +1979,8 @@ export class SampleQueryService {
         r.occurred_at AS "occurredAt",
         s.internal_lot_number AS "internalLotNumber",
         s.declared_owner AS "declaredOwner",
-        s.declared_sacks AS "declaredSacks"
+        s.declared_sacks AS "declaredSacks",
+        s.is_blend AS "isBlend"
       FROM ranked r
       JOIN "sample" s ON s.id = r.sample_id
       WHERE r.rn = 1
@@ -2101,6 +2111,7 @@ export class SampleQueryService {
         declaredSacks: true,
         soldSacks: true,
         lostSacks: true,
+        declaredHarvest: true,
         internalLotNumber: true,
         version: true,
       },
@@ -2116,6 +2127,7 @@ export class SampleQueryService {
       soldSacks: row.soldSacks,
       lostSacks: row.lostSacks,
       availableSacks: (row.declaredSacks ?? 0) - row.soldSacks - row.lostSacks,
+      declaredHarvest: row.declaredHarvest ?? null,
       internalLotNumber: row.internalLotNumber,
       version: row.version,
     };

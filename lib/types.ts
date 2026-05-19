@@ -290,6 +290,9 @@ export interface ClientSampleListItem {
   createdAt: string | null;
   commercialStatus: string;
   status: string;
+  // Liga B3.1: true quando o sample e uma liga (isBlend). Frontend
+  // renderiza <BlendBadge> ao lado do lote.
+  isBlend: boolean;
 }
 
 export interface ClientPurchaseListItem {
@@ -386,7 +389,7 @@ export interface PasswordResetCodeVerificationResponse {
 // uma liga (resposta de GET /samples?eligibleForBlend=true).
 // Backend e dono da regra; frontend mapeia reason -> tooltip pt-BR via
 // lib/samples/eligibility-labels.ts.
-export type SampleEligibilityReason = 'INVALIDATED' | 'NOT_CLASSIFIED' | 'NO_BALANCE' | null;
+export type SampleEligibilityReason = 'INVALIDATED' | 'NO_BALANCE' | null;
 
 export interface SampleEligibility {
   eligible: boolean;
@@ -499,12 +502,47 @@ export interface LatestPrintJob {
   createdAt: string;
 }
 
+// Liga B3.2: composicao da liga (origens + contribuicoes). Backend embute
+// snapshot da origem em `originSample` (declaredOwner string direto — sem
+// ownerClient expandido). Quando origem foi removida ou esta inacessivel,
+// originSample === null (graceful — UI renderiza '—' ou mensagem).
+export interface BlendComponentDetail {
+  id: string;
+  originSampleId: string;
+  contributedSacks: number;
+  originSample: {
+    id: string;
+    internalLotNumber: string | null;
+    declaredOwner: string | null;
+    declaredHarvest: string | null;
+    declaredSacks: number;
+    isBlend: boolean;
+    status: SampleStatus;
+  } | null;
+}
+
+// Liga B3.3: liga ativa (status != INVALIDATED) que usa essa amostra como
+// origem. Backend filtra INVALIDATED — Wave A2.5/A3.4. Sem owner/harvest
+// embutido aqui (limitacao MVP); UI renderiza '—' nesses campos.
+export interface ActiveBlendDetail {
+  sampleId: string;
+  lotNumber: string | null;
+  status: SampleStatus;
+  contributedSacks: number;
+}
+
 export interface SampleDetailResponse {
   sample: SampleSnapshot;
   attachments: SampleAttachment[];
   events: SampleEvent[];
   movements?: SampleMovement[];
   latestPrintJob: LatestPrintJob | null;
+  // Liga A3.4: presentes quando sample tem composicao/vinculo a ligas.
+  // - components: nao-vazio apenas quando sample.isBlend === true.
+  // - activeBlends: nao-vazio apenas quando sample e origem em liga(s)
+  //   ativa(s). Em sample.isBlend === true, vazio ou ausente.
+  components?: BlendComponentDetail[];
+  activeBlends?: ActiveBlendDetail[];
 }
 
 export interface SampleMovement {
@@ -597,6 +635,9 @@ export interface DashboardRecentActivityItem {
   producer: string | null;
   sacks: number | null;
   recipient: string | null;
+  // Liga B3.1: true quando o sample e uma liga (isBlend). Frontend
+  // renderiza <BlendBadge> ao lado do lote.
+  isBlend: boolean;
   activity: {
     type: DashboardRecentActivityType;
     at: string;

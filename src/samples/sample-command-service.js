@@ -1604,15 +1604,21 @@ export class SampleCommandService {
     }
 
     // 2. Validacao por origem: status, saldo, F7.7 (liga em liga = 100%).
+    // F1.4 relaxada em 2026-05-19: aceita REGISTRATION_CONFIRMED ou
+    // CLASSIFIED (antes era CLASSIFIED only). INVALIDATED continua bloqueado.
+    // 2026-05-19 (B2.2 refinada): coleta declaredHarvest das origens em
+    // paralelo pra derivar a safra da liga automaticamente (modal F3
+    // removido — operador nao informa mais manualmente).
+    const originHarvests = new Set();
     for (const component of normalizedComponents) {
       const origin = await this.queryService.loadSampleSummary(component.originSampleId);
       if (!origin) {
         throw new HttpError(404, `Origin sample ${component.originSampleId} does not exist`);
       }
-      if (origin.status !== 'CLASSIFIED') {
+      if (origin.status === 'INVALIDATED') {
         throw new HttpError(
           422,
-          `Origin ${component.originSampleId} must be CLASSIFIED (current: ${origin.status})`
+          `Origin ${component.originSampleId} is INVALIDATED and cannot be used in a blend`
         );
       }
       if (origin.availableSacks <= 0) {
@@ -1634,12 +1640,26 @@ export class SampleCommandService {
           `When origin ${component.originSampleId} is a blend (F7.7), contributedSacks must equal declaredSacks. Got ${component.contributedSacks}, expected ${origin.declaredSacks}`
         );
       }
+      if (origin.declaredHarvest) {
+        originHarvests.add(origin.declaredHarvest);
+      }
     }
 
     const declaredSacks = normalizedComponents.reduce(
       (sum, component) => sum + component.contributedSacks,
       0
     );
+
+    // F3.2 revogada em 2026-05-19: safra deriva automaticamente das
+    // origens — distinct ordenado, join com ', '. Quando origens compartilham
+    // a mesma safra, fica '24/25'; quando mistas, fica '24/25, 25/26'. Se
+    // nenhuma origem tem safra (improvavel), fica null. Override manual
+    // (`input.harvest`) ainda aceito pra testes/integration de seed legado.
+    const derivedHarvest =
+      originHarvests.size > 0 ? Array.from(originHarvests).sort().join(', ') : null;
+    const harvest = input.harvest
+      ? normalizeRequiredText(input.harvest, 'harvest')
+      : derivedHarvest;
 
     // 3. Owner binding manual (resolveStructuredOwnerForWrite em mode=create
     // obriga ownerClientId; aqui ele e opcional — F3.1 permite null pra liga
@@ -1657,10 +1677,12 @@ export class SampleCommandService {
     }
 
     // 4. declared.* — owner pode ser null (F3.3 / T0.C docstring Prisma).
+    //    harvest pode ser null tambem quando nenhuma origem tem safra
+    //    declarada (raro — origens normalmente declaram safra no registro).
     const declared = {
       owner: ownerBinding?.displayName ?? null,
       sacks: declaredSacks,
-      harvest: normalizeRequiredText(input.harvest, 'harvest'),
+      harvest,
       // Liga F3.5: declaredOriginLot intencionalmente null em liga.
       originLot: null,
       location: normalizeOptionalText(input.location, 'location', 30),

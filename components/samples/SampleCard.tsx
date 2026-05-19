@@ -12,6 +12,7 @@
 import Link from 'next/link';
 
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
+import { BlendBadge } from './BlendBadge';
 
 type CardStatusKind = 'open' | 'sold' | 'lost' | 'invalidated';
 
@@ -112,6 +113,7 @@ export function SampleCard({
         <div className="spv2-card-content">
           <div className="spv2-card-top">
             <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
+            {sample.isBlend ? <BlendBadge size="sm" /> : null}
             <span className="spv2-card-badge">{cardStatus.label}</span>
           </div>
           <div className="spv2-card-bottom">
@@ -142,6 +144,7 @@ export function SampleCard({
       <div className="spv2-card-content">
         <div className="spv2-card-top">
           <span className="spv2-card-code">{sample.internalLotNumber ?? sample.id}</span>
+          {sample.isBlend ? <BlendBadge size="sm" /> : null}
           <span className="spv2-card-badge">{cardStatus.label}</span>
         </div>
         <div className="spv2-card-bottom">

@@ -236,10 +236,11 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('createBlend rejects origin in REGISTRATION_CONFIRMED status (not CLASSIFIED)', async () => {
+  test('createBlend accepts origin in REGISTRATION_CONFIRMED (F1.4 relaxed 2026-05-19)', async () => {
     const origin1Id = randomUUID();
     const origin2Id = randomUUID();
-    // Origin1 fica em REGISTRATION_CONFIRMED (não classificado).
+    // Origin1 fica em REGISTRATION_CONFIRMED (não classificado) — antes
+    // era rejeitado; agora deve ser aceito.
     await prisma.sample.create({
       data: {
         id: origin1Id,
@@ -258,10 +259,44 @@ if (!databaseUrl || !databaseReachable) {
     });
     await createClassifiedSample({ id: origin2Id, lotNumber: '8041' });
 
+    const result = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-mixed-statuses',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 5 },
+          { originSampleId: origin2Id, contributedSacks: 3 },
+        ],
+        harvest: 'MISTA',
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.equal(result.sample.isBlend, true);
+    assert.equal(result.sample.declared.sacks, 8);
+  });
+
+  test('createBlend rejects origin in INVALIDATED status', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '8042' });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '8043' });
+    // Invalida origin1 — appendEvent do registrationConfirmedEvent deixou
+    // version=1; UPDATE no createClassifiedSample nao incrementa version.
+    await commandService.invalidateSample(
+      {
+        sampleId: origin1Id,
+        reasonCode: 'OTHER',
+        reasonText: 'test',
+        expectedVersion: 1,
+      },
+      actor
+    );
+
     await assert.rejects(
       commandService.createBlend(
         {
-          clientDraftId: 'draft-not-classified',
+          clientDraftId: 'draft-invalidated-origin',
           components: [
             { originSampleId: origin1Id, contributedSacks: 5 },
             { originSampleId: origin2Id, contributedSacks: 3 },
@@ -270,7 +305,7 @@ if (!databaseUrl || !databaseReachable) {
         },
         actor
       ),
-      (error) => error instanceof HttpError && /must be CLASSIFIED/.test(error.message)
+      (error) => error instanceof HttpError && /is INVALIDATED/.test(error.message)
     );
   });
 
