@@ -14464,7 +14464,9 @@ button:disabled {
        dessincronizacao com .mobile-tabbar quando iOS cacheia env(). */
     padding: calc(env(safe-area-inset-top) + var(--mobile-shell-top-offset))
       clamp(0.35rem, 2vw, 0.75rem)
-      calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance));
+      calc(
+        var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance)
+      );
     margin: 0;
     box-sizing: border-box;
     overflow: hidden;
@@ -14900,7 +14902,10 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(1.2rem, 4.5vw, 1.8rem) clamp(1rem, 4vw, 1.4rem);
-    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) + 0.8rem);
+    padding-bottom: calc(
+      var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
+        0.8rem
+    );
     display: flex;
     flex-direction: column;
     gap: clamp(2rem, 7vw, 3rem);
@@ -15056,7 +15061,10 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(0.6rem, 1.5dvh, 1rem) 1rem;
-    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) + 0.3rem);
+    padding-bottom: calc(
+      var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
+        0.3rem
+    );
     display: flex;
     flex-direction: column;
     gap: clamp(0.4rem, 1dvh, 0.8rem);
@@ -16078,7 +16086,9 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(18px, 5vw, 28px));
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(18px, 5vw, 28px)
+  );
   pointer-events: none;
   z-index: 2;
   animation: cam-slide-up 0.5s ease-out 0.1s backwards;
@@ -18590,7 +18600,10 @@ button:disabled {
 
 .splash-footer {
   position: absolute;
-  bottom: max(var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)), clamp(2rem, 6dvh, 4rem));
+  bottom: max(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)),
+    clamp(2rem, 6dvh, 4rem)
+  );
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -19210,7 +19223,9 @@ button:disabled {
 .nsv2-body-form {
   position: relative;
   padding: 0;
-  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) - 4px);
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) - 4px
+  );
   align-items: stretch;
   justify-content: flex-start;
   background: #f4f0e7;
@@ -24235,7 +24250,8 @@ button:disabled {
   flex-direction: column;
   background: var(--brand-cream-soft);
   border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
-  padding: 0 clamp(1rem, 4vw, 1.4rem) calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem));
+  padding: 0 clamp(1rem, 4vw, 1.4rem)
+    calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem));
   /* translate3d permanente: GPU layer; previne scroll lock iOS standalone */
   transform: translate3d(0, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -24423,4 +24439,162 @@ button:disabled {
   to {
     opacity: 1;
   }
+}
+
+/* ============================================================
+   Liga B1.3 — FAB radial (Sample / Liga) + variantes
+   ============================================================
+   Reutiliza .cv2-fab como base do botão principal. Adiciona:
+   - .fab-radial-backdrop: overlay transparente full-screen pra
+     captar tap-fora quando expandido.
+   - .fab-radial-satellite: botões satélite "Unidade" e "Liga"
+     em posições fixas relativas ao FAB (acima e acima-esquerda).
+   - Variante .cv2-fab.is-blend-arrow: substitui SVG do "+" por "→"
+     no modo de seleção (B1.4).
+   - Variante .cv2-fab.is-disabled: opacity 0.4 + cursor not-allowed
+     (quando selectedCount < 2 no modo blendArrow).
+*/
+
+.fab-radial-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 49; /* abaixo do FAB (.cv2-fab = 50), acima do conteúdo */
+  pointer-events: auto;
+  animation: fab-radial-backdrop-in 0.18s ease-out;
+}
+
+@keyframes fab-radial-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fab-radial-satellite {
+  position: fixed;
+  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem);
+  right: clamp(14px, 4vw, 20px);
+  width: clamp(46px, 12vw, 52px);
+  height: clamp(46px, 12vw, 52px);
+  border-radius: clamp(14px, 3.8vw, 16px);
+  border: 0;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  box-shadow: 0 3px 14px rgba(27, 94, 32, 0.35);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 51;
+  -webkit-tap-highlight-color: transparent;
+  animation: fab-radial-satellite-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.fab-radial-satellite svg {
+  width: clamp(18px, 4.8vw, 22px);
+  height: clamp(18px, 4.8vw, 22px);
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Label flutuante à esquerda do satélite. */
+.fab-radial-satellite-label {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(23, 60, 48, 0.92);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}
+
+/* Posições relativas ao FAB.
+   - Unidade fica imediatamente acima (offset = altura do FAB + 14px gap).
+   - Liga fica acima-esquerda.
+   Uso de transform em vez de top/left pra preservar a base bottom-right
+   do .cv2-fab e permitir keyframes spring sem flicker de layout. */
+.fab-radial-satellite.is-pos-unit {
+  transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px)));
+  animation-delay: 0ms;
+}
+
+.fab-radial-satellite.is-pos-blend {
+  transform: translate(
+    calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
+    calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
+  );
+  animation-delay: 40ms;
+}
+
+.fab-radial-satellite.is-pulsing.is-pos-unit {
+  animation: fab-radial-satellite-pulse-unit 0.15s ease-out;
+}
+
+.fab-radial-satellite.is-pulsing.is-pos-blend {
+  animation: fab-radial-satellite-pulse-blend 0.15s ease-out;
+}
+
+@keyframes fab-radial-satellite-in {
+  from {
+    opacity: 0;
+    transform: scale(0) translateY(0);
+  }
+}
+
+@keyframes fab-radial-satellite-pulse-unit {
+  0% {
+    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1);
+  }
+  50% {
+    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1.18);
+  }
+  100% {
+    transform: translateY(calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))) scale(1);
+  }
+}
+
+@keyframes fab-radial-satellite-pulse-blend {
+  0% {
+    transform: translate(
+        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
+        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
+      )
+      scale(1);
+  }
+  50% {
+    transform: translate(
+        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
+        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
+      )
+      scale(1.18);
+  }
+  100% {
+    transform: translate(
+        calc(-1 * (clamp(46px, 12vw, 52px) + 14px)),
+        calc(-1 * (clamp(53px, 14.95vw, 60px) + 14px))
+      )
+      scale(1);
+  }
+}
+
+/* Modo blendArrow (Liga F1.D — seta no FAB durante modo seleção). */
+.cv2-fab.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #9aa9a0, #b6c2bb);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.cv2-fab.is-disabled:active {
+  transform: none;
 }

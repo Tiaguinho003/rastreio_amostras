@@ -18,7 +18,7 @@ import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { NotificationBell } from '../../components/NotificationBell';
 import { SampleCard } from '../../components/samples/SampleCard';
-import { SampleQuickCreateFab } from '../../components/SampleQuickCreateFab';
+import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import { ApiError, listSamples } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SampleSnapshot } from '../../lib/types';
@@ -1026,7 +1026,13 @@ function SamplesPage() {
               spellCheck={false}
             />
           </form>
-          <SampleQuickCreateFab onClick={() => setNewSampleModalOpen(true)} />
+          <SampleCreateRadialFab
+            mode="idle"
+            onCreateUnit={() => setNewSampleModalOpen(true)}
+            onStartBlendSelection={() => {
+              // B1.4: cabear pra entrar em modo seleção. Placeholder.
+            }}
+          />
         </div>
 
         <section className="samples-page-v2-sheet">
