@@ -342,6 +342,78 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(byId[o1].committedSacks, 12);
     assert.equal(byId[o2].committedSacks, 18);
   });
+
+  // Liga A3.4 — GET /samples/:id enriquecido
+
+  test('GET /samples/:id returns components when sample is a blend', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createClassifiedSample({ id: o1, lotNumber: '20400', declaredSacks: 20 });
+    await createClassifiedSample({ id: o2, lotNumber: '20401', declaredSacks: 30 });
+
+    const blend = await api.createBlend(
+      buildInput({
+        body: {
+          clientDraftId: 'draft-detail',
+          components: [
+            { originSampleId: o1, contributedSacks: 8 },
+            { originSampleId: o2, contributedSacks: 12 },
+          ],
+          harvest: 'MISTA',
+          sampleLotNumber: '20402',
+        },
+      })
+    );
+
+    const detail = await api.getSampleDetail(
+      buildInput({ params: { sampleId: blend.body.sample.id } })
+    );
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.components.length, 2);
+    detail.body.components.forEach((component) => {
+      assert.ok(component.originSample);
+      assert.ok(component.originSample.internalLotNumber);
+    });
+    const componentByLot = Object.fromEntries(
+      detail.body.components.map((c) => [c.originSample.internalLotNumber, c])
+    );
+    assert.equal(componentByLot['20400'].contributedSacks, 8);
+    assert.equal(componentByLot['20401'].contributedSacks, 12);
+
+    // activeBlends da liga em si: vazia (a liga nao e origem em outra liga).
+    assert.equal(detail.body.activeBlends.length, 0);
+  });
+
+  test('GET /samples/:id returns activeBlends for origin in active blend', async () => {
+    const o1 = randomUUID();
+    const o2 = randomUUID();
+    await createClassifiedSample({ id: o1, lotNumber: '20410', declaredSacks: 20 });
+    await createClassifiedSample({ id: o2, lotNumber: '20411', declaredSacks: 30 });
+
+    const blend = await api.createBlend(
+      buildInput({
+        body: {
+          clientDraftId: 'draft-active',
+          components: [
+            { originSampleId: o1, contributedSacks: 10 },
+            { originSampleId: o2, contributedSacks: 15 },
+          ],
+          harvest: 'MISTA',
+          sampleLotNumber: '20412',
+        },
+      })
+    );
+
+    const detail = await api.getSampleDetail(buildInput({ params: { sampleId: o1 } }));
+    assert.equal(detail.status, 200);
+    // o1 NAO e liga -> components vazio.
+    assert.equal(detail.body.components.length, 0);
+    // o1 e origem na liga acima -> activeBlends contem 1 entry.
+    assert.equal(detail.body.activeBlends.length, 1);
+    assert.equal(detail.body.activeBlends[0].sampleId, blend.body.sample.id);
+    assert.equal(detail.body.activeBlends[0].lotNumber, '20412');
+    assert.equal(detail.body.activeBlends[0].contributedSacks, 10);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

@@ -1608,12 +1608,21 @@ export class SampleQueryService {
     }
 
     const sample = await this.requireSample(sampleId);
-    const [attachments, events, movements, latestPrintJob] = await Promise.all([
-      this.listAttachments(sampleId),
-      this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
-      this.listSampleMovements(sampleId),
-      this.findLatestPrintJob(sampleId),
-    ]);
+    const [attachments, events, movements, latestPrintJob, components, activeBlends] =
+      await Promise.all([
+        this.listAttachments(sampleId),
+        this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
+        this.listSampleMovements(sampleId),
+        this.findLatestPrintJob(sampleId),
+        // Liga A3.4: composicao da liga quando isBlend=true (lista vazia
+        // pra Sample normal). Cada componente carrega snapshot da origem
+        // (lot/owner/harvest) pra UI renderizar sem JOIN adicional.
+        sample.isBlend ? this._listBlendComponents(sampleId) : Promise.resolve([]),
+        // Liga A3.4 (T0.B + F7.D): ligas ativas onde este sample e origem.
+        // Sempre incluido (vazio se nao esta em nenhuma) — frontend renderiza
+        // secao "Comprometida em N ligas" quando length > 0.
+        this.findActiveBlendsContainingOrigin(sampleId),
+      ]);
 
     return {
       sample,
@@ -1621,7 +1630,49 @@ export class SampleQueryService {
       events,
       movements,
       latestPrintJob,
+      components,
+      activeBlends,
     };
+  }
+
+  // Liga A3.4: lista de componentes da liga + snapshot da origem
+  // (lot/owner/harvest/sacks/isBlend) pra UI da tela de detalhe da liga
+  // (Wave B3 — secao "Composicao"). Ordenado por createdAt pra preservar
+  // ordem original de adicao.
+  async _listBlendComponents(blendSampleId) {
+    const rows = await this.prisma.sampleBlendComponent.findMany({
+      where: { sampleId: blendSampleId },
+      include: {
+        originSample: {
+          select: {
+            id: true,
+            internalLotNumber: true,
+            declaredOwner: true,
+            declaredHarvest: true,
+            declaredSacks: true,
+            isBlend: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      originSampleId: row.originSampleId,
+      contributedSacks: row.contributedSacks,
+      originSample: row.originSample
+        ? {
+            id: row.originSample.id,
+            internalLotNumber: row.originSample.internalLotNumber,
+            declaredOwner: row.originSample.declaredOwner,
+            declaredHarvest: row.originSample.declaredHarvest,
+            declaredSacks: row.originSample.declaredSacks,
+            isBlend: row.originSample.isBlend,
+            status: row.originSample.status,
+          }
+        : null,
+    }));
   }
 
   // Q.print: getDashboardPending sem `printPending` (decisao Q.1.c #20 —
