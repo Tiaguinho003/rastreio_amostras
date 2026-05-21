@@ -781,13 +781,13 @@ Sub-fases numeradas, na ordem de execução recomendada:
 - Quando o operador tenta invalidar uma amostra que é origem de liga(s) ativa(s), aparece o `<SampleInvalidateBlockedModal>` (`.app-modal.is-themed`): cabeçalho "Não foi possível invalidar", lista de cada liga via `<RelatedSampleRow>` (linha inteira clicável → detalhe da liga), rodapé "Entendi". Sem "Reverter aqui" — reverter opera-se no contexto da liga (B3.4).
 - **Gatilho proativo + rede de segurança** (revisão de 2026-05-21, confirmada com o usuário — ver Log de sessões): o doc original (F7.D) previa só o fluxo reativo (pós-409). Agora, ao tocar "Invalidar", se o detalhe já mostra `activeBlends` não-vazio (dado da B3.3), o modal abre na hora, sem abrir o formulário de motivo. O 409 continua tratado nos `catch` como rede de segurança (corrida: liga criada entre o carregamento e o clique).
 
-**B3.6 — Trace de cascata via `causationId`** _(opcional, polish)_
+**B3.6 — Trace de cascata via `causationId`** _(✅ concluído em 2026-05-21 — realizado na linha do movimento cascateado; não há UI de histórico de eventos. Ver Log de sessões)_
 
 - Quando detalhe mostra eventos `SALE_CREATED`/`LOSS_RECORDED` com `causationId` preenchido (cascata), renderiza inline "vendida via cascata da Liga {lotNumberPai}" com link clicável.
 - Quando o pai também é cascateado, expandir trace completo encadeando os `causationId`.
 - API `GET /samples/:id` já retorna eventos com `causationId`. Backend pode resolver `causedByLotNumber` no payload (lookup) ou frontend faz batch de lookups conforme necessidade.
 
-**B3.7 — Enrichment de `activeBlends` com owner + harvest da liga** _(post-MVP, opcional)_
+**B3.7 — Enrichment de `activeBlends` com owner + harvest da liga** _(✅ concluído em 2026-05-21 — ver Log de sessões)_
 
 - Hoje (limitação MVP B3.3): cada item em `activeBlends[]` retorna apenas `{ sampleId, lotNumber, status, contributedSacks }`. Frontend renderiza `'—'` em owner e harvest.
 - **Trabalho previsto**: backend (`findActiveBlendsContainingOrigin` em `src/samples/sample-query-service.js:2140`) passa a incluir `declaredOwner: string | null` e `declaredHarvest: string | null` (snapshot da liga). Frontend (`ActiveBlendDetail` em `lib/types.ts` + `RelatedSampleRow` no detalhe) usa os novos campos no lugar dos fallbacks.
@@ -1806,4 +1806,17 @@ Fase C1. O lote acumulado — B3.4 (reverter liga), B3.5 (bloqueio de invalidaç
 - **Smoke** — health `/api/health/ready` ok (banco ok) + headers de segurança no canary; smoke manual do fluxo da liga validado.
 - **Promote** — `update-traffic --to-latest`: `rastreio-prod-app-00265-yaw` servindo 100%. Health + headers reconferidos em produção.
 
-Sem migration — a wave não altera schema. Wave C concluída; o plano da Liga está implementado e em produção (restam só B3.6 e B3.7, marcadas como opcionais/post-MVP).
+Sem migration — a wave não altera schema. Wave C concluída; o plano da Liga está implementado e em produção (restavam só B3.6 e B3.7, opcionais/post-MVP — feitas em seguida na mesma data).
+
+### 2026-05-21 — B3.6 + B3.7: sub-fases opcionais finais ✅
+
+As duas últimas sub-fases do plano da Liga, ambas marcadas como opcionais/post-MVP. Com elas, **todo o plano da Liga está implementado**.
+
+- **B3.6 — Trace de cascata.** Reinterpretada na investigação: o doc falava em renderizar o trace "nos eventos", mas não existe UI de histórico de eventos no detalhe — venda/perda cascateada só aparece como linha de movimento no painel comercial. O trace foi pra lá: a dica da Fase 6 ("Movimento da liga — gerencie pela liga", genérica) virou **"Via cascata da liga {lote}"**, com o lote como link pra liga-pai. Backend: o flag `cascaded: boolean` (Fase 6) deu lugar a `cascadedFrom: { sampleId, lotNumber } | null` — novo helper `loadCascadedMovementOrigins` faz o JOIN do evento cascateado → evento-pai → sample-pai. Resolve o **pai imediato**; liga-em-liga fica navegável pelo link.
+- **B3.7 — Enrichment de `activeBlends`.** `findActiveBlendsContainingOrigin` passou a selecionar `declared_owner`/`declared_harvest` da liga; `ActiveBlendDetail` ganhou os 2 campos. A seção "Comprometida em N ligas ativas" e o `SampleInvalidateBlockedModal` deixaram de mostrar `—` e passaram a exibir dono/safra reais. Sem migration.
+
+**Quality gates** (cada sub-fase um commit): ✅ lint, format:check, typecheck, build, test:contracts (20/20), test:unit (180/180), test:integration:db (198/198).
+
+**Commits**: `feat(samples): liga B3.6 — trace de cascata no movimento de origem` · `feat(samples): liga B3.7 — dono e safra da liga em activeBlends`.
+
+**Plano da Liga concluído** — todas as fases (Waves A, B, C + sub-fases B3.x) implementadas. B3.6/B3.7 pendentes de deploy num próximo lote canary.
