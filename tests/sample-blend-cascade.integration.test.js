@@ -350,7 +350,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(eventX2.causationId, eventA.eventId);
   });
 
-  test('createSampleMovement on blend hard-blocks when descendant has prior commercial movement (F7.6)', async () => {
+  test('createSampleMovement on blend hard-blocks when a descendant lacks sufficient balance (F7.6 quantitativo)', async () => {
     const origin1Id = randomUUID();
     const origin2Id = randomUUID();
     const buyerId = randomUUID();
@@ -371,10 +371,11 @@ if (!databaseUrl || !databaseReachable) {
       actor
     );
 
-    // Simula venda direta na origin1 (fora da liga) — bloqueando a liga.
+    // Vende 6 das 10 sacas da origin1 direto (fora da liga): sobram 4,
+    // menos que as 5 contribuídas — bloqueia a cascata (F7.6 quantitativo).
     await prisma.sample.update({
       where: { id: origin1Id },
-      data: { soldSacks: 3 },
+      data: { soldSacks: 6 },
     });
 
     let caughtError = null;
@@ -399,6 +400,56 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(caughtError.details?.code, 'BLEND_HAS_BLOCKED_DESCENDANTS');
     assert.equal(caughtError.details.blockedDescendants.length, 1);
     assert.equal(caughtError.details.blockedDescendants[0].sampleId, origin1Id);
+    assert.equal(caughtError.details.blockedDescendants[0].contributedSacks, 5);
+    assert.equal(caughtError.details.blockedDescendants[0].availableSacks, 4);
+  });
+
+  test('createSampleMovement on blend allows cascade when a descendant has a partial sale but enough balance (F7.6 quantitativo)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10210', declaredSacks: 10 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10211', declaredSacks: 15 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-partial-ok',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 5 },
+          { originSampleId: origin2Id, contributedSacks: 8 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10212',
+      },
+      actor
+    );
+
+    // Vende 4 das 10 sacas da origin1 direto: sobram 6, >= as 5
+    // contribuídas — a cascata NÃO bloqueia (F7.6 quantitativo).
+    await prisma.sample.update({
+      where: { id: origin1Id },
+      data: { soldSacks: 4 },
+    });
+
+    const result = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.equal(result.events.length, 3);
+
+    // origin1: 4 (venda direta) + 5 (cascata) = 9 soldSacks.
+    const o1 = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    assert.equal(o1.soldSacks, 9);
   });
 
   test('createSampleMovement LOSS on blend propagates lossReasonText to all descendants (F7.4)', async () => {
@@ -443,6 +494,352 @@ if (!databaseUrl || !databaseReachable) {
     const o2 = await prisma.sample.findUnique({ where: { id: origin2Id } });
     assert.equal(o1.lostSacks, 6);
     assert.equal(o2.lostSacks, 9);
+  });
+
+  // Liga B4 Fase 3 — cascata reversa de cancelamento
+
+  test('cancelSampleMovement on blend reverses the whole cascade (Fase 3)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10400', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10401', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cancel-1',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10402',
+      },
+      actor
+    );
+
+    const sale = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    const cancel = await commandService.cancelSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementId: sale.events[0].payload.movementId,
+        expectedVersion: sale.sample.version,
+        reasonText: 'CANCELAMENTO DE TESTE',
+      },
+      actor
+    );
+
+    // 3 eventos de cancelamento: raiz (liga) + 2 origens.
+    assert.equal(cancel.events.length, 3);
+    cancel.events.forEach((event) => {
+      assert.equal(event.eventType, 'SALE_CANCELLED');
+    });
+
+    // Liga e origens com saldo restaurado.
+    const liga = await prisma.sample.findUnique({ where: { id: blend.sample.id } });
+    assert.equal(liga.soldSacks, 0);
+    assert.equal(liga.commercialStatus, 'OPEN');
+    const o1 = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    const o2 = await prisma.sample.findUnique({ where: { id: origin2Id } });
+    assert.equal(o1.soldSacks, 0);
+    assert.equal(o2.soldSacks, 0);
+  });
+
+  test('cancelSampleMovement on blend preserves an independent direct sale on an origin (Fase 3)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10410', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10411', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cancel-2',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10412',
+      },
+      actor
+    );
+
+    const sale = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    // origin1 ficou com soldSacks=20 (cascata). Vende mais 10 direto.
+    const o1AfterCascade = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    await commandService.createSampleMovement(
+      {
+        sampleId: origin1Id,
+        movementType: 'SALE',
+        quantitySacks: 10,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: o1AfterCascade.version,
+      },
+      actor
+    );
+
+    // Cancela a venda da liga — só a porção da cascata (20) sai de origin1.
+    await commandService.cancelSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementId: sale.events[0].payload.movementId,
+        expectedVersion: sale.sample.version,
+        reasonText: 'CANCELAMENTO DE TESTE',
+      },
+      actor
+    );
+
+    // origin1: 20 (cascata) + 10 (direta) = 30; cancela 20 -> sobra 10.
+    const o1 = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    assert.equal(o1.soldSacks, 10);
+  });
+
+  test('cancelSampleMovement on blend reverses a cascaded LOSS (Fase 3)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10420', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10421', declaredSacks: 30 });
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cancel-3',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 12 },
+          { originSampleId: origin2Id, contributedSacks: 8 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10422',
+      },
+      actor
+    );
+
+    const loss = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'LOSS',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        lossReasonText: 'umidade',
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    const cancel = await commandService.cancelSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementId: loss.events[0].payload.movementId,
+        expectedVersion: loss.sample.version,
+        reasonText: 'CANCELAMENTO DE TESTE',
+      },
+      actor
+    );
+
+    assert.equal(cancel.events.length, 3);
+    cancel.events.forEach((event) => {
+      assert.equal(event.eventType, 'LOSS_CANCELLED');
+    });
+
+    const o1 = await prisma.sample.findUnique({ where: { id: origin1Id } });
+    const o2 = await prisma.sample.findUnique({ where: { id: origin2Id } });
+    assert.equal(o1.lostSacks, 0);
+    assert.equal(o2.lostSacks, 0);
+  });
+
+  // Liga B4 Fase 4 — cascata de update + guard de movimento cascateado
+
+  test('updateSampleMovement on blend re-cascades a buyer change to every descendant (Fase 4)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyer1Id = randomUUID();
+    const buyer2Id = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10500', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10501', declaredSacks: 30 });
+    await createBuyerClient(buyer1Id);
+    await createBuyerClient(buyer2Id);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-update-1',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10502',
+      },
+      actor
+    );
+
+    const sale = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyer1Id,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    const update = await commandService.updateSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementId: sale.events[0].payload.movementId,
+        expectedVersion: sale.sample.version,
+        after: { buyerClientId: buyer2Id },
+        reasonText: 'TROCA DE COMPRADOR',
+      },
+      actor
+    );
+
+    // 3 eventos SALE_UPDATED: raiz + 2 origens.
+    assert.equal(update.events.length, 3);
+    update.events.forEach((event) => {
+      assert.equal(event.eventType, 'SALE_UPDATED');
+    });
+
+    // Todos os movimentos da cascata com o novo comprador.
+    const movements = await prisma.sampleMovement.findMany();
+    assert.equal(movements.length, 3);
+    movements.forEach((m) => assert.equal(m.buyerClientId, buyer2Id));
+  });
+
+  test('cancelSampleMovement rejects a cascaded movement targeted directly (Fase 4 guard)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10510', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10511', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-guard-1',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10512',
+      },
+      actor
+    );
+
+    const sale = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    // O movimento cascateado de origin1 não pode ser cancelado isolado.
+    const origin1Event = sale.events.find((event) => event.sampleId === origin1Id);
+    const o1 = await prisma.sample.findUnique({ where: { id: origin1Id } });
+
+    let caughtError = null;
+    try {
+      await commandService.cancelSampleMovement(
+        {
+          sampleId: origin1Id,
+          movementId: origin1Event.payload.movementId,
+          expectedVersion: o1.version,
+          reasonText: 'TENTATIVA INDEVIDA',
+        },
+        actor
+      );
+    } catch (err) {
+      caughtError = err;
+    }
+
+    assert.ok(caughtError instanceof HttpError);
+    assert.equal(caughtError.status, 409);
+    assert.equal(caughtError.details?.code, 'BLEND_CASCADED_MOVEMENT');
+  });
+
+  test('updateSampleMovement rejects a quantity edit on a liga movement (Fase 4)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10520', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10521', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-update-reject',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10522',
+      },
+      actor
+    );
+
+    const sale = await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    let caughtError = null;
+    try {
+      await commandService.updateSampleMovement(
+        {
+          sampleId: blend.sample.id,
+          movementId: sale.events[0].payload.movementId,
+          expectedVersion: sale.sample.version,
+          after: { quantitySacks: 99 },
+          reasonText: 'TENTATIVA INDEVIDA',
+        },
+        actor
+      );
+    } catch (err) {
+      caughtError = err;
+    }
+
+    assert.ok(caughtError instanceof HttpError);
+    assert.equal(caughtError.status, 422);
   });
 }
 

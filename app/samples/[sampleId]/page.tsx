@@ -11,7 +11,9 @@ import { ClientLookupField } from '../../../components/clients/ClientLookupField
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { ClientUnitSelect } from '../../../components/clients/ClientUnitSelect';
 import { BlendBadge } from '../../../components/samples/BlendBadge';
+import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
+import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import {
   ApiError,
@@ -26,6 +28,7 @@ import {
   lookupUsersForReference,
   recordPhysicalSampleSent,
   requestQrPrint,
+  revertBlend,
   updateClassification,
   updatePhysicalSampleSend,
   updateRegistration,
@@ -39,6 +42,7 @@ import {
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
+  ActiveBlendDetail,
   ClassificationType,
   ClassifierSnapshot,
   ClientUnitSummary,
@@ -88,6 +92,27 @@ type Notice = { kind: 'error' | 'success'; text: string } | null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Liga B3.5: extrai o payload do 409 SAMPLE_HAS_ACTIVE_BLENDS pra alimentar
+// o SampleInvalidateBlockedModal. ATENÇÃO ao shape: o backend lança
+// HttpError(409, msg, { code, activeBlends }) — então `activeBlends` é IRMÃO
+// de `code` dentro de ApiError.details (achatado). NÃO é aninhado sob outro
+// `details`, como no CLIENT_HAS_ACTIVE_SAMPLES dos clientes. Retorna null
+// quando não é esse erro (o catch cai no aviso genérico de hoje).
+function extractActiveBlendsBlock(cause: unknown): ActiveBlendDetail[] | null {
+  if (!(cause instanceof ApiError) || cause.status !== 409) {
+    return null;
+  }
+  const details = cause.details;
+  if (!isRecord(details)) {
+    return null;
+  }
+  const { code, activeBlends } = details;
+  if (code !== 'SAMPLE_HAS_ACTIVE_BLENDS') {
+    return null;
+  }
+  return Array.isArray(activeBlends) ? (activeBlends as ActiveBlendDetail[]) : [];
 }
 
 function toText(value: unknown): string {
@@ -479,6 +504,13 @@ export default function SampleDetailPage() {
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
   const [invalidateModalOpen, setInvalidateModalOpen] = useState(false);
+  // Liga B3.4: reversão de liga (revertBlend). Modal próprio — BlendRevertModal.
+  const [revertModalOpen, setRevertModalOpen] = useState(false);
+  const [reverting, setReverting] = useState(false);
+  const [revertError, setRevertError] = useState<string | null>(null);
+  // Liga B3.5: modal de bloqueio quando a amostra é origem de liga(s) ativa(s).
+  const [blockedBlends, setBlockedBlends] = useState<ActiveBlendDetail[]>([]);
+  const [invalidateBlockedOpen, setInvalidateBlockedOpen] = useState(false);
   const [activeMovements, setActiveMovements] = useState<SampleMovement[] | null>(null);
   const [activeMovementsError, setActiveMovementsError] = useState<string | null>(null);
 
@@ -548,6 +580,20 @@ export default function SampleDetailPage() {
   const canInvalidateSample = Boolean(session);
   const hasActiveMovements = Boolean(
     detail && ((detail.sample.soldSacks ?? 0) > 0 || (detail.sample.lostSacks ?? 0) > 0)
+  );
+  // Liga B3.4: numa liga (isBlend), "Reverter liga" substitui o "Invalidar"
+  // genérico — caminho terminal único, via revertBlend (emite BLEND_REVERTED).
+  // Liga com venda/perda não pode ser revertida (F8.4): nenhum botão aparece.
+  const isBlendSample = Boolean(detail?.sample.isBlend);
+  const canRevertBlend = Boolean(
+    detail &&
+    canInvalidateSample &&
+    isBlendSample &&
+    detail.sample.status !== 'INVALIDATED' &&
+    !hasActiveMovements
+  );
+  const canInvalidateNormal = Boolean(
+    detail && canInvalidateSample && !isBlendSample && detail.sample.status !== 'INVALIDATED'
   );
 
   const fetchDetail = useCallback(
@@ -1299,13 +1345,50 @@ export default function SampleDetailPage() {
       setInvalidateReasonText('');
       await syncDetailState();
     } catch (cause) {
-      if (cause instanceof ApiError) {
+      // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
+      // o modal de invalidação e abre o modal de bloqueio com as ligas.
+      const blocked = extractActiveBlendsBlock(cause);
+      if (blocked) {
+        setInvalidateModalOpen(false);
+        setBlockedBlends(blocked);
+        setInvalidateBlockedOpen(true);
+      } else if (cause instanceof ApiError) {
         setInvalidateModalNotice({ kind: 'error', text: cause.message });
       } else {
         setInvalidateModalNotice({ kind: 'error', text: 'Falha ao invalidar amostra' });
       }
     } finally {
       setInvalidating(false);
+    }
+  }
+
+  // Liga B3.4: reverte a liga (revertBlend → BLEND_REVERTED + SAMPLE_INVALIDATED).
+  // Espelha handleInvalidateSample: success notice + syncDetailState recarrega
+  // o detalhe já como INVALIDATED (a composição segue visível — F8.3).
+  async function handleRevertBlend(reasonText: string) {
+    if (!session || !detail) {
+      return;
+    }
+
+    setReverting(true);
+    setRevertError(null);
+
+    try {
+      await revertBlend(session, sampleId, {
+        expectedVersion: detail.sample.version,
+        reasonText,
+      });
+      setRevertModalOpen(false);
+      setGeneralNotice({ kind: 'success', text: 'Liga revertida com sucesso.' });
+      await syncDetailState();
+    } catch (cause) {
+      if (cause instanceof ApiError) {
+        setRevertError(cause.message);
+      } else {
+        setRevertError('Falha ao reverter liga');
+      }
+    } finally {
+      setReverting(false);
     }
   }
 
@@ -1430,16 +1513,25 @@ export default function SampleDetailPage() {
       });
       await syncDetailState();
     } catch (cause) {
-      setInvalidateModalNotice({
-        kind: 'error',
-        text:
-          cause instanceof ApiError
-            ? cause.message
-            : cause instanceof Error
+      // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
+      // o modal de invalidação e abre o modal de bloqueio com as ligas.
+      const blocked = extractActiveBlendsBlock(cause);
+      if (blocked) {
+        setInvalidateModalOpen(false);
+        setBlockedBlends(blocked);
+        setInvalidateBlockedOpen(true);
+      } else {
+        setInvalidateModalNotice({
+          kind: 'error',
+          text:
+            cause instanceof ApiError
               ? cause.message
-              : 'Falha ao cancelar movimentacoes e invalidar amostra',
-      });
-      await refetchActiveMovements();
+              : cause instanceof Error
+                ? cause.message
+                : 'Falha ao cancelar movimentacoes e invalidar amostra',
+        });
+        await refetchActiveMovements();
+      }
     } finally {
       setInvalidating(false);
     }
@@ -1877,17 +1969,43 @@ export default function SampleDetailPage() {
                   </span>
                 </div>
                 <div className="sdv-identity-actions">
-                  {canInvalidateSample && detail.sample.status !== 'INVALIDATED' ? (
+                  {canRevertBlend ? (
+                    <button
+                      type="button"
+                      className="sdv-identity-btn is-danger"
+                      onClick={() => {
+                        setRevertModalOpen(true);
+                        setRevertError(null);
+                        setGeneralNotice(null);
+                      }}
+                      aria-label="Reverter liga"
+                    >
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M9 14 4 9l5-5" />
+                        <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+                      </svg>
+                    </button>
+                  ) : null}
+                  {canInvalidateNormal ? (
                     <button
                       type="button"
                       className="sdv-identity-btn is-danger"
                       onClick={(event) => {
                         lastInvalidateTriggerRef.current = event.currentTarget;
+                        setGeneralNotice(null);
+                        // Liga B3.5 proativo: a amostra já consta como origem
+                        // de liga(s) ativa(s) → abre o modal de bloqueio
+                        // direto, sem abrir o formulário de motivo.
+                        const active = detail.activeBlends ?? [];
+                        if (active.length > 0) {
+                          setBlockedBlends(active);
+                          setInvalidateBlockedOpen(true);
+                          return;
+                        }
                         setInvalidateModalOpen(true);
                         setInvalidateReasonCode('OTHER');
                         setInvalidateReasonText('');
                         setInvalidateModalNotice(null);
-                        setGeneralNotice(null);
                       }}
                       aria-label="Invalidar"
                     >
@@ -2372,6 +2490,29 @@ export default function SampleDetailPage() {
           </>
         ) : null}
       </section>
+
+      {detail ? (
+        <BlendRevertModal
+          open={revertModalOpen}
+          lotNumber={detail.sample.internalLotNumber ?? detail.sample.id}
+          reverting={reverting}
+          errorMessage={revertError}
+          onClose={() => {
+            if (!reverting) {
+              setRevertModalOpen(false);
+            }
+          }}
+          onConfirm={(reasonText) => {
+            void handleRevertBlend(reasonText);
+          }}
+        />
+      ) : null}
+
+      <SampleInvalidateBlockedModal
+        open={invalidateBlockedOpen}
+        activeBlends={blockedBlends}
+        onClose={() => setInvalidateBlockedOpen(false)}
+      />
 
       {detail && invalidateModalOpen ? (
         <div className="app-modal-backdrop">

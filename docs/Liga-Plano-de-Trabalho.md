@@ -531,13 +531,15 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **Implicação backend**: rotina `cascadeSaleToOrigins` / `cascadeLossToOrigins` agora itera recursivamente (DFS ou CTE recursiva). Transação única abrange todos os eventos da árvore (atomicidade). CTE recursiva no Postgres (Q0.5 já previu o índice em `SampleBlendComponent` em ambas as direções).
 - **Implicação UI**: detalhe de cada sample na árvore exibe o trace de cascata reconstruído a partir de `causationId` (ver F7.4 e Wave B3).
 
-**F7.6 — REVISADA em 2026-05-18 (T0.D). Validação de saldo: hard block RECURSIVO.**
+**F7.6 — REVISADA em 2026-05-18 (T0.D) e 2026-05-21 (Wave B4 Fase 1). Validação de saldo: hard block RECURSIVO e QUANTITATIVO.**
+
+> **Revisão 2026-05-21 (Wave B4 Fase 1)**: a regra deixou de ser **binária** (`soldSacks == 0 AND lostSacks == 0` — qualquer movimento anterior bloqueava) e passou a ser **quantitativa**: um descendente só bloqueia quando `availableSacks (declared − sold − lost) < contributedSacks`. Venda/perda parcial anterior que ainda deixe saldo suficiente NÃO bloqueia mais. Decorre do modelo de viabilidade quantitativa travado com o usuário (ver Log de sessões 2026-05-21).
 
 - No clique "Vender liga", backend valida saldo de **toda a árvore de descendentes**, não só os componentes diretos.
-- Como F7.7 obriga liga-em-liga = 100%, a validação simplifica a "para cada sample descendente (direto e indireto, encontrado via CTE recursiva): `soldSacks == 0 AND lostSacks == 0` no momento da venda".
-- Se qualquer descendente falhar, retorna erro `409` apontando qual sample da árvore está bloqueando (ex: "Origem #5658 (descendente via Liga A) já foi parcialmente vendida — saldo 30sc, precisa 50sc").
-- Garante zero overselling cascateado — mesmo em casos onde um sample neto foi vendido independentemente entre a criação da liga raiz e a venda dela.
-- **Implicação backend**: validação `validateBlendSaleEligibility(blendId)` usa CTE recursiva pra varrer descendentes; retorna lista de bloqueios pra UI exibir todos de uma vez.
+- Pra cada sample descendente (direto e indireto, encontrado via CTE recursiva `loadBlendTree`): exige `availableSacks >= contributedSacks` no momento da venda.
+- Se qualquer descendente falhar, retorna `409 BLEND_HAS_BLOCKED_DESCENDANTS` com `blockedDescendants: [{ sampleId, lotNumber, contributedSacks, availableSacks }]` — UI exibe todos de uma vez.
+- Garante zero overselling cascateado — mesmo quando um sample neto foi mexido entre a criação da liga raiz e a venda dela.
+- **Implementação**: o hard block vive em `_createBlendCascadeMovement` (`sample-command-service.js`).
 
 **F7.7 — Contribuição de uma liga em outra liga é sempre 100% (não permite parcial).**
 
@@ -767,18 +769,17 @@ Sub-fases numeradas, na ordem de execução recomendada:
 - Backend filtra INVALIDATED (Wave A2.5) — liga revertida desaparece automaticamente desta seção.
 - Componente reusável `<RelatedSampleRow>` compartilhado com B3.2.
 
-**B3.4 — Botão "Reverter liga" + modal de confirmação** _(pendente)_
+**B3.4 — Botão "Reverter liga" + modal de confirmação** ✅ _(implementada 2026-05-21)_
 
 - Botão "Reverter liga" no detalhe (visível se `isBlend && status !== INVALIDATED && soldSacks === 0 && lostSacks === 0`).
+- **Refinamento (2026-05-21, confirmado com o usuário)**: numa liga, "Reverter liga" **substitui** o botão "Invalidar" genérico — caminho terminal único, sempre via `revertBlend` (emite `BLEND_REVERTED` pra auditoria). Amostra normal segue com "Invalidar". Liga já vendida/perdida não mostra nenhum botão (reversão bloqueada por F8.4).
 - Modal de confirmação: padrão `.app-confirm-modal`, campo `reasonText` opcional (F8.2), botão "Reverter" vermelho.
 - Chama `revertBlend` (endpoint A3.2 pronto).
-- **Importante operacional**: sem B3.4, ligas teste/equivocadas ficam no banco até remoção manual via DB. Recomendado fazer antes de subir pra prod em uso regular.
 
-**B3.5 — Modal de erro F7.D (`SAMPLE_HAS_ACTIVE_BLENDS`)** _(pendente)_
+**B3.5 — Modal de bloqueio de invalidação por liga ativa (`SAMPLE_HAS_ACTIVE_BLENDS`)** ✅ _(implementada 2026-05-21)_
 
-- Quando operador tenta invalidar amostra que é origem em liga ativa, backend devolve `409 SAMPLE_HAS_ACTIVE_BLENDS` + `activeBlends`.
-- Frontend renderiza modal `.app-modal.is-themed` com cabeçalho "Não foi possível invalidar", lista de cada liga (lot + status + contribuição + botão "Ver liga" navegando pro detalhe), rodapé com "Entendi". Sem "Reverter aqui" — reverter opera-se no contexto da liga.
-- **Sem B3.5**: o erro 409 cai no toast genérico de erro, mostrando mensagem técnica do backend (operador não entende a ação).
+- Quando o operador tenta invalidar uma amostra que é origem de liga(s) ativa(s), aparece o `<SampleInvalidateBlockedModal>` (`.app-modal.is-themed`): cabeçalho "Não foi possível invalidar", lista de cada liga via `<RelatedSampleRow>` (linha inteira clicável → detalhe da liga), rodapé "Entendi". Sem "Reverter aqui" — reverter opera-se no contexto da liga (B3.4).
+- **Gatilho proativo + rede de segurança** (revisão de 2026-05-21, confirmada com o usuário — ver Log de sessões): o doc original (F7.D) previa só o fluxo reativo (pós-409). Agora, ao tocar "Invalidar", se o detalhe já mostra `activeBlends` não-vazio (dado da B3.3), o modal abre na hora, sem abrir o formulário de motivo. O 409 continua tratado nos `catch` como rede de segurança (corrida: liga criada entre o carregamento e o clique).
 
 **B3.6 — Trace de cascata via `causationId`** _(opcional, polish)_
 
@@ -793,14 +794,30 @@ Sub-fases numeradas, na ordem de execução recomendada:
 - **Quando fazer**: quando a falta de contexto ("liga LG-1024 · — · — · 20 sc") atrapalhar a navegação do operador. Pra ligas que tipicamente são sem dono ("carteira da corretora"), owner viria sempre vazio mesmo com enrichment; **harvest** é o ganho real desta sub-fase.
 - Custo estimado: ~30 min (backend select novo + tipo TS + UI pega valor em vez de hardcoded null).
 
-**Fase B4 — Venda/perda da liga (UI ajustada)**
+**B3.8 — Aviso ao vender/perder uma amostra que é origem de liga(s)** _(pendente — decidido com o usuário em 2026-05-21)_
 
-- Modal `SampleMovementModal` (venda/perda existente) ajustado: quando `sample.isBlend = true`, esconde campo `quantitySacks` e mostra "Vai vender 100% = {availableSacks} sc".
-- Pré-validação visual: antes de habilitar "Confirmar", busca saldo das origens **recursivamente** (T0.D — toda a árvore de descendentes via API); origens com saldo insuficiente exibem warning inline com nome + faltante.
-- Backend faz hard block recursivo (T0.D), mas UI antecipa o problema.
-- **Liga sem dono** (F3.A): quando `sample.isBlend && sample.ownerClientId === null`, modal exibe bloco destacado com:
-  - Texto explicativo "Esta liga não tem dono atribuído — será vendida em nome da corretora."
-  - 2 botões: **"Atribuir dono primeiro"** (abre `<ClientLookupField>` em sub-modal/overlay → seleção → PATCH em `/samples/:id` atualizando `ownerClientId` → re-renderiza com owner preenchido) e **"Vender mesmo assim"** (continua o fluxo normal). Sem bloqueio.
+- Diferente da invalidação (B3.5, bloqueio rígido): vender/perder uma origem **não é bloqueado** — é ação legítima (o overcommit se resolvendo; uma proposta de liga "vence", ou a amostra é vendida avulsa — Q0.2 + T0.B).
+- Mas vender/perder a origem diretamente _envenena_ as ligas que a contêm: a venda/perda da liga em cascata será barrada depois pelo hard block F7.6 (`BLEND_HAS_BLOCKED_DESCENDANTS`). A integridade nunca quebra — a liga só deixa de ser vendável **como liga**.
+- UX: **aviso informativo** (não-bloqueio) no `SampleMovementModal` quando a amostra tem `activeBlends.length > 0` — algo como "Esta amostra compõe N liga(s); vendê-la / registrar perda vai impedir que essas ligas sejam vendidas como liga." Botões "Confirmar mesmo assim" + "Ver ligas" (opcional). Mesmo espírito do F3.A ("Atribuir dono primeiro" / "Vender mesmo assim") — empurrãozinho, não muro.
+- Dados já disponíveis (`activeBlends` em `GET /samples/:id`) — só frontend. Prioridade menor que B4: é conforto de UX, não correção (o hard block F7.6 já protege a integridade).
+
+**Wave B4 — Venda/perda de liga (ciclo comercial completo)**
+
+> Reescopada em 2026-05-21: o que era "Fase B4 — UI ajustada" virou uma **wave de 8 fases** (backend + frontend), após a análise de venda/perda com o usuário. Modelo travado: liga = proposta sem reserva; viabilidade **quantitativa**; liga inviável é **sinalizada** (flag derivado), nunca auto-inativada; cancelar/editar venda de liga = cascata reversa/update.
+
+Backend (Fases 1-4) — ✅ **concluído em 2026-05-21** (ver Log de sessões):
+
+- **Fase 1** — F7.6 binária → quantitativa.
+- **Fase 2** — endpoint `GET /samples/:id/blend-feasibility` (`getBlendFeasibility`) — árvore recursiva + saldos + origens bloqueantes.
+- **Fase 3** — `_cancelBlendCascadeMovement` — cancelar venda/perda de liga = cascata reversa (`SALE_CANCELLED`/`LOSS_CANCELLED` na raiz + descendentes).
+- **Fase 4** — `_updateBlendCascadeMovement` (re-cascata de comprador/data/obs) + guard `BLEND_CASCADED_MOVEMENT` (movimento cascateado só via a raiz).
+
+Frontend (Fases 5-8) — pendente:
+
+- **Fase 5** — modal `SampleMovementModal` pra liga: esconde `quantitySacks`, "vende 100% = N sc", pré-validação via Fase 2, bloco "sem dono" (F3.A — "Atribuir dono primeiro" via `updateRegistration` / "Continuar mesmo assim") em venda **e** perda.
+- **Fase 6** — UI de cancelar/editar movimento de liga; movimentos cascateados read-only no painel da origem.
+- **Fase 7** — flag de viabilidade no detalhe da liga (via Fase 2).
+- **Fase 8** — B3.8: aviso (não-bloqueante) ao vender/perder uma amostra-origem.
 
 ### Wave C — Release
 
@@ -1220,17 +1237,26 @@ Conclusão: o vendedor de qualquer venda é sempre **implícito** — derivado d
 
 **Backend — alternativa (A) erro estruturado com `activeBlends`**:
 
-- HTTP `409` + corpo:
+- HTTP `409` + corpo (shape real, confirmado na implementação B3.5 — backend usa `HttpError(409, message, { code, activeBlends })`, serializado por `toHttpErrorResponse`):
   ```json
   {
-    "error": "SampleHasActiveBlends",
-    "code": "SAMPLE_HAS_ACTIVE_BLENDS",
-    "message": "Esta amostra contribui pra N ligas ativas.",
-    "activeBlends": [
-      { "sampleId": "<uuid>", "lotNumber": "5678", "status": "CLASSIFIED", "contributedSacks": 50 }
-    ]
+    "error": {
+      "message": "Esta amostra contribui pra N liga(s) ativa(s). Reverta-as antes de invalidar.",
+      "details": {
+        "code": "SAMPLE_HAS_ACTIVE_BLENDS",
+        "activeBlends": [
+          {
+            "sampleId": "<uuid>",
+            "lotNumber": "5678",
+            "status": "CLASSIFIED",
+            "contributedSacks": 50
+          }
+        ]
+      }
+    }
   }
   ```
+- No frontend, `ApiError.details` recebe `{ code, activeBlends }` — `activeBlends` é irmão de `code` (achatado), não aninhado sob outro `details`.
 - `code` permite detecção robusta no frontend (sem parsear `message`).
 - `activeBlends` alimenta a lista clicável.
 
@@ -1684,3 +1710,72 @@ Operador comunicado dos riscos; uso inicial limitado a teste de criação + visu
 4. **B3.7** — enrichment de `activeBlends[]` com owner/harvest (post-MVP, polish).
 5. **B3.6** — trace de cascata via `causationId` (opcional).
 6. **C1** — testes + smoke + canary→prod da Wave B3.4/B3.5/B4 (próximo ciclo de deploy).
+
+### 2026-05-21 — Wave B3.4: botão + modal de reverter liga ✅
+
+Botão "Reverter liga" no detalhe da liga + modal de confirmação. Fecha o escape hatch que faltava — liga criada por engano agora se resolve pela UI, sem remoção manual no banco. Backend (`revertBlend` service + endpoint A3.2) já estava pronto desde as Waves A2.3/A3 — B3.4 é 100% frontend.
+
+**Decisão de UX confirmada com o usuário**: numa liga, "Reverter liga" **substitui** o botão "Invalidar" genérico (não coexistem). Reverter uma liga é semanticamente distinto de invalidar — emite `BLEND_REVERTED` pra auditoria, enquanto o "Invalidar" genérico só emitiria `SAMPLE_INVALIDATED`. Dois caminhos de invalidação na mesma tela confundiriam o operador. Amostra normal continua com "Invalidar". Liga já vendida/perdida não mostra botão algum (reversão bloqueada por F8.4 — INVALIDATED é terminal).
+
+**Implementação (3 arquivos + CSS + doc)**:
+
+- `lib/api-client.ts` — nova função `revertBlend(session, sampleId, { expectedVersion, reasonText?, idempotencyKey? })`. Espelha `invalidateSample`: `reasonText` só entra no body quando não-vazio (F8.2 — motivo opcional).
+- `components/samples/BlendRevertModal.tsx` (novo) — modal de confirmação no padrão `.app-confirm-modal` (mesmo do "Descartar amostra em andamento"). Warning âmbar "Esta ação não pode ser desfeita" (F8.4) + textarea de motivo opcional (F8.2; `maxLength` 500 = limite do payload `BLEND_REVERTED`) + "Reverter liga" vermelho / "Cancelar" (autofoco no Cancelar — ação segura). Focus trap, ESC, portal. A descrição reforça que as origens não são afetadas (Q0.2 / F8.3).
+- `app/samples/[sampleId]/page.tsx` — botão "Reverter liga" (ícone undo) no `sdv-identity-actions`, gated por `canRevertBlend`; `canInvalidateNormal` substitui a condição antiga do "Invalidar" (exclui ligas). Handler `handleRevertBlend` espelha `handleInvalidateSample` — sucesso fecha o modal, `setGeneralNotice` + `syncDetailState` recarrega o detalhe já como INVALIDATED (composição segue visível — F8.3).
+- `app/globals.css` — uma regra: `.blend-revert-modal__reason { resize: none }`.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, build
+- ✅ test:contracts (20/20), test:unit (180/180)
+- `test:integration:db` não rodado — B3.4 é 100% frontend, sem mudança em `src/` ou schema (mesmo critério das sub-fases B3.2/B3.3).
+- 🟡 Smoke manual visual: usuário confere (detalhe de liga → "Reverter liga" → modal → confirmar → liga vira INVALIDATED, composição preservada; amostra normal segue com "Invalidar").
+
+**Próximas sub-fases**: B3.5 (modal de erro F7.D `SAMPLE_HAS_ACTIVE_BLENDS`), B4 (venda/perda da liga + "Atribuir dono primeiro"), depois C1 (deploy do lote B3.4/B3.5/B4).
+
+### 2026-05-21 — Wave B3.5: modal de bloqueio de invalidação por liga ativa ✅
+
+Quando o operador tenta invalidar uma amostra que é origem de liga(s) ativa(s), agora aparece um modal claro (`<SampleInvalidateBlockedModal>`) explicando o bloqueio e listando as ligas, cada uma clicável → detalhe da liga (onde se reverte, via B3.4). Antes, o erro caía num aviso inline com a mensagem técnica do backend. É o espelho do B3.4: B3.4 reverte a liga; B3.5 explica por que mexer numa origem é bloqueado. Backend pronto desde a Wave A2.5 — B3.5 é 100% frontend.
+
+**Decisão de UX confirmada com o usuário — gatilho proativo + rede de segurança**: o doc F7.D previa só o fluxo reativo (mostrar o modal após o 409). Como o detalhe já carrega `activeBlends` (B3.3), o frontend sabe do bloqueio antes do clique. Decidido: ao tocar "Invalidar", se `activeBlends` não-vazio, o modal abre na hora — sem abrir o formulário de motivo (o operador não preenche um motivo que seria rejeitado). O 409 `SAMPLE_HAS_ACTIVE_BLENDS` continua tratado nos `catch` de `handleInvalidateSample` e `handleCancelMovementsAndInvalidate` como rede de segurança (corrida: liga criada entre o carregamento da página e o clique).
+
+**Correção de doc**: a F7.D descrevia o corpo do erro como `{ error, code, message, activeBlends }` achatado. O shape real, confirmado no código, é `{ error: { message, details: { code, activeBlends } } }` → no frontend, `ApiError.details = { code, activeBlends }`. O JSON de exemplo da seção F7.D foi corrigido.
+
+**Implementação (2 arquivos + doc, sem CSS novo)**:
+
+- `components/samples/SampleInvalidateBlockedModal.tsx` (novo) — modal `.app-modal.is-themed`, `role="alertdialog"`, portal, focus trap, ESC/backdrop fecham. Props `{ open, activeBlends, onClose }`. Header "Não foi possível invalidar" + descrição pluralizada; corpo com `<ul className="sdv-related-list">` de `<RelatedSampleRow>` (mesmo bloco da seção B3.3, pra consistência); rodapé botão único "Entendi". Informativo — sem ação destrutiva.
+- `app/samples/[sampleId]/page.tsx` — helper de módulo `extractActiveBlendsBlock` (type guard do 409, com comentário forte sobre o shape achatado de `ApiError.details`); state `blockedBlends` + `invalidateBlockedOpen`; gatilho proativo no `onClick` do botão "Invalidar" (`canInvalidateNormal`); rede de segurança reativa nos 2 `catch`; render do modal.
+- Reuso total: `RelatedSampleRow`, tipo `ActiveBlendDetail`, `ApiError.details`, classe `.sdv-related-list`. Zero CSS novo, zero mudança de backend/infra.
+
+**Quality gates**:
+
+- ✅ lint, format:check, typecheck, build
+- ✅ test:contracts (20/20), test:unit (180/180)
+- `test:integration:db` não rodado — B3.5 é 100% frontend, sem mudança em `src/` ou schema (mesmo critério de B3.2/B3.3/B3.4).
+- 🟡 Smoke manual visual: usuário confere (amostra-origem de liga ativa → "Invalidar" → modal abre direto; clicar numa liga navega; ESC/backdrop/"Entendi" fecham; amostra sem ligas → formulário de motivo normal).
+
+**Edge case conhecido**: amostra com movimentações ativas E ligas ativas — o gatilho proativo resolve (checa `activeBlends` antes, nem abre o formulário). No caminho reativo raro (corrida), `handleCancelMovementsAndInvalidate` cancela as movimentações antes do 409; comportamento pré-existente do backend, não introduzido aqui.
+
+**Próximas sub-fases**: B4 (venda/perda da liga + "Atribuir dono primeiro" F3.A); **B3.8** (novo — aviso ao vender/perder uma amostra-origem, registrado na lista de sub-fases da Wave B3); depois C1 (deploy do lote B3.4/B3.5).
+
+### 2026-05-21 — Wave B4: backend completo (Fases 1-4) ✅
+
+Após a análise de venda/perda de liga com o usuário (várias rodadas), o "B4 — UI ajustada" foi reescopado como **wave de 8 fases**. Modelo de domínio travado:
+
+- **Liga = proposta, sem reserva.** `availableSacks = declared − sold − lost`; participar de liga(s) não consome saldo; overcommit é livre (Q0.2 + T0.B confirmados com o usuário).
+- **Viabilidade quantitativa.** Uma liga é viável ⟺ cada origem da árvore recursiva tem `available ≥ a contribuição dela`.
+- **Liga inviável é sinalizada (flag derivado), nunca auto-inativada.** O operador reverte deliberadamente (B3.4) — flag derivado se recalcula sozinho (se a venda da origem for cancelada, some).
+- **Cancelar venda/perda de liga = cascata reversa; editar = cascata de update.** Um movimento cascateado (numa origem) não é cancelável/editável isolado — só via a raiz. Isso **destrava a nota de T0.A** ("cascata reversa fora de escopo MVP"): cancelar/editar uma venda é operação distinta de `BLEND_REVERTED` (mexe em `commercialStatus`, não em `status`); F8.4 fica intocada.
+
+As 4 fases de backend, cada uma com quality gates verdes:
+
+- **Fase 1 — F7.6 quantitativa.** O hard block recursivo da cascata (`_createBlendCascadeMovement`) deixou de ser binário (`soldSacks>0 || lostSacks>0`) e passou a quantitativo (`available < contributedSacks`). `BLEND_HAS_BLOCKED_DESCENDANTS` passou a carregar `contributedSacks`/`availableSacks` por origem. F7.6 revisada no doc.
+- **Fase 2 — endpoint de viabilidade.** `getBlendFeasibility(sampleId)` (query service) embrulha `loadBlendTree` e marca, por descendente, se `available ≥ contribuição`; retorna `{ feasible, nodes, blockingOrigins }`. Rota `GET /api/v1/samples/:sampleId/blend-feasibility` + handler + `lib/api-client.ts` + tipos. Fonte única da pré-validação do modal (Fase 5) e do flag (Fase 7).
+- **Fase 3 — cascata reversa de cancelamento.** `loadBlendCascadeMovements` resolve a cascata percorrendo `sample_event.causation_id` (CTE recursiva). `_cancelBlendCascadeMovement` emite `SALE_CANCELLED`/`LOSS_CANCELLED` na raiz + cada descendente via `appendEventBatch` (atômico). Projeção por nó subtrai só a quantidade daquele movimento — venda independente posterior numa origem é preservada. `cancelSampleMovement` ramifica em `isBlend`.
+- **Fase 4 — cascata de update + guard.** `_updateBlendCascadeMovement` re-cascateia comprador/data/obs pra toda a árvore (campos uniformes; quantidade e tipo rejeitados — 422). `loadMovementCreationEvent` + `_assertMovementNotCascaded` — o guard `BLEND_CASCADED_MOVEMENT` impede cancelar/editar um movimento cascateado isoladamente. `updateSampleMovement` ramifica em `isBlend`.
+
+**Quality gates (todas as fases)**: ✅ lint, format:check, typecheck, build, test:contracts (20/20), test:unit (180/180), **test:integration:db (195/195 — +10 testes novos da wave**: F7.6 quantitativa, viabilidade, cascata reversa, cascata de update, guard).
+
+**Sem migration** — a wave não altera o schema (F7.6 é lógica, o endpoint é query, as cascatas são eventos novos).
+
+**Próximas fases (frontend)**: 5 (modal de venda/perda da liga), 6 (UI cancelar/editar movimento de liga), 7 (flag de viabilidade), 8 (B3.8 aviso de venda de origem).

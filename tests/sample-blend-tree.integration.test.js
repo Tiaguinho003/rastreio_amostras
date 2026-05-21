@@ -211,6 +211,81 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(blends.length, 1);
     assert.equal(blends[0].sampleId, activeBlend);
   });
+
+  // Liga B4 Fase 2 — getBlendFeasibility
+
+  test('getBlendFeasibility marks a blend feasible when every origin has enough balance', async () => {
+    const blendId = randomUUID();
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createSample({ id: origin1Id, lotNumber: '7500' });
+    await createSample({ id: origin2Id, lotNumber: '7501' });
+    await createSample({ id: blendId, lotNumber: '7502', isBlend: true });
+    await prisma.sample.update({ where: { id: origin1Id }, data: { declaredSacks: 10 } });
+    await prisma.sample.update({ where: { id: origin2Id }, data: { declaredSacks: 20 } });
+    await createBlendComponentRows([
+      { sampleId: blendId, originSampleId: origin1Id, contributedSacks: 6 },
+      { sampleId: blendId, originSampleId: origin2Id, contributedSacks: 8 },
+    ]);
+
+    const result = await queryService.getBlendFeasibility(blendId);
+
+    assert.equal(result.isBlend, true);
+    assert.equal(result.feasible, true);
+    assert.equal(result.blockingOrigins.length, 0);
+    assert.equal(result.nodes.length, 3);
+  });
+
+  test('getBlendFeasibility marks a blend infeasible when an origin lacks balance', async () => {
+    const blendId = randomUUID();
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createSample({ id: origin1Id, lotNumber: '7510' });
+    await createSample({ id: origin2Id, lotNumber: '7511' });
+    await createSample({ id: blendId, lotNumber: '7512', isBlend: true });
+    // origin1 vendeu 7 das 10 -> sobram 3, menos que as 6 contribuidas.
+    await prisma.sample.update({
+      where: { id: origin1Id },
+      data: { declaredSacks: 10, soldSacks: 7 },
+    });
+    await prisma.sample.update({ where: { id: origin2Id }, data: { declaredSacks: 20 } });
+    await createBlendComponentRows([
+      { sampleId: blendId, originSampleId: origin1Id, contributedSacks: 6 },
+      { sampleId: blendId, originSampleId: origin2Id, contributedSacks: 8 },
+    ]);
+
+    const result = await queryService.getBlendFeasibility(blendId);
+
+    assert.equal(result.feasible, false);
+    assert.equal(result.blockingOrigins.length, 1);
+    assert.equal(result.blockingOrigins[0].sampleId, origin1Id);
+    assert.equal(result.blockingOrigins[0].contributedSacks, 6);
+    assert.equal(result.blockingOrigins[0].availableSacks, 3);
+  });
+
+  test('getBlendFeasibility keeps a blend feasible when an origin is partially sold but still covers its contribution', async () => {
+    const blendId = randomUUID();
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    await createSample({ id: origin1Id, lotNumber: '7520' });
+    await createSample({ id: origin2Id, lotNumber: '7521' });
+    await createSample({ id: blendId, lotNumber: '7522', isBlend: true });
+    // origin1 vendeu 4 das 10 -> sobram 6, exatamente as 6 contribuidas.
+    await prisma.sample.update({
+      where: { id: origin1Id },
+      data: { declaredSacks: 10, soldSacks: 4 },
+    });
+    await prisma.sample.update({ where: { id: origin2Id }, data: { declaredSacks: 20 } });
+    await createBlendComponentRows([
+      { sampleId: blendId, originSampleId: origin1Id, contributedSacks: 6 },
+      { sampleId: blendId, originSampleId: origin2Id, contributedSacks: 8 },
+    ]);
+
+    const result = await queryService.getBlendFeasibility(blendId);
+
+    assert.equal(result.feasible, true);
+    assert.equal(result.blockingOrigins.length, 0);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

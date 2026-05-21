@@ -1,4 +1,5 @@
 import type {
+  BlendFeasibilityResponse,
   ClassificationType,
   ClientAuditListResponse,
   ClientCommercialSummaryResponse,
@@ -929,6 +930,51 @@ export function createBlend(
     method: 'POST',
     session,
     body,
+  });
+}
+
+// Liga A3.2 / B3.4: reverte uma liga existente (status -> INVALIDATED).
+// Endpoint REST: POST /api/v1/samples/:sampleId/revert-blend. Backend emite
+// BLEND_REVERTED (audit, carrega o motivo) + SAMPLE_INVALIDATED. Restrita a
+// liga sem venda/perda (Liga F8.4). reasonText e opcional (Liga F8.2) — so
+// vai no body quando nao-vazio; as origens nao sao afetadas (Q0.2).
+export function revertBlend(
+  session: SessionData,
+  sampleId: string,
+  data: {
+    expectedVersion: number;
+    reasonText?: string;
+    idempotencyKey?: string;
+  }
+) {
+  const body: { [key: string]: JsonValue } = {
+    expectedVersion: data.expectedVersion,
+  };
+
+  const trimmedReason = data.reasonText?.trim();
+  if (typeof trimmedReason === 'string' && trimmedReason.length > 0) {
+    body.reasonText = trimmedReason;
+  }
+
+  if (typeof data.idempotencyKey === 'string' && data.idempotencyKey.length > 0) {
+    body.idempotencyKey = data.idempotencyKey;
+  }
+
+  return request<CommandResponse>(`/samples/${sampleId}/revert-blend`, {
+    method: 'POST',
+    session,
+    body,
+  });
+}
+
+// Liga B4 Fase 2: viabilidade da venda de uma liga — árvore de descendentes
+// com saldos + as origens que bloqueiam a cascata (hard block F7.6
+// quantitativo). Alimenta a pré-validação do modal de venda e o flag de
+// viabilidade no detalhe da liga.
+export function getBlendFeasibility(session: SessionData, sampleId: string) {
+  return request<BlendFeasibilityResponse>(`/samples/${sampleId}/blend-feasibility`, {
+    method: 'GET',
+    session,
   });
 }
 

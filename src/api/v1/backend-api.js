@@ -531,6 +531,22 @@ export function createBackendApiV1({
         };
       }),
 
+    // Liga B4 Fase 2: viabilidade da venda de uma liga (árvore de
+    // descendentes + saldos + origens que bloqueiam a cascata F7.6).
+    getBlendFeasibility: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const sampleId = requireSampleId(input?.params);
+        const result = await queryService.getBlendFeasibility(sampleId);
+        if (!result) {
+          throw new HttpError(404, `Sample ${sampleId} not found`);
+        }
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
     exportSamplePdf: (input) =>
       executeApiForInput(input, async () => {
         if (!reportService) {

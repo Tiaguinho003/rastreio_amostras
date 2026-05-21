@@ -1,0 +1,165 @@
+'use client';
+
+// Liga B3.4: modal de confirmação de reversão de liga. Aberto pelo botão
+// "Reverter liga" no header do detalhe (/samples/[sampleId]) quando o sample
+// é uma liga sem venda/perda. Segue o padrão .app-confirm-modal (mesmo do
+// "Descartar amostra em andamento" do NewSampleModal), conforme F8.2.
+//
+// Decisões (Liga F8):
+// - F8.2: motivo é texto livre OPCIONAL. Botão "Reverter liga" vermelho,
+//   "Cancelar" secundário.
+// - F8.3: a composição é preservada e as origens não são afetadas (Q0.2) —
+//   a descrição reforça isso pro operador.
+// - F8.4: reversão é definitiva — warning âmbar "não pode ser desfeita".
+//
+// O componente é dono do campo de motivo (state interno, reset ao abrir); o
+// parent cuida da chamada revertBlend e passa reverting/errorMessage.
+
+import { useEffect, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+
+import { useFocusTrap } from '../../lib/use-focus-trap';
+
+// reasonText do BLEND_REVERTED aceita até 500 chars (payload schema em
+// docs/schemas/events/v1/payloads/blend-reverted.payload.schema.json).
+const REASON_MAX_LENGTH = 500;
+
+interface BlendRevertModalProps {
+  open: boolean;
+  /** Lote da liga — exibido no título pra confirmar o alvo da reversão. */
+  lotNumber: string;
+  /** true durante o request de revertBlend — bloqueia inputs e fechamento. */
+  reverting: boolean;
+  /** Erro do request, renderizado acima das ações. */
+  errorMessage: string | null;
+  onClose: () => void;
+  /** Confirma a reversão. Recebe o motivo já trimado ('' quando vazio). */
+  onConfirm: (reasonText: string) => void;
+}
+
+export function BlendRevertModal({
+  open,
+  lotNumber,
+  reverting,
+  errorMessage,
+  onClose,
+  onConfirm,
+}: BlendRevertModalProps) {
+  const focusTrapRef = useFocusTrap(open);
+  const [reasonText, setReasonText] = useState('');
+
+  // Reset do motivo sempre que o modal abre.
+  useEffect(() => {
+    if (open) {
+      setReasonText('');
+    }
+  }, [open]);
+
+  // ESC fecha (exceto durante o request de reversão).
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !reverting) {
+        onClose();
+      }
+    }
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [open, reverting, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (reverting) {
+      return;
+    }
+    onConfirm(reasonText.trim());
+  }
+
+  return createPortal(
+    <div
+      className="app-modal-backdrop"
+      onClick={() => {
+        if (!reverting) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        ref={focusTrapRef}
+        className="app-modal app-confirm-modal blend-revert-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="blend-revert-modal-title"
+        aria-describedby="blend-revert-modal-description"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id="blend-revert-modal-title" className="app-modal-title">
+              Reverter liga {lotNumber}?
+            </h3>
+            <p id="blend-revert-modal-description" className="app-modal-description">
+              A liga será invalidada e sairá das listagens ativas. As amostras de origem não são
+              afetadas.
+            </p>
+          </div>
+        </header>
+
+        <div className="app-confirm-modal-warning">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 9v4" />
+            <path d="M12 17v.01" />
+            <path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
+          </svg>
+          <span>Esta ação não pode ser desfeita.</span>
+        </div>
+
+        <form className="app-modal-content" onSubmit={handleSubmit}>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Motivo (opcional)</span>
+            <textarea
+              className="app-modal-input blend-revert-modal__reason"
+              value={reasonText}
+              rows={3}
+              maxLength={REASON_MAX_LENGTH}
+              placeholder="Ex: liga criada por engano"
+              disabled={reverting}
+              onChange={(event) => setReasonText(event.target.value)}
+            />
+          </label>
+
+          {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
+
+          <div className="app-modal-actions">
+            <button
+              type="button"
+              className="app-modal-secondary"
+              onClick={onClose}
+              disabled={reverting}
+              autoFocus
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="app-modal-submit is-danger" disabled={reverting}>
+              {reverting ? 'Revertendo...' : 'Reverter liga'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>,
+    document.body
+  );
+}

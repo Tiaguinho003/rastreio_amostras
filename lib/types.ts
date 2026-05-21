@@ -531,6 +531,41 @@ export interface ActiveBlendDetail {
   contributedSacks: number;
 }
 
+// Liga B4 Fase 2: viabilidade da venda de uma liga. `getBlendFeasibility`
+// percorre a árvore recursiva de descendentes e marca, por origem, se o
+// saldo disponível ainda cobre a contribuição exigida (hard block F7.6
+// quantitativo). Consumido pela pré-validação do modal de venda (Fase 5)
+// e pelo flag de viabilidade no detalhe da liga (Fase 7).
+export interface BlendFeasibilityNode {
+  sampleId: string;
+  lotNumber: string | null;
+  parentBlendId: string | null;
+  depth: number;
+  isBlend: boolean;
+  status: SampleStatus;
+  /** null no nó raiz (a liga); número em cada descendente. */
+  contributedSacks: number | null;
+  declaredSacks: number | null;
+  soldSacks: number;
+  lostSacks: number;
+  availableSacks: number;
+}
+
+export interface BlendBlockingOrigin {
+  sampleId: string;
+  lotNumber: string | null;
+  contributedSacks: number;
+  availableSacks: number;
+}
+
+export interface BlendFeasibilityResponse {
+  sampleId: string;
+  isBlend: boolean;
+  feasible: boolean;
+  nodes: BlendFeasibilityNode[];
+  blockingOrigins: BlendBlockingOrigin[];
+}
+
 export interface SampleDetailResponse {
   sample: SampleSnapshot;
   attachments: SampleAttachment[];

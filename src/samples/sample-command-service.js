@@ -2525,10 +2525,10 @@ export class SampleCommandService {
   //
   // - F7.1: venda da liga = 100% das sacas (quantitySacks input ignorado;
   //   forçado a availableSacks da raiz).
-  // - F7.6 hard block recursivo: nenhum descendente pode ter
-  //   soldSacks > 0 OR lostSacks > 0 (qualquer venda/perda anterior
-  //   bloqueia a cascata — operador precisa cancelar ou usar a liga
-  //   sem essa origem).
+  // - F7.6 hard block recursivo QUANTITATIVO: um descendente bloqueia
+  //   a cascata quando o saldo disponível dele (declared - sold - lost)
+  //   é menor que a contribuição exigida pela liga. Venda/perda parcial
+  //   anterior que ainda deixe saldo suficiente NÃO bloqueia.
   // - F7.5 cascata recursiva (T0.D): emite SALE_CREATED/LOSS_RECORDED
   //   em CADA descendente da árvore via loadBlendTree. quantitySacks
   //   no descendente = contributedSacks do pai imediato (F7.7 garante
@@ -2552,22 +2552,27 @@ export class SampleCommandService {
   }) {
     const tree = await this.queryService.loadBlendTree(rootSample.id);
 
-    // F7.6 hard block: descendentes (excluindo a raiz) com soldSacks
-    // ou lostSacks > 0.
+    // F7.6 hard block QUANTITATIVO: um descendente bloqueia a cascata
+    // quando seu saldo disponível (declared - sold - lost) é menor que
+    // a contribuição exigida. Venda/perda parcial anterior que ainda
+    // deixe saldo suficiente não bloqueia.
     const blockedDescendants = tree
       .filter((node) => node.sampleId !== rootSample.id)
-      .filter((node) => node.soldSacks > 0 || node.lostSacks > 0);
+      .filter((node) => {
+        const available = (node.declaredSacks ?? 0) - node.soldSacks - node.lostSacks;
+        return available < node.contributedSacks;
+      });
     if (blockedDescendants.length > 0) {
       throw new HttpError(
         409,
-        `Cannot complete cascade: ${blockedDescendants.length} descendant(s) have prior commercial movements.`,
+        `Cannot complete cascade: ${blockedDescendants.length} descendant(s) lack sufficient balance.`,
         {
           code: 'BLEND_HAS_BLOCKED_DESCENDANTS',
           blockedDescendants: blockedDescendants.map((node) => ({
             sampleId: node.sampleId,
             lotNumber: node.internalLotNumber,
-            soldSacks: node.soldSacks,
-            lostSacks: node.lostSacks,
+            contributedSacks: node.contributedSacks,
+            availableSacks: (node.declaredSacks ?? 0) - node.soldSacks - node.lostSacks,
           })),
         }
       );
@@ -2677,6 +2682,310 @@ export class SampleCommandService {
     };
   }
 
+  // Liga B4 Fase 3: cascata reversa de cancelamento. Cancelar a venda/perda de
+  // uma liga tem que emitir SALE_CANCELLED/LOSS_CANCELLED na raiz E em cada
+  // descendente — senão as origens ficariam vendidas com a liga reaberta.
+  //
+  // - Resolve a cascata via loadBlendCascadeMovements (percorre causationId).
+  // - Hard guard: se algum movimento da cascata já não está ACTIVE, recusa a
+  //   operação inteira (409) — não cancela pela metade.
+  // - Projeção por nó: subtrai SÓ a quantidade deste movimento do soldSacks/
+  //   lostSacks atual — nunca zera, preservando vendas/perdas independentes
+  //   posteriores nas origens.
+  // - causationId espelha a criação (raiz null; descendente aponta pro evento
+  //   de cancelamento do pai imediato).
+  // - appendEventBatch: tudo numa transação atômica única.
+  async _cancelBlendCascadeMovement({
+    rootSample,
+    rootMovement,
+    reasonText,
+    rootExpectedVersion,
+    actor,
+  }) {
+    const normalizedReason = normalizeRequiredText(reasonText, 'reasonText', 500);
+    const cascade = await this.queryService.loadBlendCascadeMovements(
+      rootSample.id,
+      rootMovement.id
+    );
+
+    if (cascade.length === 0) {
+      throw new HttpError(409, `Cascade for movement ${rootMovement.id} could not be resolved`);
+    }
+
+    // Guard: todo movimento da cascata precisa estar ACTIVE — se algum já foi
+    // cancelado/editado isolado, não dá pra reverter a cascata coerentemente.
+    const notActive = cascade.filter((node) => node.movementStatus !== MOVEMENT_STATUSES.ACTIVE);
+    if (notActive.length > 0) {
+      throw new HttpError(
+        409,
+        `Cannot cancel cascade: ${notActive.length} movement(s) in the cascade are no longer active.`,
+        {
+          code: 'BLEND_CASCADE_NOT_CANCELLABLE',
+          movements: notActive.map((node) => ({
+            sampleId: node.sampleId,
+            lotNumber: node.internalLotNumber,
+            movementId: node.movementId,
+            movementStatus: node.movementStatus,
+          })),
+        }
+      );
+    }
+
+    // Mapa creationEventId -> sampleId, pra derivar o pai imediato de cada
+    // nó e espelhar a causationId nos eventos de cancelamento.
+    const sampleIdByCreationEventId = new Map(
+      cascade.map((node) => [node.creationEventId, node.sampleId])
+    );
+
+    const cancelEventIdBySampleId = new Map();
+    const drafts = [];
+    const optionsByIndex = [];
+
+    for (const node of cascade) {
+      const isRoot = node.sampleId === rootSample.id;
+      const cancelEventId = randomUUID();
+      cancelEventIdBySampleId.set(node.sampleId, cancelEventId);
+
+      const isSale = node.movementType === MOVEMENT_TYPES.SALE;
+      const projection = buildCommercialProjection({
+        declaredSacks: node.declaredSacks ?? 0,
+        soldSacks: node.soldSacks - (isSale ? node.quantitySacks : 0),
+        lostSacks: node.lostSacks - (isSale ? 0 : node.quantitySacks),
+      });
+
+      const payload = {
+        movementId: node.movementId,
+        movementType: node.movementType,
+        reasonText: normalizedReason,
+        soldSacks: projection.soldSacks,
+        lostSacks: projection.lostSacks,
+        availableSacks: projection.availableSacks,
+        commercialStatus: projection.commercialStatus,
+      };
+
+      // causationId: raiz null; descendente aponta pro evento de cancelamento
+      // do pai imediato (parentBlendId derivado via creationEventId).
+      const parentSampleId = isRoot ? null : sampleIdByCreationEventId.get(node.causationId);
+      const causationId = isRoot ? null : cancelEventIdBySampleId.get(parentSampleId);
+
+      const draft = buildEventEnvelope({
+        eventType: isSale ? 'SALE_CANCELLED' : 'LOSS_CANCELLED',
+        sampleId: node.sampleId,
+        payload,
+        fromStatus: null,
+        toStatus: null,
+        module: 'commercial',
+        actorContext: actor,
+        eventId: cancelEventId,
+        causationId,
+      });
+
+      drafts.push(draft);
+      optionsByIndex.push({
+        expectedVersion: isRoot ? rootExpectedVersion : node.version,
+      });
+    }
+
+    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex);
+
+    return {
+      statusCode: 201,
+      idempotent: false,
+      event: results[0].event,
+      events: results.map((r) => r.event),
+      sample: results[0].sample,
+    };
+  }
+
+  // Liga B4 Fase 4: guard — um movimento criado pela cascata de uma liga
+  // (evento criador com causationId não-nulo) não pode ser cancelado nem
+  // editado isoladamente; só via o movimento da liga raiz. Senão a árvore
+  // ficaria incoerente (origem mexida, liga intacta).
+  async _assertMovementNotCascaded(sampleId, movementId) {
+    const creationEvent = await this.queryService.loadMovementCreationEvent(sampleId, movementId);
+    if (creationEvent && creationEvent.causationId) {
+      throw new HttpError(
+        409,
+        `Movement ${movementId} was created by a liga cascade — cancel or edit it through the liga, not directly.`,
+        { code: 'BLEND_CASCADED_MOVEMENT' }
+      );
+    }
+  }
+
+  // Liga B4 Fase 4: cascata de update. Editar a venda/perda de uma liga
+  // (comprador, data, observações, motivo da perda) re-cascateia a mudança
+  // pra raiz E todos os descendentes — esses campos são uniformes na cascata.
+  // Quantidade e tipo NÃO são editáveis numa liga (a quantidade é estrutural
+  // — 100%/contribuição; o tipo definiria a cascata inteira).
+  async _updateBlendCascadeMovement({
+    rootSample,
+    rootMovement,
+    patch,
+    reasonText,
+    rootExpectedVersion,
+    actor,
+  }) {
+    if (patch.quantitySacks !== undefined) {
+      throw new HttpError(422, 'quantitySacks não pode ser editado num movimento de liga (F7.1).');
+    }
+    if (patch.movementType !== undefined && patch.movementType !== rootMovement.movementType) {
+      throw new HttpError(422, 'movementType não pode ser trocado num movimento de liga.');
+    }
+
+    const isSale = rootMovement.movementType === MOVEMENT_TYPES.SALE;
+    if (isSale && patch.lossReasonText !== undefined) {
+      throw new HttpError(422, 'lossReasonText is not allowed for SALE');
+    }
+    if (!isSale && (patch.buyerClientId !== undefined || patch.buyerUnitId !== undefined)) {
+      throw new HttpError(422, 'buyerClientId/buyerUnitId is not allowed for LOSS');
+    }
+
+    const normalizedReason = normalizeRequiredText(reasonText, 'reasonText', 500);
+
+    const cascade = await this.queryService.loadBlendCascadeMovements(
+      rootSample.id,
+      rootMovement.id
+    );
+    if (cascade.length === 0) {
+      throw new HttpError(409, `Cascade for movement ${rootMovement.id} could not be resolved`);
+    }
+    const notActive = cascade.filter((node) => node.movementStatus !== MOVEMENT_STATUSES.ACTIVE);
+    if (notActive.length > 0) {
+      throw new HttpError(
+        409,
+        `Cannot edit cascade: ${notActive.length} movement(s) in the cascade are no longer active.`,
+        {
+          code: 'BLEND_CASCADE_NOT_EDITABLE',
+          movements: notActive.map((node) => ({
+            sampleId: node.sampleId,
+            lotNumber: node.internalLotNumber,
+            movementId: node.movementId,
+            movementStatus: node.movementStatus,
+          })),
+        }
+      );
+    }
+
+    // Campos uniformes da cascata que estão mudando — resolvidos UMA vez,
+    // valem igual pra raiz e todos os descendentes.
+    const changes = {};
+    if (patch.movementDate !== undefined) {
+      changes.movementDate = patch.movementDate;
+    }
+    if (patch.notes !== undefined) {
+      changes.notes = patch.notes;
+    }
+    if (!isSale && patch.lossReasonText !== undefined) {
+      changes.lossReasonText = patch.lossReasonText;
+    }
+    if (isSale && (patch.buyerClientId !== undefined || patch.buyerUnitId !== undefined)) {
+      const nextClientId =
+        patch.buyerClientId !== undefined ? patch.buyerClientId : rootMovement.buyerClientId;
+      const nextUnitId =
+        patch.buyerUnitId !== undefined
+          ? patch.buyerUnitId
+          : patch.buyerClientId !== undefined && patch.buyerClientId !== rootMovement.buyerClientId
+            ? null
+            : rootMovement.buyerUnitId;
+      if (!nextClientId) {
+        throw new HttpError(422, 'buyerClientId is required for SALE');
+      }
+      const buyerBinding = await resolveBuyerBindingForMovement({
+        clientService: this.clientService,
+        buyerClientId: nextClientId,
+        buyerUnitId: nextUnitId,
+      });
+      changes.buyerClientId = buyerBinding.buyerClientId;
+      changes.buyerUnitId = buyerBinding.buyerUnitId;
+      changes.buyerClientSnapshot = buyerBinding.buyerClient ?? null;
+      changes.buyerUnitSnapshot = buyerBinding.buyerUnit ?? null;
+    }
+
+    if (Object.keys(changes).length === 0) {
+      throw new HttpError(422, 'after must include at least one editable movement field');
+    }
+
+    // Carrega o movimento completo de cada nó (pra montar before/after).
+    const movementBySampleId = new Map();
+    for (const node of cascade) {
+      movementBySampleId.set(
+        node.sampleId,
+        await this.queryService.requireSampleMovement(node.sampleId, node.movementId)
+      );
+    }
+
+    // No-op? A cascata é uniforme — basta checar a raiz: se a raiz não muda,
+    // nenhum descendente muda.
+    const rootBefore = formatMovementSnapshot(movementBySampleId.get(rootSample.id));
+    if (valuesEqual(rootBefore, { ...rootBefore, ...changes })) {
+      throw new HttpError(409, 'No movement changes detected');
+    }
+
+    const sampleIdByCreationEventId = new Map(
+      cascade.map((node) => [node.creationEventId, node.sampleId])
+    );
+    const updateEventIdBySampleId = new Map();
+    const drafts = [];
+    const optionsByIndex = [];
+
+    for (const node of cascade) {
+      const isRoot = node.sampleId === rootSample.id;
+      const updateEventId = randomUUID();
+      updateEventIdBySampleId.set(node.sampleId, updateEventId);
+
+      const beforeSnapshot = formatMovementSnapshot(movementBySampleId.get(node.sampleId));
+      const afterSnapshot = { ...beforeSnapshot, ...changes };
+
+      // Quantidade não muda numa edição de liga -> saldos inalterados.
+      const projection = buildCommercialProjection({
+        declaredSacks: node.declaredSacks ?? 0,
+        soldSacks: node.soldSacks,
+        lostSacks: node.lostSacks,
+      });
+
+      const payload = {
+        movementId: node.movementId,
+        before: beforeSnapshot,
+        after: afterSnapshot,
+        reasonText: normalizedReason,
+        soldSacks: projection.soldSacks,
+        lostSacks: projection.lostSacks,
+        availableSacks: projection.availableSacks,
+        commercialStatus: projection.commercialStatus,
+      };
+
+      const parentSampleId = isRoot ? null : sampleIdByCreationEventId.get(node.causationId);
+      const causationId = isRoot ? null : updateEventIdBySampleId.get(parentSampleId);
+
+      const draft = buildEventEnvelope({
+        eventType: isSale ? 'SALE_UPDATED' : 'LOSS_UPDATED',
+        sampleId: node.sampleId,
+        payload,
+        fromStatus: null,
+        toStatus: null,
+        module: 'commercial',
+        actorContext: actor,
+        eventId: updateEventId,
+        causationId,
+      });
+
+      drafts.push(draft);
+      optionsByIndex.push({
+        expectedVersion: isRoot ? rootExpectedVersion : node.version,
+      });
+    }
+
+    const results = await this.eventService.appendEventBatch(drafts, optionsByIndex);
+
+    return {
+      statusCode: 201,
+      idempotent: false,
+      event: results[0].event,
+      events: results.map((r) => r.event),
+      sample: results[0].sample,
+    };
+  }
+
   async updateSampleMovement(input, actorContext) {
     const actor = requireUserActor(actorContext, USER_ACTION_ROLES, 'update sample movement');
     requireExpectedVersion(input.expectedVersion);
@@ -2704,7 +3013,24 @@ export class SampleCommandService {
       );
     }
 
+    // Liga B4 Fase 4: guard — movimento cascateado só via a liga raiz.
+    await this._assertMovementNotCascaded(sample.id, movement.id);
+
     const patch = parseMovementUpdatePatch(input.after ?? input.changes ?? {});
+
+    // Liga B4 Fase 4: editar a venda/perda de uma liga re-cascateia a mudança
+    // (comprador/data/obs) pra toda a árvore. Caminho de Sample normal abaixo.
+    if (sample.isBlend) {
+      return this._updateBlendCascadeMovement({
+        rootSample: sample,
+        rootMovement: movement,
+        patch,
+        reasonText: input.reasonText,
+        rootExpectedVersion: input.expectedVersion,
+        actor,
+      });
+    }
+
     const nextMovementType = patch.movementType ?? movement.movementType;
     const nextQuantitySacks = patch.quantitySacks ?? movement.quantitySacks;
     const nextMovementDate = patch.movementDate ?? movement.movementDate;
@@ -2848,6 +3174,22 @@ export class SampleCommandService {
     const movement = await this.queryService.requireSampleMovement(sample.id, movementId);
     if (movement.status !== MOVEMENT_STATUSES.ACTIVE) {
       throw new HttpError(409, `Movement ${movement.id} is already ${movement.status}`);
+    }
+
+    // Liga B4 Fase 4: guard — movimento cascateado só via a liga raiz.
+    await this._assertMovementNotCascaded(sample.id, movement.id);
+
+    // Liga B4 Fase 3: cancelar a venda/perda de uma liga dispara a cascata
+    // reversa em toda a árvore de descendentes. Caminho de Sample normal
+    // (isBlend=false) permanece intocado abaixo.
+    if (sample.isBlend) {
+      return this._cancelBlendCascadeMovement({
+        rootSample: sample,
+        rootMovement: movement,
+        reasonText: input.reasonText,
+        rootExpectedVersion: input.expectedVersion,
+        actor,
+      });
     }
 
     const { declaredSacks, soldSacks, lostSacks } = readCurrentCommercialSummary(sample);

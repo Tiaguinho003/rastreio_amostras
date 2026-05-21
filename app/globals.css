@@ -23084,6 +23084,13 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+/* Liga B3.4: textarea de motivo (opcional) do BlendRevertModal — modal de
+   confirmação de reversão de liga. Sem resize pra não estourar a largura
+   do .app-confirm-modal (400px). */
+.blend-revert-modal__reason {
+  resize: none;
+}
+
 /* ════════════════════════════════════════════════════════════════
    SCANNER FEEDBACK OVERLAY — indicador sutil de leitura em andamento
    ════════════════════════════════════════════════════════════════ */

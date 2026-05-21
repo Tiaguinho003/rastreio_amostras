@@ -2096,6 +2096,154 @@ export class SampleQueryService {
     }));
   }
 
+  // Liga B4 Fase 2: viabilidade da venda de uma liga. Roda loadBlendTree e,
+  // pra cada descendente (não-raiz), avalia se o saldo disponível
+  // (declared - sold - lost) ainda cobre a contribuição exigida — espelha
+  // EXATAMENTE o hard block quantitativo F7.6 de _createBlendCascadeMovement.
+  // Fonte única consumida pela pré-validação do modal de venda (Fase 5) e
+  // pelo flag de viabilidade no detalhe da liga (Fase 7). Retorna null
+  // quando o sample não existe.
+  async getBlendFeasibility(rootSampleId, { executor = null } = {}) {
+    const tree = await this.loadBlendTree(rootSampleId, { executor });
+    if (tree.length === 0) {
+      return null;
+    }
+
+    const root = tree.find((node) => node.sampleId === rootSampleId);
+
+    const nodes = tree.map((node) => {
+      const availableSacks = (node.declaredSacks ?? 0) - node.soldSacks - node.lostSacks;
+      return {
+        sampleId: node.sampleId,
+        lotNumber: node.internalLotNumber,
+        parentBlendId: node.parentBlendId,
+        depth: node.depth,
+        isBlend: node.isBlend,
+        status: node.status,
+        contributedSacks: node.contributedSacks,
+        declaredSacks: node.declaredSacks,
+        soldSacks: node.soldSacks,
+        lostSacks: node.lostSacks,
+        availableSacks,
+      };
+    });
+
+    // F7.6 quantitativo: um descendente bloqueia a venda quando o saldo
+    // disponível é menor que a contribuição exigida pela liga.
+    const blockingOrigins = nodes
+      .filter((node) => node.sampleId !== rootSampleId)
+      .filter((node) => node.availableSacks < node.contributedSacks)
+      .map((node) => ({
+        sampleId: node.sampleId,
+        lotNumber: node.lotNumber,
+        contributedSacks: node.contributedSacks,
+        availableSacks: node.availableSacks,
+      }));
+
+    return {
+      sampleId: rootSampleId,
+      isBlend: Boolean(root?.isBlend),
+      feasible: blockingOrigins.length === 0,
+      nodes,
+      blockingOrigins,
+    };
+  }
+
+  // Liga B4 Fase 3: resolve TODOS os movimentos de uma cascata de venda/perda
+  // de liga, a partir do movimento da raiz. A cascata só é amarrada pelo
+  // encadeamento de causationId (a raiz tem causationId=null; cada descendente
+  // aponta pro evento criador do pai imediato — ver _createBlendCascadeMovement).
+  // Percorre sample_event por causation_id desde o evento SALE_CREATED/
+  // LOSS_RECORDED da raiz e junta, por nó, o movimento + os saldos/versão
+  // atuais do sample. Consumido pela cascata reversa de cancelamento (Fase 3)
+  // e pela cascata de update (Fase 4). Retorna [] quando o movimento raiz não
+  // tem evento criador.
+  async loadBlendCascadeMovements(rootSampleId, rootMovementId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      WITH RECURSIVE cascade_events AS (
+        SELECT
+          e.event_id,
+          e.causation_id,
+          e.sample_id,
+          e.payload,
+          0 AS depth
+        FROM sample_event e
+        WHERE e.sample_id = ${rootSampleId}::uuid
+          AND e.event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
+          AND e.payload->>'movementId' = ${rootMovementId}
+
+        UNION ALL
+
+        SELECT
+          child.event_id,
+          child.causation_id,
+          child.sample_id,
+          child.payload,
+          ce.depth + 1 AS depth
+        FROM cascade_events ce
+        JOIN sample_event child ON child.causation_id = ce.event_id
+        WHERE ce.depth < 10
+          AND child.event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
+      )
+      SELECT
+        ce.event_id,
+        ce.causation_id,
+        ce.sample_id,
+        ce.depth,
+        (ce.payload->>'movementId')::uuid AS movement_id,
+        m.movement_type::text AS movement_type,
+        m.quantity_sacks,
+        m.status::text AS movement_status,
+        s.declared_sacks,
+        s.sold_sacks,
+        s.lost_sacks,
+        s.version,
+        s.internal_lot_number
+      FROM cascade_events ce
+      JOIN sample_movement m ON m.id = (ce.payload->>'movementId')::uuid
+      JOIN sample s ON s.id = ce.sample_id
+      ORDER BY ce.depth ASC, ce.sample_id ASC
+    `;
+
+    return rows.map((row) => ({
+      creationEventId: row.event_id,
+      causationId: row.causation_id,
+      sampleId: row.sample_id,
+      depth: Number(row.depth),
+      movementId: row.movement_id,
+      movementType: row.movement_type,
+      quantitySacks: Number(row.quantity_sacks),
+      movementStatus: row.movement_status,
+      declaredSacks: row.declared_sacks === null ? null : Number(row.declared_sacks),
+      soldSacks: Number(row.sold_sacks),
+      lostSacks: Number(row.lost_sacks),
+      version: Number(row.version),
+      internalLotNumber: row.internal_lot_number,
+    }));
+  }
+
+  // Liga B4 Fase 4: localiza o evento criador (SALE_CREATED/LOSS_RECORDED) de
+  // um movimento. O causationId desse evento distingue um movimento de raiz
+  // (causationId null — venda direta ou liga raiz) de um movimento CASCATEADO
+  // (causationId não-nulo — criado pela cascata de uma liga). Usado pelo guard
+  // que impede cancelar/editar um movimento cascateado isoladamente.
+  async loadMovementCreationEvent(sampleId, movementId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      SELECT event_id, causation_id
+      FROM sample_event
+      WHERE sample_id = ${sampleId}::uuid
+        AND event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
+        AND payload->>'movementId' = ${movementId}
+      LIMIT 1
+    `;
+    if (rows.length === 0) {
+      return null;
+    }
+    return { eventId: rows[0].event_id, causationId: rows[0].causation_id };
+  }
+
   // Liga A2.2: retorna o subset minimo de campos do sample necessario
   // pra validacoes de createBlend (status, isBlend, sacks, lot). Sem
   // include de relacoes — mais barato que findSampleOrNull. Retorna null
