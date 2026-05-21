@@ -46,7 +46,9 @@ export const USER_AUDIT_EVENT_TYPES = {
   INITIAL_PASSWORD_DECISION_RECORDED: 'INITIAL_PASSWORD_DECISION_RECORDED',
 };
 
-export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Timeout absoluto da sessao no banco (a partir do login). Manter
+// sincronizado com DEFAULT_TTL_SECONDS em src/auth/token-service.js.
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const LOGIN_MAX_ATTEMPTS = 8;
 export const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
 export const REQUEST_CODE_TTL_MS = 15 * 60 * 1000;

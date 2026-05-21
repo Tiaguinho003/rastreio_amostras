@@ -13,7 +13,7 @@ Sistema interno B2B em estagio inicial (11 eventos em prod), operado pela Measy.
 
 1. Append-only event store com trigger anti-mutacao (`fn_prevent_sample_event_mutation`)
 2. Bcrypt 10 rounds para senhas (`bcryptjs`)
-3. JWT HS256 com secret via `AUTH_SECRET` (min 16 chars), TTL 7 dias
+3. JWT HS256 com secret via `AUTH_SECRET` (min 16 chars), TTL 30 dias
 4. Cookie de sessao HttpOnly + Secure(auto) + SameSite=Lax + Path=/
 5. Brute-force protection: lockout por user (8 tentativas, 5 min) + rate limit por IP (10 req/min, 429)
 6. CSP restritiva em production (`default-src 'self'`, `script-src 'self' 'unsafe-inline'`)

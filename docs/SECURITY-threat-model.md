@@ -26,7 +26,7 @@ Documentos relacionados: `docs/SECURITY.md`, `docs/SECURITY-audit.md`
 | Ameaca                            | Mitigacao                                                                 | Status                | Risco residual                                               |
 | --------------------------------- | ------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------ |
 | Brute-force no login              | Lockout por user (8 tentativas, 5 min) + rate limit por IP (10 req/min)   | Mitigado              | Atacante com pool de IPs pode contornar rate limit in-memory |
-| Roubo de token JWT                | HttpOnly cookie impede acesso via JS; SameSite=Lax bloqueia CSRF via POST | Mitigado              | Token valido por 7 dias; sessao pode ser revogada            |
+| Roubo de token JWT                | HttpOnly cookie impede acesso via JS; SameSite=Lax bloqueia CSRF via POST | Mitigado              | Token valido por 30 dias; sessao pode ser revogada           |
 | Senha fraca                       | Bcrypt 10 rounds; sem politica de complexidade                            | Parcialmente mitigado | Sem requisito minimo de complexidade alem do min 8 chars     |
 | Password reset brute-force        | Codigo 6 digitos, SHA256 hash, TTL 15 min, 5 tentativas                   | Mitigado              | 1 em 200k por janela de lockout                              |
 | Primeiro login sem troca de senha | 403 PASSWORD_CHANGE_REQUIRED bloqueia endpoints; frontend mostra modal    | Mitigado              | -                                                            |

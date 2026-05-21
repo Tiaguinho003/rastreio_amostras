@@ -2,7 +2,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
 
-const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+// TTL absoluto do JWT (claim `exp`, a partir da emissao). Manter
+// sincronizado com SESSION_TTL_MS em src/users/user-support.js.
+const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
 const HEADER = {
   alg: 'HS256',
   typ: 'JWT',
