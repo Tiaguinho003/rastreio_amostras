@@ -3,9 +3,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ApiError, getClient } from '../../lib/api-client';
+import { ApiError, getBlendFeasibility, getClient } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
+  BlendFeasibilityResponse,
   ClientUnitSummary,
   ClientSummary,
   SampleMovement,
@@ -35,6 +36,13 @@ type SampleMovementModalProps = {
   movement?: SampleMovement | null;
   availableSacks?: number;
   stampType?: SampleMovementType | null;
+  // Liga B4 Fase 5: presente quando o sample e uma liga. Ativa o modo liga
+  // — sem campo de quantidade (venda/perda e 100%); o modal pre-valida a
+  // viabilidade da cascata (getBlendFeasibility) antes de habilitar o submit.
+  blend?: { sampleId: string; ownerClientId: string | null } | null;
+  // Liga B4 Fase 5b (F3.A): atribui um dono à liga sem dono antes da
+  // movimentação. O painel implementa (updateRegistration + refetch).
+  onAssignOwner?: (ownerClientId: string, ownerUnitId: string | null) => Promise<void>;
   onClose: () => void;
   onSubmit: (data: SampleMovementModalSubmitInput) => Promise<void> | void;
 };
@@ -97,6 +105,8 @@ export function SampleMovementModal({
   movement = null,
   availableSacks = 0,
   stampType = null,
+  blend = null,
+  onAssignOwner,
   onClose,
   onSubmit,
 }: SampleMovementModalProps) {
@@ -116,10 +126,35 @@ export function SampleMovementModal({
   const [reasonText, setReasonText] = useState('');
   const [, setLoadingUnits] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Liga B4 Fase 5: viabilidade da venda da liga (pre-validacao da cascata).
+  const [feasibility, setFeasibility] = useState<BlendFeasibilityResponse | null>(null);
+  const [feasibilityLoading, setFeasibilityLoading] = useState(false);
+  const [feasibilityError, setFeasibilityError] = useState<string | null>(null);
+  // Liga B4 Fase 5b (F3.A): bloco "sem dono". `ownerDismissed` = operador
+  // escolheu "Continuar mesmo assim"; o sub-modal coleta o dono a atribuir.
+  const [ownerDismissed, setOwnerDismissed] = useState(false);
+  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
+  const [ownerPickClient, setOwnerPickClient] = useState<ClientSummary | null>(null);
+  const [ownerPickUnitId, setOwnerPickUnitId] = useState<string | null>(null);
+  const [assigningOwner, setAssigningOwner] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
 
+  const isBlend = blend !== null;
+  // Dependência estável pro effect de viabilidade — o objeto `blend` é
+  // recriado a cada render do parent; só o sampleId importa.
+  const blendSampleId = blend?.sampleId ?? null;
   const showBuyerFields = movementType === 'SALE';
   const effectiveLimit =
     mode === 'edit' && movement ? availableSacks + movement.quantitySacks : availableSacks;
+  // Liga inviavel: alguma origem sem saldo pra cobrir a cascata (F7.6).
+  const blendInfeasible = isBlend && feasibility !== null && !feasibility.feasible;
+  // F3.A: liga sem dono — nudge ate o operador atribuir um dono ou escolher
+  // "Continuar mesmo assim".
+  const needsOwnerNudge = blend !== null && blend.ownerClientId === null && !ownerDismissed;
+  // Sub-modal de atribuir dono: confirma so com cliente escolhido (e, se PF,
+  // a filial tambem — PF exige unidade).
+  const ownerAssignDisabled =
+    ownerPickClient === null || (ownerPickClient.personType === 'PF' && ownerPickUnitId === null);
 
   useEffect(() => {
     if (!open) {
@@ -135,6 +170,12 @@ export function SampleMovementModal({
     setLossReasonText(movement?.lossReasonText ?? '');
     setReasonText('');
     setError(null);
+    setOwnerDismissed(false);
+    setOwnerModalOpen(false);
+    setOwnerPickClient(null);
+    setOwnerPickUnitId(null);
+    setAssigningOwner(false);
+    setOwnerError(null);
   }, [initialMovementType, movement, open]);
 
   useEffect(() => {
@@ -181,13 +222,65 @@ export function SampleMovementModal({
     };
   }, [buyerClient, movementType, open, session]);
 
+  // Liga B4 Fase 5: ao abrir o modal de uma liga, busca a viabilidade da
+  // venda — a arvore de descendentes e quais origens nao tem saldo pra
+  // cobrir a cascata. Bloqueia o submit enquanto carrega / se inviavel.
+  useEffect(() => {
+    if (!open || !blendSampleId) {
+      setFeasibility(null);
+      setFeasibilityError(null);
+      setFeasibilityLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setFeasibilityLoading(true);
+    setFeasibility(null);
+    setFeasibilityError(null);
+
+    getBlendFeasibility(session, blendSampleId, { signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setFeasibility(result);
+      })
+      .catch((cause) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setFeasibilityError(
+          cause instanceof ApiError ? cause.message : 'Falha ao verificar a viabilidade da liga'
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setFeasibilityLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [open, blendSampleId, session]);
+
   const parsedQuantity = Number(quantitySacks);
   const isQuantityValid =
     Number.isInteger(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= effectiveLimit;
   const isQuantityOverLimit = Number.isInteger(parsedQuantity) && parsedQuantity > effectiveLimit;
 
   const submitDisabled = useMemo(() => {
-    if (!quantitySacks.trim() || !movementDate || !isQuantityValid) {
+    if (!movementDate) {
+      return true;
+    }
+
+    // Liga (Fase 5): sem campo de quantidade — venda/perda e 100%. Bloqueia
+    // enquanto a viabilidade carrega, em erro, ou se a liga esta inviavel.
+    if (isBlend) {
+      if (feasibilityLoading || feasibilityError !== null || blendInfeasible) {
+        return true;
+      }
+    } else if (!quantitySacks.trim() || !isQuantityValid) {
       return true;
     }
 
@@ -199,12 +292,24 @@ export function SampleMovementModal({
       return true;
     }
 
+    // F3.A: a liga sem dono trava o submit até o operador decidir — atribuir
+    // um dono ou "Continuar mesmo assim". Nudge consciente, não um bloqueio
+    // (uma das opções sempre destrava).
+    if (needsOwnerNudge) {
+      return true;
+    }
+
     return false;
   }, [
+    blendInfeasible,
     buyerClient,
+    feasibilityError,
+    feasibilityLoading,
+    isBlend,
     isQuantityValid,
     mode,
     movementDate,
+    needsOwnerNudge,
     quantitySacks,
     reasonText,
     showBuyerFields,
@@ -217,7 +322,13 @@ export function SampleMovementModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!isQuantityValid) {
+    // Liga (Fase 5): a quantidade e 100% (o backend ignora o input e
+    // calcula); a venda so e barrada pela pre-validacao de viabilidade.
+    if (isBlend) {
+      if (feasibilityLoading || feasibilityError !== null || blendInfeasible) {
+        return;
+      }
+    } else if (!isQuantityValid) {
       if (isQuantityOverLimit) {
         setError(
           `Maximo de ${effectiveLimit} ${effectiveLimit === 1 ? 'saca disponivel' : 'sacas disponiveis'}.`
@@ -252,7 +363,7 @@ export function SampleMovementModal({
       movementType,
       buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
       buyerUnitId: showBuyerFields ? buyerUnitId : null,
-      quantitySacks: parsedQuantity,
+      quantitySacks: isBlend ? availableSacks : parsedQuantity,
       movementDate,
       notes: notes.trim() ? notes.trim() : null,
       lossReasonText: showBuyerFields ? null : lossReasonText.trim(),
@@ -290,6 +401,40 @@ export function SampleMovementModal({
 
         {error ? <p className="sdv-modal-error">{error}</p> : null}
 
+        {needsOwnerNudge ? (
+          <div className="sdv-blend-no-owner">
+            <p className="sdv-blend-no-owner-text">
+              Esta liga não tem dono atribuído —{' '}
+              {movementType === 'SALE'
+                ? 'a venda será registrada em nome da corretora.'
+                : 'a perda será registrada sem produtor identificado.'}
+            </p>
+            <div className="sdv-blend-no-owner-actions">
+              <button
+                type="button"
+                className="sdv-blend-no-owner-assign"
+                disabled={saving}
+                onClick={() => {
+                  setOwnerPickClient(null);
+                  setOwnerPickUnitId(null);
+                  setOwnerError(null);
+                  setOwnerModalOpen(true);
+                }}
+              >
+                Atribuir dono primeiro
+              </button>
+              <button
+                type="button"
+                className="sdv-blend-no-owner-skip"
+                disabled={saving}
+                onClick={() => setOwnerDismissed(true)}
+              >
+                Continuar mesmo assim
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
             <div className="sdv-edit-field">
@@ -326,48 +471,100 @@ export function SampleMovementModal({
             </label>
           )}
 
-          <div className="sdv-edit-row">
-            <div className="sdv-edit-field">
-              <span className="sdv-edit-label">
-                Sacas{' '}
-                <span className="sdv-edit-label-hint">
-                  ({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})
+          {isBlend ? (
+            <>
+              {/* Liga (Fase 5): a venda/perda de uma liga e 100% — sem campo
+                  de quantidade. Mostra o total e a pre-validacao da cascata. */}
+              <div className="sdv-blend-mov-total">
+                <span className="sdv-blend-mov-total-label">
+                  {movementType === 'SALE'
+                    ? 'Vai vender a liga inteira'
+                    : 'Vai registrar a perda da liga inteira'}
                 </span>
-              </span>
-              <div className="sdv-edit-row-inline">
-                <input
-                  className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`}
-                  value={quantitySacks}
-                  inputMode="numeric"
-                  disabled={saving}
-                  onChange={(event) => {
-                    setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
-                    setError(null);
-                  }}
-                />
-                {effectiveLimit > 0 ? (
-                  <button
-                    type="button"
-                    className="sdv-mov-all-btn"
-                    disabled={saving}
-                    onClick={() => setQuantitySacks(String(effectiveLimit))}
-                  >
-                    Todas
-                  </button>
-                ) : null}
+                <span className="sdv-blend-mov-total-value">{availableSacks} sc</span>
               </div>
+
+              {feasibilityLoading ? (
+                <p className="sdv-modal-hint">Verificando as origens da liga...</p>
+              ) : null}
+              {feasibilityError ? <p className="sdv-modal-error">{feasibilityError}</p> : null}
+              {blendInfeasible && feasibility ? (
+                <div className="sdv-warn-box">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                  <div className="sdv-warn-text">
+                    <strong>Esta liga nao pode ser fechada agora</strong>
+                    Origem(ns) sem saldo suficiente pra cascata:
+                    <ul className="sdv-blend-mov-blockers">
+                      {feasibility.blockingOrigins.map((origin) => (
+                        <li key={origin.sampleId}>
+                          Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)} — precisa{' '}
+                          {origin.contributedSacks} sc, tem {origin.availableSacks} sc
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
+
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Data</span>
+                <input
+                  className="sdv-edit-input"
+                  type="date"
+                  value={movementDate}
+                  disabled={saving}
+                  onChange={(event) => setMovementDate(event.target.value)}
+                />
+              </label>
+            </>
+          ) : (
+            <div className="sdv-edit-row">
+              <div className="sdv-edit-field">
+                <span className="sdv-edit-label">
+                  Sacas{' '}
+                  <span className="sdv-edit-label-hint">
+                    ({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})
+                  </span>
+                </span>
+                <div className="sdv-edit-row-inline">
+                  <input
+                    className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`}
+                    value={quantitySacks}
+                    inputMode="numeric"
+                    disabled={saving}
+                    onChange={(event) => {
+                      setQuantitySacks(event.target.value.replace(/[^0-9]/g, ''));
+                      setError(null);
+                    }}
+                  />
+                  {effectiveLimit > 0 ? (
+                    <button
+                      type="button"
+                      className="sdv-mov-all-btn"
+                      disabled={saving}
+                      onClick={() => setQuantitySacks(String(effectiveLimit))}
+                    >
+                      Todas
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <label className="sdv-edit-field">
+                <span className="sdv-edit-label">Data</span>
+                <input
+                  className="sdv-edit-input"
+                  type="date"
+                  value={movementDate}
+                  disabled={saving}
+                  onChange={(event) => setMovementDate(event.target.value)}
+                />
+              </label>
             </div>
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Data</span>
-              <input
-                className="sdv-edit-input"
-                type="date"
-                value={movementDate}
-                disabled={saving}
-                onChange={(event) => setMovementDate(event.target.value)}
-              />
-            </label>
-          </div>
+          )}
 
           <label className="sdv-edit-field">
             <span className="sdv-edit-label">Observacoes (opcional)</span>
@@ -399,6 +596,101 @@ export function SampleMovementModal({
             </button>
           </div>
         </form>
+
+        {ownerModalOpen ? (
+          <div
+            className="app-modal-backdrop is-stacked"
+            onClick={() => {
+              if (!assigningOwner) setOwnerModalOpen(false);
+            }}
+          >
+            <section
+              className="app-modal cdm-modal is-stacked"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="assign-owner-modal-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="cdm-header">
+                <h3 id="assign-owner-modal-title" className="cdm-header-name">
+                  Atribuir dono à liga
+                </h3>
+                <button
+                  type="button"
+                  className="app-modal-close cdm-close"
+                  onClick={() => {
+                    if (!assigningOwner) setOwnerModalOpen(false);
+                  }}
+                  disabled={assigningOwner}
+                  aria-label="Fechar"
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="sdv-modal-hint">
+                Escolha o produtor dono desta liga. A venda/perda passa a ser registrada em nome
+                dele.
+              </p>
+
+              {ownerError ? <p className="sdv-modal-error">{ownerError}</p> : null}
+
+              <div className="sdv-edit-fields">
+                <div className="sdv-edit-field">
+                  <ClientLookupField
+                    session={session}
+                    label="Dono / Filial"
+                    kind="owner"
+                    selectedClient={ownerPickClient}
+                    disabled={assigningOwner}
+                    compact
+                    onSelectClient={(client) => {
+                      setOwnerPickClient(client);
+                      setOwnerPickUnitId(null);
+                      setOwnerError(null);
+                    }}
+                    onSelectUnit={(client, unit) => {
+                      setOwnerPickClient(client);
+                      setOwnerPickUnitId(unit?.id ?? null);
+                      setOwnerError(null);
+                    }}
+                    emptyMessage="Nenhum cliente encontrado."
+                  />
+                </div>
+
+                <div className="sdv-edit-actions">
+                  <button
+                    type="button"
+                    className="cdm-manage-link"
+                    disabled={assigningOwner || ownerAssignDisabled}
+                    onClick={async () => {
+                      if (!onAssignOwner || !ownerPickClient) {
+                        return;
+                      }
+                      setAssigningOwner(true);
+                      setOwnerError(null);
+                      try {
+                        await onAssignOwner(ownerPickClient.id, ownerPickUnitId);
+                        setOwnerModalOpen(false);
+                      } catch (cause) {
+                        setOwnerError(
+                          cause instanceof ApiError ? cause.message : 'Falha ao atribuir o dono'
+                        );
+                      } finally {
+                        setAssigningOwner(false);
+                      }
+                    }}
+                  >
+                    {assigningOwner ? 'Atribuindo...' : 'Atribuir dono'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         {stampType ? (
           <div className={`sdv-stamp-overlay is-${stampType === 'SALE' ? 'sale' : 'loss'}`}>

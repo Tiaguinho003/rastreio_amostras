@@ -7,6 +7,7 @@ import {
   ApiError,
   cancelSampleMovement,
   createSampleMovement,
+  updateRegistration,
   updateSampleMovement,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -333,6 +334,18 @@ export function SampleMovementsPanel({
         title={createType === 'SALE' ? 'Registrar venda' : 'Registrar perda'}
         initialMovementType={createType}
         availableSacks={sample.availableSacks ?? 0}
+        blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
+        onAssignOwner={async (ownerClientId, ownerUnitId) => {
+          // Liga B4 Fase 5b (F3.A): atribui o dono à liga sem dono e recarrega
+          // o detalhe — o modal continua aberto e reflete o dono preenchido.
+          await updateRegistration(session, sampleId, {
+            expectedVersion: sample.version,
+            after: { ownerClientId, ownerUnitId },
+            reasonCode: 'DATA_FIX',
+            reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
+          });
+          await onRefresh();
+        }}
         onClose={() => {
           if (!saving) {
             setCreateOpen(false);
@@ -365,7 +378,24 @@ export function SampleMovementsPanel({
               void finishStamp();
             }, 1500);
           } catch (cause) {
-            setError(cause instanceof ApiError ? cause.message : 'Falha ao registrar movimentacao');
+            // Liga B4 Fase 5: rede de segurança pro 409 BLEND_HAS_BLOCKED_DESCENDANTS
+            // (corrida — uma origem ficou sem saldo entre a pré-validação e o
+            // submit). Mensagem pt-BR em vez do texto técnico do backend.
+            if (
+              cause instanceof ApiError &&
+              cause.status === 409 &&
+              cause.details !== null &&
+              typeof cause.details === 'object' &&
+              (cause.details as { code?: string }).code === 'BLEND_HAS_BLOCKED_DESCENDANTS'
+            ) {
+              setError(
+                'Não foi possível concluir: uma origem desta liga foi vendida ou perdida e não tem mais saldo pra cascata. Recarregue a página e confira as origens.'
+              );
+            } else {
+              setError(
+                cause instanceof ApiError ? cause.message : 'Falha ao registrar movimentacao'
+              );
+            }
           } finally {
             setSaving(false);
           }

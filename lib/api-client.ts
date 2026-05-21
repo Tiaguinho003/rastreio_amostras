@@ -971,10 +971,15 @@ export function revertBlend(
 // com saldos + as origens que bloqueiam a cascata (hard block F7.6
 // quantitativo). Alimenta a pré-validação do modal de venda e o flag de
 // viabilidade no detalhe da liga.
-export function getBlendFeasibility(session: SessionData, sampleId: string) {
+export function getBlendFeasibility(
+  session: SessionData,
+  sampleId: string,
+  options: { signal?: AbortSignal } = {}
+) {
   return request<BlendFeasibilityResponse>(`/samples/${sampleId}/blend-feasibility`, {
     method: 'GET',
     session,
+    signal: options.signal,
   });
 }
 

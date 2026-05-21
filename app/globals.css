@@ -9738,6 +9738,94 @@ button:disabled {
   margin-bottom: 2px;
 }
 
+/* Liga B4 Fase 5: modal de venda/perda de liga — linha "vende 100%" (a liga
+   vende sempre o lote inteiro, sem campo de quantidade) + lista de origens
+   bloqueantes da pre-validacao de viabilidade. */
+.sdv-blend-mov-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: clamp(10px, 3vw, 14px);
+  background: rgba(124, 58, 237, 0.07);
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  border-radius: 10px;
+}
+
+.sdv-blend-mov-total-label {
+  font-size: clamp(12px, 3vw, 13.5px);
+  color: rgba(63, 63, 59, 0.82);
+  line-height: 1.35;
+}
+
+.sdv-blend-mov-total-value {
+  font-size: clamp(15px, 4vw, 17px);
+  font-weight: 700;
+  color: #5b21b6;
+  white-space: nowrap;
+}
+
+.sdv-blend-mov-blockers {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 2px;
+}
+
+/* Liga B4 Fase 5b (F3.A): bloco "sem dono" no modal de venda/perda de liga
+   — nudge pra atribuir um dono antes da movimentacao (nao bloqueia: uma das
+   acoes sempre destrava o submit). Tom ambar (atencao), nao erro. */
+.sdv-blend-no-owner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: clamp(10px, 3vw, 14px);
+  background: rgba(197, 125, 12, 0.08);
+  border: 1px solid rgba(197, 125, 12, 0.22);
+  border-radius: 10px;
+}
+
+.sdv-blend-no-owner-text {
+  margin: 0;
+  font-size: clamp(12px, 3vw, 13.5px);
+  line-height: 1.4;
+  color: #8a5a11;
+}
+
+.sdv-blend-no-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sdv-blend-no-owner-assign,
+.sdv-blend-no-owner-skip {
+  flex: 1 1 auto;
+  min-height: 2.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sdv-blend-no-owner-assign {
+  background: #8a5a11;
+  color: #ffffff;
+  border: 0;
+}
+
+.sdv-blend-no-owner-skip {
+  background: rgba(255, 255, 255, 0.7);
+  color: #6b5836;
+  border: 1px solid rgba(197, 125, 12, 0.3);
+}
+
+.sdv-blend-no-owner-assign:disabled,
+.sdv-blend-no-owner-skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Modal full-view: secao da foto da classificacao (topo, abaixo do header) */
 
 .cld-photo-section {
