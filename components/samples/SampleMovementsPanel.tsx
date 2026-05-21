@@ -12,6 +12,7 @@ import {
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
+  ActiveBlendDetail,
   SampleMovement,
   SampleMovementType,
   SampleSnapshot,
@@ -33,6 +34,9 @@ type SampleMovementsPanelProps = {
   sampleId: string;
   sample: SampleSnapshot;
   movements: SampleMovement[];
+  // Liga B4 Fase 8 (B3.8): ligas ativas onde este sample e origem — vazio
+  // pra liga ou pra amostra sem ligas. Repassado ao modal de venda/perda.
+  activeBlends: ActiveBlendDetail[];
   onRefresh: () => Promise<void>;
 };
 
@@ -60,6 +64,7 @@ export function SampleMovementsPanel({
   sampleId,
   sample,
   movements,
+  activeBlends,
   onRefresh,
 }: SampleMovementsPanelProps) {
   const [createType, setCreateType] = useState<SampleMovementType>('SALE');
@@ -196,6 +201,9 @@ export function SampleMovementsPanel({
               const isCancelled = movement.status === 'CANCELLED';
               const isSale = movement.movementType === 'SALE';
               const buyerLabel = getMovementBuyerLabel(movement);
+              // Liga B4 Fase 6: movimento criado pela cascata de uma liga —
+              // read-only aqui (cancelar/editar so pela liga raiz).
+              const isCascaded = movement.cascaded === true;
               return (
                 <div
                   key={movement.id}
@@ -239,9 +247,17 @@ export function SampleMovementsPanel({
                           <span className="sdv-com-mov-reason">{movement.lossReasonText}</span>
                         </>
                       ) : null}
+                      {!isCancelled && isCascaded ? (
+                        <>
+                          <span className="sdv-com-mov-sep" />
+                          <span className="sdv-com-mov-cascaded-hint">
+                            Movimento da liga — gerencie pela liga
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
-                  {!isCancelled ? (
+                  {!isCancelled && !isCascaded ? (
                     <div className="sdv-com-mov-actions">
                       <button
                         type="button"
@@ -335,6 +351,7 @@ export function SampleMovementsPanel({
         initialMovementType={createType}
         availableSacks={sample.availableSacks ?? 0}
         blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
+        activeBlends={!sample.isBlend ? activeBlends : []}
         onAssignOwner={async (ownerClientId, ownerUnitId) => {
           // Liga B4 Fase 5b (F3.A): atribui o dono à liga sem dono e recarrega
           // o detalhe — o modal continua aberto e reflete o dono preenchido.
@@ -410,6 +427,7 @@ export function SampleMovementsPanel({
         title={editMovement?.movementType === 'SALE' ? 'Editar venda' : 'Editar perda'}
         movement={editMovement}
         availableSacks={available}
+        blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
         onClose={() => {
           if (!saving) {
             setEditMovement(null);
@@ -425,11 +443,16 @@ export function SampleMovementsPanel({
           clearFeedback();
 
           try {
+            // Liga B4 Fase 6: a quantidade de uma liga e estrutural — o
+            // backend recusa edita-la. So amostra normal envia quantitySacks.
             const after: Record<string, string | number | null> = {
-              quantitySacks: data.quantitySacks,
               movementDate: data.movementDate,
               notes: data.notes,
             };
+
+            if (!sample.isBlend) {
+              after.quantitySacks = data.quantitySacks;
+            }
 
             if (editMovement.movementType === 'SALE') {
               after.buyerClientId = data.buyerClientId;
@@ -465,7 +488,9 @@ export function SampleMovementsPanel({
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="cdm-header">
-                  <h3 className="cdm-header-name">Cancelar movimentacao</h3>
+                  <h3 className="cdm-header-name">
+                    {sample.isBlend ? 'Cancelar movimentação da liga' : 'Cancelar movimentacao'}
+                  </h3>
                   <button
                     type="button"
                     className="app-modal-close cdm-close"
@@ -480,9 +505,27 @@ export function SampleMovementsPanel({
                   </button>
                 </div>
 
-                <p className="sdv-modal-hint">
-                  Informe o motivo para manter a auditoria consistente.
-                </p>
+                {sample.isBlend ? (
+                  <div className="sdv-warn-box">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                    <div className="sdv-warn-text">
+                      <strong>
+                        Isto cancela a {cancelMovement.movementType === 'SALE' ? 'venda' : 'perda'}{' '}
+                        da liga inteira
+                      </strong>
+                      A cascata é desfeita em todas as origens — elas voltam ao saldo anterior.
+                      Informe o motivo para manter a auditoria consistente.
+                    </div>
+                  </div>
+                ) : (
+                  <p className="sdv-modal-hint">
+                    Informe o motivo para manter a auditoria consistente.
+                  </p>
+                )}
 
                 <div className="sdv-edit-fields">
                   <label className="sdv-edit-field">

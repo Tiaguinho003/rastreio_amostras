@@ -2479,6 +2479,7 @@ export default function SampleDetailPage() {
                       sampleId={sampleId}
                       sample={detail.sample}
                       movements={detail.movements ?? []}
+                      activeBlends={detail.activeBlends ?? []}
                       onRefresh={async () => {
                         await syncDetailState();
                       }}

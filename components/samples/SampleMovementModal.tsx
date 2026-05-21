@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { ApiError, getBlendFeasibility, getClient } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
+  ActiveBlendDetail,
   BlendFeasibilityResponse,
   ClientUnitSummary,
   ClientSummary,
@@ -43,6 +44,10 @@ type SampleMovementModalProps = {
   // Liga B4 Fase 5b (F3.A): atribui um dono à liga sem dono antes da
   // movimentação. O painel implementa (updateRegistration + refetch).
   onAssignOwner?: (ownerClientId: string, ownerUnitId: string | null) => Promise<void>;
+  // Liga B4 Fase 8 (B3.8): ligas ativas que usam este sample como origem.
+  // So pra amostra normal — dispara um aviso informativo nao-bloqueante ao
+  // vender/perder (pode inviabilizar essas ligas). Vazio = sem aviso.
+  activeBlends?: ActiveBlendDetail[];
   onClose: () => void;
   onSubmit: (data: SampleMovementModalSubmitInput) => Promise<void> | void;
 };
@@ -106,6 +111,7 @@ export function SampleMovementModal({
   availableSacks = 0,
   stampType = null,
   blend = null,
+  activeBlends = [],
   onAssignOwner,
   onClose,
   onSubmit,
@@ -138,6 +144,10 @@ export function SampleMovementModal({
   const [ownerPickUnitId, setOwnerPickUnitId] = useState<string | null>(null);
   const [assigningOwner, setAssigningOwner] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
+  // Liga B4 Fase 8 (B3.8): aviso de origem em liga(s). `dismissed` = clicou
+  // "Continuar mesmo assim"; `expanded` = lista de ligas aberta.
+  const [blendWarningDismissed, setBlendWarningDismissed] = useState(false);
+  const [blendWarningExpanded, setBlendWarningExpanded] = useState(false);
 
   const isBlend = blend !== null;
   // Dependência estável pro effect de viabilidade — o objeto `blend` é
@@ -147,10 +157,17 @@ export function SampleMovementModal({
   const effectiveLimit =
     mode === 'edit' && movement ? availableSacks + movement.quantitySacks : availableSacks;
   // Liga inviavel: alguma origem sem saldo pra cobrir a cascata (F7.6).
-  const blendInfeasible = isBlend && feasibility !== null && !feasibility.feasible;
+  // So no modo create — editar comprador/data nao muda viabilidade.
+  const blendInfeasible =
+    mode === 'create' && isBlend && feasibility !== null && !feasibility.feasible;
   // F3.A: liga sem dono — nudge ate o operador atribuir um dono ou escolher
-  // "Continuar mesmo assim".
-  const needsOwnerNudge = blend !== null && blend.ownerClientId === null && !ownerDismissed;
+  // "Continuar mesmo assim". So no modo create.
+  const needsOwnerNudge =
+    mode === 'create' && blend !== null && blend.ownerClientId === null && !ownerDismissed;
+  // Liga B4 Fase 8 (B3.8): aviso nao-bloqueante quando a amostra (origem)
+  // participa de liga(s) ativa(s). So ao criar venda/perda.
+  const showBlendOriginWarning =
+    mode === 'create' && activeBlends.length > 0 && !blendWarningDismissed;
   // Sub-modal de atribuir dono: confirma so com cliente escolhido (e, se PF,
   // a filial tambem — PF exige unidade).
   const ownerAssignDisabled =
@@ -176,6 +193,8 @@ export function SampleMovementModal({
     setOwnerPickUnitId(null);
     setAssigningOwner(false);
     setOwnerError(null);
+    setBlendWarningDismissed(false);
+    setBlendWarningExpanded(false);
   }, [initialMovementType, movement, open]);
 
   useEffect(() => {
@@ -226,7 +245,9 @@ export function SampleMovementModal({
   // venda — a arvore de descendentes e quais origens nao tem saldo pra
   // cobrir a cascata. Bloqueia o submit enquanto carrega / se inviavel.
   useEffect(() => {
-    if (!open || !blendSampleId) {
+    // Liga B4 Fase 6: a pre-validacao de viabilidade so faz sentido ao
+    // CRIAR uma venda — editar comprador/data nao muda a viabilidade.
+    if (!open || !blendSampleId || mode !== 'create') {
       setFeasibility(null);
       setFeasibilityError(null);
       setFeasibilityLoading(false);
@@ -262,7 +283,7 @@ export function SampleMovementModal({
     return () => {
       controller.abort();
     };
-  }, [open, blendSampleId, session]);
+  }, [open, blendSampleId, mode, session]);
 
   const parsedQuantity = Number(quantitySacks);
   const isQuantityValid =
@@ -435,6 +456,52 @@ export function SampleMovementModal({
           </div>
         ) : null}
 
+        {showBlendOriginWarning ? (
+          <div className="sdv-blend-origin-warn">
+            <div className="sdv-blend-origin-warn-head">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
+              </svg>
+              <p className="sdv-blend-origin-warn-text">
+                Esta amostra é origem de {activeBlends.length}{' '}
+                {activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}.{' '}
+                {movementType === 'SALE' ? 'Vender' : 'Registrar a perda'} aqui pode tornar{' '}
+                {activeBlends.length === 1 ? 'essa liga inviável' : 'essas ligas inviáveis'}.
+              </p>
+            </div>
+            {blendWarningExpanded ? (
+              <ul className="sdv-blend-origin-warn-list">
+                {activeBlends.map((item) => (
+                  <li key={item.sampleId}>
+                    Liga {item.lotNumber ?? item.sampleId.slice(0, 8)} — usa {item.contributedSacks}{' '}
+                    sc
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="sdv-blend-origin-warn-actions">
+              <button
+                type="button"
+                className="sdv-blend-origin-warn-toggle"
+                disabled={saving}
+                onClick={() => setBlendWarningExpanded((value) => !value)}
+              >
+                {blendWarningExpanded ? 'Ocultar ligas' : 'Ver ligas'}
+              </button>
+              <button
+                type="button"
+                className="sdv-blend-origin-warn-dismiss"
+                disabled={saving}
+                onClick={() => setBlendWarningDismissed(true)}
+              >
+                Continuar mesmo assim
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <form className="sdv-edit-fields" onSubmit={handleSubmit}>
           {showBuyerFields ? (
             <div className="sdv-edit-field">
@@ -477,11 +544,15 @@ export function SampleMovementModal({
                   de quantidade. Mostra o total e a pre-validacao da cascata. */}
               <div className="sdv-blend-mov-total">
                 <span className="sdv-blend-mov-total-label">
-                  {movementType === 'SALE'
-                    ? 'Vai vender a liga inteira'
-                    : 'Vai registrar a perda da liga inteira'}
+                  {mode === 'edit'
+                    ? movementType === 'SALE'
+                      ? 'Venda da liga inteira'
+                      : 'Perda da liga inteira'
+                    : movementType === 'SALE'
+                      ? 'Vai vender a liga inteira'
+                      : 'Vai registrar a perda da liga inteira'}
                 </span>
-                <span className="sdv-blend-mov-total-value">{availableSacks} sc</span>
+                <span className="sdv-blend-mov-total-value">{effectiveLimit} sc</span>
               </div>
 
               {feasibilityLoading ? (

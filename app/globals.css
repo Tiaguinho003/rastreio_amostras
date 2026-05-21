@@ -9509,6 +9509,13 @@ button:disabled {
   color: #c0392b;
 }
 
+/* Liga B4 Fase 6: dica num movimento cascateado (criado pela cascata de uma
+   liga) — read-only no painel da origem, gerencie pela liga raiz. */
+.sdv-com-mov-cascaded-hint {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
 /* Send history (PDF + amostra fisica) */
 
 .sdv-send-history {
@@ -9822,6 +9829,87 @@ button:disabled {
 
 .sdv-blend-no-owner-assign:disabled,
 .sdv-blend-no-owner-skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Liga B4 Fase 8 (B3.8): aviso informativo no modal de venda/perda quando a
+   amostra e origem de liga(s) ativa(s). NAO bloqueia o submit — so informa
+   que a venda/perda pode inviabilizar essas ligas. Tom azul (informativo),
+   distinto do ambar "sem dono" (que bloqueia) e do vermelho de erro. */
+.sdv-blend-origin-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: clamp(10px, 3vw, 14px);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+}
+
+.sdv-blend-origin-warn-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sdv-blend-origin-warn-head svg {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sdv-blend-origin-warn-text {
+  margin: 0;
+  font-size: clamp(12px, 3vw, 13.5px);
+  line-height: 1.4;
+  color: #1e3a8a;
+}
+
+.sdv-blend-origin-warn-list {
+  margin: 0;
+  padding-left: 30px;
+  display: grid;
+  gap: 2px;
+  font-size: clamp(11px, 3vw, 12.5px);
+  color: #1e40af;
+}
+
+.sdv-blend-origin-warn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sdv-blend-origin-warn-toggle,
+.sdv-blend-origin-warn-dismiss {
+  flex: 1 1 auto;
+  min-height: 2.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sdv-blend-origin-warn-toggle {
+  background: rgba(255, 255, 255, 0.7);
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.sdv-blend-origin-warn-dismiss {
+  background: #2563eb;
+  color: #ffffff;
+  border: 0;
+}
+
+.sdv-blend-origin-warn-toggle:disabled,
+.sdv-blend-origin-warn-dismiss:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
