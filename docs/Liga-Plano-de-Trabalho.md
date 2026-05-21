@@ -821,7 +821,7 @@ Frontend (Fases 5-8) — ✅ **concluído em 2026-05-21** (ver Log de sessões):
 
 ### Wave C — Release
 
-**Fase C1 — Tests + smoke + deploy canary → prod**
+**Fase C1 — Tests + smoke + deploy canary → prod** _(✅ concluído em 2026-05-21)_
 
 - Garantir todos os testes verdes (unit, contract, integration).
 - Smoke test manual completo:
@@ -1794,3 +1794,16 @@ As 4 fases de frontend da Wave B4, fechando o ciclo comercial da liga. Cada uma 
 **Commits**: `feat(samples): liga B4 fase 5 — modal de vender/perder liga` · `liga B4 fase 6 backend — flag cascaded por movimento` · `liga B4 fases 6+8 — cancelar/editar movimento de liga + aviso origem` · `liga B4 fase 7 — flag de viabilidade no detalhe da liga`.
 
 **Próximo**: C1 — smoke manual do ciclo (criar liga → vender → cancelar → editar; vender liga inviável; vender origem comprometida) + deploy canary → prod (o lote inclui B3.4/B3.5 + toda a Wave B4).
+
+### 2026-05-21 — Deploy canary → produção (Wave B4 + B3.4/B3.5) ✅
+
+Fase C1. O lote acumulado — B3.4 (reverter liga), B3.5 (bloqueio de invalidação) e toda a Wave B4 (ciclo comercial da liga, 8 fases) — foi pra produção.
+
+- **CI verde** — run "Contract Tests" na `main` (commit `8e2d269`): lint, format, typecheck, build, contracts, unit, integração PostgreSQL.
+- **Build** — `build-image.sh cloud-production` → imagem `rastreio-interno-amostras:8e2d269`.
+- **Canary** — revisão `rastreio-prod-app-00265-yaw` deployada sem tráfego.
+- **Migrate job** — `execute-job.sh migrate` rodado entre canary e promote (sem migration nova nesta wave, mas o passo é obrigatório).
+- **Smoke** — health `/api/health/ready` ok (banco ok) + headers de segurança no canary; smoke manual do fluxo da liga validado.
+- **Promote** — `update-traffic --to-latest`: `rastreio-prod-app-00265-yaw` servindo 100%. Health + headers reconferidos em produção.
+
+Sem migration — a wave não altera schema. Wave C concluída; o plano da Liga está implementado e em produção (restam só B3.6 e B3.7, marcadas como opcionais/post-MVP).
