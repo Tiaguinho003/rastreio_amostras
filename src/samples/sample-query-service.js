@@ -2338,7 +2338,9 @@ export class SampleQueryService {
         s.id AS sample_id,
         s.internal_lot_number,
         s.status::text AS status,
-        bc.contributed_sacks
+        bc.contributed_sacks,
+        s.declared_owner,
+        s.declared_harvest
       FROM sample_blend_component bc
       JOIN sample s ON s.id = bc.sample_id
       WHERE bc.origin_sample_id = ${originSampleId}::uuid
@@ -2351,6 +2353,11 @@ export class SampleQueryService {
       lotNumber: row.internal_lot_number,
       status: row.status,
       contributedSacks: Number(row.contributed_sacks),
+      // Liga B3.7: snapshot do dono/safra da liga pra UI mostrar contexto
+      // (no lugar de '—'). declaredOwner costuma ser null (carteira da
+      // corretora); declaredHarvest e derivado das origens no createBlend.
+      declaredOwner: row.declared_owner ?? null,
+      declaredHarvest: row.declared_harvest ?? null,
     }));
   }
 }

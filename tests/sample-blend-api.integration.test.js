@@ -414,6 +414,16 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.body.activeBlends[0].sampleId, blend.body.sample.id);
     assert.equal(detail.body.activeBlends[0].lotNumber, '20412');
     assert.equal(detail.body.activeBlends[0].contributedSacks, 10);
+
+    // B3.7: activeBlends carrega o snapshot de dono/safra da liga.
+    const blendDetail = await api.getSampleDetail(
+      buildInput({ params: { sampleId: blend.body.sample.id } })
+    );
+    assert.equal(detail.body.activeBlends[0].declaredOwner, blendDetail.body.sample.declared.owner);
+    assert.equal(
+      detail.body.activeBlends[0].declaredHarvest,
+      blendDetail.body.sample.declared.harvest
+    );
   });
 }
 

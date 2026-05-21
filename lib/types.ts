@@ -522,13 +522,16 @@ export interface BlendComponentDetail {
 }
 
 // Liga B3.3: liga ativa (status != INVALIDATED) que usa essa amostra como
-// origem. Backend filtra INVALIDATED — Wave A2.5/A3.4. Sem owner/harvest
-// embutido aqui (limitacao MVP); UI renderiza '—' nesses campos.
+// origem. Backend filtra INVALIDATED — Wave A2.5/A3.4. declaredOwner e
+// declaredHarvest sao snapshot da liga (B3.7) — owner costuma ser null
+// (carteira da corretora), harvest e derivado das origens.
 export interface ActiveBlendDetail {
   sampleId: string;
   lotNumber: string | null;
   status: SampleStatus;
   contributedSacks: number;
+  declaredOwner: string | null;
+  declaredHarvest: string | null;
 }
 
 // Liga B4 Fase 2: viabilidade da venda de uma liga. `getBlendFeasibility`

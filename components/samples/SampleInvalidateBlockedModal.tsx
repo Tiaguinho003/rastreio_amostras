@@ -92,8 +92,8 @@ export function SampleInvalidateBlockedModal({
                   href={`/samples/${blend.sampleId}`}
                   lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
                   isBlend
-                  owner={null}
-                  harvest={null}
+                  owner={blend.declaredOwner}
+                  harvest={blend.declaredHarvest}
                   contribution={blend.contributedSacks}
                   status={blend.status}
                   animationDelay={`${Math.min(idx, 10) * 0.025}s`}
