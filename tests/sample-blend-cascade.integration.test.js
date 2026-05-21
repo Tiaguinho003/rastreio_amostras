@@ -842,9 +842,9 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(caughtError.status, 422);
   });
 
-  // Liga B4 Fase 6 — flag `cascaded` por movimento em getSampleDetail
+  // Liga B3.6 — cascadedFrom (liga-pai) por movimento em getSampleDetail
 
-  test('getSampleDetail marks a cascaded origin movement as cascaded:true (Fase 6)', async () => {
+  test('getSampleDetail sets cascadedFrom on a cascaded origin movement (B3.6)', async () => {
     const origin1Id = randomUUID();
     const origin2Id = randomUUID();
     const buyerId = randomUUID();
@@ -877,14 +877,16 @@ if (!databaseUrl || !databaseReachable) {
       actor
     );
 
-    // origin1 recebeu uma venda via cascata da liga — getSampleDetail marca
-    // o movimento como cascateado (evento criador com causationId != null).
+    // origin1 recebeu uma venda via cascata da liga — getSampleDetail resolve
+    // a liga-pai {sampleId, lotNumber} em cascadedFrom.
     const detail = await queryService.getSampleDetail(origin1Id);
     assert.equal(detail.movements.length, 1);
-    assert.equal(detail.movements[0].cascaded, true);
+    assert.ok(detail.movements[0].cascadedFrom);
+    assert.equal(detail.movements[0].cascadedFrom.sampleId, blend.sample.id);
+    assert.equal(detail.movements[0].cascadedFrom.lotNumber, '10602');
   });
 
-  test('getSampleDetail marks a direct sale as cascaded:false (Fase 6)', async () => {
+  test('getSampleDetail leaves cascadedFrom null on a direct sale (B3.6)', async () => {
     const sampleId = randomUUID();
     const buyerId = randomUUID();
     await createClassifiedSample({ id: sampleId, lotNumber: '10610', declaredSacks: 40 });
@@ -907,10 +909,10 @@ if (!databaseUrl || !databaseReachable) {
     // null, entao o movimento nao e cascateado.
     const detail = await queryService.getSampleDetail(sampleId);
     assert.equal(detail.movements.length, 1);
-    assert.equal(detail.movements[0].cascaded, false);
+    assert.equal(detail.movements[0].cascadedFrom, null);
   });
 
-  test('getSampleDetail marks the root liga movement as cascaded:false (Fase 6)', async () => {
+  test('getSampleDetail leaves cascadedFrom null on the root liga movement (B3.6)', async () => {
     const origin1Id = randomUUID();
     const origin2Id = randomUUID();
     const buyerId = randomUUID();
@@ -947,7 +949,7 @@ if (!databaseUrl || !databaseReachable) {
     // null — nao e cascateado (pode ser cancelado/editado pela liga).
     const detail = await queryService.getSampleDetail(blend.sample.id);
     assert.equal(detail.movements.length, 1);
-    assert.equal(detail.movements[0].cascaded, false);
+    assert.equal(detail.movements[0].cascadedFrom, null);
   });
 }
 

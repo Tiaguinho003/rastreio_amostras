@@ -9509,11 +9509,16 @@ button:disabled {
   color: #c0392b;
 }
 
-/* Liga B4 Fase 6: dica num movimento cascateado (criado pela cascata de uma
-   liga) — read-only no painel da origem, gerencie pela liga raiz. */
+/* Liga B3.6: dica num movimento cascateado (criado pela cascata de uma liga)
+   — read-only no painel da origem; nomeia a liga-pai com link pra ela. */
 .sdv-com-mov-cascaded-hint {
   color: #7c3aed;
   font-weight: 600;
+}
+
+.sdv-com-mov-cascaded-hint a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 /* Send history (PDF + amostra fisica) */

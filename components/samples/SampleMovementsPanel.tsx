@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -201,9 +202,11 @@ export function SampleMovementsPanel({
               const isCancelled = movement.status === 'CANCELLED';
               const isSale = movement.movementType === 'SALE';
               const buyerLabel = getMovementBuyerLabel(movement);
-              // Liga B4 Fase 6: movimento criado pela cascata de uma liga —
-              // read-only aqui (cancelar/editar so pela liga raiz).
-              const isCascaded = movement.cascaded === true;
+              // Liga B3.6: movimento criado pela cascata de uma liga —
+              // read-only aqui (cancelar/editar so pela liga raiz). `cascadedFrom`
+              // e a liga-pai {sampleId, lotNumber}, ou null se movimento direto.
+              const cascadedFrom = movement.cascadedFrom ?? null;
+              const isCascaded = cascadedFrom !== null;
               return (
                 <div
                   key={movement.id}
@@ -247,11 +250,14 @@ export function SampleMovementsPanel({
                           <span className="sdv-com-mov-reason">{movement.lossReasonText}</span>
                         </>
                       ) : null}
-                      {!isCancelled && isCascaded ? (
+                      {!isCancelled && cascadedFrom ? (
                         <>
                           <span className="sdv-com-mov-sep" />
                           <span className="sdv-com-mov-cascaded-hint">
-                            Movimento da liga — gerencie pela liga
+                            Via cascata da liga{' '}
+                            <Link href={`/samples/${cascadedFrom.sampleId}`}>
+                              {cascadedFrom.lotNumber ?? cascadedFrom.sampleId.slice(0, 8)}
+                            </Link>
                           </span>
                         </>
                       ) : null}

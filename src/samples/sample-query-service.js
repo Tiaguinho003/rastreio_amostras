@@ -1624,7 +1624,7 @@ export class SampleQueryService {
       latestPrintJob,
       components,
       activeBlends,
-      cascadedMovementIds,
+      cascadedMovementOrigins,
     ] = await Promise.all([
       this.listAttachments(sampleId),
       this.listSampleEvents(sampleId, { limit: options.eventLimit ?? 200 }),
@@ -1638,16 +1638,16 @@ export class SampleQueryService {
       // Sempre incluido (vazio se nao esta em nenhuma) — frontend renderiza
       // secao "Comprometida em N ligas" quando length > 0.
       this.findActiveBlendsContainingOrigin(sampleId),
-      // Liga B4 Fase 6: ids dos movimentos cascateados (criados pela cascata
-      // de uma liga). A UI esconde editar/cancelar nesses — so via a liga.
-      this.loadCascadedMovementIds(sampleId),
+      // Liga B3.6: por movimento cascateado, a liga-pai {sampleId, lotNumber}.
+      // A UI esconde editar/cancelar nesses e mostra o trace "via cascata".
+      this.loadCascadedMovementOrigins(sampleId),
     ]);
 
-    // Liga B4 Fase 6: cada movimento ganha `cascaded` — true se foi criado
-    // pela cascata de uma liga (nao cancelavel/editavel isolado pela UI).
+    // Liga B3.6: cada movimento ganha `cascadedFrom` — a liga que o originou
+    // via cascata, ou null (movimento direto). Substitui o flag `cascaded`.
     const decoratedMovements = movements.map((movement) => ({
       ...movement,
-      cascaded: cascadedMovementIds.has(movement.id),
+      cascadedFrom: cascadedMovementOrigins.get(movement.id) ?? null,
     }));
 
     return {
@@ -2261,22 +2261,33 @@ export class SampleQueryService {
     return { eventId: rows[0].event_id, causationId: rows[0].causation_id };
   }
 
-  // Liga B4 Fase 6: dado um sample, resolve quais movimentos foram criados
-  // pela cascata de uma liga — o evento criador (SALE_CREATED/LOSS_RECORDED)
-  // tem causation_id != null. Uma unica query keyed em payload->>'movementId'.
-  // Retorna Set<movementId> so dos cascateados (o resto nao gera linha);
-  // consumido por getSampleDetail pra marcar `movement.cascaded`.
-  async loadCascadedMovementIds(sampleId, { executor = null } = {}) {
+  // Liga B3.6: dado um sample, resolve cada movimento criado pela cascata de
+  // uma liga e a liga-pai imediata que o originou. O evento criador
+  // (SALE_CREATED/LOSS_RECORDED) cascateado tem causation_id != null; o JOIN
+  // sobe pro evento-pai e pro sample-pai (a liga). Retorna
+  // Map<movementId, {sampleId, lotNumber}> so dos cascateados (o resto nao
+  // gera linha); consumido por getSampleDetail pra `movement.cascadedFrom`.
+  async loadCascadedMovementOrigins(sampleId, { executor = null } = {}) {
     const client = executor ?? this.prisma;
     const rows = await client.$queryRaw`
-      SELECT payload->>'movementId' AS movement_id
-      FROM sample_event
-      WHERE sample_id = ${sampleId}::uuid
-        AND event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
-        AND causation_id IS NOT NULL
-        AND payload->>'movementId' IS NOT NULL
+      SELECT
+        child.payload->>'movementId'      AS movement_id,
+        parent.sample_id::text            AS parent_sample_id,
+        parent_sample.internal_lot_number AS parent_lot_number
+      FROM sample_event child
+      JOIN sample_event parent ON parent.event_id = child.causation_id
+      JOIN sample parent_sample ON parent_sample.id = parent.sample_id
+      WHERE child.sample_id = ${sampleId}::uuid
+        AND child.event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
+        AND child.causation_id IS NOT NULL
+        AND child.payload->>'movementId' IS NOT NULL
     `;
-    return new Set(rows.map((row) => row.movement_id));
+    return new Map(
+      rows.map((row) => [
+        row.movement_id,
+        { sampleId: row.parent_sample_id, lotNumber: row.parent_lot_number },
+      ])
+    );
   }
 
   // Liga A2.2: retorna o subset minimo de campos do sample necessario
