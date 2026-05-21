@@ -1819,4 +1819,4 @@ As duas últimas sub-fases do plano da Liga, ambas marcadas como opcionais/post-
 
 **Commits**: `feat(samples): liga B3.6 — trace de cascata no movimento de origem` · `feat(samples): liga B3.7 — dono e safra da liga em activeBlends`.
 
-**Plano da Liga concluído** — todas as fases (Waves A, B, C + sub-fases B3.x) implementadas. B3.6/B3.7 pendentes de deploy num próximo lote canary.
+**Plano da Liga concluído** — todas as fases (Waves A, B, C + sub-fases B3.x) implementadas e em produção. B3.6/B3.7 deployadas em 2026-05-21 (canary → migrate → smoke → promote; revisão `rastreio-prod-app-00267-xob`, SHA `6ff8cf9`).
