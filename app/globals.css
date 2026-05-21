@@ -9711,6 +9711,28 @@ button:disabled {
   color: #c0392b;
 }
 
+/* Liga B4 Fase 7: card de flag de viabilidade no detalhe da liga. Aviso
+   derivado (getBlendFeasibility) — a liga nao muda de status, so e
+   sinalizada. Mesma borda vermelha do card de invalidacao. */
+.sdv-card-infeasible {
+  border-left: 3px solid #c0392b;
+}
+
+.sdv-infeasible-list {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 3px;
+  font-size: clamp(11px, 3vw, 12.5px);
+  color: #7f1d1d;
+}
+
+.sdv-infeasible-origin {
+  font-weight: 600;
+  color: #c0392b;
+  text-decoration: underline;
+}
+
 /* Caixa de aviso (warning) dentro de modais */
 
 .sdv-warn-box {

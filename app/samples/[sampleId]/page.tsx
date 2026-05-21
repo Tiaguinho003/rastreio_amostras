@@ -20,6 +20,7 @@ import {
   cancelPhysicalSampleSend,
   cancelSampleMovement,
   exportSamplePdf,
+  getBlendFeasibility,
   getClient,
   getSampleDetail,
   invalidateSample,
@@ -43,6 +44,7 @@ import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ActiveBlendDetail,
+  BlendFeasibilityResponse,
   ClassificationType,
   ClassifierSnapshot,
   ClientUnitSummary,
@@ -449,6 +451,9 @@ export default function SampleDetailPage() {
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
+  // Liga B4 Fase 7: viabilidade da liga (flag derivado "liga inviavel").
+  // Buscado so pra liga ainda vendavel; null pra amostra normal ou em erro.
+  const [blendFeasibility, setBlendFeasibility] = useState<BlendFeasibilityResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [generalNotice, setGeneralNotice] = useState<Notice>(null);
@@ -731,6 +736,46 @@ export default function SampleDetailPage() {
       fetchAbortRef.current?.abort();
     };
   }, [loadDetail, sampleId]);
+
+  // Liga B4 Fase 7: busca a viabilidade da liga pra sinalizar "liga
+  // inviavel" no detalhe. So pra liga ainda vendavel (nao SOLD/LOST nem
+  // INVALIDATED). Re-dispara quando o status comercial muda — vender ou
+  // cancelar a liga reflete no flag. Best-effort: em erro some o aviso
+  // (feature secundaria — nao polui a tela com erro).
+  useEffect(() => {
+    const sellable =
+      detail?.sample.isBlend === true &&
+      detail?.sample.status !== 'INVALIDATED' &&
+      detail?.sample.commercialStatus !== 'SOLD' &&
+      detail?.sample.commercialStatus !== 'LOST';
+    if (!session || !sampleId || !sellable) {
+      setBlendFeasibility(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    getBlendFeasibility(session, sampleId, { signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setBlendFeasibility(result);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setBlendFeasibility(null);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    session,
+    sampleId,
+    detail?.sample.isBlend,
+    detail?.sample.status,
+    detail?.sample.commercialStatus,
+  ]);
 
   // Q.print P3: polling do PrintJob enquanto PENDING. O backend tem lazy
   // timeout de 60s — apos isso o job vira EXPIRED na proxima request, entao
@@ -2220,6 +2265,40 @@ export default function SampleDetailPage() {
                       ) : null}
                       <NoticeSlot notice={generalNotice} />
                     </div>
+
+                    {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
+                        (getBlendFeasibility) quando uma origem da liga nao tem
+                        saldo pra cobrir a contribuicao. A liga nao muda de
+                        status; so e sinalizada. */}
+                    {detail.sample.isBlend &&
+                    detail.sample.status !== 'INVALIDATED' &&
+                    detail.sample.commercialStatus !== 'SOLD' &&
+                    detail.sample.commercialStatus !== 'LOST' &&
+                    blendFeasibility &&
+                    !blendFeasibility.feasible &&
+                    blendFeasibility.blockingOrigins.length > 0 ? (
+                      <div className="sdv-card sdv-card-infeasible">
+                        <span className="sdv-card-title sdv-card-title-danger">Liga inviável</span>
+                        <p className="sdv-empty-text">
+                          {blendFeasibility.blockingOrigins.length === 1
+                            ? 'Uma origem desta liga não tem saldo suficiente para a venda.'
+                            : 'Origens desta liga não têm saldo suficiente para a venda.'}
+                        </p>
+                        <ul className="sdv-infeasible-list">
+                          {blendFeasibility.blockingOrigins.map((origin) => (
+                            <li key={origin.sampleId}>
+                              <Link
+                                href={`/samples/${origin.sampleId}`}
+                                className="sdv-infeasible-origin"
+                              >
+                                Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
+                              </Link>{' '}
+                              — precisa {origin.contributedSacks} sc, tem {origin.availableSacks} sc
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
                     {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
                         Backend mantem `components` em liga revertida (F8.3) —
