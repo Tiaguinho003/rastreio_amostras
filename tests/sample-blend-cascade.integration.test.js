@@ -841,6 +841,114 @@ if (!databaseUrl || !databaseReachable) {
     assert.ok(caughtError instanceof HttpError);
     assert.equal(caughtError.status, 422);
   });
+
+  // Liga B4 Fase 6 — flag `cascaded` por movimento em getSampleDetail
+
+  test('getSampleDetail marks a cascaded origin movement as cascaded:true (Fase 6)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10600', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10601', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cascaded-flag-1',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10602',
+      },
+      actor
+    );
+
+    await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    // origin1 recebeu uma venda via cascata da liga — getSampleDetail marca
+    // o movimento como cascateado (evento criador com causationId != null).
+    const detail = await queryService.getSampleDetail(origin1Id);
+    assert.equal(detail.movements.length, 1);
+    assert.equal(detail.movements[0].cascaded, true);
+  });
+
+  test('getSampleDetail marks a direct sale as cascaded:false (Fase 6)', async () => {
+    const sampleId = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: sampleId, lotNumber: '10610', declaredSacks: 40 });
+    await createBuyerClient(buyerId);
+
+    const sample = await prisma.sample.findUnique({ where: { id: sampleId } });
+    await commandService.createSampleMovement(
+      {
+        sampleId,
+        movementType: 'SALE',
+        quantitySacks: 10,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: sample.version,
+      },
+      actor
+    );
+
+    // Venda direta numa amostra normal — o evento criador tem causationId
+    // null, entao o movimento nao e cascateado.
+    const detail = await queryService.getSampleDetail(sampleId);
+    assert.equal(detail.movements.length, 1);
+    assert.equal(detail.movements[0].cascaded, false);
+  });
+
+  test('getSampleDetail marks the root liga movement as cascaded:false (Fase 6)', async () => {
+    const origin1Id = randomUUID();
+    const origin2Id = randomUUID();
+    const buyerId = randomUUID();
+    await createClassifiedSample({ id: origin1Id, lotNumber: '10620', declaredSacks: 50 });
+    await createClassifiedSample({ id: origin2Id, lotNumber: '10621', declaredSacks: 30 });
+    await createBuyerClient(buyerId);
+
+    const blend = await commandService.createBlend(
+      {
+        clientDraftId: 'draft-cascaded-flag-2',
+        components: [
+          { originSampleId: origin1Id, contributedSacks: 20 },
+          { originSampleId: origin2Id, contributedSacks: 25 },
+        ],
+        harvest: 'MISTA',
+        sampleLotNumber: '10622',
+      },
+      actor
+    );
+
+    await commandService.createSampleMovement(
+      {
+        sampleId: blend.sample.id,
+        movementType: 'SALE',
+        quantitySacks: 0,
+        movementDate: '2026-05-20',
+        buyerClientId: buyerId,
+        expectedVersion: blend.sample.version,
+      },
+      actor
+    );
+
+    // A propria liga: o movimento raiz tem evento criador com causationId
+    // null — nao e cascateado (pode ser cancelado/editado pela liga).
+    const detail = await queryService.getSampleDetail(blend.sample.id);
+    assert.equal(detail.movements.length, 1);
+    assert.equal(detail.movements[0].cascaded, false);
+  });
 }
 
 async function canReachDatabase(databaseUrlValue) {

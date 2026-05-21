@@ -599,6 +599,11 @@ export interface SampleMovement {
   updatedAt: string;
   buyerClient: SampleSnapshot['ownerClient'] | null;
   buyerUnit: ClientUnitSummary | null;
+  // Liga B4 Fase 6: true quando o movimento foi criado pela cascata de uma
+  // liga (evento criador SALE_CREATED/LOSS_RECORDED com causationId != null).
+  // Um movimento cascateado nao e cancelavel/editavel isolado — so pela liga
+  // raiz. Presente so em getSampleDetail; a rota /movements nao carrega.
+  cascaded?: boolean;
 }
 
 export interface SampleMovementsResponse {
