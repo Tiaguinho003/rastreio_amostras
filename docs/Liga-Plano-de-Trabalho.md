@@ -794,7 +794,7 @@ Sub-fases numeradas, na ordem de execução recomendada:
 - **Quando fazer**: quando a falta de contexto ("liga LG-1024 · — · — · 20 sc") atrapalhar a navegação do operador. Pra ligas que tipicamente são sem dono ("carteira da corretora"), owner viria sempre vazio mesmo com enrichment; **harvest** é o ganho real desta sub-fase.
 - Custo estimado: ~30 min (backend select novo + tipo TS + UI pega valor em vez de hardcoded null).
 
-**B3.8 — Aviso ao vender/perder uma amostra que é origem de liga(s)** _(pendente — decidido com o usuário em 2026-05-21)_
+**B3.8 — Aviso ao vender/perder uma amostra que é origem de liga(s)** _(✅ concluído em 2026-05-21 — Wave B4 Fase 8)_
 
 - Diferente da invalidação (B3.5, bloqueio rígido): vender/perder uma origem **não é bloqueado** — é ação legítima (o overcommit se resolvendo; uma proposta de liga "vence", ou a amostra é vendida avulsa — Q0.2 + T0.B).
 - Mas vender/perder a origem diretamente _envenena_ as ligas que a contêm: a venda/perda da liga em cascata será barrada depois pelo hard block F7.6 (`BLEND_HAS_BLOCKED_DESCENDANTS`). A integridade nunca quebra — a liga só deixa de ser vendável **como liga**.
@@ -812,10 +812,10 @@ Backend (Fases 1-4) — ✅ **concluído em 2026-05-21** (ver Log de sessões):
 - **Fase 3** — `_cancelBlendCascadeMovement` — cancelar venda/perda de liga = cascata reversa (`SALE_CANCELLED`/`LOSS_CANCELLED` na raiz + descendentes).
 - **Fase 4** — `_updateBlendCascadeMovement` (re-cascata de comprador/data/obs) + guard `BLEND_CASCADED_MOVEMENT` (movimento cascateado só via a raiz).
 
-Frontend (Fases 5-8) — pendente:
+Frontend (Fases 5-8) — ✅ **concluído em 2026-05-21** (ver Log de sessões):
 
 - **Fase 5** — modal `SampleMovementModal` pra liga: esconde `quantitySacks`, "vende 100% = N sc", pré-validação via Fase 2, bloco "sem dono" (F3.A — "Atribuir dono primeiro" via `updateRegistration` / "Continuar mesmo assim") em venda **e** perda.
-- **Fase 6** — UI de cancelar/editar movimento de liga; movimentos cascateados read-only no painel da origem.
+- **Fase 6** — UI de cancelar/editar movimento de liga; movimentos cascateados read-only no painel da origem (flag `cascaded` por movimento em `getSampleDetail`).
 - **Fase 7** — flag de viabilidade no detalhe da liga (via Fase 2).
 - **Fase 8** — B3.8: aviso (não-bloqueante) ao vender/perder uma amostra-origem.
 
@@ -1779,3 +1779,18 @@ As 4 fases de backend, cada uma com quality gates verdes:
 **Sem migration** — a wave não altera o schema (F7.6 é lógica, o endpoint é query, as cascatas são eventos novos).
 
 **Próximas fases (frontend)**: 5 (modal de venda/perda da liga), 6 (UI cancelar/editar movimento de liga), 7 (flag de viabilidade), 8 (B3.8 aviso de venda de origem).
+
+### 2026-05-21 — Wave B4: frontend completo (Fases 5-8) ✅
+
+As 4 fases de frontend da Wave B4, fechando o ciclo comercial da liga. Cada uma um commit atômico com quality gates verdes.
+
+- **Fase 5 — modal de vender/perder a liga.** `SampleMovementModal` + `SampleMovementsPanel` ganharam o ramo `isBlend`: venda/perda de liga é 100% (sem campo de quantidade — mostra o total), pré-validação de viabilidade via `getBlendFeasibility` (desabilita o submit + lista as origens bloqueantes se inviável), bloco "sem dono" (F3.A — "Atribuir dono primeiro" via sub-modal `updateRegistration` / "Continuar mesmo assim"). Rede de segurança: 409 `BLEND_HAS_BLOCKED_DESCENDANTS` → mensagem pt-BR.
+- **Fase 6 — cancelar/editar movimento de liga.** Pequena adição de backend primeiro: `getSampleDetail` decora cada movimento com `cascaded: boolean` (novo helper `loadCascadedMovementIds` — confere o `causationId` do evento criador). No frontend: movimentos cascateados ficam read-only no painel da origem (sem botões, com a dica "gerencie pela liga"); o modal de cancelar explica a cascata; o modal de editar ganhou o ramo liga (sem quantidade, sem pré-validação — editar comprador/data não muda viabilidade).
+- **Fase 7 — flag de viabilidade.** Card "Liga inviável" no detalhe da liga, derivado de `getBlendFeasibility`, listando as origens sem saldo (lote clicável + "precisa N sc, tem M sc"). Só pra liga ainda vendável; best-effort (em erro, some). A liga não muda de status.
+- **Fase 8 (B3.8) — aviso ao vender/perder uma origem.** `activeBlends` threadado page → painel → modal. Quando a amostra-origem participa de liga(s) ativa(s), o `SampleMovementModal` mostra um aviso azul **não-bloqueante** ("Ver ligas" expande / "Continuar mesmo assim" dispensa). O submit nunca é barrado.
+
+**Quality gates**: ✅ lint, format:check, typecheck, build em todos os commits; o commit do backend da Fase 6 também passou test:contracts (20/20), test:unit (180/180), test:integration:db (198/198 — +3 testes do flag `cascaded`).
+
+**Commits**: `feat(samples): liga B4 fase 5 — modal de vender/perder liga` · `liga B4 fase 6 backend — flag cascaded por movimento` · `liga B4 fases 6+8 — cancelar/editar movimento de liga + aviso origem` · `liga B4 fase 7 — flag de viabilidade no detalhe da liga`.
+
+**Próximo**: C1 — smoke manual do ciclo (criar liga → vender → cancelar → editar; vender liga inviável; vender origem comprometida) + deploy canary → prod (o lote inclui B3.4/B3.5 + toda a Wave B4).
