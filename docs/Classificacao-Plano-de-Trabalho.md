@@ -929,7 +929,190 @@ A análise abriu 5 mini-decisões pra fechar **antes do plan mode**. São pequen
 
 ---
 
-## Pendências
+## Bloco F3 — Detecção + extração IA
+
+**Objetivo**: melhorar a precisão e confiabilidade da extração de dados manuscritos da ficha de classificação pela IA, com foco especial em **peneiras (L3 + L4) e fundos (L5)** — campos identificados pelo usuário como tendo extração ruim hoje. Reduzir fricção pós-extração, dar feedback claro sobre campos vazios, e ganhar observabilidade pra medir o que realmente funciona.
+
+**Escopo**: 3 etapas do pipeline:
+
+1. **`detect-form`** — pré-processamento que detecta a forma da ficha e recorta (com fallback "continuar assim").
+2. **`extract-and-prepare`** — chamada IA (OpenAI gpt-4o) que extrai todos os campos.
+3. **Frontend pós-extração** — mapeamento da resposta → form, exibição no `ClassificationReviewModal`, tratamento de erros (illegible vs technical).
+
+**Fora do escopo**: Bloco F4 (revisão dos campos já preenchidos — UX do form em si), F5 (reconciliação de divergências sacas/safra/lote).
+
+### Estado atual (síntese das 3 análises Explore)
+
+#### Etapa 1 — `detect-form` (`app/api/v1/classification/detect-form/route.ts`)
+
+- Não é só validação: tem `formDetectionService` (`src/samples/form-detection-service.js:16-137`) que faz processamento real (resize 800 px → grayscale → blur σ=15 → threshold ≥180 → contornos → recorte com padding 5%).
+- Timeout de **5 s**; se falha, retorna `{ detected: false }` mas mantém arquivo original — fluxo segue via "Continuar assim".
+- Salva 2 arquivos em `data/uploads/_temp/`: original (`temp-${token}.jpg`) e cropped (`temp-${token}-cropped.jpg`).
+- **Cleanup só na confirmação** da classificação; órfãos (foto tirada e fluxo abandonado) acumulam indefinidamente.
+- **Sem logs/telemetria** — não dá pra medir taxa de detecção bem-sucedida.
+- Sem testes dedicados.
+
+#### Etapa 2 — `extract-and-prepare` (`src/samples/classification-extraction-service.js`)
+
+- Modelo: **`gpt-4o`** (linha 452, sem pin de versão — segue defaults da OpenAI), `temperature: 0`, `max_tokens: 1500`, `detail: 'high'` na imagem, `response_format: { type: 'json_schema', strict: true }`.
+- Timeout: **25 s** via `AbortController`. **Sem retry** em 429/500/timeout.
+- Imagem como base64 data URI (não URL).
+- Prompts (texto puro, sem few-shot visual):
+  - **SYSTEM_PROMPT** (linhas 10-30): contexto da ficha SAFRAS, regras de extração (manuscrito only, null se vazio, virgula brasileira).
+  - **USER_PROMPT** (linhas 36-122): descrição célula a célula do layout L1–L8.
+  - Sobre peneiras (L3/L4): ordem explícita "P18, P17, P16, MK, P15" + alerta sobre MK na 4ª posição.
+  - Sobre fundos (L5): descreve as 3 partes da célula FD (peneira | "=" impresso | percentual) **mas sem instrução lógica clara** tipo "número à esquerda do '=' é peneira, à direita é percentual".
+- Schema JSON strict:
+  - Peneiras: 10 chaves obrigatórias (`p18..p10`, `mk`), todas `string | null`, sem regex.
+  - Fundos: array de objetos `{ peneira, percentual }`, mas **sem `minItems`/`maxItems`** no schema da OpenAI (força [2 itens] depois na normalização JS).
+- Defesas pós-resposta:
+  - `KNOWN_LABELS` (97 rótulos) — zera valor se IA retornar um rótulo (ex: "P18" em vez de número).
+  - `toNumericOrNull` valida regex `^\d+([,.]\d+)?$`.
+  - `normalizeFundos` força array de tamanho 2.
+- **Sem logs** — `processingTimeMs` calculado mas só retornado no payload; tokens consumidos não rastreados.
+- 9 testes em `tests/classification-extraction-service.test.js` cobrindo mocks JSON, normalização, casos de erro — **zero testes com imagem real**.
+
+#### Etapa 3 — Frontend (`app/camera/page.tsx` + `lib/classification-form.ts` + `ClassificationReviewModal.tsx`)
+
+- Estados de fluxo: `'detecting' → 'detected' → 'extracting' → 'confirming' (Review)` no happy path; `'extraction-error-illegible'` (lote = null + hasContext) ou `'extraction-error-technical'` (catch).
+- Sem timeout client-side; sem cancelamento; sem deduplicação de cliques rápidos.
+- `mapExtractionToForm` (`lib/classification-form.ts:303-314`): mapeia campos extraídos achatados (`p18..p10, mk, fundo1_peneira, fundo1_percentual, fundo2_peneira, fundo2_percentual`) → keys do `ClassificationFormState`. **Null da IA → campo ausente do spread → vazio no form** (sem destaque visual).
+- `ClassificationReviewModal` renderiza peneiras em grid 5×2 e fundos em layout `peneira = %`. **Nenhuma indicação visual** de quais vieram da IA vs vazios.
+- Validação genérica de submit: **"pelo menos 1 dos 22 campos preenchido"** — permite salvar com peneiras/fundos totalmente vazios sem aviso.
+- Modo manual (após erro técnico): reseta `classificationForm` pra `EMPTY_CLASSIFICATION_FORM` — operador preenche tudo do zero, sem indicação de quais campos a IA deveria ter preenchido.
+- `compareIdentification` (divergências) só compara lote/sacas/safra — **nunca compara peneiras/fundos**.
+- Modal de erro `'illegible'`: "Tirar outra" / "Cancelar"; `'technical'`: + "Continuar manual" → 2º confirm → form vazio.
+
+### Pontos de fricção identificados (hipóteses pra peneiras/fundos ruins)
+
+1. **Prompt menciona layout de fundos mas sem instrução lógica explícita** — "ESQUERDA do '=' = peneira, DIREITA = percentual" não está dito; a IA infere geometria.
+2. **Zero few-shot visual** — sem imagem-exemplo de ficha preenchida + JSON esperado pra calibrar.
+3. **Modelo genérico** (`gpt-4o`) sem fine-tuning ou contexto específico de fichas de café.
+4. **Schema permissivo** — peneiras como `string | null` sem regex; fundos sem `minItems` no schema.
+5. **Sem retry em erro transitório** (429/500/timeout) — operador re-tenta manualmente.
+6. **Sem feedback visual de campos vazios** no Review — operador pode não notar que 8 peneiras vieram null e salvar incompleto.
+7. **Modo manual perde toda info da IA** — operador preenche tudo do zero, sem indicação dos campos que a IA "tentou".
+8. **Zero observabilidade** — não dá pra medir taxa de sucesso real, identificar quais campos falham mais.
+
+### Perguntas
+
+#### Grupo A — Pipeline de detecção (`detect-form`)
+
+##### F3.1 — `formDetectionService` (auto-crop) continua ativo, vira opcional ou some?
+
+**Análise**: hoje o detect roda sempre antes da extração. Quando ele consegue recortar bem, manda só o recorte pra IA (foto menor, mais foco). Quando falha, manda a foto inteira via "Continuar assim". A questão é: o recorte automático ajuda ou atrapalha a extração da IA? Se o crop é impreciso (corta parte da ficha, deixa a IA com info incompleta), pode estar **piorando** a extração das peneiras/fundos. Sem logs, não dá pra saber a taxa de acerto.
+
+- **(A)** Manter como está (status quo).
+- **(B)** Manter mas adicionar **logs de telemetria** (taxa de detecção bem-sucedida, taxa de falha, tempo médio). Decisão de manter/eliminar fica pra depois com dados.
+- **(C)** Eliminar o auto-crop e sempre mandar foto inteira pra IA — confia que `gpt-4o` com `detail: 'high'` foca sozinho na ficha (que ocupa 15–30% da cena conforme prompt).
+- **(D)** Manter o auto-crop **mas mandar AMBAS as imagens** (original + cropped) pra IA, deixar ela decidir qual usar. Custo: +1 imagem por chamada (latência + tokens).
+
+##### F3.2 — Cleanup de arquivos órfãos no `_temp/`
+
+**Análise**: hoje arquivos só são deletados se o fluxo chega na confirmação da classificação. Quem tira foto e abandona deixa o arquivo lá pra sempre. Em produção isso vai virar TB de disco com o tempo.
+
+- **(A)** Ignorar (status quo).
+- **(B)** Job/cron que apaga arquivos `_temp/temp-*` mais antigos que X horas (ex: 24 h).
+- **(C)** TTL no nome do arquivo + cleanup oportunístico (toda vez que detect-form roda, varre e apaga > 24 h).
+
+#### Grupo B — Extração IA (`extract-and-prepare`)
+
+##### F3.3 — Modelo IA: manter `gpt-4o` sem pin, fixar versão, trocar?
+
+**Análise**: hoje `model: 'gpt-4o'` sem pin de versão. A OpenAI faz rollout silencioso de updates do `gpt-4o`. Hoje a extração funciona OK pra alguns campos e mal pra peneiras/fundos. Mudanças do modelo podem melhorar ou piorar isso sem aviso.
+
+- **(A)** Manter `gpt-4o` sem pin (status quo).
+- **(B)** Fixar versão (ex: `gpt-4o-2024-11-20`) pra ter comportamento previsível enquanto investigamos o problema. Atualizar manualmente quando OpenAI lançar nova versão e a gente validar.
+- **(C)** Trocar pra **Claude Sonnet 4.5 ou Opus 4.7** via Anthropic API (modelos novos com visão forte; podem extrair manuscrito melhor; teste empírico necessário).
+- **(D)** Multi-provider: rodar paralelo em 2 modelos (OpenAI + Anthropic) e cruzar resultados — alta latência e custo dobrado, ganho de confiabilidade.
+
+##### F3.4 — Adicionar **few-shot visual** ao prompt?
+
+**Análise**: hoje o prompt é texto puro. A IA nunca viu um exemplo de ficha preenchida + JSON esperado. Para tarefas visuais complexas (interpretar grid manuscrito), few-shot frequentemente melhora bastante.
+
+- **(A)** Sem few-shot (status quo).
+- **(B)** Adicionar 1 imagem-exemplo de ficha bem preenchida + JSON correspondente como mensagem prévia.
+- **(C)** Adicionar 2 imagens-exemplo (1 ficha simples + 1 ficha complexa com peneiras/fundos densas) + JSONs.
+- **(D)** Adicionar exemplo "negativo" também — ficha com letra ruim + JSON com vários `null` mostrando que "vazio quando ilegível" é OK.
+
+**Custo**: aumenta tokens de input (~1k–5k tokens por imagem em detail high), aumenta latência ~1–2 s, aumenta custo da chamada.
+
+##### F3.5 — Reforçar prompt nas peneiras e fundos com instrução lógica explícita?
+
+**Análise**: o prompt descreve "peneira | '=' | percentual" como geometria, mas não fala "leia o número à ESQUERDA do '=' como `peneira` e o número à DIREITA como `percentual`". Pra IA isso pode ser ambíguo.
+
+- **(A)** Manter prompt atual (status quo).
+- **(B)** Adicionar instrução lógica explícita no USER_PROMPT (sem mudar estrutura). Ex: "Em cada célula FD, o número manuscrito imediatamente à esquerda do '=' é a `peneira`; o número manuscrito imediatamente à direita do '=' é o `percentual`. Se um deles está ausente, retorne null para os dois."
+- **(C)** (B) + reescrever a seção de peneiras com mais ênfase ("Cada uma das 10 células de peneira contém **apenas um número**. Se a célula está vazia ou rasurada, retorne null. Não copie de outra célula.").
+- **(D)** Refazer o prompt inteiro com estrutura nova (passo a passo guiado: "1. Encontre a ficha; 2. Identifique a linha 3; 3. Para cada uma das 5 células…"). Maior risco — pode quebrar o que já funciona.
+
+##### F3.6 — Apertar JSON schema (regex/validação)?
+
+**Análise**: hoje peneiras aceitam qualquer string ou null; fundos aceitam qualquer array. A normalização posterior em JS pega muita coisa, mas se a IA já produzir saída no formato certo o resultado é melhor.
+
+- **(A)** Manter schema atual (status quo).
+- **(B)** Adicionar `pattern: '^\\d+([,.]\\d+)?$'` em peneiras/percentuais (mas JSON schema strict da OpenAI **não suporta** `pattern` em `string` ainda — confirmar; se não suporta, fica só na normalização).
+- **(C)** Adicionar `minItems: 2, maxItems: 2` em `fundos` (essa **é** suportada — força a IA a sempre devolver 2 itens, eliminando a normalização pós).
+
+##### F3.7 — Adicionar retry automático em erros transitórios?
+
+**Análise**: hoje qualquer erro (timeout 25 s, 429 rate limit, 500 server error) cai direto pro frontend como `extraction-error-technical`. Operador re-tenta manualmente — mas era pra ser transparente em casos transitórios.
+
+- **(A)** Sem retry (status quo).
+- **(B)** Retry simples: 1 retry em 429 ou 5xx com backoff de 1.5 s. Timeout (25 s atingido) **não** retenta (já gastou tempo).
+- **(C)** Retry exponencial: 2 retries (500 ms + 1500 ms) em qualquer erro transitório.
+- **(D)** Retry no frontend (não no backend) — operador vê "Tentando de novo..." 2 s e a chamada refaz.
+
+#### Grupo C — Frontend UX pós-extração
+
+##### F3.8 — `ReviewModal` deve destacar campos que vieram **vazios** da IA?
+
+**Análise**: hoje peneiras/fundos vazios ficam idênticos a campos que o operador escolheu deixar em branco. Sem destaque, operador pode não perceber e salvar incompleto.
+
+- **(A)** Sem destaque (status quo).
+- **(B)** Destaque visual sutil (borda amarela ou ícone "⚠" no campo) **só nos campos que a IA tentou e retornou null**.
+- **(C)** Painel agregado no topo do form: "⚠ A IA não conseguiu extrair: P14, P10, fundo 1 — verifique a ficha". Operador vê o resumo sem precisar varrer 22 campos.
+- **(D)** (B) + (C) combinados.
+
+##### F3.9 — Validação mais rigorosa antes de salvar?
+
+**Análise**: hoje só "pelo menos 1 campo preenchido". Permite salvar uma classificação com **só "padrão" preenchido e nada mais** — provavelmente errado em 99% dos casos.
+
+- **(A)** Manter validação genérica (status quo).
+- **(B)** Validação por seção: se peneiras tem `<3` preenchidas, mostrar aviso ("Você só preencheu 2 peneiras. Confirma?") com botão "Confirmar mesmo assim" / "Voltar".
+- **(C)** Validação obrigatória de subconjunto mínimo (ex: pelo menos `padrão` + `bebida` + `pelo menos 3 peneiras` + `pelo menos 1 fundo`). Bloqueia salvar sem essas.
+- **(D)** Sem validação dura, mas destacar visualmente seções "incompletas" no Review (vermelho discreto), sem bloquear.
+
+##### F3.10 — Modo manual: preservar info da IA que falhou parcialmente?
+
+**Análise**: hoje quando a IA dá erro técnico e operador escolhe modo manual, o form é zerado. Mas se a IA chegou a extrair algo (ex: peneiras vieram OK, só os fundos falharam), perdemos esses dados.
+
+- **(A)** Zerar tudo no modo manual (status quo).
+- **(B)** Se há `extractionResult` parcial, preservar os campos que vieram preenchidos; só zerar campos null. Operador vê o que a IA achou + preenche o resto.
+- **(C)** Diferenciar "erro técnico antes da extração" (zera tudo, modo manual real) de "extração veio com nulls" (entra no Review com nulls, não no modo manual).
+
+#### Grupo D — Observabilidade
+
+##### F3.11 — Adicionar telemetria de extração?
+
+**Análise**: hoje zero logs. Sem isso, é impossível medir se uma mudança melhorou ou piorou a taxa de sucesso.
+
+- **(A)** Sem telemetria (status quo).
+- **(B)** Logs básicos no backend: tempo, sucesso/falha (e código de erro), tokens consumidos, modelo usado. Salva em log estruturado (já existe padrão? a confirmar).
+- **(C)** (B) + por-campo: quais campos vieram null vs preenchidos em cada extração. Permite identificar "fundo 1 vem null em 80% dos casos".
+- **(D)** (C) + reporting ao operador opcional ("Achou estranho? Avise-nos") com link pra reportar — coleta amostras pra fine-tuning futuro.
+
+#### Grupo E — Testes
+
+##### F3.12 — Investir em testes com imagens reais?
+
+**Análise**: hoje os 9 testes só usam mocks JSON. Não testam a IA de verdade. Pra confiar que uma mudança no prompt/schema realmente melhora, precisamos de fixtures reais.
+
+- **(A)** Status quo (sem fixtures de imagem).
+- **(B)** Adicionar 3–5 fotos reais de fichas em `tests/fixtures/classification/` + snapshots de extração esperada. Roda só localmente (não em CI — custo da OpenAI).
+- **(C)** (B) + script `npm run test:extraction` que roda essas fixtures, mostra diff esperado vs obtido, requer aprovação manual.
+
+---
 
 ### Bloco 0 — Premissas fundacionais
 
@@ -999,7 +1182,34 @@ Transversais:
 
 ### Bloco F3 — Detecção + extração IA
 
-_(Ainda não iniciado.)_
+12 perguntas abertas em 5 grupos.
+
+Grupo A — Detecção:
+
+- [ ] **F3.1** — `formDetectionService` (auto-crop): manter, instrumentar, eliminar, ou mandar ambas as imagens?
+- [ ] **F3.2** — Cleanup de arquivos órfãos em `_temp/`.
+
+Grupo B — Extração IA:
+
+- [ ] **F3.3** — Modelo: `gpt-4o` sem pin / fixar versão / Claude / multi-provider.
+- [ ] **F3.4** — Few-shot visual (imagens-exemplo) no prompt.
+- [ ] **F3.5** — Reforçar prompt nas peneiras/fundos com instrução lógica.
+- [ ] **F3.6** — Apertar JSON schema (regex, minItems).
+- [ ] **F3.7** — Retry automático em erros transitórios.
+
+Grupo C — Frontend UX:
+
+- [ ] **F3.8** — Destacar visualmente campos vazios vindos da IA.
+- [ ] **F3.9** — Validação mais rigorosa antes de salvar.
+- [ ] **F3.10** — Modo manual: preservar extração parcial vs zerar tudo.
+
+Grupo D — Observabilidade:
+
+- [ ] **F3.11** — Telemetria de extração (tempo, tokens, taxa de sucesso, campos null).
+
+Grupo E — Testes:
+
+- [ ] **F3.12** — Fixtures de imagem real pra testar extração.
 
 ### Bloco F4 — Revisão dos campos
 
@@ -1208,3 +1418,17 @@ Quality gates (lint + format:check + typecheck + build) verdes em todos os 3 com
 - **Decisão**: encerrar o Bloco F2.Q sem alterações no pipeline. Detalhamento extenso (variáveis, metodologia, hipóteses) removido do doc; mantida apenas a confirmação resumida + condição de reabertura (feedback de operadores em campo apontando perda visual).
 - 6 pontos abertos (F2.Q.1..6) descartados — não há testes pendentes.
 - `## Pendências → Bloco F2.Q` simplificado para item único marcado como encerrado.
+
+### 2026-05-25 — Sessão 1 (Bloco F3 aberto) ⏳
+
+- Usuário sinalizou problema concreto: **peneiras (L3 + L4) e fundos (L5) não estão sendo extraídos bem pela IA**. Insight usado como foco principal da investigação.
+- 3 agentes Explore lançados em paralelo (F3-A detect-form, F3-B IA + peneiras/fundos, F3-C frontend extracting + erros).
+- Achados consolidados na seção "Estado atual" do `## Bloco F3`.
+- Hipóteses identificadas para extração ruim de peneiras/fundos:
+  1. Prompt descreve fundos como "peneira | '=' | percentual" mas **sem instrução lógica explícita** ("esquerda do '=' = peneira, direita = percentual").
+  2. **Zero few-shot visual** (sem imagem-exemplo + JSON esperado).
+  3. Modelo genérico `gpt-4o` sem fine-tuning ou pin de versão.
+  4. Schema permissivo (peneiras sem regex; fundos sem `minItems` no schema da OpenAI).
+  5. Sem feedback visual no Review pra campos vazios — operador pode salvar incompleto sem perceber.
+- Outras lacunas: zero retry em erros transitórios, zero logs/telemetria, zero testes com imagem real, cleanup de `_temp/` ausente.
+- 12 perguntas abertas em 5 grupos (A Detecção · B Extração IA · C UX · D Observabilidade · E Testes). Próximo: discussão pra fechar decisões.
