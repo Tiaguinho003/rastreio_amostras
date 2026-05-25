@@ -69,7 +69,6 @@ import {
 } from '../../../lib/classification-form';
 
 type LabelModalStep = 'review' | 'completed';
-type SampleDetailSection = 'GENERAL' | 'COMMERCIAL';
 
 // Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
 // REGISTRATION_CONFIRMED ate ser classificada.
@@ -524,7 +523,6 @@ export default function SampleDetailPage() {
   const [classificationStep, setClassificationStep] = useState<'PHOTO' | 'GENERAL' | 'MEASURES'>(
     'PHOTO'
   );
-  const [detailSection, setDetailSection] = useState<SampleDetailSection>('GENERAL');
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const registrationEditModeRef = useRef(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
@@ -809,7 +807,6 @@ export default function SampleDetailPage() {
     setRegistrationEditReasonText('');
     setRegistrationEditReasonModalOpen(false);
     setClassificationStep('PHOTO');
-    setDetailSection('GENERAL');
     classificationEditModeRef.current = false;
     setClassificationEditMode(false);
     setClassificationEditReasonCode('OTHER');
@@ -2108,463 +2105,432 @@ export default function SampleDetailPage() {
               </button>
             </div>
 
-            {/* Abas */}
-            <div className="sdv-tabs" role="tablist" aria-label="Secoes da amostra">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={detailSection === 'GENERAL'}
-                className={`sdv-tab${detailSection === 'GENERAL' ? ' is-active' : ''}`}
-                onClick={() => setDetailSection('GENERAL')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <ellipse cx="12" cy="14" rx="7" ry="9" />
-                  <path d="M12 6c-1.5 3-1.8 6-.5 9s1.5 6 .5 9" />
-                </svg>
-                <span>Geral</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={detailSection === 'COMMERCIAL'}
-                className={`sdv-tab${detailSection === 'COMMERCIAL' ? ' is-active' : ''}`}
-                onClick={() => setDetailSection('COMMERCIAL')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 2v20" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-                <span>Comercial</span>
-              </button>
-            </div>
-
-            {/* Conteúdo com scroll */}
+            {/* Conteúdo unificado — sem abas (Geral + Comercial juntos). */}
             <section className="sdv-content">
               <div className="sdv-content-inner">
-                {detailSection === 'GENERAL' ? (
-                  <section className="sdv-general">
-                    {/* Q.print P3: secao Etiqueta — status do PrintJob +
+                <section className="sdv-general">
+                  {/* Q.print P3: secao Etiqueta — status do PrintJob +
                         botao Imprimir/Imprimir novamente. Sumiu o card
                         sdv-print-failed-card; tudo flui aqui agora. */}
-                    {detail.sample.status !== 'INVALIDATED' ? (
-                      <div
-                        className={`sdv-card sdv-print-section is-${detail.latestPrintJob?.status?.toLowerCase() ?? 'idle'}`}
-                      >
-                        <header className="sdv-print-section-header">
-                          <h3 className="sdv-print-section-title">Etiqueta</h3>
-                          <span className="sdv-print-section-status">
-                            {(() => {
-                              const job = detail.latestPrintJob;
-                              if (!job) return 'Nao impressa';
-                              if (job.status === 'PENDING') return 'Imprimindo...';
-                              if (job.status === 'SUCCESS') return 'Impressa';
-                              if (job.status === 'FAILED') return 'Falhou';
-                              if (job.status === 'EXPIRED') return 'Tempo esgotado';
-                              return job.status;
-                            })()}
-                          </span>
-                        </header>
-                        <div className="sdv-print-section-body">
-                          {detail.latestPrintJob ? (
-                            <>
-                              <span className="sdv-print-section-attempt">
-                                Tentativa {detail.latestPrintJob.attemptNumber}
-                              </span>
-                              {detail.latestPrintJob.error ? (
-                                <span className="sdv-print-section-error">
-                                  {detail.latestPrintJob.error}
-                                </span>
-                              ) : null}
-                            </>
-                          ) : (
+                  {detail.sample.status !== 'INVALIDATED' ? (
+                    <div
+                      className={`sdv-card sdv-print-section is-${detail.latestPrintJob?.status?.toLowerCase() ?? 'idle'}`}
+                    >
+                      <header className="sdv-print-section-header">
+                        <h3 className="sdv-print-section-title">Etiqueta</h3>
+                        <span className="sdv-print-section-status">
+                          {(() => {
+                            const job = detail.latestPrintJob;
+                            if (!job) return 'Nao impressa';
+                            if (job.status === 'PENDING') return 'Imprimindo...';
+                            if (job.status === 'SUCCESS') return 'Impressa';
+                            if (job.status === 'FAILED') return 'Falhou';
+                            if (job.status === 'EXPIRED') return 'Tempo esgotado';
+                            return job.status;
+                          })()}
+                        </span>
+                      </header>
+                      <div className="sdv-print-section-body">
+                        {detail.latestPrintJob ? (
+                          <>
                             <span className="sdv-print-section-attempt">
-                              Nenhuma impressao registrada ainda.
+                              Tentativa {detail.latestPrintJob.attemptNumber}
                             </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className={`sdv-print-section-action${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                          disabled={
-                            !canQuickPrint ||
-                            labelModalSubmitting ||
-                            detail.latestPrintJob?.status === 'PENDING'
-                          }
-                          onClick={(event) => {
-                            setPrintHighlighted(false);
-                            openLabelReviewModal(event.currentTarget);
-                          }}
-                        >
-                          {detail.latestPrintJob ? 'Imprimir novamente' : 'Imprimir etiqueta'}
-                        </button>
+                            {detail.latestPrintJob.error ? (
+                              <span className="sdv-print-section-error">
+                                {detail.latestPrintJob.error}
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="sdv-print-section-attempt">
+                            Nenhuma impressao registrada ainda.
+                          </span>
+                        )}
                       </div>
-                    ) : null}
-                    {/* Card 1: Informações */}
-                    <div className="sdv-card sdv-info-compact">
-                      <div className="sdv-info-grid">
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Proprietario</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(detail.sample.declared.owner)}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item is-full">
-                          <span className="sdv-info-label">Inscricao</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(
-                              detail.sample.ownerUnit?.registrationNumber ?? null
-                            )}
-                          </span>
-                        </div>
-                        <div className="sdv-info-sep" />
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Sacas</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(detail.sample.declared.sacks)}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Safra</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(detail.sample.declared.harvest)}
-                          </span>
-                        </div>
-                        <div className="sdv-info-sep" />
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Lote de origem</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(detail.sample.declared.originLot)}
-                          </span>
-                        </div>
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Local</span>
-                          <span className="sdv-info-value">
-                            {buildReadableValue(detail.sample.declared.location)}
-                          </span>
-                        </div>
-                        <div className="sdv-info-sep" />
-                        <div className="sdv-info-item">
-                          <span className="sdv-info-label">Recebido em</span>
-                          <span className="sdv-info-value">
-                            {formatTimestamp(detail.sample.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                      {canEditRegistrationStatus(detail.sample.status) ? (
-                        <button
-                          type="button"
-                          className="sdv-edit-btn sdv-edit-btn-corner"
-                          onClick={startRegistrationEdit}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                          </svg>
-                          <span>Editar</span>
-                        </button>
-                      ) : null}
-                      <NoticeSlot notice={generalNotice} />
+                      <button
+                        type="button"
+                        className={`sdv-print-section-action${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                        disabled={
+                          !canQuickPrint ||
+                          labelModalSubmitting ||
+                          detail.latestPrintJob?.status === 'PENDING'
+                        }
+                        onClick={(event) => {
+                          setPrintHighlighted(false);
+                          openLabelReviewModal(event.currentTarget);
+                        }}
+                      >
+                        {detail.latestPrintJob ? 'Imprimir novamente' : 'Imprimir etiqueta'}
+                      </button>
                     </div>
+                  ) : null}
+                  {/* Card 1: Informações */}
+                  <div className="sdv-card sdv-info-compact">
+                    <div className="sdv-info-grid">
+                      <div className="sdv-info-item is-full">
+                        <span className="sdv-info-label">Proprietario</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.declared.owner)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item is-full">
+                        <span className="sdv-info-label">Inscricao</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.ownerUnit?.registrationNumber ?? null)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-sep" />
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Sacas</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.declared.sacks)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Safra</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.declared.harvest)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-sep" />
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Lote de origem</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.declared.originLot)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Local</span>
+                        <span className="sdv-info-value">
+                          {buildReadableValue(detail.sample.declared.location)}
+                        </span>
+                      </div>
+                      <div className="sdv-info-sep" />
+                      <div className="sdv-info-item">
+                        <span className="sdv-info-label">Recebido em</span>
+                        <span className="sdv-info-value">
+                          {formatTimestamp(detail.sample.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    {canEditRegistrationStatus(detail.sample.status) ? (
+                      <button
+                        type="button"
+                        className="sdv-edit-btn sdv-edit-btn-corner"
+                        onClick={startRegistrationEdit}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                        </svg>
+                        <span>Editar</span>
+                      </button>
+                    ) : null}
+                    <NoticeSlot notice={generalNotice} />
+                  </div>
 
-                    {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
+                  {/* Liga B4 Fase 7: flag de viabilidade — aviso derivado
                         (getBlendFeasibility) quando uma origem da liga nao tem
                         saldo pra cobrir a contribuicao. A liga nao muda de
                         status; so e sinalizada. */}
-                    {detail.sample.isBlend &&
-                    detail.sample.status !== 'INVALIDATED' &&
-                    detail.sample.commercialStatus !== 'SOLD' &&
-                    detail.sample.commercialStatus !== 'LOST' &&
-                    blendFeasibility &&
-                    !blendFeasibility.feasible &&
-                    blendFeasibility.blockingOrigins.length > 0 ? (
-                      <div className="sdv-card sdv-card-infeasible">
-                        <span className="sdv-card-title sdv-card-title-danger">Liga inviável</span>
-                        <p className="sdv-empty-text">
-                          {blendFeasibility.blockingOrigins.length === 1
-                            ? 'Uma origem desta liga não tem saldo suficiente para a venda.'
-                            : 'Origens desta liga não têm saldo suficiente para a venda.'}
-                        </p>
-                        <ul className="sdv-infeasible-list">
-                          {blendFeasibility.blockingOrigins.map((origin) => (
-                            <li key={origin.sampleId}>
-                              <Link
-                                href={`/samples/${origin.sampleId}`}
-                                className="sdv-infeasible-origin"
-                              >
-                                Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
-                              </Link>{' '}
-                              — precisa {origin.contributedSacks} sc, tem {origin.availableSacks} sc
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
+                  {detail.sample.isBlend &&
+                  detail.sample.status !== 'INVALIDATED' &&
+                  detail.sample.commercialStatus !== 'SOLD' &&
+                  detail.sample.commercialStatus !== 'LOST' &&
+                  blendFeasibility &&
+                  !blendFeasibility.feasible &&
+                  blendFeasibility.blockingOrigins.length > 0 ? (
+                    <div className="sdv-card sdv-card-infeasible">
+                      <span className="sdv-card-title sdv-card-title-danger">Liga inviável</span>
+                      <p className="sdv-empty-text">
+                        {blendFeasibility.blockingOrigins.length === 1
+                          ? 'Uma origem desta liga não tem saldo suficiente para a venda.'
+                          : 'Origens desta liga não têm saldo suficiente para a venda.'}
+                      </p>
+                      <ul className="sdv-infeasible-list">
+                        {blendFeasibility.blockingOrigins.map((origin) => (
+                          <li key={origin.sampleId}>
+                            <Link
+                              href={`/samples/${origin.sampleId}`}
+                              className="sdv-infeasible-origin"
+                            >
+                              Lote {origin.lotNumber ?? origin.sampleId.slice(0, 8)}
+                            </Link>{' '}
+                            — precisa {origin.contributedSacks} sc, tem {origin.availableSacks} sc
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-                    {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
+                  {/* Liga B3.2: Composicao da liga (origens + contribuicoes).
                         Backend mantem `components` em liga revertida (F8.3) —
                         a secao continua visivel como historico. */}
-                    {detail.sample.isBlend && detail.components && detail.components.length > 0 ? (
-                      <div className="sdv-card">
-                        <span className="sdv-card-title">Composição da liga</span>
-                        <ul className="sdv-related-list">
-                          {detail.components.map((component, idx) => {
-                            const origin = component.originSample;
-                            if (!origin) {
-                              return (
-                                <li key={component.id} className="sdv-empty-text">
-                                  Origem removida ou inacessível
-                                </li>
-                              );
-                            }
+                  {detail.sample.isBlend && detail.components && detail.components.length > 0 ? (
+                    <div className="sdv-card">
+                      <span className="sdv-card-title">Composição da liga</span>
+                      <ul className="sdv-related-list">
+                        {detail.components.map((component, idx) => {
+                          const origin = component.originSample;
+                          if (!origin) {
                             return (
-                              <li key={component.id}>
-                                <RelatedSampleRow
-                                  href={`/samples/${origin.id}`}
-                                  lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
-                                  isBlend={origin.isBlend}
-                                  owner={origin.declaredOwner}
-                                  harvest={origin.declaredHarvest}
-                                  contribution={component.contributedSacks}
-                                  status={origin.status}
-                                  animationDelay={`${Math.min(idx, 10) * 0.025}s`}
-                                />
+                              <li key={component.id} className="sdv-empty-text">
+                                Origem removida ou inacessível
                               </li>
                             );
-                          })}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {/* Liga B3.3: amostra normal comprometida em liga(s) ativa(s).
-                        Backend filtra INVALIDATED em activeBlends (Wave A2.5),
-                        entao quando liga e revertida a secao desaparece aqui. */}
-                    {!detail.sample.isBlend &&
-                    detail.activeBlends &&
-                    detail.activeBlends.length > 0 ? (
-                      <div className="sdv-card">
-                        <span className="sdv-card-title">
-                          Comprometida em {detail.activeBlends.length}{' '}
-                          {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}
-                        </span>
-                        <ul className="sdv-related-list">
-                          {detail.activeBlends.map((blend, idx) => (
-                            <li key={blend.sampleId}>
+                          }
+                          return (
+                            <li key={component.id}>
                               <RelatedSampleRow
-                                href={`/samples/${blend.sampleId}`}
-                                lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
-                                isBlend={true}
-                                owner={blend.declaredOwner}
-                                harvest={blend.declaredHarvest}
-                                contribution={blend.contributedSacks}
-                                status={blend.status}
+                                href={`/samples/${origin.id}`}
+                                lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
+                                isBlend={origin.isBlend}
+                                owner={origin.declaredOwner}
+                                harvest={origin.declaredHarvest}
+                                contribution={component.contributedSacks}
+                                status={origin.status}
                                 animationDelay={`${Math.min(idx, 10) * 0.025}s`}
                               />
                             </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
 
-                    {sendHistoryItems.length > 0 ? (
-                      <div className="sdv-card">
-                        <span className="sdv-card-title">Historico de envios</span>
-                        <div className="sdv-send-history">
-                          {sendHistoryItems.map((item) => {
-                            const isPhysical = item.kind === 'PHYSICAL';
-                            const cancelled = isPhysical && item.cancelled;
-                            const dateStr = isPhysical ? item.sentDate : item.dateLabel;
-                            return (
-                              <div
-                                key={item.key}
-                                className={`sdv-send-item ${isPhysical ? 'is-physical' : 'is-pdf'}${cancelled ? ' is-cancelled' : ''}`}
-                              >
-                                <span className="sdv-send-icon">
-                                  {isPhysical ? (
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                      <path d="m22 2-7 20-4-9-9-4 20-7z" />
-                                      <path d="M22 2 11 13" />
-                                    </svg>
-                                  ) : (
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                      <path d="M7 4.8h7l3 3V19.2H7z" />
-                                      <path d="M14 4.8v3h3" />
-                                      <path d="M9 12h6" />
-                                      <path d="M9 15h6" />
-                                    </svg>
-                                  )}
-                                </span>
-                                <div className="sdv-send-info">
-                                  <div className="sdv-send-label">{item.recipientName}</div>
-                                  <div className="sdv-send-date">
-                                    {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
-                                    {cancelled ? ' \u00b7 Cancelado' : ''}
-                                  </div>
+                  {/* Liga B3.3: amostra normal comprometida em liga(s) ativa(s).
+                        Backend filtra INVALIDATED em activeBlends (Wave A2.5),
+                        entao quando liga e revertida a secao desaparece aqui. */}
+                  {!detail.sample.isBlend &&
+                  detail.activeBlends &&
+                  detail.activeBlends.length > 0 ? (
+                    <div className="sdv-card">
+                      <span className="sdv-card-title">
+                        Comprometida em {detail.activeBlends.length}{' '}
+                        {detail.activeBlends.length === 1 ? 'liga ativa' : 'ligas ativas'}
+                      </span>
+                      <ul className="sdv-related-list">
+                        {detail.activeBlends.map((blend, idx) => (
+                          <li key={blend.sampleId}>
+                            <RelatedSampleRow
+                              href={`/samples/${blend.sampleId}`}
+                              lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
+                              isBlend={true}
+                              owner={blend.declaredOwner}
+                              harvest={blend.declaredHarvest}
+                              contribution={blend.contributedSacks}
+                              status={blend.status}
+                              animationDelay={`${Math.min(idx, 10) * 0.025}s`}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {sendHistoryItems.length > 0 ? (
+                    <div className="sdv-card">
+                      <span className="sdv-card-title">Historico de envios</span>
+                      <div className="sdv-send-history">
+                        {sendHistoryItems.map((item) => {
+                          const isPhysical = item.kind === 'PHYSICAL';
+                          const cancelled = isPhysical && item.cancelled;
+                          const dateStr = isPhysical ? item.sentDate : item.dateLabel;
+                          return (
+                            <div
+                              key={item.key}
+                              className={`sdv-send-item ${isPhysical ? 'is-physical' : 'is-pdf'}${cancelled ? ' is-cancelled' : ''}`}
+                            >
+                              <span className="sdv-send-icon">
+                                {isPhysical ? (
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="m22 2-7 20-4-9-9-4 20-7z" />
+                                    <path d="M22 2 11 13" />
+                                  </svg>
+                                ) : (
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M7 4.8h7l3 3V19.2H7z" />
+                                    <path d="M14 4.8v3h3" />
+                                    <path d="M9 12h6" />
+                                    <path d="M9 15h6" />
+                                  </svg>
+                                )}
+                              </span>
+                              <div className="sdv-send-info">
+                                <div className="sdv-send-label">{item.recipientName}</div>
+                                <div className="sdv-send-date">
+                                  {isPhysical ? 'Amostra fisica' : 'Laudo PDF'} &middot; {dateStr}
+                                  {cancelled ? ' \u00b7 Cancelado' : ''}
                                 </div>
-                                {isPhysical && !cancelled && canPhysicalSend ? (
-                                  <div className="sdv-send-menu">
-                                    <button
-                                      type="button"
-                                      className="sdv-send-menu-btn"
-                                      aria-label="Acoes do envio"
-                                      aria-haspopup="menu"
-                                      aria-expanded={activeSendMenuId === item.sendEventId}
-                                      onClick={() =>
-                                        setActiveSendMenuId((current) =>
-                                          current === item.sendEventId ? null : item.sendEventId
-                                        )
-                                      }
-                                    >
-                                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                                        <circle cx="12" cy="5" r="1.5" />
-                                        <circle cx="12" cy="12" r="1.5" />
-                                        <circle cx="12" cy="19" r="1.5" />
-                                      </svg>
-                                    </button>
-                                    {activeSendMenuId === item.sendEventId ? (
-                                      <div className="sdv-send-menu-popover" role="menu">
-                                        <button
-                                          type="button"
-                                          className="sdv-send-menu-item"
-                                          role="menuitem"
-                                          onClick={() => handleOpenEditSend(item)}
-                                        >
-                                          Editar
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="sdv-send-menu-item is-danger"
-                                          role="menuitem"
-                                          onClick={() => {
-                                            setActiveSendMenuId(null);
-                                            setCancelConfirmSendEventId(item.sendEventId);
-                                          }}
-                                        >
-                                          Cancelar envio
-                                        </button>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                ) : null}
                               </div>
-                            );
-                          })}
-                        </div>
+                              {isPhysical && !cancelled && canPhysicalSend ? (
+                                <div className="sdv-send-menu">
+                                  <button
+                                    type="button"
+                                    className="sdv-send-menu-btn"
+                                    aria-label="Acoes do envio"
+                                    aria-haspopup="menu"
+                                    aria-expanded={activeSendMenuId === item.sendEventId}
+                                    onClick={() =>
+                                      setActiveSendMenuId((current) =>
+                                        current === item.sendEventId ? null : item.sendEventId
+                                      )
+                                    }
+                                  >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                      <circle cx="12" cy="5" r="1.5" />
+                                      <circle cx="12" cy="12" r="1.5" />
+                                      <circle cx="12" cy="19" r="1.5" />
+                                    </svg>
+                                  </button>
+                                  {activeSendMenuId === item.sendEventId ? (
+                                    <div className="sdv-send-menu-popover" role="menu">
+                                      <button
+                                        type="button"
+                                        className="sdv-send-menu-item"
+                                        role="menuitem"
+                                        onClick={() => handleOpenEditSend(item)}
+                                      >
+                                        Editar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="sdv-send-menu-item is-danger"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setActiveSendMenuId(null);
+                                          setCancelConfirmSendEventId(item.sendEventId);
+                                        }}
+                                      >
+                                        Cancelar envio
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ) : null}
+                    </div>
+                  ) : null}
 
-                    {/* Bloco de classificacao */}
-                    {(() => {
-                      const classData = detail.sample.latestClassification?.data;
-                      const classPhotoUrl = classificationAttachment
-                        ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
-                        : null;
-                      if (!classData) {
-                        return (
-                          <div className="sdv-card">
-                            <span className="sdv-card-title">Classificacao</span>
-                            <p className="sdv-empty-text">Sem classificacao</p>
-                          </div>
-                        );
-                      }
-                      const cd = classData as Record<string, unknown>;
-                      const aspecto = String(cd.aspecto ?? '—');
-                      const catacao = String(cd.catacao ?? '—');
-                      // Classificadores: novo campo canonico `classificadores`
-                      // (array de snapshots). Fallback para `conferidoPor` (eventos
-                      // antigos pre-migration) ou string legacy `classificador`.
-                      const classifiersArr = Array.isArray(cd.classificadores)
-                        ? cd.classificadores
-                        : Array.isArray(cd.conferidoPor)
-                          ? cd.conferidoPor
-                          : null;
-                      const classificador = classifiersArr
-                        ? classifiersArr
-                            .map((c) =>
-                              c && typeof c === 'object' && 'fullName' in c
-                                ? String((c as { fullName: unknown }).fullName)
-                                : ''
-                            )
-                            .filter(Boolean)
-                            .join(', ') || '—'
-                        : typeof cd.classificador === 'string' && cd.classificador.trim()
-                          ? cd.classificador
-                          : '—';
-                      const classificadorLabel =
-                        classifiersArr && classifiersArr.length > 1
-                          ? 'Classificadores'
-                          : 'Classificador';
+                  {/* Bloco de classificacao */}
+                  {(() => {
+                    const classData = detail.sample.latestClassification?.data;
+                    const classPhotoUrl = classificationAttachment
+                      ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
+                      : null;
+                    if (!classData) {
                       return (
-                        <div
-                          className="sdv-card sdv-cls-block sdv-cls-block-clickable"
-                          role="button"
-                          tabIndex={0}
-                          onClick={openClassificationDetail}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              openClassificationDetail();
-                            }
-                          }}
-                          aria-label="Ver classificacao completa"
-                        >
-                          <div className="sdv-card-header">
-                            <span className="sdv-card-title">Classificacao</span>
-                          </div>
-                          <div className="sdv-cls-block-summary">
-                            {classPhotoUrl ? (
-                              // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={classPhotoUrl}
-                                alt="Foto da classificacao"
-                                className="sdv-cls-block-thumb"
-                              />
-                            ) : null}
-                            <div className="sdv-cls-block-fields">
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Aspecto</span>
-                                <span className="sdv-info-value">{aspecto}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Catacao</span>
-                                <span className="sdv-info-value">{catacao}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">{classificadorLabel}</span>
-                                <span className="sdv-info-value">{classificador}</span>
-                              </div>
+                        <div className="sdv-card">
+                          <span className="sdv-card-title">Classificacao</span>
+                          <p className="sdv-empty-text">Sem classificacao</p>
+                        </div>
+                      );
+                    }
+                    const cd = classData as Record<string, unknown>;
+                    const aspecto = String(cd.aspecto ?? '—');
+                    const catacao = String(cd.catacao ?? '—');
+                    // Classificadores: novo campo canonico `classificadores`
+                    // (array de snapshots). Fallback para `conferidoPor` (eventos
+                    // antigos pre-migration) ou string legacy `classificador`.
+                    const classifiersArr = Array.isArray(cd.classificadores)
+                      ? cd.classificadores
+                      : Array.isArray(cd.conferidoPor)
+                        ? cd.conferidoPor
+                        : null;
+                    const classificador = classifiersArr
+                      ? classifiersArr
+                          .map((c) =>
+                            c && typeof c === 'object' && 'fullName' in c
+                              ? String((c as { fullName: unknown }).fullName)
+                              : ''
+                          )
+                          .filter(Boolean)
+                          .join(', ') || '—'
+                      : typeof cd.classificador === 'string' && cd.classificador.trim()
+                        ? cd.classificador
+                        : '—';
+                    const classificadorLabel =
+                      classifiersArr && classifiersArr.length > 1
+                        ? 'Classificadores'
+                        : 'Classificador';
+                    return (
+                      <div
+                        className="sdv-card sdv-cls-block sdv-cls-block-clickable"
+                        role="button"
+                        tabIndex={0}
+                        onClick={openClassificationDetail}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openClassificationDetail();
+                          }
+                        }}
+                        aria-label="Ver classificacao completa"
+                      >
+                        <div className="sdv-card-header">
+                          <span className="sdv-card-title">Classificacao</span>
+                        </div>
+                        <div className="sdv-cls-block-summary">
+                          {classPhotoUrl ? (
+                            // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={classPhotoUrl}
+                              alt="Foto da classificacao"
+                              className="sdv-cls-block-thumb"
+                            />
+                          ) : null}
+                          <div className="sdv-cls-block-fields">
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Aspecto</span>
+                              <span className="sdv-info-value">{aspecto}</span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">Catacao</span>
+                              <span className="sdv-info-value">{catacao}</span>
+                            </div>
+                            <div className="sdv-info-item">
+                              <span className="sdv-info-label">{classificadorLabel}</span>
+                              <span className="sdv-info-value">{classificador}</span>
                             </div>
                           </div>
                         </div>
-                      );
-                    })()}
-
-                    {detail.sample.status === 'INVALIDATED' ? (
-                      <div className="sdv-card sdv-card-invalidated">
-                        <span className="sdv-card-title sdv-card-title-danger">
-                          Amostra invalidada
-                        </span>
-                        <p className="sdv-empty-text">
-                          Esta amostra foi retirada do fluxo operacional e permanece apenas para
-                          consulta.
-                        </p>
                       </div>
-                    ) : null}
-                  </section>
-                ) : (
-                  <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
-                    <SampleMovementsPanel
-                      session={session}
-                      sampleId={sampleId}
-                      sample={detail.sample}
-                      movements={detail.movements ?? []}
-                      activeBlends={detail.activeBlends ?? []}
-                      onRefresh={async () => {
-                        await syncDetailState();
-                      }}
-                    />
-                  </section>
-                )}
+                    );
+                  })()}
+
+                  {detail.sample.status === 'INVALIDATED' ? (
+                    <div className="sdv-card sdv-card-invalidated">
+                      <span className="sdv-card-title sdv-card-title-danger">
+                        Amostra invalidada
+                      </span>
+                      <p className="sdv-empty-text">
+                        Esta amostra foi retirada do fluxo operacional e permanece apenas para
+                        consulta.
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+
+                {/* Bloco comercial unificado — sempre visivel apos a secao geral.
+                    SampleMovementsPanel renderiza resumo (disponibilidade) +
+                    lista de movimentacoes (vendas/perdas). */}
+                <section className="stack sample-detail-info-pane sample-detail-commercial-pane">
+                  <SampleMovementsPanel
+                    session={session}
+                    sampleId={sampleId}
+                    sample={detail.sample}
+                    movements={detail.movements ?? []}
+                    activeBlends={detail.activeBlends ?? []}
+                    onRefresh={async () => {
+                      await syncDetailState();
+                    }}
+                  />
+                </section>
               </div>
             </section>
           </>

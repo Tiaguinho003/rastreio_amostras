@@ -6657,62 +6657,6 @@ button:disabled {
   stroke: #ffffff;
 }
 
-/* Tabs */
-.sdv-tabs {
-  display: flex;
-  flex-shrink: 0;
-  background: #f5f0e8;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding: 0 clamp(14px, 4vw, 20px);
-  animation: sdv-element-in 0.4s ease-out 0.2s backwards;
-}
-
-.sdv-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(4px, 1.5vw, 6px);
-  padding: clamp(12px, 3vw, 14px) 0 clamp(10px, 2.5vw, 12px);
-  border: 0;
-  border-bottom: 2.5px solid transparent;
-  background: transparent;
-  color: #999;
-  font-size: clamp(12px, 3.2vw, 13px);
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    color 0.2s,
-    border-color 0.2s;
-  position: relative;
-}
-
-.sdv-tab.is-active {
-  color: var(--brand-green);
-  border-bottom-color: var(--brand-green-soft);
-}
-
-.sdv-tab svg {
-  width: clamp(14px, 3.8vw, 16px);
-  height: clamp(14px, 3.8vw, 16px);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sdv-tab-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #c0392b;
-  position: absolute;
-  top: clamp(8px, 2vw, 10px);
-  right: clamp(14px, 4vw, 18px);
-}
-
 /* Actions Bar */
 .sdv-actions-bar {
   flex-shrink: 0;
@@ -21669,27 +21613,6 @@ button:disabled {
     color: #333;
   }
 
-  /* Tabs: maiores, com hover e destaque */
-  .sdv-tabs {
-    padding-left: var(--desktop-gutter);
-    padding-right: var(--desktop-gutter);
-    background: #f0ece4;
-  }
-
-  .sdv-tab {
-    padding: 0.9rem 0;
-    font-size: 1rem;
-    transition:
-      color 0.2s ease,
-      background 0.15s ease;
-    border-radius: 8px 8px 0 0;
-  }
-
-  .sdv-tab:hover {
-    background: rgba(46, 125, 50, 0.06);
-    color: var(--brand-green-soft);
-  }
-
   /* Content: fundo transparente (body beige) — sem verde feio */
   .sdv-content {
     overflow-y: auto;
@@ -22776,38 +22699,6 @@ button:disabled {
 
   .app-modal.cdm-modal .sdv-edit-row {
     gap: 0.9rem 1rem;
-  }
-
-  /* T4: sliding underline no tab ativo */
-  .sdv-tab {
-    position: relative;
-    border-bottom-color: transparent;
-  }
-
-  .sdv-tab::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    right: auto;
-    bottom: -1px;
-    height: 2.5px;
-    width: 0;
-    background: var(--brand-green);
-    border-radius: 2px 2px 0 0;
-    transform: translateX(-50%);
-    transition:
-      width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-      background 0.2s ease;
-    animation-fill-mode: backwards;
-  }
-
-  .sdv-tab.is-active::after {
-    width: 60%;
-  }
-
-  .sdv-tab:hover:not(.is-active)::after {
-    width: 24%;
-    background: var(--brand-green-soft);
   }
 
   /* ══════════════════════════════════════════
