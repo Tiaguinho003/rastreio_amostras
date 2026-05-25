@@ -351,7 +351,192 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 
 ---
 
-### Bloco 0 — Premissas fundacionais
+## Bloco F2 — Captura da foto
+
+**Objetivo**: revisar a experiência de **capturar a foto da ficha** — do momento em que o operador chega na câmera até ter uma foto pronta no preview, antes de mandar pra IA. Foco em mobile (operador em bancada, possivelmente com mão suja de café), eficiência e tolerância a erros.
+
+**O que está em escopo**: inicialização da câmera, captura manual, fallback de galeria, QR scanner em paralelo, preview e refazer foto, feedback (visual + tátil), estados de erro (permissão / hardware), indicações visuais de "alinhe a ficha".
+
+**O que NÃO está em escopo** (vai pra blocos seguintes):
+
+- Detecção do formulário (`detect-form`) e extração via IA → **Bloco F3**.
+- Revisão dos 22 campos extraídos → **Bloco F4**.
+- Reconciliação de divergências → **Bloco F5**.
+
+### Estado atual (resumo)
+
+Tudo orquestrado em `app/camera/page.tsx`. Lib QR via `qr-scanner@^1.4.2`. Compressão via `lib/compress-image.ts`.
+
+**Inicialização** (`ensureScannerStarted`, linhas 395-473):
+
+- `QrScanner.hasCamera()` valida existência.
+- **Câmera traseira forçada** via `getUserMedia({ video: { facingMode: { exact: 'environment' } } })` — se `OverconstrainedError`, vira `cameraStatus='unsupported'` e exige galeria.
+- Erros de permissão (regex `/permission|notallowed|denied|secure context/i`) viram `cameraStatus='permission-denied'`.
+- Estados: `'idle' | 'starting' | 'scanning' | 'permission-denied' | 'unsupported'`.
+
+**QR scanner em paralelo** (linhas 441-455):
+
+- `maxScansPerSecond: 12`.
+- `highlightScanRegion: true` + `highlightCodeOutline: true` — overlay visual do QR ativa o tempo todo.
+- Dedupe de QR repetido em janela de 1.8 s (`REPEATED_SCAN_WINDOW_MS`).
+- Pausa quando `resultModalOpen || flowState !== 'idle'`.
+
+**Captura manual** (`captureFromVideoStream`, linhas 555-583):
+
+- Tap dispara: `setCaptureFlashKey(+1)` (flash overlay 180 ms) + `navigator.vibrate(40)` (haptic 40 ms).
+- Canvas drawing do frame atual (`drawImage` do `<video>`, sem `ImageCapture API`).
+- `canvas.toBlob()` → wrapped em `File` (`classificacao-${ts}.jpg`).
+- Botão de captura: 68×68 px, circular branco, classe `.camera-hub-capture-btn` (linhas 16386-16408 do CSS).
+- Visível só se `flowState === 'idle' && cameraStatus === 'scanning'`.
+
+**Fallback de galeria** (linhas 1074-1080):
+
+- `<input type="file" accept="image/*">` oculto, disparado por botão **sempre visível** (top-right, classe `.camera-hub-gallery-btn`).
+- Limite **12 MB** (`MAX_SIZE`, linha 588) — acima rejeita com mensagem em pt-BR.
+- Sem validação de formato no frontend (`accept="image/*"` aceita JPEG/PNG/WebP/HEIC). Backend valida magic bytes.
+
+**Compressão** (`lib/compress-image.ts`):
+
+- HQ default: `quality: 0.95`, `maxDimension: 3072` (com adaptação por device memory: 2 GB → 2048, ≤ 4 GB+≤ 4 cores → 2560, else → 3072).
+- Legacy (opt-out via env `NEXT_PUBLIC_PHOTO_HIGH_QUALITY=false`): `quality: 0.88`, `maxDimension: 1920`.
+- Pipeline: `createImageBitmap` → `OffscreenCanvas` com smoothing high → `convertToBlob` com qualidade dinâmica.
+- Retorna o arquivo original se a compressão não reduzir o tamanho.
+- Tamanho típico mobile: 800 KB–2 MB (HQ) ou 300–800 KB (legacy).
+
+**Preview** (linhas 1035-1142):
+
+- Estado `flowState='preview'` + `capturedPhotoUrl: string` (blob URL, cleanup em effect).
+- Renderiza `<img className="camera-hub-preview-img">` com `object-fit: cover`, fill no stage.
+- 2 botões fixos na bottom area: **"Tirar outra"** (chama `resetClassificationFlow`) e **"Enviar"** (chama `handleSendPhoto`).
+- **Sem zoom/pinch, sem recorte, sem rotação manual.**
+
+**Overlay visual** (CSS linhas 16118-16127):
+
+- `.camera-hub-overlay::before` cria janela retangular branca (inset 14% top, 12% horizontal, 24% bottom, border-radius 24 px).
+- É o **mesmo overlay do QR scanner** — não tem indicação dedicada de "alinhe a ficha aqui".
+
+**Tratamento de erro**:
+
+- Permissão negada → texto em `role="alert"` + galeria como única opção. Sem botão pra reabrir permissão.
+- Câmera sem traseira → mesmo tratamento (mensagem + galeria).
+- Foto vazia (canvas sem stream válido) → return silencioso, sem aviso.
+- Arquivo > 12 MB → mensagem fixa "A foto excede o limite de 12 MB.".
+
+**Mobile / PWA**:
+
+- `height: -webkit-fill-available` no `html` pra iOS standalone.
+- Lock de scroll quando `resultModalOpen || flowState !== 'idle'`.
+- Sem `screen.orientation` lock.
+
+**Pontos de fricção visíveis no código** (identificados pelo Explore):
+
+1. Botão de captura **68 px** pode ser pequeno em mão suja de café (~ 18 % da largura em 375 px).
+2. Feedback tátil de **40 ms** quase impercebível em devices fracos.
+3. **Flash de 180 ms** é único sinal visual de "deu certo a foto".
+4. Refazer foto exige 2 taps (tap "Tirar outra" → reset → câmera reinicia).
+5. Galeria **sempre visível** ao lado da câmera ativa — pode confundir operador novo (qual é o caminho padrão?).
+6. **Mesmo overlay** serve QR scanning e captura da ficha — sem indicação dedicada de "alinhe a ficha aqui".
+7. Mensagens de erro genéricas ("Camera bloqueada") não distinguem causas nem dão passo-a-passo de recuperação.
+
+### Perguntas
+
+#### F2.1 — Câmera traseira forçada permanece ou abre opção de frontal?
+
+**Análise**: hoje força com `exact: 'environment'`. Se não houver traseira (desktop, alguns tablets), fallback é "use a galeria". Operador nunca vê opção de trocar pra frontal. Pra classificar café, sempre faz sentido câmera traseira — mas em devices desktop sem webcam traseira (caso raro), a única alternativa hoje é galeria.
+
+- **(A)** Manter `exact: 'environment'` (status quo). Câmera frontal nunca é usada pra capturar ficha.
+- **(B)** Tentar `exact: 'environment'` e cair pra `'environment'` (preferred, sem exact) se falhar — pega cenários onde o device tem câmera mas o `exact` não funciona.
+- **(C)** Permitir trocar pra frontal via botão visível na UI (raro mas dá agência).
+
+**Tradeoff**: (A) é o mais simples e cobre 99% dos casos reais. (B) ganha alguns devices sem custo de UX. (C) adiciona controle mas raramente útil.
+
+#### F2.2 — Galeria sempre visível ou só como fallback?
+
+**Análise**: hoje botão da galeria sempre aparece no top-right, ao lado da câmera ativa. Em campo, pode confundir operador novo (qual é o caminho padrão?). Por outro lado, é útil pra reenviar uma foto já tirada (ex: classificou de outro app).
+
+- **(A)** Manter sempre visível (status quo).
+- **(B)** Esconder quando câmera está ativa (`cameraStatus === 'scanning'`); mostrar só em `unsupported`/`permission-denied`.
+- **(C)** Manter visível mas reduzir prominência (ícone menor, opacity menor) até a câmera falhar.
+- **(D)** Mover pra um menu "..." (gesto de descobrir) — esconde quase totalmente.
+
+**Tradeoff**: (A) máxima descoberta. (B) máximo foco no caminho principal mas perde reusabilidade. (C) compromisso visual. (D) muito escondido.
+
+#### F2.3 — QR scanner em paralelo durante captura da ficha: manter como está?
+
+**Análise**: hoje QR scanner roda continuamente (12 scans/s) com highlight visual ativo. Operador que veio do **Caminho 2** quer scanear; operador que veio do **Caminho 1 ou 3** quer só fotografar a ficha (não tem QR pra escanear nesse momento, já tem `sampleId` no contexto). Os 2 modos coexistem na mesma tela sem distinção visual.
+
+- **(A)** Manter como está — scanner sempre ativo, mesma UI pra todos os caminhos. Simples.
+- **(B)** Desligar QR scanner quando `hasContext === true` (veio com `?sampleId=`) — operador só fotografa, sem distração do highlight.
+- **(C)** 2 modos visuais distintos: "Scan QR" vs "Fotografar ficha", toggle ou auto-detectar pelo `hasContext`.
+
+**Tradeoff**: (A) zero esforço, mas mantém o mesmo overlay genérico pra 2 atividades diferentes. (B) elimina ruído pra Caminhos 1/3 sem mexer no Caminho 2. (C) UX mais explícita mas adiciona complexidade.
+
+#### F2.4 — Botão de captura: tamanho e posicionamento
+
+**Análise**: hoje 68×68 px circular. Em mobile 375 px wide = ~18% da tela. Em mão suja ou com luva, pode ser apertado. Alternativas:
+
+- **(A)** Manter 68 px (status quo).
+- **(B)** Aumentar pra 88 px (típico Android shutter button) — ~23% em 375 px.
+- **(C)** 88 px + opção de tap em qualquer área do video como atalho (toque generoso).
+- **(D)** Botão grande (88 px) + suportar tecla de volume (`keydown` Volume Up) como shutter — comum em apps de câmera (mas exige permissão extra em alguns navegadores).
+
+**Tradeoff**: (A) zero esforço. (B)/(C) ganham hit-area sem complexidade. (D) é mais avançado mas pode falhar em PWA standalone iOS.
+
+#### F2.5 — Feedback de captura: tátil + visual
+
+**Análise**: hoje `navigator.vibrate(40)` + flash overlay 180 ms. Em devices fracos a vibração nem é sentida; o flash passa rápido. Operador nem sempre sabe se a foto "pegou".
+
+- **(A)** Manter (status quo).
+- **(B)** Vibração mais longa (80–120 ms) + flash mais visível (250 ms, mais opaco).
+- **(C)** Som de shutter (configurável, default off) + vibração maior + flash atual.
+- **(D)** Feedback consolidado: vibração + flash + thumbnail miniatura aparecendo (estilo iOS Camera) por 1 s no canto antes de ir pro preview.
+
+**Tradeoff**: (A) zero esforço. (B)/(C) reforçam sinal mas podem incomodar quem prefere discrição. (D) é o mais rico mas exige mais código.
+
+#### F2.6 — Refazer foto a partir do preview: 2 taps ou 1?
+
+**Análise**: hoje preview → tap "Tirar outra" → `resetClassificationFlow` → câmera reinicia. São 2 taps (1 pra escolher refazer, 1 pra confirmar). Alternativas:
+
+- **(A)** Manter 2 taps (status quo) — botão explícito.
+- **(B)** 1 tap: "Tirar outra" vira ícone X discreto no canto superior do preview; "Enviar" continua botão principal.
+- **(C)** Swipe down no preview = descartar (estilo iOS), `Enviar` botão único embaixo.
+- **(D)** Long-press no preview = descartar, single tap = enviar (compacto mas opaco em descobribilidade).
+
+**Tradeoff**: (A) explicitness, alta descoberta. (B) UX mais limpa, ainda óbvia. (C) gesture nativo mas exige aprendizado. (D) muito escondido.
+
+#### F2.7 — Preview: zoom/pinch pra verificar legibilidade da ficha?
+
+**Análise**: hoje preview é só `<img object-fit: cover>`, sem zoom. Operador não consegue verificar de perto se a ficha está focada ou se algum campo ficou ilegível antes de mandar pra IA. Se a foto está ruim, descobre só depois (modal "lote ilegível").
+
+- **(A)** Sem zoom (status quo). Operador confia visualmente; IA decide.
+- **(B)** Pinch-to-zoom no preview (reusar `PhotoZoomViewer` do projeto?).
+- **(C)** Botão dedicado "Ver em tela cheia" → abre overlay com pinch-to-zoom.
+- **(D)** Auto-zoom em região da ficha (heurística) — complexo.
+
+**Tradeoff**: (A) zero esforço, IA filtra. (B) reusa componente existente, pequeno custo. (C) explícito mas adiciona mais um botão. (D) técnicamente caro.
+
+#### F2.8 — Indicação visual de "alinhe a ficha aqui"
+
+**Análise**: hoje o mesmo overlay (`.camera-hub-overlay::before`, retângulo branco inset) serve QR scan e fotografia da ficha. Operador que vem do Caminho 1/3 não sabe onde alinhar a ficha — vê só "use o quadrado pra QR" implicitamente.
+
+- **(A)** Manter o mesmo overlay (status quo).
+- **(B)** Overlay com proporção da ficha física (99×95 mm ≈ 1:1) e label "Alinhe a ficha aqui" — mostrado quando `hasContext === true` (Caminho 1/3); mantém o QR overlay pra Caminho 2.
+- **(C)** Auto-trocar overlay quando o QR scanner detecta "nenhum QR por X segundos" — heurístico, frágil.
+
+**Tradeoff**: (A) simples. (B) UX mais clara, custo baixo (CSS + texto). (C) inteligente mas fragilidade alta.
+
+#### F2.9 — Tela de permissão negada / câmera unsupported: melhorar UX?
+
+**Análise**: hoje mensagem fixa em `role="alert"` ("Camera bloqueada. Use a galeria… ou habilite na config do navegador.") + galeria como única opção. Sem botão pra retentar permissão, sem instruções específicas por navegador.
+
+- **(A)** Manter como está.
+- **(B)** Botão "Tentar novamente" que re-dispara `getUserMedia` (útil quando operador permitiu na barra do navegador).
+- **(C)** (B) + bloco expansível "Como liberar a câmera" com instruções específicas por navegador (iOS Safari, Chrome Android, etc).
+- **(D)** Substituir mensagem genérica por modal dedicado `CameraAccessModal` com ilustração + passos + retry.
+
+**Tradeoff**: (A) zero esforço, mas operador trava se não souber recuperar permissão. (B) ganho real com 5 linhas de código. (C) cobertura completa, mais código + manutenção das instruções. (D) padrão de erros profissional mas escopo alto.
+
+---
 
 **Q0.1 — Foto da ficha física é sempre obrigatória.**
 
@@ -512,6 +697,95 @@ Decisões "antes do fluxo" — valem em qualquer interface. Cada decisão aqui m
 - **Implicação**: nenhum handler extra; só CSS no `.app-modal-card-line` (proprietário).
 
 **Bloco F1 fechado em 2026-05-25** — 16 decisões cravadas (sub-pontos incluídos). ✅
+
+### Bloco F2 — Captura da foto
+
+**F2.1 — Câmera traseira forçada (status quo mantido).**
+
+- Mantém `getUserMedia({ video: { facingMode: { exact: 'environment' } } })`.
+- Sem fallback pra frontal, sem botão pra trocar. Câmera frontal nunca é usada na captura da ficha.
+- **Implicação**: zero mudança em `app/camera/page.tsx:423-426`. Se traseira indisponível (desktop sem webcam traseira), operador continua sendo direcionado pra galeria.
+
+**F2.2 — Galeria sempre visível.**
+
+- Botão de galeria continua no top-right durante todo o fluxo `flowState='idle'`, mesmo com câmera funcionando.
+- **Implicação**: zero mudança em `app/camera/page.tsx:1074-1080`. Operador escolhe entre câmera (caminho principal) e galeria (alternativa) a qualquer momento.
+
+**F2.3 — QR scanner sempre ativo enquanto o operador está na página da câmera.**
+
+- `qr-scanner` em paralelo (12 scans/s) com highlight visual sempre ligado em `flowState='idle' && cameraStatus='scanning'`.
+- Scanner pausa automaticamente quando algum modal abre ou quando `flowState !== 'idle'` (já é o comportamento atual).
+- Sem distinção visual entre "modo scan QR" e "modo fotografar ficha".
+- **Implicação**: zero mudança no comportamento do scanner.
+
+**F2.4 — Botão de captura: 68 px (status quo mantido).**
+
+- Sem mudança de tamanho, posicionamento ou hit-area.
+- Sem suporte a tecla de volume.
+- **Implicação**: zero mudança em `.camera-hub-capture-btn` (CSS linhas 16386-16408).
+
+**F2.5 — Feedback de captura: parcialmente definido, com sub-pontos abertos.**
+
+Decisões cravadas:
+
+- **Detecção de QR válido** → **vibração do celular** (sem som). Vibração dispara quando um QR é decodificado e validado (não em toda tentativa de leitura).
+- **Captura manual da foto** → **som característico de shutter** (rápido, simples, não chamativo). Vibração da captura — definir em sub-pontos.
+
+**F2.5.A — Captura: vibração 40 ms (mantida) + som somados.**
+
+- Continua `navigator.vibrate(40)` no `captureFromVideoStream` + adicionar som.
+- Vibração serve como **fallback tátil** quando o device está em modo silencioso (iOS Safari respeita silent mode; sem workaround prático).
+- **Implicação**: zero mudança na linha de vibração; adicionar invocação do áudio em paralelo.
+
+**F2.5.B — Som: Web Audio API sintetizado (REVISADA em 2026-05-25).**
+
+> **Revisão**: a decisão original era asset `.mp3` curto em `public/sounds/`. Após análise pré-implementação descobriu-se que o projeto já tem padrão consolidado de sons curtos via Web Audio API em `lib/scanner/scanner-sound.ts` (ex: `playScanSuccessBeep()` — oscilador senoidal 1320 Hz, 130 ms). O `ScannerBridge` global do bipador físico de hardware reusa esse padrão. Decisão revisada pra manter consistência com o projeto + zero assets.
+
+- Criar `lib/camera/camera-shutter-sound.ts` no mesmo padrão de `lib/scanner/scanner-sound.ts`:
+  - `playShutterSound()` — som de "clack" sintetizado (provavelmente 2 osciladores curtos sequenciais com envelope rápido, ~120–150 ms total).
+  - Reusa `AudioContext` singleton lazy (mesmo pattern).
+  - Try-catch silent em falhas (não-crítico).
+- Tocado no início de `captureFromVideoStream` em `app/camera/page.tsx:555` — **antes** do flash e vibração (som = primeira reação ao tap).
+- **Modo silencioso**: Web Audio API respeita controle de volume do device (iOS silent switch, Android volume).
+- **Primeira interação iOS**: tap no botão de captura é a interação válida; áudio dispara dentro da mesma call stack.
+- **Implicação**: zero asset novo; sem dependência adicional; ~50 linhas de código sintetizado seguindo o pattern existente.
+
+**F2.5.C — Vibração no QR: só quando confirma uma amostra resolvida.**
+
+- Dispara **1 vez** depois de `resolveSampleByQr` retornar sample válido — sinal de "achei e validei".
+- Não vibra por detecção bruta do scanner (evita ruído quando o operador mantém o QR enquadrado).
+- Intensidade: **80 ms** (perceptível sem ser desagradável).
+- Dedupe de 1.8 s já filtra repetições do mesmo QR no fluxo, então não há risco de vibração consecutiva.
+- **Implicação**: adicionar `navigator.vibrate(80)` no `handleResolvedSample` em `app/camera/page.tsx:330` (após o setResult, antes de abrir o modal).
+
+**F2.6 — Refazer foto a partir do preview: 2 taps mantidos (status quo).**
+
+- "Tirar outra" + "Enviar" como botões dedicados no preview.
+- Sem ícone X, sem swipe, sem long-press.
+- **Implicação**: zero mudança em `app/camera/page.tsx:1125-1142`.
+
+**F2.7 — Sem zoom/pinch no preview.**
+
+- Operador confia visualmente; se a foto está ruim, a IA / etapas posteriores capturam (lote ilegível, erro técnico).
+- **Implicação**: zero mudança no preview atual.
+
+**F2.8 — Retângulo do overlay continua sempre visível (status quo).**
+
+- Re-confirmado em código que o retângulo (`.camera-hub-overlay::before`, CSS linhas 16118-16127) é **puramente decorativo** (`pointer-events: none`) e **não interfere na foto** (`captureFromVideoStream` em `app/camera/page.tsx:555-583` desenha o `video` inteiro no canvas via `drawImage(video, 0, 0)` com `canvas.width = video.videoWidth`).
+- O retângulo é o guia visual da leitura de QR. Operador aprende que serve só pra QR e ignora quando vai fotografar a ficha.
+- Sem mudança de comportamento por caminho (Caminhos 1/3 também veem o retângulo).
+- **Implicação**: zero mudança em CSS ou JSX.
+
+**F2.9 — Tela de permissão negada / câmera unsupported: adicionar botão "Tentar novamente" (sem loading state).**
+
+- Mantém mensagem atual + galeria como opção.
+- **Adicionar** botão **"Tentar novamente"** logo abaixo da mensagem de erro (`app/camera/page.tsx:1061-1065`).
+- Botão usa classes existentes `.camera-hub-btn .camera-hub-btn-secondary`.
+- Handler `handleRetryCamera()` re-dispara `ensureScannerStarted()` direto, **sem loading state intermediário** — operador tem agência pra tentar quanto quiser; risco de spam é baixo.
+- Mostrado nos dois estados: `'permission-denied'` (caso comum) e `'unsupported'` (caso raro de webcam externa conectada depois).
+- **Implicação**: adicionar handler + envolver `<p role="alert">` numa nova `<div className="camera-hub-error-with-retry">` com o botão. Pequena regra CSS pra layout vertical (gap + center).
+
+**Bloco F2 fechado em 2026-05-25** — 11 decisões cravadas. ✅
 
 ---
 
@@ -692,7 +966,18 @@ Transversais:
 
 ### Bloco F2 — Captura da foto
 
-_(Ainda não iniciado.)_
+- [x] **F2.1** — Câmera traseira forçada (status quo).
+- [x] **F2.2** — Galeria sempre visível (status quo).
+- [x] **F2.3** — QR scanner sempre ativo na página da câmera (status quo).
+- [x] **F2.4** — Botão 68 px mantido (status quo).
+- [x] **F2.5** — QR válido vibra; captura toca som de shutter.
+- [x] **F2.5.A** — Vibração 40 ms mantida + som somados na captura.
+- [x] **F2.5.B** — Asset `.mp3` curto (~150 ms, ~3 KB) em `public/sounds/`.
+- [x] **F2.5.C** — Vibração 80 ms só quando `resolveSampleByQr` retorna sample válido.
+- [x] **F2.6** — Preview com "Tirar outra" + "Enviar" (status quo).
+- [x] **F2.7** — Sem zoom no preview (status quo).
+- [x] **F2.8** — Retângulo do overlay sempre visível (status quo, confirmado que não interfere na foto).
+- [x] **F2.9** — Adicionar botão "Tentar novamente" na tela de permissão negada / unsupported.
 
 ### Bloco F3 — Detecção + extração IA
 
@@ -825,3 +1110,65 @@ Quality gates (lint + format:check + typecheck + build) verdes em todos os 3 com
 - Validação manual em viewport mobile (`npm run dev` em 390×844 e 320 px) — happy paths das 3 frentes + edge cases.
 - Decisão de deploy (canary + promote) — fora do escopo do plano.
 - Skill maintenance (verificar `design-system`, `modals`, `feedback-messages`).
+
+### 2026-05-25 — Sessão 1 (Bloco F2 aberto) ⏳
+
+- Mapeamento profundo do fluxo de captura via agente Explore (foco exclusivo em "abrir câmera → ter foto pronta no preview"; sem entrar em detect/extract/review).
+- Estado atual sintético compilado em `## Bloco F2 — Captura da foto` com referência a `arquivo:linha` em `app/camera/page.tsx`, `lib/compress-image.ts`, `app/globals.css`.
+- 7 pontos de fricção operacional identificados pelo agente (botão pequeno, feedback fraco, refazer em 2 taps, galeria sempre visível, overlay genérico pra QR e foto, mensagens de erro genéricas).
+- 9 perguntas iniciais abertas (F2.1..F2.9) com tradeoffs A/B/C/D. Próximo: discussão com usuário pra fechar decisões.
+
+### 2026-05-25 — Sessão 1 (Bloco F2 — rodada 1 de respostas) ⏳
+
+- **Cravadas**: F2.1 (traseira forçada), F2.2 (galeria sempre visível), F2.3 (scanner sempre ativo na página), F2.4 (68 px), F2.6 (2 botões no preview), F2.7 (sem zoom), F2.9 (botão "Tentar novamente" na permissão negada).
+- **F2.5 parcial**: QR válido vibra (sem som); captura toca som de shutter (rápido, simples, não chamativo). Sub-pontos abertos:
+  - **F2.5.A** — vibração da captura (manter os 40 ms atuais junto com o som? aumentar? remover?).
+  - **F2.5.B** — fonte do som (asset MP3/WAV vs Web Audio sintetizado), duração e respeito a modo silencioso.
+  - **F2.5.C** — vibração no QR (intensidade em ms + se aplica o dedupe de 1.8 s ou vibra em toda detecção válida).
+- **F2.8** em re-explicação por pedido do usuário.
+
+### 2026-05-25 — Sessão 1 (Bloco F2 — sub-pontos F2.5 fechados) ⏳
+
+- **F2.5.A** fechado: vibração de 40 ms mantida na captura + som somados (vibração serve de fallback tátil em modo silencioso).
+- **F2.5.B** fechado: asset `.mp3` curto (~150 ms, ~3 KB) em `public/sounds/`, tocado via `<audio>` HTML. Respeita modo silencioso nativo do device.
+- **F2.5.C** fechado: vibração de 80 ms no QR só quando `resolveSampleByQr` retorna sample válido (1 vez por scan resolvido, sem ruído).
+- F2.8 segue pendente — aguardando resposta após re-explicação.
+
+### 2026-05-25 — Sessão 1 (Bloco F2 100% fechado) ✅
+
+- Discussão F2.8: usuário questionou se o retângulo (overlay) interfere na foto. Re-verificação em código confirmou que o overlay é puramente decorativo (`pointer-events: none`) e a captura sempre desenha o frame inteiro do `<video>` no canvas. Decisão: **manter status quo** — retângulo continua sempre visível, operador entende que é guia visual do QR scanner e ignora pra fotografar.
+- **Bloco F2 fechado em 100%**. 11 decisões. Próximo passo: Etapa 2 (análise pré-implementação via agentes) seguindo o padrão registrado no `## Padrão de implementação`.
+
+### 2026-05-25 — Sessão 1 (Bloco F2 — análise pré-implementação) ✅
+
+- 2 agentes Explore lançados em paralelo (1 por frente concreta — som e botão retry; vibração é 1 linha).
+- Achados consolidados:
+  - Projeto já tem padrão Web Audio API sintetizado em `lib/scanner/scanner-sound.ts` (`playScanSuccessBeep` 1320 Hz, 130 ms) usado pelo `ScannerBridge` global de **bipador físico** (não conflita com QR scanner da câmera).
+  - `ensureScannerStarted()` em `app/camera/page.tsx:395-473` é idempotente — pode ser re-chamada sem efeitos colaterais.
+  - Classes CSS `.camera-hub-btn` + variantes já existem (linhas 18388-18421 do `app/globals.css`).
+- **F2.5.B revisada**: decisão original era asset `.mp3`; usuário aceitou **Web Audio sintetizado** após descoberta do padrão do projeto. Coerência > "naturalidade" do som.
+- **F2.9 detalhada**: sem loading state intermediário (`ensureScannerStarted` já gerencia `cameraStatus` automaticamente).
+
+### 2026-05-25 — Sessão 1 (Bloco F2 implementado) ✅
+
+3 commits seguindo plano em `~/.claude/plans/hidden-conjuring-axolotl.md`:
+
+- **`ca766ed`** — `feat(camera): som de shutter sintetizado na captura de foto` (Frente A — F2.5.A + F2.5.B).
+  - Criado `lib/camera/camera-shutter-sound.ts` (~70 linhas, padrão idêntico ao `scanner-sound.ts`).
+  - Dois osciladores square sequenciais (1800 Hz → 900 Hz, ~140 ms total) simulando "ka-chak".
+  - Disparado no início de `captureFromVideoStream`, antes do flash e vibração.
+- **`69b36a0`** — `feat(camera): vibracao quando QR scan resolve amostra valida` (Frente B — F2.5.C).
+  - 1 linha: `navigator.vibrate?.(80)` no início de `handleResolvedSample`.
+  - Dedupe de 1.8 s já existente impede vibração consecutiva pro mesmo QR.
+- **`098187e`** — `feat(camera): botao "Tentar novamente" para erro de camera` (Frente C — F2.9).
+  - Handler `handleRetryCamera` que chama `ensureScannerStarted()`.
+  - JSX: `<p role="alert">` envolvido em `<div className="camera-hub-error-with-retry">` com botão `.camera-hub-btn .camera-hub-btn-secondary`.
+  - Nova regra CSS (~6 linhas) pra layout vertical centralizado.
+
+Quality gates (lint + format:check + typecheck + build) verdes em todos os 3 commits.
+
+**Pendente**:
+
+- Validação manual em mobile real (`npm run dev` em viewport 390×844): testar som de shutter, vibração no QR scan, botão "Tentar novamente" após negar permissão.
+- Decisão de deploy (canary + promote) — fora do escopo do plano.
+- Skill maintenance (verificar se `feedback-messages` precisa update com novo padrão de feedback auditivo).
