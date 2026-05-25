@@ -74,6 +74,7 @@ LINHA 5 — FUNDOS + CATACAO (3 celulas, larguras ~37% / 37% / 27%):
     - A ESQUERDA, o operador escreve a PENEIRA do fundo (geralmente um numero como "13", "11").
     - No CENTRO, ha um simbolo "=" IMPRESSO (NAO e manuscrito — ignore).
     - A DIREITA, o operador escreve a PORCENTAGEM (ex: "8", "1,5"). Pode haver um "%" decorativo impresso no canto direito da celula (NAO e manuscrito).
+    REGRA LOGICA OBRIGATORIA: o numero manuscrito imediatamente A ESQUERDA do "=" e a \`peneira\` do fundo; o numero manuscrito imediatamente A DIREITA do "=" e o \`percentual\`. Nao inverta. Se faltar qualquer um dos dois, retorne null para AMBOS os campos daquele fundo.
     Se uma das celulas FD nao foi preenchida, retorne null para ambas as chaves daquele fundo.
     → classificacao.fundos[0]: { peneira, percentual } (primeira celula FD da esquerda)
     → classificacao.fundos[1]: { peneira, percentual } (segunda celula FD)
