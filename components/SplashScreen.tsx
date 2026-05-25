@@ -12,8 +12,8 @@ function isOffline(): boolean {
 
 const MIN_SPLASH_MS = 1200;
 const EXIT_ANIMATION_MS = 700;
-const BACKGROUND_COOLDOWN_MS = 60 * 1000;
-const DASHBOARD_REDIRECT_AFTER_MS = 15 * 60 * 1000;
+const BACKGROUND_COOLDOWN_MS = 30 * 60 * 1000;
+const DASHBOARD_REDIRECT_AFTER_MS = 60 * 60 * 1000;
 
 const SESSION_KEY = 'splash-shown-this-session';
 const BACKGROUND_KEY = 'splash-last-background';
