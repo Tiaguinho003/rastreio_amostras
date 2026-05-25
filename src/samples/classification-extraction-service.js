@@ -32,7 +32,10 @@ REGRAS CRITICAS DE EXTRACAO:
 6. Valores manuscritos ficam ABAIXO ou AO LADO do rotulo impresso de cada celula.
 7. Se a escrita e ilegivel, retorne null em vez de adivinhar.
 8. Virgula brasileira: numeros decimais usam VIRGULA (ex: "12,5"), nao ponto.
-9. NUNCA INVENTE: muitos campos ficam vazios. E ESPERADO. Retorne null sem hesitar.`;
+9. NUNCA INVENTE: muitos campos ficam vazios. E ESPERADO. Retorne null sem hesitar.
+10. INSTRUCAO PRIORITARIA PARA EXTRACAO ATIVA:
+    Se uma celula contem QUALQUER numero, letra, ou marca manuscrita visivel (mesmo que pequena, desbotada, em caligrafia rapida ou parcialmente sobrescrita), voce DEVE extrair esse valor. Null e SOMENTE para celulas verdadeiramente vazias — sem nenhuma marca manuscrita.
+    Busque ativamente por escritas pequenas em CADA celula da ficha antes de decidir por null. NAO assuma que celulas vazias sao o padrao — em fichas reais, varias celulas tem valores manuscritos que precisam ser extraidos.`;
 
 // ============================================================
 // USER PROMPT (ficha unificada Q.cls.2)
@@ -66,12 +69,13 @@ LINHA 2 — IDENTIFICACAO (3 celulas iguais, ~33% cada):
 LINHA 3 — PRIMEIRA LINHA DE PENEIRAS (5 celulas iguais, 20% cada):
   Cada celula tem rotulo "P18", "P17", "P16", "MK", "P15" (da esquerda pra direita).
   Atencao: o MK aparece nesta linha (4a posicao, entre P16 e P15), NAO na proxima. Cada uma contem um percentual manuscrito (ex: "12,5", "8", "0,5"). Sem o simbolo "%".
-  Nem todas as peneiras estarao preenchidas — retorne null para vazias.
+  Para CADA uma das 5 celulas (P18, P17, P16, MK, P15): verifique individualmente se ha qualquer numero manuscrito. Se houver, EXTRAIA. Se a celula esta verdadeiramente vazia (sem nenhuma escrita), retorne null. Em fichas reais e comum que 2 a 6 peneiras estejam preenchidas — NAO presuma que peneiras vazias sao o padrao; olhe cada uma com atencao antes de retornar null.
   → classificacao.peneiras.p18, p17, p16, mk, p15 (na ordem visual da linha)
 
 LINHA 4 — SEGUNDA LINHA DE PENEIRAS (5 celulas iguais, 20% cada):
   Cada celula tem rotulo "P14", "P13", "P12", "P11", "P10" (da esquerda pra direita).
   Mesmo formato da LINHA 3. Esta linha NAO contem MK (MK fica na LINHA 3).
+  Para CADA uma das 5 celulas (P14, P13, P12, P11, P10): verifique individualmente se ha qualquer numero manuscrito e EXTRAIA quando houver. Em fichas reais e comum que algumas peneiras desta linha estejam preenchidas — analise celula por celula antes de retornar null.
   → classificacao.peneiras.p14, p13, p12, p11, p10 (na ordem visual da linha)
 
 LINHA 5 — FUNDOS + CATACAO (3 celulas, larguras ~37% / 37% / 27%):
