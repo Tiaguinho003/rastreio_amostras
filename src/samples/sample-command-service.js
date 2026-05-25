@@ -3586,6 +3586,11 @@ export class SampleCommandService {
     const tempPath = path.join(tempDir, `temp-${photoToken}.jpg`);
 
     await fs.promises.mkdir(tempDir, { recursive: true });
+
+    // F3.2: limpa orfaos > 24h em _temp/ antes de salvar a nova foto.
+    // Best-effort — erro nao bloqueia o fluxo principal.
+    await this._cleanupOrphanTempFiles(tempDir).catch(() => {});
+
     await fs.promises.writeFile(tempPath, fileBuffer);
 
     let detected = false;
@@ -3608,6 +3613,36 @@ export class SampleCommandService {
       photoToken,
       detected,
     };
+  }
+
+  // F3.2: varre _temp/ e apaga arquivos temp-* com mtime > 24h.
+  // Chamado oportunisticamente no inicio de detectClassificationForm.
+  // Falha silenciosamente em qualquer etapa — best-effort, nao crashar
+  // o fluxo principal por causa de cleanup.
+  async _cleanupOrphanTempFiles(tempDir) {
+    const TTL_MS = 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - TTL_MS;
+    let entries;
+    try {
+      entries = await fs.promises.readdir(tempDir);
+    } catch {
+      return;
+    }
+    await Promise.all(
+      entries
+        .filter((name) => name.startsWith('temp-'))
+        .map(async (name) => {
+          const filePath = path.join(tempDir, name);
+          try {
+            const stat = await fs.promises.stat(filePath);
+            if (stat.mtimeMs < cutoff) {
+              await fs.promises.rm(filePath, { force: true }).catch(() => {});
+            }
+          } catch {
+            // arquivo deletado em paralelo ou stat falhou — ignora
+          }
+        })
+    );
   }
 
   async extractAndPrepareClassification(input, actorContext) {
