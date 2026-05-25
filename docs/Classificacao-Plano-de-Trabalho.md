@@ -985,6 +985,28 @@ A análise abriu 5 mini-decisões pra fechar **antes do plan mode**. São pequen
 
 **Bloco F3 fechado em 2026-05-25** — 12 decisões cravadas; F3.12 (fixture image) bloqueia parcialmente a implementação de F3.4 mas não impede começar o resto. ✅
 
+#### Estratégia de implementação — 2 ondas
+
+A implementação do Bloco F3 é dividida em **2 ondas independentes** pra avançar em paralelo sem ficar bloqueado pela imagem-exemplo (F3.12) que o usuário ainda vai fornecer.
+
+**Onda 1 (independente da imagem)** — 5 frentes:
+
+| Frente | Decisão | Resumo                                                                                  |
+| ------ | ------- | --------------------------------------------------------------------------------------- |
+| F3.2   | C       | Cleanup oportunístico de órfãos > 24 h no `_temp/`, disparado no início de `detect-form`. |
+| F3.5   | B       | Adicionar instrução lógica explícita no USER_PROMPT só na seção dos fundos.             |
+| F3.7   | B       | 1 retry automático em 429/5xx com backoff 1.5 s. Timeout/PARSE_ERROR não retentam.      |
+| F3.10  | —       | Modo manual preserva campos preenchidos pela IA em erro parcial.                        |
+| F3.11  | B       | Telemetria básica no backend: tempo, modelo, tokens, sucesso/falha.                     |
+
+**Onda 2 (depende da imagem do F3.12)** — 1 frente:
+
+| Frente | Decisão | Resumo                                                                           |
+| ------ | ------- | -------------------------------------------------------------------------------- |
+| F3.4   | B       | Few-shot visual com 1 imagem-exemplo + JSON correspondente no USER_PROMPT. |
+
+**Ordem das ondas**: Onda 1 começa imediatamente; Onda 2 entra quando o usuário fornecer a imagem do F3.12. Sem dependência entre elas — Onda 2 pode rodar antes, depois ou durante a Onda 1 sem problema.
+
 ---
 
 ## Bloco F2.Q — Fidelidade visual da foto capturada — ENCERRADO sem mudanças ✅
