@@ -4,6 +4,13 @@ import { fileURLToPath } from 'node:url';
 
 import OpenAI from 'openai';
 
+import {
+  canonicalizeAspecto,
+  canonicalizeBebida,
+  canonicalizeCertif,
+  canonicalizeHarvest,
+  canonicalizePadrao,
+} from './classification-canonicalization.js';
 import { emitExtractionEvent } from './extraction-telemetry.js';
 
 import { HttpError } from '../contracts/errors.js';
@@ -398,7 +405,8 @@ function normalizeIdentificacao(raw) {
   return {
     lote: toStringOrNull(safe.lote),
     sacas: toStringOrNull(safe.sacas),
-    safra: toStringOrNull(safe.safra),
+    // F3.13: canoniza safra ("26-27"/"2026/2027" -> "26/27").
+    safra: canonicalizeHarvest(toStringOrNull(safe.safra)),
   };
 }
 
@@ -451,15 +459,16 @@ function normalizeDefeitos(raw) {
 function normalizeClassificacao(raw) {
   const safe = isPlainObject(raw) ? raw : {};
   return {
-    padrao: rejectIfLabel(toStringOrNull(safe.padrao)),
-    aspecto: rejectIfLabel(toStringOrNull(safe.aspecto)),
-    certif: rejectIfLabel(toStringOrNull(safe.certif)),
+    // F3.13: campos texto livre passam por canonicalize* apos rejectIfLabel.
+    padrao: canonicalizePadrao(rejectIfLabel(toStringOrNull(safe.padrao))),
+    aspecto: canonicalizeAspecto(rejectIfLabel(toStringOrNull(safe.aspecto))),
+    certif: canonicalizeCertif(rejectIfLabel(toStringOrNull(safe.certif))),
     peneiras: normalizePeneiras(safe.peneiras),
     fundos: normalizeFundos(safe.fundos),
     catacao: toNumericOrNull(safe.catacao),
     defeitos: normalizeDefeitos(safe.defeitos),
     observacoes: toStringOrNull(safe.observacoes),
-    bebida: rejectIfLabel(toStringOrNull(safe.bebida)),
+    bebida: canonicalizeBebida(rejectIfLabel(toStringOrNull(safe.bebida))),
   };
 }
 
