@@ -1295,7 +1295,7 @@ Grupo A — Detecção:
 Grupo B — Extração IA:
 
 - [x] **F3.3** — `gpt-4o` sem pin mantido (status quo).
-- [ ] **F3.4** — Few-shot visual: 1 imagem + JSON. ⚠️ **Onda 2** — bloqueado por F3.12.
+- [x] **F3.4** ✅ **IMPLEMENTADO** — Few-shot visual com 1 imagem-exemplo + JSON (`0afcd66`).
 - [x] **F3.5** ✅ **IMPLEMENTADO** — Reforço de prompt cirúrgico nos fundos (`1e080fd`).
 - [x] **F3.6** — Schema mantido (status quo).
 - [x] **F3.7** ✅ **IMPLEMENTADO** — 1 retry em 429/5xx com backoff 1.5 s (`77eeccd`).
@@ -1312,7 +1312,7 @@ Grupo D — Observabilidade:
 
 Grupo E — Testes:
 
-- [ ] **F3.12** — Aguardando imagem do usuário pra usar como fixture. Bloqueia F3.4 (Onda 2).
+- [x] **F3.12** ✅ **FORNECIDO** — Imagem-exemplo do usuário em `src/samples/fixtures/extraction-example.jpg` + JSON cravado em `extraction-example.json` (`b90d8a9`).
 
 ### Bloco F4 — Revisão dos campos
 
@@ -1597,3 +1597,26 @@ Quality gates (lint + format:check + typecheck + build + test:unit 180 passing) 
 - Validação manual: tirar fotos, verificar logs de telemetria, simular cenário illegible pra confirmar preservação de parcial.
 - **Onda 2** (F3.4 few-shot) aguardando imagem-exemplo do usuário (F3.12).
 - Deploy: discutir separadamente.
+
+### 2026-05-25 — Sessão 1 (Bloco F3 Onda 2 implementada) ✅
+
+Imagem-exemplo fornecida pelo usuário (lote 5689, safra 26/27, P17=38, MK=8, FD1=13/3, IMP=0,1, BROCA=1, padrão L4 P3, aspecto GC, observação "otelita"). JSON cravado com confirmação.
+
+3 commits seguindo plano em `~/.claude/plans/hidden-conjuring-axolotl.md`:
+
+- **`b90d8a9`** — `chore(extraction): adiciona fixture de ficha-exemplo para few-shot`
+  - `src/samples/fixtures/extraction-example.jpg` (967×1599 px, 247 KB).
+  - `src/samples/fixtures/extraction-example.json`.
+  - Dockerfile estende stage runner com `COPY` explícito da pasta fixtures (stage runner não copia `src/` direto).
+- **`0afcd66`** — `feat(extraction): few-shot visual no prompt com 1 imagem-exemplo + JSON`
+  - Singleton `FEW_SHOT_EXAMPLE` carregado no module init (zero overhead por extração).
+  - `extractClassificationFromPhoto` monta 4 mensagens quando fixture carrega (`system` + `user-exemplo` + `assistant-exemplo` + `user-real`); fallback transparente sem few-shot caso fixture não carregue (com evento `fixture_load_failed` em stderr).
+  - Telemetria F3.11 ganha flag `fewShot: bool` em success/failure pra cruzar logs e medir impacto.
+  - Teste de envio de prompt atualizado pra aceitar 4 ou 2 mensagens conforme presença da fixture.
+- **`<sha3>`** — `docs(classificacao): registra Onda 2 do Bloco F3 implementada`
+
+Quality gates (lint + format:check + typecheck + build + 180 testes unit) verdes em todos.
+
+**Bloco F3 fechado em 100%** — Ondas 1 e 2 implementadas (12 frentes total).
+
+**Próximo**: validação manual em uso real (capturar telemetria com `fewShot: true` + comparar qualidade de extração antes/depois pra peneiras e fundos especificamente). Bloco F4 (revisão dos campos) pode ser aberto quando o usuário sinalizar.
