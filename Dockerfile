@@ -30,6 +30,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/docs/schemas ./docs/schemas
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
+# F3.4 (few-shot visual): fixtures lidas em runtime pelo classification-extraction-service.
+COPY --from=builder /app/src/samples/fixtures ./src/samples/fixtures
 
 RUN mkdir -p /app/.next/cache/images /mnt/runtime/uploads /mnt/runtime/email-outbox \
   && chown -R nextjs:nodejs /app/.next /mnt/runtime

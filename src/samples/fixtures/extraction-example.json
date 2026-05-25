@@ -1,0 +1,40 @@
+{
+  "identificacao": {
+    "lote": "5689",
+    "sacas": "250",
+    "safra": "26/27",
+    "data": null
+  },
+  "classificacao": {
+    "padrao": "L4 P3",
+    "aspecto": "GC",
+    "certif": null,
+    "peneiras": {
+      "p18": null,
+      "p17": "38",
+      "p16": null,
+      "mk": "8",
+      "p15": null,
+      "p14": null,
+      "p13": null,
+      "p12": null,
+      "p11": null,
+      "p10": null
+    },
+    "fundos": [
+      { "peneira": "13", "percentual": "3" },
+      { "peneira": null, "percentual": null }
+    ],
+    "catacao": "33",
+    "defeitos": {
+      "imp": "0,1",
+      "pva": null,
+      "broca": "1",
+      "gpi": null,
+      "ap": null,
+      "defeito": null
+    },
+    "observacoes": "otelita",
+    "bebida": null
+  }
+}
