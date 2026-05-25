@@ -913,6 +913,78 @@ A análise abriu 5 mini-decisões pra fechar **antes do plan mode**. São pequen
 
 **Análise pré-implementação F1 concluída em 2026-05-25** — pronto para Etapa 3 (plan mode). ✅
 
+### Bloco F3 — Detecção + extração IA
+
+**F3.1 — `formDetectionService` (auto-crop) mantido (status quo).**
+
+- O serviço de detecção e auto-crop continua ativo em `src/samples/form-detection-service.js`. Sem instrumentação adicional nesta rodada.
+- **Implicação**: zero mudança em `detect-form`. F3.11 vai eventualmente trazer logs que permitem reavaliar.
+
+**F3.3 — Modelo IA mantido: `gpt-4o` sem pin de versão (status quo).**
+
+- Continua `model: 'gpt-4o'` em `src/samples/classification-extraction-service.js:452`.
+- Sem fixar versão, sem trocar pra Claude, sem multi-provider.
+- **Implicação**: zero mudança no modelo. Mudanças no prompt (F3.4 + F3.5) e schema (F3.6) podem cobrir o problema sem precisar trocar de modelo.
+
+**F3.8 — Sem destaque visual de campos vazios vindos da IA (status quo).**
+
+- O `ClassificationReviewModal` continua sem indicar quais campos vieram null da IA vs vazios.
+- **Implicação**: zero mudança no JSX/CSS do Review.
+
+**F3.10 — Modo manual: preservar extração parcial.**
+
+- Quando a IA dá erro mas houve algum dado parcial extraído (ex: peneiras OK mas fundos falharam), preservar os campos que vieram preenchidos. Só zerar os que vieram null.
+- **Implicação**: ajustar `startManualMode` em `app/camera/page.tsx:546-555` — em vez de resetar pra `EMPTY_CLASSIFICATION_FORM`, manter os campos preenchidos do `classificationForm` atual (que já foi populado pelo `mapExtractionToForm` em tentativas parciais).
+- **Caso de "erro técnico antes de qualquer extração"** (timeout/network sem JSON): aí sim form fica vazio, como hoje, porque não houve resposta parcial.
+
+**F3.11 — Telemetria básica de extração no backend.**
+
+- Logar em `classification-extraction-service.js`: timestamp, modelo usado, tempo total (`processingTimeMs`), tokens de input/output (extraído de `response.usage`), sucesso/falha, código de erro se falha, lote da amostra (se disponível no input).
+- Formato: log estruturado (JSON line) — confirmar padrão de logging do projeto na implementação.
+- **Não inclui** breakdown por-campo (quais campos vieram null) — deixar pra onda seguinte se mostrar útil.
+- **Implicação**: ~20–30 linhas em `classification-extraction-service.js` + possível ajuste em `extractAndPrepareClassification` no `sample-command-service.js` pra passar contexto da amostra.
+
+**F3.2 — Cleanup oportunístico de órfãos em `_temp/`.**
+
+- Toda vez que `detect-form` é chamado, antes de salvar o novo arquivo, varre `_temp/` e apaga arquivos com mtime > 24 h.
+- Sem job/cron externo, sem scheduler — implementação em ~10 linhas no handler de `detect-form` (`sample-command-service.js:3572-3611`).
+- Best-effort: erro de cleanup não bloqueia o fluxo principal (logado e ignorado).
+- **Implicação**: ~10 linhas adicionadas no início de `detectClassificationForm`. Sem infra extra.
+
+**F3.4 — Few-shot visual: 1 imagem-exemplo + JSON correspondente.**
+
+- Adicionar à mensagem do usuário (antes da foto real) uma imagem de ficha bem preenchida + JSON esperado como exemplo único.
+- Cobre o padrão principal de extração; suficiente pra ancorar a IA sem inflar muito tokens/latência.
+- **Custo estimado**: +1k–5k tokens de input + ~1–2 s de latência por chamada.
+- **Implicação**: imagem de exemplo precisa ser fornecida (F3.12 vai cobrir). Asset provavelmente em `src/samples/fixtures/extraction-example.jpg` (ou similar — a definir na implementação). JSON correspondente inline no código.
+
+**F3.5 — Reforço de prompt: só fundos (cirúrgico).**
+
+- Adicionar ao USER*PROMPT (`src/samples/classification-extraction-service.js` seção da L5) instrução lógica explícita: *"Em cada célula FD, o número manuscrito imediatamente à ESQUERDA do '=' é a `peneira`; o número manuscrito imediatamente à DIREITA do '=' é o `percentual`. Se um deles está ausente, retorne null para os dois campos do fundo."\_
+- Não tocar nas seções de peneiras (L3/L4) — instrução existente é considerada suficiente pra elas.
+- **Implicação**: ~5 linhas adicionadas ao USER_PROMPT. Baixo risco de regressão.
+
+**F3.6 — Schema mantido como está (status quo).**
+
+- Sem adicionar `pattern` em peneiras/percentuais (suporte limitado da OpenAI strict).
+- Sem adicionar `minItems`/`maxItems` em `fundos` — `normalizeFundos` posterior em JS já garante array de 2 elementos.
+- **Implicação**: zero mudança no schema.
+
+**F3.7 — Retry simples em erros transitórios: 1 tentativa com backoff 1.5 s.**
+
+- Em caso de erro `429` (rate limit) ou `5xx` (servidor) da OpenAI, fazer **1 retry** após 1.5 s.
+- **Timeout (25 s) NÃO retenta** — já gastou tempo, refazer iria estourar paciência do operador.
+- **PARSE_ERROR** (resposta sem JSON ou faltando chaves) também não retenta — provavelmente vai retornar erro igual.
+- **Implicação**: ajuste em `extractClassificationFromPhoto` (`classification-extraction-service.js:450+`) — envolver a chamada `client.chat.completions.create` num pequeno wrapper com retry condicional. ~15 linhas.
+
+**F3.9 — Validação mantida ("≥1 campo preenchido") (status quo).**
+
+- Sem aviso por seção, sem validação dura, sem destaque visual.
+- A premissa: F3.4 (few-shot) + F3.5 (reforço de prompt) devem melhorar peneiras/fundos a ponto de a maioria das classificações vir preenchida pela IA. Se for o caso, validação dura adicional vira fricção desnecessária.
+- **Reabrir se**: após F3 implementado e em uso real, ainda houver muitas classificações salvas com peneiras/fundos vazios sem operador perceber.
+
+**Bloco F3 fechado em 2026-05-25** — 12 decisões cravadas; F3.12 (fixture image) bloqueia parcialmente a implementação de F3.4 mas não impede começar o resto. ✅
+
 ---
 
 ## Bloco F2.Q — Fidelidade visual da foto capturada — ENCERRADO sem mudanças ✅
@@ -1186,30 +1258,30 @@ Transversais:
 
 Grupo A — Detecção:
 
-- [ ] **F3.1** — `formDetectionService` (auto-crop): manter, instrumentar, eliminar, ou mandar ambas as imagens?
-- [ ] **F3.2** — Cleanup de arquivos órfãos em `_temp/`.
+- [x] **F3.1** — `formDetectionService` mantido (status quo).
+- [x] **F3.2** — Cleanup oportunístico no início de `detect-form` (apaga órfãos > 24 h).
 
 Grupo B — Extração IA:
 
-- [ ] **F3.3** — Modelo: `gpt-4o` sem pin / fixar versão / Claude / multi-provider.
-- [ ] **F3.4** — Few-shot visual (imagens-exemplo) no prompt.
-- [ ] **F3.5** — Reforçar prompt nas peneiras/fundos com instrução lógica.
-- [ ] **F3.6** — Apertar JSON schema (regex, minItems).
-- [ ] **F3.7** — Retry automático em erros transitórios.
+- [x] **F3.3** — `gpt-4o` sem pin mantido (status quo).
+- [x] **F3.4** — Few-shot visual: 1 imagem + JSON. ⚠️ Bloqueado por F3.12 (asset).
+- [x] **F3.5** — Reforço de prompt cirúrgico só nos fundos (instrução lógica "esquerda do '=' = peneira").
+- [x] **F3.6** — Schema mantido (status quo).
+- [x] **F3.7** — 1 retry em 429/5xx com backoff 1.5 s; timeout não retenta.
 
 Grupo C — Frontend UX:
 
-- [ ] **F3.8** — Destacar visualmente campos vazios vindos da IA.
-- [ ] **F3.9** — Validação mais rigorosa antes de salvar.
-- [ ] **F3.10** — Modo manual: preservar extração parcial vs zerar tudo.
+- [x] **F3.8** — Sem destaque (status quo).
+- [x] **F3.9** — Validação "≥1 campo" mantida (status quo).
+- [x] **F3.10** — Preservar campos preenchidos pela IA em modo manual.
 
 Grupo D — Observabilidade:
 
-- [ ] **F3.11** — Telemetria de extração (tempo, tokens, taxa de sucesso, campos null).
+- [x] **F3.11** — Telemetria básica no backend (tempo, modelo, tokens, sucesso/falha).
 
 Grupo E — Testes:
 
-- [ ] **F3.12** — Fixtures de imagem real pra testar extração.
+- [ ] **F3.12** — Aguardando imagem do usuário pra usar como fixture. Bloqueia F3.4.
 
 ### Bloco F4 — Revisão dos campos
 
@@ -1432,3 +1504,20 @@ Quality gates (lint + format:check + typecheck + build) verdes em todos os 3 com
   5. Sem feedback visual no Review pra campos vazios — operador pode salvar incompleto sem perceber.
 - Outras lacunas: zero retry em erros transitórios, zero logs/telemetria, zero testes com imagem real, cleanup de `_temp/` ausente.
 - 12 perguntas abertas em 5 grupos (A Detecção · B Extração IA · C UX · D Observabilidade · E Testes). Próximo: discussão pra fechar decisões.
+
+### 2026-05-25 — Sessão 1 (Bloco F3 — rodada 1 de respostas) ⏳
+
+- **Cravadas**: F3.1 (auto-crop mantido), F3.3 (gpt-4o sem pin mantido), F3.8 (sem destaque visual de campos vazios), F3.10 (modo manual preserva extração parcial), F3.11 (telemetria básica no backend — escolha minha, B).
+- **Aprovadas em principio mas aguardam escolha de variação**: F3.4 (few-shot, B/C/D?), F3.5 (reforço de prompt, B/C/D?).
+- **Aguardando resposta**: F3.2 (estratégia de cleanup), F3.6 (schema), F3.7 (retry), F3.9 (validação).
+- **F3.12**: usuário vai fornecer imagem de exemplo pra usar como fixture; aguardar.
+
+### 2026-05-25 — Sessão 1 (Bloco F3 — rodada 2 fechou decisões pendentes) ✅
+
+- **F3.2** = C: cleanup oportunístico (varre `_temp/` no início de cada `detect-form`, apaga órfãos > 24 h).
+- **F3.4** = B: 1 imagem-exemplo + JSON correspondente no few-shot.
+- **F3.5** = B: reforço cirúrgico só nos fundos ("número à esquerda do '=' = peneira; direita = percentual").
+- **F3.6** = A: schema mantido como está. `normalizeFundos` em JS já garante array 2.
+- **F3.7** = B: 1 retry em 429/5xx com backoff 1.5 s; timeout (25 s) e PARSE_ERROR não retentam.
+- **F3.9** = A: validação "≥1 campo" mantida. Reabrir se F3.4 + F3.5 não resolverem em uso real.
+- **Bloco F3 fechado em 100%** com exceção de F3.12 (asset image) que bloqueia parcialmente a implementação de F3.4.
