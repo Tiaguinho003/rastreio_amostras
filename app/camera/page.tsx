@@ -333,6 +333,7 @@ function CameraPageContent() {
   );
 
   const handleResolvedSample = useCallback((resolved: ResolveSampleByQrResponse) => {
+    navigator.vibrate?.(80);
     const status = resolved.sample.status;
     let kind: LookupKind;
     let statusMsg: string;
