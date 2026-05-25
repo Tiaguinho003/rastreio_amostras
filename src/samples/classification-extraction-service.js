@@ -446,35 +446,25 @@ export class ClassificationExtractionService {
     const mimeType = absoluteImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
     const startTime = Date.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: USER_PROMPT },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${base64Image}`,
+              detail: 'high',
+            },
+          },
+        ],
+      },
+    ];
 
     try {
-      const response = await this.client.chat.completions.create(
-        {
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: USER_PROMPT },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${mimeType};base64,${base64Image}`,
-                    detail: 'high',
-                  },
-                },
-              ],
-            },
-          ],
-          response_format: { type: 'json_schema', json_schema: EXTRACTION_SCHEMA },
-          max_tokens: 1500,
-          temperature: 0,
-        },
-        { signal: controller.signal }
-      );
+      const response = await this._callOpenAIWithRetry(messages, EXTRACTION_SCHEMA);
 
       const content = response.choices?.[0]?.message?.content;
       if (!content) {
@@ -518,13 +508,10 @@ export class ClassificationExtractionService {
         processingTimeMs,
       };
     } catch (err) {
-      // F3.11: telemetria de falha. Classificamos o codigo antes de logar
-      // pra que o log capture TIMEOUT/PARSE_ERROR/OPENAI_ERROR.
+      // F3.11: telemetria de falha. TIMEOUT ja vem marcado pela funcao privada.
       let errorCode = err.code ?? null;
       if (!errorCode) {
-        if (err.name === 'AbortError' || controller.signal.aborted) {
-          errorCode = 'TIMEOUT';
-        } else if (err instanceof HttpError) {
+        if (err instanceof HttpError) {
           errorCode = 'HTTP_ERROR';
         } else {
           errorCode = 'OPENAI_ERROR';
@@ -538,13 +525,7 @@ export class ClassificationExtractionService {
         sampleId: context.sampleId ?? null,
       });
 
-      if (err.code === 'PARSE_ERROR') throw err;
-
-      if (err.name === 'AbortError' || controller.signal.aborted) {
-        const error = new Error('OpenAI request timed out');
-        error.code = 'TIMEOUT';
-        throw error;
-      }
+      if (err.code === 'PARSE_ERROR' || err.code === 'TIMEOUT') throw err;
 
       // Mantem HttpError (caso seja lancado em algum ponto futuro) com seu codigo.
       if (err instanceof HttpError) throw err;
@@ -552,8 +533,47 @@ export class ClassificationExtractionService {
       const error = new Error(err.message ?? 'OpenAI API error');
       error.code = 'OPENAI_ERROR';
       throw error;
-    } finally {
-      clearTimeout(timeout);
     }
+  }
+
+  // F3.7: chamada OpenAI com 1 retry em 429/5xx (backoff fixo 1.5s).
+  // Timeout (AbortError) e demais erros nao retentam — propagam marcados.
+  // Cada tentativa cria seu proprio AbortController pra evitar reuso de
+  // signal ja aborted entre tentativas.
+  async _callOpenAIWithRetry(messages, schema) {
+    const RETRY_DELAY_MS = 1500;
+    const MAX_ATTEMPTS = 2;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        return await this.client.chat.completions.create(
+          {
+            model: 'gpt-4o',
+            messages,
+            response_format: { type: 'json_schema', json_schema: schema },
+            max_tokens: 1500,
+            temperature: 0,
+          },
+          { signal: controller.signal }
+        );
+      } catch (err) {
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          const error = new Error('OpenAI request timed out');
+          error.code = 'TIMEOUT';
+          throw error;
+        }
+        const status = err.status ?? err.response?.status;
+        const isRetriable = status === 429 || (status >= 500 && status < 600);
+        if (!isRetriable || attempt === MAX_ATTEMPTS) {
+          throw err;
+        }
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    // unreachable — o loop sempre return ou throw
+    throw new Error('OpenAI retry loop exhausted unexpectedly');
   }
 }
