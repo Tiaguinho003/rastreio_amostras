@@ -30,6 +30,7 @@ import {
   resolveSampleByQr,
   getSampleDetail,
 } from '../../lib/api-client';
+import { playShutterSound } from '../../lib/camera/camera-shutter-sound';
 import { compressImage, isHighQualityEnabled, pickQualityFromEnv } from '../../lib/compress-image';
 import {
   type ClassificationFormState,
@@ -556,6 +557,7 @@ function CameraPageContent() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
+    playShutterSound();
     setCaptureFlashKey((key) => key + 1);
     navigator.vibrate?.(40);
 
