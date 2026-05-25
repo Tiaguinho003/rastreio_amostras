@@ -190,6 +190,13 @@ function CameraPageContent() {
   // cross-validation se ele editar pra valor diferente do sample.
   const [manualMode, setManualMode] = useState(false);
 
+  // F3.10: origem do "Continuar manual" — define se preserva extracao
+  // parcial (illegible) ou zera (technical/default). Resetado em
+  // startManualMode e no resetClassificationFlow.
+  const [manualConfirmSource, setManualConfirmSource] = useState<'technical' | 'illegible' | null>(
+    null
+  );
+
   // Resolve result (Flow A)
   const [resolvedSample, setResolvedSample] = useState<ResolveSampleByLotResponse['sample'] | null>(
     null
@@ -526,6 +533,7 @@ function CameraPageContent() {
     setEditableSacks('');
     setEditableHarvest('');
     setManualMode(false);
+    setManualConfirmSource(null);
     setResolvedSample(null);
     setMismatchDivergences([]);
     setMismatchChoices({});
@@ -548,8 +556,13 @@ function CameraPageContent() {
     setEditableLot(contextSampleLot ?? '');
     setEditableSacks(contextSampleSacks?.toString() ?? '');
     setEditableHarvest(contextSampleHarvest ?? '');
-    setExtractionResult(null);
-    setClassificationForm(EMPTY_CLASSIFICATION_FORM);
+    // F3.10: em 'illegible' preserva a extracao parcial (peneiras, fundos,
+    // etc que vieram OK); em 'technical' (ou origem indefinida) reseta.
+    if (manualConfirmSource !== 'illegible') {
+      setExtractionResult(null);
+      setClassificationForm(EMPTY_CLASSIFICATION_FORM);
+    }
+    setManualConfirmSource(null);
     setFlowError(null);
     setFlowState('confirming');
   }
@@ -1368,7 +1381,8 @@ function CameraPageContent() {
       />
 
       {/* Q.cls.2 sub-caminho 3a: lote ilegivel apos extracao OK.
-          Operador tira nova foto ou cancela (volta detail page). */}
+          F3.10 expandida: tambem oferece "Continuar manual" preservando
+          a extracao parcial (peneiras/fundos/etc que vieram OK). */}
       <ClassificationExtractionErrorModal
         open={flowState === 'extraction-error-illegible'}
         kind="illegible"
@@ -1377,6 +1391,10 @@ function CameraPageContent() {
           else resetClassificationFlow();
         }}
         onRetake={resetClassificationFlow}
+        onContinueManual={() => {
+          setManualConfirmSource('illegible');
+          setFlowState('manual-confirm');
+        }}
       />
 
       {/* Q.cls.2 sub-caminho 3b: erro tecnico (timeout, OpenAI offline).
@@ -1390,14 +1408,24 @@ function CameraPageContent() {
           else resetClassificationFlow();
         }}
         onRetake={resetClassificationFlow}
-        onContinueManual={() => setFlowState('manual-confirm')}
+        onContinueManual={() => {
+          setManualConfirmSource('technical');
+          setFlowState('manual-confirm');
+        }}
       />
 
       {/* Q.cls.2 sub-caminho 3b → 2o modal: confirma o modo manual antes
-          de abrir o ReviewModal sem extracao da IA. */}
+          de abrir o ReviewModal sem extracao da IA.
+          F3.10: voltar leva ao modal de origem correto (illegible ou technical). */}
       <ClassificationManualConfirmModal
         open={flowState === 'manual-confirm'}
-        onBack={() => setFlowState('extraction-error-technical')}
+        onBack={() =>
+          setFlowState(
+            manualConfirmSource === 'illegible'
+              ? 'extraction-error-illegible'
+              : 'extraction-error-technical'
+          )
+        }
         onConfirm={startManualMode}
       />
 

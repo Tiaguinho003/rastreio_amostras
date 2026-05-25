@@ -10,10 +10,14 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 // pra evitar empurrar o operador a tirar mais fotos quando o problema
 // e do servidor.
 //
-// 3a (illegible): "Tirar outra" + "Cancelar"
+// 3a (illegible): "Tirar outra" + (opcional) "Continuar manual" + "Cancelar"
 // 3b (technical): "Tirar outra" + "Continuar manual" + "Cancelar"
 //
-// Caminho 3b → "Continuar manual" abre o ManualConfirmModal pra confirmar
+// F3.10 expandido: o botao "Continuar manual" pode aparecer em ambos
+// os kinds — basta o caller passar onContinueManual. Em illegible
+// preserva extracao parcial; em technical zera (logica em startManualMode).
+//
+// "Continuar manual" abre o ManualConfirmModal pra confirmar
 // a decisao antes de seguir; depois da confirmacao, ReviewModal abre em
 // modo manual (lote/sacas/safra editaveis).
 
@@ -27,7 +31,8 @@ type Props = {
   technicalDetail?: string | null;
   onCancel: () => void;
   onRetake: () => void;
-  // 3b only — abre o 2o modal de confirmacao do modo manual.
+  // Abre o 2o modal de confirmacao do modo manual. Opcional em ambos os
+  // kinds — quando presente, o botao "Continuar manual" e renderizado.
   onContinueManual?: () => void;
 };
 
@@ -128,7 +133,7 @@ export function ClassificationExtractionErrorModal({
             <button type="button" className="app-modal-submit" onClick={onRetake}>
               Tirar outra foto
             </button>
-            {kind === 'technical' && onContinueManual ? (
+            {onContinueManual ? (
               <button type="button" className="app-modal-secondary" onClick={onContinueManual}>
                 Continuar manual
               </button>
