@@ -1651,3 +1651,31 @@ Quality gates (lint + format:check + typecheck + build + **185 testes unit**) ve
 
 - Após deploy, abrir Cloud Logging e medir `nullRateByCategory.peneiras` médio. Se subir de quase 0/10 pra 3-5/10, reforço funcionou.
 - Se peneiras ainda < 30% preenchidas: considerar trocar fixture pra ficha com 5-7 peneiras (mesmo "sem ser realista", força quebrar viés), ou trocar modelo (Claude Sonnet 4.5).
+
+### 2026-05-25 — Sessão 1 (mitigação do template binding) ✅
+
+**Diagnóstico via telemetria F3.11 + nullRateByCategory** após o deploy `5fddf1f`: peneiras continuaram **2/10** e fundos **1/2** em 3 extrações consecutivas (exatamente como na fixture). `completionTokens` permaneceu **177-180**. Reforço de prompt da rodada anterior (regra 10 SYSTEM_PROMPT + L3/L4 USER_PROMPT) **não mudou nada** — confirmação categórica de **template binding** do few-shot (modelo replica estrutura/sparsity da fixture, não extrai da foto real).
+
+**Causa raiz mapeada por 2 agentes (F3-I técnico + F3-J alternativas)** — 5 fatores estruturais conspirando:
+
+1. `assistant` message com JSON + `strict: true` + `temperature: 0` = "Template Binding" (modelo trata JSON da fixture como resposta canônica a replicar).
+2. `required: [todas peneiras]` + `null` permitido = caminho de menor resistência é null.
+3. 1 único exemplo (sem contraexemplos) = modelo memoriza distribuição como "padrão correto".
+4. `detail: 'high'` na fixture amplifica peso visual.
+5. `temperature: 0` = determinismo total.
+
+Reforço textual no prompt **não consegue vencer** essa cadeia determinística.
+
+Mudança cirúrgica em 1 commit:
+
+- **`7523266`** — `feat(extraction): quebra template binding do few-shot (texto + temperature + detail low)`
+  - Eliminada a `assistant` message do histórico de few-shot. Exemplo agora vive como **texto descritivo** dentro de uma `user` message separada (junto com a imagem-exemplo). Texto inclui avisos explícitos contra cópia ("NAO copie estes valores nem a quantidade de campos preenchidos. SEMPRE extraia o que voce VE na foto real").
+  - `temperature: 0 → 0.2` (reintroduz variação mínima, quebra determinismo).
+  - Fixture `detail: 'high' → 'low'` (reduz peso visual do exemplo; foto real continua high). Bônus: economiza ~1000 tokens/chamada (~$0.003).
+  - Teste de envio de prompt atualizado: 3 mensagens com fixture (sem `assistant`) em vez de 4.
+
+**Estimativa F3-I**: ~75-85% redução do viés.
+
+**Pós-deploy**: validar via Cloud Logging — `completionTokens` deve sair do cluster 177-180; `nullRateByCategory.peneiras` deve subir de 2/10 pra 4-7/10; `nullRateByCategory.fundos` de 1/2 pra 1-2/2.
+
+**Se não resolver**: escalar pra (a) trocar modelo para Claude Sonnet 4.5, ou (b) pipeline em 2 etapas (crop+contrast nas linhas de peneiras via `sharp` + chain-of-thought).
