@@ -1620,3 +1620,34 @@ Quality gates (lint + format:check + typecheck + build + 180 testes unit) verdes
 **Bloco F3 fechado em 100%** — Ondas 1 e 2 implementadas (12 frentes total).
 
 **Próximo**: validação manual em uso real (capturar telemetria com `fewShot: true` + comparar qualidade de extração antes/depois pra peneiras e fundos especificamente). Bloco F4 (revisão dos campos) pode ser aberto quando o usuário sinalizar.
+
+### 2026-05-25 — Sessão 1 (F3.13 + reforço peneiras pós-deploy) ✅
+
+**Diagnóstico via telemetria F3.11 logo após o deploy 9774d75**: peneiras/fundos continuam vindo majoritariamente null. `completionTokens ~177-180` confirma que o modelo está retornando JSON com a maioria dos valores null deliberadamente (não é limite — cap em 1500, usou 12%). Hipótese: viés do prompt (9+ menções negativas a "null", zero instruções positivas) + viés da fixture (~65% null em média, replicando padrão). Usuário esclareceu que classificações reais têm 3-4 peneiras + 1 fundo — fixture **é** realista; problema é prompt.
+
+Usuário também levantou **F3.13** (sub-decisão nova do Bloco F3): campos texto livre (`padrao`, `aspecto`, `certif`, `bebida`) vêm com variações de grafia ("L4 P3" / "L4 - P3" / "L-4 P-3" / "L4P3"); quando o filtro de busca em `/samples` entrar, queries vão perder linhas que escreveram diferente. Precisa normalizar canonicamente na extração (forward-only).
+
+3 frentes implementadas + doc:
+
+- **`5f37f7a`** — `feat(extraction): reforca prompt para extrair sempre que houver escrita visivel`
+  - Nova regra 10 no SYSTEM_PROMPT (instrução positiva e ativa): "se houver QUALQUER coisa manuscrita visível, EXTRAIA; null SOMENTE para celulas verdadeiramente vazias".
+  - Reforço análogo nas seções L3 e L4 do USER_PROMPT (peneiras): "para CADA célula, verifique individualmente" + "em fichas reais é comum que 2 a 6 peneiras estejam preenchidas — NÃO presuma vazias".
+  - Não toca em fundos (F3.5 já tem REGRA LOGICA OBRIGATORIA).
+- **`0b09e4e`** — `feat(extraction): normalizacao canonica de padrao, aspecto, certif, bebida, safra`
+  - Novo `src/samples/classification-canonicalization.js` com 5 canonicalizers (padrão, aspecto, bebida, certif, safra).
+  - Safra duplica lógica de `lib/sample-identification.ts:normalizeHarvest` em JS (backend não importa `.ts` de `lib/` pra não quebrar test:unit com `--experimental-strip-types`).
+  - Integrado em `normalizeIdentificacao` + `normalizeClassificacao` do extraction service (após `rejectIfLabel` + `toStringOrNull`).
+  - 5 testes unit novos em `tests/classification-canonicalization.test.js`.
+  - Formato canônico: `padrao` "L4 P3" (1 espaço, sem hífen); aspecto/bebida/certif uppercase + sem pontos/espaços internos extras; safra "AA/BB".
+  - Forward-only — amostras existentes mantêm grafia original; migration retroativa fica pra quando o filtro for habilitado.
+- **`6e42a2c`** — `feat(extraction): telemetria nullRateByCategory por extracao`
+  - Novo `computeNullRateByCategory` produz `{peneiras: "X/10", fundos: "X/2", defeitos: "X/6", identificacao: "X/3", textos: "X/5"}` a partir do JSON CRU (antes da normalização).
+  - Integrado no `emitExtractionEvent` de success. Permite cruzar `fewShot:true` com taxa real de preenchimento e medir impacto do reforço de prompt.
+- **`<sha4>`** — `docs(classificacao): registra F3.13 + reforco peneiras implementados`
+
+Quality gates (lint + format:check + typecheck + build + **185 testes unit**) verdes em todos.
+
+**Pendente — validação em prod após deploy**:
+
+- Após deploy, abrir Cloud Logging e medir `nullRateByCategory.peneiras` médio. Se subir de quase 0/10 pra 3-5/10, reforço funcionou.
+- Se peneiras ainda < 30% preenchidas: considerar trocar fixture pra ficha com 5-7 peneiras (mesmo "sem ser realista", força quebrar viés), ou trocar modelo (Claude Sonnet 4.5).
