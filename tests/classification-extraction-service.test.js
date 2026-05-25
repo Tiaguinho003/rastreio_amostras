@@ -106,7 +106,7 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
   }
 
   assert.equal(captured.model, 'gpt-4o');
-  assert.equal(captured.temperature, 0);
+  assert.equal(captured.temperature, 0.2);
   assert.equal(captured.max_tokens, 1500);
 
   // response_format usa json_schema strict (nao json_object livre).
@@ -125,10 +125,10 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
   assert.equal(classifProps.fundos.type, 'array');
   assert.equal(classifProps.defeitos.type, 'object');
 
-  // F3.4: few-shot ativo quando a fixture carrega. 4 mensagens:
-  // system + user-exemplo + assistant-exemplo + user-real.
-  // Em ambientes sem fixture (CI sem assets), cai pro fallback de 2 mensagens.
-  const expectedLen = captured.messages.length === 4 ? 4 : 2;
+  // F3.4 (revisado pos-template-binding): few-shot sem `assistant` message.
+  // Com fixture: 3 mensagens (system + user-exemplo + user-real).
+  // Sem fixture (CI sem assets): 2 mensagens (system + user-real).
+  const expectedLen = captured.messages.length === 3 ? 3 : 2;
   assert.equal(captured.messages.length, expectedLen);
   assert.equal(captured.messages[0].role, 'system');
 
@@ -142,11 +142,15 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
   assert.match(realUserContent[1].image_url.url, /^data:image\/(jpeg|png);base64,/);
   assert.equal(realUserContent[1].image_url.detail, 'high');
 
-  // Quando few-shot ativo, as mensagens intermediarias sao user-exemplo + assistant-exemplo.
-  if (expectedLen === 4) {
+  // Quando few-shot ativo, mensagem intermediaria e user-exemplo (NUNCA assistant).
+  if (expectedLen === 3) {
     assert.equal(captured.messages[1].role, 'user');
-    assert.equal(captured.messages[2].role, 'assistant');
-    assert.equal(typeof captured.messages[2].content, 'string');
+    // Conteudo do exemplo: texto descritivo + image_url em detail 'low'.
+    const exampleContent = captured.messages[1].content;
+    assert.ok(Array.isArray(exampleContent));
+    assert.equal(exampleContent[0].type, 'text');
+    assert.equal(exampleContent[1].type, 'image_url');
+    assert.equal(exampleContent[1].image_url.detail, 'low');
   }
 });
 

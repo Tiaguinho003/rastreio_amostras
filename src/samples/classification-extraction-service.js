@@ -542,23 +542,32 @@ export class ClassificationExtractionService {
       },
     ];
 
-    // F3.4: few-shot visual quando a fixture carregou no module init.
-    // 4 mensagens (system + user-exemplo + assistant-exemplo + user-real).
-    // Fallback transparente sem few-shot se fixture indisponivel.
+    // F3.4 + mitigacao do template binding: few-shot visual sem `assistant`
+    // message. O exemplo (imagem + descricao textual dos valores extraidos) vai
+    // numa user message separada com avisos explicitos contra cópia. A imagem
+    // do exemplo usa `detail: 'low'` (reduz peso visual, ja so referencia);
+    // a foto real continua `detail: 'high'`.
+    //
+    // Mudanca veio do diagnostico de template binding (Bloco F3): com a
+    // estrutura anterior (assistant JSON + strict + temperature 0), a IA
+    // replicava a quantidade exata de campos preenchidos da fixture (2/10
+    // peneiras, 1/2 fundos) — confirmado por telemetria nullRateByCategory.
     const messages = FEW_SHOT_EXAMPLE
       ? [
           { role: 'system', content: SYSTEM_PROMPT },
           {
             role: 'user',
             content: [
-              { type: 'text', text: USER_PROMPT },
+              {
+                type: 'text',
+                text: `${USER_PROMPT}\n\nEXEMPLO DE REFERENCIA (apenas pra ilustrar formato e estilo de extracao — NAO copie estes valores nem a quantidade de campos preenchidos):\n\nA imagem-exemplo abaixo e uma ficha SAFRAS com os seguintes valores manuscritos extraidos:\n- Lote: "5689", Sacas: "250", Safra: "26/27"\n- Padrao: "L4 P3", Aspecto: "GC", Certif: vazio\n- Peneiras: P17="38", MK="8" (demais peneiras vazias)\n- Fundos: FD1 peneira "13" percentual "3" (FD2 vazio), Catacao="33"\n- Defeitos: IMP="0,1", BROCA="1" (demais vazios)\n- Obs: "otelita", Bebida: vazio\n\nEsse exemplo mostra COMO interpretar a ficha. A quantidade de campos preenchidos varia de ficha pra ficha: algumas tem 8+ peneiras, outras 3, outras nenhuma. SEMPRE extraia o que voce VE na FOTO REAL (a segunda imagem, mais abaixo), NUNCA replique a quantidade ou os valores do exemplo.`,
+              },
               {
                 type: 'image_url',
-                image_url: { url: FEW_SHOT_EXAMPLE.imageDataUri, detail: 'high' },
+                image_url: { url: FEW_SHOT_EXAMPLE.imageDataUri, detail: 'low' },
               },
             ],
           },
-          { role: 'assistant', content: FEW_SHOT_EXAMPLE.responseText },
           { role: 'user', content: realUserContent },
         ]
       : [
@@ -661,7 +670,7 @@ export class ClassificationExtractionService {
             messages,
             response_format: { type: 'json_schema', json_schema: schema },
             max_tokens: 1500,
-            temperature: 0,
+            temperature: 0.2,
           },
           { signal: controller.signal }
         );
