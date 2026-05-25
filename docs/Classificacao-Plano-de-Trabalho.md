@@ -915,6 +915,105 @@ A análise abriu 5 mini-decisões pra fechar **antes do plan mode**. São pequen
 
 ---
 
+## Bloco F2.Q — Fidelidade visual da foto capturada
+
+**Objetivo**: garantir que a foto capturada representa **fielmente o aspecto real do café** (cor, tom, brilho, contraste, textura), com **mínima** alteração ou processamento automático. A classificação manual e a extração via IA dependem dessa fidelidade pra avaliar qualidade, defeitos e tipo de bebida corretamente.
+
+**Por que isso importa**: o café é um produto sensorial. Pequenas variações de cor distinguem "verde fechado" de "verde aberto", "marrom claro" de "queimado", "defeito preto" de "defeito ardido". Compressão JPEG agressiva, white balance automático da câmera, auto-HDR ou contrast enhancement podem **falsear o tom** e levar a classificação errada. A foto não precisa ser "bonita" — precisa ser **fiel ao real**.
+
+**Natureza deste bloco**: experimental. Diferente de F1/F2, **não fechamos decisões só com tradeoffs A/B/C** — precisamos de **testes empíricos** com cafés reais (ground truth + captura via PWA + comparação) pra calibrar o pipeline. Decisões emergem dos testes.
+
+**Posicionamento no fluxo**: entre F2 (captura como ato) e F3 (extração da IA). A foto em si — sua fidelidade — afeta os dois lados.
+
+### Estado atual do pipeline (resumo do que já mapeamos)
+
+| Etapa                  | Onde                                                      | Configuração atual                                                                                                                                                          |
+| ---------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getUserMedia`         | `app/camera/page.tsx:423-426`                             | Apenas `facingMode: { exact: 'environment' }` — **sem constraints de resolução, exposure, white balance, focus ou aspect ratio**.                                           |
+| QR scanner config      | `app/camera/page.tsx:441-455`                             | `maxScansPerSecond: 12`, sem influência na captura.                                                                                                                         |
+| Canvas drawing         | `captureFromVideoStream` em `app/camera/page.tsx:555-583` | `canvas.width = video.videoWidth`, `imageSmoothingEnabled: true`, `imageSmoothingQuality: 'high'`.                                                                          |
+| `toBlob`               | mesma função                                              | `'image/jpeg'` + `quality` dinâmica via `pickQualityFromEnv`.                                                                                                               |
+| Compressão pós-captura | `lib/compress-image.ts`                                   | HQ: `quality: 0.95`, `maxDimension: 3072` (adaptado por device memory: 2 GB → 2048, ≤ 4 GB + ≤ 4 cores → 2560, else → 3072). Legacy: `quality: 0.88`, `maxDimension: 1920`. |
+| Pipeline interno       | `lib/compress-image.ts:110-167`                           | `createImageBitmap` → `OffscreenCanvas` com smoothing high → `convertToBlob`. Retorna original se compressão não reduz tamanho.                                             |
+
+**Resultado típico**: 800 KB – 2 MB (HQ) ou 300 – 800 KB (legacy) em JPEG.
+
+### Variáveis que afetam fidelidade
+
+1. **Compressão JPEG** (lossy). Quality 0.95 / 0.88. Perde nuances em gradientes finos (tons sutis do grão). Alternativas: PNG (lossless, arquivo grande), WebP lossless, JPEG quality 1.0.
+2. **Redimensionamento**. `maxDimension` reduz se foto > limite. Reduzir = perda de detalhe + interpolação que altera tons médios.
+3. **`imageSmoothing`**. `true` + `'high'` aplica antialiasing no canvas drawing — pode suavizar textura visível do grão e bordas de defeitos pequenos.
+4. **MediaTrackConstraints da câmera** (atualmente nenhuma além de `facingMode`):
+   - `exposureMode: 'manual'` / `'continuous'` — desligar auto-exposure se possível.
+   - `whiteBalanceMode: 'manual'` / `'continuous'` — desligar auto WB (causa shifts de tom dependendo da luz ambiente).
+   - `focusMode: 'manual'` / `'single-shot'` — evita auto-foco caçando o tempo todo.
+   - `iso`, `colorTemperature`, `exposureCompensation`, `contrast`, `saturation`, `sharpness` — quando suportadas, fixar valores neutros.
+   - `torch: true` — flash ligado pode padronizar iluminação (mas adiciona reflexo).
+5. **Resolução do stream**. Hoje sem constraint de `width`/`height`. Solicitar `width: { ideal: 4096 }` força resolução máxima.
+6. **Format de saída**. JPEG vs PNG vs WebP. JPEG sempre é lossy; PNG é lossless; WebP suporta os dois modos.
+7. **Iluminação ambiente** (operador controla). Guidelines visuais ("use luz natural difusa") + opcionalmente flash ativo padronizam.
+8. **Câmera do device**. Câmera de cada smartphone aplica seu próprio processing (HDR, AI scene mode). Hoje sem como desligar via Web API — depende do device.
+9. **`ImageCapture API`** (alternativa ao canvas drawing). Captura direto do sensor com max quality, suportada em Chrome desktop/Android (não Safari). Pode dar mais controle.
+
+### Metodologia de teste (proposta)
+
+1. **Ground truth — fotos de referência**:
+   - 5–10 amostras de café com características distintas (verde fechado, verde aberto, torrado claro, torrado médio, com defeitos pretos, com defeitos brancos, etc).
+   - Fotografar com câmera de referência (DSLR ou smartphone em modo manual sem AI scene, em luz controlada) — essa é a "verdade visual".
+   - Idealmente, ter um cartão Macbeth ColorChecker ou similar pra calibrar.
+2. **Captura via PWA**:
+   - As mesmas amostras, mesmas condições de luz, capturadas via `/camera` atual em múltiplos devices alvo.
+3. **Comparação visual** (humano, lado a lado em monitor calibrado):
+   - Tom do café (escurece? clareia?).
+   - Saturação (mais vibrante? mais cinza?).
+   - Contraste (defeitos somem? aparecem?).
+   - Texturas (grão liso? rugoso?).
+4. **Comparação programática** (opcional, em iteração futura):
+   - Histograma RGB.
+   - Delta E (diferença perceptual de cor).
+   - SSIM (structural similarity).
+5. **Iteração**:
+   - Capturar baseline com config atual.
+   - Mudar 1 variável (ex: quality 1.0).
+   - Recapturar mesmas amostras.
+   - Comparar.
+   - Adotar mudança se melhora; descartar se não.
+
+### Pontos abertos (precisam de decisão antes de testar)
+
+- [ ] **F2.Q.1** — Quem coleta o ground truth (DSLR / smartphone manual)? Quais amostras de café?
+- [ ] **F2.Q.2** — Quais devices alvo de teste (iPhone, Android low/mid/high)?
+- [ ] **F2.Q.3** — Métrica de avaliação: só visual (humano) ou programática também (delta E / SSIM)?
+- [ ] **F2.Q.4** — Onde armazenar as fotos de teste (pasta no repo? Drive externo? S3? — assets de teste não devem inflar repo).
+- [ ] **F2.Q.5** — Ordem de prioridade pra testar variáveis (compressão? smoothing? constraints?).
+- [ ] **F2.Q.6** — Critério de "pronto": quando paramos de iterar?
+
+### Hipóteses iniciais (a validar)
+
+1. **JPEG quality 0.95 → 1.0** reduz artefatos sem inflar muito o arquivo. Provável ganho de fidelidade fácil.
+2. **`imageSmoothing: false`** pode preservar textura do grão (mas pode introduzir aliasing). Trade-off a testar.
+3. **`maxDimension` 3072 → sem limite** preserva detalhe completo. Custo: arquivo maior, latência de upload maior.
+4. **Constraints de câmera (`whiteBalanceMode: 'manual'`)**: difícil de prever, depende muito do device. Em alguns devices melhora; em outros piora.
+5. **PNG lossless**: melhor fidelidade absoluta mas arquivos 5–10× maiores. Provavelmente impraticável pra upload em campo, mas vale testar em 1 caso pra ter o "teto" de fidelidade.
+
+### Plano de execução iterativo
+
+1. **Fase 0 — Setup**: definir os 6 pontos abertos acima (F2.Q.1–F2.Q.6).
+2. **Fase 1 — Baseline**: capturar amostras de referência com config atual (HQ default).
+3. **Fase 2 — Testes individuais**: variar 1 dimensão por vez (quality, smoothing, maxDimension, constraints).
+4. **Fase 3 — Combinação ótima**: combinar os ajustes que provaram melhorar.
+5. **Fase 4 — Validação em campo**: rodar config nova em uso real por dias; coletar feedback do operador.
+6. **Fase 5 — Implementação final**: ajustar `lib/compress-image.ts` + `captureFromVideoStream` + constraints. Documentar config final aqui.
+
+### Riscos
+
+- **Trade-off fidelidade ↔ tamanho do arquivo**: mais fidelidade = arquivo maior = upload mais lento = mais frustração em campo (rede ruim).
+- **Variação entre devices**: o "melhor config" pode diferir por device. Talvez precisemos de config adaptativa.
+- **Processing irremovível do device**: alguns Androids forçam HDR / AI scene mesmo via `getUserMedia` sem dar como desligar.
+- **Iteração demanda fotos reais**: depende de você (ou alguém) capturar e comparar. Trabalho manual recorrente.
+
+---
+
 ## Pendências
 
 ### Bloco 0 — Premissas fundacionais
@@ -978,6 +1077,17 @@ Transversais:
 - [x] **F2.7** — Sem zoom no preview (status quo).
 - [x] **F2.8** — Retângulo do overlay sempre visível (status quo, confirmado que não interfere na foto).
 - [x] **F2.9** — Adicionar botão "Tentar novamente" na tela de permissão negada / unsupported.
+
+### Bloco F2.Q — Fidelidade visual da foto capturada
+
+Bloco experimental — depende de testes empíricos com cafés reais.
+
+- [ ] **F2.Q.1** — Definir ground truth (quem coleta, quais amostras).
+- [ ] **F2.Q.2** — Definir devices alvo de teste.
+- [ ] **F2.Q.3** — Métrica: visual humana / programática (delta E, SSIM).
+- [ ] **F2.Q.4** — Onde armazenar as fotos de teste.
+- [ ] **F2.Q.5** — Ordem de prioridade pra testar variáveis.
+- [ ] **F2.Q.6** — Critério de "pronto" (quando parar de iterar).
 
 ### Bloco F3 — Detecção + extração IA
 
@@ -1172,3 +1282,14 @@ Quality gates (lint + format:check + typecheck + build) verdes em todos os 3 com
 - Validação manual em mobile real (`npm run dev` em viewport 390×844): testar som de shutter, vibração no QR scan, botão "Tentar novamente" após negar permissão.
 - Decisão de deploy (canary + promote) — fora do escopo do plano.
 - Skill maintenance (verificar se `feedback-messages` precisa update com novo padrão de feedback auditivo).
+
+### 2026-05-25 — Sessão 1 (Bloco F2.Q aberto) ⏳
+
+- Usuário levantou ponto crítico: **fidelidade visual da foto capturada** — a foto deve representar fielmente o aspecto real do café (cor, tom, contraste, textura), sem processamento que distorça a classificação.
+- Criado novo bloco `## Bloco F2.Q — Fidelidade visual da foto capturada` posicionado entre F2 (captura) e F3 (extração IA).
+- Bloco é **experimental**: depende de testes empíricos (ground truth com câmera de referência vs captura via PWA). Decisões não fecham via tradeoff A/B/C; emergem dos testes.
+- 6 pontos abertos (F2.Q.1..6) cobrindo setup do teste: ground truth, devices, métrica, storage das fotos, ordem de variáveis, critério de "pronto".
+- Estado atual do pipeline mapeado (constraints da câmera, canvas drawing, compressão).
+- Variáveis identificadas: compressão JPEG, redimensionamento, imageSmoothing, MediaTrackConstraints, resolução do stream, formato (JPEG/PNG/WebP), processing do device, ImageCapture API.
+- 5 hipóteses iniciais a validar (quality 1.0, smoothing off, sem maxDimension, constraints manuais, PNG lossless como teto).
+- Próximo passo: discutir os 6 pontos abertos antes de começar testes.
