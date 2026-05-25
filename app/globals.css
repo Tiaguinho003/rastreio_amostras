@@ -16270,6 +16270,15 @@ button:disabled {
   color: #fff1f1;
 }
 
+/* Bloco F2 (Frente C): layout vertical do erro de camera com botao
+   "Tentar novamente" logo abaixo da mensagem. */
+.camera-hub-error-with-retry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .camera-hub-scan-indicator {
   display: flex;
   align-items: center;
@@ -24713,8 +24722,8 @@ button:disabled {
   /* Alinhado com o FAB (mesmo right) + acima dele com gap de 10px.
      Calculo: bottom do FAB + altura do FAB + gap. */
   bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem +
-      clamp(53px, 14.95vw, 60px) + 10px
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem + clamp(53px, 14.95vw, 60px) +
+      10px
   );
   right: clamp(14px, 4vw, 20px);
   width: clamp(53px, 14.95vw, 60px);
@@ -25093,8 +25102,8 @@ body.is-selection-mode .hero-search-filter-btn {
   z-index: calc(var(--z-popover, 500) + 1);
   overflow: hidden;
   transform-origin: top right;
-  animation: selected-samples-dropdown-in 0.22s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1))
-    backwards;
+  animation: selected-samples-dropdown-in 0.22s
+    var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) backwards;
 }
 
 @keyframes selected-samples-dropdown-in {
@@ -25577,7 +25586,6 @@ body.is-selection-mode .hero-search-filter-btn {
     text-align: center;
   }
 }
-
 
 /* Bolinha de seleção. 3 estados: vazia, selecionada, desabilitada. */
 .sample-card-selection-circle {

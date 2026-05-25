@@ -1007,6 +1007,13 @@ function CameraPageContent() {
     router.push(`/camera?sampleId=${result.sample.id}`);
   }
 
+  // Bloco F2 (Frente C): handler de "Tentar novamente" quando a camera
+  // esta em permission-denied ou unsupported. Re-dispara ensureScannerStarted
+  // (idempotente — recria scanner se necessario e atualiza cameraStatus).
+  function handleRetryCamera() {
+    void ensureScannerStarted();
+  }
+
   if (loading || !session) {
     return null;
   }
@@ -1062,9 +1069,18 @@ function CameraPageContent() {
               </button>
 
               {showStatusText && cameraError && flowState === 'idle' ? (
-                <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
-                  {cameraError}
-                </p>
+                <div className="camera-hub-error-with-retry">
+                  <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
+                    {cameraError}
+                  </p>
+                  <button
+                    type="button"
+                    className="camera-hub-btn camera-hub-btn-secondary"
+                    onClick={handleRetryCamera}
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
               ) : null}
             </div>
 
