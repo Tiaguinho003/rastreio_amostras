@@ -476,6 +476,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 | ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`        |
 | ClassificationReclassifyModal      | `components/samples/ClassificationReclassifyModal.tsx`      | Sub-caminho 5 (reclassificação)     | `is-themed` + `.is-danger` |
 | ClassificationNotFoundModal        | `components/samples/ClassificationNotFoundModal.tsx`        | Flow A legacy fallback              | `is-themed`                |
+| ClassificationSuccessModal         | `components/samples/ClassificationSuccessModal.tsx`         | Tela de sucesso pós-classificação   | `is-themed`                |
 
 > Padrao da extracao: avisos de erro/mismatch usam `role="alertdialog"`; modal de tipo+classifier+revisao usam `role="dialog"`. Modais com seta de Voltar no header (Type, ManualConfirm, Classifier) reutilizam a classe `.type-modal-back` que aplica fundo branco translucido + ESC = onBack.
 
