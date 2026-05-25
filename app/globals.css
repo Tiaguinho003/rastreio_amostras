@@ -16444,23 +16444,6 @@ button:disabled {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.camera-hub-success {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  position: absolute;
-  inset: 0;
-  justify-content: center;
-  background: linear-gradient(180deg, #1a2e22 0%, #15211c 100%);
-  border-radius: inherit;
-  animation: cam-fade-in 0.4s ease-out backwards;
-}
-
-.camera-hub-success .camera-hub-success-icon {
-  animation: app-modal-card-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s backwards;
-}
-
 .camera-hub-success-icon {
   width: 56px;
   height: 56px;
@@ -16488,45 +16471,6 @@ button:disabled {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.camera-hub-success-text {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #fff;
-  margin: 0;
-}
-
-.camera-hub-success-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.camera-hub-success-btn-exit,
-.camera-hub-success-btn-details {
-  padding: 0.65rem 1.5rem;
-  border-radius: 12px;
-  border: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.12s;
-}
-
-.camera-hub-success-btn-exit:active,
-.camera-hub-success-btn-details:active {
-  transform: scale(0.95);
-}
-
-.camera-hub-success-btn-exit {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.camera-hub-success-btn-details {
-  background: #6fcf97;
-  color: #0d1a12;
 }
 
 /* Error card (herda de .app-modal) */

@@ -16,6 +16,7 @@ import {
   type ReclassifyReasonCode,
 } from '../../components/samples/ClassificationReclassifyModal';
 import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
+import { ClassificationSuccessModal } from '../../components/samples/ClassificationSuccessModal';
 import { ClassificationTypeModal } from '../../components/samples/ClassificationTypeModal';
 import {
   ApiError,
@@ -974,18 +975,6 @@ function CameraPageContent() {
     router.push(`/samples/${result.sample.id}`);
   }
 
-  // --- Auto-redirect on success ---
-
-  useEffect(() => {
-    if (flowState !== 'success' || !confirmedSampleId) return;
-    const timer = window.setTimeout(() => {
-      if (mountedRef.current) {
-        router.push(`/samples/${confirmedSampleId}`);
-      }
-    }, 2000);
-    return () => window.clearTimeout(timer);
-  }, [flowState, confirmedSampleId, router]);
-
   if (loading || !session) {
     return null;
   }
@@ -1202,36 +1191,6 @@ function CameraPageContent() {
                   <span className="camera-hub-extracting-label">Buscando amostra...</span>
                 </div>
               ) : null}
-
-              {/* Success */}
-              {flowState === 'success' ? (
-                <div className="camera-hub-success">
-                  <div className="camera-hub-success-icon">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <p className="camera-hub-success-text">Classificacao salva!</p>
-                  <div className="camera-hub-success-actions">
-                    <button
-                      type="button"
-                      className="camera-hub-success-btn-exit"
-                      onClick={() => router.push('/dashboard')}
-                    >
-                      Sair
-                    </button>
-                    <button
-                      type="button"
-                      className="camera-hub-success-btn-details"
-                      onClick={() => {
-                        if (confirmedSampleId) router.push(`/samples/${confirmedSampleId}`);
-                      }}
-                    >
-                      Ver detalhes
-                    </button>
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         </section>
@@ -1249,6 +1208,20 @@ function CameraPageContent() {
           detailsLabel="Escanear novamente"
         />
       ) : null}
+
+      {/* Modal central de sucesso pos-classificacao (Bloco F1, frente B). */}
+      <ClassificationSuccessModal
+        open={flowState === 'success' && Boolean(confirmedSampleId)}
+        lotNumber={resolvedSample?.internalLotNumber ?? contextSampleLot ?? confirmedSampleId ?? ''}
+        isReclassification={contextSampleStatus === 'CLASSIFIED'}
+        onViewDetails={() => {
+          if (confirmedSampleId) router.push(`/samples/${confirmedSampleId}`);
+        }}
+        onClose={() => {
+          resetClassificationFlow();
+          router.push('/camera');
+        }}
+      />
 
       {/* Q.cls.2 sub-caminho 2: lote diverge. Mostra valores comparados +
           miniatura da foto. */}
