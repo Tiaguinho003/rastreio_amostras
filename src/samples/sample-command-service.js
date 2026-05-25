@@ -1944,7 +1944,9 @@ export class SampleCommandService {
           // Fase Q.cls.2: extracao e type-agnostic (1 prompt unico para a
           // ficha unificada). O classificationType e selecionado depois
           // pelo operador via modal e nao influencia a IA.
-          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath);
+          const raw = await this.extractionService.extractClassificationFromPhoto(absolutePath, {
+            sampleId: sample.id,
+          });
           const crossValidation = crossValidateExtraction(raw.identificacao, sample);
           extraction = {
             extractedFields: raw.classificacao,
@@ -3720,10 +3722,9 @@ export class SampleCommandService {
     }
 
     try {
-      const raw = await this.extractionService.extractClassificationFromPhoto(
-        extractionPath,
-        input.classificationType
-      );
+      const raw = await this.extractionService.extractClassificationFromPhoto(extractionPath, {
+        sampleId: input.sampleId ?? null,
+      });
 
       return {
         statusCode: 200,

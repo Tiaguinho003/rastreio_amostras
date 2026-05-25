@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import OpenAI from 'openai';
 
+import { emitExtractionEvent } from './extraction-telemetry.js';
+
 import { HttpError } from '../contracts/errors.js';
 
 // ============================================================
@@ -438,7 +440,7 @@ export class ClassificationExtractionService {
    * (BICA/PREPARADO/BAIXO/ESCOLHA) e metadata pos-extracao e nao influencia
    * a IA.
    */
-  async extractClassificationFromPhoto(absoluteImagePath) {
+  async extractClassificationFromPhoto(absoluteImagePath, context = {}) {
     const imageBuffer = fs.readFileSync(absoluteImagePath);
     const base64Image = imageBuffer.toString('base64');
     const mimeType = absoluteImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
@@ -498,12 +500,44 @@ export class ClassificationExtractionService {
 
       const processingTimeMs = Date.now() - startTime;
 
+      // F3.11: telemetria de sucesso.
+      emitExtractionEvent({
+        outcome: 'success',
+        model: response.model,
+        requestId: response.id,
+        processingTimeMs,
+        promptTokens: response.usage?.prompt_tokens ?? null,
+        completionTokens: response.usage?.completion_tokens ?? null,
+        totalTokens: response.usage?.total_tokens ?? null,
+        sampleId: context.sampleId ?? null,
+      });
+
       return {
         identificacao: normalizeIdentificacao(parsed.identificacao),
         classificacao: normalizeClassificacao(parsed.classificacao),
         processingTimeMs,
       };
     } catch (err) {
+      // F3.11: telemetria de falha. Classificamos o codigo antes de logar
+      // pra que o log capture TIMEOUT/PARSE_ERROR/OPENAI_ERROR.
+      let errorCode = err.code ?? null;
+      if (!errorCode) {
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          errorCode = 'TIMEOUT';
+        } else if (err instanceof HttpError) {
+          errorCode = 'HTTP_ERROR';
+        } else {
+          errorCode = 'OPENAI_ERROR';
+        }
+      }
+      emitExtractionEvent({
+        outcome: 'failure',
+        errorCode,
+        errorMessage: err.message ?? null,
+        processingTimeMs: Date.now() - startTime,
+        sampleId: context.sampleId ?? null,
+      });
+
       if (err.code === 'PARSE_ERROR') throw err;
 
       if (err.name === 'AbortError' || controller.signal.aborted) {
