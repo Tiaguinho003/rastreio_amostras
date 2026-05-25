@@ -374,6 +374,44 @@ function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// F3.13 telemetria: mede taxa de preenchimento por categoria no JSON CRU
+// retornado pela IA (antes da normalizacao posterior). Util pra cruzar com
+// fewShot:true e medir efetividade do prompt sem reprocessar respostas.
+function computeNullRateByCategory(parsed) {
+  const cls = parsed?.classificacao ?? {};
+  const ide = parsed?.identificacao ?? {};
+  const peneiraKeys = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
+  const defeitoKeys = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
+  const ideKeys = ['lote', 'sacas', 'safra'];
+  const textKeys = ['padrao', 'aspecto', 'certif', 'bebida', 'observacoes'];
+
+  const peneiras = isPlainObject(cls.peneiras) ? cls.peneiras : {};
+  const fundos = Array.isArray(cls.fundos) ? cls.fundos : [];
+  const defeitos = isPlainObject(cls.defeitos) ? cls.defeitos : {};
+
+  const filledPeneiras = peneiraKeys.filter(
+    (k) => peneiras[k] != null && peneiras[k] !== ''
+  ).length;
+  const filledFundos = fundos.filter(
+    (f) =>
+      f &&
+      ((f.peneira != null && f.peneira !== '') || (f.percentual != null && f.percentual !== ''))
+  ).length;
+  const filledDefeitos = defeitoKeys.filter(
+    (k) => defeitos[k] != null && defeitos[k] !== ''
+  ).length;
+  const filledIde = ideKeys.filter((k) => ide[k] != null && ide[k] !== '').length;
+  const filledTexts = textKeys.filter((k) => cls[k] != null && cls[k] !== '').length;
+
+  return {
+    peneiras: `${filledPeneiras}/${peneiraKeys.length}`,
+    fundos: `${filledFundos}/2`,
+    defeitos: `${filledDefeitos}/${defeitoKeys.length}`,
+    identificacao: `${filledIde}/${ideKeys.length}`,
+    textos: `${filledTexts}/${textKeys.length}`,
+  };
+}
+
 function toStringOrNull(value) {
   if (value === null || value === undefined) return null;
   const str = String(value).trim();
@@ -555,7 +593,9 @@ export class ClassificationExtractionService {
 
       const processingTimeMs = Date.now() - startTime;
 
-      // F3.11: telemetria de sucesso.
+      // F3.11 + F3.13: telemetria de sucesso. nullRateByCategory mede o JSON
+      // CRU (parsed) — antes da normalizacao posterior — pra refletir o que
+      // a IA realmente entregou e medir efetividade do prompt.
       emitExtractionEvent({
         outcome: 'success',
         model: response.model,
@@ -566,6 +606,7 @@ export class ClassificationExtractionService {
         totalTokens: response.usage?.total_tokens ?? null,
         sampleId: context.sampleId ?? null,
         fewShot: FEW_SHOT_EXAMPLE !== null,
+        nullRateByCategory: computeNullRateByCategory(parsed),
       });
 
       return {
