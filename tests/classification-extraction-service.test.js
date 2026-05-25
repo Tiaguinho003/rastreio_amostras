@@ -125,16 +125,29 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
   assert.equal(classifProps.fundos.type, 'array');
   assert.equal(classifProps.defeitos.type, 'object');
 
-  // Mensagens contem system + user (com texto e image_url).
-  assert.equal(captured.messages.length, 2);
+  // F3.4: few-shot ativo quando a fixture carrega. 4 mensagens:
+  // system + user-exemplo + assistant-exemplo + user-real.
+  // Em ambientes sem fixture (CI sem assets), cai pro fallback de 2 mensagens.
+  const expectedLen = captured.messages.length === 4 ? 4 : 2;
+  assert.equal(captured.messages.length, expectedLen);
   assert.equal(captured.messages[0].role, 'system');
-  assert.equal(captured.messages[1].role, 'user');
-  const userContent = captured.messages[1].content;
-  assert.ok(Array.isArray(userContent));
-  assert.equal(userContent[0].type, 'text');
-  assert.equal(userContent[1].type, 'image_url');
-  assert.match(userContent[1].image_url.url, /^data:image\/(jpeg|png);base64,/);
-  assert.equal(userContent[1].image_url.detail, 'high');
+
+  // A ultima mensagem e sempre o user-real com a foto a ser extraida.
+  const realUserMessage = captured.messages[expectedLen - 1];
+  assert.equal(realUserMessage.role, 'user');
+  const realUserContent = realUserMessage.content;
+  assert.ok(Array.isArray(realUserContent));
+  assert.equal(realUserContent[0].type, 'text');
+  assert.equal(realUserContent[1].type, 'image_url');
+  assert.match(realUserContent[1].image_url.url, /^data:image\/(jpeg|png);base64,/);
+  assert.equal(realUserContent[1].image_url.detail, 'high');
+
+  // Quando few-shot ativo, as mensagens intermediarias sao user-exemplo + assistant-exemplo.
+  if (expectedLen === 4) {
+    assert.equal(captured.messages[1].role, 'user');
+    assert.equal(captured.messages[2].role, 'assistant');
+    assert.equal(typeof captured.messages[2].content, 'string');
+  }
 });
 
 test('normaliza resposta com estrutura agrupada (peneiras, fundos array, defeitos)', async () => {

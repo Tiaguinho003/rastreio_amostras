@@ -1,4 +1,7 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import OpenAI from 'openai';
 
 import { emitExtractionEvent } from './extraction-telemetry.js';
@@ -325,6 +328,37 @@ const KNOWN_LABELS = new Set([
 
 const REQUEST_TIMEOUT_MS = 25_000;
 
+// F3.4: few-shot visual. Carrega no module init imagem-exemplo + JSON-resposta
+// pra ancorar a IA num caso real. Singleton cacheado — nao re-le o disco em
+// cada extracao. Se a fixture nao carregar (dev sem arquivo ou prod sem COPY
+// no Dockerfile), retorna null e degrada graciosamente pra extracao sem few-shot.
+const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
+
+function loadFewShotExample() {
+  try {
+    const imageBuffer = fs.readFileSync(path.join(FIXTURES_DIR, 'extraction-example.jpg'));
+    const responseJson = fs.readFileSync(
+      path.join(FIXTURES_DIR, 'extraction-example.json'),
+      'utf8'
+    );
+    return {
+      imageDataUri: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
+      responseText: JSON.stringify(JSON.parse(responseJson)),
+    };
+  } catch (err) {
+    process.stderr.write(
+      JSON.stringify({
+        tag: 'classification.extraction.fewshot',
+        outcome: 'fixture_load_failed',
+        message: err.message,
+      }) + '\n'
+    );
+    return null;
+  }
+}
+
+const FEW_SHOT_EXAMPLE = loadFewShotExample();
+
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -446,22 +480,40 @@ export class ClassificationExtractionService {
     const mimeType = absoluteImagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
     const startTime = Date.now();
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+    const realUserContent = [
+      { type: 'text', text: USER_PROMPT },
       {
-        role: 'user',
-        content: [
-          { type: 'text', text: USER_PROMPT },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${base64Image}`,
-              detail: 'high',
-            },
-          },
-        ],
+        type: 'image_url',
+        image_url: {
+          url: `data:${mimeType};base64,${base64Image}`,
+          detail: 'high',
+        },
       },
     ];
+
+    // F3.4: few-shot visual quando a fixture carregou no module init.
+    // 4 mensagens (system + user-exemplo + assistant-exemplo + user-real).
+    // Fallback transparente sem few-shot se fixture indisponivel.
+    const messages = FEW_SHOT_EXAMPLE
+      ? [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: USER_PROMPT },
+              {
+                type: 'image_url',
+                image_url: { url: FEW_SHOT_EXAMPLE.imageDataUri, detail: 'high' },
+              },
+            ],
+          },
+          { role: 'assistant', content: FEW_SHOT_EXAMPLE.responseText },
+          { role: 'user', content: realUserContent },
+        ]
+      : [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: realUserContent },
+        ];
 
     try {
       const response = await this._callOpenAIWithRetry(messages, EXTRACTION_SCHEMA);
@@ -500,6 +552,7 @@ export class ClassificationExtractionService {
         completionTokens: response.usage?.completion_tokens ?? null,
         totalTokens: response.usage?.total_tokens ?? null,
         sampleId: context.sampleId ?? null,
+        fewShot: FEW_SHOT_EXAMPLE !== null,
       });
 
       return {
@@ -523,6 +576,7 @@ export class ClassificationExtractionService {
         errorMessage: err.message ?? null,
         processingTimeMs: Date.now() - startTime,
         sampleId: context.sampleId ?? null,
+        fewShot: FEW_SHOT_EXAMPLE !== null,
       });
 
       if (err.code === 'PARSE_ERROR' || err.code === 'TIMEOUT') throw err;
