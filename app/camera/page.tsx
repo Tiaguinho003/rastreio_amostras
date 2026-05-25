@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { SampleLookupResultModal } from '../../components/SampleLookupResultModal';
+import { type LookupKind, SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
 import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
@@ -145,6 +145,9 @@ function CameraPageContent() {
   // QR result modal
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
+  // Bloco F1 (Frente C): kind do modal de scan — variantes 'lookup' /
+  // 'invalidated' / 'classified' baseadas no status da amostra resolvida.
+  const [resultModalKind, setResultModalKind] = useState<LookupKind>('lookup');
 
   // Classification flow state
   const [flowState, setFlowState] = useState<ClassificationFlowState>('idle');
@@ -329,10 +332,24 @@ function CameraPageContent() {
   );
 
   const handleResolvedSample = useCallback((resolved: ResolveSampleByQrResponse) => {
+    const status = resolved.sample.status;
+    let kind: LookupKind;
+    let statusMsg: string;
+    if (status === 'INVALIDATED') {
+      kind = 'invalidated';
+      statusMsg = 'Amostra invalidada. Escaneie outra etiqueta.';
+    } else if (status === 'CLASSIFIED') {
+      kind = 'classified';
+      statusMsg = 'Amostra ja classificada. Escolha uma acao.';
+    } else {
+      kind = 'lookup';
+      statusMsg = 'Amostra localizada. Confira a etiqueta antes de continuar.';
+    }
     setResult(resolved);
+    setResultModalKind(kind);
     setResultModalOpen(true);
     setCameraError(null);
-    setStatusMessage('Amostra localizada. Confira a etiqueta antes de continuar.');
+    setStatusMessage(statusMsg);
   }, []);
 
   const handleDecodedQr = useCallback(
@@ -966,13 +983,25 @@ function CameraPageContent() {
 
   function handleCloseResultModal() {
     setResultModalOpen(false);
+    setResultModalKind('lookup');
     setStatusMessage(DEFAULT_STATUS_MESSAGE);
   }
 
   function handleOpenSampleDetails() {
     if (!result) return;
     setResultModalOpen(false);
+    setResultModalKind('lookup');
     router.push(`/samples/${result.sample.id}`);
+  }
+
+  // Bloco F1 (Frente C): handler de "Reclassificar" no modal de aviso de
+  // amostra ja classificada — vai direto pra /camera?sampleId=X (mesma rota
+  // do Caminho 1), onde o ClassificationReclassifyModal abre via useEffect.
+  function handleReclassifyFromScan() {
+    if (!result) return;
+    setResultModalOpen(false);
+    setResultModalKind('lookup');
+    router.push(`/camera?sampleId=${result.sample.id}`);
   }
 
   if (loading || !session) {
@@ -1196,16 +1225,19 @@ function CameraPageContent() {
         </section>
       </section>
 
-      {/* QR result modal */}
+      {/* QR result modal — kind decide variante (lookup/invalidated/classified) */}
       {result && resultModalOpen ? (
         <SampleLookupResultModal
           sample={result.sample}
+          kind={resultModalKind}
           title="Amostra localizada"
           primaryActionLabel="Ver detalhes"
           onPrimaryAction={handleOpenSampleDetails}
           onDetails={handleCloseResultModal}
           onClose={handleCloseResultModal}
           detailsLabel="Escanear novamente"
+          onReclassify={handleReclassifyFromScan}
+          onShowDetails={handleOpenSampleDetails}
         />
       ) : null}
 
