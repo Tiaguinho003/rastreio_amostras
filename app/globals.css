@@ -1569,6 +1569,52 @@ body {
   color: #8a8e87;
 }
 
+/* Bloco F1 (Frente A): area comum clicavel do card de pendencias —
+   envolve o body inteiro e leva pro detalhe da amostra. */
+.app-modal-card-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Bloco F1 (Frente A): botao "Classificar" laranja a direita do card. */
+.app-modal-card-classify-cta {
+  flex: 0 0 auto;
+  min-width: 25%;
+  margin-right: 12px;
+  padding: 0.45rem 0.85rem;
+  align-self: center;
+  background: #f59e0b;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+
+.app-modal-card-classify-cta:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+/* Bloco F1 (Frente A): truncamento scoped no card de pendencias —
+   nao afeta SampleLookupResultModal que reusa as mesmas classes
+   de typography fora do .app-modal-card. */
+.app-modal-card .app-modal-card-line,
+.app-modal-card .app-modal-card-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .app-modal-status-row {
   display: flex;
   flex-wrap: wrap;
@@ -15223,6 +15269,13 @@ button:disabled {
 
   .app-modal-card-meta {
     font-size: 0.72rem;
+  }
+
+  /* Bloco F1 (Frente A): botao Classificar mais compacto em mobile. */
+  .app-modal-card-classify-cta {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    margin-right: 8px;
   }
 
   /* ── Nova Amostra: layered layout ── */

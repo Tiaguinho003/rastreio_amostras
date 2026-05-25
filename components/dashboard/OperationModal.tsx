@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { RefObject } from 'react';
 
 import type { OperationModalData } from './useOperationModal';
@@ -24,6 +23,12 @@ interface OperationModalProps {
   focusTrapRef: RefObject<HTMLElement | null>;
   modalCloseButtonRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+  /**
+   * Bloco F1 (Frente A): quando passado, renderiza botao "Classificar" em cada
+   * card, ao lado direito (substituindo o indicator). Tap no botao chama o
+   * handler com o sampleId; tap na area comum continua indo pro detalhe via <a>.
+   */
+  onItemAction?: (sampleId: string) => void;
 }
 
 export function OperationModal({
@@ -31,6 +36,7 @@ export function OperationModal({
   focusTrapRef,
   modalCloseButtonRef,
   onClose,
+  onItemAction,
 }: OperationModalProps) {
   return (
     <div className="dashboard-modal-backdrop" onClick={onClose}>
@@ -64,25 +70,41 @@ export function OperationModal({
           <p className="app-modal-empty">{data.emptyMessage}</p>
         ) : (
           <div className="app-modal-list">
-            {data.items.map((sample) => (
-              <Link
-                key={sample.id}
-                href={`/samples/${sample.id}`}
-                className="app-modal-card"
-                onClick={onClose}
-              >
-                <div className="app-modal-card-body">
-                  <strong className="app-modal-card-title">
-                    {sample.internalLotNumber ?? sample.id}
-                  </strong>
-                  <p className="app-modal-card-line">
-                    {renderMainSampleValue(sample.declared.owner)}
-                  </p>
-                  <p className="app-modal-card-meta">{formatCreationTimestamp(sample.createdAt)}</p>
+            {data.items.map((sample) => {
+              const lotLabel = sample.internalLotNumber ?? sample.id;
+              return (
+                <div key={sample.id} className="app-modal-card">
+                  <a
+                    href={`/samples/${sample.id}`}
+                    className="app-modal-card-link"
+                    onClick={onClose}
+                    aria-label={`Abrir detalhes da amostra ${lotLabel}`}
+                  >
+                    <div className="app-modal-card-body">
+                      <strong className="app-modal-card-title">{lotLabel}</strong>
+                      <p className="app-modal-card-line">
+                        {renderMainSampleValue(sample.declared.owner)}
+                      </p>
+                      <p className="app-modal-card-meta">
+                        {formatCreationTimestamp(sample.createdAt)}
+                      </p>
+                    </div>
+                  </a>
+                  {onItemAction ? (
+                    <button
+                      type="button"
+                      className="app-modal-card-classify-cta"
+                      onClick={() => onItemAction(sample.id)}
+                      aria-label={`Classificar amostra ${lotLabel}`}
+                    >
+                      Classificar
+                    </button>
+                  ) : (
+                    <span className="app-modal-card-indicator" aria-hidden="true" />
+                  )}
                 </div>
-                <span className="app-modal-card-indicator" aria-hidden="true" />
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

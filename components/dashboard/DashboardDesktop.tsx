@@ -272,6 +272,10 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
           focusTrapRef={focusTrapRef}
           modalCloseButtonRef={modalCloseButtonRef}
           onClose={closeOperationModal}
+          onItemAction={(sampleId) => {
+            closeOperationModal();
+            router.push(`/camera?sampleId=${sampleId}`);
+          }}
         />
       ) : null}
     </div>

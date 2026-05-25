@@ -211,6 +211,10 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
           focusTrapRef={focusTrapRef}
           modalCloseButtonRef={modalCloseButtonRef}
           onClose={closeOperationModal}
+          onItemAction={(sampleId) => {
+            closeOperationModal();
+            router.push(`/camera?sampleId=${sampleId}`);
+          }}
         />
       ) : null}
     </div>
