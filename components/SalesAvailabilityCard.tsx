@@ -18,7 +18,16 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
       <div className="sales-total">
         <span className="sales-total-kicker">Disponiveis pra venda</span>
         <strong className="sales-total-number">{data.total}</strong>
-        <span className="sales-total-label">amostras</span>
+        <div className="sales-total-footer">
+          <span className="sales-total-label">lotes</span>
+          {/* Handler sera adicionado quando o user definir a funcao do CTA. */}
+          <button type="button" className="sales-total-cta" aria-label="Ver mais">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="sales-aging">

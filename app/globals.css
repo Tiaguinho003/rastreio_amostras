@@ -19158,7 +19158,9 @@ button:disabled {
 
 .sales-card {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Card grande (esquerda) ~42%, stack de aging (direita) ~58% — encolhe
+     o card de total pra liberar mais largura pros mini-cards de aging. */
+  grid-template-columns: 5fr 7fr;
   gap: clamp(0.55rem, 2.2vw, 0.85rem);
   align-items: stretch;
 }
@@ -19168,7 +19170,9 @@ button:disabled {
 .sales-total {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* space-between distribui kicker (topo), numero (centro otico) e
+     footer (base) — numero fica visualmente equidistante das ancoras. */
+  justify-content: space-between;
   gap: clamp(0.3rem, 1.4vw, 0.5rem);
   padding: clamp(1rem, 4vw, 1.4rem) clamp(0.95rem, 3.8vw, 1.3rem);
   background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
@@ -19196,11 +19200,54 @@ button:disabled {
   letter-spacing: -0.02em;
 }
 
+.sales-total-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .sales-total-label {
   font-size: clamp(0.85rem, 3vw, 0.95rem);
   font-weight: 400;
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.15;
+}
+
+/* Botao CTA branco circular alinhado a direita do label "amostras".
+   Handler sera adicionado quando o user definir a funcao. */
+.sales-total-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: clamp(2rem, 7vw, 2.4rem);
+  height: clamp(2rem, 7vw, 2.4rem);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--brand-green-deep, #134029);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sales-total-cta:active {
+  transform: scale(0.92);
+}
+
+.sales-total-cta svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ── Stack direita — 3 mini-cards de aging ── */
