@@ -116,10 +116,8 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                 >
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M9 11.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                      <path d="M17.5 8.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                      <path d="M2 20.5v-1.4c0-2.65 2.35-4.6 5-4.6h4c2.65 0 5 1.95 5 4.6v1.4z" />
-                      <path d="M22 20.5v-1.4c0-2.1-1.55-3.8-3.5-4.35" />
+                      <circle cx="12" cy="7.5" r="4" />
+                      <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">

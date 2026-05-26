@@ -3896,9 +3896,14 @@ button:disabled {
   gap: clamp(0.85rem, 3vw, 1.1rem);
 }
 
-/* Remove a barra vertical lateral que existe no card compacto — mockup nao tem. */
+/* Barra vertical lateral esquerda — herda cor do .dashboard-op-* (amarelo
+   pra cadastros/classificacao, vermelho pra impressao, etc). Ocupa toda
+   a altura do card, com cantos arredondados acompanhando o card. */
 .dashboard-operation-card.is-wide::before {
-  display: none;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  border-radius: clamp(14px, 4vw, 16px) 0 0 clamp(14px, 4vw, 16px);
 }
 
 .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap {
