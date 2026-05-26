@@ -1968,6 +1968,19 @@ export class SampleQueryService {
     };
   }
 
+  // Performance — Fase 2 do port mobile (2026-05-26): EXPLAIN ANALYZE
+  // confirmou que a query atual e eficiente com PostgreSQL 15+ via
+  // "Run Condition" no WindowAgg (corta ROW_NUMBER() cedo). Indices
+  // existentes em sample_event ((event_type, occurred_at) +
+  // (sample_id, occurred_at)) sao suficientes.
+  //
+  // Revisitar (criar indice composto + considerar reescrita com
+  // DISTINCT ON ou pre-LIMIT) APENAS se:
+  //   - SELECT count(*) FROM sample_event WHERE event_type IN (...)
+  //     ultrapassar ~100k rows, OU
+  //   - Slow query log do Cloud SQL mostrar este metodo consistentemente
+  //     acima de 200ms P95, OU
+  //   - Latencia do endpoint /api/v1/dashboard/recent-activity > 500ms.
   async getDashboardRecentActivity() {
     const rows = await this.prisma.$queryRaw`
       WITH ranked AS (
