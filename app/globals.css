@@ -15408,13 +15408,11 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: clamp(0.5rem, 1.8vw, 0.7rem);
-    /* Ocupa todo o resto do card (apos header) e rola internamente. */
+    /* Sem scroll interno — limite de 8 items garante caber sempre
+       dentro do container fixo de 500px. Scroll fica so na pagina
+       (sheet bege externo). */
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   .recent-activity-mobile-item {
