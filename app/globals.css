@@ -3953,7 +3953,9 @@ button:disabled {
   width: clamp(50px, 15vw, 66px);
   height: clamp(50px, 15vw, 66px);
   border-radius: 50%;
-  border: 0;
+  /* Borda fina mas visivel acompanhando a cor da variante. */
+  border: 2px solid var(--dashboard-op-bar-color, #d4a017);
+  background: #ffffff;
 }
 
 .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap svg {
@@ -3961,11 +3963,6 @@ button:disabled {
   height: clamp(28px, 7.5vw, 36px);
   fill: #e9b929;
   stroke: none;
-}
-
-/* Bege bem suave atras do icone amarelo. */
-.dashboard-operation-card.is-wide.dashboard-op-clients .dashboard-operation-icon-wrap {
-  background: rgba(212, 160, 23, 0.14);
 }
 
 .dashboard-operation-content {
