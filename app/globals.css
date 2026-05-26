@@ -19183,15 +19183,16 @@ button:disabled {
   line-height: 1.15;
 }
 
-/* Body: `auto auto` + justify-content:center — donut e legenda lado a
-   lado em bloco centralizado horizontalmente no card, com espaco igual
-   nas laterais. */
+/* Body: bloco donut+legenda ancorado a esquerda mas com um pequeno
+   padding-inline-start adicional pra desencostar da borda — fica entre
+   o canto esquerdo e o centro do card. */
 .sales-card-body {
   display: grid;
   grid-template-columns: auto auto;
-  justify-content: center;
+  justify-content: start;
   gap: clamp(1rem, 4vw, 1.5rem);
   align-items: center;
+  padding-inline-start: clamp(0.4rem, 1.8vw, 0.85rem);
 }
 
 .sales-chart-donut {
