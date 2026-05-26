@@ -15417,7 +15417,11 @@ button:disabled {
     padding: 0;
     background: #ffffff;
     border-radius: 16px;
-    border-left: 4px solid var(--brand-green, #1f5d43);
+    /* color-mix da media perceptual entre os dois tons do gradient do
+       header (brand-green escuro -> brand-green-soft) — bate visualmente
+       com a media de cor do header. */
+    border-left: 4px solid
+      color-mix(in oklab, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
     overflow: hidden;
     box-shadow:
       0 2px 6px rgba(0, 0, 0, 0.04),
