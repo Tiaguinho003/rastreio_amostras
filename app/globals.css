@@ -1512,7 +1512,14 @@ body {
 
 .app-modal-card {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* minmax(0, 1fr) — sem o min:0 explicito, o track de 1fr usa
+     `minmax(auto, 1fr)` por default, e o `auto` resolve pro intrinsic
+     content size do filho. Com white-space:nowrap no nome, o intrinsic
+     size = largura completa do texto, e o track expande pra acomodar,
+     empurrando o conteudo POR BAIXO do botao "Classificar" em vez de
+     ativar o ellipsis. min:0 permite encolher e forca o ellipsis a
+     respeitar o espaco disponivel apos o gap + botao. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   /* gap = padding-right: o botao "Classificar" fica equidistante do
      conteudo (esquerda) e da borda direita do card. Valor "folgado"
