@@ -85,7 +85,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                     a impressao pos-classificacao for implementada). */}
                 <button
                   type="button"
-                  className="dashboard-operation-card dashboard-op-classification"
+                  className="dashboard-operation-card dashboard-op-classification is-wide"
                   onClick={(event) =>
                     openOperationPanel('classification_pending', event.currentTarget)
                   }
@@ -95,17 +95,33 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                 >
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M4 9.5V5.8A1.8 1.8 0 0 1 5.8 4h3.7" />
-                      <path d="m20 8.2-8.6 8.6a2.2 2.2 0 0 1-3.1 0L5.2 13.7a2.2 2.2 0 0 1 0-3.1L13.8 2 20 8.2Z" />
-                      <circle cx="14.6" cy="6.1" r="1" />
+                      {/* Corpo do grao: elipse vertical (rx:ry ~ 1:1.45). */}
+                      <ellipse cx="12" cy="12" rx="6.2" ry="9" />
+                      {/* Fenda central com sinuosidade sutil — branco pra
+                          contrastar com o corpo amarelo. style inline supera
+                          o `stroke: none` herdado do CSS do icon-wrap. */}
+                      <path
+                        d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4"
+                        style={{
+                          fill: 'none',
+                          stroke: '#ffffff',
+                          strokeWidth: 1.7,
+                          strokeLinecap: 'round',
+                          strokeLinejoin: 'round',
+                        }}
+                      />
                     </svg>
-                    {data.classificationPending.total > 0 ? (
-                      <span className="dashboard-operation-badge">
-                        {data.classificationPending.total}
-                      </span>
-                    ) : null}
                   </span>
-                  <span className="dashboard-operation-label">Classificação</span>
+                  <span className="dashboard-operation-content">
+                    <span className="dashboard-operation-title">Classificação</span>
+                    <span className="dashboard-operation-divider" aria-hidden="true" />
+                    <span className="dashboard-operation-subtitle">Amostras pendentes</span>
+                  </span>
+                  {data.classificationPending.total > 0 ? (
+                    <span className="dashboard-operation-badge">
+                      {data.classificationPending.total}
+                    </span>
+                  ) : null}
                 </button>
 
                 <button
@@ -135,21 +151,14 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             ) : (
               <div className="dashboard-operations-grid">
                 <div
-                  className="dashboard-operation-card dashboard-skeleton-card"
+                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
                   aria-hidden="true"
                 >
                   <span className="dashboard-skeleton-icon-wrap" />
                   <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
                 </div>
                 <div
-                  className="dashboard-operation-card dashboard-skeleton-card"
-                  aria-hidden="true"
-                >
-                  <span className="dashboard-skeleton-icon-wrap" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                </div>
-                <div
-                  className="dashboard-operation-card dashboard-skeleton-card"
+                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
                   aria-hidden="true"
                 >
                   <span className="dashboard-skeleton-icon-wrap" />
