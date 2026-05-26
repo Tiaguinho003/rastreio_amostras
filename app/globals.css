@@ -19172,6 +19172,23 @@ button:disabled {
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.06),
     0 8px 20px rgba(15, 64, 41, 0.14);
+  /* Resets de button (o card vira <button> pra ser clicavel inteiro
+     abrindo o modal de distribuicao). */
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.sales-card:active {
+  transform: scale(0.98);
 }
 
 .sales-card-title {
@@ -19243,8 +19260,8 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* CTA branco circular flutuando no canto inferior direito do card —
-   abre o SalesAgingModal com a lista detalhada por band. */
+/* Seta visual no canto inferior direito do card — puramente decorativa,
+   o card todo (<button>) e o alvo do clique. */
 .sales-chart-cta {
   position: absolute;
   bottom: clamp(0.7rem, 2.6vw, 0.95rem);
@@ -19254,21 +19271,11 @@ button:disabled {
   justify-content: center;
   width: clamp(2rem, 7vw, 2.4rem);
   height: clamp(2rem, 7vw, 2.4rem);
-  padding: 0;
-  border: 0;
   border-radius: 50%;
   background: #ffffff;
   color: var(--brand-green-deep, #134029);
-  cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sales-chart-cta:active {
-  transform: scale(0.92);
+  pointer-events: none;
 }
 
 .sales-chart-cta svg {
@@ -19352,11 +19359,33 @@ button:disabled {
   line-height: 1.2;
 }
 
+.sales-aging-card-meta {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.45rem, 1.6vw, 0.65rem);
+  flex-shrink: 0;
+}
+
 .sales-aging-count {
   font-size: clamp(1.4rem, 5vw, 1.8rem);
   font-weight: 800;
   color: currentColor;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Seta visual ao lado do count — indica que o card e clicavel. Cor
+   herda da variante (currentColor = mesma cor do count e do border-left). */
+.sales-aging-arrow {
+  display: block;
+  width: clamp(0.9rem, 3vw, 1.05rem);
+  height: clamp(0.9rem, 3vw, 1.05rem);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
   flex-shrink: 0;
 }
 

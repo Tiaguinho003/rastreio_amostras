@@ -84,7 +84,12 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
 
   return (
     <>
-      <div className="sales-card">
+      <button
+        type="button"
+        className="sales-card"
+        onClick={() => setModalOpen(true)}
+        aria-label="Ver distribuicao detalhada por tempo"
+      >
         <h3 className="sales-card-title">Lotes disponiveis</h3>
 
         <div className="sales-card-body">
@@ -103,19 +108,15 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
             ))}
           </ul>
 
-          <button
-            type="button"
-            className="sales-chart-cta"
-            onClick={() => setModalOpen(true)}
-            aria-label="Ver distribuicao detalhada por tempo"
-          >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          {/* Seta puramente visual — o card todo e o botao clicavel. */}
+          <span className="sales-chart-cta" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
               <path d="M5 12h14" />
               <path d="m13 6 6 6-6 6" />
             </svg>
-          </button>
+          </span>
         </div>
-      </div>
+      </button>
 
       {modalOpen ? <SalesAgingModal data={data} onClose={() => setModalOpen(false)} /> : null}
     </>

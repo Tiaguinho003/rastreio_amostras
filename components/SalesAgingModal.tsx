@@ -76,7 +76,17 @@ export function SalesAgingModal({ data, onClose }: SalesAgingModalProps) {
                   <span className="sales-aging-label">{label}</span>
                   <span className="sales-aging-card-description">{description}</span>
                 </div>
-                <strong className="sales-aging-count">{data.bands[key]}</strong>
+                <div className="sales-aging-card-meta">
+                  <strong className="sales-aging-count">{data.bands[key]}</strong>
+                  <svg
+                    className="sales-aging-arrow"
+                    viewBox="0 0 24 24"
+                    focusable="false"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 6 6 6-6 6" />
+                  </svg>
+                </div>
               </Link>
             ))}
           </div>
