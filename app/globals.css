@@ -3899,6 +3899,9 @@ button:disabled {
   padding: clamp(0.65rem, 2.4vw, 0.88rem) clamp(0.95rem, 3.2vw, 1.15rem)
     clamp(0.65rem, 2.4vw, 0.88rem) clamp(1.3rem, 4.5vw, 1.7rem);
   gap: clamp(0.7rem, 2.5vw, 0.9rem);
+  /* Borda superior amarela acompanhando a cor da variante — mesmo
+     pattern dos minicards do OperationModal. */
+  border-top: 3px solid var(--dashboard-op-bar-color, #d4a017);
 }
 
 /* Faixa lateral removida — card limpo sem decoracao a esquerda. */
