@@ -3898,12 +3898,15 @@ button:disabled {
   gap: clamp(0.7rem, 2.5vw, 0.9rem);
 }
 
-/* Faixa lateral esquerda — gradiente largo com fade perceptualmente
-   suave (4 stops curvando a opacidade) do amarelo solido ate
-   transparente. Largura responsiva (~36-52px) pra deixar respiro forte
-   na esquerda do card, fadeando ate o conteudo. z-index: 0 mantem a
-   faixa atras do icone/texto/badge (que sao elevados com z-index: 1
-   pelo regra `.is-wide > *` abaixo). */
+/* Faixa lateral esquerda — gradiente largo (~36-52px) com fade
+   perceptualmente uniforme. Tres truques pra eliminar banding visivel:
+   (a) interpolacao no espaco oklab (em vez do sRGB linear default), que
+       da curva de cor uniforme aos olhos humanos;
+   (b) o stop "transparente" final usa a MESMA matiz amarela (alpha 0),
+       evitando shift de cor pra branco/cinza no meio do gradient;
+   (c) 8 stops seguindo curva quadratica de opacidade (frente decai
+       devagar, traseira decai rapido) — sem mudancas bruscas de
+       derivada que criariam linhas visiveis. */
 .dashboard-operation-card.is-wide::before {
   top: 0;
   bottom: 0;
@@ -3911,11 +3914,15 @@ button:disabled {
   z-index: 0;
   border-radius: clamp(14px, 4vw, 16px) 0 0 clamp(14px, 4vw, 16px);
   background: linear-gradient(
-    90deg,
+    90deg in oklab,
     var(--dashboard-op-bar-color, #d4a017) 0%,
-    color-mix(in srgb, var(--dashboard-op-bar-color, #d4a017) 70%, transparent) 25%,
-    color-mix(in srgb, var(--dashboard-op-bar-color, #d4a017) 28%, transparent) 65%,
-    rgba(255, 255, 255, 0) 100%
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 92%, transparent) 12%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 78%, transparent) 26%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 58%, transparent) 42%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 38%, transparent) 58%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 20%, transparent) 74%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 8%, transparent) 88%,
+    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 0%, transparent) 100%
   );
 }
 
