@@ -1679,3 +1679,31 @@ Mudança cirúrgica em 1 commit:
 **Pós-deploy**: validar via Cloud Logging — `completionTokens` deve sair do cluster 177-180; `nullRateByCategory.peneiras` deve subir de 2/10 pra 4-7/10; `nullRateByCategory.fundos` de 1/2 pra 1-2/2.
 
 **Se não resolver**: escalar pra (a) trocar modelo para Claude Sonnet 4.5, ou (b) pipeline em 2 etapas (crop+contrast nas linhas de peneiras via `sharp` + chain-of-thought).
+
+### 2026-05-25 — Sessão 1 (página de detalhe unificada) ✅
+
+Mudança paralela ao Bloco F3, requisitada pelo usuário no fim da sessão pra incluir no mesmo deploy. Unificação das 2 sub-páginas (Geral + Comercial) em `app/samples/[sampleId]/page.tsx` numa única visão sem tabs. Ordem dos blocos:
+
+1. Etiqueta de impressão · 2. Informações gerais · 3. Liga inviável (se aplicável) · 4. Composição da liga (se isBlend) · 5. Comprometida em ligas ativas (se aplicável) · 6. Histórico de envios · 7. Classificação · 8. Disponibilidade comercial · 9. Movimentações · 10. Aviso de invalidada.
+
+- **`1f3b23c`** — `feat(samples): unifica detalhe da amostra (remove tabs Geral/Comercial)`
+  - Tipo `SampleDetailSection`, state `detailSection`, barra `.sdv-tabs`, condicional ternário, CSS órfão de tabs (incluindo desktop hover + sliding underline T4) — todos removidos.
+  - `<SampleMovementsPanel>` agora renderizado sempre (não-lazy de fetch já existente).
+  - Diff: -535 / +392 linhas.
+
+Refinos de posicionamento adiados pra próxima conversa.
+
+### 2026-05-25 — Sessão 1 (deploys do dia) ✅
+
+4 deploys completos via pipeline padrão (CI verde → build → canary → migrate → promote):
+
+| Revisão Cloud Run | Commit                            | O que entrou em prod                                                                                                                   |
+| ----------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `00270-hok`       | `0d83eae` + `88db87d` + `6861c4f` | Bloco F1 Onda completa (modal sucesso, botão Classificar, avisos QR)                                                                   |
+| `00270-hok`       | `9774d75` (+ Onda 1 F3)           | Bloco F2 (som shutter, vibração QR, retry câmera) + Bloco F3 Onda 1 (prompt fundos, cleanup, telemetria, retry, manual mode expandido) |
+| `00272-zed`       | `5fddf1f`                         | Bloco F3 Onda 2 (few-shot original) + F3.13 (canonicalização) + reforço peneiras                                                       |
+| `00274-qey`       | `1f3b23c`                         | Mitigação do template binding (few-shot via texto + temperature 0.2 + detail low) + unificação da página de detalhe                    |
+
+**Estado em prod**: todas as decisões dos Blocos F1 + F2 + F3 (incluindo F3.13) implementadas. Página de detalhe unificada. Telemetria `nullRateByCategory` ativa pra medir impacto do template binding fix.
+
+**Próxima sessão**: validar via Cloud Logging se o template binding fix funcionou (esperado: `completionTokens` spread 200-300; `nullRateByCategory.peneiras` subir pra 4-7/10). Se não resolver, escalar pra Claude Sonnet 4.5 ou pipeline em 2 etapas.
