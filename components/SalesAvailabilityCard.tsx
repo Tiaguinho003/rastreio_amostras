@@ -7,10 +7,10 @@ import type { DashboardSalesAvailabilityResponse } from '../lib/types';
 
 type AgingKey = 'over30' | 'from15to30' | 'under15';
 
-const SEGMENT_ORDER: Array<{ key: AgingKey; color: string }> = [
-  { key: 'over30', color: '#c0392b' },
-  { key: 'from15to30', color: '#e5a100' },
-  { key: 'under15', color: '#27ae60' },
+const SEGMENT_ORDER: Array<{ key: AgingKey; color: string; label: string }> = [
+  { key: 'over30', color: '#c0392b', label: '+30 dias' },
+  { key: 'from15to30', color: '#e5a100', label: '+15 dias' },
+  { key: 'under15', color: '#27ae60', label: '-15 dias' },
 ];
 
 // Donut em SVG (sem libs). Cada segmento e um <circle> com
@@ -39,7 +39,6 @@ function AgingDonut({ bands }: { bands: DashboardSalesAvailabilityResponse['band
       role="img"
       aria-label={`Distribuicao por tempo: ${bands.over30} mais de 30 dias, ${bands.from15to30} entre 15 e 30 dias, ${bands.under15} menos de 15 dias`}
     >
-      {/* Trilho de fundo — sempre desenhado pra dar a "rosca". */}
       <circle
         cx="50"
         cy="50"
@@ -86,23 +85,24 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
   return (
     <>
       <div className="sales-card">
-        <div className="sales-total">
-          <span className="sales-total-kicker">Disponiveis pra venda</span>
-          <strong className="sales-total-number">{data.total}</strong>
-          <div className="sales-total-footer">
-            <span className="sales-total-label">lotes</span>
-            {/* Handler sera adicionado quando o user definir a funcao do CTA. */}
-            <button type="button" className="sales-total-cta" aria-label="Ver mais">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        <h3 className="sales-card-title">Lotes disponiveis</h3>
 
-        <div className="sales-chart">
+        <div className="sales-card-body">
           <AgingDonut bands={data.bands} />
+
+          <ul className="sales-chart-legend">
+            {SEGMENT_ORDER.map(({ key, color, label }) => (
+              <li key={key} className="sales-chart-legend-item">
+                <span
+                  className="sales-chart-legend-dot"
+                  style={{ background: color }}
+                  aria-hidden="true"
+                />
+                <span className="sales-chart-legend-label">{label}</span>
+              </li>
+            ))}
+          </ul>
+
           <button
             type="button"
             className="sales-chart-cta"
