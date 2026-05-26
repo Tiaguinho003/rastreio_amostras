@@ -8,12 +8,12 @@ import type { DashboardRecentActivityItem } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
-// Container tem altura fixa de 500px e SEM scroll interno — 8 itens e o
-// numero que cabe em qualquer viewport mobile (320-430px) sem overflow.
-// Em viewport menor sobra espaco embaixo do ultimo item; em maior cabe
-// exato. Backend continua retornando ate 20 (usado pelo desktop).
-const MAX_VISIBLE_ITEMS = 8;
-const SKELETON_PLACEHOLDERS = MAX_VISIBLE_ITEMS;
+// Container tem altura fixa pra mostrar 6 items VISIVEIS sem scroll;
+// dentro do card cabem ate 15 items (os 9 extras acessiveis via scroll
+// interno). Backend continua retornando ate 20 (desktop usa todos).
+const MAX_ITEMS = 15;
+const VISIBLE_ITEMS_NO_SCROLL = 6;
+const SKELETON_PLACEHOLDERS = VISIBLE_ITEMS_NO_SCROLL;
 
 function formatLot(lot: string | null, fallback: string): string {
   return lot ?? fallback.slice(0, 8);
@@ -55,7 +55,7 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
         </div>
       ) : (
         <ul className="recent-activity-mobile-list">
-          {items.slice(0, MAX_VISIBLE_ITEMS).map((item) => {
+          {items.slice(0, MAX_ITEMS).map((item) => {
             const cfg = getEventConfig(item.activity.type);
             const lotLabel = formatLot(item.internalLotNumber, item.sampleId);
             return (

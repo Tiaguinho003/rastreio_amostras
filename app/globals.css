@@ -15407,12 +15407,11 @@ button:disabled {
      `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
 
   .recent-activity-mobile {
-    /* Altura fixa 500px — header verde colado no topo (sem padding no
-       container), lista com padding proprio embaixo, sem scroll interno.
-       overflow: hidden clipa cantos arredondados do header gradient.
-       border-left verde mais claro (mesmo pattern do .sales-card)
-       acentua a identidade visual. */
-    height: 500px;
+    /* Altura fixa pra mostrar 6 items visiveis sem scroll. Cabem ate
+       15 items na lista interna (scroll vertical) — os 9 alem do 6
+       acessiveis via scroll dentro do card. Header verde colado no
+       topo, lista com padding proprio embaixo. */
+    height: 400px;
     display: flex;
     flex-direction: column;
     padding: 0;
@@ -15451,14 +15450,20 @@ button:disabled {
   .recent-activity-mobile-list {
     list-style: none;
     margin: 0;
-    padding: 0.75rem 0.85rem 0.85rem;
+    /* Padding lateral menor pra items ocuparem MAIS largura do container. */
+    padding: 0.7rem 0.55rem 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
-    /* Sem scroll interno — limite de 8 items + tamanhos fixos garantem
-       caber em 500px em qualquer viewport. */
+    /* Scroll interno: cabem 6 visiveis sem scroll, ate 15 com scroll
+       vertical. overscroll-behavior: contain evita pull-to-refresh do
+       iOS PWA. -webkit-overflow-scrolling: touch ativa momentum iOS. */
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     background: linear-gradient(180deg, #ffffff 0%, #faf6e8 100%);
   }
 
@@ -15475,13 +15480,15 @@ button:disabled {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 2rem 0.75rem 0.85rem;
+    /* Padding vertical maior (item mais alto). */
+    padding: 0.85rem 2rem 0.85rem 0.85rem;
     background: #ffffff;
     border-radius: 12px;
     border-left: 3px solid var(--activity-color, #6b7280);
+    /* Sombra mais marcada — destaque visual dos cards. */
     box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.04),
-      0 4px 10px rgba(0, 0, 0, 0.04);
+      0 1px 4px rgba(0, 0, 0, 0.08),
+      0 6px 16px rgba(0, 0, 0, 0.08);
     text-decoration: none;
     color: inherit;
     /* skill button-press-effect */
@@ -15563,7 +15570,7 @@ button:disabled {
   }
 
   .recent-activity-mobile-item-skeleton {
-    min-height: 44px;
+    min-height: 48px;
     background: rgba(216, 212, 200, 0.4);
     border-radius: 12px;
     border-left: 3px solid rgba(0, 0, 0, 0.06);
