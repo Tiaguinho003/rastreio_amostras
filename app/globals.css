@@ -4161,7 +4161,13 @@ button:disabled {
   background: transparent;
   color: #5f7165;
   cursor: pointer;
-  transition: transform 0.1s ease;
+  box-shadow: 0 0 0 0 rgba(31, 93, 67, 0);
+  transition:
+    background 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.1s ease;
 }
 
 .sample-search-icon-button:active {
@@ -4173,7 +4179,11 @@ button:disabled {
   cursor: wait;
 }
 
-.sample-search-icon-button svg {
+/* Wrapper das duas SVGs sobrepostas (lupa + seta). Container do
+   botao tem width fixa (2rem) pra evitar layout shift no input;
+   os icones fazem cross-fade no mesmo espaco. */
+.sample-search-icon-button svg.sample-search-icon {
+  position: absolute;
   display: block;
   width: 1.15rem;
   height: 1.15rem;
@@ -4182,6 +4192,47 @@ button:disabled {
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Estado idle: lupa visivel, seta escondida (entra da esquerda). */
+.sample-search-icon-search {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.sample-search-icon-submit {
+  opacity: 0;
+  transform: translateX(-6px) scale(0.85);
+}
+
+/* Estado has-input: botao vira CTA verde + seta entra/lupa sai. */
+.sample-search-field.has-input .sample-search-icon-button {
+  background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+  color: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(15, 64, 41, 0.32);
+}
+
+.sample-search-field.has-input .sample-search-icon-search {
+  opacity: 0;
+  transform: translateX(6px) scale(0.85);
+}
+
+.sample-search-field.has-input .sample-search-icon-submit {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+/* Variante compact (topbar desktop sobre fundo verde): inverte
+   pra manter contraste — fundo branco + seta verde. */
+.sample-search-compact.has-input .sample-search-icon-button,
+.sample-search-compact .sample-search-field.has-input .sample-search-icon-button {
+  background: #ffffff;
+  color: var(--brand-green, #1f5d43);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .sample-search-compact .sample-search-field input {

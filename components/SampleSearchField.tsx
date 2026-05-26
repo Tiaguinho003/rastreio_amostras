@@ -172,7 +172,11 @@ export function SampleSearchField({
         role="search"
         aria-label="Buscar amostra por numero"
       >
-        <label className={`sample-search-field ${error ? 'has-error' : ''}`}>
+        <label
+          className={`sample-search-field${error ? ' has-error' : ''}${
+            query.trim().length > 0 ? ' has-input' : ''
+          }`}
+        >
           <input
             ref={inputRef}
             value={query}
@@ -187,11 +191,25 @@ export function SampleSearchField({
             type="submit"
             className="sample-search-icon-button"
             disabled={submitting}
-            aria-label="Buscar"
+            aria-label={query.trim().length > 0 ? 'Pesquisar lote' : 'Buscar'}
           >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <svg
+              className="sample-search-icon sample-search-icon-search"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
               <circle cx="11" cy="11" r="7" />
               <path d="m16.2 16.2 4.1 4.1" />
+            </svg>
+            <svg
+              className="sample-search-icon sample-search-icon-submit"
+              viewBox="0 0 24 24"
+              focusable="false"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
             </svg>
           </button>
         </label>
