@@ -28,7 +28,7 @@ function buildOperationModalData(
 
   return {
     modalId: 'dashboard-operation-modal-classification-pending',
-    title: 'Aguardando classificacao',
+    title: 'Amostras pendentes',
     emptyMessage: 'Nenhuma amostra aguardando classificacao.',
     total: data.classificationPending.total,
     items: data.classificationPending.items,
