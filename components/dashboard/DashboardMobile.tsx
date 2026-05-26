@@ -156,7 +156,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                   <span className="dashboard-operation-content">
                     <span className="dashboard-operation-title">Classificação</span>
                     <span className="dashboard-operation-divider" aria-hidden="true" />
-                    <span className="dashboard-operation-subtitle">Amostras pendentes</span>
+                    <span className="dashboard-operation-subtitle">Pendentes</span>
                   </span>
                   {data.classificationPending.total > 0 ? (
                     <span className="dashboard-operation-badge">
@@ -180,7 +180,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                   <span className="dashboard-operation-content">
                     <span className="dashboard-operation-title">Cadastros</span>
                     <span className="dashboard-operation-divider" aria-hidden="true" />
-                    <span className="dashboard-operation-subtitle">Registros pendentes</span>
+                    <span className="dashboard-operation-subtitle">Pendentes</span>
                   </span>
                   {data.clientsIncomplete.total > 0 ? (
                     <span className="dashboard-operation-badge">

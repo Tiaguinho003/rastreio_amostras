@@ -4075,8 +4075,10 @@ button:disabled {
   flex: 1;
   min-width: 0;
   /* Empurra o titulo um pouco pra baixo (libera area pro badge no
-     canto superior sem sobreposicao e da respiro visual). */
-  padding-top: clamp(0.35rem, 1.3vw, 0.55rem);
+     canto superior sem sobreposicao e da respiro visual). Subtitulo
+     ficou em 1 linha so ("Pendentes"), entao o content ocupa menos
+     altura — padding-top maior pra centralizar visualmente. */
+  padding-top: clamp(0.6rem, 2.1vw, 0.9rem);
 }
 
 .dashboard-operation-title {
