@@ -3801,8 +3801,11 @@ button:disabled {
 
 .dashboard-operations-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  /* 2 colunas iguais — cards de Classificacao e Cadastros lado a lado.
+     minmax(0, 1fr) evita que conteudo largo (titulo) expanda o track e
+     quebre a paridade visual. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
 }
 
 .dashboard-operation-card {
@@ -3966,10 +3969,10 @@ button:disabled {
   flex-direction: row;
   align-items: center;
   text-align: left;
-  /* padding-left maior pra acomodar a barra lateral de 16px sem encostar no icone. */
-  padding: clamp(0.65rem, 2.4vw, 0.88rem) clamp(0.95rem, 3.2vw, 1.15rem)
-    clamp(0.65rem, 2.4vw, 0.88rem) clamp(1.3rem, 4.5vw, 1.7rem);
-  gap: clamp(0.7rem, 2.5vw, 0.9rem);
+  /* Padding vertical maior (altura aumentada) + lateral menor pra caber
+     em metade da largura do dashboard. */
+  padding: clamp(0.95rem, 3.4vw, 1.2rem) clamp(0.65rem, 2.4vw, 0.85rem);
+  gap: clamp(0.5rem, 1.8vw, 0.7rem);
   /* Borda superior amarela acompanhando a cor da variante — mesmo
      pattern dos minicards do OperationModal. */
   border-top: 3px solid var(--dashboard-op-bar-color, #d4a017);
@@ -4004,8 +4007,11 @@ button:disabled {
 }
 
 .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap {
-  width: clamp(50px, 15vw, 66px);
-  height: clamp(50px, 15vw, 66px);
+  /* Wrap (preenchimento envolta do icone) diminuido — o SVG abaixo
+     mantem o tamanho, entao o icone fica MAIOR proporcionalmente
+     ao circulo (efeito desejado pelo user). */
+  width: clamp(40px, 12vw, 50px);
+  height: clamp(40px, 12vw, 50px);
   border-radius: 50%;
   /* Borda fina mas visivel acompanhando a cor da variante. */
   border: 2px solid var(--dashboard-op-bar-color, #d4a017);
@@ -4013,8 +4019,10 @@ button:disabled {
 }
 
 .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap svg {
-  width: clamp(28px, 7.5vw, 36px);
-  height: clamp(28px, 7.5vw, 36px);
+  /* SVG mantido — wrap encolheu, SVG continua igual = icone ocupa
+     mais % do circulo. */
+  width: clamp(26px, 7.5vw, 32px);
+  height: clamp(26px, 7.5vw, 32px);
   fill: #e9b929;
   stroke: none;
 }
@@ -4028,7 +4036,7 @@ button:disabled {
 }
 
 .dashboard-operation-title {
-  font-size: clamp(1.15rem, 4.3vw, 1.35rem);
+  font-size: clamp(0.9rem, 3.4vw, 1.05rem);
   font-weight: 700;
   /* Cor herdada da variante (amarelo dourado pra cadastros/classificacao,
      vermelho pra impressao, etc) — mantem coerencia com a faixa lateral
@@ -4040,15 +4048,15 @@ button:disabled {
 
 .dashboard-operation-divider {
   display: block;
-  width: clamp(28px, 8.5vw, 38px);
-  height: 2.5px;
+  width: clamp(20px, 6vw, 28px);
+  height: 2px;
   background: #e9b929;
   border-radius: 2px;
-  margin: clamp(0.22rem, 0.9vw, 0.32rem) 0 clamp(0.3rem, 1vw, 0.4rem);
+  margin: clamp(0.18rem, 0.7vw, 0.25rem) 0 clamp(0.22rem, 0.8vw, 0.3rem);
 }
 
 .dashboard-operation-subtitle {
-  font-size: clamp(0.75rem, 2.7vw, 0.83rem);
+  font-size: clamp(0.65rem, 2.4vw, 0.74rem);
   font-weight: 400;
   color: #4a5763;
   line-height: 1.2;
