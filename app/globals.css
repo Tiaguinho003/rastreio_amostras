@@ -1704,6 +1704,27 @@ body {
   max-width: min(28rem, calc(100vw - 1.5rem));
 }
 
+/* Footer do lookup ganha padding lateral (o .is-themed base nao tem) +
+   padding-bottom pra desencostar das bordas. Botao primario tambem
+   menor (era 3.2rem min-height — desproporcional ao conteudo do modal). */
+.app-modal.is-themed.app-modal-lookup-result .app-modal-actions {
+  padding: 0.75rem clamp(1rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.4rem);
+}
+
+.app-modal.is-themed.app-modal-lookup-result .app-modal-submit {
+  min-height: 2.6rem;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.4rem;
+  align-self: flex-end;
+}
+
+.app-modal.is-themed.app-modal-lookup-result .app-modal-secondary {
+  min-height: 2.6rem;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.2rem;
+  align-self: flex-end;
+}
+
 .app-modal-lookup-meta {
   display: grid;
   gap: 0.38rem;
