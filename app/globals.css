@@ -3898,32 +3898,9 @@ button:disabled {
   gap: clamp(0.7rem, 2.5vw, 0.9rem);
 }
 
-/* Faixa lateral esquerda — gradiente largo (~36-52px) com fade
-   perceptualmente uniforme. Tres truques pra eliminar banding visivel:
-   (a) interpolacao no espaco oklab (em vez do sRGB linear default), que
-       da curva de cor uniforme aos olhos humanos;
-   (b) o stop "transparente" final usa a MESMA matiz amarela (alpha 0),
-       evitando shift de cor pra branco/cinza no meio do gradient;
-   (c) 8 stops seguindo curva quadratica de opacidade (frente decai
-       devagar, traseira decai rapido) — sem mudancas bruscas de
-       derivada que criariam linhas visiveis. */
+/* Faixa lateral removida — card limpo sem decoracao a esquerda. */
 .dashboard-operation-card.is-wide::before {
-  top: 0;
-  bottom: 0;
-  width: clamp(36px, 11vw, 52px);
-  z-index: 0;
-  border-radius: clamp(14px, 4vw, 16px) 0 0 clamp(14px, 4vw, 16px);
-  background: linear-gradient(
-    90deg in oklab,
-    var(--dashboard-op-bar-color, #d4a017) 0%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 92%, transparent) 12%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 78%, transparent) 26%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 58%, transparent) 42%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 38%, transparent) 58%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 20%, transparent) 74%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 8%, transparent) 88%,
-    color-mix(in oklab, var(--dashboard-op-bar-color, #d4a017) 0%, transparent) 100%
-  );
+  display: none;
 }
 
 /* Eleva filhos diretos do card wide pra ficarem acima da faixa amarela. */
