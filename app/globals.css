@@ -15421,15 +15421,17 @@ button:disabled {
     display: block;
   }
 
+  /* Link vira 1 linha em grid 3 colunas: lote esquerda, badge
+     centralizado (via justify-self), tempo no final do espaco util.
+     Seta absolute no canto direito (fora do grid). */
   .recent-activity-mobile-link {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    gap: clamp(0.25rem, 0.9vw, 0.35rem) clamp(0.5rem, 1.8vw, 0.7rem);
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    padding: clamp(0.6rem, 2.2vw, 0.8rem) clamp(2rem, 6vw, 2.2rem) clamp(0.6rem, 2.2vw, 0.8rem)
-      clamp(0.7rem, 2.6vw, 0.9rem);
+    gap: clamp(0.55rem, 2vw, 0.85rem);
+    padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(2rem, 6vw, 2.2rem)
+      clamp(0.7rem, 2.5vw, 0.95rem) clamp(0.75rem, 2.8vw, 0.95rem);
     background: #ffffff;
     border-radius: clamp(10px, 3vw, 12px);
     border-left: 3px solid var(--activity-color, #6b7280);
@@ -15447,24 +15449,6 @@ button:disabled {
     transform: scale(0.98);
   }
 
-  .recent-activity-mobile-row {
-    display: flex;
-    align-items: center;
-    gap: clamp(0.45rem, 1.7vw, 0.65rem);
-    min-width: 0;
-  }
-
-  .recent-activity-mobile-row-top {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .recent-activity-mobile-row-bottom {
-    grid-column: 1;
-    grid-row: 2;
-    justify-content: space-between;
-  }
-
   .recent-activity-mobile-lot {
     display: inline-flex;
     align-items: center;
@@ -15472,52 +15456,27 @@ button:disabled {
     font-size: clamp(0.95rem, 3.4vw, 1.05rem);
     font-weight: 700;
     color: #1a2a35;
-    flex-shrink: 0;
     line-height: 1.1;
-  }
-
-  .recent-activity-mobile-producer {
-    flex: 1;
-    min-width: 0;
-    font-size: clamp(0.78rem, 2.8vw, 0.88rem);
-    font-weight: 500;
-    color: #4a5763;
-    line-height: 1.15;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-shrink: 0;
   }
 
   .recent-activity-mobile-badge {
+    justify-self: center;
     display: inline-block;
-    padding: clamp(0.2rem, 0.8vw, 0.28rem) clamp(0.45rem, 1.6vw, 0.6rem);
+    padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.5rem, 1.8vw, 0.7rem);
     border-radius: 999px;
-    font-size: clamp(0.7rem, 2.5vw, 0.78rem);
+    font-size: clamp(0.72rem, 2.6vw, 0.82rem);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
-    flex-shrink: 0;
   }
 
-  .recent-activity-mobile-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: clamp(0.35rem, 1.4vw, 0.5rem);
-    min-width: 0;
-    font-size: clamp(0.74rem, 2.6vw, 0.82rem);
+  .recent-activity-mobile-time {
+    justify-self: end;
+    font-size: clamp(0.74rem, 2.7vw, 0.82rem);
     color: #6b7280;
     line-height: 1.15;
-  }
-
-  .recent-activity-mobile-sacks,
-  .recent-activity-mobile-time {
     white-space: nowrap;
-  }
-
-  .recent-activity-mobile-sacks + .recent-activity-mobile-time::before {
-    content: '·';
-    margin-right: clamp(0.35rem, 1.4vw, 0.5rem);
-    color: rgba(0, 0, 0, 0.25);
   }
 
   .recent-activity-mobile-arrow {
@@ -15533,8 +15492,6 @@ button:disabled {
     stroke-linecap: round;
     stroke-linejoin: round;
     opacity: 0.55;
-    grid-row: 1 / span 2;
-    grid-column: 2;
   }
 
   .recent-activity-mobile-empty {

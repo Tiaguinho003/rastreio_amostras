@@ -8,17 +8,7 @@ import type { DashboardRecentActivityItem } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
-const SKELETON_PLACEHOLDERS = 4;
-
-function formatSacks(sacks: number | null): string {
-  if (sacks === null || sacks === undefined) return '—';
-  return `${sacks} ${sacks === 1 ? 'saca' : 'sacas'}`;
-}
-
-function formatProducer(producer: string | null): string {
-  if (!producer || producer.trim() === '') return 'Nao informado';
-  return producer;
-}
+const SKELETON_PLACEHOLDERS = 6;
 
 function formatLot(lot: string | null, fallback: string): string {
   return lot ?? fallback.slice(0, 8);
@@ -68,35 +58,24 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
                 <Link
                   href={`/samples/${item.sampleId}`}
                   className="recent-activity-mobile-link"
-                  aria-label={`${cfg.label} — lote ${lotLabel} — ${formatProducer(item.producer)}`}
+                  aria-label={`${cfg.label} — lote ${lotLabel} — ${formatRelativeTime(item.activity.at, now)}`}
                   style={{ '--activity-color': cfg.color } as React.CSSProperties}
                 >
-                  <div className="recent-activity-mobile-row recent-activity-mobile-row-top">
-                    <span className="recent-activity-mobile-lot">
-                      {lotLabel}
-                      {item.isBlend ? <BlendBadge size="sm" /> : null}
-                    </span>
-                    <span className="recent-activity-mobile-producer">
-                      {formatProducer(item.producer)}
-                    </span>
-                  </div>
+                  <span className="recent-activity-mobile-lot">
+                    {lotLabel}
+                    {item.isBlend ? <BlendBadge size="sm" /> : null}
+                  </span>
 
-                  <div className="recent-activity-mobile-row recent-activity-mobile-row-bottom">
-                    <span
-                      className="recent-activity-mobile-badge"
-                      style={{ color: cfg.color, background: cfg.bg }}
-                    >
-                      {cfg.label}
-                    </span>
-                    <span className="recent-activity-mobile-meta">
-                      <span className="recent-activity-mobile-sacks">
-                        {formatSacks(item.sacks)}
-                      </span>
-                      <span className="recent-activity-mobile-time">
-                        {formatRelativeTime(item.activity.at, now)}
-                      </span>
-                    </span>
-                  </div>
+                  <span
+                    className="recent-activity-mobile-badge"
+                    style={{ color: cfg.color, background: cfg.bg }}
+                  >
+                    {cfg.label}
+                  </span>
+
+                  <span className="recent-activity-mobile-time">
+                    {formatRelativeTime(item.activity.at, now)}
+                  </span>
 
                   <svg
                     className="recent-activity-mobile-arrow"
