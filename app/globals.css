@@ -15371,35 +15371,29 @@ button:disabled {
      `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
 
   .recent-activity-mobile {
-    /* Altura fixa 500px — header verde colado no topo (sem padding no
-       container), lista com padding proprio embaixo, sem scroll interno.
-       overflow: hidden clipa cantos arredondados do header gradient.
-       Tamanhos abaixo SAO FIXOS (rem, sem clamp/vw) pra garantir que
-       os 8 itens caibam IGUALMENTE em todo viewport mobile (320-900px). */
+    /* Container TODO verde brand — header e lista herdam o fundo. Cards
+       brancos internos ficam destacados sobre o fundo. Altura fixa 500px,
+       sem scroll interno, tamanhos fixos pra mesma quantidade de itens
+       caberem em todo viewport mobile (320-900px). */
     height: 500px;
     display: flex;
     flex-direction: column;
     padding: 0;
-    background: #ffffff;
+    background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+    color: #ffffff;
     border-radius: 16px;
     overflow: hidden;
     box-shadow:
       0 2px 6px rgba(0, 0, 0, 0.04),
-      0 8px 20px rgba(15, 64, 41, 0.06);
+      0 8px 20px rgba(15, 64, 41, 0.1);
   }
 
-  /* Header verde brand alinhado com .app-modal.is-themed .app-modal-header
-     e .sales-card — gradient + texto branco. Ocupa toda a largura do
-     container ate as bordas arredondadas (clipadas pelo overflow:hidden
-     do parent). */
   .recent-activity-mobile-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.85rem 1rem;
-    background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
-    color: #ffffff;
+    padding: 0.85rem 1rem 0.5rem;
     flex-shrink: 0;
   }
 
@@ -15414,7 +15408,7 @@ button:disabled {
   .recent-activity-mobile-list {
     list-style: none;
     margin: 0;
-    padding: 0.75rem 0.85rem 0.85rem;
+    padding: 0.5rem 0.85rem 0.85rem;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
@@ -15422,7 +15416,6 @@ button:disabled {
        caber em 500px em qualquer viewport. */
     flex: 1;
     min-height: 0;
-    background: linear-gradient(180deg, #ffffff 0%, #faf6e8 100%);
   }
 
   .recent-activity-mobile-item {
