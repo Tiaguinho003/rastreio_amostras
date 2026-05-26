@@ -3892,10 +3892,12 @@ button:disabled {
   flex-direction: row;
   align-items: center;
   text-align: left;
-  /* padding-left maior pra acomodar a barra lateral de 16px sem encostar no icone. */
-  padding: clamp(0.65rem, 2.4vw, 0.88rem) clamp(0.95rem, 3.2vw, 1.15rem)
-    clamp(0.65rem, 2.4vw, 0.88rem) clamp(1.3rem, 4.5vw, 1.7rem);
+  /* padding-right: 0 — a faixa amarela do badge encosta na borda direita.
+     overflow: hidden clipa o pulse do badge nos cantos arredondados. */
+  padding: clamp(0.65rem, 2.4vw, 0.88rem) 0 clamp(0.65rem, 2.4vw, 0.88rem)
+    clamp(1.1rem, 3.8vw, 1.4rem);
   gap: clamp(0.7rem, 2.5vw, 0.9rem);
+  overflow: hidden;
 }
 
 /* Faixa lateral removida — card limpo sem decoracao a esquerda. */
@@ -3977,16 +3979,33 @@ button:disabled {
   line-height: 1.2;
 }
 
-/* Badge: vira circulo grande estatico a direita, mantem cor e pulsacao. */
+/* Badge: vira faixa amarela full-height na direita do card, cantos
+   esquerdos retos (cola visualmente no conteudo), cantos direitos
+   arredondados acompanhando o card. Pulse mais sutil porque a faixa
+   e larga — scale agressivo transbordaria. */
 .dashboard-operation-card.is-wide .dashboard-operation-badge {
   position: static;
   top: auto;
   right: auto;
-  width: clamp(46px, 13.5vw, 58px);
-  height: clamp(46px, 13.5vw, 58px);
-  font-size: clamp(1.1rem, 3.8vw, 1.4rem);
+  align-self: stretch;
+  width: clamp(58px, 17vw, 76px);
+  height: auto;
   border: 0;
+  border-radius: 0 clamp(14px, 4vw, 16px) clamp(14px, 4vw, 16px) 0;
+  font-size: clamp(1.25rem, 4.2vw, 1.5rem);
   flex-shrink: 0;
+  animation: badge-pulse-soft 2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes badge-pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 @keyframes badge-pulse {
