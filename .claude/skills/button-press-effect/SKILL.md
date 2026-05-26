@@ -152,6 +152,33 @@ Combinacoes permitidas (so propriedades de **profundidade**, nunca cor):
 }
 ```
 
+### ❌❌ `transition: 140ms ease` (shorthand sem propriedade)
+
+**A armadilha mais perigosa**: `transition: 140ms ease` sem propriedade
+e shorthand pra `transition: all 140ms ease`. Qualquer mudanca de
+propriedade (incluindo `background` que o iOS PWA standalone aplica
+internamente em :active/:focus) e animada — flash visivel pro fundo.
+
+```css
+/* NUNCA */
+button {
+  transition: 140ms ease; /* = all */
+}
+
+/* CERTO */
+button {
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+```
+
+Esta foi a causa REAL do "flash bege ao tap" reportado pelo user
+em 2026-05-26 — a regra global `button { transition: 140ms ease }`
+em globals.css linha 1783 era um shorthand `all` que animava qualquer
+mudanca implicita do browser. Confirmado por `git log` do fix.
+
 ## 6. Padroes pre-aprovados no projeto
 
 Lista de seletores que ja seguem o pattern corretamente — podem ser usados como referencia:
