@@ -173,42 +173,11 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
               <SalesAvailabilityCard data={salesData} />
             ) : (
               <div className="sales-card sales-card-skeleton" aria-hidden="true">
-                <div className="sales-card-hero">
-                  <div className="sales-card-hero-left">
-                    <span
-                      className="dashboard-skeleton-line dashboard-skeleton-line-sm"
-                      style={{ background: 'rgba(255,255,255,0.15)', width: '60%' }}
-                    />
-                    <span
-                      className="dashboard-skeleton-line dashboard-skeleton-line-lg"
-                      style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        width: '40%',
-                        height: '32px',
-                      }}
-                    />
-                  </div>
-                </div>
-                <div style={{ background: '#ffffff', padding: '18px 20px' }}>
-                  <span
-                    className="dashboard-skeleton-line dashboard-skeleton-line-sm"
-                    style={{
-                      background: '#e8e3d5',
-                      width: '50%',
-                      marginBottom: '10px',
-                      display: 'block',
-                    }}
-                  />
-                  <span
-                    className="dashboard-skeleton-line"
-                    style={{
-                      background: '#e8e3d5',
-                      width: '100%',
-                      height: '10px',
-                      borderRadius: '5px',
-                      display: 'block',
-                    }}
-                  />
+                <div className="sales-total sales-total-skeleton" />
+                <div className="sales-aging">
+                  <div className="sales-aging-card sales-aging-card-skeleton" />
+                  <div className="sales-aging-card sales-aging-card-skeleton" />
+                  <div className="sales-aging-card sales-aging-card-skeleton" />
                 </div>
               </div>
             )}
