@@ -4068,11 +4068,14 @@ button:disabled {
    Pulsacao herda do .dashboard-operation-badge base (scale 1.15). */
 .dashboard-operation-card.is-wide .dashboard-operation-badge {
   position: absolute;
-  top: clamp(-9px, -2.3vw, -7px);
-  right: clamp(0.85rem, 3vw, 1.15rem);
-  width: clamp(30px, 8.8vw, 38px);
-  height: clamp(30px, 8.8vw, 38px);
-  font-size: clamp(0.8rem, 2.8vw, 0.95rem);
+  top: clamp(-8px, -2.2vw, -6px);
+  /* Mais na ponta direita do card pra liberar espaco pro titulo
+     ("Classificacao"/"Cadastros") sem sobreposicao. */
+  right: clamp(0.3rem, 1.2vw, 0.5rem);
+  /* Ligeiramente menor pra ocupar menos area. */
+  width: clamp(26px, 7.5vw, 32px);
+  height: clamp(26px, 7.5vw, 32px);
+  font-size: clamp(0.72rem, 2.5vw, 0.85rem);
   border: 2px solid #ffffff;
   flex-shrink: 0;
 }
