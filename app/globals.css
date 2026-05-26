@@ -1556,8 +1556,15 @@ body {
 
 .app-modal-card-body {
   display: grid;
+  /* grid-template-columns explicito: sem isto, a coluna implicita do
+     grid resolve pra `auto` (intrinsic content size), e com
+     white-space:nowrap nos filhos o body expandia ate caber o nome
+     completo. minmax(0, 1fr) permite o track encolher e ativa o
+     ellipsis nos filhos. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.18rem;
   min-width: 0;
+  width: 100%;
 }
 
 .app-modal-card-title {
@@ -1622,12 +1629,16 @@ body {
 
 /* Bloco F1 (Frente A): truncamento scoped no card de pendencias —
    nao afeta SampleLookupResultModal que reusa as mesmas classes
-   de typography fora do .app-modal-card. */
+   de typography fora do .app-modal-card.
+   min-width:0 + max-width:100% garante que o ellipsis funcione mesmo
+   se algum default UA forcar min-content nos grid items. */
 .app-modal-card .app-modal-card-line,
 .app-modal-card .app-modal-card-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Truncamento das linhas auxiliares (nome, sacas) e governado pelo grid
