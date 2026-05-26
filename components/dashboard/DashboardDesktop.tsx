@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   getDashboardOperationalMetrics,
@@ -126,14 +126,20 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const [commercialMetrics, setCommercialMetrics] =
     useState<DashboardOperationalMetricsResponse | null>(null);
   const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
+  // Throttle pro refetch on focus/visibilitychange: evita N requests
+  // em Alt+Tab rapido. 30s alinha com o Cache-Control do endpoint.
+  const lastFetchRef = useRef<number>(0);
 
   useEffect(() => {
     if (!session) return;
     const isDesktop = window.matchMedia('(min-width: 901px)').matches;
     if (!isDesktop) return;
 
+    const REFETCH_THROTTLE_MS = 30_000;
+
     function refetchAll() {
       if (!session) return;
+      lastFetchRef.current = Date.now();
       getDashboardOperationalMetrics(session)
         .then(setOperationalMetrics)
         .catch(() => {});
@@ -145,19 +151,24 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         .catch(() => {});
     }
 
+    function refetchAllThrottled() {
+      if (Date.now() - lastFetchRef.current < REFETCH_THROTTLE_MS) return;
+      refetchAll();
+    }
+
     refetchAll();
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
-        refetchAll();
+        refetchAllThrottled();
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', refetchAll);
+    window.addEventListener('focus', refetchAllThrottled);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', refetchAll);
+      window.removeEventListener('focus', refetchAllThrottled);
     };
   }, [session]);
 

@@ -75,9 +75,16 @@ async function request<TResponse>(
     session?: SessionData | null;
     formData?: FormData;
     signal?: AbortSignal;
+    /**
+     * Permite endpoints somente-leitura optar pelo cache HTTP do
+     * browser (`'default'` respeita Cache-Control do response).
+     * Default mantem `'no-store'` pra nao quebrar mutations e fluxos
+     * que dependem de freshness garantida.
+     */
+    cachePolicy?: RequestCache;
   } = {}
 ): Promise<TResponse> {
-  const { method = 'GET', body, formData, signal } = options;
+  const { method = 'GET', body, formData, signal, cachePolicy = 'no-store' } = options;
 
   const headers: HeadersInit = {};
   let finalBody: BodyInit | undefined;
@@ -94,7 +101,7 @@ async function request<TResponse>(
       method,
       headers,
       body: finalBody,
-      cache: 'no-store',
+      cache: cachePolicy,
       credentials: 'same-origin',
       signal,
     });
@@ -782,6 +789,9 @@ export function getDashboardRecentActivity(session: SessionData) {
   return request<DashboardRecentActivityResponse>('/dashboard/recent-activity', {
     method: 'GET',
     session,
+    // Respeita o Cache-Control private/max-age=30 do endpoint —
+    // refetches dentro da janela vem do disk cache do browser.
+    cachePolicy: 'default',
   });
 }
 

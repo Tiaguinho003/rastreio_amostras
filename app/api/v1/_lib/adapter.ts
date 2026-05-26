@@ -20,8 +20,14 @@ export async function readJsonBody(request: NextRequest): Promise<Record<string,
   }
 }
 
-export function toNextResponse(result: { status: number; body: unknown }) {
-  return NextResponse.json(result.body, { status: result.status });
+export function toNextResponse(
+  result: { status: number; body: unknown },
+  responseHeaders?: Record<string, string>
+) {
+  return NextResponse.json(result.body, {
+    status: result.status,
+    headers: responseHeaders,
+  });
 }
 
 export async function executeBackend(
@@ -30,6 +36,11 @@ export async function executeBackend(
   options: {
     params?: Record<string, string>;
     body?: unknown;
+    /**
+     * Headers extras pra colocar no Response (ex: Cache-Control em
+     * endpoints somente-leitura que podem ser cacheados pelo browser).
+     */
+    responseHeaders?: Record<string, string>;
   } = {}
 ) {
   const api = getBackendApi();
@@ -47,5 +58,5 @@ export async function executeBackend(
     body: options.body ?? {},
   });
 
-  return toNextResponse(result);
+  return toNextResponse(result, options.responseHeaders);
 }
