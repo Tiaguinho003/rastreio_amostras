@@ -19161,11 +19161,14 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(0.65rem, 2.4vw, 0.95rem);
-  padding: clamp(1rem, 3.8vw, 1.35rem) clamp(1rem, 3.8vw, 1.35rem)
-    clamp(1rem, 3.8vw, 1.35rem) clamp(1rem, 3.8vw, 1.35rem);
+  padding: clamp(1rem, 3.8vw, 1.35rem);
   background: linear-gradient(135deg, #1a4a35, #14372a);
   color: #ffffff;
   border-radius: clamp(14px, 4vw, 18px);
+  /* Linha esquerda verde mais clara — mesmo pattern dos cards de
+     pendencia (border-left colorida), aqui em tom destacando do fundo
+     escuro do card. */
+  border-left: 4px solid #3aa370;
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.06),
     0 8px 20px rgba(15, 64, 41, 0.14);
@@ -19180,11 +19183,13 @@ button:disabled {
   line-height: 1.15;
 }
 
-/* Body: `auto 1fr` — donut com tamanho intrinseco a esquerda, legenda
-   ocupa o resto. Gap controla o respiro entre os dois. */
+/* Body: `auto auto` + justify-content:center — donut e legenda lado a
+   lado em bloco centralizado horizontalmente no card, com espaco igual
+   nas laterais. */
 .sales-card-body {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto;
+  justify-content: center;
   gap: clamp(1rem, 4vw, 1.5rem);
   align-items: center;
 }

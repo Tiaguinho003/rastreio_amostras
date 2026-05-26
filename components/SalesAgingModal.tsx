@@ -50,9 +50,6 @@ export function SalesAgingModal({ data, onClose }: SalesAgingModalProps) {
             <h3 id={titleId} className="app-modal-title">
               Distribuicao por tempo
             </h3>
-            <p className="app-modal-description">
-              Lotes disponiveis pra venda agrupados pelo tempo desde a classificacao.
-            </p>
           </div>
           <button
             type="button"
