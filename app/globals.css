@@ -15635,6 +15635,10 @@ button:disabled {
     animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
   }
 
+  .recent-activity-mobile {
+    animation: dashboard-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+  }
+
   .dashboard-sheet-section {
     display: grid;
     gap: clamp(0.8rem, 3vw, 1.1rem);
