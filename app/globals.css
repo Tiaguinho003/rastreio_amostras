@@ -15421,10 +15421,12 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(1.2rem, 4.5vw, 1.8rem) clamp(1rem, 4vw, 1.4rem);
-    padding-bottom: calc(
-      var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance) +
-        0.8rem
-    );
+    /* Padding-bottom enxuto: safe-area + ~6rem (96px) cobre a tabbar
+       (~75-85px) com ~10-15px de respiro pro ultimo container, sem
+       o gap visual gigante que tinhamos antes (7.8rem + 0.8rem extras
+       = ~138px). Nao mexemos no --mobile-tabbar-clearance global pq
+       outras paginas dependem dele. */
+    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 6rem);
     display: flex;
     flex-direction: column;
     gap: clamp(2rem, 7vw, 3rem);
