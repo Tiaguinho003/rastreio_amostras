@@ -1518,6 +1518,9 @@ body {
      conteudo (esquerda) e da borda direita do card. */
   gap: 0.82rem;
   border: 1px solid rgba(214, 214, 214, 0.52);
+  /* Borda superior amarela acompanhando a cor da variante (status-color);
+     mesma cor da borda esquerda — forma um "L" superior-esquerdo. */
+  border-top: 3px solid var(--status-color, #d4a017);
   border-left: 4.5px solid var(--status-color, rgba(214, 214, 214, 0.52));
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.4);
