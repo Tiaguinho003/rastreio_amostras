@@ -19414,7 +19414,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(0.65rem, 2.4vw, 0.95rem);
-  padding: clamp(1rem, 3.8vw, 1.35rem);
+  /* Padding vertical reduzido (~30%) — container fica mais baixo sem
+     mexer no conteudo interno (gap, donut, legenda mantidos). */
+  padding: clamp(0.65rem, 2.4vw, 0.9rem) clamp(1rem, 3.8vw, 1.35rem);
   background: linear-gradient(135deg, #1a4a35, #14372a);
   color: #ffffff;
   border-radius: clamp(14px, 4vw, 18px);
