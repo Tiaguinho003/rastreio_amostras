@@ -2,15 +2,19 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 import { NotificationBell } from '../NotificationBell';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
+import { getDashboardRecentActivity } from '../../lib/api-client';
 import { getRoleLabel } from '../../lib/roles';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
+import { RecentActivityListMobile } from './RecentActivityListMobile';
 import type {
   DashboardPendingResponse,
+  DashboardRecentActivityItem,
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
@@ -52,6 +56,43 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
   const firstName = fullName.split(' ')[0];
   const roleLabel = getRoleLabel(session.user.role);
   const initials = getInitials(fullName);
+
+  // Recent activity: pattern espelhado do DashboardDesktop. Throttle de
+  // 30s alinha com o Cache-Control private/max-age=30 do endpoint —
+  // Alt+Tab/troca de app rapida nao gera N requests.
+  const [recentActivity, setRecentActivity] = useState<DashboardRecentActivityItem[] | null>(null);
+  const lastRecentFetchRef = useRef<number>(0);
+
+  useEffect(() => {
+    const REFETCH_THROTTLE_MS = 30_000;
+
+    function refetchRecent() {
+      lastRecentFetchRef.current = Date.now();
+      getDashboardRecentActivity(session)
+        .then((response) => setRecentActivity(response.items))
+        .catch(() => {});
+    }
+
+    function refetchRecentThrottled() {
+      if (Date.now() - lastRecentFetchRef.current < REFETCH_THROTTLE_MS) return;
+      refetchRecent();
+    }
+
+    refetchRecent();
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refetchRecentThrottled();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refetchRecentThrottled);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refetchRecentThrottled);
+    };
+  }, [session]);
 
   return (
     <div className="dashboard-mobile">
@@ -176,9 +217,8 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             )}
           </section>
 
-          {/* Placeholder pra proximo container (conteudo sera definido). */}
-          <section className="dashboard-sheet-section dashboard-sheet-content is-slot-extra">
-            <div className="dashboard-placeholder-card" aria-hidden="true" />
+          <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
+            <RecentActivityListMobile items={recentActivity} />
           </section>
         </section>
       </section>
