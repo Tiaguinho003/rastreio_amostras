@@ -174,11 +174,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             ) : (
               <div className="sales-card sales-card-skeleton" aria-hidden="true">
                 <div className="sales-total sales-total-skeleton" />
-                <div className="sales-aging">
-                  <div className="sales-aging-card sales-aging-card-skeleton" />
-                  <div className="sales-aging-card sales-aging-card-skeleton" />
-                  <div className="sales-aging-card sales-aging-card-skeleton" />
-                </div>
+                <div className="sales-chart sales-chart-skeleton" />
               </div>
             )}
           </section>

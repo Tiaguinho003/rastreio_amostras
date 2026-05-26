@@ -19250,21 +19250,95 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* ── Stack direita — 3 mini-cards de aging ── */
+/* ── Direita — donut chart de distribuicao por tempo + CTA ── */
 
-.sales-aging {
-  display: grid;
-  grid-template-rows: repeat(3, 1fr);
-  gap: clamp(0.4rem, 1.5vw, 0.55rem);
+.sales-chart {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.85rem, 3.2vw, 1.15rem);
+  background: linear-gradient(135deg, #1a4a35, #14372a);
+  border-radius: clamp(14px, 4vw, 18px);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(15, 64, 41, 0.12);
   min-width: 0;
+  min-height: 0;
+}
+
+.sales-chart-donut {
+  width: 100%;
+  height: 100%;
+  max-width: clamp(140px, 36vw, 200px);
+  max-height: clamp(140px, 36vw, 200px);
+  display: block;
+}
+
+.sales-chart-donut-total {
+  font-size: 28px;
+  font-weight: 700;
+  fill: #ffffff;
+  font-family: inherit;
+}
+
+/* CTA branco circular flutuando no canto inferior direito do container
+   do grafico. Abre o modal com a lista detalhada por band. */
+.sales-chart-cta {
+  position: absolute;
+  bottom: clamp(0.55rem, 2vw, 0.8rem);
+  right: clamp(0.55rem, 2vw, 0.8rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(2rem, 7vw, 2.4rem);
+  height: clamp(2rem, 7vw, 2.4rem);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--brand-green-deep, #134029);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sales-chart-cta:active {
+  transform: scale(0.92);
+}
+
+.sales-chart-cta svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Modal de distribuicao (acessivel via .sales-chart-cta) ── */
+
+.sales-aging-modal {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: min(28rem, calc(100vw - 1.5rem));
+}
+
+.sales-aging-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.55rem, 2vw, 0.8rem);
 }
 
 .sales-aging-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(0.5rem, 2vw, 0.7rem);
-  padding: clamp(0.5rem, 2vw, 0.7rem) clamp(0.7rem, 2.6vw, 0.9rem);
+  gap: clamp(0.7rem, 2.4vw, 0.95rem);
+  padding: clamp(0.75rem, 2.6vw, 1rem) clamp(0.85rem, 3vw, 1.15rem);
   background: #ffffff;
   border-radius: clamp(10px, 3vw, 12px);
   border-left: 4px solid currentColor;
@@ -19281,7 +19355,7 @@ button:disabled {
 }
 
 .sales-aging-card:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .sales-aging-card--over30 {
@@ -19296,19 +19370,33 @@ button:disabled {
   color: #27ae60;
 }
 
-.sales-aging-count {
-  font-size: clamp(1.05rem, 4vw, 1.3rem);
-  font-weight: 800;
-  color: currentColor;
-  line-height: 1;
+.sales-aging-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.15rem, 0.7vw, 0.2rem);
+  min-width: 0;
 }
 
 .sales-aging-label {
-  font-size: clamp(0.74rem, 2.7vw, 0.85rem);
-  font-weight: 600;
-  color: #1f2a30;
+  font-size: clamp(0.95rem, 3.3vw, 1.1rem);
+  font-weight: 700;
+  color: currentColor;
+  line-height: 1.1;
+}
+
+.sales-aging-card-description {
+  font-size: clamp(0.74rem, 2.5vw, 0.82rem);
+  font-weight: 400;
+  color: #4a5763;
+  line-height: 1.2;
+}
+
+.sales-aging-count {
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
+  font-weight: 800;
+  color: currentColor;
   line-height: 1;
-  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Skeleton ── */
@@ -19319,10 +19407,9 @@ button:disabled {
   opacity: 0.5;
 }
 
-.sales-aging-card-skeleton {
-  background: rgba(216, 212, 200, 0.5);
-  border-left-color: rgba(0, 0, 0, 0.06);
-  min-height: clamp(34px, 11vw, 46px);
+.sales-chart-skeleton {
+  min-height: clamp(120px, 36vw, 160px);
+  background: linear-gradient(135deg, rgba(216, 212, 200, 0.6), rgba(194, 189, 176, 0.6));
 }
 
 /* ================================================================
