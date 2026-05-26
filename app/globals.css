@@ -19405,18 +19405,15 @@ button:disabled {
   background: linear-gradient(135deg, #1a4a35, #14372a);
   color: #ffffff;
   border-radius: clamp(14px, 4vw, 18px);
-  /* Linha esquerda verde mais clara — mesmo pattern dos cards de
-     pendencia (border-left colorida), aqui em tom destacando do fundo
-     escuro do card. */
-  border-left: 4px solid #3aa370;
+  /* Linha BRANCA no topo do container — substitui o border-left verde
+     que tinhamos antes. Resto das bordas zerado (button reset). */
+  border-top: 3px solid #ffffff;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
   box-shadow:
     0 2px 6px rgba(0, 0, 0, 0.06),
     0 8px 20px rgba(15, 64, 41, 0.14);
-  /* Resets de button (o card vira <button> pra ser clicavel inteiro
-     abrindo o modal de distribuicao). */
-  border-top: 0;
-  border-right: 0;
-  border-bottom: 0;
   text-align: left;
   font: inherit;
   cursor: pointer;
@@ -19454,8 +19451,8 @@ button:disabled {
 
 .sales-chart-donut {
   display: block;
-  width: clamp(120px, 30vw, 160px);
-  height: clamp(120px, 30vw, 160px);
+  width: clamp(140px, 36vw, 190px);
+  height: clamp(140px, 36vw, 190px);
   flex-shrink: 0;
 }
 
@@ -19474,26 +19471,26 @@ button:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: clamp(0.55rem, 2vw, 0.75rem);
+  gap: clamp(0.42rem, 1.6vw, 0.6rem);
   min-width: 0;
 }
 
 .sales-chart-legend-item {
   display: flex;
   align-items: center;
-  gap: clamp(0.55rem, 2vw, 0.75rem);
+  gap: clamp(0.45rem, 1.7vw, 0.6rem);
 }
 
 .sales-chart-legend-dot {
   display: inline-block;
-  width: clamp(0.7rem, 2.4vw, 0.85rem);
-  height: clamp(0.7rem, 2.4vw, 0.85rem);
+  width: clamp(0.6rem, 2.1vw, 0.75rem);
+  height: clamp(0.6rem, 2.1vw, 0.75rem);
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .sales-chart-legend-label {
-  font-size: clamp(0.85rem, 3vw, 0.95rem);
+  font-size: clamp(0.74rem, 2.6vw, 0.85rem);
   font-weight: 500;
   color: #ffffff;
   line-height: 1.1;
