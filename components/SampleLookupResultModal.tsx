@@ -2,6 +2,7 @@
 
 import { QRCodeCanvas } from 'qrcode.react';
 import { useId } from 'react';
+import { createPortal } from 'react-dom';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
 import { StatusBadge } from './StatusBadge';
@@ -79,7 +80,13 @@ export function SampleLookupResultModal({
     }
   })();
 
-  return (
+  // Render via portal pra body: o modal e renderizado dentro de
+  // SampleSearchField, que vive em paginas envolvidas por <PageTransition>.
+  // Durante a transicao de pagina, .page-transition-content recebe
+  // `transform`+`will-change`, criando stacking context que prende o
+  // `position: fixed` do backdrop. Portal pra body escapa qualquer
+  // stacking context ancestral. Ver skill `modals` §9 "Portal".
+  return createPortal(
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
@@ -184,6 +191,7 @@ export function SampleLookupResultModal({
           ) : null}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

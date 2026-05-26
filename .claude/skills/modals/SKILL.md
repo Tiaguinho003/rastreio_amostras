@@ -404,9 +404,28 @@ useEffect(() => {
 
 > Nem todos os modais existentes implementam isso. Padronizar nos modais novos.
 
-### Portal
+### Portal (OBRIGATORIO)
 
-Modais que aparecem **dentro de paginas com layout complexo** (drawer, scroll, transforms) devem usar `createPortal(..., document.body)` pra escapar de stacking contexts. Modais inline simples (status modals em `app/clients/[clientId]/page.tsx`) podem ficar inline. Quando em duvida, usar portal.
+Modal central **sempre** renderiza via `createPortal(..., document.body)`. Sem excecao. O JSX root vira:
+
+```tsx
+return createPortal(
+  <div className="app-modal-backdrop" onClick={onClose}>
+    <section className="app-modal is-themed" ...>
+      ...
+    </section>
+  </div>,
+  document.body,
+);
+```
+
+**Por que e obrigatorio:** todas as rotas da app sao envolvidas por `<PageTransition>` (`components/PageTransition.tsx`), que aplica `transform: scale(...)` + `will-change: transform, opacity` no wrapper `.page-transition-content` durante navegacoes. Qualquer `transform != none` em ancestral cria stacking context que captura o `position: fixed` do `.app-modal-backdrop` — o modal acaba abaixo da topbar, do pseudo `mobile-edge-shell-auth::after` (z-index 9999) e de qualquer outro elemento com z-index alto em irmaos do wrapper. Sintoma classico: "modal abre atras da pagina".
+
+Portal pra `document.body` escapa qualquer stacking context ancestral, agora e no futuro — robusto contra qualquer novo `transform`/`filter`/`backdrop-filter` em ancestral.
+
+**SSR-safe:** o padrao do projeto e nao usar guard `mounted`. O `if (!open) return null` (ou render condicional do pai) garante que `createPortal` so e chamado client-side, quando `document.body` existe. Ver `ClientUnitModal`, `BlendRevertModal`, `SampleMovementModal`, `SampleInvalidateBlockedModal` como referencia.
+
+**Excecao legitima:** status modals inline em `app/clients/[clientId]/page.tsx` que ja vivem direto sob `<AppShell>` em rotas SEM contexto de stacking problematico podem ficar inline — mas isso e legacy, novos modais sempre via portal.
 
 ### Aria
 
@@ -490,13 +509,13 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal` em vez de `.is-themed`:
 
-- `OperationModal` (dashboard) — usa `app-modal app-modal-dashboard`
+- `OperationModal` (dashboard) — usa `app-modal app-modal-dashboard`. **NAO usa portal** — candidato a portal junto da refatoracao visual.
 - `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
 - `cld-modal` (Classification Detail Modal em `/samples/[sampleId]/page.tsx`) — usa `cld-*` (cld-header/section/field/grid). Q.cls.2 audit do tipo (commit `15a5a07`) adicionou seção "Tipo" seguindo o padrão interno (cld-section + cld-field-input + chevron SVG no select), mas o modal pai segue legacy.
-- `SampleMovementModal`
+- `SampleMovementModal` — ja usa portal.
 - `samples-filter-modal` em `/samples`
 - `InactivateUserModal`, `CancelInactivationDialog`, `InactivateConfirmDialog` em `/users`
-- `SampleLookupResultModal`
+- `SampleLookupResultModal` — usa `.app-modal-lookup-result` legacy mas **ja renderiza via portal pra body** (fix pra bug de stacking sob `<PageTransition>` no dashboard).
 
 > Refatorar pra `.is-themed` somente quando tiver outro motivo pra mexer no modal — nao e prioridade visual hoje.
 
@@ -571,7 +590,7 @@ Ao construir ou revisar um modal:
 - [ ] Close button com `aria-label="Fechar"` e `<span aria-hidden>×</span>`
 - [ ] Reset de form em `useEffect(() => { if (open) setForm(EMPTY); }, [open])`
 - [ ] Backdrop fecha por click (default) — `onClick={onClose}` no backdrop, `onClick={stopPropagation}` no section
-- [ ] `createPortal(..., document.body)` se o modal vive dentro de pagina com layout complexo
+- [ ] `createPortal(..., document.body)` no return — **obrigatorio** pra todo modal central (escapa stacking context do `<PageTransition>` que envolve todas as rotas)
 - [ ] Textos em pt-BR (titulo, labels, botoes, mensagens)
 - [ ] Sem cores inventadas — apenas tokens da paleta (`design-system` §2)
 - [ ] Sem botao verde no `:active` transitorio (apenas `.app-modal-submit` que ja e verde por design)
