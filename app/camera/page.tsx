@@ -1263,11 +1263,11 @@ function CameraPageContent() {
           sample={result.sample}
           kind={resultModalKind}
           title="Amostra localizada"
-          primaryActionLabel="Ver detalhes"
-          onPrimaryAction={handleOpenSampleDetails}
-          onDetails={handleCloseResultModal}
+          onDetails={handleOpenSampleDetails}
+          detailsLabel="Ver detalhes"
+          onSecondaryAction={handleCloseResultModal}
+          secondaryActionLabel="Escanear novamente"
           onClose={handleCloseResultModal}
-          detailsLabel="Escanear novamente"
           onReclassify={handleReclassifyFromScan}
           onShowDetails={handleOpenSampleDetails}
         />

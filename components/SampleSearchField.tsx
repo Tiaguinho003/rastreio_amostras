@@ -103,21 +103,12 @@ export function SampleSearchField({
       // NAO refocar o input aqui: em mobile, focus() programatico
       // dispara o teclado, AppShell marca body.is-keyboard-open e a
       // tabbar fica escondida via transform ate o user dispensar o
-      // teclado. Refocus intencional fica em handleSearchAgain.
+      // teclado.
     };
   }, [resultModalOpen]);
 
   function closeResultModal() {
     setResultModalOpen(false);
-  }
-
-  function handleSearchAgain() {
-    setResultModalOpen(false);
-    setError(null);
-    window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 0);
   }
 
   function handleOpenMoreDetails() {
@@ -218,8 +209,6 @@ export function SampleSearchField({
         <SampleLookupResultModal
           sample={result.sample}
           title="Amostra localizada"
-          primaryActionLabel="Buscar novamente"
-          onPrimaryAction={handleSearchAgain}
           onDetails={handleOpenMoreDetails}
           onClose={closeResultModal}
         />

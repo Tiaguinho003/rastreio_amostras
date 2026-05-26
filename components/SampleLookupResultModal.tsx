@@ -5,7 +5,6 @@ import { useId } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CommercialStatusBadge } from './CommercialStatusBadge';
-import { StatusBadge } from './StatusBadge';
 import { useFocusTrap } from '../lib/use-focus-trap';
 import type { ResolveSampleByQrResponse } from '../lib/types';
 
@@ -25,10 +24,16 @@ interface SampleLookupResultModalProps {
 
   // Usado apenas em kind='lookup'.
   title?: string;
-  primaryActionLabel?: string;
-  onPrimaryAction?: () => void;
   onDetails?: () => void;
   detailsLabel?: string;
+  /**
+   * Acao secundaria opcional pra kind='lookup'. Quando fornecida,
+   * renderiza um botao .app-modal-secondary antes do .app-modal-submit
+   * (ex: "Escanear novamente" no fluxo da camera). Dashboard nao passa
+   * — modal mostra so o submit "Ver detalhes".
+   */
+  onSecondaryAction?: () => void;
+  secondaryActionLabel?: string;
 
   // Usado apenas em kind='classified'.
   onReclassify?: () => void;
@@ -38,11 +43,9 @@ interface SampleLookupResultModalProps {
 const COPY = {
   invalidated: {
     title: 'Amostra invalidada',
-    description: 'Esta amostra esta invalidada e nao pode ser classificada.',
   },
   classified: {
     title: 'Amostra ja classificada',
-    description: 'Esta amostra ja foi classificada. Quer reclassificar?',
   },
 } as const;
 
@@ -51,29 +54,25 @@ export function SampleLookupResultModal({
   kind = 'lookup',
   onClose,
   title,
-  primaryActionLabel,
-  onPrimaryAction,
   onDetails,
-  detailsLabel = 'Mais informacoes',
+  detailsLabel = 'Ver detalhes',
+  onSecondaryAction,
+  secondaryActionLabel,
   onReclassify,
   onShowDetails,
 }: SampleLookupResultModalProps) {
   const titleId = useId();
   const focusTrapRef = useFocusTrap(true);
 
-  const headerCopy = (() => {
+  const headerTitle = (() => {
     switch (kind) {
       case 'lookup':
-        return {
-          title: title ?? 'Amostra localizada',
-          description: 'Confira os dados principais antes de abrir os detalhes.',
-        };
+        return title ?? 'Amostra localizada';
       case 'invalidated':
-        return COPY.invalidated;
+        return COPY.invalidated.title;
       case 'classified':
-        return COPY.classified;
+        return COPY.classified.title;
       default: {
-        // Exhaustive check: erro de compilacao se SampleStatus ganhar variante nova.
         const _exhaustive: never = kind;
         return _exhaustive;
       }
@@ -90,7 +89,7 @@ export function SampleLookupResultModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal app-modal-lookup-result"
+        className="app-modal is-themed app-modal-lookup-result"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -99,9 +98,8 @@ export function SampleLookupResultModal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id={titleId} className="app-modal-title">
-              {headerCopy.title}
+              {headerTitle}
             </h3>
-            <p className="app-modal-description">{headerCopy.description}</p>
           </div>
 
           <button
@@ -117,13 +115,6 @@ export function SampleLookupResultModal({
 
         <div className="app-modal-content">
           <article className="app-modal-lookup-layout">
-            <div className="app-modal-status-row">
-              <div className="status-badge-group">
-                <StatusBadge status={sample.status} />
-                <CommercialStatusBadge status={sample.commercialStatus} />
-              </div>
-            </div>
-
             {kind === 'lookup' ? (
               <div className="app-modal-lookup-qr">
                 <QRCodeCanvas value={sample.internalLotNumber ?? sample.id} size={120} />
@@ -131,9 +122,12 @@ export function SampleLookupResultModal({
             ) : null}
 
             <div className="app-modal-lookup-meta">
-              <p className="app-modal-card-line">
-                <strong>Lote interno:</strong> {sample.internalLotNumber ?? 'Nao definido'}
-              </p>
+              <div className="app-modal-lookup-lot-row">
+                <p className="app-modal-card-line">
+                  <strong>Lote interno:</strong> {sample.internalLotNumber ?? 'Nao definido'}
+                </p>
+                <CommercialStatusBadge status={sample.commercialStatus} />
+              </div>
               {kind === 'lookup' ? (
                 <>
                   <p className="app-modal-card-line">
@@ -161,9 +155,11 @@ export function SampleLookupResultModal({
         <div className="app-modal-actions">
           {kind === 'lookup' ? (
             <>
-              <button type="button" className="app-modal-secondary" onClick={onPrimaryAction}>
-                {primaryActionLabel}
-              </button>
+              {onSecondaryAction ? (
+                <button type="button" className="app-modal-secondary" onClick={onSecondaryAction}>
+                  {secondaryActionLabel}
+                </button>
+              ) : null}
               <button type="button" className="app-modal-submit" onClick={onDetails}>
                 {detailsLabel}
               </button>

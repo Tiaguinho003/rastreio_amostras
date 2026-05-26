@@ -1692,16 +1692,36 @@ body {
   justify-content: center;
   padding: 0.78rem;
   border-radius: 22px;
-  border: 1px solid rgba(214, 214, 214, 0.42);
-  background: rgba(255, 255, 255, 0.4);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 10px 18px rgba(18, 24, 20, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.025);
+  box-shadow: 0 2px 8px rgba(18, 24, 20, 0.05);
+}
+
+/* Width compacto pro lookup result — menor que o default 38rem do
+   .is-themed pra que o modal nao fique gigante em desktop. */
+.app-modal.is-themed.app-modal-lookup-result {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: min(28rem, calc(100vw - 1.5rem));
 }
 
 .app-modal-lookup-meta {
   display: grid;
   gap: 0.38rem;
+}
+
+/* Linha lote + badge comercial lado a lado, com badge ancorado a
+   direita. Posicao destacada da info mais relevante do modal. */
+.app-modal-lookup-lot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.15rem;
+}
+
+.app-modal-lookup-lot-row > .app-modal-card-line {
+  flex: 1;
+  min-width: 0;
 }
 
 .app-modal-search {
