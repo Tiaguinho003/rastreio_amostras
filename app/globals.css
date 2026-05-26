@@ -15371,16 +15371,19 @@ button:disabled {
      `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
 
   .recent-activity-mobile {
-    /* Altura fixa 500px — header fica ancorado no topo, lista interna
-       rola sozinha. O sheet bege externo continua scrollando o
-       resto da pagina (containers acima e abaixo). */
+    /* Altura fixa 500px — header fica ancorado no topo, lista mostra
+       8 itens (limite no JSX), sem scroll interno. O sheet bege externo
+       scrolla o resto da pagina. Tamanhos abaixo SAO FIXOS (rem, sem
+       clamp/vw) pra garantir que os 8 itens caibam IGUALMENTE em todo
+       viewport mobile (320-900px). Clamps cresceriam paddings/fonts em
+       vp grande e quebrariam a contagem. */
     height: 500px;
     display: flex;
     flex-direction: column;
-    gap: clamp(0.7rem, 2.5vw, 0.95rem);
-    padding: clamp(1rem, 3.8vw, 1.35rem);
+    gap: 0.7rem;
+    padding: 1rem;
     background: linear-gradient(180deg, #ffffff 0%, #faf6e8 100%);
-    border-radius: clamp(14px, 4vw, 18px);
+    border-radius: 16px;
     box-shadow:
       0 2px 6px rgba(0, 0, 0, 0.04),
       0 8px 20px rgba(15, 64, 41, 0.06);
@@ -15395,7 +15398,7 @@ button:disabled {
 
   .recent-activity-mobile-title {
     margin: 0;
-    font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+    font-size: 1rem;
     font-weight: 700;
     color: #1a2a35;
     letter-spacing: -0.01em;
@@ -15407,10 +15410,9 @@ button:disabled {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: clamp(0.5rem, 1.8vw, 0.7rem);
-    /* Sem scroll interno — limite de 8 items garante caber sempre
-       dentro do container fixo de 500px. Scroll fica so na pagina
-       (sheet bege externo). */
+    gap: 0.55rem;
+    /* Sem scroll interno — limite de 8 items + tamanhos fixos garantem
+       caber em 500px em qualquer viewport. */
     flex: 1;
     min-height: 0;
   }
@@ -15420,21 +15422,17 @@ button:disabled {
   }
 
   /* Layout: lote (flex item esquerda, intrinsic) + tempo (flex item
-     direita, intrinsic) + badge `position: absolute` numa posicao
-     fixa (left:35% do card). Garante que o badge fique ALINHADO
-     verticalmente entre TODOS os items — nao se desloca por causa
-     de Liga no lote nem de tempo grande na direita. Liga aparece
-     inteira; tempo fica encostado a direita (antes da seta absolute).
-     Seta absolute no canto direito (como antes). */
+     direita, intrinsic) + badge `position: absolute` — fica ALINHADO
+     verticalmente entre TODOS os items. Tamanhos fixos pra consistencia
+     entre viewports mobile. */
   .recent-activity-mobile-link {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(2rem, 6vw, 2.2rem)
-      clamp(0.7rem, 2.5vw, 0.95rem) clamp(0.75rem, 2.8vw, 0.95rem);
+    padding: 0.75rem 2rem 0.75rem 0.85rem;
     background: #ffffff;
-    border-radius: clamp(10px, 3vw, 12px);
+    border-radius: 12px;
     border-left: 3px solid var(--activity-color, #6b7280);
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.04),
@@ -15454,25 +15452,26 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+    font-size: 1rem;
     font-weight: 700;
     color: #1a2a35;
     line-height: 1.1;
     flex-shrink: 0;
   }
 
-  /* Badge posicionado absolute no centro-direita (left:38%) — fica na
-     MESMA posicao horizontal em todos os items, independente do
-     conteudo do lote (com/sem Liga) e do tempo (curto/longo). */
+  /* Badge posicionado absolute em `max(110px, 38%)` — em vp pequeno
+     (320-360px) onde 38% nao da gap suficiente apos lote+Liga (~95px),
+     trava em 110px (15px de respiro minimo). Em vp medio/grande, vai
+     pro 38% relativo, mantendo proporcao visual. */
   .recent-activity-mobile-badge {
     position: absolute;
-    left: 38%;
+    left: max(110px, 38%);
     top: 50%;
     transform: translateY(-50%);
     display: inline-block;
-    padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.5rem, 1.8vw, 0.7rem);
+    padding: 0.25rem 0.6rem;
     border-radius: 999px;
-    font-size: clamp(0.72rem, 2.6vw, 0.82rem);
+    font-size: 0.75rem;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
@@ -15480,7 +15479,7 @@ button:disabled {
 
   .recent-activity-mobile-time {
     flex-shrink: 0;
-    font-size: clamp(0.74rem, 2.7vw, 0.82rem);
+    font-size: 0.78rem;
     color: #6b7280;
     line-height: 1.15;
     white-space: nowrap;
@@ -15488,11 +15487,11 @@ button:disabled {
 
   .recent-activity-mobile-arrow {
     position: absolute;
-    right: clamp(0.7rem, 2.4vw, 0.85rem);
+    right: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
-    width: clamp(0.9rem, 3vw, 1.05rem);
-    height: clamp(0.9rem, 3vw, 1.05rem);
+    width: 1rem;
+    height: 1rem;
     fill: none;
     stroke: var(--activity-color, #6b7280);
     stroke-width: 2.2;
@@ -15506,16 +15505,16 @@ button:disabled {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: clamp(0.8rem, 3vw, 1.2rem);
+    padding: 1rem;
     text-align: center;
     color: #6b7280;
-    font-size: clamp(0.85rem, 3vw, 0.95rem);
+    font-size: 0.9rem;
   }
 
   .recent-activity-mobile-item-skeleton {
-    min-height: clamp(56px, 16vw, 72px);
+    min-height: 44px;
     background: rgba(216, 212, 200, 0.4);
-    border-radius: clamp(10px, 3vw, 12px);
+    border-radius: 12px;
     border-left: 3px solid rgba(0, 0, 0, 0.06);
   }
 
