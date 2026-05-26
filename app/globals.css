@@ -15421,13 +15421,16 @@ button:disabled {
     display: block;
   }
 
-  /* Link vira 1 linha em grid 3 colunas: lote esquerda, badge
-     centralizado (via justify-self), tempo no final do espaco util.
-     Seta absolute no canto direito (fora do grid). */
+  /* Link vira 1 linha em grid 3 colunas IGUAIS (1fr 1fr 1fr): lote
+     (col1, start), badge (col2, center), tempo (col3, end). Colunas
+     iguais garantem que o badge SEMPRE fique no centro absoluto da
+     row, independente do tamanho do tempo ("ha 3 min" vs "ha 12 dias"
+     nao deslocam mais o badge). Seta absolute no canto direito (fora
+     do grid). */
   .recent-activity-mobile-link {
     position: relative;
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: center;
     gap: clamp(0.55rem, 2vw, 0.85rem);
     padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(2rem, 6vw, 2.2rem)
