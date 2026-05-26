@@ -19459,7 +19459,7 @@ button:disabled {
   justify-content: start;
   gap: clamp(1rem, 4vw, 1.5rem);
   align-items: center;
-  padding-inline-start: clamp(0.4rem, 1.8vw, 0.85rem);
+  padding-inline-start: clamp(0.85rem, 3vw, 1.4rem);
 }
 
 .sales-chart-donut {
