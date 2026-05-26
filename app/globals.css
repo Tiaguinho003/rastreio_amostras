@@ -1514,7 +1514,9 @@ body {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 0.7rem;
+  /* gap = padding-right: o botao "Classificar" fica equidistante do
+     conteudo (esquerda) e da borda direita do card. */
+  gap: 0.82rem;
   border: 1px solid rgba(214, 214, 214, 0.52);
   border-left: 4.5px solid var(--status-color, rgba(214, 214, 214, 0.52));
   border-radius: 14px;
@@ -1617,12 +1619,10 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Linhas auxiliares (proprietario, sacas) truncam em 50% da largura do
-   card pra deixar respiro entre o nome e o botao "Classificar". O titulo
-   (lote) fica livre porque e a info principal e quase sempre cabe. */
-.app-modal-card .app-modal-card-line {
-  max-width: 50%;
-}
+/* Truncamento das linhas auxiliares (nome, sacas) e governado pelo grid
+   `1fr auto` do .app-modal-card: o body ocupa todo o espaco disponivel
+   ate o gap, e ellipsis corta antes do gap. Limite ficou identico ao
+   limite do titulo (lote), que sempre cabe inteiro. */
 
 .app-modal-status-row {
   display: flex;
@@ -15363,7 +15363,8 @@ button:disabled {
   .app-modal-card {
     border-radius: 12px;
     padding: 0.58rem 0.72rem;
-    gap: 0.55rem;
+    /* gap = padding-right: botao equidistante do conteudo e da borda. */
+    gap: 0.72rem;
   }
 
   .app-modal-card-indicator {
