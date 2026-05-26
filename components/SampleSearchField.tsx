@@ -169,6 +169,9 @@ export function SampleSearchField({
         >
           <input
             ref={inputRef}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={error ?? placeholder}
