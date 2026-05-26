@@ -3726,8 +3726,9 @@ button:disabled {
 }
 
 .dashboard-operations-grid {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
 .dashboard-operation-card {
@@ -3881,6 +3882,86 @@ button:disabled {
   line-height: 1;
   border: 2px solid #f5f0e8;
   animation: badge-pulse 2s ease-in-out infinite;
+}
+
+/* ── Modifier `.is-wide`: card horizontal full-width (icone | titulo+divider+subtitulo | badge grande) ──
+   Aplicado por ora so no card de Cadastros. Quando o user aprovar, replicamos
+   no card de Classificacao. */
+
+.dashboard-operation-card.is-wide {
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
+  padding: clamp(0.85rem, 3vw, 1.1rem) clamp(1rem, 3.5vw, 1.25rem);
+  gap: clamp(0.85rem, 3vw, 1.1rem);
+}
+
+/* Remove a barra vertical lateral que existe no card compacto — mockup nao tem. */
+.dashboard-operation-card.is-wide::before {
+  display: none;
+}
+
+.dashboard-operation-card.is-wide .dashboard-operation-icon-wrap {
+  width: clamp(60px, 18vw, 80px);
+  height: clamp(60px, 18vw, 80px);
+  border-radius: 50%;
+  border: 0;
+}
+
+.dashboard-operation-card.is-wide .dashboard-operation-icon-wrap svg {
+  width: clamp(34px, 9vw, 44px);
+  height: clamp(34px, 9vw, 44px);
+  fill: #e9b929;
+  stroke: none;
+}
+
+/* Bege bem suave atras do icone amarelo. */
+.dashboard-operation-card.is-wide.dashboard-op-clients .dashboard-operation-icon-wrap {
+  background: rgba(212, 160, 23, 0.14);
+}
+
+.dashboard-operation-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-operation-title {
+  font-size: clamp(1.35rem, 5vw, 1.6rem);
+  font-weight: 700;
+  color: #1a2a35;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-operation-divider {
+  display: block;
+  width: clamp(34px, 10vw, 46px);
+  height: 3px;
+  background: #e9b929;
+  border-radius: 2px;
+  margin: clamp(0.32rem, 1.2vw, 0.42rem) 0 clamp(0.42rem, 1.4vw, 0.52rem);
+}
+
+.dashboard-operation-subtitle {
+  font-size: clamp(0.85rem, 3vw, 0.95rem);
+  font-weight: 400;
+  color: #4a5763;
+  line-height: 1.2;
+}
+
+/* Badge: vira circulo grande estatico a direita, mantem cor e pulsacao. */
+.dashboard-operation-card.is-wide .dashboard-operation-badge {
+  position: static;
+  top: auto;
+  right: auto;
+  width: clamp(54px, 16vw, 68px);
+  height: clamp(54px, 16vw, 68px);
+  font-size: clamp(1.3rem, 4.5vw, 1.65rem);
+  border: 0;
+  flex-shrink: 0;
 }
 
 @keyframes badge-pulse {

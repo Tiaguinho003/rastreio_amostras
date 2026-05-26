@@ -110,24 +110,28 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
 
                 <button
                   type="button"
-                  className="dashboard-operation-card dashboard-op-clients"
+                  className="dashboard-operation-card dashboard-op-clients is-wide"
                   onClick={() => router.push('/clients?incomplete=true')}
                   aria-label={`Cadastros pendentes (${data.clientsIncomplete.total})`}
                 >
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                      <path d="M17 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                      <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M9 11.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                      <path d="M17.5 8.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                      <path d="M2 20.5v-1.4c0-2.65 2.35-4.6 5-4.6h4c2.65 0 5 1.95 5 4.6v1.4z" />
+                      <path d="M22 20.5v-1.4c0-2.1-1.55-3.8-3.5-4.35" />
                     </svg>
-                    {data.clientsIncomplete.total > 0 ? (
-                      <span className="dashboard-operation-badge">
-                        {data.clientsIncomplete.total}
-                      </span>
-                    ) : null}
                   </span>
-                  <span className="dashboard-operation-label">Cadastros</span>
+                  <span className="dashboard-operation-content">
+                    <span className="dashboard-operation-title">Cadastros</span>
+                    <span className="dashboard-operation-divider" aria-hidden="true" />
+                    <span className="dashboard-operation-subtitle">Registros pendentes</span>
+                  </span>
+                  {data.clientsIncomplete.total > 0 ? (
+                    <span className="dashboard-operation-badge">
+                      {data.clientsIncomplete.total}
+                    </span>
+                  ) : null}
                 </button>
               </div>
             ) : (
