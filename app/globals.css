@@ -11676,6 +11676,13 @@ button:disabled {
   justify-items: start;
 }
 
+/* Header amarelo (em vez do verde brand padrao do .is-themed) — alinha
+   com a cor das pendencias (badge + icone do card de Classificacao).
+   Tom mais escuro pra manter contraste WCAG AA do titulo branco bold. */
+.app-modal.is-themed.app-modal-dashboard .app-modal-header {
+  background: linear-gradient(135deg, #c89414, #a87d12);
+}
+
 .export-confirm-backdrop {
   position: fixed;
   inset: 0;
