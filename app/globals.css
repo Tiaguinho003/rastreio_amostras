@@ -1780,12 +1780,34 @@ button {
   background: transparent;
   color: inherit;
   cursor: pointer;
-  transition: 140ms ease;
+  /* Transition EXPLICITA — sem 'all' (que era o caso de `140ms ease`).
+     Antes, qualquer mudanca implicita aplicada pelo browser em
+     :active/:focus (ex: background interno do iOS PWA standalone) era
+     fade animada por 140ms, causando o flash pro bege do fundo. Agora
+     soh transform/box-shadow/opacity animam. NUNCA background/color. */
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-button:hover {
-  background: transparent;
+@media (hover: hover) {
+  button:hover {
+    background: transparent;
+  }
+}
+
+/* Estado :focus/:focus-visible neutros — sem mudanca de cor.
+   focus-visible pinta apenas outline cinza fino pra acessibilidade
+   keyboard (mouse/touch nao dispara). */
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
 }
 
 button.secondary {
