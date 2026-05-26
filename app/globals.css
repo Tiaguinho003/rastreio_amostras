@@ -15421,16 +15421,17 @@ button:disabled {
     display: block;
   }
 
-  /* Link vira 1 linha em grid 3 colunas IGUAIS (1fr 1fr 1fr): lote
-     (col1, start), badge (col2, center), tempo (col3, end). Colunas
-     iguais garantem que o badge SEMPRE fique no centro absoluto da
-     row, independente do tamanho do tempo ("ha 3 min" vs "ha 12 dias"
-     nao deslocam mais o badge). Seta absolute no canto direito (fora
-     do grid). */
+  /* Link vira 1 linha em grid 3 colunas IGUAIS — `minmax(0, 1fr)`
+     garante que conteudo grande (ex: lote + BlendBadge) NAO expanda a
+     col1 e desloque as demais. Sem o `minmax(0, ...)`, o default
+     `minmax(auto, 1fr)` deixa a track crescer ate o intrinsic size do
+     filho, empurrando o badge da col2 e o tempo da col3. Resultado
+     final: badge SEMPRE no centro absoluto da row, lote/tempo nas
+     1/3 laterais. Seta absolute no canto direito (fora do grid). */
   .recent-activity-mobile-link {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
     gap: clamp(0.55rem, 2vw, 0.85rem);
     padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(2rem, 6vw, 2.2rem)
@@ -15460,7 +15461,8 @@ button:disabled {
     font-weight: 700;
     color: #1a2a35;
     line-height: 1.1;
-    flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .recent-activity-mobile-badge {
