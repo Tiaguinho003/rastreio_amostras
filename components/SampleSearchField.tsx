@@ -84,8 +84,6 @@ export function SampleSearchField({
     }
 
     const previousOverflow = document.body.style.overflow;
-    // snapshot da ref no momento do effect: evita acessar .current no cleanup
-    const inputEl = inputRef.current;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
@@ -102,9 +100,10 @@ export function SampleSearchField({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        inputEl?.focus();
-      }, 0);
+      // NAO refocar o input aqui: em mobile, focus() programatico
+      // dispara o teclado, AppShell marca body.is-keyboard-open e a
+      // tabbar fica escondida via transform ate o user dispensar o
+      // teclado. Refocus intencional fica em handleSearchAgain.
     };
   }, [resultModalOpen]);
 
