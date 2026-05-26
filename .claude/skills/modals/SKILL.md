@@ -5,7 +5,7 @@ description: Use this skill whenever building, editing, or reviewing modals/dial
 
 # Modais — Padrao .app-modal
 
-Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao consolidado `.app-modal.is-themed`. Esta skill e a fonte canonica. Ao encontrar um modal que nao segue (`OperationModal`, modais de `users`, `cdm-modal`, etc), refatorar pra cá quando tocar.
+Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao consolidado `.app-modal.is-themed`. Esta skill e a fonte canonica. Ao encontrar um modal que nao segue (modais de `users`, `cdm-modal`, etc), refatorar pra cá quando tocar.
 
 > Bottom sheets (mobile, slide de baixo) seguem outro padrao — ver `design-system` §8 "Bottom Sheet". Esta skill cobre apenas modais centrais.
 
@@ -130,7 +130,7 @@ export function MeuModal({ open, saving, errorMessage, onClose, onSubmit }: Prop
 
 Combinar livremente: `.app-modal is-themed is-wide`.
 
-> Existe um `.app-modal` "compacto" sem `.is-themed` (legacy: 430px max, fundo glass). NAO usar pra modais novos. Existe apenas pra `cdm-modal`, `OperationModal`, modais de users, cam-\* e similares — todos candidatos a refatoracao quando tocar.
+> Existe um `.app-modal` "compacto" sem `.is-themed` (legacy: 430px max, fundo glass). NAO usar pra modais novos. Existe apenas pra `cdm-modal`, modais de users, cam-\* e similares — todos candidatos a refatoracao quando tocar.
 
 ## 4. Tokens visuais (referencia rapida)
 
@@ -480,6 +480,14 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 | Status modal cliente (inline)       | `app/clients/[clientId]/page.tsx` ~L1991                  | `is-themed`                |
 | Status modal unit (inline)          | `app/clients/[clientId]/page.tsx` ~L2092                  | `is-themed`                |
 
+#### Dashboard
+
+| Modal          | Arquivo                                   | Variantes                                                    |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| OperationModal | `components/dashboard/OperationModal.tsx` | `is-themed app-modal-dashboard` (largura 800/900px) + portal |
+
+> `app-modal-dashboard` e classe scoped pra largura especifica (maior que o default 38rem do `.is-themed`). Selector de 3 classes `.app-modal.is-themed.app-modal-dashboard` sobrescreve sem `!important`. Cards internos usam `.app-modal-card*` (titulo do lote livre, linhas auxiliares truncadas em 50% pra nao colidir com CTA "Classificar").
+
 #### Extracao da classificacao (`/camera` — Q.cls.2)
 
 Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handleSendPhoto → detecting → detected → extracting → ` (3a/3b se falha; senão) ` confirming (Review) → selecting-type (Type) → selecting-classifier (Classifier) → submitting → success`. Mismatch/reclassify aparecem no caminho do save.
@@ -509,7 +517,6 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal` em vez de `.is-themed`:
 
-- `OperationModal` (dashboard) — usa `app-modal app-modal-dashboard`. **NAO usa portal** — candidato a portal junto da refatoracao visual.
 - `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
 - `cld-modal` (Classification Detail Modal em `/samples/[sampleId]/page.tsx`) — usa `cld-*` (cld-header/section/field/grid). Q.cls.2 audit do tipo (commit `15a5a07`) adicionou seção "Tipo" seguindo o padrão interno (cld-section + cld-field-input + chevron SVG no select), mas o modal pai segue legacy.
 - `SampleMovementModal` — ja usa portal.
