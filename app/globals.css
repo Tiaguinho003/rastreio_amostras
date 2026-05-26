@@ -15421,20 +15421,18 @@ button:disabled {
     display: block;
   }
 
-  /* Link vira 1 linha em grid 3 colunas: lote `auto` (sempre intrinsic
-     — BlendBadge "Liga" aparece inteira sem cortar), badge no `1fr`
-     centralizado dentro do espaco restante, tempo em col fixa
-     clamp(60px, 17vw, 80px) (cabe maior label "ha 12 dias" ~75px).
-     A col3 fixa garante que o badge da col2 NAO se desloque quando o
-     tempo muda de tamanho — varia so quando o lote cresce com Liga
-     (efeito intencional: badge desliza pra direita pra abrir espaco
-     pro lote + Liga). Seta absolute no canto direito (fora do grid). */
+  /* Layout: lote (flex item esquerda, intrinsic) + tempo (flex item
+     direita, intrinsic) + badge `position: absolute` numa posicao
+     fixa (left:35% do card). Garante que o badge fique ALINHADO
+     verticalmente entre TODOS os items — nao se desloca por causa
+     de Liga no lote nem de tempo grande na direita. Liga aparece
+     inteira; tempo fica encostado a direita (antes da seta absolute).
+     Seta absolute no canto direito (como antes). */
   .recent-activity-mobile-link {
     position: relative;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) clamp(60px, 17vw, 80px);
+    display: flex;
     align-items: center;
-    gap: clamp(0.55rem, 2vw, 0.85rem);
+    justify-content: space-between;
     padding: clamp(0.7rem, 2.5vw, 0.95rem) clamp(2rem, 6vw, 2.2rem)
       clamp(0.7rem, 2.5vw, 0.95rem) clamp(0.75rem, 2.8vw, 0.95rem);
     background: #ffffff;
@@ -15465,8 +15463,14 @@ button:disabled {
     flex-shrink: 0;
   }
 
+  /* Badge posicionado absolute no centro-direita (left:38%) — fica na
+     MESMA posicao horizontal em todos os items, independente do
+     conteudo do lote (com/sem Liga) e do tempo (curto/longo). */
   .recent-activity-mobile-badge {
-    justify-self: center;
+    position: absolute;
+    left: 38%;
+    top: 50%;
+    transform: translateY(-50%);
     display: inline-block;
     padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.5rem, 1.8vw, 0.7rem);
     border-radius: 999px;
@@ -15477,7 +15481,7 @@ button:disabled {
   }
 
   .recent-activity-mobile-time {
-    justify-self: end;
+    flex-shrink: 0;
     font-size: clamp(0.74rem, 2.7vw, 0.82rem);
     color: #6b7280;
     line-height: 1.15;
