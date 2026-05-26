@@ -15371,6 +15371,10 @@ button:disabled {
      `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
 
   .recent-activity-mobile {
+    /* Altura fixa 500px — header fica ancorado no topo, lista interna
+       rola sozinha. O sheet bege externo continua scrollando o
+       resto da pagina (containers acima e abaixo). */
+    height: 500px;
     display: flex;
     flex-direction: column;
     gap: clamp(0.7rem, 2.5vw, 0.95rem);
@@ -15404,6 +15408,13 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: clamp(0.5rem, 1.8vw, 0.7rem);
+    /* Ocupa todo o resto do card (apos header) e rola internamente. */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .recent-activity-mobile-item {
@@ -15527,6 +15538,10 @@ button:disabled {
   }
 
   .recent-activity-mobile-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: clamp(0.8rem, 3vw, 1.2rem);
     text-align: center;
     color: #6b7280;
