@@ -1,6 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { OperationModalData } from './useOperationModal';
 
@@ -9,13 +10,6 @@ function renderMainSampleValue(value: string | number | null) {
     return 'Nao informado';
   }
   return String(value);
-}
-
-function formatCreationTimestamp(value: string) {
-  const timestamp = new Date(value);
-  const date = timestamp.toLocaleDateString('pt-BR');
-  const time = timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  return `${date} - ${time}`;
 }
 
 interface OperationModalProps {
@@ -38,12 +32,14 @@ export function OperationModal({
   onClose,
   onItemAction,
 }: OperationModalProps) {
-  return (
-    <div className="dashboard-modal-backdrop" onClick={onClose}>
+  // Render via portal pra body — escapa stacking context do <PageTransition>.
+  // Ver skill `modals` §9 "Portal" (obrigatorio pra modais centrais).
+  return createPortal(
+    <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
         id={data.modalId}
-        className={`app-modal app-modal-dashboard ${data.themeClass}`}
+        className={`app-modal is-themed app-modal-dashboard ${data.themeClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dashboard-operation-modal-title"
@@ -66,48 +62,52 @@ export function OperationModal({
           </button>
         </div>
 
-        {data.items.length === 0 ? (
-          <p className="app-modal-empty">{data.emptyMessage}</p>
-        ) : (
-          <div className="app-modal-list">
-            {data.items.map((sample) => {
-              const lotLabel = sample.internalLotNumber ?? sample.id;
-              return (
-                <div key={sample.id} className="app-modal-card">
-                  <a
-                    href={`/samples/${sample.id}`}
-                    className="app-modal-card-link"
-                    onClick={onClose}
-                    aria-label={`Abrir detalhes da amostra ${lotLabel}`}
-                  >
-                    <div className="app-modal-card-body">
-                      <strong className="app-modal-card-title">{lotLabel}</strong>
-                      <p className="app-modal-card-line">
-                        {renderMainSampleValue(sample.declared.owner)}
-                      </p>
-                      <p className="app-modal-card-meta">
-                        {formatCreationTimestamp(sample.createdAt)}
-                      </p>
-                    </div>
-                  </a>
-                  {onItemAction ? (
-                    <button
-                      type="button"
-                      className="app-modal-card-classify-cta"
-                      onClick={() => onItemAction(sample.id)}
-                      aria-label={`Classificar amostra ${lotLabel}`}
+        <div className="app-modal-content">
+          {data.items.length === 0 ? (
+            <p className="app-modal-empty">{data.emptyMessage}</p>
+          ) : (
+            <div className="app-modal-list">
+              {data.items.map((sample) => {
+                const lotLabel = sample.internalLotNumber ?? sample.id;
+                const ownerLabel = renderMainSampleValue(sample.declared.owner);
+                const sacksLabel =
+                  sample.declared.sacks === null ? 'Nao informado' : String(sample.declared.sacks);
+                return (
+                  <div key={sample.id} className="app-modal-card">
+                    <a
+                      href={`/samples/${sample.id}`}
+                      className="app-modal-card-link"
+                      onClick={onClose}
+                      aria-label={`Abrir detalhes da amostra ${lotLabel}`}
                     >
-                      Classificar
-                    </button>
-                  ) : (
-                    <span className="app-modal-card-indicator" aria-hidden="true" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                      <div className="app-modal-card-body">
+                        <strong className="app-modal-card-title">{lotLabel}</strong>
+                        <p className="app-modal-card-line">{ownerLabel}</p>
+                        <p className="app-modal-card-line">
+                          <strong>Sacas:</strong> {sacksLabel}
+                        </p>
+                      </div>
+                    </a>
+                    {onItemAction ? (
+                      <button
+                        type="button"
+                        className="app-modal-card-classify-cta"
+                        onClick={() => onItemAction(sample.id)}
+                        aria-label={`Classificar amostra ${lotLabel}`}
+                      >
+                        Classificar
+                      </button>
+                    ) : (
+                      <span className="app-modal-card-indicator" aria-hidden="true" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

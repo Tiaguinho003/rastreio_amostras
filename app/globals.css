@@ -1119,6 +1119,9 @@ body {
   background: rgba(255, 255, 255, 0.3);
   color: #57514a;
   box-shadow: 0 8px 18px rgba(16, 24, 18, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-modal-close:hover:not(:disabled) {
@@ -1546,14 +1549,14 @@ body {
 
 .app-modal-card-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #2f4c39;
 }
 
 .app-modal-card-line {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   line-height: 1.34;
   color: #617166;
 }
@@ -1585,7 +1588,6 @@ body {
 .app-modal-card-classify-cta {
   flex: 0 0 auto;
   min-width: 25%;
-  margin-right: 12px;
   padding: 0.45rem 0.85rem;
   align-self: center;
   background: #f59e0b;
@@ -1613,6 +1615,13 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Linhas auxiliares (proprietario, sacas) truncam em 50% da largura do
+   card pra deixar respiro entre o nome e o botao "Classificar". O titulo
+   (lote) fica livre porque e a info principal e quase sempre cabe. */
+.app-modal-card .app-modal-card-line {
+  max-width: 50%;
 }
 
 .app-modal-status-row {
@@ -11479,38 +11488,30 @@ button:disabled {
   text-shadow: 0 2px 8px rgba(15, 27, 17, 0.32);
 }
 
-.dashboard-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(245, 245, 241, 0.18);
-  backdrop-filter: blur(20px) saturate(1.02);
-  overflow: hidden;
-}
-
-.app-modal-dashboard {
+/* OperationModal (dashboard de pendencias) — usa .app-modal.is-themed
+   (header verde + body branco) com largura maior que o default 38rem.
+   Especificidade (3 classes) supera a do .is-themed (2 classes) sem !important. */
+.app-modal.is-themed.app-modal-dashboard {
   width: min(800px, calc(100vw - 1.5rem));
+  max-width: min(800px, calc(100vw - 1.5rem));
   max-height: min(88vh, 36rem);
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
 }
 
-.app-modal-dashboard .app-modal-list {
-  max-height: calc((4.8rem * 3) + (0.55rem * 2));
+.app-modal.is-themed.app-modal-dashboard .app-modal-list {
+  display: grid;
+  gap: 0.62rem;
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
 }
 
-.app-modal-dashboard .app-modal-list::-webkit-scrollbar {
+.app-modal.is-themed.app-modal-dashboard .app-modal-list::-webkit-scrollbar {
   display: none;
 }
 
-.app-modal-dashboard .app-modal-card-body {
+.app-modal.is-themed.app-modal-dashboard .app-modal-card-body {
   text-align: left;
   justify-items: start;
 }
@@ -15180,7 +15181,7 @@ button:disabled {
 
   /* ── Nova Amostra: placeholder ── */
 
-  .app-modal-dashboard {
+  .app-modal.is-themed.app-modal-dashboard {
     max-height: 88vh;
   }
 
@@ -15204,11 +15205,11 @@ button:disabled {
   }
 
   .app-modal-card-title {
-    font-size: 0.92rem;
+    font-size: 1.05rem;
   }
 
   .app-modal-card-line {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
   }
 
   .app-modal-card-meta {
@@ -15219,7 +15220,6 @@ button:disabled {
   .app-modal-card-classify-cta {
     padding: 0.4rem 0.6rem;
     font-size: 0.8rem;
-    margin-right: 8px;
   }
 
   /* ── Nova Amostra: layered layout ── */
@@ -22473,13 +22473,10 @@ button:disabled {
      MODAIS DESKTOP
      ══════════════════════════════════════════ */
 
-  .app-modal-dashboard {
+  .app-modal.is-themed.app-modal-dashboard {
     width: min(900px, calc(100vw - 3rem));
+    max-width: min(900px, calc(100vw - 3rem));
     max-height: min(80vh, 42rem);
-  }
-
-  .app-modal-dashboard .app-modal-list {
-    max-height: min(60vh, 32rem);
   }
 
   .sample-classification-edit-modal {
