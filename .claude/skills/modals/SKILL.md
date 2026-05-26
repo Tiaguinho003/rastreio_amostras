@@ -600,7 +600,7 @@ Ao construir ou revisar um modal:
 - [ ] `createPortal(..., document.body)` no return — **obrigatorio** pra todo modal central (escapa stacking context do `<PageTransition>` que envolve todas as rotas)
 - [ ] Textos em pt-BR (titulo, labels, botoes, mensagens)
 - [ ] Sem cores inventadas — apenas tokens da paleta (`design-system` §2)
-- [ ] Sem botao verde no `:active` transitorio (apenas `.app-modal-submit` que ja e verde por design)
+- [ ] Sem botao verde no `:active` transitorio (apenas `.app-modal-submit` que ja e verde por design) — ver skill `button-press-effect` pra receita completa de tap feedback
 
 ## 13. Como editar um modal divergente
 

@@ -117,6 +117,8 @@ Existem dois padroes em uso (ambos validos — usar conforme o contexto do card)
 
 ### Interacao
 
+> Pattern completo de tap feedback documentado na skill **`button-press-effect`** — esta secao e apenas resumo.
+
 - `:active` usa `transform: scale(0.95-0.99)` + sombra reduzida
 - Nunca mudar cor de fundo ao clicar (excecao: filter chips em listagens — ver §7)
 - `-webkit-tap-highlight-color: transparent`
@@ -223,6 +225,8 @@ Excecao a regra "nunca verde ao clicar":
 - A excecao se aplica **apenas ao estado persistente de "filtro ativo"** — nunca ao `:active` transitorio do clique.
 
 ### Regras universais de botao
+
+> Pattern canonico completo (tap-highlight, `:active`, `:hover` em `@media (hover: hover)`, anti-patterns) na skill **`button-press-effect`** — esta secao mantem so os pontos especificos do design system.
 
 - Nunca virar verde no `:active` transitorio (regra mantida — verde solido e exclusivo do estado persistente `.is-active` em filter chips, conforme acima)
 - Sempre `-webkit-tap-highlight-color: transparent`

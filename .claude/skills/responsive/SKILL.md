@@ -115,10 +115,10 @@ Sempre usar as variaveis ja definidas:
 
 ### 11. Botoes sem destaque verde
 
+> SOT canonica do pattern de tap/click feedback: skill **`button-press-effect`** (`.claude/skills/button-press-effect/SKILL.md`). Ver de la as regras completas (`-webkit-tap-highlight-color`, `:active` so transform, `:hover` em `@media (hover: hover)`).
+
 - NENHUM botao do app deve ficar verde ao ser clicado, focado ou selecionado — sem excecao
 - O estilo global de `button` usa `background: transparent` — nunca alterar para `var(--accent)` ou qualquer verde
-- Para feedback de interacao, usar `transform: scale()` (efeito de afundar) ou reducao de opacidade
-- Sempre aplicar `-webkit-tap-highlight-color: transparent` em botoes interativos no mobile
 - Remover `outline` verde em `:focus-visible` — usar cores neutras (`rgba(0,0,0,0.15)`) se necessario
 - Botoes que precisam de fundo (formularios, acoes) devem usar classes especificas (`.login-card-submit`, `button.danger`, etc), nunca depender do estilo global
 
