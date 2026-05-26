@@ -15393,8 +15393,11 @@ button:disabled {
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.85rem 1rem 0.5rem;
+    padding: 0.85rem 1rem 0.6rem;
     flex-shrink: 0;
+    /* Divisor sutil entre header e lista — branco translucido sobre
+       o gradient verde do container. */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   }
 
   .recent-activity-mobile-title {
