@@ -15351,9 +15351,28 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: clamp(2rem, 7vw, 3rem);
-    overflow: hidden;
+    /* Scroll vertical SO no sheet (parte bege). Hero verde permanece
+       fixo. overflow-x: hidden previne scroll lateral acidental.
+       overscroll-behavior: contain evita pull-to-refresh do iOS PWA.
+       -webkit-overflow-scrolling: touch ativa momentum scrolling no iOS. */
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     min-height: 0;
     animation: dashboard-sheet-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+
+  /* Placeholder section pra novos containers que serao adicionados
+     conforme novas info forem definidas pelo user. */
+  .dashboard-placeholder-card {
+    min-height: clamp(220px, 60vw, 320px);
+    background: linear-gradient(180deg, #ffffff 0%, #faf6e8 100%);
+    border-radius: clamp(14px, 4vw, 18px);
+    border-left: 4px solid rgba(58, 163, 112, 0.4);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(15, 64, 41, 0.06);
   }
 
   .dashboard-operations-grid .dashboard-operation-card:nth-child(1) {

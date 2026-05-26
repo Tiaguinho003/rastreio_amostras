@@ -175,6 +175,11 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
               <div className="sales-card sales-card-skeleton" aria-hidden="true" />
             )}
           </section>
+
+          {/* Placeholder pra proximo container (conteudo sera definido). */}
+          <section className="dashboard-sheet-section dashboard-sheet-content is-slot-extra">
+            <div className="dashboard-placeholder-card" aria-hidden="true" />
+          </section>
         </section>
       </section>
 
