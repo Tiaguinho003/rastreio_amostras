@@ -25,7 +25,7 @@ const COPY_BY_ENTITY: Record<
   sample: {
     title: 'Amostra criada',
     label: 'Lote da amostra',
-    primary: 'Ir para amostra',
+    primary: 'Ver detalhes',
     secondary: 'Criar outra',
   },
   blend: {
