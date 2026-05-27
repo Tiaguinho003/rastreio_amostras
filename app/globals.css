@@ -15512,59 +15512,55 @@ button:disabled {
      `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
 
   .recent-activity-mobile {
-    /* Altura fixa pra mostrar 6 items visiveis sem scroll. Cabem ate
-       15 items na lista interna (scroll vertical) — os 9 alem do 6
-       acessiveis via scroll dentro do card. Header verde colado no
-       topo, lista com padding proprio embaixo. */
+    /* Altura fixa pra mostrar ~5 items visiveis sem scroll. Cabem ate
+       15 items na lista interna (scroll vertical) — os 10 alem dos 5
+       acessiveis via scroll dentro do card. */
     height: 400px;
     display: flex;
     flex-direction: column;
     padding: 0;
     background: #ffffff;
     border-radius: 16px;
-    /* color-mix da media perceptual entre os dois tons do gradient do
-       header (brand-green escuro -> brand-green-soft) — bate visualmente
-       com a media de cor do header. */
-    border-left: 4px solid
-      color-mix(in oklab, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+    /* Card limpo no novo design — sem border-left verde, sem header
+       gradient. Header agora e branco com texto brand-green. */
+    border: 0;
     overflow: hidden;
     box-shadow:
       0 2px 6px rgba(0, 0, 0, 0.04),
       0 8px 20px rgba(15, 64, 41, 0.06);
   }
 
-  /* Header verde brand alinhado com .app-modal.is-themed .app-modal-header
-     e .sales-card — gradient + texto branco. Ocupa toda a largura do
-     container ate as bordas arredondadas (clipadas pelo overflow:hidden
-     do parent). */
+  /* Header branco com texto brand-green — abandona o gradient verde do
+     design anterior. Linha sutil divisora entre o header e o primeiro
+     item da lista (mesmo padrao dos dividers entre items). */
   .recent-activity-mobile-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.85rem 1rem;
-    background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
-    color: #ffffff;
+    padding: 1rem 1.1rem 0.9rem;
+    background: #ffffff;
+    color: #1f5d43;
     flex-shrink: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .recent-activity-mobile-title {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    color: #ffffff;
+    color: #1f5d43;
     letter-spacing: -0.01em;
   }
 
   .recent-activity-mobile-list {
     list-style: none;
     margin: 0;
-    /* Padding lateral menor pra items ocuparem MAIS largura do container. */
-    padding: 0.7rem 0.55rem 0.75rem;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    /* Scroll interno: cabem 6 visiveis sem scroll, ate 15 com scroll
+    gap: 0;
+    /* Scroll interno: cabem ~5 visiveis sem scroll, ate 15 com scroll
        vertical. overscroll-behavior: contain evita pull-to-refresh do
        iOS PWA. -webkit-overflow-scrolling: touch ativa momentum iOS. */
     flex: 1;
@@ -15573,98 +15569,130 @@ button:disabled {
     overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    background: linear-gradient(180deg, #ffffff 0%, #faf6e8 100%);
+    background: #ffffff;
   }
 
   .recent-activity-mobile-item {
     display: block;
   }
 
-  /* Layout: lote (flex item esquerda, intrinsic) + tempo (flex item
-     direita, intrinsic) + badge `position: absolute` — fica ALINHADO
-     verticalmente entre TODOS os items. Tamanhos fixos pra consistencia
-     entre viewports mobile. */
+  /* Divider sutil entre items — full-width, evitado no ultimo. */
+  .recent-activity-mobile-item:not(:last-child) .recent-activity-mobile-link {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  /* Layout achatado: icon-circle | content (lot + type) | meta (time + arrow).
+     Sem sombra individual, sem border-radius (cantos arredondados ficam
+     so no container externo). */
   .recent-activity-mobile-link {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    /* Padding vertical maior (item mais alto). */
-    padding: 0.85rem 2rem 0.85rem 0.85rem;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
     background: #ffffff;
-    border-radius: 12px;
-    border-left: 3px solid var(--activity-color, #6b7280);
-    /* Sombra mais marcada — destaque visual dos cards. */
-    box-shadow:
-      0 1px 4px rgba(0, 0, 0, 0.08),
-      0 6px 16px rgba(0, 0, 0, 0.08);
     text-decoration: none;
     color: inherit;
-    /* skill button-press-effect */
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.15s ease;
-    /* touch-action: pan-y permite o gesto de scroll vertical iniciar
-       SOBRE o link sem ser interceptado pelo tap/click do <a>. Mantem
-       o click funcionando (pra navegar pro detalhe), mas libera o
-       browser pra rolar o sheet bege quando o user arrasta verticalmente
-       com o dedo em cima dos itens. */
+    transition: background-color 0.15s ease;
+    /* touch-action: pan-y permite scroll vertical iniciar SOBRE o link
+       sem ser interceptado pelo tap/click. */
     touch-action: pan-y;
   }
 
   .recent-activity-mobile-link:active {
-    transform: scale(0.98);
+    background: rgba(0, 0, 0, 0.025);
   }
 
+  /* Circulo do icone — bg light na cor da variante, icone na cor solida. */
+  .recent-activity-mobile-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    min-width: 2.4rem;
+    border-radius: 50%;
+    background: var(--activity-bg, rgba(107, 114, 128, 0.12));
+    color: var(--activity-color, #6b7280);
+    flex-shrink: 0;
+  }
+
+  .recent-activity-mobile-icon svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Stack lot + type, ocupa o espaco intermediario do item. */
+  .recent-activity-mobile-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+  }
+
+  /* Container do lote: flex row pra ficar com a Liga badge ao lado.
+     `min-width: 0` permite que o filho .lot-number encolha quando o
+     espaco eh limitado — sem isso, o nome estoura o container.
+     A Liga (BlendBadge) mantem largura intrinseca. */
   .recent-activity-mobile-lot {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1a2a35;
-    line-height: 1.1;
-    flex-shrink: 0;
+    min-width: 0;
+    line-height: 1.15;
   }
 
-  /* Badge posicionado absolute em `max(110px, 38%)` — em vp pequeno
-     (320-360px) onde 38% nao da gap suficiente apos lote+Liga (~95px),
-     trava em 110px (15px de respiro minimo). Em vp medio/grande, vai
-     pro 38% relativo, mantendo proporcao visual. */
-  .recent-activity-mobile-badge {
-    position: absolute;
-    left: max(110px, 38%);
-    top: 50%;
-    transform: translateY(-50%);
-    display: inline-block;
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1;
+  /* Numero do lote — truncado com ellipsis quando o lote eh longo
+     E tem Liga badge, evitando overflow em viewports <=360px. */
+  .recent-activity-mobile-lot-number {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #1a2a35;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+  }
+
+  .recent-activity-mobile-type {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--activity-color, #6b7280);
+    line-height: 1.15;
+  }
+
+  /* Bloco a direita: tempo + chevron, vertical-center. */
+  .recent-activity-mobile-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .recent-activity-mobile-time {
-    flex-shrink: 0;
     font-size: 0.78rem;
-    color: #6b7280;
+    font-weight: 400;
+    color: #8a9690;
     line-height: 1.15;
     white-space: nowrap;
   }
 
   .recent-activity-mobile-arrow {
-    position: absolute;
-    right: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1rem;
-    height: 1rem;
+    width: 0.95rem;
+    height: 0.95rem;
     fill: none;
-    stroke: var(--activity-color, #6b7280);
+    stroke: #a8b3ac;
     stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: 0.55;
+    flex-shrink: 0;
   }
 
   .recent-activity-mobile-empty {
@@ -15678,11 +15706,17 @@ button:disabled {
     font-size: 0.9rem;
   }
 
+  /* Skeleton: bloco com altura proxima da do item real (icon-circle
+     2.4rem + padding vertical) pra evitar layout shift quando os
+     dados chegam. */
   .recent-activity-mobile-item-skeleton {
-    min-height: 48px;
+    min-height: 68px;
     background: rgba(216, 212, 200, 0.4);
-    border-radius: 12px;
-    border-left: 3px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .recent-activity-mobile-item-skeleton:last-child {
+    border-bottom: 0;
   }
 
   .dashboard-operations-grid .dashboard-operation-card:nth-child(1) {
