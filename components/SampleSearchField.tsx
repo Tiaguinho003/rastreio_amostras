@@ -45,6 +45,18 @@ export function SampleSearchField({
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // iOS PWA standalone: a combinacao type=text + inputMode=numeric +
+  // pattern=[0-9]* faz o WebKit "pre-warm" o numpad durante a hidratacao
+  // inicial, abrindo o teclado sem o usuario tocar. Renderizamos readOnly
+  // ate o primeiro toque/foco do user — input readOnly nao dispara
+  // keyboard mesmo quando focado. Destravamos no pointerdown (mais cedo
+  // que focus) pra que o teclado abra normalmente no primeiro tap.
+  const [keyboardLocked, setKeyboardLocked] = useState(true);
+  const unlockKeyboard = () => {
+    if (keyboardLocked) {
+      setKeyboardLocked(false);
+    }
+  };
 
   useEffect(() => {
     if (errorTimerRef.current) {
@@ -174,11 +186,14 @@ export function SampleSearchField({
             pattern="[0-9]*"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onPointerDown={unlockKeyboard}
+            onFocus={unlockKeyboard}
             placeholder={error ?? placeholder}
             autoComplete="off"
             spellCheck={false}
             aria-label="Numero da amostra"
             disabled={submitting}
+            readOnly={keyboardLocked}
           />
           <button
             type="submit"
