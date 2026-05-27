@@ -3543,6 +3543,9 @@ button:disabled {
      background/color que geraria flash). */
   transition: transform 140ms ease;
   -webkit-tap-highlight-color: transparent;
+  /* Anchor pro ::before (traco branco do indicador de pagina ativa).
+     `.is-primary` ja tem position:relative pelo seu proprio bloco. */
+  position: relative;
 }
 
 @media (hover: hover) {
@@ -3562,11 +3565,30 @@ button:disabled {
   box-shadow: none;
 }
 
+/* Indicador da pagina ativa: traco branco horizontal no topo do link,
+   largura = largura do icone. Cantos inferiores arredondados (visual
+   de fita pendurada do topo). Excluido do .is-primary (camera) — o
+   user pediu pra camera nao ter efeito algum de ativo. */
+.mobile-tabbar-link.is-active:not(.is-primary)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(2.25rem, 8.125vw, 3.125rem);
+  height: 3px;
+  background: #ffffff;
+  border-radius: 0 0 3px 3px;
+  pointer-events: none;
+}
+
 .mobile-tabbar-link.is-primary {
   position: relative;
   flex: 0 0 auto;
-  width: clamp(3.8rem, 13.5vw, 4.6rem);
-  margin-top: clamp(-1.6rem, -4.5vw, -1rem);
+  width: clamp(4.75rem, 16.875vw, 5.75rem);
+  /* Margin-top menos negativo pra abaixar ligeiramente o botao camera
+     em relacao aos outros icones (antes: -2rem a -1.25rem). */
+  margin-top: clamp(-1.6rem, -4.5vw, -0.95rem);
   padding: 0;
   background: transparent;
   color: #ffffff;
@@ -3601,8 +3623,8 @@ button:disabled {
 }
 
 .mobile-tabbar-icon {
-  width: clamp(1.8rem, 6.5vw, 2.5rem);
-  height: clamp(1.8rem, 6.5vw, 2.5rem);
+  width: clamp(2.25rem, 8.125vw, 3.125rem);
+  height: clamp(2.25rem, 8.125vw, 3.125rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3632,8 +3654,8 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  width: clamp(3.8rem, 13.5vw, 4.6rem);
-  height: clamp(3.8rem, 13.5vw, 4.6rem);
+  width: clamp(4.75rem, 16.875vw, 5.75rem);
+  height: clamp(4.75rem, 16.875vw, 5.75rem);
   min-height: 0;
   border-radius: 999px;
   background: linear-gradient(180deg, #1a6b2e 0%, #0d4a1a 100%);
@@ -3644,18 +3666,19 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  width: clamp(2rem, 7vw, 2.6rem);
-  height: clamp(2rem, 7vw, 2.6rem);
+  width: clamp(2.5rem, 8.75vw, 3.25rem);
+  height: clamp(2.5rem, 8.75vw, 3.25rem);
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
-  width: clamp(1.8rem, 6.5vw, 2.4rem);
-  height: clamp(1.8rem, 6.5vw, 2.4rem);
+  width: clamp(2.25rem, 8.125vw, 3rem);
+  height: clamp(2.25rem, 8.125vw, 3rem);
 }
 
 .mobile-tabbar-label {
+  display: block;
   max-width: 100%;
-  font-size: clamp(0.52rem, 1.8vw, 0.65rem);
+  font-size: clamp(0.65rem, 2.25vw, 0.81rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   text-align: center;
@@ -3664,12 +3687,11 @@ button:disabled {
   text-overflow: ellipsis;
   line-height: 1;
   padding-inline: 0.1rem;
+  margin-top: 0.18rem;
 }
 
-.mobile-tabbar-label {
-  display: none;
-}
-
+/* Camera (primary): nao mostra label — so o icone grande dentro do
+   circulo verde. */
 .mobile-tabbar-link.is-primary .mobile-tabbar-label {
   display: none;
 }
@@ -4698,7 +4720,9 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(10px, 3vw, 14px) clamp(10px, 3vw, 14px) 0;
-  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.4rem);
+  /* 5.9rem acompanha o FAB recalibrado (6.3rem) + gap pro ultimo item
+     da lista. */
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.9rem);
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
@@ -5256,7 +5280,9 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(4px, 1vw, 6px) 0 0;
-  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.4rem);
+  /* 5.9rem acompanha o FAB recalibrado (6.3rem) + gap pro ultimo item
+     da lista. */
+  padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 5.9rem);
   overflow: hidden;
   min-height: 0;
 }
@@ -6274,7 +6300,10 @@ button:disabled {
 
 .cv2-fab {
   position: fixed;
-  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem);
+  /* Bottom = safe-area + 6.3rem. Antes era 4.9rem mas o + ficava ~10px
+     DENTRO da tabbar (FAB bottom abaixo do topo da tabbar) — visual de
+     "colado". Agora o + cleared do topo da tabbar com ~22px de respiro. */
+  bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 6.3rem);
   right: clamp(14px, 4vw, 20px);
   /* +15% em todos os tamanhos (mobile): bases 46→53, 13vw→14.95vw, 52→60.
      Border-radius e svg seguem a mesma proporcao. Em desktop o tamanho
@@ -14655,14 +14684,18 @@ button:disabled {
 
   :root {
     --mobile-shell-top-offset: 5.2rem;
-    --mobile-tabbar-clearance: 7.8rem;
+    /* Tabbar: icones e labels mantidos a +25% (chrome ja absorveu o
+       crescimento do conteudo), mas paddings internos voltaram a
+       valores enxutos pra evitar barra alta demais. Clearance ajustada
+       pra refletir a nova altura real (icone+label dominam o tamanho). */
+    --mobile-tabbar-clearance: 8.9rem;
     --mobile-tabbar-inner-pad-top: 0.34rem;
     --mobile-tabbar-inner-pad-bottom: 0.18rem;
     --mobile-tabbar-link-pad-top: 0.04rem;
     --mobile-tabbar-link-pad-bottom: 0.1rem;
     --mobile-tabbar-primary-link-pad-top: 0.02rem;
     --mobile-tabbar-primary-link-pad-bottom: 0.08rem;
-    --mobile-tabbar-sticky-gap: 0.8rem;
+    --mobile-tabbar-sticky-gap: 0.9rem;
   }
 
   .login-page {
@@ -15484,12 +15517,12 @@ button:disabled {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px 20px 0 0;
     padding: clamp(1.2rem, 4.5vw, 1.8rem) clamp(1rem, 4vw, 1.4rem);
-    /* Padding-bottom enxuto: safe-area + ~6rem (96px) cobre a tabbar
-       (~75-85px) com ~10-15px de respiro pro ultimo container, sem
-       o gap visual gigante que tinhamos antes (7.8rem + 0.8rem extras
-       = ~138px). Nao mexemos no --mobile-tabbar-clearance global pq
-       outras paginas dependem dele. */
-    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 6rem);
+    /* Padding-bottom 7.2rem (~115px) cobre a tabbar atual (~88px) com
+       ~27px de respiro pro ultimo container — antes era 6.6rem (~17px
+       de gap, sensacao de espremido). Ainda fica abaixo do
+       --mobile-tabbar-clearance global (8.9rem) pra evitar o gap
+       gigante anterior. */
+    padding-bottom: calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 7.2rem);
     display: flex;
     flex-direction: column;
     gap: clamp(2rem, 7vw, 3rem);

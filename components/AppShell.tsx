@@ -52,7 +52,7 @@ const MOBILE_NAV_ITEMS = [
   },
   {
     href: '/samples',
-    mobileLabel: 'Amostras',
+    mobileLabel: 'Lotes',
     icon: 'samples' as NavIcon,
     emphasis: 'default' as const,
   },
@@ -137,10 +137,8 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
   if (icon === 'clients') {
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <circle cx="9" cy="7.5" r="3" />
-        <path d="M3 19.5a6 6 0 0 1 12 0" />
-        <circle cx="17.5" cy="8.5" r="2.2" />
-        <path d="M15.5 19.5a4.5 4.5 0 0 1 5.5-4.4" />
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
       </svg>
     );
   }
