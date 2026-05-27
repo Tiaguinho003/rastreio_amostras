@@ -25422,7 +25422,10 @@ button:disabled {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: clamp(0.55rem, 2vw, 0.75rem) 0 clamp(0.35rem, 1.5vw, 0.55rem);
+  /* Padding bottom maior (era 0.35-0.55) pra dar respiro entre o
+     drag bar e o titulo — contribui pra altura total do header verde
+     sem inflar so o header. */
+  padding: clamp(0.65rem, 2.2vw, 0.9rem) 0 clamp(0.55rem, 2vw, 0.8rem);
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
   background: var(--brand-green);
   /* Border-radius removido daqui: o .bottom-sheet pai tem
@@ -25448,10 +25451,12 @@ button:disabled {
   justify-content: center;
   gap: 0.6rem;
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
-  /* Padding vertical simetrico: titulo (line-height: 1 -> caixa visual
-     tight) fica geometricamente alinhado com o botao X (absolute top:50%
-     centrado no header). */
-  padding: clamp(0.7rem, 2vw, 0.95rem) clamp(3.6rem, 12vw, 4.2rem);
+  /* Padding vertical simetrico e maior (era clamp(0.7-0.95rem)) — area
+     do header verde mais respirada. Titulo (line-height: 1) fica
+     geometricamente alinhado com o botao X (absolute top:50%). Body
+     abaixo tem flex:1 + overflow-y:auto entao scrolla se necessario
+     em devices pequenos (iPhone SE) sem cortar o footer. */
+  padding: clamp(1.1rem, 3.4vw, 1.45rem) clamp(3.6rem, 12vw, 4.2rem);
   background: var(--brand-green);
 }
 
