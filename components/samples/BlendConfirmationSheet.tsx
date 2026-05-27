@@ -255,9 +255,13 @@ export function BlendConfirmationSheet({
 
   const footer: ReactNode = (
     <div className="blend-conf-footer">
-      <span className="blend-conf-footer__total">
-        Total da liga: <strong>{total} sc</strong>
-      </span>
+      <div className="blend-conf-footer__total-card">
+        <span className="blend-conf-footer__total-label">Total da liga</span>
+        <span className="blend-conf-footer__total-value">
+          {total}
+          <span className="blend-conf-footer__total-unit">sc</span>
+        </span>
+      </div>
       <div className="blend-conf-footer__actions">
         <button
           type="button"
