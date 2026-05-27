@@ -891,16 +891,11 @@ function ClientsPage() {
         {/* Search bar + FAB inline a direita (desktop). No mobile o FAB
             sai do fluxo via position: fixed. */}
         <div className="hero-search-wrap">
-          <form className="hero-search-bar" role="search" onSubmit={handleClientSearchSubmit}>
-            <svg
-              className="hero-search-icon"
-              viewBox="0 0 24 24"
-              focusable="false"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m16.2 16.2 4.1 4.1" />
-            </svg>
+          <form
+            className={`hero-search-bar${clientSearchInput.trim().length > 0 ? ' has-input' : ''}`}
+            role="search"
+            onSubmit={handleClientSearchSubmit}
+          >
             <input
               className="hero-search-input"
               value={clientSearchInput}
@@ -909,6 +904,30 @@ function ClientsPage() {
               autoComplete="off"
               spellCheck={false}
             />
+            <button
+              type="submit"
+              className="hero-search-submit"
+              aria-label={clientSearchInput.trim().length > 0 ? 'Pesquisar' : 'Buscar'}
+            >
+              <svg
+                className="hero-search-icon-search"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16.2 16.2 4.1 4.1" />
+              </svg>
+              <svg
+                className="hero-search-icon-submit"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14" />
+                <path d="m13 6 6 6-6 6" />
+              </svg>
+            </button>
           </form>
           <button
             type="button"

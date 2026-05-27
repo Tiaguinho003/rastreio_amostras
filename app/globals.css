@@ -3670,12 +3670,20 @@ button:disabled {
   box-shadow:
     0 6px 20px rgba(4, 14, 5, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  /* Override do flex column do base .mobile-tabbar-pill: grid centering
+     e mais robusto pra centralizar um unico filho (icone, label hidden
+     via display:none) sem quirks de baseline do inline-flex em Safari iOS. */
+  display: grid;
+  place-items: center;
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  /* Icone da camera escala junto com o pill (clamp ativa em phones). */
+  /* Icone da camera escala junto com o pill (clamp ativa em phones).
+     Grid centering pro SVG dentro do wrap, pelo mesmo motivo do pill. */
   width: clamp(2.5rem, 11vw, 2.95rem);
   height: clamp(2.5rem, 11vw, 2.95rem);
+  display: grid;
+  place-items: center;
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
@@ -4595,7 +4603,9 @@ button:disabled {
 
 .hero-search-wrap {
   flex-shrink: 0;
-  padding: 0 clamp(14px, 4vw, 20px) clamp(14px, 3.5vw, 18px);
+  /* Padding lateral reduzido (era 14-20px) — barra ocupa mais da
+     largura da pagina, sem encostar nas bordas. */
+  padding: 0 clamp(8px, 3vw, 14px) clamp(14px, 3.5vw, 18px);
 }
 
 .samples-page-v2 .hero-search-wrap {
@@ -4613,7 +4623,8 @@ button:disabled {
   align-items: center;
   background: rgba(255, 255, 255, 0.95);
   border: none;
-  border-radius: clamp(24px, 7vw, 30px);
+  /* Border-radius mais quadrado (era 24-30px = pill arredondado). */
+  border-radius: clamp(10px, 3vw, 14px);
   padding: 0 clamp(12px, 3.5vw, 14px);
   gap: clamp(6px, 2vw, 8px);
   box-shadow: 0 4px 14px rgba(10, 30, 18, 0.1);
@@ -4630,6 +4641,90 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+/* Botao submit a direita do input — mesmo pattern visual do
+   .sample-search-icon-button (busca do dashboard). Idle: lupa cinza
+   transparente. Has-input: vira CTA verde com seta. Posicionado como
+   flex item no fim do .hero-search-bar (input flex:1, botao auto). */
+.hero-search-submit {
+  flex-shrink: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5f7165;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 0 rgba(31, 93, 67, 0);
+  transition:
+    background 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.1s ease;
+}
+
+.hero-search-submit:active {
+  transform: scale(0.85);
+}
+
+.hero-search-submit:focus,
+.hero-search-submit:focus-visible {
+  outline: none;
+}
+
+/* Wrapper das duas SVGs sobrepostas (lupa + seta). Container tem
+   width fixa (2rem) pra evitar layout shift; icones fazem cross-fade
+   no mesmo espaco. */
+.hero-search-submit svg {
+  position: absolute;
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Idle: lupa visivel, seta escondida (entra da esquerda). */
+.hero-search-icon-search {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.hero-search-icon-submit {
+  opacity: 0;
+  transform: translateX(-6px) scale(0.85);
+}
+
+/* Has-input: botao vira CTA verde + seta entra/lupa sai. */
+.hero-search-bar.has-input .hero-search-submit {
+  background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+  color: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(15, 64, 41, 0.32);
+}
+
+.hero-search-bar.has-input .hero-search-icon-search {
+  opacity: 0;
+  transform: translateX(6px) scale(0.85);
+}
+
+.hero-search-bar.has-input .hero-search-icon-submit {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
 .hero-search-input {
   flex: 1;
   border: 0;
@@ -4637,7 +4732,9 @@ button:disabled {
   font-size: clamp(0.88rem, 3vw, 1rem);
   font-family: inherit;
   color: #1a3a28;
-  padding: clamp(0.55rem, 1.8vw, 0.7rem) 0;
+  /* Padding-y igualado ao da busca do dashboard (era 0.55-0.7rem,
+     agora 0.45-0.6rem) — mesma altura visual entre as duas barras. */
+  padding: clamp(0.45rem, 1.6vw, 0.6rem) 0;
   outline: none;
 }
 
@@ -4650,10 +4747,15 @@ button:disabled {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: clamp(28px, 8vw, 32px);
-  height: clamp(28px, 8vw, 32px);
+  /* Bumpado de 28-32 → 38-44px pra ficar mais clicavel (atinge o
+     touch target 44px da Apple HIG em phones maiores). Alinhamento
+     com o contador "X registros" preservado via align-items: center
+     do .spv2-list-meta — o contador segue no centro vertical da row. */
+  width: clamp(38px, 10vw, 44px);
+  height: clamp(38px, 10vw, 44px);
   border: 0;
-  border-radius: clamp(8px, 2.2vw, 10px);
+  /* Border-radius bumpado proporcionalmente. */
+  border-radius: clamp(10px, 2.8vw, 12px);
   background: var(--brand-green);
   padding: 0;
   cursor: pointer;
@@ -6324,7 +6426,11 @@ button:disabled {
   bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
-  right: clamp(14px, 4vw, 20px);
+  /* Right offset = sheet padding (clamp 10-14px) + meta padding (clamp
+     14-20px) = clamp(24-34px). Alinha a borda direita do FAB com a
+     borda direita do botao de filtro do .spv2-list-meta, formando uma
+     linha vertical. Antes era clamp(14-20px). */
+  right: clamp(24px, 7vw, 34px);
   /* +15% em todos os tamanhos (mobile): bases 46→53, 13vw→14.95vw, 52→60.
      Border-radius e svg seguem a mesma proporcao. Em desktop o tamanho
      e fixo 56x56 (regra `.samples-page-v2 .hero-search-wrap .cv2-fab`) —
@@ -6355,6 +6461,51 @@ button:disabled {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  /* Rotacao + -> x sincronizada com o drawer do FAB radial. Close usa
+     transition mais curta + easing in pra "fechar" mais firme; open
+     usa duracao maior + easing out-suave (`.is-expanded` abaixo).
+     Stroke transiciona junto pra colorir o icone em verde escuro
+     quando o FAB inverte (background -> verde clarinho). */
+  transition:
+    transform 0.28s cubic-bezier(0.45, 0, 0.55, 1),
+    stroke 0.24s ease-in;
+}
+
+/* Estado aberto: FAB inverte — background verde clarinho + icone verde
+   escuro. Sinaliza o modo "fechar gaveta" sem precisar mudar de forma.
+   Background transiciona junto com o clip-path do drawer. */
+.cv2-fab.is-expanded {
+  background: linear-gradient(135deg, #cfe6d6, #b8d8c3);
+  box-shadow:
+    0 4px 14px rgba(31, 93, 67, 0.22),
+    inset 0 0 0 1px rgba(31, 93, 67, 0.14);
+  transition:
+    background 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.15s;
+}
+
+.cv2-fab.is-expanded svg {
+  /* + (duas linhas perpendiculares) rotaciona 45° -> vira ×. Open
+     casa com a transition do clip-path do drawer (0.42s out-spring).
+     Stroke vira verde escuro pra ficar visivel sobre o bg clarinho. */
+  transform: rotate(45deg);
+  stroke: var(--brand-green, #1f5d43);
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 0.32s ease-out;
+}
+
+/* Transition de saida do estado expanded (closing): background e
+   box-shadow voltam suavemente ao default em sincronia com o close
+   do drawer (0.28s). Aplicada no `.cv2-fab` base via `transition:
+   background` — mas o base nao tem transition de background. Adiciono
+   abaixo pra cobrir o caso fechado. */
+.cv2-fab {
+  transition:
+    transform 0.15s,
+    background 0.24s ease-in,
+    box-shadow 0.24s ease-in;
 }
 
 /* ── Clients page v2: entry animations + helpers ── */
@@ -19678,14 +19829,13 @@ button:disabled {
   line-height: 1.15;
 }
 
-/* Body: bloco donut+legenda ancorado a esquerda mas com um pequeno
-   padding-inline-start adicional pra desencostar da borda — fica entre
-   o canto esquerdo e o centro do card. Padding/gap mins reduzidos pra
-   liberar largura pra legenda em viewports <=360px (iPhone SE/12 mini). */
+/* Body: donut na esquerda + legenda esticando ate a borda direita do
+   card (`1fr`). Antes era `auto auto justify-content: start` (legenda
+   ocupava so a largura natural). Agora os counts da legenda alinham com
+   a borda direita do card — mesma posicao do icone de grafico no topo. */
 .sales-card-body {
   display: grid;
-  grid-template-columns: auto auto;
-  justify-content: start;
+  grid-template-columns: auto 1fr;
   gap: clamp(0.7rem, 3vw, 1.5rem);
   align-items: center;
   padding-inline-start: clamp(0.4rem, 2vw, 1.4rem);
@@ -25308,63 +25458,70 @@ button:disabled {
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 49; /* abaixo do FAB (.cv2-fab = 50), acima do conteudo */
+  z-index: 48; /* abaixo do drawer (49) e do FAB (50), acima do conteudo */
   pointer-events: auto;
-  animation: fab-menu-backdrop-in 0.2s ease-out;
-}
-
-@keyframes fab-menu-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .fab-menu-card {
   position: fixed;
-  /* Alinhado com o FAB (mesmo right) + acima dele com gap de 10px.
-     Calculo: bottom do FAB + altura do FAB + gap. */
+  /* Largura e right EXATAMENTE iguais ao FAB pra alinhamento perfeito
+     (vertical line entre as duas formas). Bottom calculado pra que o
+     drawer sobreponha o topo do FAB pelo proprio border-radius —
+     o corpo retangular do drawer preenche os corner-cutouts do FAB e
+     visualmente os dois formam UMA pill continua: bottom corners do
+     FAB + body reto + top corners do drawer.
+     Calc: FAB.bottom + FAB.height − corner_radius (overlap). */
   bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + 4.6rem + clamp(53px, 14.95vw, 60px) +
-      10px
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem) +
+      clamp(53px, 14.95vw, 60px) - clamp(16px, 4.6vw, 18px)
   );
-  right: clamp(14px, 4vw, 20px);
+  right: clamp(24px, 7vw, 34px);
   width: clamp(53px, 14.95vw, 60px);
-  z-index: 51;
+  /* z=49 fica abaixo do FAB (z=50). FAB oclui a parte de baixo do
+     drawer — visualmente o drawer parece sair de dentro do botao. */
+  z-index: 49;
   display: flex;
   flex-direction: column;
-  padding: 4px 0;
-  border-radius: clamp(16px, 4.6vw, 18px);
-  /* Vidro embacado: blur intenso + tom verde-translucido + highlight
-     interno no topo + sombra suave. Em fundo claro fica como cristal
-     escuro; em fundo escuro como vidro fosco. */
-  background: linear-gradient(180deg, rgba(31, 93, 67, 0.78), rgba(20, 60, 44, 0.82));
+  /* Padding-bottom cobre a area de overlap (clamp 16-18) + breathing
+     pra que a ultima opcao nao cole no FAB. Padding-top respira acima
+     da primeira opcao. */
+  padding: clamp(8px, 2.2vw, 10px) 0 clamp(22px, 5.8vw, 26px);
+  /* Top corners arredondados (mesmo radius do FAB); bottom retos pra
+     que a borda inferior do drawer encoste reta no corpo do FAB sem
+     deixar curvas aparentes na transicao. */
+  border-radius: clamp(16px, 4.6vw, 18px) clamp(16px, 4.6vw, 18px) 0 0;
+  /* Glass embacado em tom verde — mais opaco pra harmonizar com o FAB
+     solido logo abaixo. Highlight interno no topo + sombra suave. */
+  background: linear-gradient(180deg, rgba(31, 93, 67, 0.94), rgba(20, 60, 44, 0.97));
   backdrop-filter: blur(28px) saturate(1.6);
   -webkit-backdrop-filter: blur(28px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
     0 16px 38px rgba(10, 30, 18, 0.36),
     0 2px 6px rgba(10, 30, 18, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  transform-origin: bottom center;
-  animation: fab-menu-card-in 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
   overflow: hidden;
+  /* Estado inicial (mounted, !is-open): drawer 100% clipado a partir do
+     topo — invisivel, "comprimido" dentro do FAB. clip-path eh
+     animavel via transition, sem squish do conteudo (diferente de scaleY).
+     Close eh mais rapido + easing in-out (apple-like ease-in). */
+  clip-path: inset(100% 0 0 0);
+  opacity: 0;
+  transition:
+    clip-path 0.28s cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 0.18s ease-in;
 }
 
-@keyframes fab-menu-card-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.32) translateY(30%);
-  }
-  55% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+.fab-menu-card.is-open {
+  /* Aberto: clip retirado de cima pra baixo (top: 100% -> 0). Drawer
+     parece subir de dentro do FAB — a parte revelada aparece primeiro
+     acima da borda superior do FAB. Open mais longo + easing apple
+     out-spring (sem overshoot, suave). */
+  clip-path: inset(0 0 0 0);
+  opacity: 1;
+  transition:
+    clip-path 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease-out;
 }
 
 .fab-menu-option {
@@ -25379,9 +25536,32 @@ button:disabled {
   color: #ffffff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* Opcoes comecam levemente abaixadas + transparentes. Quando o
+     drawer abre, sobem suavemente em stagger curto. No fechamento,
+     somem rapido sem stagger (transition-delay 0 vem da regra base). */
+  opacity: 0;
+  transform: translateY(8px);
   transition:
-    background 0.18s ease,
-    transform 0.15s ease;
+    opacity 0.18s ease-in,
+    transform 0.2s ease-in,
+    background 0.18s ease;
+}
+
+.fab-menu-card.is-open .fab-menu-option {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.26s ease-out 0.1s,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
+    background 0.18s ease;
+}
+
+.fab-menu-card.is-open .fab-menu-option + .fab-menu-option-separator + .fab-menu-option {
+  /* Segunda opcao chega ~50ms depois pra stagger sutil. */
+  transition:
+    opacity 0.26s ease-out 0.16s,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.16s,
+    background 0.18s ease;
 }
 
 .fab-menu-option:hover,
