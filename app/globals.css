@@ -24237,52 +24237,139 @@ button:disabled {
    Reusa tokens do app-modal, adiciona variante de destaque amber.
    ════════════════════════════════════════════════════════════════ */
 
+/* Confirm modal usa pattern canonico `.app-modal.is-themed` (header
+   verde brand + body branco), mesmo de outros modais centrais. Width
+   reduzido (380px) porque eh um dialogo focado (titulo curto + icone
+   + 2 botoes). Body centraliza icone amber + mensagem. */
 .app-confirm-modal {
-  width: min(400px, calc(100vw - 1.5rem));
+  width: min(380px, calc(100vw - 1.5rem));
+  max-width: min(380px, calc(100vw - 1.5rem));
+}
+
+/* Header verde tem so titulo (sem description) — discard eh decisao
+   binaria, descricao detalhada vai no body com hierarquia visual. */
+.app-confirm-modal .app-modal-header {
+  padding: clamp(0.95rem, 3vw, 1.15rem) clamp(1.1rem, 3.5vw, 1.4rem);
+  justify-content: center;
+  text-align: center;
+}
+
+.app-confirm-modal .app-modal-title-wrap {
+  align-items: center;
 }
 
 .app-confirm-modal .app-modal-title {
-  font-size: 1.12rem;
+  font-size: clamp(1.05rem, 3.6vw, 1.18rem);
+  text-align: center;
 }
 
-.app-confirm-modal-warning {
-  display: flex;
+/* Body: icone grande amber + mensagem centrada. Override do
+   .app-modal.is-themed .app-modal-content default (que e flex column
+   align stretch) — aqui center pra dialogo de confirmacao. */
+.app-confirm-modal .app-modal-content {
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 12px;
-  background: rgba(197, 125, 12, 0.08);
-  border: 1px solid rgba(197, 125, 12, 0.2);
-  color: #8a5a11;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  text-align: center;
+  padding: clamp(1.3rem, 4vw, 1.6rem) clamp(1.2rem, 3.6vw, 1.5rem)
+    clamp(0.7rem, 2vw, 0.9rem);
+  gap: clamp(0.85rem, 2.6vw, 1.05rem);
 }
 
-.app-confirm-modal-warning svg {
-  width: 1.15rem;
-  height: 1.15rem;
-  flex-shrink: 0;
-  color: var(--color-warning);
+.app-confirm-modal-icon {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(58px, 16vw, 70px);
+  height: clamp(58px, 16vw, 70px);
+  border-radius: 50%;
+  background: rgba(212, 128, 26, 0.12);
+  color: #b8730d;
+  /* Sutil pulse animation pra puxar atencao sem ser invasivo. */
+  animation: app-confirm-modal-icon-pop 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) 0.1s backwards;
 }
 
+@keyframes app-confirm-modal-icon-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.app-confirm-modal-icon svg {
+  width: 48%;
+  height: 48%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app-confirm-modal-message {
+  margin: 0;
+  font-size: clamp(13px, 3.6vw, 14px);
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.62);
+  max-width: 28ch;
+}
+
+/* Footer: 2 botoes 1:1, sem border-top (override do .app-modal.is-themed
+   default que tem border-top — pra confirm modal o icone + mensagem ja
+   delimitam visualmente, border seria ruido extra). */
 .app-confirm-modal .app-modal-actions {
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  gap: 0.55rem;
+  padding: clamp(0.6rem, 2vw, 0.8rem) clamp(1.2rem, 3.6vw, 1.5rem)
+    clamp(1.1rem, 3.4vw, 1.35rem);
+  border-top: 0;
+  margin-top: 0;
 }
 
-.app-confirm-modal .app-modal-submit {
-  background: linear-gradient(135deg, #b83232, #9a2929);
-  box-shadow: 0 12px 22px rgba(184, 50, 50, 0.22);
-  min-height: 2.9rem;
-  font-size: 0.88rem;
-}
-
-.app-confirm-modal .app-modal-submit:hover:not(:disabled) {
-  background: linear-gradient(135deg, #c43838, #a62d2d);
+.app-confirm-modal .app-modal-actions > button {
+  flex: 1;
+  min-height: 2.8rem;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  border-radius: clamp(10px, 3vw, 12px);
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
 }
 
 .app-confirm-modal .app-modal-secondary {
-  min-height: 2.9rem;
-  font-size: 0.88rem;
+  background: #f4f3ef;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #4a4a45;
+}
+
+.app-confirm-modal .app-modal-secondary:hover:not(:disabled) {
+  background: #ecebe6;
+}
+
+.app-confirm-modal .app-modal-secondary:active:not(:disabled) {
+  transform: scale(0.97);
+  background: #e5e4df;
+}
+
+.app-confirm-modal .app-modal-submit {
+  background: linear-gradient(135deg, #c43838, #a32c2c);
+  border: 0;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(184, 50, 50, 0.28);
+}
+
+.app-confirm-modal .app-modal-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ce3e3e, #ad2f2f);
+  box-shadow: 0 6px 18px rgba(184, 50, 50, 0.34);
+}
+
+.app-confirm-modal .app-modal-submit:active:not(:disabled) {
+  transform: scale(0.97);
+  background: linear-gradient(135deg, #b32f2f, #9a2828);
+  box-shadow: 0 2px 8px rgba(184, 50, 50, 0.22);
 }
 
 /* Liga B3.4: textarea de motivo (opcional) do BlendRevertModal — modal de
