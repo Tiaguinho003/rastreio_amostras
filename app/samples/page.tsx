@@ -458,7 +458,15 @@ function SamplesPage() {
     () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Modal de nova amostra: `open` controla intencao (abrir/fechar) e
+  // `mounted` controla presenca no DOM. Quando o user fecha, `open`
+  // vira false imediatamente (BottomSheet anima saida) mas `mounted`
+  // permanece true por 400ms ate o slide-down terminar (350ms da
+  // transition em `.bottom-sheet` + margem). Sem o delayed unmount, o
+  // conditional render desmontava antes da animacao rodar e o user nao
+  // via o sheet "correndo" pra baixo.
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
+  const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
   // (decisao 5.31 = a — refetch automatico).
   const [newSampleRefetchKey, setNewSampleRefetchKey] = useState(0);
@@ -648,6 +656,18 @@ function SamplesPage() {
       mountedRef.current = false;
     };
   }, []);
+
+  // Delayed unmount do NewSampleModal: monta na hora ao abrir; ao
+  // fechar, mantem montado por 400ms pra que o slide-down do BottomSheet
+  // termine antes do React desmontar o componente.
+  useEffect(() => {
+    if (newSampleModalOpen) {
+      setNewSampleModalMounted(true);
+      return;
+    }
+    const t = window.setTimeout(() => setNewSampleModalMounted(false), 400);
+    return () => window.clearTimeout(t);
+  }, [newSampleModalOpen]);
 
   const runLoadMore = useCallback((cursor: SampleCursor) => {
     const state = loadMoreStateRef.current;
@@ -1533,7 +1553,7 @@ function SamplesPage() {
         </div>
       ) : null}
 
-      {newSampleModalOpen ? (
+      {newSampleModalMounted ? (
         <NewSampleModal
           open={newSampleModalOpen}
           session={session}

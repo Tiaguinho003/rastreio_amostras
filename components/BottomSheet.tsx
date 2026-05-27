@@ -59,6 +59,12 @@ export function BottomSheet({
   const [animatingIn, setAnimatingIn] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
+  // Derivado da intencao do user: true quando deve estar visualmente aberto.
+  // Flipa pra false IMEDIATAMENTE no fechamento (antes do unmount), permitindo
+  // que classes/estilos dependentes (body class pra tabbar, is-open class do
+  // sheet) reflitam o close em paralelo com a transition CSS.
+  const isOpen = animatingIn && open;
+
   const requestDismiss = useCallback(async () => {
     const canClose = onDismissAttempt ? await onDismissAttempt() : true;
     if (canClose) {
@@ -95,23 +101,13 @@ export function BottomSheet({
   }, [open, visible]);
 
   // ESC dispara dismiss (com confirmacao do consumidor via onDismissAttempt).
-  // body overflow:hidden enquanto sheet aberto pra evitar dual-scroll.
-  // body.is-bottom-sheet-open esconde a tabbar mobile pra que o footer do
-  // sheet (sticky bottom) nao fique atras dela.
+  // body overflow:hidden enquanto sheet montado pra evitar dual-scroll.
   // NAO depende de requestDismiss (usa ref estabilizada) pra evitar re-runs.
   useEffect(() => {
     if (!visible) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    document.body.classList.add('is-bottom-sheet-open');
-    // Defesa contra is-keyboard-open ficando presa: se user abriu o sheet
-    // com teclado ainda aberto (focusout pode nao disparar em todos os fluxos
-    // iOS standalone), a classe ficaria ativa apos o sheet fechar, deixando
-    // a tabbar escondida indefinidamente. Como o focus-trap do sheet move o
-    // foco pra dentro dele, o teclado fecha — limpamos a classe pra
-    // garantir estado consistente.
-    document.body.classList.remove('is-keyboard-open');
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -122,10 +118,33 @@ export function BottomSheet({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.body.classList.remove('is-bottom-sheet-open');
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [visible]);
+
+  // Body class `is-bottom-sheet-open` (esconde tabbar mobile). Atrelada a
+  // `isOpen` (intencao do user), NAO a `visible` (presenca no DOM).
+  // Assim quando o user fecha, a classe sai imediatamente e a tabbar
+  // comeca a reaparecer EM PARALELO com o slide-down do sheet — em vez
+  // de "popar" apenas no fim da animacao (que parecia bug de carregamento).
+  useEffect(() => {
+    if (!isOpen) return;
+
+    document.body.classList.add('is-bottom-sheet-open');
+    // Defesa contra is-keyboard-open ficando presa: se user abriu o sheet
+    // com teclado ainda aberto (focusout pode nao disparar em todos os fluxos
+    // iOS standalone), a classe ficaria ativa apos o sheet fechar, deixando
+    // a tabbar escondida indefinidamente. Como o focus-trap do sheet move o
+    // foco pra dentro dele, o teclado fecha — limpamos a classe pra
+    // garantir estado consistente.
+    document.body.classList.remove('is-keyboard-open');
+
+    return () => {
+      document.body.classList.remove('is-bottom-sheet-open');
+    };
+    // isOpen e derivado de `open` + `animatingIn`; quando open vira false,
+    // isOpen flipa pra false imediatamente (animatingIn ja era true).
+  }, [isOpen]);
 
   // Back Android: injeta history state ao abrir; popstate dispara dismiss.
   // Cleanup limpa state injetado se sheet fecha externamente (sem popstate).
@@ -196,17 +215,22 @@ export function BottomSheet({
     dragState.current.dragging = false;
     const delta = dragState.current.currentY - dragState.current.startY;
     if (delta > SWIPE_THRESHOLD) {
-      // Reset offset e dispara dismiss; se consumidor cancelar, volta visualmente
-      setDragOffset(0);
+      // Past threshold — dispara dismiss SEM resetar dragOffset. O JSX
+      // condiciona `is-dragging` e o inline transform em `isOpen`, entao
+      // quando o pai flipar open=false a class some, a transition CSS
+      // (transform 0.35s) liga, e o sheet anima do dragOffset atual
+      // (inline) ate translate3d(0, 100%, 0) (CSS rule) — movimento
+      // continuo, sem snap-de-volta pra zero.
       void requestDismiss();
     } else {
+      // Abaixo do threshold: snap de volta pra posicao aberta com
+      // transition (is-dragging removido, isOpen ainda true).
       setDragOffset(0);
     }
   }
 
   if (!visible) return null;
 
-  const isOpen = animatingIn && open;
   // translate3d mantem GPU layer permanente, previne scroll lock em iOS
   // Safari standalone PWA (mesmo padrao do antigo ProfileBottomSheet).
   const sheetTransform = dragOffset > 0 ? `translate3d(0, ${dragOffset}px, 0)` : undefined;
@@ -218,8 +242,8 @@ export function BottomSheet({
     >
       <section
         ref={focusTrapRef}
-        className={`bottom-sheet${isOpen ? ' is-open' : ''}${dragOffset > 0 ? ' is-dragging' : ''}`}
-        style={dragOffset > 0 ? { transform: sheetTransform } : undefined}
+        className={`bottom-sheet${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
+        style={isOpen && dragOffset > 0 ? { transform: sheetTransform } : undefined}
         onClick={(event) => event.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

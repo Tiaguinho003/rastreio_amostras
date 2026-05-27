@@ -264,6 +264,18 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     return () => window.clearTimeout(timer);
   }, [state.step]);
 
+  // Quando o pai sinaliza fechamento (open=false), fecha modais aninhados
+  // imediatamente — eles nao tem animacao de saida (returnam null direto),
+  // entao deixa-los abertos durante o delayed unmount do pai (~400ms)
+  // criaria um "flash" de modal pendurado apos a acao do user.
+  useEffect(() => {
+    if (!open) {
+      setSuccessModalOpen(false);
+      setConfirmDiscardOpen(false);
+      setQuickCreateOpen(false);
+    }
+  }, [open]);
+
   const navigateToSample =
     onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
 
@@ -584,20 +596,28 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             <span className="nsv2-field-label">
               Sacas<span className="nsv2-required-star"> *</span>
             </span>
-            <input
-              ref={sacksInputRef}
-              value={sacks}
-              className={`nsv2-field-input ${fieldErrors.sacks ? 'has-error' : ''}`}
-              aria-invalid={Boolean(fieldErrors.sacks)}
-              onChange={(event) => {
-                markDirty();
-                setSacks(event.target.value.replace(/[^0-9]/g, ''));
-                clearFieldError('sacks');
-              }}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder={fieldErrors.sacks ? fieldErrors.sacks : 'Ex: 40'}
-            />
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <rect x="4" y="8" width="16" height="13" rx="2" />
+                  <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+                </svg>
+              </span>
+              <input
+                ref={sacksInputRef}
+                value={sacks}
+                className={`nsv2-field-input has-icon-left ${fieldErrors.sacks ? 'has-error' : ''}`}
+                aria-invalid={Boolean(fieldErrors.sacks)}
+                onChange={(event) => {
+                  markDirty();
+                  setSacks(event.target.value.replace(/[^0-9]/g, ''));
+                  clearFieldError('sacks');
+                }}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder={fieldErrors.sacks ? fieldErrors.sacks : 'Ex: 40'}
+              />
+            </div>
           </label>
         </div>
 
@@ -606,24 +626,34 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             <span className="nsv2-field-label">
               Safra<span className="nsv2-required-star"> *</span>
             </span>
-            <input
-              id="nsv2-harvest-input-modal"
-              ref={harvestInputRef}
-              className={`nsv2-field-input ${fieldErrors.harvest ? 'has-error' : ''}`}
-              aria-invalid={Boolean(fieldErrors.harvest)}
-              value={harvest}
-              onFocus={() => setHarvestOptionsOpen(true)}
-              onChange={(event) => {
-                markDirty();
-                setHarvest(event.target.value.toUpperCase());
-                clearFieldError('harvest');
-              }}
-              placeholder={
-                fieldErrors.harvest
-                  ? fieldErrors.harvest
-                  : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
-              }
-            />
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18" />
+                  <path d="M8 3v4" />
+                  <path d="M16 3v4" />
+                </svg>
+              </span>
+              <input
+                id="nsv2-harvest-input-modal"
+                ref={harvestInputRef}
+                className={`nsv2-field-input has-icon-left ${fieldErrors.harvest ? 'has-error' : ''}`}
+                aria-invalid={Boolean(fieldErrors.harvest)}
+                value={harvest}
+                onFocus={() => setHarvestOptionsOpen(true)}
+                onChange={(event) => {
+                  markDirty();
+                  setHarvest(event.target.value.toUpperCase());
+                  clearFieldError('harvest');
+                }}
+                placeholder={
+                  fieldErrors.harvest
+                    ? fieldErrors.harvest
+                    : `Ex: ${HARVEST_PRESET_OPTIONS[1] ?? '25/26'}`
+                }
+              />
+            </div>
           </label>
           {harvestOptionsOpen ? (
             <div className="new-sample-harvest-options">
@@ -650,46 +680,75 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         <div className="nsv2-grid-half">
           <label className="nsv2-field">
             <span className="nsv2-field-label">Lote de origem</span>
-            <input
-              value={originLot}
-              className="nsv2-field-input"
-              onChange={(event) => {
-                markDirty();
-                setOriginLot(event.target.value.toUpperCase());
-              }}
-              placeholder="Codigo do lote"
-            />
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <path d="M8 8v8" />
+                  <path d="M16 8v8" />
+                  <path d="M12 8v8" />
+                </svg>
+              </span>
+              <input
+                value={originLot}
+                className="nsv2-field-input has-icon-left"
+                onChange={(event) => {
+                  markDirty();
+                  setOriginLot(event.target.value.toUpperCase());
+                }}
+                placeholder="Codigo do lote"
+              />
+            </div>
           </label>
         </div>
 
         <div className="nsv2-grid-half">
           <label className="nsv2-field">
             <span className="nsv2-field-label">Local</span>
-            <input
-              value={location}
-              className="nsv2-field-input"
-              onChange={(event) => {
-                markDirty();
-                setLocation(event.target.value.toUpperCase());
-              }}
-              placeholder="Ex: BM, Patos"
-              maxLength={30}
-            />
+            <div className="nsv2-field-input-wrap">
+              <span className="nsv2-field-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z" />
+                  <circle cx="12" cy="9" r="3" />
+                </svg>
+              </span>
+              <input
+                value={location}
+                className="nsv2-field-input has-icon-left"
+                onChange={(event) => {
+                  markDirty();
+                  setLocation(event.target.value.toUpperCase());
+                }}
+                placeholder="Ex: BM, Patos"
+                maxLength={30}
+              />
+            </div>
           </label>
         </div>
 
         <div className="nsv2-grid-full">
           <label className="nsv2-field">
             <span className="nsv2-field-label">Observacoes</span>
-            <input
-              value={notes}
-              className="nsv2-field-input"
-              onChange={(event) => {
-                markDirty();
-                setNotes(event.target.value.toUpperCase());
-              }}
-              placeholder=""
-            />
+            <div className="nsv2-field-input-wrap">
+              <input
+                value={notes}
+                className="nsv2-field-input has-icon-right"
+                onChange={(event) => {
+                  markDirty();
+                  setNotes(event.target.value.toUpperCase());
+                }}
+                placeholder=""
+              />
+              <span className="nsv2-field-input-icon is-right" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </span>
+            </div>
           </label>
         </div>
       </div>

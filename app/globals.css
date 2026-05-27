@@ -15305,15 +15305,28 @@ button:disabled {
        modais centrais automaticamente — modal de novo cliente, detalhe do
        cliente, edicao, classificacao, decisao de senha, etc — sem precisar
        de useEffect em cada componente).
-     Usamos visibility:hidden em vez de transform:translateY pra:
-     (a) remover da arvore de acessibilidade,
-     (b) nao interagir com position:fixed/visualViewport do iOS PWA (raiz das
-         antigas race conditions de "tabbar no meio do caminho"),
-     (c) nao causar layout shift do main (espaco continua ocupado). */
+     Fade via opacity (em vez de visibility:hidden) pra que a tabbar
+     reaparece SUAVEMENTE quando o modal fecha — sem o "pop" abrupto que
+     parecia bug de carregamento. pointer-events:none mantem nao-interativa
+     durante o fade. visibility tambem flipa, mas com transition-delay no
+     fim do fade-out, pra preservar a remocao da arvore de acessibilidade
+     enquanto invisivel — e voltar pra visivel instantaneamente no fade-in
+     (em sincronia com a opacidade subindo). */
+  .mobile-tabbar {
+    transition:
+      opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 0s,
+      transform 120ms ease-out;
+  }
   body.is-bottom-sheet-open .mobile-tabbar,
   body:has(.app-modal-backdrop) .mobile-tabbar {
+    opacity: 0;
     visibility: hidden;
     pointer-events: none;
+    transition:
+      opacity 0.22s ease-in,
+      visibility 0s linear 0.22s,
+      transform 120ms ease-out;
   }
 
   /* Rotas declaradas em ROUTES_WITHOUT_MOBILE_TABBAR (AppShell): a tabbar
@@ -20466,6 +20479,52 @@ button:disabled {
   outline: none;
 }
 
+/* Wrapper de input com icone decorativo (Sacas/Safra/Lote/Local/Observ).
+   O icone fica em um quadrado arredondado verde-claro a esquerda (ou
+   direita) do input. Padding-left/right do input reserva o espaco. */
+.nsv2-field-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.nsv2-field-input-icon {
+  position: absolute;
+  left: clamp(6px, 1.8vw, 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(30px, 8.4vw, 36px);
+  height: clamp(30px, 8.4vw, 36px);
+  display: inline-grid;
+  place-items: center;
+  background: rgba(31, 93, 67, 0.08);
+  border-radius: clamp(7px, 2vw, 9px);
+  color: var(--brand-green);
+  pointer-events: none;
+}
+
+.nsv2-field-input-icon.is-right {
+  left: auto;
+  right: clamp(6px, 1.8vw, 8px);
+}
+
+.nsv2-field-input-icon svg {
+  width: 58%;
+  height: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nsv2-field-input.has-icon-left {
+  padding-left: calc(clamp(30px, 8.4vw, 36px) + clamp(12px, 3.6vw, 16px));
+}
+
+.nsv2-field-input.has-icon-right {
+  padding-right: calc(clamp(30px, 8.4vw, 36px) + clamp(12px, 3.6vw, 16px));
+}
+
 .nsv2-field-input:focus {
   background: #ffffff;
   border-color: var(--brand-green-soft);
@@ -25304,7 +25363,11 @@ button:disabled {
   padding: clamp(0.55rem, 2vw, 0.75rem) 0 clamp(0.35rem, 1.5vw, 0.55rem);
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
   background: var(--brand-green);
-  border-radius: clamp(20px, 5vw, 28px) clamp(20px, 5vw, 28px) 0 0;
+  /* Border-radius removido daqui: o .bottom-sheet pai tem
+     `overflow: hidden` + `border-radius: clamp(20px, 5vw, 28px) ... 0 0`
+     que clipa todos os filhos no formato arredondado. Ter border-radius
+     proprio aqui criava dupla-rounding com sub-pixel offset — slivers
+     brancos visiveis no canto superior em alguns devices iOS. */
   cursor: grab;
 }
 
@@ -25323,7 +25386,10 @@ button:disabled {
   justify-content: center;
   gap: 0.6rem;
   margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
-  padding: clamp(0.5rem, 1.6vw, 0.75rem) clamp(3.6rem, 12vw, 4.2rem) clamp(0.7rem, 2.2vw, 1rem);
+  /* Padding vertical simetrico: titulo (line-height: 1 -> caixa visual
+     tight) fica geometricamente alinhado com o botao X (absolute top:50%
+     centrado no header). */
+  padding: clamp(0.7rem, 2vw, 0.95rem) clamp(3.6rem, 12vw, 4.2rem);
   background: var(--brand-green);
 }
 
@@ -25335,6 +25401,11 @@ button:disabled {
   color: #ffffff;
   text-align: center;
   min-width: 0;
+  /* line-height: 1 garante que a caixa visual do texto seja igual ao
+     glifo — sem line-box extra acima/abaixo. Combinado com padding
+     simetrico do header, o centro visual do titulo coincide com o
+     centro vertical do botao X. */
+  line-height: 1;
 }
 
 .bottom-sheet-close {
