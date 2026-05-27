@@ -149,14 +149,14 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                       {/* Corpo do grao: elipse vertical (rx:ry ~ 1:1.45). */}
                       <ellipse cx="12" cy="12" rx="6.2" ry="9" />
-                      {/* Fenda central com sinuosidade sutil — branco pra
-                          contrastar com o corpo amarelo. style inline supera
-                          o `stroke: none` herdado do CSS do icon-wrap. */}
+                      {/* Fenda central — verde brand pra contrastar com o
+                          corpo branco no novo design (antes era branco
+                          contra corpo gold). */}
                       <path
                         d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4"
                         style={{
                           fill: 'none',
-                          stroke: '#ffffff',
+                          stroke: '#1f5d43',
                           strokeWidth: 1.7,
                           strokeLinecap: 'round',
                           strokeLinejoin: 'round',
@@ -174,6 +174,11 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                       {data.classificationPending.total}
                     </span>
                   ) : null}
+                  <span className="dashboard-operation-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
+                  </span>
                 </button>
 
                 <button
@@ -198,6 +203,11 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                       {data.clientsIncomplete.total}
                     </span>
                   ) : null}
+                  <span className="dashboard-operation-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
+                  </span>
                 </button>
               </div>
             ) : (
