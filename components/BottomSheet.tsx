@@ -193,11 +193,9 @@ export function BottomSheet({
 
   function handleTouchStart(event: React.TouchEvent) {
     if (!dragToDismiss || dragDisabled) return;
-    // Se o toque comecou dentro do body com scroll > 0, cede pro scroll nativo
-    const target = event.target as HTMLElement | null;
-    const body = target?.closest('.bottom-sheet-body') as HTMLElement | null;
-    if (body && body.scrollTop > 0) return;
-
+    // touchstart so eh anexado ao drag handle + header — touches em
+    // body/footer nao chegam aqui, entao scrolls internos (dropdowns,
+    // listas) funcionam sem interferencia do drag-to-dismiss.
     dragState.current.startY = event.touches[0].clientY;
     dragState.current.currentY = event.touches[0].clientY;
     dragState.current.dragging = true;
@@ -245,7 +243,6 @@ export function BottomSheet({
         className={`bottom-sheet${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
         style={isOpen && dragOffset > 0 ? { transform: sheetTransform } : undefined}
         onClick={(event) => event.stopPropagation()}
-        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         role="dialog"
@@ -253,12 +250,16 @@ export function BottomSheet({
         aria-label={ariaLabel}
       >
         {dragToDismiss ? (
-          <div className="bottom-sheet-drag-handle" aria-hidden="true">
+          <div
+            className="bottom-sheet-drag-handle"
+            aria-hidden="true"
+            onTouchStart={handleTouchStart}
+          >
             <span className="bottom-sheet-drag-handle-bar" />
           </div>
         ) : null}
 
-        <header className="bottom-sheet-header">
+        <header className="bottom-sheet-header" onTouchStart={handleTouchStart}>
           <h3 className="bottom-sheet-title" aria-live="polite">
             {title}
           </h3>
