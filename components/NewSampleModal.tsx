@@ -893,7 +893,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
                 onClick={() => setConfirmDiscardOpen(false)}
                 autoFocus
               >
-                Continuar editando
+                Continuar
               </button>
               <button type="button" className="app-modal-submit is-danger" onClick={handleDiscard}>
                 Descartar
