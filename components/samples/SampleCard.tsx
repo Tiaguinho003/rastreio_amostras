@@ -154,11 +154,6 @@ export function SampleCard({
   const isClassified = Boolean(
     tech?.type || tech?.screen || tech?.defectsCount != null || tech?.density != null
   );
-  const branchLabel =
-    sample.ownerUnit?.tradeName?.trim() || sample.ownerUnit?.legalName?.trim() || null;
-  const hasIdentityData = Boolean(
-    declared.harvest || declared.location || declared.originLot || branchLabel
-  );
 
   return (
     <div
@@ -202,114 +197,70 @@ export function SampleCard({
         aria-hidden={!isExpanded}
       >
         <div className="spv2-card-expanded-inner">
-          {/* Volume — sempre presente, mostra disponivel + breakdown se houver */}
-          <section className="spv2-card-section spv2-card-section--volume">
-            <div className="spv2-card-stat is-primary">
+          <div className="spv2-card-stats-grid">
+            <div className="spv2-card-stat spv2-card-stat--primary">
               <span className="spv2-card-stat-label">Disponível</span>
               <span className="spv2-card-stat-value">
                 <span className="spv2-card-stat-num">{formatSacks(availableSacks)}</span>
-                <span className="spv2-card-stat-divider">/</span>
-                <span className="spv2-card-stat-total">{formatSacks(declared.sacks)}</span>
+                {declared.sacks != null ? (
+                  <>
+                    <span className="spv2-card-stat-divider">/</span>
+                    <span className="spv2-card-stat-total">{declared.sacks}</span>
+                  </>
+                ) : null}
                 <span className="spv2-card-stat-unit">sc</span>
               </span>
             </div>
-            <div className="spv2-card-stat-row">
-              {sample.soldSacks != null && sample.soldSacks > 0 ? (
-                <div className="spv2-card-stat is-mini">
-                  <span className="spv2-card-stat-label">Vendido</span>
-                  <span className="spv2-card-stat-value">
-                    {sample.soldSacks} <small>sc</small>
-                  </span>
-                </div>
-              ) : null}
-              {sample.committedSacks != null && sample.committedSacks > 0 ? (
-                <div className="spv2-card-stat is-mini">
-                  <span className="spv2-card-stat-label">Em liga</span>
-                  <span className="spv2-card-stat-value">
-                    {sample.committedSacks} <small>sc</small>
-                  </span>
-                </div>
-              ) : null}
-              {sample.lostSacks != null && sample.lostSacks > 0 ? (
-                <div className="spv2-card-stat is-mini">
-                  <span className="spv2-card-stat-label">Perdido</span>
-                  <span className="spv2-card-stat-value">
-                    {sample.lostSacks} <small>sc</small>
-                  </span>
-                </div>
-              ) : null}
+
+            <div className="spv2-card-stat">
+              <span className="spv2-card-stat-label">Safra</span>
+              <span className="spv2-card-stat-value">
+                {declared.harvest || <span className="spv2-card-stat-value--empty">—</span>}
+              </span>
             </div>
-          </section>
 
-          {/* Identidade — so renderiza se houver pelo menos um campo */}
-          {hasIdentityData ? (
-            <section className="spv2-card-section">
-              <div className="spv2-card-fields">
-                {declared.harvest ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Safra</span>
-                    <span className="spv2-card-field-value">{declared.harvest}</span>
-                  </div>
-                ) : null}
-                {declared.location ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Local</span>
-                    <span className="spv2-card-field-value">{declared.location}</span>
-                  </div>
-                ) : null}
-                {declared.originLot ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Lote de origem</span>
-                    <span className="spv2-card-field-value">{declared.originLot}</span>
-                  </div>
-                ) : null}
-                {branchLabel ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Filial</span>
-                    <span className="spv2-card-field-value">{branchLabel}</span>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
+            <div className="spv2-card-stat">
+              <span className="spv2-card-stat-label">Local</span>
+              <span className="spv2-card-stat-value">
+                {declared.location || <span className="spv2-card-stat-value--empty">—</span>}
+              </span>
+            </div>
 
-          {/* Classificacao — so renderiza se ja foi classificada */}
-          {isClassified ? (
-            <section className="spv2-card-section">
-              <div className="spv2-card-section-title">Classificação</div>
-              <div className="spv2-card-fields">
-                {tech?.type ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Tipo</span>
-                    <span className="spv2-card-field-value">{tech.type}</span>
-                  </div>
-                ) : null}
-                {tech?.screen ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Peneira</span>
-                    <span className="spv2-card-field-value">{tech.screen}</span>
-                  </div>
-                ) : null}
-                {tech?.defectsCount != null ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Defeitos</span>
-                    <span className="spv2-card-field-value">{tech.defectsCount}</span>
-                  </div>
-                ) : null}
-                {tech?.density != null ? (
-                  <div className="spv2-card-field">
-                    <span className="spv2-card-field-label">Densidade</span>
-                    <span className="spv2-card-field-value">{tech.density}</span>
-                  </div>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
+            {isClassified ? (
+              <>
+                <div className="spv2-card-stat">
+                  <span className="spv2-card-stat-label">Tipo</span>
+                  <span className="spv2-card-stat-value">
+                    {tech?.type || <span className="spv2-card-stat-value--empty">—</span>}
+                  </span>
+                </div>
+
+                <div className="spv2-card-stat">
+                  <span className="spv2-card-stat-label">Peneira</span>
+                  <span className="spv2-card-stat-value">
+                    {tech?.screen || <span className="spv2-card-stat-value--empty">—</span>}
+                  </span>
+                </div>
+
+                <div className="spv2-card-stat">
+                  <span className="spv2-card-stat-label">Defeitos</span>
+                  <span className="spv2-card-stat-value">
+                    {tech?.defectsCount != null ? (
+                      tech.defectsCount
+                    ) : (
+                      <span className="spv2-card-stat-value--empty">—</span>
+                    )}
+                  </span>
+                </div>
+              </>
+            ) : null}
+          </div>
 
           <Link
             href={`/samples/${sample.id}`}
             className="spv2-card-detail-btn"
             onClick={onClickCapture}
+            tabIndex={isExpanded ? 0 : -1}
           >
             <span>Ver detalhes</span>
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
