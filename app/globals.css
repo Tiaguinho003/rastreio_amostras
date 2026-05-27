@@ -1517,8 +1517,12 @@ body {
   --status-glow: rgba(201, 68, 68, 0.22);
 }
 .is-status-classification-pending {
-  --status-color: #c49a2e;
-  --status-glow: rgba(196, 154, 46, 0.22);
+  /* Tema das amostras pendentes de classificacao migrado pra brand-green
+     (era #c49a2e gold). Alinhado com o app design system: header verde,
+     borda lateral verde no card. O CTA "Classificar" continua laranja
+     (acao destacada). */
+  --status-color: #1f5d43;
+  --status-glow: rgba(31, 93, 67, 0.22);
 }
 .is-status-classification-progress {
   --status-color: #3a7cc4;
@@ -1555,12 +1559,12 @@ body {
      pra que o nome truncado (ellipsis) nao pareca colado no botao. */
   gap: 1.15rem;
   border: 1px solid rgba(214, 214, 214, 0.52);
-  /* Borda superior amarela acompanhando a cor da variante (status-color);
-     mesma cor da borda esquerda — forma um "L" superior-esquerdo. */
-  border-top: 3px solid var(--status-color, #d4a017);
+  /* Top border removida (era 3px gold formando "L" com a left).
+     No novo design so a borda esquerda fica colorida. */
+  border-top: 1px solid rgba(214, 214, 214, 0.52);
   border-left: 4.5px solid var(--status-color, rgba(214, 214, 214, 0.52));
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.4);
+  background: #ffffff;
   padding: 0.68rem 1.15rem;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.68),
@@ -1600,7 +1604,7 @@ body {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #2f4c39;
+  color: #1f5d43;
 }
 
 .app-modal-card-line {
@@ -1611,7 +1615,7 @@ body {
 }
 
 .app-modal-card-line strong {
-  color: #3e5748;
+  color: #1f5d43;
 }
 
 .app-modal-card-meta {
@@ -11859,12 +11863,9 @@ button:disabled {
   justify-items: start;
 }
 
-/* Header amarelo (em vez do verde brand padrao do .is-themed) — alinha
-   com a cor das pendencias (badge + icone do card de Classificacao).
-   Tom mais escuro pra manter contraste WCAG AA do titulo branco bold. */
-.app-modal.is-themed.app-modal-dashboard .app-modal-header {
-  background: linear-gradient(135deg, #c89414, #a87d12);
-}
+/* Header verde brand — herda o gradient padrao de .app-modal.is-themed
+   (var(--brand-green), var(--brand-green-soft)). Substituiu o gradient
+   gold que tinhamos antes do redesign do dashboard. */
 
 .export-confirm-backdrop {
   position: fixed;
