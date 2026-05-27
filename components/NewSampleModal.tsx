@@ -564,7 +564,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
               setQuickCreateSeed(searchTerm);
               setQuickCreateOpen(true);
             }}
-            createLabel="+ Novo cliente"
+            createLabel="Adicionar cliente também"
             createButtonStyle="inline-cta"
           />
         </div>
