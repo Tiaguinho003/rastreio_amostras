@@ -1293,15 +1293,24 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 }
 
 /* Botoes do footer: altura uniforme (default difere 0.2rem entre secondary
-   e submit) + width 100% pra preencher cada coluna do grid. */
+   e submit) + width 100% pra preencher cada coluna do grid. Padding
+   lateral + bottom respeita as bordas do modal (.app-modal.is-themed tem
+   padding:0, entao actions precisa do proprio breathing room — sem isso
+   os botoes encostam nas bordas). */
 .sample-created-modal .app-modal-actions {
   align-items: center;
+  gap: clamp(0.5rem, 1.6vw, 0.65rem);
+  padding: clamp(0.7rem, 2.2vw, 0.9rem) clamp(1.2rem, 3.6vw, 1.5rem)
+    clamp(1.1rem, 3.4vw, 1.35rem);
+  border-top: 0;
+  margin-top: 0;
 }
 
 .sample-created-modal .app-modal-actions .app-modal-secondary,
 .sample-created-modal .app-modal-actions .app-modal-submit {
   min-height: 3.2rem;
   width: 100%;
+  border-radius: clamp(10px, 3vw, 12px);
 }
 
 .app-modal.is-themed .app-modal-content {
