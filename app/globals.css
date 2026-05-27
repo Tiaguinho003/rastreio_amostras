@@ -226,6 +226,22 @@ body {
   background: #1f5d43;
   z-index: 9999;
   pointer-events: none;
+  /* Transition pra que a faixa apague suavemente quando um modal/sheet
+     abre (regra abaixo) e volte ao verde quando fecha — sincroniza com
+     a transition do `.bottom-sheet-backdrop` (0.35s mesmo easing). */
+  transition: background 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Quando ha modal central (.app-modal-backdrop) ou bottom-sheet
+   (.bottom-sheet-backdrop.is-open) aberto, a faixa solida verde da
+   status bar fica transparente — assim o `backdrop-filter: blur(...)`
+   do backdrop "atravessa" pra area da status bar do iOS PWA. Os
+   icones do iOS (horario/bateria/sinal) permanecem nitidos (renderizados
+   pelo SO), mas o fundo atras deles fica embacado igual ao resto da
+   pagina (efeito de vidro fosco nativo). */
+body:has(.app-modal-backdrop) .mobile-edge-shell-auth::after,
+body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
+  background: transparent;
 }
 
 .mobile-edge-shell-login {
