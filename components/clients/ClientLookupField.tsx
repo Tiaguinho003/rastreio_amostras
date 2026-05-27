@@ -118,6 +118,11 @@ export function ClientLookupField({
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  // Trava one-shot pra `blurOnScroll`: ao primeiro sinal de scroll no
+  // dropdown, fecha o teclado e nao re-dispara nesse ciclo. Reseta quando
+  // o dropdown fecha/abre de novo.
+  const blurredByScrollRef = useRef(false);
   const lastSelectedIdRef = useRef<string | null>(selectedClient?.id ?? null);
 
   const normalizedSearch = useMemo(() => search.trim(), [search]);
@@ -132,6 +137,11 @@ export function ClientLookupField({
     lastSelectedIdRef.current = nextSelectedId;
     setSearch(selectedClient?.displayName ?? '');
   }, [selectedClient]);
+
+  // Reseta a trava do blur-on-scroll quando o dropdown abre/fecha.
+  useEffect(() => {
+    blurredByScrollRef.current = false;
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -294,7 +304,22 @@ export function ClientLookupField({
       {error && !compact ? <p className="error client-lookup-feedback">{error}</p> : null}
 
       {open && (loading || error || normalizedSearch.length >= 2) ? (
-        <div className={`client-lookup-dropdown${compact ? ' is-compact' : ''}`}>
+        <div
+          ref={dropdownRef}
+          className={`client-lookup-dropdown${compact ? ' is-compact' : ''}`}
+          onScroll={(event) => {
+            // Ao primeiro sinal de scroll, fecha o teclado pra dar mais
+            // espaco visual de leitura. Trava one-shot pra nao re-blurar
+            // a cada scroll subsequente do mesmo ciclo de abertura.
+            if (blurredByScrollRef.current) return;
+            if (event.currentTarget.scrollTop > 4) {
+              blurredByScrollRef.current = true;
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+            }
+          }}
+        >
           {loading ? <p className="client-lookup-empty">Buscando clientes...</p> : null}
           {!loading && normalizedSearch.length >= 2 && rows.length === 0 && !error ? (
             <div className="client-lookup-empty">
@@ -342,6 +367,7 @@ export function ClientLookupField({
             <ul className="client-lookup-list" role="listbox" aria-label={label}>
               {rows.map((row) => {
                 const isMatched = matchedUnitId !== null && row.unit?.id === matchedUnitId;
+                const isPJ = row.client.personType === 'PJ';
                 return (
                   <li key={row.key}>
                     <button
@@ -349,29 +375,54 @@ export function ClientLookupField({
                       className={`client-lookup-option${row.isHierarchicalChild ? ' is-child' : ''}${isMatched ? ' is-matched' : ''}`}
                       onClick={() => handleSelectClient(row.client, row.unit)}
                     >
-                      <span className="client-lookup-option-title">
-                        {row.client.displayName ?? 'Sem nome'}
-                        {row.unit ? (
-                          <span className="client-lookup-option-branch">
-                            {' · '}
-                            {buildUnitLabel(row.unit)}
+                      <span
+                        className={`client-lookup-option-avatar${isPJ ? ' is-pj' : ' is-pf'}`}
+                        aria-hidden="true"
+                      >
+                        {isPJ ? (
+                          <svg viewBox="0 0 24 24" focusable="false">
+                            <rect x="4" y="8" width="16" height="13" rx="1.5" />
+                            <path d="M9 21v-6h6v6" />
+                            <path d="M7 8V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v3" />
+                            <path d="M9 12h.01" />
+                            <path d="M15 12h.01" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" focusable="false">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="client-lookup-option-text">
+                        <span className="client-lookup-option-title">
+                          <span className="client-lookup-option-name">
+                            {row.client.displayName ?? 'Sem nome'}
                           </span>
-                        ) : null}
-                        {isMatched ? (
-                          <span className="client-lookup-option-matched"> · CNPJ exato</span>
-                        ) : null}
-                        {!row.isHierarchicalChild ? (
+                          {row.unit ? (
+                            <span className="client-lookup-option-branch">
+                              {' · '}
+                              {buildUnitLabel(row.unit)}
+                            </span>
+                          ) : null}
+                          {isMatched ? (
+                            <span className="client-lookup-option-matched"> · CNPJ exato</span>
+                          ) : null}
+                        </span>
+                        <span className="client-lookup-option-meta">
+                          Codigo {row.client.code} · {row.client.personType}
+                          {row.unit?.cnpj
+                            ? ` · ${formatClientDocument(row.unit.cnpj, 'PJ')}`
+                            : getClientDocument(row.client)
+                              ? ` · ${getClientDocument(row.client)}`
+                              : ''}
+                        </span>
+                      </span>
+                      {!row.isHierarchicalChild ? (
+                        <span className="client-lookup-option-badge">
                           <ClientCompleteBadge client={row.client} variant="icon-only" />
-                        ) : null}
-                      </span>
-                      <span className="client-lookup-option-meta">
-                        Codigo {row.client.code} · {row.client.personType}
-                        {row.unit?.cnpj
-                          ? ` · ${formatClientDocument(row.unit.cnpj, 'PJ')}`
-                          : getClientDocument(row.client)
-                            ? ` · ${getClientDocument(row.client)}`
-                            : ''}
-                      </span>
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 );
