@@ -465,6 +465,10 @@ function SamplesPage() {
   // transition em `.bottom-sheet` + margem). Sem o delayed unmount, o
   // conditional render desmontava antes da animacao rodar e o user nao
   // via o sheet "correndo" pra baixo.
+  // Expandable cards: ids dos cards expandidos. Multiplos podem ficar
+  // abertos simultaneamente (decisao UX). Tap no card expande/contrai;
+  // navegacao pra detalhe so via botao "Ver detalhes" dentro do painel.
+  const [expandedSampleIds, setExpandedSampleIds] = useState<Set<string>>(() => new Set());
   const [newSampleModalOpen, setNewSampleModalOpen] = useState(false);
   const [newSampleModalMounted, setNewSampleModalMounted] = useState(false);
   // Incrementa apos criar amostra via FAB/botao pra forcar refetch da lista
@@ -999,6 +1003,16 @@ function SamplesPage() {
     });
   }
 
+  // Toggle do card expandido. Multiplos podem ficar abertos.
+  function toggleCardExpand(sampleId: string) {
+    setExpandedSampleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sampleId)) next.delete(sampleId);
+      else next.add(sampleId);
+      return next;
+    });
+  }
+
   function showIneligibleReason(reason: SampleEligibilityReason) {
     const label = mapEligibilityReasonToLabel(reason);
     toast.info({
@@ -1485,6 +1499,8 @@ function SamplesPage() {
                   isSelected={selectedIds.has(sample.id)}
                   onToggleSelect={toggleSampleSelection}
                   onShowIneligibleReason={showIneligibleReason}
+                  isExpanded={expandedSampleIds.has(sample.id)}
+                  onToggleExpand={toggleCardExpand}
                 />
               ))}
 

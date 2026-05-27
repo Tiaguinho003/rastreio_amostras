@@ -5252,6 +5252,324 @@ button:disabled {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── spv2: card wrap (idle mode expandable) ──────────────────────────
+   .spv2-card-wrap envolve o botao do header (.spv2-card) + o painel
+   expandido (.spv2-card-expanded). Em modo idle, todo o visual de
+   "card" (bg/border/radius/shadow) fica no wrap — o button dentro vira
+   transparente. Em modo blend o .spv2-card sozinho mantem o styling
+   tradicional. */
+.spv2-card-wrap {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(14px, 4vw, 16px);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.07),
+    0 8px 24px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  flex-shrink: 0;
+  animation: spv2-cardIn 0.35s ease backwards;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease,
+    box-shadow 0.25s ease;
+}
+
+.spv2-card-wrap.is-card-open {
+  --card-status-color: #60a5fa;
+  --card-status-bg: #dbeafe;
+}
+
+.spv2-card-wrap.is-card-sold {
+  --card-status-color: #2a6539;
+  --card-status-bg: #e4f3e8;
+}
+
+.spv2-card-wrap.is-card-lost {
+  --card-status-color: #b44646;
+  --card-status-bg: #f6e1e1;
+}
+
+.spv2-card-wrap.is-card-invalid {
+  --card-status-color: #6b7280;
+  --card-status-bg: #f3f4f6;
+  opacity: 0.55;
+  filter: saturate(0.6);
+}
+
+/* Quando .is-expanded, shadow um pouco mais marcada — sinal sutil de
+   "card focado" pra distinguir do resto da lista. */
+.spv2-card-wrap.is-expanded {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.05),
+    0 8px 20px rgba(0, 0, 0, 0.08),
+    0 16px 32px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Button dentro do wrap: layout interno (flex row) preservado, mas
+   visuais (bg/border/shadow/radius/animation) delegados ao pai. */
+.spv2-card-wrap > .spv2-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  animation: none;
+}
+
+.spv2-card-wrap > .spv2-card:active {
+  transform: scale(0.99);
+}
+
+/* Chevron gira 90° (aponta pra direita -> aponta pra baixo) quando o
+   card esta expandido. Sincroniza com a animacao do painel abaixo. */
+.spv2-card-wrap.is-expanded .spv2-card-chevron {
+  transform: rotate(90deg);
+  stroke: var(--brand-green, #1f5d43);
+}
+
+/* Painel expandido: grid-template-rows 0fr -> 1fr permite animacao
+   suave SEM precisar saber a altura do conteudo (max-height precisaria
+   de valor fixo). Inner div com overflow:hidden + min-height:0 clipa
+   o conteudo durante a transicao. Suporte: Chrome 117+ / Safari 17+.
+   Em browsers mais antigos, abre/fecha sem animar (degrada bem). */
+.spv2-card-expanded {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.spv2-card-wrap.is-expanded .spv2-card-expanded {
+  grid-template-rows: 1fr;
+}
+
+.spv2-card-expanded-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(11px, 3vw, 13px);
+  padding: 0 clamp(14px, 4vw, 18px);
+  opacity: 0;
+  transition:
+    padding 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease 0.05s;
+}
+
+.spv2-card-wrap.is-expanded .spv2-card-expanded-inner {
+  padding-top: clamp(11px, 3vw, 13px);
+  padding-bottom: clamp(14px, 4vw, 16px);
+  opacity: 1;
+}
+
+/* Divider sutil entre header e content do expand. So aparece quando
+   expandido — quando fechado, content tem opacity:0 e padding:0 entao
+   o divider some junto. */
+.spv2-card-expanded-inner::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  margin-bottom: clamp(2px, 0.6vw, 4px);
+}
+
+/* ── spv2: secoes dentro do expand ──────────────────────────────── */
+.spv2-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(7px, 2vw, 9px);
+}
+
+.spv2-card-section-title {
+  font-size: clamp(10px, 2.6vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(31, 93, 67, 0.6);
+}
+
+/* Volume — bloco destacado com bg verde-tint sutil. "Disponivel" eh a
+   info primaria; vendido/em-liga/perdido aparecem em row mini quando
+   relevantes (>0). */
+.spv2-card-section--volume {
+  background: rgba(31, 93, 67, 0.06);
+  border: 1px solid rgba(31, 93, 67, 0.1);
+  border-radius: clamp(10px, 2.8vw, 12px);
+  padding: clamp(10px, 2.8vw, 12px) clamp(11px, 3vw, 13px);
+}
+
+.spv2-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.spv2-card-stat-label {
+  font-size: clamp(10px, 2.6vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.spv2-card-stat-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  color: #2a3d2f;
+}
+
+.spv2-card-stat.is-primary .spv2-card-stat-label {
+  color: rgba(31, 93, 67, 0.65);
+}
+
+.spv2-card-stat.is-primary .spv2-card-stat-value {
+  font-size: clamp(1.1rem, 4.2vw, 1.3rem);
+  font-weight: 800;
+  color: var(--brand-green);
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+.spv2-card-stat-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.spv2-card-stat-divider {
+  margin: 0 2px;
+  color: rgba(0, 0, 0, 0.3);
+  font-weight: 500;
+}
+
+.spv2-card-stat-total {
+  color: rgba(0, 0, 0, 0.55);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.spv2-card-stat-unit {
+  margin-left: 5px;
+  font-size: 0.65em;
+  font-weight: 700;
+  color: rgba(31, 93, 67, 0.55);
+  text-transform: lowercase;
+}
+
+.spv2-card-stat.is-mini .spv2-card-stat-value {
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 700;
+  color: #2a3d2f;
+  font-variant-numeric: tabular-nums;
+}
+
+.spv2-card-stat.is-mini .spv2-card-stat-value small {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.42);
+  margin-left: 3px;
+}
+
+.spv2-card-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 3vw, 14px);
+  padding-top: clamp(8px, 2.2vw, 10px);
+  margin-top: clamp(2px, 0.6vw, 3px);
+  border-top: 1px dashed rgba(31, 93, 67, 0.18);
+}
+
+.spv2-card-stat-row:empty {
+  display: none;
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+
+/* Fields grid (identidade + classificacao) — 2-col mobile. */
+.spv2-card-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.4vw, 10px) clamp(12px, 3.4vw, 16px);
+}
+
+.spv2-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.spv2-card-field-label {
+  font-size: clamp(9.5px, 2.6vw, 10.5px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.42);
+}
+
+.spv2-card-field-value {
+  font-size: clamp(12.5px, 3.4vw, 13.5px);
+  font-weight: 600;
+  color: #2a3d2f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* CTA "Ver detalhes" — full-width, gradient brand. Mesma vibe do
+   .nsv2-submit-btn / .lookup-create-cta. Link com text-decoration none. */
+.spv2-card-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: clamp(9px, 2.6vw, 11px) clamp(14px, 4vw, 18px);
+  border: 0;
+  border-radius: clamp(9px, 2.6vw, 11px);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: #ffffff;
+  font-family: inherit;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(31, 93, 67, 0.22);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
+}
+
+.spv2-card-detail-btn:hover {
+  box-shadow: 0 6px 16px rgba(31, 93, 67, 0.3);
+}
+
+.spv2-card-detail-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(31, 93, 67, 0.18);
+}
+
+.spv2-card-detail-btn svg {
+  width: clamp(14px, 4vw, 16px);
+  height: clamp(14px, 4vw, 16px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ── spv2: empty state ── */
