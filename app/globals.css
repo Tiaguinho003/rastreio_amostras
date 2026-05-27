@@ -15329,7 +15329,7 @@ button:disabled {
   .dashboard-greeting-name {
     color: #ffffff;
     font-size: clamp(1.8rem, 7.5vw, 2.5rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.15;
     padding-left: 0.2rem;
     overflow: hidden;
@@ -15338,11 +15338,25 @@ button:disabled {
   }
 
   .dashboard-greeting-role {
-    color: rgba(255, 255, 255, 0.5);
+    color: #7eccae;
     font-size: clamp(0.72rem, 3vw, 0.82rem);
     font-weight: 400;
     line-height: 1.3;
     padding-left: 0.2rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+  }
+
+  .dashboard-greeting-role-icon {
+    width: clamp(0.85rem, 3.2vw, 0.95rem);
+    height: clamp(0.85rem, 3.2vw, 0.95rem);
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .dashboard-hero-avatar {

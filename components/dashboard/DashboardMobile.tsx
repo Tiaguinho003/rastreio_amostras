@@ -102,7 +102,18 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
             <div className="dashboard-greeting">
               <span className="dashboard-greeting-label">{getGreeting()}</span>
               <span className="dashboard-greeting-name">{firstName}</span>
-              <span className="dashboard-greeting-role">{roleLabel}</span>
+              <span className="dashboard-greeting-role">
+                <svg
+                  className="dashboard-greeting-role-icon"
+                  viewBox="0 0 24 24"
+                  focusable="false"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
+                  <path d="m9 12 2 2 4-4.5" />
+                </svg>
+                {roleLabel}
+              </span>
             </div>
             <NotificationBell className="header-notification-bell" />
             <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
