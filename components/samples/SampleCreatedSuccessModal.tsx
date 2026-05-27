@@ -85,14 +85,20 @@ export function SampleCreatedSuccessModal({
         </header>
 
         <div className="app-modal-content sample-created-body">
-          <svg className="sample-created-check" viewBox="0 0 52 52" aria-hidden="true">
-            <circle cx="26" cy="26" r="24" />
-            <path d="M14 27l8 8 16-16" />
-          </svg>
+          <div className="sample-created-check-wrap" aria-hidden="true">
+            <span className="sample-created-check-ring" />
+            <svg className="sample-created-check" viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" />
+              <path d="M14 27l8 8 16-16" />
+            </svg>
+          </div>
 
-          <p className="sample-created-label">{copy.label}</p>
-          <p className="sample-created-lot">{lotNumber}</p>
-          <p className="sample-created-hint">Anote este numero na saca antes de seguir.</p>
+          <div className="sample-created-lot-card">
+            <p className="sample-created-label">{copy.label}</p>
+            <p className="sample-created-lot">{lotNumber}</p>
+          </div>
+
+          <p className="sample-created-hint">Anote este número na saca antes de seguir.</p>
         </div>
 
         <div className="app-modal-actions">

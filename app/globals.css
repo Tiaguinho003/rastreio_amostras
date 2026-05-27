@@ -14107,46 +14107,96 @@ button:disabled {
 .sample-created-body {
   align-items: center;
   text-align: center;
-  gap: clamp(0.55rem, 1.8vw, 0.8rem);
-  padding-top: clamp(1.4rem, 5vw, 2.2rem);
-  padding-bottom: clamp(1.4rem, 5vw, 2.2rem);
+  gap: clamp(0.85rem, 2.8vw, 1.1rem);
+  padding-top: clamp(1.5rem, 5vw, 2rem);
+  padding-bottom: clamp(1.3rem, 4.5vw, 1.7rem);
+}
+
+/* Wrapper do check: pop-in do ring verde-claro + tick stroke-draw por
+   cima. Da peso visual ao "sucesso" sem perder o charm da animacao
+   linear do tick. Consistente com o treatment de icone em quadrado/
+   circulo dos outros modais (discard âmbar, etc). */
+.sample-created-check-wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(70px, 19vw, 84px);
+  height: clamp(70px, 19vw, 84px);
+}
+
+.sample-created-check-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(31, 93, 67, 0.12);
+  animation: sample-created-ring-pop 0.45s cubic-bezier(0.22, 1.4, 0.36, 1) backwards;
+}
+
+@keyframes sample-created-ring-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .sample-created-check {
-  width: clamp(4rem, 14vw, 5rem);
-  height: clamp(4rem, 14vw, 5rem);
+  position: relative;
+  width: 58%;
+  height: 58%;
   fill: none;
   stroke: var(--brand-green);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
-  margin-bottom: clamp(0.4rem, 1.5vw, 0.7rem);
 }
 
 .sample-created-check circle {
   stroke-dasharray: 151;
   stroke-dashoffset: 151;
-  animation: client-success-circle 0.5s ease forwards;
+  /* Delay alinhado com o final do ring pop-in (0.45s ring + buffer). */
+  animation: client-success-circle 0.5s 0.3s ease forwards;
 }
 
 .sample-created-check path {
   stroke-dasharray: 40;
   stroke-dashoffset: 40;
-  animation: client-success-tick 0.35s 0.35s ease forwards;
+  animation: client-success-tick 0.35s 0.7s ease forwards;
+}
+
+/* Lot card: artefato principal do sucesso. Bg suave verde-claro +
+   border-radius pra parecer um "ticket/etiqueta" — sinaliza que o
+   numero do lote eh a info que o user deve anotar. Padding generoso
+   pra leitura confortavel do numero grande. */
+.sample-created-lot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.3rem, 1vw, 0.45rem);
+  padding: clamp(0.85rem, 2.8vw, 1.15rem) clamp(1.2rem, 3.6vw, 1.6rem);
+  background: rgba(31, 93, 67, 0.07);
+  border: 1px solid rgba(31, 93, 67, 0.16);
+  border-radius: clamp(12px, 3.4vw, 16px);
+  width: 100%;
+  max-width: 14rem;
 }
 
 .sample-created-label {
   margin: 0;
-  font-size: clamp(0.78rem, 2.4vw, 0.88rem);
-  font-weight: 600;
-  color: var(--muted);
+  font-size: clamp(0.7rem, 2.2vw, 0.78rem);
+  font-weight: 700;
+  color: rgba(31, 93, 67, 0.65);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  line-height: 1.1;
 }
 
 .sample-created-lot {
   margin: 0;
-  font-size: clamp(2.6rem, 9vw, 3.4rem);
+  font-size: clamp(2.2rem, 8vw, 2.9rem);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -14155,10 +14205,11 @@ button:disabled {
 }
 
 .sample-created-hint {
-  margin: clamp(0.3rem, 1vw, 0.5rem) 0 0;
-  font-size: clamp(0.82rem, 2.6vw, 0.92rem);
-  color: var(--muted);
-  line-height: 1.35;
+  margin: 0;
+  font-size: clamp(0.82rem, 2.6vw, 0.9rem);
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.4;
+  max-width: 22ch;
 }
 
 .client-modal-header {
