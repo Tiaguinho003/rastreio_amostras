@@ -4858,16 +4858,24 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(10px, 3vw, 14px) clamp(10px, 3vw, 14px) 0;
-  /* Padding-bottom adaptativo: clamp ativa em phones (>=375px aprox)
-     pra escalar junto com a tabbar maior. Mantem gap visual constante
-     entre o ultimo item da lista e o + flutuante em qualquer device. */
+  /* Pagina continua: sheet ocupa toda a tela (so safe-area + breathing
+     minimo). O clearance do FAB+tabbar fica na .spv2-list-scroll abaixo
+     — assim a tabbar pill flutua sobre o sheet (iOS-native pattern) e
+     nao sobra strip bege entre conteudo e tabbar. */
   padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(5.9rem, 25vw, 6.3rem)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.5rem, 1.6vw, 0.7rem)
   );
   overflow: hidden;
   min-height: 0;
   gap: clamp(6px, 1.8vw, 8px);
   animation: samples-sheet-in 0.5s ease-out 0.15s both;
+}
+
+/* List-scroll do samples page: padding-bottom = clearance pro FAB
+   ("+" ou seta da liga) + breathing. Sem isso o ultimo item ficaria
+   coberto pelo FAB flutuante. Vale tanto modo normal quanto selecao. */
+.samples-page-v2 .spv2-list-scroll {
+  padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + clamp(0.6rem, 2vw, 0.9rem));
 }
 
 /* ── spv2: aging banner ── */
@@ -26053,21 +26061,19 @@ body.is-selection-mode .hero-search-filter-btn {
   display: none;
 }
 
-/* Tabbar fica `display: none` em modo selecao, mas o padding-bottom do
-   sheet continuava reservando ~6rem pra ela — sobrava um strip bege
-   vazio na parte inferior. Aqui zeramos esse padding (so safe-area
-   minima) pra que o sheet ocupe a tela toda continuamente.
-   Compensacao: a .spv2-list-scroll ganha padding-bottom equivalente
-   ao FAB-seta (clamp 6.3-6.8rem + breathing) — assim o ultimo item
-   da lista nao fica coberto pelo botao flutuante de continuar. */
-body.is-selection-mode .samples-page-v2-sheet {
-  padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.5rem, 1.6vw, 0.7rem)
-  );
-}
+/* (Antes havia override de padding-bottom em selection-mode aqui — agora
+   redundante porque os mesmos valores foram aplicados na base do
+   .samples-page-v2-sheet + .spv2-list-scroll. Pagina ja continua tanto
+   em modo normal quanto selecao.) */
 
-body.is-selection-mode .spv2-list-scroll {
-  padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + clamp(0.6rem, 2vw, 0.9rem));
+/* FAB-seta de "continuar liga" fica um pouco mais baixo que o "+" normal
+   (clamp 5.5-5.9rem vs 6.3-6.8rem do FAB padrao), aproximadamente 0.8rem
+   abaixo — pedido do user pra que o botao nao fique tao alto na pagina
+   apos selecionar amostras. */
+.cv2-fab.is-blend-arrow {
+  bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(5.5rem, 23vw, 5.9rem)
+  );
 }
 
 .samples-selection-header {
