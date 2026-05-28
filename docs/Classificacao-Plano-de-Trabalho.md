@@ -1422,6 +1422,22 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (preview da foto em bottom sheet) ✅
+
+Sequência da unificação do erro — agora a confirmação da foto capturada antes da IA.
+
+- **`6a6acd9` — `feat(camera): preview da foto capturada em bottom sheet`**
+  - **Antes**: foto renderizada inline no `.camera-hub-stage` com `object-fit: cover` (`globals.css:17828`) — proporção do stage cortava as laterais da ficha (que é quase quadrada). Operador via apenas parte e a IA recebia a foto inteira: regressão silenciosa quando uma área cortada estava borrada.
+  - **Agora**: `BottomSheet` com classe modificadora `.camera-preview-sheet`, cobrindo ~98 dvh, foto com `object-fit: contain` (inteira sem corte). Fundo escuro (`#15211c`) pra destacar a foto. Footer sticky com 2 botões: "Tirar outra" (secundário outline) + "Enviar" (primário verde gradient).
+  - **Controle exclusivo pelos 2 botões**: `onDismissAttempt={() => Promise.resolve(false)}` bloqueia tap-backdrop, ESC e back Android. `dragToDismiss={false}` bloqueia gesto. X e drag handle escondidos via CSS. Cumpre o pedido explícito de "só botões".
+  - **Navbar escondida automaticamente** via `body.is-bottom-sheet-open` (`globals.css:15814`), comportamento padrão do BottomSheet.
+  - **Foto sempre vertical** (decisão do usuário) + sheet vertical → `contain` aproveita quase toda a área disponível, sem desperdício.
+  - **Extensão segura do BottomSheet**: nova prop opcional `className?: string` concatenada na className do sheet. Permite override por seletor descendente sem mexer no JSX interno. Sem impacto em outros usos do componente.
+- **Padrões reusados**: `BottomSheet`, `resetClassificationFlow`, `handleSendPhoto`, tokens `--brand-green/-soft`.
+- **Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+
+**Pendência de limpeza (próxima sessão)**: estilos órfãos `.camera-hub-preview-img`, `.camera-hub-preview-actions`, `.camera-hub-preview-btn-retake`, `.camera-hub-preview-btn-send` em `globals.css:17823-17847` aprox. Mantidos por enquanto pra evitar regressão; remover quando ficar claro que nenhum outro lugar referencia.
+
 ### 2026-05-28 — Sessão 2 (unificação do erro de câmera + atalho pra galeria) ✅
 
 Sequência do refino visual — agora as mensagens de erro de inicialização da câmera.
