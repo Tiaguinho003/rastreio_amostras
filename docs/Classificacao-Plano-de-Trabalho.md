@@ -1422,6 +1422,22 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (auditoria + fix do Caminho 3 — Dashboard) ✅
+
+Auditoria profunda da primeira fase do Caminho 3 (seleção do lote no modal "Aguardando classificação" → handover de sampleId pra câmera). Resultado: 5 dos 7 pontos OK, 1 bug real, 1 race condition mitigada pelo mesmo fix.
+
+- **Bug**: `app/camera/page.tsx:242-258` — o `useEffect` que hidrata `contextSampleStatus` via `getSampleDetail` tinha `.catch(() => {})` silencioso. Em falha (404 sample inexistente, 401 sessão expirada, rede instável), `contextSampleStatus` ficava `null`, e a guarda em `handleConfirm` (`:853-855`) só rejeitava status conhecido — `null` passava. Operador gastava 15-30 s na chamada da IA antes do backend rejeitar com 409.
+- **Fix** (commit `3fe61a5` — `fix(camera): valida contexto da amostra antes de iniciar captura`):
+  - Novo state `contextSampleLoading` + `contextSampleError`.
+  - `loadContextSample` extraído em `useCallback` (reusável pelo botão "Tentar novamente").
+  - UI inline na overlay da câmera: "Carregando amostra…" durante load; em erro, mensagem + "Tentar novamente" + "Voltar".
+  - Botão de captura **disabled** quando `hasContext && (loading || error || !status)`.
+  - Defesa em profundidade no `handleConfirm`: rejeita explicitamente se `hasContext && !contextSampleStatus` **antes** da chamada da IA.
+- **Padrões reusados**: `readErrorMessage` (`:92-98`), botão `.camera-hub-btn-secondary` do bloco `cameraError` (`:1084-1092`).
+- **Mensagens em pt-BR** sem acentos (alinhado com o resto do `camera/page.tsx`): "Carregando amostra…", "Nao foi possivel carregar a amostra. {causa}", "Tentar novamente", "Voltar".
+- **Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+- **Status da auditoria do Caminho 3**: ponto 4 ("Recepção na câmera") agora coberto. Pontos 1/2/3/6/7 já OK no original. Ponto 5 (race condition de hidratação) mitigado pelo `disabled` do botão + defesa em profundidade no submit.
+
 ### 2026-05-28 — Sessão 2 (reorganização dos caminhos de classificação) ⏳
 
 - **Mudança principal**: os "3 caminhos de classificação" foram refeitos. Antes: Detalhe / QR scan / Dashboard. Agora: **Detalhe / Foto direta / Dashboard**. QR scan saiu da lista de caminhos de classificação.
