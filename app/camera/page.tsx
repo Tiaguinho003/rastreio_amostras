@@ -165,6 +165,8 @@ function CameraPageContent() {
   const [contextSampleStatus, setContextSampleStatus] = useState<string | null>(null);
   const [contextSampleSacks, setContextSampleSacks] = useState<number | null>(null);
   const [contextSampleHarvest, setContextSampleHarvest] = useState<string | null>(null);
+  const [contextSampleLoading, setContextSampleLoading] = useState(false);
+  const [contextSampleError, setContextSampleError] = useState<string | null>(null);
   const [detectedPhotoToken, setDetectedPhotoToken] = useState<string | null>(null);
 
   // Classification type selection
@@ -238,24 +240,43 @@ function CameraPageContent() {
     sessionRef.current = session;
   }, [session]);
 
-  // Load context sample lot (Flow B)
+  // Load context sample (Flow B). Antes o catch era silencioso e
+  // contextSampleStatus ficava null em qualquer falha (404/401/rede),
+  // permitindo que a captura prosseguisse e o erro so aparecesse no
+  // backend, apos a chamada da IA. Agora o erro e propagado pra
+  // contextSampleError + bloqueia a captura ate carregar (ou retry).
+  const loadContextSample = useCallback(async () => {
+    if (!contextSampleId || !session) return;
+    setContextSampleLoading(true);
+    setContextSampleError(null);
+    try {
+      const detail = await getSampleDetail(session, contextSampleId);
+      if (detail?.sample) {
+        setContextSampleLot(detail.sample.internalLotNumber ?? null);
+        setContextSampleStatus(detail.sample.status);
+        setContextSampleSacks(detail.sample.declared?.sacks ?? null);
+        setContextSampleHarvest(detail.sample.declared?.harvest ?? null);
+      } else {
+        setContextSampleError('Verifique sua conexao e tente novamente.');
+      }
+    } catch (error) {
+      setContextSampleError(readErrorMessage(error, 'Verifique sua conexao e tente novamente.'));
+    } finally {
+      setContextSampleLoading(false);
+    }
+  }, [contextSampleId, session]);
+
   useEffect(() => {
     if (!contextSampleId || !session) return;
     let cancelled = false;
-    getSampleDetail(session, contextSampleId)
-      .then((detail) => {
-        if (!cancelled && detail?.sample) {
-          setContextSampleLot(detail.sample.internalLotNumber ?? null);
-          setContextSampleStatus(detail.sample.status);
-          setContextSampleSacks(detail.sample.declared?.sacks ?? null);
-          setContextSampleHarvest(detail.sample.declared?.harvest ?? null);
-        }
-      })
-      .catch(() => {});
+    void (async () => {
+      if (cancelled) return;
+      await loadContextSample();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [contextSampleId, session]);
+  }, [contextSampleId, session, loadContextSample]);
 
   // Cleanup captured photo URL
   useEffect(() => {
@@ -848,9 +869,20 @@ function CameraPageContent() {
     const harvestSource = editableHarvest.trim() || null;
 
     if (hasContext && contextSampleId) {
+      // Defesa em profundidade: a UI ja desabilita captura quando
+      // contextSampleStatus e null, mas em race conditions (ex: foto
+      // tirada antes do load terminar) chegamos aqui sem status. Recusar
+      // antes da chamada da IA evita gastar 15-30 s + custo OpenAI pra
+      // depois levar 409 do backend.
+      if (!contextSampleStatus) {
+        setFlowError(
+          'Nao foi possivel carregar a amostra. Tente novamente ou volte para o dashboard.'
+        );
+        return;
+      }
+
       // Flow B: validate status and lot match
       if (
-        contextSampleStatus &&
         contextSampleStatus !== 'REGISTRATION_CONFIRMED' &&
         contextSampleStatus !== 'CLASSIFIED'
       ) {
@@ -1095,6 +1127,35 @@ function CameraPageContent() {
                   </button>
                 </div>
               ) : null}
+
+              {/* Flow B: feedback de carregamento do contexto da amostra. */}
+              {hasContext && contextSampleLoading && !contextSampleError && flowState === 'idle' ? (
+                <p className="camera-hub-status-text" role="status">
+                  Carregando amostra...
+                </p>
+              ) : null}
+
+              {hasContext && contextSampleError && flowState === 'idle' ? (
+                <div className="camera-hub-error-with-retry">
+                  <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
+                    Nao foi possivel carregar a amostra. {contextSampleError}
+                  </p>
+                  <button
+                    type="button"
+                    className="camera-hub-btn camera-hub-btn-secondary"
+                    onClick={() => void loadContextSample()}
+                  >
+                    Tentar novamente
+                  </button>
+                  <button
+                    type="button"
+                    className="camera-hub-btn camera-hub-btn-secondary"
+                    onClick={() => router.back()}
+                  >
+                    Voltar
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {/* Gallery button — sempre visivel quando idle (Fase Q.cls.2):
@@ -1139,13 +1200,20 @@ function CameraPageContent() {
                 </div>
               ) : null}
 
-              {/* Capture button — captures directly from video stream */}
+              {/* Capture button — captures directly from video stream.
+                  No Flow B (com contextSampleId), o botao fica desabilitado
+                  enquanto o getSampleDetail nao terminar ou enquanto houver
+                  erro de carregamento — evita captura sem contexto valido. */}
               {flowState === 'idle' && cameraStatus === 'scanning' ? (
                 <div className="camera-hub-capture-area">
                   <button
                     type="button"
                     className="camera-hub-capture-btn"
                     onClick={captureFromVideoStream}
+                    disabled={
+                      hasContext &&
+                      (contextSampleLoading || !!contextSampleError || !contextSampleStatus)
+                    }
                     aria-label="Tirar foto para classificacao"
                   >
                     <span className="camera-hub-capture-btn-inner" />
