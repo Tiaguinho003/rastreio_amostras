@@ -278,6 +278,20 @@ function CameraPageContent() {
     };
   }, [contextSampleId, session, loadContextSample]);
 
+  // Soft-navigation cleanup: quando contextSampleId vira null (ex: usuario
+  // navega de /camera?sampleId=X pra /camera sem recarregar a pagina), o
+  // useEffect de hidratacao faz early return e nao limpa states. Aqui zeramos
+  // explicitamente pra evitar state residual em transicoes entre caminhos.
+  useEffect(() => {
+    if (contextSampleId) return;
+    setContextSampleLot(null);
+    setContextSampleStatus(null);
+    setContextSampleSacks(null);
+    setContextSampleHarvest(null);
+    setContextSampleError(null);
+    setContextSampleLoading(false);
+  }, [contextSampleId]);
+
   // Cleanup captured photo URL
   useEffect(() => {
     return () => {
