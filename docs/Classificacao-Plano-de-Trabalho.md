@@ -1422,6 +1422,23 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (review dos campos extraídos no mesmo bottom sheet) ✅
+
+Sequência do spinner integrado — agora o review dos campos extraídos vira o **terceiro estágio do mesmo BottomSheet** (preview cheio → processing reduzido → review cheio novamente). Continuidade visual total.
+
+- **`5ee7164` — `feat(camera): review dos campos extraidos dentro do mesmo bottom sheet`**
+  - **Antes**: ao terminar a extração, o sheet de processing fechava (slide-down) e o `ClassificationReviewModal` central abria. Ruptura entre estágios.
+  - **Agora**: `flowState === 'confirming'` entra na lista de `open` do BottomSheet. Nova classe `.is-review` faz o sheet **expandir de volta** à altura cheia (max-height padrão 98 dvh) — simétrico ao encolhimento do `is-processing`, mesma transition cubic-bezier (0.22, 1, 0.36, 1 / 0.45s). Fundo bege `#fdf9ec` substitui o escuro do processing pra priorizar legibilidade dos campos.
+  - **Novo componente**: `components/samples/ClassificationReviewSheetBody.tsx`. Extraído do body do `ClassificationReviewModal` (foto + form de 7 seções + warning overlay + zoom viewer). Estado interno (`zoomOpen`, `warningOpen`) permanece local — não vaza pro pai.
+  - **Footer dinâmico** do sheet: ganha "Cancelar" (outline verde) + "Avançar" (primário verde). O botão "Avançar" vive **fora** do `<form>` mas dispara o submit via attr HTML5 `form="classification-review-form"` — limpo, sem state handler externo.
+  - **`ClassificationReviewModal` central** não é mais renderizado. O arquivo do componente permanece em `components/samples/` (legado sem callers) — pendência de limpeza pra próxima sessão.
+  - **Padrões reusados**: `BottomSheet` com `className`, `PhotoZoomViewer`, classes `.review-section/-grid/-field/-photo/-warning-*`, `validateClassificationForm`.
+  - **Convivência com modais que abrem por cima**: `lot-mismatch`, `data-mismatch`, `extraction-error` continuam funcionando — todos têm z-index >= sheet e renderização posterior no JSX.
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+
+**Pendência mantida**: `components/samples/ClassificationReviewModal.tsx` órfão. Mantido por hora pra evitar reescrever uma decisão; remover quando ficar claro que ninguém referencia.
+
 ### 2026-05-28 — Sessão 2 (spinner integrado no bottom sheet + limpeza) ✅
 
 Sequência do preview em bottom sheet — agora o pipeline pós-captura.
