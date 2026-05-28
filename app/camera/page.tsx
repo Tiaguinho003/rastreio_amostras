@@ -16,7 +16,7 @@ import {
   ClassificationReclassifyModal,
   type ReclassifyReasonCode,
 } from '../../components/samples/ClassificationReclassifyModal';
-import { ClassificationReviewModal } from '../../components/samples/ClassificationReviewModal';
+import { ClassificationReviewSheetBody } from '../../components/samples/ClassificationReviewSheetBody';
 import { ClassificationSuccessModal } from '../../components/samples/ClassificationSuccessModal';
 import { ClassificationTypeModal } from '../../components/samples/ClassificationTypeModal';
 import {
@@ -252,6 +252,13 @@ function CameraPageContent() {
         return null;
     }
   })();
+
+  // Modo review do BottomSheet — sheet expande de volta a altura cheia
+  // e mostra o form de 7 secoes via ClassificationReviewSheetBody.
+  // Substitui o ClassificationReviewModal central pra que a transicao
+  // processing → review seja continua (sem flash de close+open).
+  const isReviewingPhoto = flowState === 'confirming' && (!!extractionResult || manualMode);
+  const REVIEW_FORM_ID = 'classification-review-form';
 
   // --- Lifecycle ---
 
@@ -1493,25 +1500,12 @@ function CameraPageContent() {
           o modal de tipo (Q.cls.2.8) — save final acontece apos
           classifier-modal. Em modo manual (3b), lote/sacas/safra ficam
           editaveis pre-preenchidos com valores do sample em context. */}
-      <ClassificationReviewModal
-        open={flowState === 'confirming' && (!!extractionResult || manualMode)}
-        photoUrl={capturedPhotoUrl}
-        lotEditable={!hasContext || manualMode}
-        sacksEditable={manualMode}
-        harvestEditable={manualMode}
-        lotValue={editableLot}
-        sacksValue={editableSacks}
-        harvestValue={editableHarvest}
-        onLotChange={setEditableLot}
-        onSacksChange={setEditableSacks}
-        onHarvestChange={setEditableHarvest}
-        form={classificationForm}
-        onFormChange={updateFormField}
-        errorMessage={flowError}
-        saving={false}
-        onCancel={resetClassificationFlow}
-        onAdvance={() => setFlowState('selecting-type')}
-      />
+      {/* O ClassificationReviewModal central foi substituido pelo
+          ClassificationReviewSheetBody renderizado dentro do BottomSheet
+          camera-preview-sheet (modo is-review). Mantem a sequencia visual
+          processing → review continua, sem flash de close+open. O
+          componente legado permanece em components/samples/ por enquanto
+          (sem callers) — pendente de limpeza em proxima sessao. */}
 
       {/* Q.cls.2.8: Modal de selecao de tipo (entre revisao e classifiers).
           Click num tipo seta classificationType e avanca pro classifier
@@ -1605,23 +1599,56 @@ function CameraPageContent() {
         saving={flowState === 'submitting'}
       />
 
-      {/* Bottom sheet de preview da foto capturada. Substitui a renderizacao
-          inline no stage (que cortava a foto via object-fit: cover). Durante
-          os estados de processamento (detecting/detected/extracting/resolving)
-          o sheet *continua aberto* mas reduz suavemente de altura via classe
-          is-processing — operador vê a transicao captura → analise sem
-          ruptura visual. Sem X, sem drag, sem tap-backdrop — controle
-          exclusivo por "Tirar outra" / "Enviar" no estado preview. */}
+      {/* Bottom sheet unico que cobre preview → processing → review.
+          Estados: preview (foto + Tirar outra/Enviar), is-processing
+          (spinner reduzido), is-review (form expandido com 22 campos).
+          Transicoes naturais via transition de max-height ja configurada.
+          Sem X, sem drag, sem tap-backdrop — controle pelos botoes do
+          footer dinamico. */}
       <BottomSheet
-        open={(flowState === 'preview' || isProcessingPhoto) && Boolean(capturedPhotoUrl)}
+        open={
+          (flowState === 'preview' || isProcessingPhoto || isReviewingPhoto) &&
+          Boolean(capturedPhotoUrl)
+        }
         onClose={resetClassificationFlow}
         onDismissAttempt={() => Promise.resolve(false)}
         dragToDismiss={false}
-        className={`camera-preview-sheet${isProcessingPhoto ? ' is-processing' : ''}`}
-        title={isProcessingPhoto ? 'Processando' : 'Conferir foto'}
-        ariaLabel={isProcessingPhoto ? 'Processando foto' : 'Conferir foto capturada'}
+        className={`camera-preview-sheet${isProcessingPhoto ? ' is-processing' : ''}${
+          isReviewingPhoto ? ' is-review' : ''
+        }`}
+        title={
+          isProcessingPhoto
+            ? 'Processando'
+            : isReviewingPhoto
+              ? 'Revisar classificação'
+              : 'Conferir foto'
+        }
+        ariaLabel={
+          isProcessingPhoto
+            ? 'Processando foto'
+            : isReviewingPhoto
+              ? 'Revisar dados extraídos'
+              : 'Conferir foto capturada'
+        }
         footer={
-          isProcessingPhoto ? null : (
+          isProcessingPhoto ? null : isReviewingPhoto ? (
+            <div className="camera-preview-sheet-actions">
+              <button
+                type="button"
+                className="camera-preview-sheet-action-secondary"
+                onClick={resetClassificationFlow}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form={REVIEW_FORM_ID}
+                className="camera-preview-sheet-action-primary"
+              >
+                Avançar
+              </button>
+            </div>
+          ) : (
             <div className="camera-preview-sheet-actions">
               <button
                 type="button"
@@ -1659,6 +1686,25 @@ function CameraPageContent() {
             )}
             <span className="camera-preview-sheet-processing-label">{processingMessage}</span>
           </div>
+        ) : isReviewingPhoto ? (
+          <ClassificationReviewSheetBody
+            photoUrl={capturedPhotoUrl}
+            lotEditable={!hasContext || manualMode}
+            sacksEditable={manualMode}
+            harvestEditable={manualMode}
+            lotValue={editableLot}
+            sacksValue={editableSacks}
+            harvestValue={editableHarvest}
+            onLotChange={setEditableLot}
+            onSacksChange={setEditableSacks}
+            onHarvestChange={setEditableHarvest}
+            form={classificationForm}
+            onFormChange={updateFormField}
+            errorMessage={flowError}
+            saving={false}
+            formId={REVIEW_FORM_ID}
+            onAdvance={() => setFlowState('selecting-type')}
+          />
         ) : capturedPhotoUrl ? (
           <div className="camera-preview-sheet-body">
             {/* next/image nao se aplica: blob URL local com dimensoes dinamicas */}

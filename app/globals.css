@@ -26218,6 +26218,37 @@ button:disabled {
   max-height: clamp(190px, 32dvh, 260px);
 }
 
+/* Estado review: sheet expande de volta a altura cheia (max-height
+   reverte ao padrao do .bottom-sheet via cascade). A transition
+   ja configurada anima o crescimento — simetrico ao encolhimento
+   do is-processing. Conteudo bege/claro pra priorizar legibilidade
+   dos campos do form. */
+.bottom-sheet.camera-preview-sheet.is-review {
+  background: #fdf9ec;
+}
+
+.bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-title {
+  color: #1a1a1a;
+}
+
+.bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-footer {
+  background: #fdf9ec;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Footer com 2 botoes ("Cancelar" + "Avancar") dividindo largura.
+   "Cancelar" outline verde pra fundo claro; "Avancar" mantem
+   gradient verde brand do camera-preview-sheet-action-primary. */
+.bottom-sheet.camera-preview-sheet.is-review .camera-preview-sheet-action-secondary {
+  background: transparent;
+  color: var(--brand-green-soft);
+  border: 1.5px solid rgba(31, 93, 67, 0.28);
+}
+
 .bottom-sheet.camera-preview-sheet .bottom-sheet-title {
   color: #fdf9ec;
 }
