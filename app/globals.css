@@ -17320,6 +17320,24 @@ button:disabled {
   min-height: 0;
 }
 
+/* Status bar bege na pagina /camera. Em iOS PWA standalone com
+   apple-mobile-web-app-status-bar-style: black-translucent, a barra
+   passa por cima do conteudo — esta faixa cobre exatamente a area
+   visivel por baixo dela com o tom bege do design system. Em Android
+   o theme-color dinamico (via useEffect em camera/page.tsx) ja faz
+   a barra ficar bege, e este pseudo nao prejudica. */
+.camera-hub-page::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: #fdf9ec;
+  z-index: 5;
+  pointer-events: none;
+}
+
 /* Flash overlay disparado no momento da captura da foto de classificacao.
    Recriado via `key` para reiniciar a animacao em cada captura. */
 .camera-capture-flash {

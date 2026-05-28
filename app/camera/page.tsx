@@ -292,6 +292,21 @@ function CameraPageContent() {
     setContextSampleLoading(false);
   }, [contextSampleId]);
 
+  // Status bar bege na pagina da camera. Muda o meta theme-color enquanto
+  // a pagina esta montada e restaura ao desmontar. Em Android Chrome a
+  // barra do sistema vira bege; em iOS PWA standalone com black-translucent
+  // o efeito e parcial (icones brancos continuam, fundo visivel por baixo
+  // fica bege via .camera-hub-page::before — ver globals.css).
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) return;
+    const previous = meta.content;
+    meta.content = '#fdf9ec';
+    return () => {
+      meta.content = previous;
+    };
+  }, []);
+
   // Cleanup captured photo URL
   useEffect(() => {
     return () => {
