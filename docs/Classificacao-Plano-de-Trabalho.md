@@ -1422,6 +1422,31 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (spinner integrado no bottom sheet + limpeza) ✅
+
+Sequência do preview em bottom sheet — agora o pipeline pós-captura.
+
+- **`ad9029d` — `refactor(camera): remove classes orfas do preview antigo`**
+  - Removidas `.camera-hub-preview-img`, `.camera-hub-preview-actions`, `.camera-hub-preview-btn-retake`, `.camera-hub-preview-btn-send` do `globals.css`. Nenhuma referência restante no JSX após `6a6acd9`. 44 linhas a menos.
+
+- **`6023656` — `feat(camera): spinner integrado no bottom sheet com reducao suave`**
+  - **Antes**: ao tap "Enviar" o sheet fechava e os 4 estados de processamento (`detecting`, `detected`, `extracting`, `resolving`) renderizavam blocos inline no `.camera-hub-stage` — ruptura visual sheet-fecha-stage-aparece.
+  - **Agora**: o BottomSheet **continua aberto** durante todo o pipeline. Ao tap "Enviar" recebe a classe `is-processing` que aciona uma `transition: max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1)` reduzindo de `~98 dvh` pra `clamp(190px, 32dvh, 260px)`. Sensação de "modal descendo até virar uma barrinha com o status". Footer some, conteúdo vira spinner + mensagem.
+  - **Mensagens em pt-BR sem acentos** (mantidas idênticas às do stage antigo):
+    - `detecting` → "Procurando ficha na foto..." + spinner verde
+    - `detected` → "Ficha identificada!" + check verde (intermediário rápido)
+    - `extracting` → "Extraindo dados da classificacao..." + spinner
+    - `resolving` → "Buscando amostra..." + spinner
+  - **Title** muda dinâmico: "Conferir foto" → "Processando".
+  - **Transição entre mensagens**: `key={flowState}` no container interno faz o React remontar a cada estado, disparando o `cam-preview-processing-in` (fade-in com translateY de 4px). Operador percebe a evolução visual.
+  - **Acessibilidade**: `role="status"` + `aria-live="polite"` no container interno — screen readers anunciam cada mudança de mensagem.
+  - **Padrões reusados**: `@keyframes cam-spin` (já existente em `globals.css:17901` aprox), tokens `--brand-green-soft`.
+  - **Comportamento de erro**: quando o pipeline falha (`extraction-error-illegible` ou `extraction-error-technical`), o `flowState` sai da lista de `open=true` → sheet fecha naturalmente via slide-down → `ClassificationExtractionErrorModal` (modal central existente) abre. Sem mudança no modal de erro nesse passe — o usuário vai pensar na sequência depois.
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+
+**Pendência mantida**: estado `detect-failed` (2 botões "Fotografar novamente" / "Continuar assim") continua inline no stage. Não é spinning, é estado de soft-erro aguardando decisão. Migrar pro sheet quando fizer sentido na sequência. As classes `.camera-hub-extracting*` permanecem no CSS pelo mesmo motivo.
+
 ### 2026-05-28 — Sessão 2 (preview da foto em bottom sheet) ✅
 
 Sequência da unificação do erro — agora a confirmação da foto capturada antes da IA.
