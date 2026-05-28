@@ -1422,6 +1422,27 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (UI dos Caminhos 1/3 com contexto + cleanup preventivo) ✅
+
+Sequência da auditoria do Caminho 3. Dois temas, dois commits atômicos:
+
+- **`d005d8c` — `fix(camera): reseta context states em soft-navigation`**
+  - `useEffect` novo que zera `contextSampleLot/Status/Sacks/Harvest/Loading/Error` quando `contextSampleId` vira `null`.
+  - **Por quê**: investigação descobriu que soft-nav `/camera?sampleId=X` → `/camera` (sem param) deixa estados pendurados — hoje as guardas `hasContext && contextSampleId` em `handleConfirm` protegem, mas o cleanup explícito fecha qualquer fresta de regressão futura.
+- **`5b46d37` — `feat(camera): adapta UI quando amostra ja vem selecionada`**
+  - **B (ignorar QR decodes)**: guard `if (hasContext) return;` no início de `handleDecodedQr` (`page.tsx:386-392` aprox). Caminhos 1 e 3 não interrompem o fluxo de captura ao ler etiqueta de outra amostra próxima.
+  - **C (moldura de scan oculta)**: classe `is-no-scan` aplicada ao `.camera-hub-overlay` quando `hasContext`. CSS: `.camera-hub-overlay.is-no-scan::before { display: none }` em `app/globals.css` após a regra base. Scanner continua decodificando internamente — só os elementos visuais somem.
+  - **D (label dinâmico)**:
+    - Caminhos 1/3 com lote carregado: "Classificando lote {contextSampleLot}".
+    - Caminhos 1/3 com lote ainda carregando: silencioso (o bloco "Carregando amostra..." do fix anterior já cobre).
+    - Caminho 2 (sem contexto): silencioso (sem mais "Escaneando QR..."). QR continua decodificando e abrindo modal normalmente.
+    - `cameraStatus === 'starting'`: mantém "Abrindo camera..." inalterado.
+  - Pulse (`.camera-hub-scan-pulse`) sai junto — não faz sentido sem o contexto de "scan ativo".
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅ (`/camera` continua em 13.5 kB).
+
+**Tensão registrada**: no Caminho 2 a remoção do label "Escaneando QR..." deixa o operador sem dica visual de que QR scan funciona. Aceitável (a moldura continua lá, scanner continua decodificando), mas vale considerar um label "Aponte pro QR ou ficha" se virar confusão. Item de roadmap, não bloqueante.
+
 ### 2026-05-28 — Sessão 2 (auditoria + fix do Caminho 3 — Dashboard) ✅
 
 Auditoria profunda da primeira fase do Caminho 3 (seleção do lote no modal "Aguardando classificação" → handover de sampleId pra câmera). Resultado: 5 dos 7 pontos OK, 1 bug real, 1 race condition mitigada pelo mesmo fix.
