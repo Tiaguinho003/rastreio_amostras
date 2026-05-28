@@ -1,4 +1,4 @@
-import type { ClassificationType } from './types';
+import type { ClassificationType, ExtractedClassificationFields } from './types';
 
 // ----------------------------------------------------------------------
 // Q.cls.2 ficha unificada — modelo TS do form + payloads enviados pro
@@ -160,7 +160,9 @@ const EXTRACTION_FIELD_MAP: Record<string, keyof ClassificationFormState> = {
   bebida: 'bebida',
   broca: 'broca',
   pva: 'pva',
-  impureza: 'imp',
+  // Chave 'imp' (nao 'impureza'): a extracao emite defeitos.imp. Antes era
+  // 'impureza' e nunca casava com o valor extraido.
+  imp: 'imp',
   p18: 'peneiraP18',
   p17: 'peneiraP17',
   p16: 'peneiraP16',
@@ -201,13 +203,38 @@ export function getTodayDateInput(): string {
 
 // --- Validation ---
 
+// Rotulos humanos pros campos numericos — usados na mensagem de erro pra o
+// operador localizar o campo no review sheet (em vez da chave interna do form).
+const NUMERIC_FIELD_LABELS: Partial<Record<keyof ClassificationFormState, string>> = {
+  peneiraP18: 'Peneira P18',
+  peneiraP17: 'Peneira P17',
+  peneiraP16: 'Peneira P16',
+  peneiraP15: 'Peneira P15',
+  peneiraP14: 'Peneira P14',
+  peneiraP13: 'Peneira P13',
+  peneiraP12: 'Peneira P12',
+  peneiraP11: 'Peneira P11',
+  peneiraP10: 'Peneira P10',
+  peneiraMk: 'Peneira MK',
+  fundo1Percent: 'Fundo 1 (%)',
+  fundo2Percent: 'Fundo 2 (%)',
+};
+
+// Valida os campos numericos (peneiras + percentuais dos fundos) que o save
+// grava como number 0-100 (schema Ajv-enforced). Com a extracao recall-first
+// preservando valores brutos ("8-9", "1/2"), e aqui que um valor nao-numerico
+// e barrado — chamado no "Avancar" do review (campo visivel) e no save final.
 export function validateClassificationForm(form: ClassificationFormState): string | null {
   for (const key of NUMERIC_FORM_KEYS) {
     const raw = form[key].trim();
     if (!raw) continue;
+    const label = NUMERIC_FIELD_LABELS[key] ?? key;
     const parsed = Number(raw.replace(',', '.'));
     if (!Number.isFinite(parsed)) {
-      return `Valor numerico invalido em ${key}.`;
+      return `Valor invalido em ${label}: "${raw}". Corrija para um numero.`;
+    }
+    if (parsed < 0 || parsed > 100) {
+      return `${label} deve estar entre 0 e 100 (valor: "${raw}").`;
     }
   }
   return null;
@@ -300,12 +327,61 @@ export function buildTechnicalFromClassificationData(
 
 // --- Extraction mapping ---
 
+// Achata o extractedFields ANINHADO (peneiras{}, fundos[], defeitos{}) que a
+// IA retorna pras chaves flat que o EXTRACTION_FIELD_MAP usa. Antes o map lia
+// `fields['p18']` direto num objeto onde a peneira morava em
+// `fields.peneiras.p18` -> as 10 peneiras, 4 campos de fundos e 6 defeitos
+// NUNCA pre-preenchiam o review sheet (independente da qualidade da IA). Os
+// campos de nivel raiz (padrao, aspecto, certif, catacao, observacoes, bebida)
+// sempre funcionaram. Robusto a shape ja-flat e a campos ausentes.
+function flattenExtractedFields(
+  fields: ExtractedClassificationFields | Record<string, unknown> | null | undefined
+): Record<string, string | null> {
+  const flat: Record<string, string | null> = {};
+  if (!fields || typeof fields !== 'object') return flat;
+  const src = fields as Record<string, unknown>;
+
+  // Nivel raiz: copia valores string/null diretamente (padrao, aspecto, certif,
+  // catacao, observacoes, bebida). Objetos/arrays aninhados sao ignorados aqui
+  // e expandidos abaixo.
+  for (const [key, value] of Object.entries(src)) {
+    if (value === null || typeof value === 'string') flat[key] = value;
+  }
+
+  // peneiras{} -> p18..p10, mk ; defeitos{} -> imp, pva, broca, gpi, ap, defeito
+  for (const groupKey of ['peneiras', 'defeitos'] as const) {
+    const group = src[groupKey];
+    if (group && typeof group === 'object' && !Array.isArray(group)) {
+      for (const [key, value] of Object.entries(group as Record<string, unknown>)) {
+        if (value === null || typeof value === 'string') flat[key] = value;
+      }
+    }
+  }
+
+  // fundos[] -> fundo1_peneira/fundo1_percentual, fundo2_peneira/fundo2_percentual
+  const fundos = Array.isArray(src.fundos) ? src.fundos : [];
+  fundos.slice(0, 2).forEach((fundo, index) => {
+    if (!fundo || typeof fundo !== 'object') return;
+    const f = fundo as Record<string, unknown>;
+    const slot = index + 1;
+    if (f.peneira === null || typeof f.peneira === 'string') {
+      flat[`fundo${slot}_peneira`] = f.peneira as string | null;
+    }
+    if (f.percentual === null || typeof f.percentual === 'string') {
+      flat[`fundo${slot}_percentual`] = f.percentual as string | null;
+    }
+  });
+
+  return flat;
+}
+
 export function mapExtractionToForm(
-  fields: Record<string, string | null>
+  fields: ExtractedClassificationFields
 ): Partial<ClassificationFormState> {
+  const flat = flattenExtractedFields(fields);
   const mapped: Partial<ClassificationFormState> = {};
   for (const [extractedKey, formKey] of Object.entries(EXTRACTION_FIELD_MAP)) {
-    const value = fields[extractedKey];
+    const value = flat[extractedKey];
     if (value !== null && value !== undefined) {
       mapped[formKey] = String(value);
     }

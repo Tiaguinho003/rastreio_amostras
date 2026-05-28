@@ -1,5 +1,7 @@
 import sharp from 'sharp';
 
+import { emitDetectionEvent } from './extraction-telemetry.js';
+
 const WORK_WIDTH = 800;
 const BLUR_SIGMA = 15;
 const BRIGHTNESS_THRESHOLD = 180;
@@ -29,7 +31,11 @@ export class FormDetectionService {
 
     try {
       return await Promise.race([this._detect(imageBuffer), timeoutPromise]);
-    } catch {
+    } catch (err) {
+      emitDetectionEvent({
+        detected: false,
+        reason: err?.message === 'Form detection timed out' ? 'timeout' : 'error',
+      });
       return { detected: false, croppedBuffer: null };
     }
   }
@@ -40,6 +46,7 @@ export class FormDetectionService {
     const origHeight = metadata.height;
 
     if (!origWidth || !origHeight) {
+      emitDetectionEvent({ detected: false, reason: 'no_dimensions' });
       return { detected: false, croppedBuffer: null };
     }
 
@@ -109,6 +116,7 @@ export class FormDetectionService {
     }
 
     if (!best) {
+      emitDetectionEvent({ detected: false, reason: 'no_region', origWidth, origHeight });
       return { detected: false, croppedBuffer: null };
     }
 
@@ -125,6 +133,7 @@ export class FormDetectionService {
     const cropHeight = cropBottom - cropTop;
 
     if (cropWidth <= 0 || cropHeight <= 0) {
+      emitDetectionEvent({ detected: false, reason: 'empty_crop', origWidth, origHeight });
       return { detected: false, croppedBuffer: null };
     }
 
@@ -132,6 +141,16 @@ export class FormDetectionService {
       .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
       .jpeg({ quality: 95 })
       .toBuffer();
+
+    emitDetectionEvent({
+      detected: true,
+      origWidth,
+      origHeight,
+      cropWidth,
+      cropHeight,
+      aspect: Number(best.aspect.toFixed(3)),
+      area: Number(best.area.toFixed(4)),
+    });
 
     return { detected: true, croppedBuffer };
   }

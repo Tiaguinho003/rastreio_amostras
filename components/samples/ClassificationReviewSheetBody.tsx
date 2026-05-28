@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
-import { type ClassificationFormState } from '../../lib/classification-form';
+import {
+  type ClassificationFormState,
+  validateClassificationForm,
+} from '../../lib/classification-form';
 import { PhotoZoomViewer } from '../PhotoZoomViewer';
 
 // Body reusavel do review de classificacao — mesmo conteudo do
@@ -84,6 +87,12 @@ export function ClassificationReviewSheetBody({
 }: Props) {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+
+  // Limpa o erro de validacao ao editar qualquer campo ("limpa ao digitar").
+  useEffect(() => {
+    setAdvanceError(null);
+  }, [form]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,6 +102,15 @@ export function ClassificationReviewSheetBody({
       setWarningOpen(true);
       return;
     }
+    // Recall-first: a extracao preserva valores brutos; aqui (com o campo
+    // visivel) o operador e avisado se uma peneira / % de fundo nao for um
+    // numero valido, em vez de so descobrir no save final.
+    const numericError = validateClassificationForm(form);
+    if (numericError) {
+      setAdvanceError(numericError);
+      return;
+    }
+    setAdvanceError(null);
     onAdvance();
   }
 
@@ -143,7 +161,9 @@ export function ClassificationReviewSheetBody({
         </button>
       ) : null}
 
-      {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
+      {advanceError || errorMessage ? (
+        <p className="sdv-modal-error">{advanceError ?? errorMessage}</p>
+      ) : null}
 
       <form id={formId} className="review-modal-form" onSubmit={handleSubmit}>
         <section className="review-section">
@@ -228,6 +248,7 @@ export function ClassificationReviewSheetBody({
               <span className="review-field-label">Peneira</span>
               <input
                 type="text"
+                inputMode="numeric"
                 className="review-field-input"
                 value={form.fundo1Peneira}
                 disabled={saving}
@@ -254,6 +275,7 @@ export function ClassificationReviewSheetBody({
               <span className="review-field-label">Peneira</span>
               <input
                 type="text"
+                inputMode="numeric"
                 className="review-field-input"
                 value={form.fundo2Peneira}
                 disabled={saving}

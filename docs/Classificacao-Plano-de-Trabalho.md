@@ -1422,6 +1422,38 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 3 (extração: mapeamento + observabilidade + normalização + prompt) ✅
+
+Revisão profunda da extração da IA. Análise multi-agente (8 lentes) + verificação no código revelou que a perda de campos **não era (só) o modelo** — modelo já é `gpt-4o`, não `4o-mini`. Decisões do usuário: recall agressivo, 1 chamada rápida, medir depois via telemetria (sem golden set agora). Plano canônico em `/home/flavio003/.claude/plans/` (Fases 1-7).
+
+**Fase 1 — bug de mapeamento (causa raiz do sintoma) 🔴**: `mapExtractionToForm` (`lib/classification-form.ts`) lia chaves _flat_ (`p18`, `fundo1_peneira`, `impureza`) num objeto _aninhado_ (`raw.classificacao`: `peneiras{}`, `fundos[]`, `defeitos{}`), com o tipo `ExtractAndPrepareResponse.extractedFields` mentindo (`Record<string,string|null>`). Resultado: **as 10 peneiras + 4 fundos + 6 defeitos nunca pré-preenchiam o review sheet**, independente da IA. Fix: tipo honesto `ExtractedClassificationFields` (`lib/types.ts`) + helper `flattenExtractedFields` + chave `impureza`→`imp`. Teste `tests/classification-form.test.js`.
+
+**Fase 2 — observabilidade + pin de modelo**: telemetria agora emite `nullRateByCategory` cru **e** normalizado + `normalizationDropped` (campos que a IA preencheu e o normalizer zerou) — antes a perda do normalizer era invisível. Novos campos no evento: `promptVersion` (hash sha1 de SYSTEM+USER, auto-muda), `finishReason`/`truncated`, `imageDetail/maxTokens/temperature`. Telemetria de detecção (`emitDetectionEvent`: detected/aspect/area/crop/origWidth — `origWidth` = resolução efetiva no backend). Modelo pinado `gpt-4o-2024-11-20` (`EXTRACTION_MODEL`, env-overridable); o evento usa o `response.model` servido.
+
+**Fase 3 — normalização não-destrutiva (recall-first)**: `toNumericOrNull` preserva o bruto (`1/2`, `8-9`, `+8`, `<1`, `tr`) em vez de descartar — null só pra vazio/label puro (seguro: schema do evento de extração é `string|null`). `fundo.peneira` deixa de passar por `rejectIfLabel` (que zerava `P13`); novo `normalizeFundoPeneira` tira o prefixo `P` (alinha com `export-fields` que monta `P${peneira}`). `canonicalizeHarvest` casa o padrão de safra antes de substituir separador (não mangla `5.5`). Coerção numérica dos 12 campos do save (peneiras + % fundos) acontece no **"Avançar" do review** (`ClassificationReviewSheetBody` valida + bloqueia + mensagem com rótulo humano, limpa ao digitar) e no save final.
+
+**Fase 5 — prompt pró-recall**: reduzido o viés-pro-null (regra 9 + bullets de ERROS COMUNS), mantidos os guards anti-invenção e de confusão de caractere; **protocolo de varredura ativa célula-a-célula** movido pra última posição (máxima recência); fundos sem regra all-or-nothing (extração parcial); ordem das peneiras no schema alinhada à visual (`mk` entre p16 e p15). `promptVersion` muda sozinho.
+
+**UI tweaks da sessão** (Caminho 3 e review): removido o texto "Abrindo camera..." da `/camera`; cada subdivisão do review sheet virou um card contornado (`.review-section` com borda `var(--line)` + `display:flex` real no form, que estava com `gap` no-op); campos "Peneira" dos fundos ganharam `inputMode="numeric"`.
+
+**Deferido**: Fase 4 (captura alta-res — precisa teste iOS real), Fase 6 (few-shot denso — precisa ficha real), Fase 7 (robustez da detecção — calibrar com a telemetria desta entrega). Micro-deferidos: `canonicalizeAspecto` colapsar-vs-remover espaços (decisão sigla×texto-livre — quebra teste atual), remoção das larguras percentuais do prompt.
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅ · test:unit ✅ (191) · test:contracts ✅ (20) · validate:schemas ✅.
+
+### 2026-05-28 — Sessão 3 (fix do flash do BottomSheet ao fechar) ✅
+
+Bug de transição relatado em teste no **Caminho 3** (dashboard, lote pré-selecionado): ao extrair um lote que diverge do esperado, o sistema "ameaçava abrir" o modal de dados extraídos e rápido trocava pro modal de "lote não confere" — um flash desagradável (não bloqueante).
+
+- **Causa-raiz** (confirmada por verificação multi-agente + refutação adversarial): o `ClassificationReviewSheetBody` **nunca chega a montar** nesse caminho — `handleExtractionResult` faz `setFlowState('lot-mismatch')` com `return` antes de qualquer `'confirming'`. O flash é o **`BottomSheet` na animação de fechamento**. Em `extracting → lot-mismatch` (um único render do React 19), `open` vira `false` mas o sheet fica montado 350ms pro slide-down; nesse intervalo `isProcessingPhoto`/`isReviewingPhoto` viram `false` mas `capturedPhotoUrl` persiste → o conteúdo **cai no ramo da foto de preview** e a classe `is-processing` sai → o `max-height` **cresce** de ~260px pra altura cheia (transition 0.45s). Resultado: a caixinha do spinner cresce + desliza + troca o spinner pela foto, sob o modal central abrindo.
+- **Mesmo flash em outras 4 transições** (scan): `extraction-error-illegible`, `extraction-error-technical`, `detect-failed`, e cancelar a partir do review (`confirming → idle`, só a parte de altura).
+- **Fix** — `components/BottomSheet.tsx`: o sheet agora **congela o conteúdo do último estado aberto** (children/title/footer/className/ariaLabel) durante a animação de saída, em vez de renderizar os props recomputados pelo consumidor. Snapshot gravado via layout-effect isomórfico (`useIsomorphicLayoutEffect`, espelhado de `components/PageTransition.tsx`); ao reabrir volta aos props ao vivo. Durante o close o `.bottom-sheet` recebe `pointer-events: none` (sem clique fantasma no footer congelado). Uma só mudança no componente compartilhado resolve as 5 transições de uma vez. **Sem mudança de comportamento** — puramente visual.
+- **Blast-radius auditado**: seguro nos 3 consumidores (`app/camera/page.tsx`, `components/NewSampleModal.tsx`, `components/samples/BlendConfirmationSheet.tsx`) — nenhum precisa que o conteúdo mude durante o close.
+- **Skill sincronizada**: `design-system` §8 ganhou o bullet "Conteudo congelado no close".
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅ · test:unit ✅ (185).
+
+**Nota de drift (fora de escopo)**: `design-system` §8 ainda descreve `max-height: 98dvh`, mas o CSS real (`globals.css`) usa `calc(100dvh - env(safe-area-inset-top) - 8rem)`. Drift pré-existente, não tocado neste passe.
+
 ### 2026-05-28 — Sessão 2 (review dos campos extraídos no mesmo bottom sheet) ✅
 
 Sequência do spinner integrado — agora o review dos campos extraídos vira o **terceiro estágio do mesmo BottomSheet** (preview cheio → processing reduzido → review cheio novamente). Continuidade visual total.

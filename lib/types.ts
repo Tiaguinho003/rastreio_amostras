@@ -720,8 +720,30 @@ export interface ExtractionCrossValidationDetail {
   match: boolean;
 }
 
+// Shape REAL (aninhado) que a extracao da IA retorna em `extractedFields` —
+// espelha `raw.classificacao` do backend (normalizeClassificacao em
+// src/samples/classification-extraction-service.js). Peneiras/fundos/percentual
+// sao string (nao number): valores manuscritos crus, normalizados pra numero
+// so no save. Antes este campo era tipado como Record<string,string|null>
+// (flat), uma mentira de tipo: mapExtractionToForm lia chaves flat num objeto
+// aninhado e as peneiras/fundos/defeitos nunca pre-preenchiam o review sheet.
+export interface ExtractedClassificationFields {
+  padrao: string | null;
+  aspecto: string | null;
+  certif: string | null;
+  peneiras: Record<
+    'p18' | 'p17' | 'p16' | 'p15' | 'p14' | 'p13' | 'p12' | 'p11' | 'p10' | 'mk',
+    string | null
+  > | null;
+  fundos: Array<{ peneira: string | null; percentual: string | null }> | null;
+  catacao: string | null;
+  defeitos: Record<'imp' | 'pva' | 'broca' | 'gpi' | 'ap' | 'defeito', string | null> | null;
+  observacoes: string | null;
+  bebida: string | null;
+}
+
 export interface ExtractionResult {
-  extractedFields: Record<string, string | null>;
+  extractedFields: ExtractedClassificationFields;
   crossValidation: {
     hasMismatches: boolean;
     details: ExtractionCrossValidationDetail[];
@@ -756,7 +778,7 @@ export interface DetectFormResponse {
 
 export interface ExtractAndPrepareResponse {
   statusCode: number;
-  extractedFields: Record<string, string | null>;
+  extractedFields: ExtractedClassificationFields;
   identification: {
     lote: string | null;
     sacas: string | null;

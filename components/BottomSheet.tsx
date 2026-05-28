@@ -1,8 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useFocusTrap } from '../lib/use-focus-trap';
+
+// useLayoutEffect no client, useEffect no server — evita o warning de SSR num
+// componente 'use client' que ainda e renderizado no servidor pelo App Router.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const SWIPE_THRESHOLD = 60;
 export const ANIMATION_MS = 350;
@@ -68,6 +72,24 @@ export function BottomSheet({
   // que classes/estilos dependentes (body class pra tabbar, is-open class do
   // sheet) reflitam o close em paralelo com a transition CSS.
   const isOpen = animatingIn && open;
+
+  // Congela o conteudo visual (children/title/footer/ariaLabel/className)
+  // durante a animacao de saida. Quando `open` vira false o sheet continua
+  // montado por ANIMATION_MS pro slide-down; sem isto, o consumidor recomputa
+  // os props pro novo estado (ex: outro flowState) e o sheet trocaria conteudo
+  // e altura no meio do close — "cresceria + trocaria o body" enquanto desce,
+  // parecendo que vai reabrir. Renderizamos o ultimo estado aberto ate o
+  // unmount. Snapshot gravado em layout-effect (commit-time, nunca no render)
+  // pra ser puro em concurrent/StrictMode e cravar antes do paint do frame que
+  // fecha. Ao reabrir (open=true) voltamos a usar os props ao vivo na hora.
+  const liveContent = { children, title, footer, ariaLabel, className };
+  const contentRef = useRef(liveContent);
+  useIsomorphicLayoutEffect(() => {
+    if (open) {
+      contentRef.current = { children, title, footer, ariaLabel, className };
+    }
+  });
+  const content = open ? liveContent : contentRef.current;
 
   const requestDismiss = useCallback(async () => {
     const canClose = onDismissAttempt ? await onDismissAttempt() : true;
@@ -244,14 +266,20 @@ export function BottomSheet({
     >
       <section
         ref={focusTrapRef}
-        className={`bottom-sheet${className ? ` ${className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
-        style={isOpen && dragOffset > 0 ? { transform: sheetTransform } : undefined}
+        className={`bottom-sheet${content.className ? ` ${content.className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
+        style={{
+          ...(isOpen && dragOffset > 0 ? { transform: sheetTransform } : null),
+          // Conteudo congelado durante o close fica inerte: evita clique
+          // fantasma num botao do footer antigo (ex: "Avancar"/"Criar liga")
+          // nos 350ms do slide-down.
+          ...(isOpen ? null : { pointerEvents: 'none' as const }),
+        }}
         onClick={(event) => event.stopPropagation()}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel}
+        aria-label={content.ariaLabel}
       >
         {dragToDismiss ? (
           <div
@@ -265,7 +293,7 @@ export function BottomSheet({
 
         <header className="bottom-sheet-header" onTouchStart={handleTouchStart}>
           <h3 className="bottom-sheet-title" aria-live="polite">
-            {title}
+            {content.title}
           </h3>
           <button
             type="button"
@@ -279,9 +307,9 @@ export function BottomSheet({
           </button>
         </header>
 
-        <div className="bottom-sheet-body">{children}</div>
+        <div className="bottom-sheet-body">{content.children}</div>
 
-        {footer ? <div className="bottom-sheet-footer">{footer}</div> : null}
+        {content.footer ? <div className="bottom-sheet-footer">{content.footer}</div> : null}
       </section>
     </div>
   );

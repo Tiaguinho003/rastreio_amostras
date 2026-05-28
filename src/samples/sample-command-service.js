@@ -1951,7 +1951,8 @@ export class SampleCommandService {
           extraction = {
             extractedFields: raw.classificacao,
             crossValidation,
-            model: 'gpt-4o',
+            // Modelo servido pela OpenAI (pinado em classification-extraction-service).
+            model: raw.model ?? 'gpt-4o-2024-11-20',
             photoAttachmentId: saved.attachmentId,
             processingTimeMs: raw.processingTimeMs,
           };

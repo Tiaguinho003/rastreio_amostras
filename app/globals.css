@@ -18399,7 +18399,12 @@ button:disabled {
 }
 
 .review-modal-form {
-  gap: clamp(12px, 3vw, 16px);
+  /* display:flex explicito — o `gap` so vale em flex/grid. Antes o form era
+     bloco e o gap nao tinha efeito; agora as subdivisoes (cards) ficam
+     espacadas de verdade. */
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 3.5vw, 18px);
 }
 
 .review-photo {
@@ -18460,6 +18465,13 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(6px, 1.8vw, 8px);
+  /* Cada subdivisao (Identificacao, Peneiras, Fundos...) e contornada por um
+     retangulo de linha fina e discreta (token --line sobre o creme do sheet)
+     pra agrupar visualmente os campos. Padding moderado pra organizar sem
+     inflar a altura do sheet. */
+  padding: clamp(9px, 2.4vw, 12px) clamp(12px, 3vw, 14px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
 
 .review-section-title {

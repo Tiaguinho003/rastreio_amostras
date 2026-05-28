@@ -58,6 +58,9 @@ test('canonicalizeHarvest normaliza formatos de safra', () => {
   assert.equal(canonicalizeHarvest('26.27'), '26/27');
   assert.equal(canonicalizeHarvest(' 26 / 27 '), '26/27');
   assert.equal(canonicalizeHarvest('MISTA'), 'MISTA'); // nao-numerico — preserva limpo
+  // Fase 3: nao-safra preservado em vez de manglado (antes "5.5" -> "5/5").
+  assert.equal(canonicalizeHarvest('5.5'), '5.5');
+  assert.equal(canonicalizeHarvest('8-9'), '8-9');
   assert.equal(canonicalizeHarvest(null), null);
   assert.equal(canonicalizeHarvest(''), null);
 });

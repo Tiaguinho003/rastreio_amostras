@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +40,7 @@ REGRAS CRITICAS DE EXTRACAO:
 6. Valores manuscritos ficam ABAIXO ou AO LADO do rotulo impresso de cada celula.
 7. Se a escrita e ilegivel, retorne null em vez de adivinhar.
 8. Virgula brasileira: numeros decimais usam VIRGULA (ex: "12,5"), nao ponto.
-9. NUNCA INVENTE: muitos campos ficam vazios. E ESPERADO. Retorne null sem hesitar.
+9. NUNCA INVENTE um valor que nao esta escrito. Alguns campos podem estar vazios (null); outros tem numeros pequenos faceis de PERDER — trate as duas situacoes com o mesmo cuidado.
 10. INSTRUCAO PRIORITARIA PARA EXTRACAO ATIVA:
     Se uma celula contem QUALQUER numero, letra, ou marca manuscrita visivel (mesmo que pequena, desbotada, em caligrafia rapida ou parcialmente sobrescrita), voce DEVE extrair esse valor. Null e SOMENTE para celulas verdadeiramente vazias — sem nenhuma marca manuscrita.
     Busque ativamente por escritas pequenas em CADA celula da ficha antes de decidir por null. NAO assuma que celulas vazias sao o padrao — em fichas reais, varias celulas tem valores manuscritos que precisam ser extraidos.`;
@@ -90,8 +91,8 @@ LINHA 5 — FUNDOS + CATACAO (3 celulas, larguras ~37% / 37% / 27%):
     - A ESQUERDA, o operador escreve a PENEIRA do fundo (geralmente um numero como "13", "11").
     - No CENTRO, ha um simbolo "=" IMPRESSO (NAO e manuscrito — ignore).
     - A DIREITA, o operador escreve a PORCENTAGEM (ex: "8", "1,5"). Pode haver um "%" decorativo impresso no canto direito da celula (NAO e manuscrito).
-    REGRA LOGICA OBRIGATORIA: o numero manuscrito imediatamente A ESQUERDA do "=" e a \`peneira\` do fundo; o numero manuscrito imediatamente A DIREITA do "=" e o \`percentual\`. Nao inverta. Se faltar qualquer um dos dois, retorne null para AMBOS os campos daquele fundo.
-    Se uma das celulas FD nao foi preenchida, retorne null para ambas as chaves daquele fundo.
+    REGRA LOGICA: o numero manuscrito imediatamente A ESQUERDA do "=" e a \`peneira\` do fundo; o numero imediatamente A DIREITA do "=" e o \`percentual\`. Nao inverta. Os dois espacos ao redor do "=" SAO campos preenchidos a mao na maioria das fichas — procure ativamente os dois numeros.
+    Extraia cada parte de forma independente: se voce le a peneira mas nao o percentual (ou vice-versa), extraia a parte que VE e deixe a OUTRA null. So retorne null para uma chave quando aquela parte estiver vazia; null para AMBAS apenas quando a celula FD inteira estiver vazia.
     → classificacao.fundos[0]: { peneira, percentual } (primeira celula FD da esquerda)
     → classificacao.fundos[1]: { peneira, percentual } (segunda celula FD)
   Celula 3 (CAT.): rotulo "CAT." (Catacao). Contem um percentual manuscrito (numero). Sem "%". → classificacao.catacao
@@ -131,12 +132,34 @@ ERROS COMUNS A EVITAR:
 - NAO confunda o numero "1" com a letra "l" minuscula ou "I" maiuscula.
 - NAO confunda "8" com "B".
 - Se um valor parece TEXTO IMPRESSO e nao MANUSCRITO, retorne null.
-- MUITOS campos ficam vazios (sem escrita). E NORMAL. Retorne null SEM HESITAR.
-- NAO infira valores que nao estao escritos. Se esta vazio, e null.
+- NAO invente um valor que nao esta escrito — mas uma marca manuscrita pequena ou fraca NAO e invencao: extraia.
 
 O array "fundos" deve sempre conter exatamente 2 objetos (representando os dois campos FD da LINHA 5). Se o segundo fundo nao foi preenchido, retorne { "peneira": null, "percentual": null } para o segundo elemento.
 
+PROTOCOLO DE VARREDURA (faca antes de finalizar):
+Percorra a ficha celula por celula, na ordem das 8 linhas. Em CADA celula pergunte primeiro: "ha algum traco de caneta ou lapis aqui?". Numeros pequenos, marcas fracas, escrita rapida e caligrafia apertada CONTAM como preenchidos e DEVEM ser extraidos. So marque null depois de confirmar que a celula nao tem nenhuma marca manuscrita. O erro mais comum nesta ficha e PERDER os numeros pequenos das peneiras, dos fundos e dos defeitos — passe os olhos em cada uma dessas celulas antes de decidir.
+
 Retorne APENAS o JSON estruturado conforme o schema fornecido. Nenhum texto adicional.`;
+
+// ============================================================
+// CONFIG DA INFERENCIA + VERSAO DO PROMPT (telemetria)
+// ============================================================
+
+// Modelo pinado (versao datada) pra reproducibilidade: o alias 'gpt-4o' recebe
+// rollout silencioso e mascararia A/B de prompt/imagem. Override por env.
+const EXTRACTION_MODEL = process.env.OPENAI_EXTRACTION_MODEL ?? 'gpt-4o-2024-11-20';
+const IMAGE_DETAIL = 'high';
+const MAX_TOKENS = 1500;
+const TEMPERATURE = 0.2;
+
+// promptVersion: hash curto do prompt. Muda sozinho quando SYSTEM_PROMPT ou
+// USER_PROMPT sao editados, permitindo atribuir variacoes de recall na
+// telemetria (nullRateByCategory por promptVersion) sem versionar a mao.
+const PROMPT_VERSION = crypto
+  .createHash('sha1')
+  .update(SYSTEM_PROMPT + USER_PROMPT)
+  .digest('hex')
+  .slice(0, 8);
 
 // ============================================================
 // JSON SCHEMA (structured output, strict mode)
@@ -183,18 +206,18 @@ const EXTRACTION_SCHEMA = {
           peneiras: {
             type: 'object',
             additionalProperties: false,
-            required: ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'],
+            required: ['p18', 'p17', 'p16', 'mk', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10'],
             properties: {
               p18: FIELD_NULLABLE_STRING,
               p17: FIELD_NULLABLE_STRING,
               p16: FIELD_NULLABLE_STRING,
+              mk: FIELD_NULLABLE_STRING,
               p15: FIELD_NULLABLE_STRING,
               p14: FIELD_NULLABLE_STRING,
               p13: FIELD_NULLABLE_STRING,
               p12: FIELD_NULLABLE_STRING,
               p11: FIELD_NULLABLE_STRING,
               p10: FIELD_NULLABLE_STRING,
-              mk: FIELD_NULLABLE_STRING,
             },
           },
           fundos: {
@@ -412,6 +435,49 @@ function computeNullRateByCategory(parsed) {
   };
 }
 
+// Mede a PERDA da normalizacao: campos que a IA preencheu (cru) e que o
+// normalizer zerou (null). Antes essa perda era invisivel — a telemetria so
+// media o cru, entao a culpa caia no modelo. Apos a Fase 3 (recall-first)
+// este array deve ficar ~vazio. Carrega o valor bruto descartado pra debug.
+function computeNormalizationDropped(rawParsed, normalized) {
+  const dropped = [];
+  const filled = (v) => v != null && String(v).trim() !== '';
+  const check = (field, rawVal, normVal) => {
+    if (filled(rawVal) && !filled(normVal)) dropped.push({ field, raw: String(rawVal).trim() });
+  };
+
+  const rawCls = isPlainObject(rawParsed?.classificacao) ? rawParsed.classificacao : {};
+  const normCls = isPlainObject(normalized?.classificacao) ? normalized.classificacao : {};
+  const rawIde = isPlainObject(rawParsed?.identificacao) ? rawParsed.identificacao : {};
+  const normIde = isPlainObject(normalized?.identificacao) ? normalized.identificacao : {};
+
+  for (const k of ['lote', 'sacas', 'safra']) check(`identificacao.${k}`, rawIde[k], normIde[k]);
+  for (const k of ['padrao', 'aspecto', 'certif', 'catacao', 'observacoes', 'bebida']) {
+    check(`classificacao.${k}`, rawCls[k], normCls[k]);
+  }
+
+  const rawPen = isPlainObject(rawCls.peneiras) ? rawCls.peneiras : {};
+  const normPen = isPlainObject(normCls.peneiras) ? normCls.peneiras : {};
+  for (const k of ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk']) {
+    check(`peneiras.${k}`, rawPen[k], normPen[k]);
+  }
+
+  const rawFun = Array.isArray(rawCls.fundos) ? rawCls.fundos : [];
+  const normFun = Array.isArray(normCls.fundos) ? normCls.fundos : [];
+  for (let i = 0; i < 2; i += 1) {
+    check(`fundos.${i}.peneira`, rawFun[i]?.peneira, normFun[i]?.peneira);
+    check(`fundos.${i}.percentual`, rawFun[i]?.percentual, normFun[i]?.percentual);
+  }
+
+  const rawDef = isPlainObject(rawCls.defeitos) ? rawCls.defeitos : {};
+  const normDef = isPlainObject(normCls.defeitos) ? normCls.defeitos : {};
+  for (const k of ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito']) {
+    check(`defeitos.${k}`, rawDef[k], normDef[k]);
+  }
+
+  return dropped;
+}
+
 function toStringOrNull(value) {
   if (value === null || value === undefined) return null;
   const str = String(value).trim();
@@ -424,14 +490,32 @@ function rejectIfLabel(value) {
   return value;
 }
 
+// Recall-first (Fase 3): preserva o valor manuscrito BRUTO em vez de descartar
+// o que nao casa o formato decimal canonico. Antes o regex /^\d+([,.]\d+)?$/
+// jogava fora "1/2", "8-9", "+8", "<1", "tr" mesmo quando a IA leu certo —
+// perda silenciosa nas celulas pequenas. Agora limpa so "%"/espacos das pontas
+// e retorna o bruto; null APENAS pra celula vazia ou rotulo puro ecoado. A
+// coercao pra numero (campos numericos do save) acontece no review/save, onde
+// o operador confere. Seguro: o schema do evento de extracao e string|null.
 function toNumericOrNull(value) {
   const str = toStringOrNull(value);
   if (str === null) return null;
   if (KNOWN_LABELS.has(str.toLowerCase())) return null;
   const cleaned = str.replace(/%/g, '').trim();
-  if (cleaned.length === 0) return null;
-  if (/^\d+([,.]\d+)?$/.test(cleaned)) return cleaned;
-  return null;
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+// Peneira do fundo: numero (ex: "13"), as vezes prefixado "P13". O prefixo
+// P/p e rotulo impresso — removido. NAO aplicar rejectIfLabel aqui: "p13" esta
+// em KNOWN_LABELS e zerava um valor legitimo (e o export monta "P${peneira}",
+// entao preservar o prefixo geraria "PP13"). null so pra vazio ou rotulo puro.
+function normalizeFundoPeneira(value) {
+  const str = toStringOrNull(value);
+  if (str === null) return null;
+  const stripped = str.replace(/^p\.?\s*/i, '').trim();
+  if (stripped.length === 0) return null;
+  if (KNOWN_LABELS.has(stripped.toLowerCase())) return null;
+  return stripped;
 }
 
 // ============================================================
@@ -467,7 +551,7 @@ function normalizePeneiras(raw) {
 function normalizeFundoItem(item) {
   const safe = isPlainObject(item) ? item : {};
   return {
-    peneira: rejectIfLabel(toStringOrNull(safe.peneira)),
+    peneira: normalizeFundoPeneira(safe.peneira),
     percentual: toNumericOrNull(safe.percentual),
   };
 }
@@ -537,7 +621,7 @@ export class ClassificationExtractionService {
         type: 'image_url',
         image_url: {
           url: `data:${mimeType};base64,${base64Image}`,
-          detail: 'high',
+          detail: IMAGE_DETAIL,
         },
       },
     ];
@@ -602,13 +686,30 @@ export class ClassificationExtractionService {
 
       const processingTimeMs = Date.now() - startTime;
 
-      // F3.11 + F3.13: telemetria de sucesso. nullRateByCategory mede o JSON
-      // CRU (parsed) — antes da normalizacao posterior — pra refletir o que
-      // a IA realmente entregou e medir efetividade do prompt.
+      const result = {
+        identificacao: normalizeIdentificacao(parsed.identificacao),
+        classificacao: normalizeClassificacao(parsed.classificacao),
+        model: response.model ?? EXTRACTION_MODEL,
+        processingTimeMs,
+      };
+
+      const finishReason = response.choices?.[0]?.finish_reason ?? null;
+
+      // F3.11 + F3.13 + Fase 2: telemetria de sucesso. Emite o fill-rate do
+      // JSON CRU (parsed) E do normalizado, mais o delta (campos que a IA
+      // preencheu e o normalizer zerou) — antes essa perda era invisivel e a
+      // culpa caia no modelo. promptVersion/finishReason/truncated permitem
+      // atribuir mudancas de recall e detectar truncamento por max_tokens.
       emitExtractionEvent({
         outcome: 'success',
         model: response.model,
         requestId: response.id,
+        promptVersion: PROMPT_VERSION,
+        finishReason,
+        truncated: finishReason === 'length',
+        imageDetail: IMAGE_DETAIL,
+        maxTokens: MAX_TOKENS,
+        temperature: TEMPERATURE,
         processingTimeMs,
         promptTokens: response.usage?.prompt_tokens ?? null,
         completionTokens: response.usage?.completion_tokens ?? null,
@@ -616,13 +717,11 @@ export class ClassificationExtractionService {
         sampleId: context.sampleId ?? null,
         fewShot: FEW_SHOT_EXAMPLE !== null,
         nullRateByCategory: computeNullRateByCategory(parsed),
+        nullRateByCategoryNormalized: computeNullRateByCategory(result),
+        normalizationDropped: computeNormalizationDropped(parsed, result),
       });
 
-      return {
-        identificacao: normalizeIdentificacao(parsed.identificacao),
-        classificacao: normalizeClassificacao(parsed.classificacao),
-        processingTimeMs,
-      };
+      return result;
     } catch (err) {
       // F3.11: telemetria de falha. TIMEOUT ja vem marcado pela funcao privada.
       let errorCode = err.code ?? null;
@@ -637,6 +736,8 @@ export class ClassificationExtractionService {
         outcome: 'failure',
         errorCode,
         errorMessage: err.message ?? null,
+        model: EXTRACTION_MODEL,
+        promptVersion: PROMPT_VERSION,
         processingTimeMs: Date.now() - startTime,
         sampleId: context.sampleId ?? null,
         fewShot: FEW_SHOT_EXAMPLE !== null,
@@ -666,11 +767,11 @@ export class ClassificationExtractionService {
       try {
         return await this.client.chat.completions.create(
           {
-            model: 'gpt-4o',
+            model: EXTRACTION_MODEL,
             messages,
             response_format: { type: 'json_schema', json_schema: schema },
-            max_tokens: 1500,
-            temperature: 0.2,
+            max_tokens: MAX_TOKENS,
+            temperature: TEMPERATURE,
           },
           { signal: controller.signal }
         );

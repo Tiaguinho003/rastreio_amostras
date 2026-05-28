@@ -82,13 +82,15 @@ export function canonicalizeHarvest(value) {
   if (value == null) return null;
   const trimmed = String(value).trim();
   if (trimmed.length === 0) return null;
-  const unified = trimmed.replace(/[-_.]/g, '/').replace(/\s+/g, '');
-  if (unified.length === 0) return null;
-  const match = unified.match(/^(\d{2,4})\/(\d{2,4})$/);
+  // So abrevia pra "AA/AA" quando o valor JA parece uma safra (2 grupos de
+  // digitos separados por -, _, . ou /). Antes substituia [-_.] por "/" CEGO
+  // antes de testar, manglando valores nao-safra ("5.5" -> "5/5"). Agora casa
+  // os separadores direto e, fora desse caso, preserva o bruto trimado.
+  const match = trimmed.replace(/\s+/g, '').match(/^(\d{2,4})[-_./](\d{2,4})$/);
   if (match) {
     const start = match[1].slice(-2);
     const end = match[2].slice(-2);
     return `${start}/${end}`;
   }
-  return unified;
+  return trimmed;
 }

@@ -1331,10 +1331,6 @@ function CameraPageContent() {
                     Classificando lote {contextSampleLot}
                   </span>
                 </div>
-              ) : flowState === 'idle' && cameraStatus === 'starting' ? (
-                <div className="camera-hub-scan-indicator">
-                  <span className="camera-hub-scan-label">Abrindo camera...</span>
-                </div>
               ) : null}
 
               {/* Capture button — captures directly from video stream.

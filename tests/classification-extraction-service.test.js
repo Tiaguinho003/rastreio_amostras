@@ -105,7 +105,8 @@ test('extractClassificationFromPhoto envia prompt unico, image_url e json_schema
     fs.unlinkSync(imagePath);
   }
 
-  assert.equal(captured.model, 'gpt-4o');
+  // Modelo pinado (versao datada) pra reproducibilidade — ver EXTRACTION_MODEL.
+  assert.equal(captured.model, 'gpt-4o-2024-11-20');
   assert.equal(captured.temperature, 0.2);
   assert.equal(captured.max_tokens, 1500);
 
@@ -275,7 +276,7 @@ test('rejectIfLabel descarta quando IA retorna um label conhecido como valor', a
   assert.equal(result.classificacao.fundos[0].percentual, '8'); // percentual numerico nao foi label
 });
 
-test('toNumericOrNull rejeita valores nao-numericos em campos numericos', async () => {
+test('toNumericOrNull preserva bruto e rejeita so labels/vazios (recall-first, Fase 3)', async () => {
   const create = async () =>
     buildOpenAIResponse(
       buildExtractedFields({
@@ -315,7 +316,7 @@ test('toNumericOrNull rejeita valores nao-numericos em campos numericos', async 
     fs.unlinkSync(imagePath);
   }
 
-  assert.equal(result.classificacao.peneiras.p18, null); // 'abc' rejeitado
+  assert.equal(result.classificacao.peneiras.p18, 'abc'); // recall-first: bruto preservado (operador corrige no review)
   assert.equal(result.classificacao.peneiras.p17, '12,5');
   assert.equal(result.classificacao.peneiras.p16, '5'); // % removido
   assert.equal(result.classificacao.peneiras.p15, null); // string vazia
@@ -421,4 +422,52 @@ test('lanca TIMEOUT quando AbortController dispara', async () => {
   } finally {
     fs.unlinkSync(imagePath);
   }
+});
+
+test('extractClassificationFromPhoto preserva valores brutos nao-decimais (recall-first, Fase 3)', async () => {
+  const fields = buildExtractedFields({
+    classificacao: {
+      peneiras: {
+        p18: '8-9',
+        p17: '1/2',
+        p16: null,
+        p15: null,
+        p14: null,
+        p13: null,
+        p12: null,
+        p11: null,
+        p10: null,
+        mk: '+8',
+      },
+      fundos: [
+        { peneira: 'P13', percentual: 'tr' },
+        { peneira: 'p.11', percentual: null },
+      ],
+      catacao: '<1',
+      defeitos: { imp: 'tr', pva: null, broca: null, gpi: null, ap: null, defeito: 'alguns' },
+    },
+  });
+
+  const imagePath = writeFakeImage();
+  let result;
+  try {
+    const service = buildService(async () => buildOpenAIResponse(fields));
+    result = await service.extractClassificationFromPhoto(imagePath);
+  } finally {
+    fs.unlinkSync(imagePath);
+  }
+
+  const cls = result.classificacao;
+  // Peneiras: valores nao-decimais preservados (antes o regex os zerava).
+  assert.equal(cls.peneiras.p18, '8-9');
+  assert.equal(cls.peneiras.p17, '1/2');
+  assert.equal(cls.peneiras.mk, '+8');
+  // Catacao e defeito numerico preservam o bruto.
+  assert.equal(cls.catacao, '<1');
+  assert.equal(cls.defeitos.imp, 'tr');
+  // Fundo.peneira: prefixo P/p removido, valor preservado (antes rejectIfLabel
+  // zerava "P13" porque "p13" estava em KNOWN_LABELS).
+  assert.equal(cls.fundos[0].peneira, '13');
+  assert.equal(cls.fundos[0].percentual, 'tr');
+  assert.equal(cls.fundos[1].peneira, '11');
 });
