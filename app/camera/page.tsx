@@ -228,6 +228,31 @@ function CameraPageContent() {
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
 
+  // Estados de processamento pos-captura ate o review modal abrir.
+  // Renderizados dentro do BottomSheet de preview (que reduz de altura
+  // suavemente) em vez do stage, pra evitar a ruptura visual de
+  // fechar o sheet so pra mostrar um spinner no stage.
+  const isProcessingPhoto =
+    flowState === 'detecting' ||
+    flowState === 'detected' ||
+    flowState === 'extracting' ||
+    flowState === 'resolving';
+
+  const processingMessage = (() => {
+    switch (flowState) {
+      case 'detecting':
+        return 'Procurando ficha na foto...';
+      case 'detected':
+        return 'Ficha identificada!';
+      case 'extracting':
+        return 'Extraindo dados da classificacao...';
+      case 'resolving':
+        return 'Buscando amostra...';
+      default:
+        return null;
+    }
+  })();
+
   // --- Lifecycle ---
 
   useEffect(() => {
@@ -1310,25 +1335,10 @@ function CameraPageContent() {
                   modais raiz, fora do .camera-hub. Veja
                   <ClassificationClassifierModal /> abaixo. */}
 
-              {/* Detecting form */}
-              {flowState === 'detecting' ? (
-                <div className="camera-hub-extracting">
-                  <div className="camera-hub-extracting-spinner" />
-                  <span className="camera-hub-extracting-label">Procurando ficha na foto...</span>
-                </div>
-              ) : null}
-
-              {/* Form detected */}
-              {flowState === 'detected' ? (
-                <div className="camera-hub-extracting">
-                  <div className="camera-hub-success-icon is-sm">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="camera-hub-extracting-label">Ficha identificada!</span>
-                </div>
-              ) : null}
+              {/* Os estados detecting/detected/extracting/resolving foram migrados
+                  pro BottomSheet `camera-preview-sheet` com classe is-processing
+                  (reduz altura suavemente). Apenas detect-failed continua aqui
+                  no stage por enquanto — proxima sessao pode migrar tambem. */}
 
               {/* Detection failed */}
               {flowState === 'detect-failed' ? (
@@ -1361,24 +1371,6 @@ function CameraPageContent() {
                       Continuar assim
                     </button>
                   </div>
-                </div>
-              ) : null}
-
-              {/* Extracting */}
-              {flowState === 'extracting' ? (
-                <div className="camera-hub-extracting">
-                  <div className="camera-hub-extracting-spinner" />
-                  <span className="camera-hub-extracting-label">
-                    Extraindo dados da classificacao...
-                  </span>
-                </div>
-              ) : null}
-
-              {/* Resolving lot */}
-              {flowState === 'resolving' ? (
-                <div className="camera-hub-extracting">
-                  <div className="camera-hub-extracting-spinner" />
-                  <span className="camera-hub-extracting-label">Buscando amostra...</span>
                 </div>
               ) : null}
             </div>
@@ -1586,37 +1578,60 @@ function CameraPageContent() {
       />
 
       {/* Bottom sheet de preview da foto capturada. Substitui a renderizacao
-          inline no stage (que cortava a foto via object-fit: cover). Mostra
-          a foto inteira com object-fit: contain. Sem X, sem drag, sem
-          tap-backdrop — controle exclusivo por "Tirar outra" / "Enviar". */}
+          inline no stage (que cortava a foto via object-fit: cover). Durante
+          os estados de processamento (detecting/detected/extracting/resolving)
+          o sheet *continua aberto* mas reduz suavemente de altura via classe
+          is-processing — operador vê a transicao captura → analise sem
+          ruptura visual. Sem X, sem drag, sem tap-backdrop — controle
+          exclusivo por "Tirar outra" / "Enviar" no estado preview. */}
       <BottomSheet
-        open={flowState === 'preview' && Boolean(capturedPhotoUrl)}
+        open={(flowState === 'preview' || isProcessingPhoto) && Boolean(capturedPhotoUrl)}
         onClose={resetClassificationFlow}
         onDismissAttempt={() => Promise.resolve(false)}
         dragToDismiss={false}
-        className="camera-preview-sheet"
-        title="Conferir foto"
-        ariaLabel="Conferir foto capturada"
+        className={`camera-preview-sheet${isProcessingPhoto ? ' is-processing' : ''}`}
+        title={isProcessingPhoto ? 'Processando' : 'Conferir foto'}
+        ariaLabel={isProcessingPhoto ? 'Processando foto' : 'Conferir foto capturada'}
         footer={
-          <div className="camera-preview-sheet-actions">
-            <button
-              type="button"
-              className="camera-preview-sheet-action-secondary"
-              onClick={resetClassificationFlow}
-            >
-              Tirar outra
-            </button>
-            <button
-              type="button"
-              className="camera-preview-sheet-action-primary"
-              onClick={() => void handleSendPhoto()}
-            >
-              Enviar
-            </button>
-          </div>
+          isProcessingPhoto ? null : (
+            <div className="camera-preview-sheet-actions">
+              <button
+                type="button"
+                className="camera-preview-sheet-action-secondary"
+                onClick={resetClassificationFlow}
+              >
+                Tirar outra
+              </button>
+              <button
+                type="button"
+                className="camera-preview-sheet-action-primary"
+                onClick={() => void handleSendPhoto()}
+              >
+                Enviar
+              </button>
+            </div>
+          )
         }
       >
-        {capturedPhotoUrl ? (
+        {isProcessingPhoto ? (
+          <div
+            className="camera-preview-sheet-processing"
+            role="status"
+            aria-live="polite"
+            key={flowState}
+          >
+            {flowState === 'detected' ? (
+              <div className="camera-preview-sheet-check" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : (
+              <div className="camera-preview-sheet-spinner" aria-hidden="true" />
+            )}
+            <span className="camera-preview-sheet-processing-label">{processingMessage}</span>
+          </div>
+        ) : capturedPhotoUrl ? (
           <div className="camera-preview-sheet-body">
             {/* next/image nao se aplica: blob URL local com dimensoes dinamicas */}
             {/* eslint-disable-next-line @next/next/no-img-element */}

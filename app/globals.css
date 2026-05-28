@@ -26153,9 +26153,20 @@ button:disabled {
 /* === Preview da foto capturada em bottom sheet === */
 /* Override pra exibir a foto inteira (object-fit: contain) num sheet
    com fundo escuro. X e drag handle escondidos — controle exclusivo
-   pelos botoes "Tirar outra" e "Enviar" no footer. */
+   pelos botoes "Tirar outra" e "Enviar" no footer.
+   A transition de max-height anima a "reducao do modal para baixo"
+   quando o flowState entra em processamento (is-processing).
+   A transition padrao de transform do sheet original e preservada
+   (slide-up/down) — declaramos as duas pra cobrir os 2 modos. */
 .bottom-sheet.camera-preview-sheet {
   background: #15211c;
+  transition:
+    max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bottom-sheet.camera-preview-sheet.is-processing {
+  max-height: clamp(190px, 32dvh, 260px);
 }
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-title {
@@ -26239,6 +26250,68 @@ button:disabled {
 .camera-preview-sheet-action-secondary:active {
   transform: scale(0.96);
   opacity: 0.7;
+}
+
+/* Conteudo do sheet durante processamento (spinner / check + label).
+   key={flowState} no React re-mounta o container a cada transicao,
+   disparando a animacao de fade-in pra suavizar a troca de mensagem. */
+.camera-preview-sheet-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 4vw, 18px);
+  width: 100%;
+  min-height: 0;
+  padding: clamp(14px, 4vw, 22px);
+  animation: cam-preview-processing-in 0.32s ease-out;
+}
+
+.camera-preview-sheet-spinner {
+  width: clamp(34px, 9vw, 42px);
+  height: clamp(34px, 9vw, 42px);
+  border: 3px solid rgba(253, 249, 236, 0.18);
+  border-top-color: var(--brand-green-soft);
+  border-radius: 50%;
+  animation: cam-spin 0.8s linear infinite;
+}
+
+.camera-preview-sheet-check {
+  width: clamp(38px, 10vw, 46px);
+  height: clamp(38px, 10vw, 46px);
+  border-radius: 50%;
+  background: rgba(111, 207, 151, 0.18);
+  display: grid;
+  place-items: center;
+}
+
+.camera-preview-sheet-check svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: #6fcf97;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.camera-preview-sheet-processing-label {
+  font-size: clamp(0.95rem, 3.8vw, 1.05rem);
+  font-weight: 500;
+  color: rgba(253, 249, 236, 0.9);
+  text-align: center;
+  line-height: 1.35;
+}
+
+@keyframes cam-preview-processing-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Desktop responsivo: transforma sheet em modal centralizado.
