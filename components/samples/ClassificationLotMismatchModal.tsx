@@ -5,12 +5,13 @@ import { useEffect } from 'react';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
 // Q.cls.2 sub-caminho 2: lote extraido da ficha nao bate com o lote
-// esperado do sample em context (Flow B). Sem opcao de "forcar" — o
-// operador precisa corrigir (foto certa) ou desistir.
+// esperado do sample em context (Flow B). O operador escolhe:
+// "Voltar" (refaz a foto), "Continuar" (aceita o lote pre-selecionado
+// mesmo com divergencia — caso de letra ruim na ficha, foto borrada
+// num digito etc) ou X (router.back, sai do fluxo).
 //
 // Mostra os dois lotes em destaque visual + miniatura da foto capturada
-// (ajuda confirmacao de qual ficha foi fotografada). Botoes:
-// "Tirar outra foto" (primary) → volta pra camera; "Cancelar" → router.back.
+// (ajuda confirmacao de qual ficha foi fotografada).
 
 type Props = {
   open: boolean;
@@ -19,6 +20,7 @@ type Props = {
   photoUrl: string | null;
   onCancel: () => void;
   onRetake: () => void;
+  onContinue: () => void;
 };
 
 export function ClassificationLotMismatchModal({
@@ -28,6 +30,7 @@ export function ClassificationLotMismatchModal({
   photoUrl,
   onCancel,
   onRetake,
+  onContinue,
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
 
@@ -60,9 +63,6 @@ export function ClassificationLotMismatchModal({
             <h3 id="lot-mismatch-title" className="app-modal-title">
               Lote não confere
             </h3>
-            <p className="app-modal-description">
-              O lote lido da foto não corresponde à amostra que você está classificando.
-            </p>
           </div>
           <button type="button" className="app-modal-close" onClick={onCancel} aria-label="Fechar">
             <span aria-hidden="true">&times;</span>
@@ -97,12 +97,12 @@ export function ClassificationLotMismatchModal({
             do lote.
           </p>
 
-          <div className="app-modal-actions">
-            <button type="button" className="app-modal-submit" onClick={onRetake}>
-              Tirar outra foto
+          <div className="app-modal-actions lot-mismatch-actions">
+            <button type="button" className="app-modal-secondary" onClick={onRetake}>
+              Voltar
             </button>
-            <button type="button" className="app-modal-secondary" onClick={onCancel}>
-              Cancelar
+            <button type="button" className="app-modal-submit is-warning" onClick={onContinue}>
+              Continuar
             </button>
           </div>
         </div>

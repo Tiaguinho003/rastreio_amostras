@@ -1474,6 +1474,20 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   }
 }
 
+/* Variante laranja pra acoes "prosseguir com aviso" (ex: continuar
+   apesar de divergencia de lote). Cor alinhada com --brand-warning. */
+.app-modal-submit.is-warning {
+  background: linear-gradient(135deg, #f59e0b, #e67e22);
+  box-shadow: 0 12px 22px rgba(230, 126, 34, 0.24);
+}
+
+@media (hover: hover) {
+  .app-modal-submit.is-warning:hover:not(:disabled) {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    box-shadow: 0 14px 26px rgba(230, 126, 34, 0.34);
+  }
+}
+
 /* Form do cascade modal: gap entre o campo de motivo e as actions. */
 .client-cascade-form {
   display: flex;
@@ -18886,6 +18900,25 @@ button:disabled {
 .lot-mismatch-content {
   padding: clamp(1.1rem, 3.5vw, 1.5rem) !important;
   gap: clamp(1rem, 2.5vw, 1.25rem) !important;
+}
+
+/* Botoes "Voltar" + "Continuar" lado a lado, dividem largura.
+   Padding e font-size encolhem via clamp pra caber em 320px. */
+.app-modal.is-themed .app-modal-actions.lot-mismatch-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.lot-mismatch-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.85rem, 3vw, 0.95rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
 }
 
 .lot-mismatch-comparison {

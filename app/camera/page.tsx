@@ -830,6 +830,33 @@ function CameraPageContent() {
       setFlowState('extraction-error-illegible');
       return;
     }
+
+    // Detecao precoce de divergencia de lote (Caminhos 1 e 3, hasContext).
+    // Compara o lote extraido com o contextSampleLot antes de abrir o
+    // ReviewModal — operador economiza os ~30s de revisao manual se a
+    // ficha fotografada foi a errada. Caminho 2 (sem contexto) continua
+    // resolvendo lote no fim do fluxo via resolveSampleByLot.
+    if (hasContext && lote && contextSampleLot) {
+      const extracted = normalizeLot(lote);
+      const expected = normalizeLot(contextSampleLot);
+      if (extracted !== expected) {
+        setFlowState('lot-mismatch');
+        return;
+      }
+    }
+
+    setFlowState('confirming');
+  }
+
+  // Acao "Continuar" no modal de divergencia de lote: operador aceita a
+  // amostra pre-selecionada (contextSampleLot prevalece — pode ser caso
+  // de letra ruim na ficha, foto borrada num digito etc). O lote da ficha
+  // extraido pela IA e sobrescrito pelo lote esperado, garantindo
+  // consistencia no payload de save.
+  function handleLotMismatchContinue() {
+    if (contextSampleLot) {
+      setEditableLot(contextSampleLot);
+    }
     setFlowState('confirming');
   }
 
@@ -1417,6 +1444,7 @@ function CameraPageContent() {
         photoUrl={capturedPhotoUrl}
         onCancel={() => router.back()}
         onRetake={resetClassificationFlow}
+        onContinue={handleLotMismatchContinue}
       />
 
       {/* Q.cls.2 sub-caminho 4: divergencia sacas/safra. Operador escolhe
