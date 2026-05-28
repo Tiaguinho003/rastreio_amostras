@@ -1129,6 +1129,36 @@ function CameraPageContent() {
               <img src={capturedPhotoUrl} className="camera-hub-preview-img" alt="Foto capturada" />
             ) : null}
 
+            {/* Card de erro unificado: aparece quando getUserMedia falha
+                (permission-denied ou unsupported). Substitui as mensagens
+                em ingles vindas do DOMException por uma mensagem fixa em
+                pt-BR + atalho "Usar galeria" (acao que sempre funciona,
+                independente da permissao de camera). */}
+            {(cameraStatus === 'permission-denied' || cameraStatus === 'unsupported') &&
+            flowState === 'idle' ? (
+              <div className="camera-hub-error-overlay" role="alert">
+                <div className="camera-hub-error-card">
+                  <h2 className="camera-hub-error-card-title">Acesso a camera indisponivel</h2>
+                  <div className="camera-hub-error-card-actions">
+                    <button
+                      type="button"
+                      className="camera-hub-error-card-action-primary"
+                      onClick={() => galleryInputRef.current?.click()}
+                    >
+                      Usar galeria
+                    </button>
+                    <button
+                      type="button"
+                      className="camera-hub-error-card-action-secondary"
+                      onClick={handleRetryCamera}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* Top header */}
             <div className="camera-hub-headline">
               <button
@@ -1148,7 +1178,15 @@ function CameraPageContent() {
                 </svg>
               </button>
 
-              {showStatusText && cameraError && flowState === 'idle' ? (
+              {/* Bloco inline antigo: cobre erros NAO relacionados a inicializacao
+                  da camera (ex: "A foto excede o limite de 12 MB" vindo da galeria).
+                  Quando cameraStatus e denied/unsupported, o card centralizado
+                  acima ja cobre — exclui aqui pra nao duplicar. */}
+              {showStatusText &&
+              cameraError &&
+              flowState === 'idle' &&
+              cameraStatus !== 'permission-denied' &&
+              cameraStatus !== 'unsupported' ? (
                 <div className="camera-hub-error-with-retry">
                   <p className="camera-hub-status-text camera-hub-status-text-error" role="alert">
                     {cameraError}
