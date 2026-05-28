@@ -18805,9 +18805,25 @@ button:disabled {
   font-family: inherit;
 }
 
-/* Em 3b o card tem 3 botoes — permite wrap em telas estreitas */
-.extraction-error-actions {
-  flex-wrap: wrap;
+/* Modal de erro de extracao: 2 botoes ("Tirar outra foto" + "Continuar
+   manual"). Forca lado a lado com largura dividida igualmente; padding
+   e font-size encolhem suavemente via clamp pra caber em 320px.
+   Especificidade alta pra sobrescrever .app-modal.is-themed .app-modal-actions. */
+.app-modal.is-themed .app-modal-actions.extraction-error-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.extraction-error-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.8rem, 3vw, 0.92rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
 }
 
 /* ── Q.cls.2 sub-caminho 3b → 2o modal: confirma modo manual ── */
