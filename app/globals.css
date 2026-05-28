@@ -17401,10 +17401,10 @@ button:disabled {
 .camera-hub-back-btn {
   display: inline-grid;
   place-items: center;
-  width: clamp(36px, 10vw, 40px);
-  height: clamp(36px, 10vw, 40px);
+  width: clamp(42px, 12vw, 48px);
+  height: clamp(42px, 12vw, 48px);
   border: 0;
-  border-radius: clamp(10px, 3vw, 12px);
+  border-radius: clamp(12px, 3.5vw, 14px);
   background: rgba(0, 0, 0, 0.35);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -17430,14 +17430,23 @@ button:disabled {
 
 .camera-hub-gallery-btn {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + clamp(10px, 3vw, 14px));
-  right: clamp(12px, 3.5vw, 16px);
+  /* Alinhado horizontalmente no centro entre o botao de captura (50%)
+     e a borda direita (100%) — ou seja, no ponto 75% da largura. O
+     translateX(50%) faz o proprio botao centralizar nesse ponto. */
+  right: 25%;
+  /* Alinhado verticalmente ao centro do botao de captura (68px).
+     Galeria tem ~52px de altura media, entao soma-se ~8px ao
+     padding-bottom do bottom-area pra centralizar os eixos. */
+  bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(9px, 2.5vw, 14px) + 8px
+  );
+  transform: translateX(50%);
   display: inline-grid;
   place-items: center;
-  width: clamp(36px, 10vw, 40px);
-  height: clamp(36px, 10vw, 40px);
+  width: clamp(48px, 13vw, 56px);
+  height: clamp(48px, 13vw, 56px);
   border: 0;
-  border-radius: clamp(10px, 3vw, 12px);
+  border-radius: clamp(12px, 3.5vw, 16px);
   background: rgba(0, 0, 0, 0.35);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -17449,7 +17458,7 @@ button:disabled {
 }
 
 .camera-hub-gallery-btn:active {
-  transform: scale(0.9);
+  transform: translateX(50%) scale(0.95);
 }
 
 .camera-hub-gallery-btn svg {
@@ -17600,9 +17609,13 @@ button:disabled {
   }
 
   .camera-hub-page {
+    /* Override local da clearance pra ganhar altura na pagina da camera
+       sem mexer em outras paginas. A tabbar continua intacta — so reduz
+       o espaco reservado abaixo do stage. */
+    --mobile-tabbar-clearance: 7.4rem;
     height: calc(
       100dvh - env(safe-area-inset-top) - var(--app-safe-area-bottom, env(safe-area-inset-bottom)) -
-        var(--mobile-tabbar-clearance) - 0.6rem
+        var(--mobile-tabbar-clearance) - 0.2rem
     );
     min-height: 0;
   }
@@ -17647,7 +17660,7 @@ button:disabled {
   align-items: center;
   gap: 12px;
   padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(18px, 5vw, 28px)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(9px, 2.5vw, 14px)
   );
   pointer-events: none;
   z-index: 2;
