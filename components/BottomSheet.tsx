@@ -38,6 +38,9 @@ interface BottomSheetProps {
   dragDisabled?: boolean;
   /** Aria-label do dialog (lido por screen readers). */
   ariaLabel?: string;
+  /** Classe modificadora opcional aplicada ao .bottom-sheet pra permitir
+      override de estilo via seletor `.bottom-sheet.minha-classe`. */
+  className?: string;
 }
 
 export function BottomSheet({
@@ -50,6 +53,7 @@ export function BottomSheet({
   dragToDismiss = true,
   dragDisabled = false,
   ariaLabel,
+  className,
 }: BottomSheetProps) {
   const focusTrapRef = useFocusTrap(open);
   const dragState = useRef({ startY: 0, currentY: 0, dragging: false });
@@ -240,7 +244,7 @@ export function BottomSheet({
     >
       <section
         ref={focusTrapRef}
-        className={`bottom-sheet${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
+        className={`bottom-sheet${className ? ` ${className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
         style={isOpen && dragOffset > 0 ? { transform: sheetTransform } : undefined}
         onClick={(event) => event.stopPropagation()}
         onTouchMove={handleTouchMove}

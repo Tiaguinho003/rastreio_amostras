@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
+import { BottomSheet } from '../../components/BottomSheet';
 import { type LookupKind, SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
@@ -1122,12 +1123,9 @@ function CameraPageContent() {
               aria-hidden="true"
             />
 
-            {/* Photo preview */}
-            {flowState === 'preview' && capturedPhotoUrl ? (
-              // next/image nao se aplica: src e blob URL local com dimensoes dinamicas
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={capturedPhotoUrl} className="camera-hub-preview-img" alt="Foto capturada" />
-            ) : null}
+            {/* O preview da foto capturada migrou pro BottomSheet `camera-preview-sheet`
+                renderizado no final do componente. Mantemos o stage vazio (vídeo continua
+                hidden quando flowState='preview') pra que o sheet cubra tudo sem distração. */}
 
             {/* Card de erro unificado: aparece quando getUserMedia falha
                 (permission-denied ou unsupported). Substitui as mensagens
@@ -1301,25 +1299,8 @@ function CameraPageContent() {
                 </div>
               ) : null}
 
-              {/* Preview actions */}
-              {flowState === 'preview' ? (
-                <div className="camera-hub-preview-actions">
-                  <button
-                    type="button"
-                    className="camera-hub-preview-btn-retake"
-                    onClick={resetClassificationFlow}
-                  >
-                    Tirar outra
-                  </button>
-                  <button
-                    type="button"
-                    className="camera-hub-preview-btn-send"
-                    onClick={() => void handleSendPhoto()}
-                  >
-                    Enviar
-                  </button>
-                </div>
-              ) : null}
+              {/* Preview actions removidas — agora vivem no footer do BottomSheet
+                  `camera-preview-sheet` no final do componente. */}
 
               {/* Q.cls.2.8: tipo selecionado APOS extracao — modal renderizado
                   no nivel raiz (fora do .camera-hub) junto com os outros
@@ -1603,6 +1584,50 @@ function CameraPageContent() {
         onContinue={handleClassifierContinue}
         saving={flowState === 'submitting'}
       />
+
+      {/* Bottom sheet de preview da foto capturada. Substitui a renderizacao
+          inline no stage (que cortava a foto via object-fit: cover). Mostra
+          a foto inteira com object-fit: contain. Sem X, sem drag, sem
+          tap-backdrop — controle exclusivo por "Tirar outra" / "Enviar". */}
+      <BottomSheet
+        open={flowState === 'preview' && Boolean(capturedPhotoUrl)}
+        onClose={resetClassificationFlow}
+        onDismissAttempt={() => Promise.resolve(false)}
+        dragToDismiss={false}
+        className="camera-preview-sheet"
+        title="Conferir foto"
+        ariaLabel="Conferir foto capturada"
+        footer={
+          <div className="camera-preview-sheet-actions">
+            <button
+              type="button"
+              className="camera-preview-sheet-action-secondary"
+              onClick={resetClassificationFlow}
+            >
+              Tirar outra
+            </button>
+            <button
+              type="button"
+              className="camera-preview-sheet-action-primary"
+              onClick={() => void handleSendPhoto()}
+            >
+              Enviar
+            </button>
+          </div>
+        }
+      >
+        {capturedPhotoUrl ? (
+          <div className="camera-preview-sheet-body">
+            {/* next/image nao se aplica: blob URL local com dimensoes dinamicas */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={capturedPhotoUrl}
+              alt="Foto capturada para classificacao"
+              className="camera-preview-sheet-img"
+            />
+          </div>
+        ) : null}
+      </BottomSheet>
     </AppShell>
   );
 }
