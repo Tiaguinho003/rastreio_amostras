@@ -1422,6 +1422,26 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (refino do layout da `/camera`) ✅
+
+Sequência da auditoria do Caminho 3 e da adaptação de UI por contexto — agora as proporções e cores da página. Dois commits atômicos:
+
+- **`f2ce298` — `feat(camera): aumenta stage, ajusta tamanho e posicao dos botoes`**
+  - **Stage maior** (~30-35 px): override local de `--mobile-tabbar-clearance` (8.9 rem → 7.4 rem) só em `.camera-hub-page`, mantendo a tabbar global intacta. Gap final do cálculo de altura: 0.6 rem → 0.2 rem.
+  - **Voltar maior**: `clamp(36px,10vw,40px)` → `clamp(42px,12vw,48px)`. Border-radius proporcional.
+  - **Captura mais baixo**: `padding-bottom` do `.camera-hub-bottom-area` na metade — `clamp(18px,5vw,28px)` → `clamp(9px,2.5vw,14px)`.
+  - **Galeria reposicionada**: tirada de top-right, alinhada verticalmente ao captura, centralizada horizontalmente no ponto 75% via `right: 25%` + `transform: translateX(50%)`. Tamanho aumentado: `clamp(48px,13vw,56px)`.
+- **`7f0e339` — `feat(camera): status bar bege na pagina da camera`**
+  - **Theme-color dinâmico**: `useEffect` no `CameraPageContent` muda meta `theme-color` pra `#fdf9ec` ao montar `/camera` e restaura ao desmontar. Em Android Chrome a barra fica bege automaticamente.
+  - **iOS standalone**: como `apple-mobile-web-app-status-bar-style: black-translucent` faz a barra ficar translúcida sobre o app, adicionado `.camera-hub-page::before` fixo cobrindo `env(safe-area-inset-top)` com `#fdf9ec`. A área visível por baixo da status bar fica bege.
+  - **Limitação iOS conhecida e aceita pelo usuário**: ícones brancos do sistema sobre bege claro têm contraste reduzido. Decisão validada via AskUserQuestion antes da implementação. Mudar `statusBarStyle` exigiria sair do PWA standalone — fora de escopo.
+
+**Cor escolhida**: `#fdf9ec` (token do design-system, extremo claro do gradiente do sheet bege `#fdf9ec → #f4f0e7`).
+
+**Quality gates** (ambos commits): lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+
+**Responsividade testada mentalmente em 320 / 390 / 430 px** — `clamp()` cobre as 3 larguras sem quebrar proporções. Galeria centralizada matematicamente, captura ainda visível em qualquer largura, voltar tocável (≥ 42 px em todas).
+
 ### 2026-05-28 — Sessão 2 (UI dos Caminhos 1/3 com contexto + cleanup preventivo) ✅
 
 Sequência da auditoria do Caminho 3. Dois temas, dois commits atômicos:
