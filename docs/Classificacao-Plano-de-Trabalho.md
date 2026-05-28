@@ -1422,6 +1422,34 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-05-28 — Sessão 2 (unificação do erro de câmera + atalho pra galeria) ✅
+
+Sequência do refino visual — agora as mensagens de erro de inicialização da câmera.
+
+- **`28d3d63` — `feat(camera): unifica erro de camera em card centralizado com atalho pra galeria`**
+  - **Antes**: o `cameraError` era populado via `readErrorMessage(error, ...)` que prioriza `error.message` do `DOMException` — texto em **inglês** vindo do browser, variável conforme o tipo (`NotAllowedError`, `NotReadableError`, `OverconstrainedError`, `SecurityError`, `NotFoundError`). Renderizado num canto do header com botão "Tentar novamente".
+  - **Agora**: card centralizado no `.camera-hub-stage` com fundo bege (`#fdf9ec`), backdrop blur sutil, single title fixo **"Acesso a camera indisponivel"** + 2 botões: **"Usar galeria"** (primário, gradiente verde brand) e **"Tentar novamente"** (secundário, outline).
+  - **Trigger**: `(cameraStatus === 'permission-denied' || cameraStatus === 'unsupported') && flowState === 'idle'`. Exclusivo da falha de inicialização do `getUserMedia`.
+  - **"Usar galeria" como primário** (decisão validada via AskUserQuestion): galeria sempre funciona, é o caminho mais confiável pra destravar o operador. "Tentar novamente" fica como fallback se for falha transitória (câmera ocupada por outro app).
+  - **Reuso**: `galleryInputRef.current?.click()` dispara o mesmo input file oculto que o botão da galeria do canto. Sem duplicação de lógica.
+  - **Bloco inline antigo** preservado pra casos não-câmera (ex: "A foto excede o limite de 12 MB"), com condição extra `cameraStatus !== 'permission-denied' && cameraStatus !== 'unsupported'` pra evitar duplicação visual com o card central.
+  - **Botão da galeria do canto continua visível** quando o card aparece (decisão validada via AskUserQuestion): redundância intencional, dá opção sem conflito.
+  - **Acessibilidade**: overlay com `role="alert"` — anúncio imediato em screen readers.
+  - **Animações**: fade-in do overlay (~220 ms) + slide-up do card (~280 ms cubic-bezier). Sem exageros, alinhado com o pedido.
+
+**Quality gates**: lint ✅ · format:check ✅ · typecheck ✅ · build ✅.
+
+**Tipos de erro cobertos (todos viraram a mesma mensagem unificada)**:
+
+| Tipo                          | Cobertura                                   |
+| ----------------------------- | ------------------------------------------- |
+| `NotAllowedError`             | Permissão de câmera negada pelo operador.   |
+| `NotReadableError`            | Câmera ocupada por outro app/contexto.      |
+| `OverconstrainedError`        | Sem câmera traseira (cai em `unsupported`). |
+| `NotFoundError`               | Nenhuma câmera no device.                   |
+| `SecurityError`               | Origin não-HTTPS (raro em prod).            |
+| Qualquer outro `DOMException` | Cai no fallback genérico → mesma mensagem.  |
+
 ### 2026-05-28 — Sessão 2 (refino do layout da `/camera`) ✅
 
 Sequência da auditoria do Caminho 3 e da adaptação de UI por contexto — agora as proporções e cores da página. Dois commits atômicos:
