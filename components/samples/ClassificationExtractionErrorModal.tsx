@@ -10,8 +10,11 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 // pra evitar empurrar o operador a tirar mais fotos quando o problema
 // e do servidor.
 //
-// 3a (illegible): "Tirar outra" + (opcional) "Continuar manual" + "Cancelar"
-// 3b (technical): "Tirar outra" + "Continuar manual" + "Cancelar"
+// 3a (illegible): "Tirar outra" + (opcional) "Continuar manual"
+// 3b (technical): "Tirar outra" + (opcional) "Continuar manual"
+//
+// Pra "Cancelar" o operador usa o X do header (chama onCancel),
+// alinhado ao padrao dos demais modais.
 //
 // F3.10 expandido: o botao "Continuar manual" pode aparecer em ambos
 // os kinds — basta o caller passar onContinueManual. Em illegible
@@ -36,7 +39,7 @@ type Props = {
   onContinueManual?: () => void;
 };
 
-const COPY: Record<Kind, { title: string; description: string; body: string; iconColor: string }> =
+const COPY: Record<Kind, { title: string; description?: string; body: string; iconColor: string }> =
   {
     illegible: {
       title: 'Não foi possível identificar o lote',
@@ -45,8 +48,7 @@ const COPY: Record<Kind, { title: string; description: string; body: string; ico
       iconColor: '#D4A017',
     },
     technical: {
-      title: 'Erro ao processar a foto',
-      description: 'Serviço de extração indisponível no momento.',
+      title: 'Extração indisponível',
       body: 'Você pode tirar outra foto e tentar novamente, ou seguir preenchendo a ficha manualmente.',
       iconColor: '#C0392B',
     },
@@ -93,7 +95,7 @@ export function ClassificationExtractionErrorModal({
             <h3 id="extraction-error-title" className="app-modal-title">
               {copy.title}
             </h3>
-            <p className="app-modal-description">{copy.description}</p>
+            {copy.description ? <p className="app-modal-description">{copy.description}</p> : null}
           </div>
           <button type="button" className="app-modal-close" onClick={onCancel} aria-label="Fechar">
             <span aria-hidden="true">&times;</span>
@@ -138,9 +140,6 @@ export function ClassificationExtractionErrorModal({
                 Continuar manual
               </button>
             ) : null}
-            <button type="button" className="app-modal-secondary" onClick={onCancel}>
-              Cancelar
-            </button>
           </div>
         </div>
       </section>
