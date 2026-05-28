@@ -18852,42 +18852,78 @@ button:disabled {
   gap: clamp(1rem, 2.5vw, 1.25rem) !important;
 }
 
+/* Layout vertical centralizado: icone em circulo com fundo amber
+   suave no topo, texto centralizado abaixo. Mais respirado e
+   coerente com o tom de aviso. */
 .manual-confirm-body {
   display: flex;
-  align-items: flex-start;
-  gap: clamp(10px, 2.5vw, 14px);
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, 3.5vw, 18px);
+  text-align: center;
+}
+
+.manual-confirm-icon-wrap {
+  width: clamp(52px, 13vw, 60px);
+  height: clamp(52px, 13vw, 60px);
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
 .manual-confirm-icon {
-  flex-shrink: 0;
-  width: clamp(40px, 10vw, 48px);
-  height: clamp(40px, 10vw, 48px);
-  color: #d4a017;
+  width: 56%;
+  height: 56%;
+  color: #b8860b;
 }
 
 .manual-confirm-text {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: clamp(10px, 2.5vw, 12px);
+  max-width: 32rem;
 }
 
 .manual-confirm-text p {
   margin: 0;
-  font-size: clamp(0.88rem, 2.8vw, 0.95rem);
-  line-height: 1.45;
+  font-size: clamp(0.9rem, 3vw, 0.98rem);
+  line-height: 1.5;
   color: rgba(0, 0, 0, 0.72);
 }
 
 .manual-confirm-warning {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(212, 160, 23, 0.08);
-  border-left: 3px solid #d4a017;
+  padding: clamp(10px, 3vw, 14px) clamp(12px, 3.5vw, 16px);
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   color: rgba(0, 0, 0, 0.78) !important;
+  text-align: left;
 }
 
 .manual-confirm-warning strong {
   color: #b8860b;
+}
+
+/* Botoes "Voltar" + "Confirmar" lado a lado, igual padrao dos
+   outros modais (extraction-error, lot-mismatch). */
+.app-modal.is-themed .app-modal-actions.manual-confirm-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.manual-confirm-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.85rem, 3vw, 0.95rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
 }
 
 /* ── Q.cls.2 sub-caminho 2: lote diverge (LotMismatchModal) ── */
@@ -26221,18 +26257,11 @@ button:disabled {
 /* Estado review: sheet expande de volta a altura cheia (max-height
    reverte ao padrao do .bottom-sheet via cascade). A transition
    ja configurada anima o crescimento — simetrico ao encolhimento
-   do is-processing. Conteudo bege/claro pra priorizar legibilidade
-   dos campos do form. */
+   do is-processing. Body bege pra legibilidade dos 22 campos; header
+   continua verde brand (heranca do .bottom-sheet-header) com titulo
+   branco. */
 .bottom-sheet.camera-preview-sheet.is-review {
   background: #fdf9ec;
-}
-
-.bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-title {
-  color: #1a1a1a;
-}
-
-.bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .bottom-sheet.camera-preview-sheet.is-review .bottom-sheet-footer {

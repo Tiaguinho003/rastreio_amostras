@@ -46,60 +46,46 @@ export function ClassificationManualConfirmModal({ open, onBack, onConfirm }: Pr
         onClick={(event) => event.stopPropagation()}
       >
         <header className="app-modal-header">
-          <button type="button" className="type-modal-back" onClick={onBack} aria-label="Voltar">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M15 18l-6-6 6-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
           <div className="app-modal-title-wrap">
             <h3 id="manual-confirm-title" className="app-modal-title">
               Preencher manualmente
             </h3>
-            <p className="app-modal-description">A IA não conseguiu extrair os dados desta foto.</p>
+            <p className="app-modal-description">A IA falhou na extração.</p>
           </div>
         </header>
 
         <div className="app-modal-content manual-confirm-content">
           <div className="manual-confirm-body">
-            <svg
-              className="manual-confirm-icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
+            <div className="manual-confirm-icon-wrap" aria-hidden="true">
+              <svg
+                className="manual-confirm-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
             <div className="manual-confirm-text">
-              <p>
-                Você seguirá preenchendo a ficha à mão, lendo direto da foto. A foto continua salva
-                como evidência da classificação.
-              </p>
+              <p>Você vai preencher a ficha lendo direto da foto. Ela fica salva como evidência.</p>
               <p className="manual-confirm-warning">
-                <strong>Analise bem as informações antes de salvar</strong> — sem extração
-                automática, eventuais erros não são detectados pela validação cruzada.
+                <strong>Confira cada campo com atenção</strong> — sem extração automática, não há
+                validação cruzada pra detectar erros.
               </p>
             </div>
           </div>
 
-          <div className="app-modal-actions">
-            <button type="button" className="app-modal-submit" onClick={onConfirm}>
-              Confirmar e continuar
-            </button>
+          <div className="app-modal-actions manual-confirm-actions">
             <button type="button" className="app-modal-secondary" onClick={onBack}>
               Voltar
+            </button>
+            <button type="button" className="app-modal-submit" onClick={onConfirm}>
+              Confirmar
             </button>
           </div>
         </div>
