@@ -17392,6 +17392,12 @@ button:disabled {
     inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
+/* Caminhos 1 (detalhe) e 3 (dashboard) chegam com amostra ja escolhida —
+   a moldura de alinhamento de QR scan some pra deixar o stage da camera limpo. */
+.camera-hub-overlay.is-no-scan::before {
+  display: none;
+}
+
 .camera-hub-back-btn {
   display: inline-grid;
   place-items: center;

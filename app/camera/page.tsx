@@ -400,6 +400,10 @@ function CameraPageContent() {
     async (rawValue: string) => {
       const normalizedValue = rawValue.trim();
       if (!normalizedValue || resolvingScanRef.current) return;
+      // Caminhos 1 (detalhe) e 3 (dashboard) ja chegam com amostra escolhida
+      // via ?sampleId=X. Ignorar QRs evita que uma etiqueta proxima na bancada
+      // interrompa o fluxo de captura abrindo modal de outra amostra.
+      if (hasContext) return;
 
       const previousScan = handledScanRef.current;
       const now = Date.now();
@@ -433,7 +437,7 @@ function CameraPageContent() {
         resolvingScanRef.current = false;
       }
     },
-    [handleResolvedSample, scheduleScannerRestart, stopScanner]
+    [handleResolvedSample, hasContext, scheduleScannerRestart, stopScanner]
   );
 
   const ensureScannerStarted = useCallback(async () => {
@@ -1097,7 +1101,9 @@ function CameraPageContent() {
             />
             <div
               ref={overlayRef}
-              className={`camera-hub-overlay${flowState === 'preview' || flowState === 'success' ? ' is-hidden' : ''}`}
+              className={`camera-hub-overlay${
+                flowState === 'preview' || flowState === 'success' ? ' is-hidden' : ''
+              }${hasContext ? ' is-no-scan' : ''}`}
               aria-hidden="true"
             />
 
@@ -1202,11 +1208,18 @@ function CameraPageContent() {
 
             {/* Bottom area */}
             <div className="camera-hub-bottom-area">
-              {/* Scanning indicator */}
-              {flowState === 'idle' && cameraStatus === 'scanning' ? (
+              {/* Scanning indicator:
+                  - Caminhos 1/3 (hasContext) + lote carregado: mostra "Classificando lote X".
+                  - Caminhos 1/3 sem lote ainda: "Carregando amostra..." aparece em bloco separado.
+                  - Caminho 2 (sem contexto): silencioso — QR scanner continua ativo internamente. */}
+              {flowState === 'idle' &&
+              cameraStatus === 'scanning' &&
+              hasContext &&
+              contextSampleLot ? (
                 <div className="camera-hub-scan-indicator">
-                  <span className="camera-hub-scan-pulse" aria-hidden="true" />
-                  <span className="camera-hub-scan-label">Escaneando QR...</span>
+                  <span className="camera-hub-scan-label">
+                    Classificando lote {contextSampleLot}
+                  </span>
                 </div>
               ) : flowState === 'idle' && cameraStatus === 'starting' ? (
                 <div className="camera-hub-scan-indicator">
