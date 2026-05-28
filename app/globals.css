@@ -26260,47 +26260,59 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(14px, 4vw, 18px);
+  gap: clamp(16px, 4.5vw, 20px);
   width: 100%;
   min-height: 0;
   padding: clamp(14px, 4vw, 22px);
   animation: cam-preview-processing-in 0.32s ease-out;
 }
 
+/* Arco em fade via conic-gradient + mask radial — padrao moderno tipo
+   iOS/Material. Sem o efeito "border-top recortado" do spinner classico.
+   Tom bege off-white pra combinar com o tema sem competir com a marca. */
 .camera-preview-sheet-spinner {
-  width: clamp(34px, 9vw, 42px);
-  height: clamp(34px, 9vw, 42px);
-  border: 3px solid rgba(253, 249, 236, 0.18);
-  border-top-color: var(--brand-green-soft);
+  width: clamp(36px, 9.5vw, 44px);
+  height: clamp(36px, 9.5vw, 44px);
   border-radius: 50%;
-  animation: cam-spin 0.8s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    rgba(253, 249, 236, 0) 0deg,
+    rgba(253, 249, 236, 0.12) 90deg,
+    rgba(253, 249, 236, 0.85) 360deg
+  );
+  -webkit-mask: radial-gradient(transparent 58%, #000 60%);
+  mask: radial-gradient(transparent 58%, #000 60%);
+  animation: cam-spin 0.9s linear infinite;
 }
 
 .camera-preview-sheet-check {
-  width: clamp(38px, 10vw, 46px);
-  height: clamp(38px, 10vw, 46px);
+  width: clamp(40px, 10.5vw, 48px);
+  height: clamp(40px, 10.5vw, 48px);
   border-radius: 50%;
-  background: rgba(111, 207, 151, 0.18);
+  background: rgba(111, 207, 151, 0.12);
+  border: 1px solid rgba(111, 207, 151, 0.28);
   display: grid;
   place-items: center;
+  animation: cam-preview-check-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .camera-preview-sheet-check svg {
-  width: 60%;
-  height: 60%;
+  width: 56%;
+  height: 56%;
   fill: none;
   stroke: #6fcf97;
-  stroke-width: 2.4;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .camera-preview-sheet-processing-label {
-  font-size: clamp(0.95rem, 3.8vw, 1.05rem);
-  font-weight: 500;
-  color: rgba(253, 249, 236, 0.9);
+  font-size: clamp(0.95rem, 3.6vw, 1.05rem);
+  font-weight: 400;
+  color: rgba(253, 249, 236, 0.78);
+  letter-spacing: 0.01em;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 @keyframes cam-preview-processing-in {
@@ -26311,6 +26323,21 @@ button:disabled {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes cam-preview-check-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
