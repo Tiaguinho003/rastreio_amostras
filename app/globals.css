@@ -5407,8 +5407,10 @@ button:disabled {
    ocupa nova linha automaticamente (3 stats por linha). Gap pequeno
    pra manter compacto. */
 .spv2-card-stats-grid {
+  /* Por enquanto so o "Local" — 1 coluna. Quando voltarem mais stats ao
+     expandido, re-tunar o numero de colunas. */
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(10px, 2.8vw, 12px) clamp(8px, 2.6vw, 11px);
   margin-bottom: clamp(11px, 3vw, 13px);
 }

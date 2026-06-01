@@ -57,11 +57,6 @@ export interface SampleCardProps {
   onToggleExpand?: (sampleId: string) => void;
 }
 
-function formatSacks(value: number | null | undefined): string {
-  if (value == null) return '—';
-  return String(value);
-}
-
 export function SampleCard({
   sample,
   index,
@@ -137,6 +132,18 @@ export function SampleCard({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
+            {sample.declared.harvest ? (
+              <>
+                <span className="spv2-card-sep" />
+                <span className="spv2-card-detail">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                  </svg>
+                  {sample.declared.harvest}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
       </button>
@@ -150,10 +157,6 @@ export function SampleCard({
   };
 
   const declared = sample.declared;
-  const tech = sample.latestClassification?.technical;
-  const isClassified = Boolean(
-    tech?.type || tech?.screen || tech?.defectsCount != null || tech?.density != null
-  );
 
   return (
     <div
@@ -184,6 +187,18 @@ export function SampleCard({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
+            {sample.declared.harvest ? (
+              <>
+                <span className="spv2-card-sep" />
+                <span className="spv2-card-detail">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                  </svg>
+                  {sample.declared.harvest}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
         <svg className="spv2-card-chevron" viewBox="0 0 24 24" aria-hidden="true">
@@ -198,62 +213,12 @@ export function SampleCard({
       >
         <div className="spv2-card-expanded-inner">
           <div className="spv2-card-stats-grid">
-            <div className="spv2-card-stat spv2-card-stat--primary">
-              <span className="spv2-card-stat-label">Disponível</span>
-              <span className="spv2-card-stat-value">
-                <span className="spv2-card-stat-num">{formatSacks(availableSacks)}</span>
-                {declared.sacks != null ? (
-                  <>
-                    <span className="spv2-card-stat-divider">/</span>
-                    <span className="spv2-card-stat-total">{declared.sacks}</span>
-                  </>
-                ) : null}
-                <span className="spv2-card-stat-unit">sc</span>
-              </span>
-            </div>
-
-            <div className="spv2-card-stat">
-              <span className="spv2-card-stat-label">Safra</span>
-              <span className="spv2-card-stat-value">
-                {declared.harvest || <span className="spv2-card-stat-value--empty">—</span>}
-              </span>
-            </div>
-
             <div className="spv2-card-stat">
               <span className="spv2-card-stat-label">Local</span>
               <span className="spv2-card-stat-value">
                 {declared.location || <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
-
-            {isClassified ? (
-              <>
-                <div className="spv2-card-stat">
-                  <span className="spv2-card-stat-label">Tipo</span>
-                  <span className="spv2-card-stat-value">
-                    {tech?.type || <span className="spv2-card-stat-value--empty">—</span>}
-                  </span>
-                </div>
-
-                <div className="spv2-card-stat">
-                  <span className="spv2-card-stat-label">Peneira</span>
-                  <span className="spv2-card-stat-value">
-                    {tech?.screen || <span className="spv2-card-stat-value--empty">—</span>}
-                  </span>
-                </div>
-
-                <div className="spv2-card-stat">
-                  <span className="spv2-card-stat-label">Defeitos</span>
-                  <span className="spv2-card-stat-value">
-                    {tech?.defectsCount != null ? (
-                      tech.defectsCount
-                    ) : (
-                      <span className="spv2-card-stat-value--empty">—</span>
-                    )}
-                  </span>
-                </div>
-              </>
-            ) : null}
           </div>
 
           <Link
