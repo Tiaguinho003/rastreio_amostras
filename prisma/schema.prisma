@@ -119,6 +119,7 @@ enum ClassificationType {
   PREPARADO
   BAIXO
   ESCOLHA
+  CONILON
 }
 
 enum AttachmentKind {

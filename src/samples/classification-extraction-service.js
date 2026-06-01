@@ -336,6 +336,7 @@ const KNOWN_LABELS = new Set([
   'cafe baixo',
   'low_caff',
   'escolha',
+  'conilon',
   // Contexto irrelevante (cabeçalhos/papéis externos)
   'safras',
   'safras & negocios',

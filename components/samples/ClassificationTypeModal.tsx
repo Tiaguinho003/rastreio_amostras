@@ -24,6 +24,7 @@ const CHOICES: Choice[] = [
   { value: 'PREPARADO', label: 'PREPARADO' },
   { value: 'BAIXO', label: 'BAIXO' },
   { value: 'ESCOLHA', label: 'ESCOLHA' },
+  { value: 'CONILON', label: 'CONILON' },
 ];
 
 type ClassificationTypeModalProps = {

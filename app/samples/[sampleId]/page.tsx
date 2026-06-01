@@ -3272,6 +3272,7 @@ export default function SampleDetailPage() {
                               <option value="PREPARADO">PREPARADO</option>
                               <option value="BAIXO">BAIXO</option>
                               <option value="ESCOLHA">ESCOLHA</option>
+                              <option value="CONILON">CONILON</option>
                             </select>
                           ) : (
                             <span className="cld-field-value">

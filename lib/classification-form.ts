@@ -131,6 +131,7 @@ export const CLASSIFICATION_TYPE_LABEL: Record<ClassificationType, string> = {
   PREPARADO: 'PREPARADO',
   BAIXO: 'BAIXO',
   ESCOLHA: 'ESCOLHA',
+  CONILON: 'CONILON',
 };
 
 // Campos do form que vao pra peneiras + percentuais dos fundos (number

@@ -22,7 +22,7 @@
     },
     "classificationType": {
       "type": ["string", "null"],
-      "enum": ["BICA", "PREPARADO", "BAIXO", "ESCOLHA", null]
+      "enum": ["BICA", "PREPARADO", "BAIXO", "ESCOLHA", "CONILON", null]
     }
   },
   "required": ["before", "after", "reasonText", "reasonCode"],

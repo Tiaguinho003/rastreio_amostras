@@ -1148,6 +1148,39 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(updateEvent.payload.reasonCode, 'TYPO');
   });
 
+  test('completeClassification aceita o tipo CONILON', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/jpeg',
+        originalFileName: 'classificacao.jpg',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: { padrao: 'PADRAO-1' },
+        classifiers: classifiersOf(actorClassifier),
+        classificationType: 'CONILON',
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 100 });
+    assert.equal(detail.sample.classificationType, 'CONILON');
+    const completedEvent = detail.events.find(
+      (event) => event.eventType === 'CLASSIFICATION_COMPLETED'
+    );
+    assert.ok(completedEvent);
+    assert.equal(completedEvent.payload.classificationType, 'CONILON');
+  });
+
   test('updateClassification rejeita 409 quando nem after nem tipo mudaram', async () => {
     const sampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(sampleId);

@@ -14,7 +14,7 @@
     },
     "classificationType": {
       "type": ["string", "null"],
-      "enum": ["BICA", "PREPARADO", "BAIXO", "ESCOLHA", null]
+      "enum": ["BICA", "PREPARADO", "BAIXO", "ESCOLHA", "CONILON", null]
     },
     "classificationData": {
       "type": "object",
