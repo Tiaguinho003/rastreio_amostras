@@ -15,13 +15,13 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 
 type Props = {
   open: boolean;
-  currentUser: { fullName: string | null; username: string };
-  coClassifiers: ClassifierSnapshot[];
+  currentUserId: string;
+  selectedClassifiers: ClassifierSnapshot[];
   availableUsers: UserLookupItem[];
   loadingUsers: boolean;
   userPickerError: string | null;
   onToggleUser: (user: UserLookupItem) => void;
-  onRemoveCoClassifier: (id: string) => void;
+  onRemoveClassifier: (id: string) => void;
   onRetryLoad: () => void;
   onBack: () => void;
   onContinue: () => void;
@@ -30,13 +30,13 @@ type Props = {
 
 export function ClassificationClassifierModal({
   open,
-  currentUser,
-  coClassifiers,
+  currentUserId,
+  selectedClassifiers,
   availableUsers,
   loadingUsers,
   userPickerError,
   onToggleUser,
-  onRemoveCoClassifier,
+  onRemoveClassifier,
   onRetryLoad,
   onBack,
   onContinue,
@@ -92,7 +92,7 @@ export function ClassificationClassifierModal({
     };
   }, []);
 
-  function handleRemoveCo(id: string) {
+  function handleRemove(id: string) {
     if (removingIds.has(id)) return;
     setRemovingIds((prev) => {
       const next = new Set(prev);
@@ -101,7 +101,7 @@ export function ClassificationClassifierModal({
     });
     const timer = setTimeout(() => {
       removeTimersRef.current.delete(id);
-      onRemoveCoClassifier(id);
+      onRemoveClassifier(id);
       setRemovingIds((prev) => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
@@ -113,6 +113,13 @@ export function ClassificationClassifierModal({
   }
 
   if (!open) return null;
+
+  // Usuario atual primeiro na lista (com tag "você"); demais depois.
+  const orderedUsers = (() => {
+    const self = availableUsers.find((u) => u.id === currentUserId);
+    const others = availableUsers.filter((u) => u.id !== currentUserId);
+    return self ? [self, ...others] : others;
+  })();
 
   return (
     <div className="app-modal-backdrop">
@@ -159,9 +166,9 @@ export function ClassificationClassifierModal({
               aria-haspopup="menu"
               onClick={() => setSelectedOpen((o) => !o)}
             >
-              <span className="classifier-counter__num">{1 + coClassifiers.length}</span>
+              <span className="classifier-counter__num">{selectedClassifiers.length}</span>
               <span className="classifier-counter__label">
-                {coClassifiers.length === 0 ? 'selecionado' : 'selecionados'}
+                {selectedClassifiers.length === 1 ? 'selecionado' : 'selecionados'}
               </span>
               <svg className="classifier-counter__chevron" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />
@@ -174,13 +181,7 @@ export function ClassificationClassifierModal({
                 aria-label="Classificadores selecionados"
               >
                 <div className="classifier-selected-pop__scroll">
-                  <div className="classifier-selected-pop__row" role="menuitem">
-                    <span className="classifier-selected-pop__name">
-                      {currentUser.fullName ?? currentUser.username}
-                    </span>
-                    <span className="classifier-selected-pop__tag">você</span>
-                  </div>
-                  {coClassifiers.map((entry) => (
+                  {selectedClassifiers.map((entry) => (
                     <div
                       key={entry.id}
                       className={`classifier-selected-pop__row${
@@ -189,10 +190,13 @@ export function ClassificationClassifierModal({
                       role="menuitem"
                     >
                       <span className="classifier-selected-pop__name">{entry.fullName}</span>
+                      {entry.id === currentUserId ? (
+                        <span className="classifier-selected-pop__tag">você</span>
+                      ) : null}
                       <button
                         type="button"
                         className="classifier-selected-pop__remove"
-                        onClick={() => handleRemoveCo(entry.id)}
+                        onClick={() => handleRemove(entry.id)}
                         disabled={saving || removingIds.has(entry.id)}
                         aria-label={`Remover ${entry.fullName}`}
                       >
@@ -225,11 +229,11 @@ export function ClassificationClassifierModal({
           ) : (
             <>
               <div className="classifier-list" role="listbox" aria-multiselectable>
-                {availableUsers.length === 0 ? (
+                {orderedUsers.length === 0 ? (
                   <div className="classifier-empty">Nenhum usuário encontrado.</div>
                 ) : (
-                  availableUsers.map((user) => {
-                    const selected = coClassifiers.some((c) => c.id === user.id);
+                  orderedUsers.map((user) => {
+                    const selected = selectedClassifiers.some((c) => c.id === user.id);
                     return (
                       <button
                         key={user.id}
@@ -255,7 +259,12 @@ export function ClassificationClassifierModal({
                           ) : null}
                         </span>
                         <span className="classifier-row-body">
-                          <span className="classifier-row-name">{user.fullName}</span>
+                          <span className="classifier-row-name">
+                            {user.fullName}
+                            {user.id === currentUserId ? (
+                              <span className="classifier-row-tag">você</span>
+                            ) : null}
+                          </span>
                           <span className="classifier-row-user">@{user.username}</span>
                         </span>
                       </button>
@@ -281,7 +290,7 @@ export function ClassificationClassifierModal({
               type="button"
               className="app-modal-submit classifier-confirm"
               onClick={onContinue}
-              disabled={saving}
+              disabled={saving || selectedClassifiers.length === 0}
             >
               {saving ? 'Salvando...' : 'Confirmar'}
             </button>

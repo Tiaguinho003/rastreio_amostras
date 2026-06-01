@@ -19647,6 +19647,21 @@ button:disabled {
   color: #1a1a1a;
 }
 
+/* Tag "você" na linha do usuario atual dentro da lista de selecao. */
+.classifier-row-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--brand-green);
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+}
+
 .classifier-row-user {
   font-size: 0.78rem;
   color: rgba(0, 0, 0, 0.5);

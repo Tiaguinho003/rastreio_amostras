@@ -176,7 +176,7 @@ function CameraPageContent() {
   // Classifier phase (etapa do modal apos selecao de tipo): multi-select de
   // co-classificadores. O user atual e auto-incluido (chip fixo, sempre
   // presente no array final enviado ao backend).
-  const [coClassifiers, setCoClassifiers] = useState<ClassifierSnapshot[]>([]);
+  const [selectedClassifiers, setSelectedClassifiers] = useState<ClassifierSnapshot[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserLookupItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userPickerError, setUserPickerError] = useState<string | null>(null);
@@ -609,7 +609,7 @@ function CameraPageContent() {
     setExtractionResult(null);
     setClassificationForm(EMPTY_CLASSIFICATION_FORM);
     setClassificationType(null);
-    setCoClassifiers([]);
+    setSelectedClassifiers([]);
     setAvailableUsers([]);
     setUserPickerError(null);
     setFlowError(null);
@@ -706,11 +706,22 @@ function CameraPageContent() {
     setUserPickerError(null);
     try {
       const response = await lookupUsersForReference(session, {
-        excludeUserId: session.user.id,
         limit: 300,
       });
       if (!mountedRef.current) return;
       setAvailableUsers(response.items);
+      // O usuario atual e pre-selecionado (auto), mas pode ser removido.
+      setSelectedClassifiers((prev) =>
+        prev.length > 0
+          ? prev
+          : [
+              {
+                id: session.user.id,
+                fullName: session.user.fullName ?? session.user.username,
+                username: session.user.username,
+              },
+            ]
+      );
     } catch (error) {
       if (!mountedRef.current) return;
       setUserPickerError(
@@ -721,8 +732,8 @@ function CameraPageContent() {
     }
   }
 
-  function toggleCoClassifier(user: UserLookupItem) {
-    setCoClassifiers((prev) => {
+  function toggleClassifier(user: UserLookupItem) {
+    setSelectedClassifiers((prev) => {
       const exists = prev.find((entry) => entry.id === user.id);
       if (exists) {
         return prev.filter((entry) => entry.id !== user.id);
@@ -911,10 +922,7 @@ function CameraPageContent() {
 
       // Classifiers = [actor, ...co-classificadores selecionados]. Backend
       // valida existencia/ativo dos usuarios e normaliza snapshots.
-      const classifiers = [
-        { userId: session.user.id },
-        ...coClassifiers.map((entry) => ({ userId: entry.id })),
-      ];
+      const classifiers = selectedClassifiers.map((entry) => ({ userId: entry.id }));
 
       // Q.cls.2.7: reasonCode/reasonText vem do ClassificationReclassifyModal
       // quando sample esta CLASSIFIED (sub-caminho 5). Em new classification
@@ -1571,16 +1579,15 @@ function CameraPageContent() {
           de tipo. */}
       <ClassificationClassifierModal
         open={flowState === 'selecting-classifier' && (!!extractionResult || manualMode)}
-        currentUser={{
-          fullName: session.user.fullName ?? null,
-          username: session.user.username,
-        }}
-        coClassifiers={coClassifiers}
+        currentUserId={session.user.id}
+        selectedClassifiers={selectedClassifiers}
         availableUsers={availableUsers}
         loadingUsers={loadingUsers}
         userPickerError={userPickerError}
-        onToggleUser={toggleCoClassifier}
-        onRemoveCoClassifier={(id) => setCoClassifiers((prev) => prev.filter((c) => c.id !== id))}
+        onToggleUser={toggleClassifier}
+        onRemoveClassifier={(id) =>
+          setSelectedClassifiers((prev) => prev.filter((c) => c.id !== id))
+        }
         onRetryLoad={() => {
           setAvailableUsers([]);
           void loadAvailableUsersOnce();
