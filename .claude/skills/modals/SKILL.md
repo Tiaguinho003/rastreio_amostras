@@ -565,7 +565,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
            │ click num tipo
            ▼
        selecting-classifier (ClassifierModal) ─── ← Voltar (seta) ─── selecting-type
-           │ "Confirmar e salvar"
+           │ "Confirmar"
            ▼
        handleConfirmClassification
            ├── lote(editavel) ≠ contextSampleLot ──► lot-mismatch (LotMismatchModal) ─ "Tirar outra" ─ reset

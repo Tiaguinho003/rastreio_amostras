@@ -1422,6 +1422,20 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-01 — Sessão 6 (modal de classificador: cabeçalho, seleção compacta, ações, sem busca) ✅
+
+Refinamento do `ClassificationClassifierModal` (fase `selecting-classifier`), em vários pedidos do usuário. Só UI/estado-local; nada de contrato/IA/backend.
+
+**Cabeçalho (`232caae`)**: simplificado pro mesmo padrão do modal de tipo — título "Quem classificou?" → **"Classificador"**, subtítulo removido, header em linha (seta na borda + título centralizado) reaproveitando a classe `type-modal-header` (consistente com Type/ManualConfirm/Classifier já compartilharem `.type-modal-back`).
+
+**Seleção compacta (`248c86f`)**: os selecionados deixam de ser chips que empilham (cresciam o modal) e viram o modelo do mini dropdown das ligas — um **contador** ("N selecionado(s)" = você + co) que abre um **popover** (você pinned sem X + co com X e slide-out ~150ms). Fecha por listener de `pointerdown` fora + Escape (antes do `onBack`); **sem backdrop fixo** de propósito (armadilha de stacking-context: `--z-modal` 410 < `--z-popover` 500). CSS escopado espelhando os valores das ligas; CSS morto dos chips removido.
+
+**Ações + busca (`dce565a`)**: botão "Confirmar e salvar" → **"Confirmar"**, com "ⓘ O usuário atual é selecionado automaticamente" (texto pequeno) à **esquerda** na linha das ações. **Busca por nome removida** (input + filtragem + props `search`/`onSearchChange` no modal e estado `userPickerSearch`/wiring no `app/camera/page.tsx`); CSS morto removido.
+
+**Quality gates** (por commit): lint · format:check · typecheck · build · test:unit. `skill-maintenance`: mapa de fluxo do `modals` atualizado ("Confirmar e salvar" → "Confirmar"); demais claims (Classifier usa `.type-modal-back`, é `is-themed`) seguem válidos.
+
+**Validação manual pendente** (mobile ≤430px): adicionar 2+ co-classificadores sem o modal crescer; popover abre/fecha/remove ok; "ⓘ" à esquerda + "Confirmar" à direita; busca ausente.
+
 ### 2026-06-01 — Sessão 5 (tipo Conilon + redesign do modal de tipo) ✅
 
 Fase 8 (Tipo, `flowState === 'selecting-type'`). Duas frentes; rito seguido (3 agentes `Explore` pra mapear a propagação cross-cutting + verificação direta + plan mode aprovado). Decisões do usuário: Conilon **por último**, rótulo **CONILON** (maiúsculas).
