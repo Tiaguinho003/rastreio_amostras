@@ -1422,6 +1422,22 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-01 — Sessão 4 (ajustes de UI no modal de revisão) ✅
+
+Ajustes de apresentação no modal de revisão dos dados extraídos (`flowState === 'confirming'`, `components/samples/ClassificationReviewSheetBody.tsx` dentro do BottomSheet `camera-preview-sheet`). Pedidos do usuário, escopo **só de UI — nada na extração/IA**. Rito seguido: análise via agente `Plan` + plan mode aprovado (plano em `/home/flavio003/.claude/plans/`); decisões de escopo confirmadas com o usuário antes do código.
+
+**Análise (descoberta-chave)**: o `PhotoZoomViewer` é **compartilhado** por 3 telas (review sheet, detalhe da amostra `app/samples/[sampleId]/page.tsx:3673`, e o `ClassificationReviewModal` legado, não-montado). Por isso o export virou prop opcional e o fix do corte foi feito no componente (melhoria global sem regressão).
+
+**Commit 1 (`275a9d2`) — campo Bebida + respiro da foto**: campo "Bebida" sai da seção própria (largura cheia) e passa pra dentro de "Catação e defeitos", ao lado de "Def." numa grade 50/50 (nova classe utilitária `.review-grid-2`); rótulo agora "Bebida" (nome completo). Respiro entre a foto e o card "Identificação" via `margin-bottom` em `.review-photo` (= gap interno do form) — a borda superior do card deixava de aparecer colada na foto. Validação/payload inalterados (campos keyed por nome; `'bebida'` segue em `CLASSIFICATION_FIELD_KEYS`).
+
+**Commit 2 (`0a804ca`) — zoom safe-area + export só no review**: (a) foto ampliada cortava no topo — `padding` **simétrico** topo/baixo em `.pzv-stage` reservando a safe-area da status bar + a faixa dos botões fixos. Simétrico de propósito pra manter o centro do content-box == centro do viewport, de modo que o `clampOffset` (pan/zoom em `PhotoZoomViewer.tsx`) siga correto **sem mudar o JS** (padding assimétrico descentralizaria o clamp — descartado). (b) Botão de exportar removido só no review via nova prop opcional `showShare` (default `true`); detalhe da amostra mantém o export. Hooks de export/toast permanecem incondicionais (Rules of Hooks).
+
+**Quality gates** (por commit): lint ✅ · format:check ✅ · typecheck ✅ · build ✅ · test:unit ✅ (191). Sem testes novos — mudanças puramente CSS/JSX/prop, e o projeto não tem harness de teste de DOM; `tests/classification-form.test.js` segue como guard do contrato `bebida`/`defeito`.
+
+**skill-maintenance**: nenhuma skill precisou de update — `design-system` não cobre a grade do review sheet; o padding de `.pzv-stage` segue a regra de safe-area-top do `responsive`; `modals` só cita `PhotoZoomViewer` como exceção de alto nível. (Drift pré-existente, não tocado: o mapa de fluxo do `modals` ainda rotula o review como "ReviewModal".)
+
+**Validação manual pendente** (mobile ≤430px): #3/#4 verificáveis sem IA pelo detalhe da amostra (zoom não corta no topo, pan até as bordas em 2x–4x, export ainda presente lá); o lado review (#1/#2 + ausência do export) exige chegar ao `confirming` via `/camera` (precisa IA ligada).
+
 ### 2026-05-28 — Sessão 3 (extração: mapeamento + observabilidade + normalização + prompt) ✅
 
 Revisão profunda da extração da IA. Análise multi-agente (8 lentes) + verificação no código revelou que a perda de campos **não era (só) o modelo** — modelo já é `gpt-4o`, não `4o-mini`. Decisões do usuário: recall agressivo, 1 chamada rápida, medir depois via telemetria (sem golden set agora). Plano canônico em `/home/flavio003/.claude/plans/` (Fases 1-7).
