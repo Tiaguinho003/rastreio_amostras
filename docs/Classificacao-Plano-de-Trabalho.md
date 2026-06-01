@@ -1422,6 +1422,18 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-01 — Sessão 8 (modal de sucesso da classificação no padrão do de registro) ✅
+
+`ClassificationSuccessModal` (`flowState === 'success'`) alinhado ao `SampleCreatedSuccessModal`. Só UI.
+
+**`4052469`**: a section ganha a classe `sample-created-modal` (além da própria `classification-success-modal`) → herda header centralizado + ações com padding + submit full-width. Isso corrige o botão **"Ver detalhes"** que **encostava nas bordas** (`.app-modal.is-themed` tem `padding:0`; as ações base não têm padding horizontal — comentário em `globals.css:1295`). Check **menor com ring**: envolto em `.sample-created-check-wrap` + `.sample-created-check-ring`; antes o check (`width:58%` do pai) resolvia contra a largura do corpo (~300px) ≈ 174px, agora ≈ 45px (igual ao registro). Lote em `.sample-created-lot-card`. Nova linha **"Etiqueta impressa"** (`.classification-success-print`, ícone de impressora). Acentos: "Classificação/Reclassificação salva".
+
+**Caveat**: "Etiqueta impressa" é **estática** — o frontend não recebe o status real (auto-print é best-effort no backend após `CLASSIFICATION_COMPLETED`). Refletir o status real do PrintJob exigiria expô-lo no retorno do complete (fora do escopo).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit. `skill-maintenance`: sem mudança (a linha do `modals` pro `ClassificationSuccessModal` segue válida — ainda `is-themed`).
+
+**Validação manual pendente** (mobile ≤430px): salvar classificação → modal igual ao de registro (título centralizado, check pequeno com ring, lot-card, "Etiqueta impressa", "Ver detalhes" full-width sem encostar). Conferir classificação nova e reclassificação.
+
 ### 2026-06-01 — Sessão 7 (classificador: você selecionável/removível + contador à direita) ✅
 
 Continuação do `ClassificationClassifierModal`. Dois pedidos do usuário.
