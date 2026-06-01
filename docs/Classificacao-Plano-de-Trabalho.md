@@ -1422,6 +1422,20 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-01 — Sessão 5 (tipo Conilon + redesign do modal de tipo) ✅
+
+Fase 8 (Tipo, `flowState === 'selecting-type'`). Duas frentes; rito seguido (3 agentes `Explore` pra mapear a propagação cross-cutting + verificação direta + plan mode aprovado). Decisões do usuário: Conilon **por último**, rótulo **CONILON** (maiúsculas).
+
+**Commit 1 (`5c3fcfd`) — tipo Conilon (banco→UI)**: 5º tipo de grão. Valor limpo `'CONILON'` (sem legado, ≠ `LOW_CAFF`→`BAIXO`). Migration **aditiva** `20260601145950_qtypes_add_conilon` (`ALTER TYPE … ADD VALUE` — não-destrutivo, não recria o enum nem toca dados/triggers; a migration anterior só usou DROP/CREATE porque **renomeava**). Propagação: `schema.prisma`, 2 JSON schemas de evento (`classification-completed`/`-updated` — backend valida via ajv contra eles, **sem allowlist em código**), union `ClassificationType` (`lib/types.ts`), `CLASSIFICATION_TYPE_LABEL` (Record exaustivo → TS força), `CHOICES` do modal, `<option>` do select de reclassificação no detalhe, `'conilon'` no `KNOWN_LABELS` da extração. Teste de integração `completeClassification aceita o tipo CONILON`.
+
+**Commit 2 (`cb02bd0`) — redesign do modal de tipo**: título "Tipo de classificação" → **"Tipo do grão"**, subtítulo removido; header em **coluna** (voltar menor 2.4→2rem e no topo, título abaixo — overrides escopados em `.app-modal.is-themed .type-modal-header` e `.type-modal-header .type-modal-back`, sem afetar o `ClassificationClassifierModal` que reusa a `.type-modal-back` base); opções **empilhadas** em 1 coluna (era grid 2x2), altura de linha menor (82-100→52-60px); modal afinado (34→24rem). Sem mudança de comportamento/props/estado.
+
+**Quality gates**: lint · format:check · typecheck · build · validate:schemas (51) · test:contracts (20) · test:unit (191) · **test:integration:db (199** — migration aplicada no DB de teste, CONILON aceito end-to-end). `skill-maintenance`: nenhuma skill precisou mudar (claims do `modals` sobre o TypeModal seguem válidos; `prisma` não enumera `ClassificationType` e `'CONILON'` segue a convenção UPPER_SNAKE_CASE).
+
+**Validação manual pendente** (mobile ≤430px): chegar a `selecting-type` → "Tipo do grão" abaixo do voltar, 5 opções empilhadas, CONILON por último selecionável; `ClassificationClassifierModal` (voltar) inalterado; select de reclassificação do detalhe mostra CONILON.
+
+**Deploy**: a migration vai junto — ordem **migration→código**; canary só com sinal explícito + `execute-job.sh migrate` entre canary e promote.
+
 ### 2026-06-01 — Sessão 4 (ajustes de UI no modal de revisão) ✅
 
 Ajustes de apresentação no modal de revisão dos dados extraídos (`flowState === 'confirming'`, `components/samples/ClassificationReviewSheetBody.tsx` dentro do BottomSheet `camera-preview-sheet`). Pedidos do usuário, escopo **só de UI — nada na extração/IA**. Rito seguido: análise via agente `Plan` + plan mode aprovado (plano em `/home/flavio003/.claude/plans/`); decisões de escopo confirmadas com o usuário antes do código.
