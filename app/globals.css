@@ -18660,17 +18660,21 @@ button:disabled {
   max-width: min(24rem, calc(100vw - 1.5rem));
 }
 
-/* Header em coluna: seta de voltar (menor, no topo) e o titulo logo abaixo
-   dela — nao lado a lado. Sem botao X (cancelar fica concentrado no modal de
-   revisao). Seletor com .is-themed pra vencer a especificidade de
+/* Header em linha: seta de voltar fixa na borda esquerda + titulo
+   centralizado no modal (padrao header mobile, espelha o .bottom-sheet-header).
+   Sem botao X (cancelar fica concentrado no modal de revisao). Seletor com
+   .is-themed pra vencer a especificidade de
    `.app-modal.is-themed .app-modal-header`. */
 .app-modal.is-themed .type-modal-header {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: clamp(8px, 2vw, 11px);
-  /* padding-top menor que o do header themed base -> sobe o voltar */
-  padding-top: clamp(0.7rem, 2.2vw, 0.85rem);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Titulo centralizado no modal (a seta absoluta nao desloca o centro). */
+.type-modal-header .app-modal-title-wrap {
+  text-align: center;
 }
 
 .type-modal-back {
@@ -18706,9 +18710,14 @@ button:disabled {
   height: 22px;
 }
 
-/* No modal de tipo o voltar e menor (o ClassifierModal mantem o tamanho
-   padrao da .type-modal-back base — usa .app-modal-header, nao type-modal). */
+/* Voltar menor e fixo na borda esquerda, centralizado na vertical com o titulo
+   (o ClassifierModal mantem o tamanho/posicao padrao da .type-modal-back base —
+   usa .app-modal-header, nao type-modal). */
 .type-modal-header .type-modal-back {
+  position: absolute;
+  left: clamp(1.1rem, 3.5vw, 1.4rem);
+  top: 50%;
+  transform: translateY(-50%);
   width: 2rem;
   height: 2rem;
   min-width: 2rem;
@@ -18718,6 +18727,11 @@ button:disabled {
 .type-modal-header .type-modal-back svg {
   width: 18px;
   height: 18px;
+}
+
+/* :active compoe com o translateY pra nao perder a centralizacao vertical. */
+.type-modal-header .type-modal-back:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.92);
 }
 
 .type-modal-content {
