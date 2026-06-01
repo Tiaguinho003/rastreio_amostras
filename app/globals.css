@@ -10921,6 +10921,12 @@ button:disabled {
 .pzv-stage {
   position: fixed;
   inset: 0;
+  /* Reserva simetrica topo/baixo: a faixa da status bar (safe-area) + a altura
+     dos botoes fixos do topo (~58px). Simetrico de proposito — mantem o centro
+     do content-box == centro do viewport, entao o clampOffset (pan/zoom) segue
+     correto sem mudanca no JS. A imagem (max-h/w:100%, flex-centered) passa a
+     caber abaixo da status bar e dos botoes em vez de cortar no topo. */
+  padding: calc(env(safe-area-inset-top, 0px) + 64px) 16px;
   z-index: 420;
   background: rgba(0, 0, 0, 0.94);
   display: flex;

@@ -367,6 +367,7 @@ export function ClassificationReviewSheetBody({
         <PhotoZoomViewer
           src={photoUrl}
           alt="Ficha de classificação capturada"
+          showShare={false}
           onClose={() => setZoomOpen(false)}
         />
       ) : null}

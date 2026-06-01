@@ -8,6 +8,8 @@ interface PhotoZoomViewerProps {
   src: string;
   alt: string;
   exportFilename?: string;
+  /** Mostra o botao de exportar/compartilhar. Default true. */
+  showShare?: boolean;
   onClose: () => void;
 }
 
@@ -17,7 +19,13 @@ const DOUBLE_TAP_SCALE = 2.5;
 const DOUBLE_TAP_MS = 300;
 const TOAST_DURATION_MS = 2500;
 
-export function PhotoZoomViewer({ src, alt, exportFilename, onClose }: PhotoZoomViewerProps) {
+export function PhotoZoomViewer({
+  src,
+  alt,
+  exportFilename,
+  showShare = true,
+  onClose,
+}: PhotoZoomViewerProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [scale, setScale] = useState(1);
@@ -284,27 +292,29 @@ export function PhotoZoomViewer({ src, alt, exportFilename, onClose }: PhotoZoom
       onClick={onStageClick}
       onDoubleClick={onDoubleClick}
     >
-      <button
-        type="button"
-        className="pzv-share"
-        onClick={(e) => {
-          e.stopPropagation();
-          void handleExport();
-        }}
-        disabled={exporting}
-        aria-label="Compartilhar foto"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M12 3v12M8 7l4-4 4 4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </svg>
-      </button>
+      {showShare ? (
+        <button
+          type="button"
+          className="pzv-share"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleExport();
+          }}
+          disabled={exporting}
+          aria-label="Compartilhar foto"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 3v12M8 7l4-4 4 4M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </svg>
+        </button>
+      ) : null}
       <button
         type="button"
         className="pzv-close"
