@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { ClassifierSnapshot, UserLookupItem } from '../../lib/types';
 import { useFocusTrap } from '../../lib/use-focus-trap';
@@ -47,18 +47,74 @@ export function ClassificationClassifierModal({
   saving = false,
 }: Props) {
   const focusTrapRef = useFocusTrap(open);
+  const selectedRef = useRef<HTMLDivElement | null>(null);
+  const removeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [selectedOpen, setSelectedOpen] = useState(false);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(() => new Set());
 
+  // Escape: fecha o popover de selecionados primeiro; senao volta (onBack).
   useEffect(() => {
     if (!open) return;
     function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        if (!saving) onBack();
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      if (selectedOpen) {
+        setSelectedOpen(false);
+      } else if (!saving) {
+        onBack();
       }
     }
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [open, onBack, saving]);
+  }, [open, onBack, saving, selectedOpen]);
+
+  // Reseta o popover quando o modal fecha (o componente persiste montado).
+  useEffect(() => {
+    if (!open) setSelectedOpen(false);
+  }, [open]);
+
+  // Fecha o popover ao clicar fora. Sem backdrop fixo de propósito: dentro do
+  // modal (--z-modal) um backdrop em --z-popover cairia na armadilha de
+  // stacking-context e prenderia o popover embaixo dele.
+  useEffect(() => {
+    if (!selectedOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (selectedRef.current && !selectedRef.current.contains(event.target as Node)) {
+        setSelectedOpen(false);
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [selectedOpen]);
+
+  // Limpa timers da animacao de remocao no unmount.
+  useEffect(() => {
+    const timers = removeTimersRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
+
+  function handleRemoveCo(id: string) {
+    if (removingIds.has(id)) return;
+    setRemovingIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    const timer = setTimeout(() => {
+      removeTimersRef.current.delete(id);
+      onRemoveCoClassifier(id);
+      setRemovingIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 150);
+    removeTimersRef.current.set(id, timer);
+  }
 
   if (!open) return null;
 
@@ -106,25 +162,61 @@ export function ClassificationClassifierModal({
         </header>
 
         <div className="app-modal-content classifier-content">
-          <div className="classifier-chips">
-            <span className="classifier-chip is-pinned" aria-label="Você (classificador principal)">
-              {currentUser.fullName ?? currentUser.username}
-              <span className="classifier-chip-tag">você</span>
-            </span>
-            {coClassifiers.map((entry) => (
-              <span key={entry.id} className="classifier-chip">
-                {entry.fullName}
-                <button
-                  type="button"
-                  className="classifier-chip-x"
-                  onClick={() => onRemoveCoClassifier(entry.id)}
-                  disabled={saving}
-                  aria-label={`Remover ${entry.fullName}`}
-                >
-                  &times;
-                </button>
+          <div className="classifier-selected" ref={selectedRef}>
+            <button
+              type="button"
+              className="classifier-counter"
+              aria-expanded={selectedOpen}
+              aria-haspopup="menu"
+              onClick={() => setSelectedOpen((o) => !o)}
+            >
+              <span className="classifier-counter__num">{1 + coClassifiers.length}</span>
+              <span className="classifier-counter__label">
+                {coClassifiers.length === 0 ? 'selecionado' : 'selecionados'}
               </span>
-            ))}
+              <svg className="classifier-counter__chevron" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            {selectedOpen ? (
+              <div
+                className="classifier-selected-pop"
+                role="menu"
+                aria-label="Classificadores selecionados"
+              >
+                <div className="classifier-selected-pop__scroll">
+                  <div className="classifier-selected-pop__row" role="menuitem">
+                    <span className="classifier-selected-pop__name">
+                      {currentUser.fullName ?? currentUser.username}
+                    </span>
+                    <span className="classifier-selected-pop__tag">você</span>
+                  </div>
+                  {coClassifiers.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className={`classifier-selected-pop__row${
+                        removingIds.has(entry.id) ? ' is-removing' : ''
+                      }`}
+                      role="menuitem"
+                    >
+                      <span className="classifier-selected-pop__name">{entry.fullName}</span>
+                      <button
+                        type="button"
+                        className="classifier-selected-pop__remove"
+                        onClick={() => handleRemoveCo(entry.id)}
+                        disabled={saving || removingIds.has(entry.id)}
+                        aria-label={`Remover ${entry.fullName}`}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M6 6 18 18" />
+                          <path d="M18 6 6 18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {loadingUsers ? (
