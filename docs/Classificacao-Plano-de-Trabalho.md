@@ -1422,6 +1422,18 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-01 — Sessão 7 (classificador: você selecionável/removível + contador à direita) ✅
+
+Continuação do `ClassificationClassifierModal`. Dois pedidos do usuário.
+
+**Seleção unificada (`8ca71fe`)**: o usuário atual deixa de ser **sempre forçado** como classificador. Modelo unificado — o ator vira um classificador selecionável como os outros, **pré-selecionado** (auto) mas **removível**. `loadAvailableUsersOnce` deixa de excluir o ator (`excludeUserId` removido) e o pré-seleciona no 1º load; estado `coClassifiers`→`selectedClassifiers` (inclui o ator quando marcado); `toggleCoClassifier`→`toggleClassifier`; save = `selectedClassifiers.map(...)` (sem prepend do ator). A lista mostra o ator **primeiro** com tag "você"; o popover lista todos com **X** (inclusive o ator). **"Confirmar" desabilitado com 0 selecionados** (mín. 1 obrigatório; o backend já exige ≥1 e **não** exige o ator — `sample-command-service.js:1384-1428`; comentário do backend atualizado, não compõe mais `[ator, ...co]`).
+
+**Contador à direita (`cfbc9c3`)**: `.classifier-selected` `align-self: flex-end`; popover `right: 0` + `transform-origin: top right`.
+
+**Quality gates** (por commit): lint · format:check · typecheck · build · test:unit. `skill-maintenance`: nenhuma skill afirmava "ator sempre incluído" → sem mudança de skill. (Nota: o build falhou 2× de forma **transitória** em `/api/v1/auth/forgot-password/verify-code` na coleta de page-data e passou no re-run — flakiness não relacionada às mudanças.)
+
+**Validação manual pendente** (mobile ≤430px): ator pré-selecionado (tag "você", 1º na lista); excluir o ator pela lista **ou** pelo X do popover; readicionar marcando na lista; "Confirmar" bloqueado com 0; contador e popover à direita.
+
 ### 2026-06-01 — Sessão 6 (modal de classificador: cabeçalho, seleção compacta, ações, sem busca) ✅
 
 Refinamento do `ClassificationClassifierModal` (fase `selecting-classifier`), em vários pedidos do usuário. Só UI/estado-local; nada de contrato/IA/backend.

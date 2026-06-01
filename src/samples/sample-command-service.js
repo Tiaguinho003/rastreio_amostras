@@ -2181,8 +2181,9 @@ export class SampleCommandService {
       payload.classificationVersion = input.classificationVersion;
     }
 
-    // classifiers e obrigatorio (min 1). O frontend compoe [actor, ...co-classificadores]
-    // antes de chamar. Backend apenas normaliza/valida existencia/ativo dos usuarios.
+    // classifiers e obrigatorio (min 1). O frontend envia os classificadores
+    // selecionados (o usuario atual e pre-selecionado, mas pode ser removido).
+    // Backend apenas normaliza/valida existencia/ativo dos usuarios.
     payload.classifiers = await this.normalizeClassifiers(input.classifiers);
 
     if (input.classificationType) {
