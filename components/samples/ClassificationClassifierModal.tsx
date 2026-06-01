@@ -20,8 +20,6 @@ type Props = {
   availableUsers: UserLookupItem[];
   loadingUsers: boolean;
   userPickerError: string | null;
-  search: string;
-  onSearchChange: (search: string) => void;
   onToggleUser: (user: UserLookupItem) => void;
   onRemoveCoClassifier: (id: string) => void;
   onRetryLoad: () => void;
@@ -37,8 +35,6 @@ export function ClassificationClassifierModal({
   availableUsers,
   loadingUsers,
   userPickerError,
-  search,
-  onSearchChange,
   onToggleUser,
   onRemoveCoClassifier,
   onRetryLoad,
@@ -117,13 +113,6 @@ export function ClassificationClassifierModal({
   }
 
   if (!open) return null;
-
-  const q = search.trim().toLowerCase();
-  const filteredUsers = q
-    ? availableUsers.filter(
-        (u) => u.fullName.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)
-      )
-    : availableUsers;
 
   return (
     <div className="app-modal-backdrop">
@@ -235,19 +224,11 @@ export function ClassificationClassifierModal({
             </div>
           ) : (
             <>
-              <input
-                type="text"
-                className="classifier-search"
-                placeholder="Buscar por nome ou usuário"
-                value={search}
-                disabled={saving}
-                onChange={(event) => onSearchChange(event.target.value)}
-              />
               <div className="classifier-list" role="listbox" aria-multiselectable>
-                {filteredUsers.length === 0 ? (
+                {availableUsers.length === 0 ? (
                   <div className="classifier-empty">Nenhum usuário encontrado.</div>
                 ) : (
-                  filteredUsers.map((user) => {
+                  availableUsers.map((user) => {
                     const selected = coClassifiers.some((c) => c.id === user.id);
                     return (
                       <button
@@ -285,14 +266,24 @@ export function ClassificationClassifierModal({
             </>
           )}
 
-          <div className="app-modal-actions">
+          <div className="app-modal-actions classifier-actions">
+            <span className="classifier-auto-hint">
+              <svg className="classifier-auto-hint__icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <line x1="12" y1="11" x2="12" y2="16" />
+                <line x1="12" y1="8" x2="12" y2="8" />
+              </svg>
+              <span className="classifier-auto-hint__text">
+                O usuário atual é selecionado automaticamente
+              </span>
+            </span>
             <button
               type="button"
-              className="app-modal-submit"
+              className="app-modal-submit classifier-confirm"
               onClick={onContinue}
               disabled={saving}
             >
-              {saving ? 'Salvando...' : 'Confirmar e salvar'}
+              {saving ? 'Salvando...' : 'Confirmar'}
             </button>
           </div>
         </div>

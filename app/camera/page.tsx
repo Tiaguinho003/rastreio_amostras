@@ -179,7 +179,6 @@ function CameraPageContent() {
   const [coClassifiers, setCoClassifiers] = useState<ClassifierSnapshot[]>([]);
   const [availableUsers, setAvailableUsers] = useState<UserLookupItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [userPickerSearch, setUserPickerSearch] = useState('');
   const [userPickerError, setUserPickerError] = useState<string | null>(null);
 
   // Lote editavel (Flow A sempre; Flow B so em modo manual). Sacas/safra
@@ -612,7 +611,6 @@ function CameraPageContent() {
     setClassificationType(null);
     setCoClassifiers([]);
     setAvailableUsers([]);
-    setUserPickerSearch('');
     setUserPickerError(null);
     setFlowError(null);
     setConfirmedSampleId(null);
@@ -1512,7 +1510,6 @@ function CameraPageContent() {
         onBack={() => setFlowState('confirming')}
         onSelect={(type) => {
           setClassificationType(type);
-          setUserPickerSearch('');
           setUserPickerError(null);
           void loadAvailableUsersOnce();
           setFlowState('selecting-classifier');
@@ -1582,8 +1579,6 @@ function CameraPageContent() {
         availableUsers={availableUsers}
         loadingUsers={loadingUsers}
         userPickerError={userPickerError}
-        search={userPickerSearch}
-        onSearchChange={setUserPickerSearch}
         onToggleUser={toggleCoClassifier}
         onRemoveCoClassifier={(id) => setCoClassifiers((prev) => prev.filter((c) => c.id !== id))}
         onRetryLoad={() => {

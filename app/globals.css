@@ -19538,23 +19538,45 @@ button:disabled {
   stroke-linecap: round;
 }
 
-.classifier-search {
-  width: 100%;
-  padding: 10px 14px;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 10px;
-  background: #ffffff;
-  font-size: 0.92rem;
-  font-family: inherit;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+/* Acoes do modal: hint (ⓘ + texto pequeno) a esquerda + botao "Confirmar" a
+   direita. align-items center pra centralizar o hint (pode quebrar em 2 linhas)
+   com o botao. Especificidade pra vencer `.app-modal.is-themed .app-modal-actions`. */
+.app-modal.is-themed .app-modal-actions.classifier-actions {
+  align-items: center;
 }
 
-.classifier-search:focus-visible {
-  outline: none;
-  border-color: rgba(22, 91, 42, 0.5);
-  box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1);
+.classifier-auto-hint {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.classifier-auto-hint__icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.classifier-auto-hint__text {
+  min-width: 0;
+}
+
+/* Botao "Confirmar" com largura de conteudo (a esquerda fica o hint) — precisa
+   de padding horizontal proprio porque .app-modal-submit so tem largura via
+   grid no caso padrao. */
+.classifier-confirm {
+  flex-shrink: 0;
+  padding: 0 clamp(1.4rem, 6vw, 2rem);
 }
 
 .classifier-list {
