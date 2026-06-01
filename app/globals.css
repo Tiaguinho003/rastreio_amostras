@@ -18656,17 +18656,21 @@ button:disabled {
 /* ── Q.cls.2.8: Modal de selecao do tipo da classificacao ── */
 
 .type-modal {
-  width: min(34rem, calc(100vw - 1.5rem));
-  max-width: min(34rem, calc(100vw - 1.5rem));
+  width: min(24rem, calc(100vw - 1.5rem));
+  max-width: min(24rem, calc(100vw - 1.5rem));
 }
 
-/* Header com seta de voltar a esquerda + bloco de titulo. Sem botao X
-   (cancelar fica concentrado no modal de revisao). */
-.type-modal-header {
+/* Header em coluna: seta de voltar (menor, no topo) e o titulo logo abaixo
+   dela — nao lado a lado. Sem botao X (cancelar fica concentrado no modal de
+   revisao). Seletor com .is-themed pra vencer a especificidade de
+   `.app-modal.is-themed .app-modal-header`. */
+.app-modal.is-themed .type-modal-header {
   display: flex;
-  align-items: center;
-  gap: clamp(10px, 2.5vw, 14px);
-  padding-left: clamp(0.6rem, 2vw, 0.85rem);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(8px, 2vw, 11px);
+  /* padding-top menor que o do header themed base -> sobe o voltar */
+  padding-top: clamp(0.7rem, 2.2vw, 0.85rem);
 }
 
 .type-modal-back {
@@ -18702,21 +18706,30 @@ button:disabled {
   height: 22px;
 }
 
+/* No modal de tipo o voltar e menor (o ClassifierModal mantem o tamanho
+   padrao da .type-modal-back base — usa .app-modal-header, nao type-modal). */
+.type-modal-header .type-modal-back {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+}
+
+.type-modal-header .type-modal-back svg {
+  width: 18px;
+  height: 18px;
+}
+
 .type-modal-content {
   padding: clamp(1.1rem, 3.5vw, 1.6rem) !important;
 }
 
-/* Grid 2x2 com as 4 opcoes (BICA, PREPARADO, BAIXO, ESCOLHA). */
+/* Opcoes empilhadas (uma abaixo da outra) — 5 tipos: BICA, PREPARADO, BAIXO,
+   ESCOLHA, CONILON. */
 .type-modal-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(10px, 2.5vw, 14px);
-}
-
-@media (max-width: 360px) {
-  .type-modal-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(8px, 2vw, 11px);
 }
 
 .type-modal-choice {
@@ -18725,8 +18738,8 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: clamp(82px, 22vw, 100px);
-  padding: clamp(14px, 4vw, 18px);
+  min-height: clamp(52px, 13vw, 60px);
+  padding: clamp(12px, 3vw, 15px);
   border: 2px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
   background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);

@@ -84,9 +84,8 @@ export function ClassificationTypeModal({
           </button>
           <div className="app-modal-title-wrap">
             <h3 id="type-modal-title" className="app-modal-title">
-              Tipo de classificação
+              Tipo do grão
             </h3>
-            <p className="app-modal-description">Selecione como esta amostra foi classificada.</p>
           </div>
         </header>
 
