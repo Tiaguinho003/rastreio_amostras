@@ -18411,6 +18411,7 @@ button:disabled {
   position: relative;
   display: block;
   width: 100%;
+  margin-bottom: clamp(14px, 3.5vw, 18px);
   padding: 0;
   border: 1.5px solid rgba(0, 0, 0, 0.12);
   border-radius: 14px;
@@ -18490,6 +18491,10 @@ button:disabled {
 
 .review-grid-1 {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.review-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .review-grid-3 {

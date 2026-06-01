@@ -311,17 +311,15 @@ export function ClassificationReviewSheetBody({
             {renderField('gpi', 'GPI', { inputMode: 'decimal', uppercase: false })}
             {renderField('ap', 'AP', { inputMode: 'decimal', uppercase: false })}
           </div>
-          <div className="review-grid review-grid-1">{renderField('defeito', 'Def.')}</div>
+          <div className="review-grid review-grid-2">
+            {renderField('defeito', 'Def.')}
+            {renderField('bebida', 'Bebida')}
+          </div>
         </section>
 
         <section className="review-section">
           <h4 className="review-section-title">Observações</h4>
           {renderField('observacoes', 'Obs.', { maxLength: 500 })}
-        </section>
-
-        <section className="review-section">
-          <h4 className="review-section-title">Bebida</h4>
-          {renderField('bebida', 'Beb.')}
         </section>
       </form>
 
