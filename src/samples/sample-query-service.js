@@ -10,7 +10,11 @@ const SAMPLE_STATUS_FILTER_GROUPS = {
   CLASSIFICATION_PENDING: CLASSIFICATION_PENDING_STATUSES,
   CLASSIFIED: ['CLASSIFIED'],
 };
-const DASHBOARD_LIST_LIMIT = 20;
+// Fila de classificacao pendente: a lista mostra TODOS os pendentes. A contagem
+// do card vem de um groupBy separado, entao truncar a lista criava inconsistencia
+// (total != itens — ex: 41 pendentes, modal mostrava 20). 500 e salvaguarda de
+// payload, muito acima da fila real (dezenas/baixas centenas); sem paginacao.
+const DASHBOARD_LIST_LIMIT = 500;
 const DASHBOARD_BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const SAMPLES_LIST_DEFAULT_LIMIT = 30;
 const SAMPLES_LIST_MAX_LIMIT = 30;

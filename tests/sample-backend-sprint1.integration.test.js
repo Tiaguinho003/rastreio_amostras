@@ -500,6 +500,20 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(statusBySampleId.get(sampleB), 'REGISTRATION_CONFIRMED');
   });
 
+  test('dashboard list nao trunca a fila de pendentes em 20', async () => {
+    // Regressao: a contagem (groupBy) batia, mas a lista usava take:20 — entao
+    // com >20 pendentes o modal mostrava menos do que o total. Agora a lista
+    // retorna todos (ate a salvaguarda alta).
+    const total = 25;
+    for (let i = 0; i < total; i += 1) {
+      await moveSampleToRegistrationConfirmed(randomUUID());
+    }
+
+    const dashboard = await queryService.getDashboardPending();
+    assert.equal(dashboard.classificationPending.total, total);
+    assert.equal(dashboard.classificationPending.items.length, total);
+  });
+
   test('resolves sample from QR content for classification access', async () => {
     const sampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(sampleId);
