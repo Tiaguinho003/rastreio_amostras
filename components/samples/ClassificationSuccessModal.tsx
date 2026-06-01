@@ -14,11 +14,11 @@ interface ClassificationSuccessModalProps {
 
 const COPY = {
   classification: {
-    title: 'Classificacao salva',
+    title: 'Classificação salva',
     label: 'Lote da amostra',
   },
   reclassification: {
-    title: 'Reclassificacao salva',
+    title: 'Reclassificação salva',
     label: 'Lote da amostra',
   },
 } as const;
@@ -51,7 +51,7 @@ export function ClassificationSuccessModal({
     <div className="app-modal-backdrop" onClick={onClose}>
       <section
         ref={focusTrapRef}
-        className="app-modal is-themed classification-success-modal"
+        className="app-modal is-themed sample-created-modal classification-success-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="classification-success-title"
@@ -71,13 +71,27 @@ export function ClassificationSuccessModal({
         </header>
 
         <div className="app-modal-content sample-created-body">
-          <svg className="sample-created-check" viewBox="0 0 52 52" aria-hidden="true">
-            <circle cx="26" cy="26" r="24" />
-            <path d="M14 27l8 8 16-16" />
-          </svg>
+          <div className="sample-created-check-wrap" aria-hidden="true">
+            <span className="sample-created-check-ring" />
+            <svg className="sample-created-check" viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" />
+              <path d="M14 27l8 8 16-16" />
+            </svg>
+          </div>
 
-          <p className="sample-created-label">{copy.label}</p>
-          <p className="sample-created-lot">{lotNumber}</p>
+          <div className="sample-created-lot-card">
+            <p className="sample-created-label">{copy.label}</p>
+            <p className="sample-created-lot">{lotNumber}</p>
+          </div>
+
+          <p className="classification-success-print">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            Etiqueta impressa
+          </p>
         </div>
 
         <div className="app-modal-actions">

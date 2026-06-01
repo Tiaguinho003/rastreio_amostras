@@ -14512,6 +14512,28 @@ button:disabled {
   max-width: 22ch;
 }
 
+/* Linha de confirmacao "Etiqueta impressa" no modal de sucesso da
+   classificacao (auto-print best-effort apos CLASSIFICATION_COMPLETED). */
+.classification-success-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: clamp(0.82rem, 2.6vw, 0.9rem);
+  font-weight: 600;
+  color: var(--brand-green);
+}
+
+.classification-success-print svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .client-modal-header {
   display: flex;
   justify-content: space-between;
