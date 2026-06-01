@@ -79,7 +79,7 @@ export function ClassificationClassifierModal({
         aria-labelledby="classifier-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="app-modal-header">
+        <header className="app-modal-header type-modal-header">
           <button
             type="button"
             className="type-modal-back"
@@ -100,11 +100,8 @@ export function ClassificationClassifierModal({
           </button>
           <div className="app-modal-title-wrap">
             <h3 id="classifier-modal-title" className="app-modal-title">
-              Quem classificou?
+              Classificador
             </h3>
-            <p className="app-modal-description">
-              Você já está incluído. Adicione co-classificadores se aplicável.
-            </p>
           </div>
         </header>
 
