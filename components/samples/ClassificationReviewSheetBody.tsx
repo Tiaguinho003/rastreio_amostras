@@ -48,6 +48,34 @@ const CLASSIFICATION_FIELD_KEYS: Array<keyof ClassificationFormState> = [
   'bebida',
 ];
 
+// Edicao no meio do texto sem o caret pular pro fim. Quando a transformacao
+// (ex: toUpperCase) muda o valor digitado, o React reescreve input.value e o
+// browser joga o caret pro fim do campo. Aqui sincronizamos o DOM com o valor
+// final e restauramos o caret AINDA no handler (sincrono — sem race em
+// digitacao rapida); assim o value (prop) bate com o DOM e o React nao
+// reescreve o input. So mexe no DOM quando a transformacao realmente alterou o
+// valor (campos sem transformacao caem direto no commit, sem tocar o caret).
+function commitWithCaret(
+  el: HTMLInputElement,
+  transform: (raw: string) => string,
+  commit: (value: string) => void
+) {
+  const next = transform(el.value);
+  if (next !== el.value) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    el.value = next;
+    if (start !== null && end !== null) {
+      try {
+        el.setSelectionRange(start, end);
+      } catch {
+        /* tipos de input sem suporte a selection — ignora */
+      }
+    }
+  }
+  commit(next);
+}
+
 type Props = {
   photoUrl: string | null;
   lotEditable: boolean;
@@ -147,10 +175,13 @@ export function ClassificationReviewSheetBody({
           value={form[key]}
           disabled={saving}
           maxLength={maxLength}
-          onChange={(event) => {
-            const raw = event.target.value;
-            onFormChange(key, uppercase && inputMode === 'text' ? raw.toUpperCase() : raw);
-          }}
+          onChange={(event) =>
+            commitWithCaret(
+              event.target,
+              (raw) => (uppercase && inputMode === 'text' ? raw.toUpperCase() : raw),
+              (value) => onFormChange(key, value)
+            )
+          }
         />
       </label>
     );
@@ -199,9 +230,10 @@ export function ClassificationReviewSheetBody({
                 disabled={saving || !lotEditable}
                 readOnly={!lotEditable}
                 aria-invalid={lotError || undefined}
-                onChange={(event) =>
-                  lotEditable ? onLotChange(event.target.value.toUpperCase()) : undefined
-                }
+                onChange={(event) => {
+                  if (!lotEditable) return;
+                  commitWithCaret(event.target, (raw) => raw.toUpperCase(), onLotChange);
+                }}
                 placeholder={lotEditable ? (lotError ? 'Obrigatório' : 'Número do lote') : ''}
               />
             </label>
@@ -214,9 +246,10 @@ export function ClassificationReviewSheetBody({
                 value={sacksValue}
                 disabled={saving || !sacksEditable}
                 readOnly={!sacksEditable}
-                onChange={(event) =>
-                  sacksEditable ? onSacksChange(event.target.value) : undefined
-                }
+                onChange={(event) => {
+                  if (!sacksEditable) return;
+                  commitWithCaret(event.target, (raw) => raw, onSacksChange);
+                }}
               />
             </label>
             <label className="review-field">
@@ -227,9 +260,10 @@ export function ClassificationReviewSheetBody({
                 value={harvestValue}
                 disabled={saving || !harvestEditable}
                 readOnly={!harvestEditable}
-                onChange={(event) =>
-                  harvestEditable ? onHarvestChange(event.target.value) : undefined
-                }
+                onChange={(event) => {
+                  if (!harvestEditable) return;
+                  commitWithCaret(event.target, (raw) => raw, onHarvestChange);
+                }}
               />
             </label>
           </div>
@@ -273,7 +307,13 @@ export function ClassificationReviewSheetBody({
                 className="review-field-input"
                 value={form.fundo1Peneira}
                 disabled={saving}
-                onChange={(e) => onFormChange('fundo1Peneira', e.target.value.toUpperCase())}
+                onChange={(e) =>
+                  commitWithCaret(
+                    e.target,
+                    (raw) => raw.toUpperCase(),
+                    (v) => onFormChange('fundo1Peneira', v)
+                  )
+                }
               />
             </label>
             <span className="review-fundos-eq" aria-hidden="true">
@@ -287,7 +327,13 @@ export function ClassificationReviewSheetBody({
                 className="review-field-input"
                 value={form.fundo1Percent}
                 disabled={saving}
-                onChange={(e) => onFormChange('fundo1Percent', e.target.value)}
+                onChange={(e) =>
+                  commitWithCaret(
+                    e.target,
+                    (raw) => raw,
+                    (v) => onFormChange('fundo1Percent', v)
+                  )
+                }
               />
             </label>
           </div>
@@ -300,7 +346,13 @@ export function ClassificationReviewSheetBody({
                 className="review-field-input"
                 value={form.fundo2Peneira}
                 disabled={saving}
-                onChange={(e) => onFormChange('fundo2Peneira', e.target.value.toUpperCase())}
+                onChange={(e) =>
+                  commitWithCaret(
+                    e.target,
+                    (raw) => raw.toUpperCase(),
+                    (v) => onFormChange('fundo2Peneira', v)
+                  )
+                }
               />
             </label>
             <span className="review-fundos-eq" aria-hidden="true">
@@ -314,7 +366,13 @@ export function ClassificationReviewSheetBody({
                 className="review-field-input"
                 value={form.fundo2Percent}
                 disabled={saving}
-                onChange={(e) => onFormChange('fundo2Percent', e.target.value)}
+                onChange={(e) =>
+                  commitWithCaret(
+                    e.target,
+                    (raw) => raw,
+                    (v) => onFormChange('fundo2Percent', v)
+                  )
+                }
               />
             </label>
           </div>
