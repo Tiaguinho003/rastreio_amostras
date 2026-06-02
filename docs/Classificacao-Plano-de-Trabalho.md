@@ -1422,6 +1422,12 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-02 — Sessão 11 (redesign do modal de lote não encontrado) ✅
+
+`ClassificationNotFoundModal`: removidos o **X** do header e o botão **"Cadastrar nova amostra"** (o registro é sequencial — cadastrar fora da sequência pela classificação não faz sentido). Agora **2 botões de mesma largura/proporção**: **"Voltar"** (volta pro review/dados extraídos pra corrigir o lote → `confirming`) e **"Cancelar"** (sai do fluxo → `resetClassificationFlow`). Título vira **"Lote <número> não encontrado"**; subtítulo do header removido; explicação do corpo mantida. Props `onSair`/`onCadastrarNova` → `onBack`/`onCancel`; Escape = Cancelar. `.not-found-actions` espelha o layout side-by-side dos demais modais de decisão. `skill-maintenance`: mapa de fluxo do `modals` atualizado (not-found → "Voltar"/"Cancelar"). Commits: `8ef6d8d` (feature) + este (docs).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit.
+
 ### 2026-06-02 — Sessão 10 (status inválido vira modal + validação antecipada) ✅
 
 "Amostra não pode ser classificada" (status inválido) deixa de ser **erro inline tardio** (e **invisível no Flow B** — `setFlowError` em `selecting-classifier`, que não renderiza `flowError`) e vira **modal central** (`ClassificationStatusInvalidModal`, `.app-modal.is-themed` `role="alertdialog"`) com ações **"Cancelar"** (sai: `router.back` no Flow B / reset no Flow A) e **"Ver detalhes"** (abre a amostra).

@@ -563,7 +563,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
        confirming (ReviewModal) ─── "Cancelar" ─── reset
            │
            ▼ "Avançar" (≥1 campo) → handleReviewAdvance — valida ANTES do tipo:
-           │     ├── Flow A: resolve lote → nao encontrado ─► not-found (NotFoundModal) ─ "Sair"/"Cadastrar nova"
+           │     ├── Flow A: resolve lote → nao encontrado ─► not-found (NotFoundModal) ─ "Voltar"/"Cancelar"
            │     ├── status ∉ {RC, CLASSIFIED} ───────────► status-invalid (StatusInvalidModal) ─ "Cancelar"/"Ver detalhes"
            │     └── ok ─► selecting-type
            ▼
