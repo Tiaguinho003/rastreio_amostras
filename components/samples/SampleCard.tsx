@@ -35,6 +35,26 @@ function deriveCardStatus(sample: SampleSnapshot): CardStatus {
   return { kind: 'open', label: 'Em aberto', className: 'is-card-open' };
 }
 
+// Limite de caracteres por dado do card expandido (grade 2x2). O CSS ja
+// trunca com reticencias (text-overflow), mas este teto e um reforco pra
+// garantir que um valor muito longo nunca desorganize o grid. Limites
+// generosos — raramente cortam dado real, so pegam valores anomalos.
+// "Local" pode ser um nome de lugar maior, entao tem mais folga; os campos
+// de classificacao (padrao/aspecto/catacao) sao curtos por natureza.
+const EXPANDED_STAT_LIMIT = {
+  location: 22,
+  padrao: 16,
+  aspecto: 16,
+  catacao: 16,
+};
+
+function formatExpandedStat(raw: unknown, max: number): string | null {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (text === '') return null;
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export type SampleCardSelectionMode = 'idle' | 'blend';
 
 export interface SampleCardProps {
@@ -157,6 +177,14 @@ export function SampleCard({
   };
 
   const declared = sample.declared;
+  // 4 dados principais do card expandido. Local vem do declarado; padrao/
+  // aspecto/catacao vem da ultima classificacao (root-level do data). Cada
+  // um cai pra "—" quando ausente (amostra ainda nao classificada).
+  const classData = sample.latestClassification?.data ?? null;
+  const localStat = formatExpandedStat(declared.location, EXPANDED_STAT_LIMIT.location);
+  const padraoStat = formatExpandedStat(classData?.padrao, EXPANDED_STAT_LIMIT.padrao);
+  const aspectoStat = formatExpandedStat(classData?.aspecto, EXPANDED_STAT_LIMIT.aspecto);
+  const catacaoStat = formatExpandedStat(classData?.catacao, EXPANDED_STAT_LIMIT.catacao);
 
   return (
     <div
@@ -216,7 +244,25 @@ export function SampleCard({
             <div className="spv2-card-stat">
               <span className="spv2-card-stat-label">Local</span>
               <span className="spv2-card-stat-value">
-                {declared.location || <span className="spv2-card-stat-value--empty">—</span>}
+                {localStat ?? <span className="spv2-card-stat-value--empty">—</span>}
+              </span>
+            </div>
+            <div className="spv2-card-stat">
+              <span className="spv2-card-stat-label">Padrão</span>
+              <span className="spv2-card-stat-value">
+                {padraoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
+              </span>
+            </div>
+            <div className="spv2-card-stat">
+              <span className="spv2-card-stat-label">Aspecto</span>
+              <span className="spv2-card-stat-value">
+                {aspectoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
+              </span>
+            </div>
+            <div className="spv2-card-stat">
+              <span className="spv2-card-stat-label">Catação</span>
+              <span className="spv2-card-stat-value">
+                {catacaoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
           </div>

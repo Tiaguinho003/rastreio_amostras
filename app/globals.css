@@ -5403,15 +5403,14 @@ button:disabled {
   );
 }
 
-/* Grid 3-col com flow de stats. Quando classificada, render adicional
-   ocupa nova linha automaticamente (3 stats por linha). Gap pequeno
-   pra manter compacto. */
 .spv2-card-stats-grid {
-  /* Por enquanto so o "Local" — 1 coluna. Quando voltarem mais stats ao
-     expandido, re-tunar o numero de colunas. */
+  /* 4 dados (Local, Padrão, Aspecto, Catação) em grade 2x2 — divisao
+     balanceada e compacta. Cada celula e 1fr com min-width:0, e o value
+     trunca com ellipsis, entao os dados nunca se sobrepoem. Row-gap mais
+     apertado pra manter a versao estendida curta. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(10px, 2.8vw, 12px) clamp(8px, 2.6vw, 11px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(8px, 2.4vw, 10px) clamp(8px, 2.6vw, 11px);
   margin-bottom: clamp(11px, 3vw, 13px);
 }
 
@@ -5432,11 +5431,12 @@ button:disabled {
 }
 
 .spv2-card-stat-value {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: nowrap;
-  gap: 0;
-  font-size: clamp(13px, 3.6vw, 14px);
+  /* block (nao inline-flex) pra que text-overflow: ellipsis trunque o texto
+     simples de forma confiavel dentro da celula 1fr do grid 2x2. Fonte
+     levemente menor que a antiga (1 stat) pra acomodar 4 dados sem apertar. */
+  display: block;
+  max-width: 100%;
+  font-size: clamp(12.5px, 3.4vw, 13.5px);
   font-weight: 600;
   color: #2a3d2f;
   font-variant-numeric: tabular-nums;
