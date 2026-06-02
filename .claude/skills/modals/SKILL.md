@@ -498,6 +498,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 | ClassificationTypeModal            | `components/samples/ClassificationTypeModal.tsx`            | Q.cls.2.8 (seleção de tipo)         | `is-themed`                |
 | ClassificationClassifierModal      | `components/samples/ClassificationClassifierModal.tsx`      | Q.cls.2.9 (seleção classificadores) | `is-themed`                |
 | ClassificationExtractionErrorModal | `components/samples/ClassificationExtractionErrorModal.tsx` | Sub-caminhos 3a + 3b                | `is-themed`                |
+| ClassificationDetectFailedModal    | `components/samples/ClassificationDetectFailedModal.tsx`    | Ficha não detectada (detect-failed) | `is-themed`                |
 | ClassificationManualConfirmModal   | `components/samples/ClassificationManualConfirmModal.tsx`   | 2º modal de 3b                      | `is-themed`                |
 | ClassificationLotMismatchModal     | `components/samples/ClassificationLotMismatchModal.tsx`     | Sub-caminho 2 (lote diverge)        | `is-themed`                |
 | ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`        |
@@ -542,7 +543,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
         preview ──── Tirar outra ──── (resetClassificationFlow)
            │ "Enviar"
            ▼
-       detecting ─── Foto sem ficha visivel ──► detect-failed (overlay) ─── "Continuar assim" ───┐
+       detecting ─── Foto sem ficha visivel ──► detect-failed (modal) ─── "Continuar" ───────────┐
            │ ficha detectada                                                                       │
            ▼                                                                                        │
        detected (success-icon, 800ms)                                                               │

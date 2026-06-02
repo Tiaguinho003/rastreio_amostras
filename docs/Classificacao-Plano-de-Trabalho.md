@@ -1422,6 +1422,12 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-02 — Sessão 9 (ficha não detectada vira modal central) ✅
+
+`detect-failed` deixa de ser um painel na própria área da câmera e vira **modal central** (`ClassificationDetectFailedModal`) no mesmo padrão dos avisos de erro de extração (`.app-modal.is-themed`, `role="alertdialog"`). Botões **"Tentar novamente"** (reseta o fluxo) e **"Continuar"** (extrai da foto completa, sem crop), lado a lado com respiro das bordas (`.detect-failed-*` espelha o layout do `extraction-error`). Sem X — as 2 ações cobrem as escolhas; Escape = Tentar novamente. Removido o painel inline + o CSS morto `.camera-hub-extracting*` (keyframe `cam-spin` mantido, pois é compartilhado). `skill-maintenance`: skill `modals` atualizada (tabela de variantes + mapa de fluxo). Commits: `c262bbc` (feature) + este (docs).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit.
+
 ### 2026-06-01 — Sessão 8 (modal de sucesso da classificação no padrão do de registro) ✅
 
 `ClassificationSuccessModal` (`flowState === 'success'`) alinhado ao `SampleCreatedSuccessModal`. Só UI.
