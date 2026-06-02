@@ -5446,15 +5446,15 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-/* Tracinho verde antes do nome do dado (accent). inline-block + vertical-align
-   middle pra ficar ao lado do texto sem quebrar o truncamento (ellipsis) nem
-   empurrar a largura da coluna. */
+/* Tracinho verde vertical antes do nome do dado (accent). Barra fina na
+   vertical ocupa pouquissima largura — ao lado do nome sem atrapalhar a
+   disposicao nem quebrar o truncamento (ellipsis). So no nome, nunca no valor. */
 .spv2-card-stat-label::before {
   content: '';
   display: inline-block;
-  width: clamp(6px, 1.8vw, 9px);
-  height: 2px;
-  margin-right: 4px;
+  width: 2px;
+  height: clamp(8px, 2.2vw, 10px);
+  margin-right: 5px;
   vertical-align: middle;
   background: var(--brand-green);
   border-radius: 1px;
