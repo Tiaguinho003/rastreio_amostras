@@ -10,7 +10,7 @@ import type { DashboardSalesAvailabilityResponse } from '../lib/types';
 type AgingKey = 'over30' | 'from15to30' | 'under15';
 
 const AGING_BANDS: Array<{ key: AgingKey; label: string; description: string }> = [
-  { key: 'over30', label: '+30 dias', description: 'Lotes parados ha mais de 30 dias' },
+  { key: 'over30', label: '+30 dias', description: 'Lotes parados há mais de 30 dias' },
   { key: 'from15to30', label: '+15 dias', description: 'Lotes entre 15 e 30 dias' },
   { key: 'under15', label: '-15 dias', description: 'Lotes com menos de 15 dias' },
 ];
@@ -48,7 +48,7 @@ export function SalesAgingModal({ data, onClose }: SalesAgingModalProps) {
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id={titleId} className="app-modal-title">
-              Distribuicao por tempo
+              Distribuição por tempo
             </h3>
           </div>
           <button
@@ -77,7 +77,10 @@ export function SalesAgingModal({ data, onClose }: SalesAgingModalProps) {
                   <span className="sales-aging-card-description">{description}</span>
                 </div>
                 <div className="sales-aging-card-meta">
-                  <strong className="sales-aging-count">{data.bands[key]}</strong>
+                  <span className="sales-aging-count-wrap">
+                    <strong className="sales-aging-count">{data.bands[key]}</strong>
+                    <span className="sales-aging-unit">lotes</span>
+                  </span>
                   <svg
                     className="sales-aging-arrow"
                     viewBox="0 0 24 24"

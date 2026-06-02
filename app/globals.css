@@ -21102,18 +21102,20 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: clamp(0.7rem, 2.4vw, 0.95rem);
-  padding: clamp(0.75rem, 2.6vw, 1rem) clamp(0.85rem, 3vw, 1.15rem);
+  padding: clamp(0.7rem, 2.6vw, 0.95rem) clamp(0.85rem, 3vw, 1.1rem);
   background: #ffffff;
-  border-radius: clamp(10px, 3vw, 12px);
-  border-left: 4px solid currentColor;
+  border-radius: clamp(8px, 2.4vw, 10px);
+  /* Institucional: superficie chata com borda sutil + acento fino a esquerda
+     (em vez de sombra "flutuante"). */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 3px solid currentColor;
   text-decoration: none;
   color: inherit;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition:
     transform 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   min-width: 0;
 }
@@ -21142,10 +21144,11 @@ button:disabled {
 }
 
 .sales-aging-label {
-  font-size: clamp(0.95rem, 3.3vw, 1.1rem);
-  font-weight: 700;
+  font-size: clamp(0.9rem, 3vw, 1rem);
+  font-weight: 600;
   color: currentColor;
-  line-height: 1.1;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
 .sales-aging-card-description {
@@ -21162,12 +21165,31 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* Metrica institucional: numero medido (nao gigante) + unidade rotulada. */
+.sales-aging-count-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .sales-aging-count {
-  font-size: clamp(1.4rem, 5vw, 1.8rem);
-  font-weight: 800;
+  font-size: clamp(1.25rem, 4.2vw, 1.5rem);
+  font-weight: 700;
   color: currentColor;
   line-height: 1;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sales-aging-unit {
+  font-size: clamp(0.6rem, 2vw, 0.68rem);
+  font-weight: 600;
+  color: #8a929b;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
 }
 
 /* Seta visual ao lado do count — indica que o card e clicavel. Cor
@@ -21178,10 +21200,10 @@ button:disabled {
   height: clamp(0.9rem, 3vw, 1.05rem);
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.7;
+  opacity: 0.4;
   flex-shrink: 0;
 }
 
@@ -22566,10 +22588,9 @@ button:disabled {
   }
 
   .sales-aging-card:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.08),
-      0 8px 20px rgba(0, 0, 0, 0.04);
+    transform: translateY(-1px);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   .sales-aging-card:active {
