@@ -35,17 +35,17 @@ function deriveCardStatus(sample: SampleSnapshot): CardStatus {
   return { kind: 'open', label: 'Em aberto', className: 'is-card-open' };
 }
 
-// Limite de caracteres por dado do card expandido (grade 2x2). O CSS ja
-// trunca com reticencias (text-overflow), mas este teto e um reforco pra
-// garantir que um valor muito longo nunca desorganize o grid. Limites
-// generosos — raramente cortam dado real, so pegam valores anomalos.
-// "Local" pode ser um nome de lugar maior, entao tem mais folga; os campos
-// de classificacao (padrao/aspecto/catacao) sao curtos por natureza.
+// Limite de caracteres por dado do card expandido (4 numa unica linha). O
+// CSS ja trunca com reticencias (text-overflow) e impede transbordar o
+// card; este teto e um reforco pra um valor longo nao empurrar o layout.
+// Limites menores que no 2x2 porque cada celula agora ocupa ~1/4 da largura.
+// "Local" tem um pouco mais de folga (nome de lugar); padrao/aspecto/catacao
+// sao curtos por natureza.
 const EXPANDED_STAT_LIMIT = {
-  location: 22,
-  padrao: 16,
-  aspecto: 16,
-  catacao: 16,
+  location: 16,
+  padrao: 12,
+  aspecto: 12,
+  catacao: 12,
 };
 
 function formatExpandedStat(raw: unknown, max: number): string | null {
