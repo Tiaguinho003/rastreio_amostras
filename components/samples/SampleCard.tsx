@@ -241,25 +241,25 @@ export function SampleCard({
       >
         <div className="spv2-card-expanded-inner">
           <div className="spv2-card-stats-grid">
-            <div className="spv2-card-stat">
+            <div className={`spv2-card-stat${localStat === null ? ' is-empty' : ''}`}>
               <span className="spv2-card-stat-label">Local</span>
               <span className="spv2-card-stat-value">
                 {localStat ?? <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
-            <div className="spv2-card-stat">
+            <div className={`spv2-card-stat${padraoStat === null ? ' is-empty' : ''}`}>
               <span className="spv2-card-stat-label">Padrão</span>
               <span className="spv2-card-stat-value">
                 {padraoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
-            <div className="spv2-card-stat">
+            <div className={`spv2-card-stat${aspectoStat === null ? ' is-empty' : ''}`}>
               <span className="spv2-card-stat-label">Aspecto</span>
               <span className="spv2-card-stat-value">
                 {aspectoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
               </span>
             </div>
-            <div className="spv2-card-stat">
+            <div className={`spv2-card-stat${catacaoStat === null ? ' is-empty' : ''}`}>
               <span className="spv2-card-stat-label">Catação</span>
               <span className="spv2-card-stat-value">
                 {catacaoStat ?? <span className="spv2-card-stat-value--empty">—</span>}
