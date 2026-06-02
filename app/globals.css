@@ -21146,16 +21146,11 @@ button:disabled {
 .sales-aging-label {
   font-size: clamp(0.9rem, 3vw, 1rem);
   font-weight: 600;
-  color: currentColor;
+  /* Frase em tom institucional sobrio (nao na cor da faixa) — a cor
+     semantica fica so no numero + acento, pra nao ficar colorido demais. */
+  color: #2a3d2f;
   line-height: 1.15;
   letter-spacing: -0.01em;
-}
-
-.sales-aging-card-description {
-  font-size: clamp(0.74rem, 2.5vw, 0.82rem);
-  font-weight: 400;
-  color: #4a5763;
-  line-height: 1.2;
 }
 
 .sales-aging-card-meta {
@@ -21169,7 +21164,7 @@ button:disabled {
 .sales-aging-count-wrap {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 1px;
   line-height: 1;
   flex-shrink: 0;
