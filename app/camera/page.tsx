@@ -9,6 +9,7 @@ import { type LookupKind, SampleLookupResultModal } from '../../components/Sampl
 import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
 import { ClassificationDetectFailedModal } from '../../components/samples/ClassificationDetectFailedModal';
+import { ClassificationStatusInvalidModal } from '../../components/samples/ClassificationStatusInvalidModal';
 import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
 import { ClassificationLotMismatchModal } from '../../components/samples/ClassificationLotMismatchModal';
 import { ClassificationManualConfirmModal } from '../../components/samples/ClassificationManualConfirmModal';
@@ -81,6 +82,9 @@ type ClassificationFlowState =
   | 'resolving'
   | 'overwrite-confirm'
   | 'not-found'
+  // Amostra com status que nao permite classificacao. Validado no "Avancar"
+  // do review (entre confirming e selecting-type).
+  | 'status-invalid'
   | 'lot-mismatch'
   | 'data-mismatch'
   | 'submitting'
@@ -949,6 +953,56 @@ function CameraPageContent() {
     }
   }
 
+  // Avancar do review (apos a validacao numerica da propria sheet): identifica
+  // a amostra e valida o status ANTES do modal de tipo. Flow B: usa o status do
+  // contexto. Flow A: resolve o lote agora (resolve + not-found + status cedo),
+  // em vez de so no Confirmar.
+  async function handleReviewAdvance() {
+    if (!session) return;
+
+    if (hasContext && contextSampleId) {
+      if (
+        !contextSampleStatus ||
+        (contextSampleStatus !== 'REGISTRATION_CONFIRMED' && contextSampleStatus !== 'CLASSIFIED')
+      ) {
+        setFlowState('status-invalid');
+        return;
+      }
+      setFlowState('selecting-type');
+      return;
+    }
+
+    // Flow A: resolve o lote agora pra validar status/existencia cedo.
+    const lot = editableLot.trim();
+    if (!lot) {
+      setFlowError('Numero do lote e obrigatorio.');
+      return;
+    }
+    setFlowState('resolving');
+    setFlowError(null);
+    try {
+      const resolved = await resolveSampleByLot(session, lot);
+      if (!mountedRef.current) return;
+      if (!resolved.found || !resolved.sample) {
+        setFlowState('not-found');
+        return;
+      }
+      setResolvedSample(resolved.sample);
+      if (
+        resolved.sample.status !== 'REGISTRATION_CONFIRMED' &&
+        resolved.sample.status !== 'CLASSIFIED'
+      ) {
+        setFlowState('status-invalid');
+        return;
+      }
+      setFlowState('selecting-type');
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setFlowError(readErrorMessage(error, 'Falha ao buscar amostra.'));
+      setFlowState('confirming');
+    }
+  }
+
   async function handleConfirmClassification() {
     if (!session) return;
     // Em modo manual o extractionResult e null (a IA falhou), mas o
@@ -969,27 +1023,8 @@ function CameraPageContent() {
     const harvestSource = editableHarvest.trim() || null;
 
     if (hasContext && contextSampleId) {
-      // Defesa em profundidade: a UI ja desabilita captura quando
-      // contextSampleStatus e null, mas em race conditions (ex: foto
-      // tirada antes do load terminar) chegamos aqui sem status. Recusar
-      // antes da chamada da IA evita gastar 15-30 s + custo OpenAI pra
-      // depois levar 409 do backend.
-      if (!contextSampleStatus) {
-        setFlowError(
-          'Nao foi possivel carregar a amostra. Tente novamente ou volte para o dashboard.'
-        );
-        return;
-      }
-
-      // Flow B: validate status and lot match
-      if (
-        contextSampleStatus !== 'REGISTRATION_CONFIRMED' &&
-        contextSampleStatus !== 'CLASSIFIED'
-      ) {
-        setFlowError('Amostra nao pode ser classificada (status invalido).');
-        return;
-      }
-
+      // Status ja validado no Avancar (handleReviewAdvance) — aqui so o
+      // lot-mismatch (lote editavel no modo manual) + reconciliacao + save.
       const enteredLot = normalizeLot(editableLot);
       const sampleLot = normalizeLot(contextSampleLot);
 
@@ -1033,69 +1068,40 @@ function CameraPageContent() {
 
       await saveClassification(contextSampleId);
     } else {
-      // Flow A: resolve sample by lot
-      const lot = editableLot.trim();
-      if (!lot) {
-        setFlowError('Numero do lote e obrigatorio.');
+      // Flow A: amostra ja resolvida + status validado no Avancar
+      // (handleReviewAdvance). Aqui so reconciliamos divergencias e salvamos.
+      if (!resolvedSample) {
+        setFlowError('Amostra nao resolvida. Volte e tente novamente.');
+        setFlowState('confirming');
         return;
       }
 
-      setFlowState('resolving');
-      setFlowError(null);
-
-      try {
-        const resolved = await resolveSampleByLot(session, lot);
-
-        if (!mountedRef.current) return;
-
-        if (!resolved.found || !resolved.sample) {
-          setFlowState('not-found');
-          return;
+      const divergences = compareIdentification(
+        {
+          lote: null,
+          sacas: sacasSource,
+          safra: harvestSource,
+        },
+        {
+          declaredSacks: resolvedSample.declared?.sacks ?? null,
+          declaredHarvest: resolvedSample.declared?.harvest ?? null,
         }
-
-        setResolvedSample(resolved.sample);
-
-        if (
-          resolved.sample.status !== 'REGISTRATION_CONFIRMED' &&
-          resolved.sample.status !== 'CLASSIFIED'
-        ) {
-          setFlowError('Amostra nao pode ser classificada (status invalido).');
-          setFlowState('confirming');
-          return;
-        }
-
-        const divergences = compareIdentification(
-          {
-            lote: null,
-            sacas: sacasSource,
-            safra: harvestSource,
-          },
-          {
-            declaredSacks: resolved.sample.declared?.sacks ?? null,
-            declaredHarvest: resolved.sample.declared?.harvest ?? null,
-          }
-        );
-        if (divergences.length > 0) {
-          setMismatchDivergences(divergences);
-          // Q.cls.2 sub-caminho 4: sem default.
-          setMismatchChoices({});
-          setMismatchTargetSampleId(resolved.sample.id);
-          setMismatchOverwriteAfter(resolved.sample.status === 'CLASSIFIED');
-          setFlowState('data-mismatch');
-          return;
-        }
-
-        if (resolved.sample.status === 'CLASSIFIED') {
-          setFlowState('overwrite-confirm');
-          return;
-        }
-
-        await saveClassification(resolved.sample.id);
-      } catch (error) {
-        if (!mountedRef.current) return;
-        setFlowError(readErrorMessage(error, 'Falha ao buscar amostra.'));
-        setFlowState('confirming');
+      );
+      if (divergences.length > 0) {
+        setMismatchDivergences(divergences);
+        setMismatchChoices({});
+        setMismatchTargetSampleId(resolvedSample.id);
+        setMismatchOverwriteAfter(resolvedSample.status === 'CLASSIFIED');
+        setFlowState('data-mismatch');
+        return;
       }
+
+      if (resolvedSample.status === 'CLASSIFIED') {
+        setFlowState('overwrite-confirm');
+        return;
+      }
+
+      await saveClassification(resolvedSample.id);
     }
   }
 
@@ -1535,6 +1541,19 @@ function CameraPageContent() {
         onContinue={() => void handleContinueWithoutCrop()}
       />
 
+      {/* Status invalido: validado no Avancar (entre review e tipo). */}
+      <ClassificationStatusInvalidModal
+        open={flowState === 'status-invalid'}
+        onCancel={() => {
+          if (hasContext) router.back();
+          else resetClassificationFlow();
+        }}
+        onViewDetails={() => {
+          const id = contextSampleId ?? resolvedSample?.id;
+          if (id) router.push(`/samples/${id}`);
+        }}
+      />
+
       {/* Q.cls.2 sub-caminho 3b → 2o modal: confirma o modo manual antes
           de abrir o ReviewModal sem extracao da IA.
           F3.10: voltar leva ao modal de origem correto (illegible ou technical). */}
@@ -1678,7 +1697,7 @@ function CameraPageContent() {
             errorMessage={flowError}
             saving={false}
             formId={REVIEW_FORM_ID}
-            onAdvance={() => setFlowState('selecting-type')}
+            onAdvance={() => void handleReviewAdvance()}
           />
         ) : capturedPhotoUrl ? (
           <div className="camera-preview-sheet-body">

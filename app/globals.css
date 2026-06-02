@@ -18925,6 +18925,55 @@ button:disabled {
   line-height: 1.2;
 }
 
+/* ── Status invalido (amostra nao classificavel) — modal de decisao no mesmo
+   padrao. Validado no "Avancar" (entre review e tipo). ── */
+.status-invalid-modal {
+  width: min(34rem, calc(100vw - 1.5rem));
+  max-width: min(34rem, calc(100vw - 1.5rem));
+}
+
+.status-invalid-content {
+  padding: clamp(1.1rem, 3.5vw, 1.5rem) !important;
+  gap: clamp(1rem, 2.5vw, 1.25rem) !important;
+}
+
+.status-invalid-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 2.5vw, 14px);
+}
+
+.status-invalid-icon {
+  width: clamp(48px, 12vw, 60px);
+  height: clamp(48px, 12vw, 60px);
+}
+
+.status-invalid-text {
+  margin: 0;
+  font-size: clamp(0.92rem, 3vw, 1rem);
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+.app-modal.is-themed .app-modal-actions.status-invalid-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.status-invalid-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.8rem, 3vw, 0.92rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
+}
+
 /* ── Q.cls.2 sub-caminho 3b → 2o modal: confirma modo manual ── */
 
 .manual-confirm-modal {
