@@ -5455,7 +5455,7 @@ button:disabled {
   display: inline-block;
   width: 2px;
   height: 0.72em;
-  margin-right: 5px;
+  margin-right: 3px;
   vertical-align: middle;
   background: var(--brand-green);
   border-radius: 1px;
