@@ -13,10 +13,11 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 // Reason code/text ficam no state local do parent ate Q.cls.2.7 incluir
 // no payload de updateClassification. UI ja garante a UX decidida.
 //
-// Acoes: "Voltar" (esquerda, onBack) volta pro modal anterior
-// (classificador ou data-mismatch); "Confirmar reclassificacao" (direita,
-// laranja/is-warning, onConfirm) salva. O "x" do header (onCancel) cancela
-// o processo todo e volta pra camera. Escape = onCancel (mesmo do x).
+// Acoes: "Voltar" (esquerda, onBack) volta pro modal de revisao (dados
+// extraidos) pra facilitar a conferencia do lote; "Confirmar
+// reclassificacao" (direita, laranja/is-warning, onConfirm) salva. O "x"
+// do header (onCancel) cancela o processo todo e volta pra camera.
+// Escape = onCancel (mesmo do x).
 
 export type ReclassifyReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 
@@ -37,7 +38,8 @@ type Props = {
   showErrors: boolean;
   onReasonCodeChange: (code: ReclassifyReasonCode) => void;
   onReasonTextChange: (text: string) => void;
-  // Voltar pro modal anterior (classificador / data-mismatch).
+  // Voltar pro modal de revisao (dados extraidos), pra facilitar a
+  // conferencia do lote antes de reclassificar.
   onBack: () => void;
   // Cancela o processo de classificacao (x do header) → volta pra camera.
   onCancel: () => void;

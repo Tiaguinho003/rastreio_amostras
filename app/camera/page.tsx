@@ -228,11 +228,6 @@ function CameraPageContent() {
   );
   const [reclassifyReasonText, setReclassifyReasonText] = useState('');
   const [reclassifyShowErrors, setReclassifyShowErrors] = useState(false);
-  // "Voltar" no modal de reclassificacao volta pro modal que o abriu:
-  // selecting-classifier no caminho normal, data-mismatch quando veio da
-  // reconciliacao de divergencias. O "x" cancela o processo todo.
-  const [overwriteOrigin, setOverwriteOrigin] =
-    useState<ClassificationFlowState>('selecting-classifier');
 
   const scannerBlocked = resultModalOpen || flowState !== 'idle';
   const showStatusText = Boolean(cameraError) || cameraStatus !== 'scanning';
@@ -637,7 +632,6 @@ function CameraPageContent() {
     setReclassifyReasonCode(null);
     setReclassifyReasonText('');
     setReclassifyShowErrors(false);
-    setOverwriteOrigin('selecting-classifier');
     if (galleryInputRef.current) {
       galleryInputRef.current.value = '';
     }
@@ -1068,7 +1062,6 @@ function CameraPageContent() {
       // antes de salvar.
       if (contextSampleStatus === 'CLASSIFIED') {
         setMismatchTargetSampleId(contextSampleId);
-        setOverwriteOrigin('selecting-classifier');
         setFlowState('overwrite-confirm');
         return;
       }
@@ -1104,7 +1097,6 @@ function CameraPageContent() {
       }
 
       if (resolvedSample.status === 'CLASSIFIED') {
-        setOverwriteOrigin('selecting-classifier');
         setFlowState('overwrite-confirm');
         return;
       }
@@ -1116,7 +1108,6 @@ function CameraPageContent() {
   async function handleApplyMismatchResolution() {
     if (!mismatchTargetSampleId) return;
     if (mismatchOverwriteAfter) {
-      setOverwriteOrigin('data-mismatch');
       setFlowState('overwrite-confirm');
       return;
     }
@@ -1470,7 +1461,7 @@ function CameraPageContent() {
           setReclassifyReasonText(text);
           if (text.trim().length > 0) setReclassifyShowErrors(false);
         }}
-        onBack={() => setFlowState(overwriteOrigin)}
+        onBack={() => setFlowState('confirming')}
         onCancel={() => {
           if (hasContext) router.back();
           else resetClassificationFlow();
