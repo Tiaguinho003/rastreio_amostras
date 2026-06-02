@@ -12,6 +12,11 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 //
 // Reason code/text ficam no state local do parent ate Q.cls.2.7 incluir
 // no payload de updateClassification. UI ja garante a UX decidida.
+//
+// Acoes: "Voltar" (esquerda, onBack) volta pro modal anterior
+// (classificador ou data-mismatch); "Confirmar reclassificacao" (direita,
+// laranja/is-warning, onConfirm) salva. O "x" do header (onCancel) cancela
+// o processo todo e volta pra camera. Escape = onCancel (mesmo do x).
 
 export type ReclassifyReasonCode = 'DATA_FIX' | 'TYPO' | 'MISSING_INFO' | 'OTHER';
 
@@ -32,6 +37,9 @@ type Props = {
   showErrors: boolean;
   onReasonCodeChange: (code: ReclassifyReasonCode) => void;
   onReasonTextChange: (text: string) => void;
+  // Voltar pro modal anterior (classificador / data-mismatch).
+  onBack: () => void;
+  // Cancela o processo de classificacao (x do header) → volta pra camera.
   onCancel: () => void;
   onConfirm: () => void;
   saving?: boolean;
@@ -45,6 +53,7 @@ export function ClassificationReclassifyModal({
   showErrors,
   onReasonCodeChange,
   onReasonTextChange,
+  onBack,
   onCancel,
   onConfirm,
   saving = false,
@@ -155,22 +164,22 @@ export function ClassificationReclassifyModal({
             </label>
           ) : null}
 
-          <div className="app-modal-actions">
+          <div className="app-modal-actions reclassify-actions">
             <button
               type="button"
-              className="app-modal-submit is-danger"
+              className="app-modal-secondary"
+              onClick={onBack}
+              disabled={saving}
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              className="app-modal-submit is-warning"
               onClick={onConfirm}
               disabled={saving}
             >
               {saving ? 'Salvando...' : 'Confirmar reclassificação'}
-            </button>
-            <button
-              type="button"
-              className="app-modal-secondary"
-              onClick={onCancel}
-              disabled={saving}
-            >
-              Cancelar
             </button>
           </div>
         </div>
