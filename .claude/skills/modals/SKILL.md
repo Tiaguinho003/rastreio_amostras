@@ -122,11 +122,12 @@ export function MeuModal({ open, saving, errorMessage, onClose, onSubmit }: Prop
 
 ## 3. Variantes
 
-| Modificador                   | Quando usar                                                              | Largura |
-| ----------------------------- | ------------------------------------------------------------------------ | ------- |
-| `.is-themed`                  | **Sempre** — define header verde brand + body branco + actions à direita | 38rem   |
-| `.is-wide`                    | Formularios grandes (>5 campos, ou linhas com 2+ colunas)                | 46rem   |
-| `.app-modal-submit.is-danger` | Botao primario de acao destrutiva (inativacao, exclusao em cascata)      | —       |
+| Modificador                    | Quando usar                                                                                                           | Largura |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------- |
+| `.is-themed`                   | **Sempre** — define header verde brand + body branco + actions à direita                                              | 38rem   |
+| `.is-wide`                     | Formularios grandes (>5 campos, ou linhas com 2+ colunas)                                                             | 46rem   |
+| `.app-modal-submit.is-danger`  | Botao primario de acao destrutiva (inativacao, exclusao em cascata)                                                   | —       |
+| `.app-modal-submit.is-warning` | Botao primario de "prosseguir com aviso" laranja (continuar apesar de divergencia de lote; confirmar reclassificacao) | —       |
 
 Combinar livremente: `.app-modal is-themed is-wide`.
 
@@ -351,6 +352,11 @@ Sob `.is-themed`, `flex; justify-content: flex-end` faz Submit aparecer **a esqu
 - Sombra vermelha
 - Usar **somente** em acoes terminais (inativar com cascade, deletar)
 
+`.app-modal-submit.is-warning`:
+
+- Gradient laranja `#f59e0b → #e67e22`
+- Usar em acoes de "prosseguir com aviso" — nao destrutivas, mas exigem atencao (continuar apesar de divergencia de lote; confirmar reclassificacao de amostra ja classificada)
+
 ### Secondary
 
 `.app-modal-secondary`:
@@ -492,20 +498,20 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handleSendPhoto → detecting → detected → extracting → ` (3a/3b se falha; senão) ` confirming (Review) → selecting-type (Type) → selecting-classifier (Classifier) → submitting → success`. Mismatch/reclassify aparecem no caminho do save.
 
-| Modal                              | Arquivo                                                     | Sub-caminho                         | Variantes                  |
-| ---------------------------------- | ----------------------------------------------------------- | ----------------------------------- | -------------------------- |
-| ClassificationReviewModal          | `components/samples/ClassificationReviewModal.tsx`          | Q.cls.2.3 (revisão pós-extração)    | `is-themed is-wide`        |
-| ClassificationTypeModal            | `components/samples/ClassificationTypeModal.tsx`            | Q.cls.2.8 (seleção de tipo)         | `is-themed`                |
-| ClassificationClassifierModal      | `components/samples/ClassificationClassifierModal.tsx`      | Q.cls.2.9 (seleção classificadores) | `is-themed`                |
-| ClassificationExtractionErrorModal | `components/samples/ClassificationExtractionErrorModal.tsx` | Sub-caminhos 3a + 3b                | `is-themed`                |
-| ClassificationDetectFailedModal    | `components/samples/ClassificationDetectFailedModal.tsx`    | Ficha não detectada (detect-failed) | `is-themed`                |
-| ClassificationManualConfirmModal   | `components/samples/ClassificationManualConfirmModal.tsx`   | 2º modal de 3b                      | `is-themed`                |
-| ClassificationLotMismatchModal     | `components/samples/ClassificationLotMismatchModal.tsx`     | Sub-caminho 2 (lote diverge)        | `is-themed`                |
-| ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`        |
-| ClassificationReclassifyModal      | `components/samples/ClassificationReclassifyModal.tsx`      | Sub-caminho 5 (reclassificação)     | `is-themed` + `.is-danger` |
-| ClassificationNotFoundModal        | `components/samples/ClassificationNotFoundModal.tsx`        | Flow A legacy fallback              | `is-themed`                |
-| ClassificationStatusInvalidModal   | `components/samples/ClassificationStatusInvalidModal.tsx`   | Status inválido (no Avançar)        | `is-themed`                |
-| ClassificationSuccessModal         | `components/samples/ClassificationSuccessModal.tsx`         | Tela de sucesso pós-classificação   | `is-themed`                |
+| Modal                              | Arquivo                                                     | Sub-caminho                         | Variantes                   |
+| ---------------------------------- | ----------------------------------------------------------- | ----------------------------------- | --------------------------- |
+| ClassificationReviewModal          | `components/samples/ClassificationReviewModal.tsx`          | Q.cls.2.3 (revisão pós-extração)    | `is-themed is-wide`         |
+| ClassificationTypeModal            | `components/samples/ClassificationTypeModal.tsx`            | Q.cls.2.8 (seleção de tipo)         | `is-themed`                 |
+| ClassificationClassifierModal      | `components/samples/ClassificationClassifierModal.tsx`      | Q.cls.2.9 (seleção classificadores) | `is-themed`                 |
+| ClassificationExtractionErrorModal | `components/samples/ClassificationExtractionErrorModal.tsx` | Sub-caminhos 3a + 3b                | `is-themed`                 |
+| ClassificationDetectFailedModal    | `components/samples/ClassificationDetectFailedModal.tsx`    | Ficha não detectada (detect-failed) | `is-themed`                 |
+| ClassificationManualConfirmModal   | `components/samples/ClassificationManualConfirmModal.tsx`   | 2º modal de 3b                      | `is-themed`                 |
+| ClassificationLotMismatchModal     | `components/samples/ClassificationLotMismatchModal.tsx`     | Sub-caminho 2 (lote diverge)        | `is-themed`                 |
+| ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`         |
+| ClassificationReclassifyModal      | `components/samples/ClassificationReclassifyModal.tsx`      | Sub-caminho 5 (reclassificação)     | `is-themed` + `.is-warning` |
+| ClassificationNotFoundModal        | `components/samples/ClassificationNotFoundModal.tsx`        | Flow A legacy fallback              | `is-themed`                 |
+| ClassificationStatusInvalidModal   | `components/samples/ClassificationStatusInvalidModal.tsx`   | Status inválido (no Avançar)        | `is-themed`                 |
+| ClassificationSuccessModal         | `components/samples/ClassificationSuccessModal.tsx`         | Tela de sucesso pós-classificação   | `is-themed`                 |
 
 > Padrao da extracao: avisos de erro/mismatch usam `role="alertdialog"`; modal de tipo+classifier+revisao usam `role="dialog"`. Modais com seta de Voltar no header (Type, ManualConfirm, Classifier) reutilizam a classe `.type-modal-back` que aplica fundo branco translucido + ESC = onBack.
 
@@ -576,8 +582,11 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
        handleConfirmClassification (status/resolve ja feitos no Avancar)
            ├── lote(editavel) ≠ contextSampleLot ──► lot-mismatch (LotMismatchModal) ─ "Tirar outra" ─ reset
            │                                                                          "Cancelar"    ─ router.back()
-           ├── divergencias sacas/safra ───────────► data-mismatch (DataMismatchModal) ─ ESCOLHA campo a campo ─► "Aplicar e salvar"
-           ├── sample CLASSIFIED ──────────────────► overwrite-confirm (ReclassifyModal com reason) ─► "Confirmar" ─► save
+           ├── divergencias sacas/safra ───────────► data-mismatch (DataMismatchModal) ─ ESCOLHA campo a campo ─► "Aplicar" ─► save (ou overwrite-confirm se CLASSIFIED)
+           ├── sample CLASSIFIED ──────────────────► overwrite-confirm (ReclassifyModal com reason):
+           │         ├ "Confirmar recl." (laranja/is-warning, direita) ─► save
+           │         ├ "Voltar" (esquerda) ─ modal anterior (selecting-classifier / data-mismatch, via overwriteOrigin)
+           │         └ "x" ─ cancela processo → camera (hasContext ? router.back : reset)
            └── tudo OK ─────────────────────────────► saveClassification → submitting → success
 ```
 
@@ -593,7 +602,7 @@ Ao construir ou revisar um modal:
 - [ ] Erro generico do topo em `<p className="sdv-modal-error">`
 - [ ] Erro por campo via `.app-modal-input.has-error` + `<span className="cudm-edit-error">`
 - [ ] `<div className="app-modal-actions">` na ordem `[Submit, Secondary]`
-- [ ] Submit: `.app-modal-submit` (verde) ou `.app-modal-submit.is-danger` (vermelho)
+- [ ] Submit: `.app-modal-submit` (verde), `.app-modal-submit.is-danger` (vermelho, terminal) ou `.app-modal-submit.is-warning` (laranja, prosseguir-com-aviso)
 - [ ] Secondary: `.app-modal-secondary`
 - [ ] `disabled={saving}` em **todos** os inputs e botoes
 - [ ] Submit muda texto durante saving (`'Salvando...'`, `'Inativando...'`, etc)

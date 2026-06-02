@@ -1422,6 +1422,12 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-02 — Sessão 12 (modal de reclassificação: botões + semântica do x) ✅
+
+`ClassificationReclassifyModal` (sub-caminho 5, amostra já CLASSIFIED): **"Confirmar reclassificação"** passa de vermelho (`is-danger`) pra **laranja** (`is-warning`) — a ação é "prosseguir com aviso", não destrutiva. **"Cancelar"** vira **"Voltar"** (novo prop `onBack`) e os botões **trocam de lado**: **Voltar à esquerda** (secundário) / **Confirmar reclassificação à direita** (laranja), com largura igual via `.reclassify-actions` (mesmo padrão side-by-side dos demais modais de decisão). O **"x"** do header passa a **cancelar o processo todo** → câmera (`hasContext ? router.back : resetClassificationFlow`), já que "Voltar" cobre o retorno ao modal anterior. Novo estado `overwriteOrigin` registra de onde o modal foi aberto (`selecting-classifier` no caminho normal; `data-mismatch` quando veio da reconciliação) pra que "Voltar" leve ao **modal anterior correto**. `skill-maintenance`: skill `modals` atualizada (variante `.is-warning` na tabela de modificadores + seção de botões + linha do ReclassifyModal + mapa de fluxo).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit.
+
 ### 2026-06-02 — Sessão 11 (redesign do modal de lote não encontrado) ✅
 
 `ClassificationNotFoundModal`: removidos o **X** do header e o botão **"Cadastrar nova amostra"** (o registro é sequencial — cadastrar fora da sequência pela classificação não faz sentido). Agora **2 botões de mesma largura/proporção**: **"Voltar"** (volta pro review/dados extraídos pra corrigir o lote → `confirming`) e **"Cancelar"** (sai do fluxo → `resetClassificationFlow`). Título vira **"Lote <número> não encontrado"**; subtítulo do header removido; explicação do corpo mantida. Props `onSair`/`onCadastrarNova` → `onBack`/`onCancel`; Escape = Cancelar. `.not-found-actions` espelha o layout side-by-side dos demais modais de decisão. `skill-maintenance`: mapa de fluxo do `modals` atualizado (not-found → "Voltar"/"Cancelar"). Commits: `8ef6d8d` (feature) + este (docs).
