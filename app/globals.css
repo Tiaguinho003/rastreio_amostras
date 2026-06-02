@@ -19800,6 +19800,24 @@ button:disabled {
   color: rgba(0, 0, 0, 0.7);
 }
 
+/* 2 botoes lado a lado, mesma largura/proporcao, com respiro das bordas. */
+.app-modal.is-themed .app-modal-actions.not-found-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.not-found-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.8rem, 3vw, 0.92rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
+}
+
 /* ── Type selection modal (cam-type) ── */
 
 .cam-type-backdrop {

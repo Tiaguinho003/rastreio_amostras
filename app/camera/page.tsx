@@ -1470,8 +1470,8 @@ function CameraPageContent() {
       <ClassificationNotFoundModal
         open={flowState === 'not-found'}
         lot={editableLot}
-        onSair={() => router.push('/dashboard')}
-        onCadastrarNova={() => router.push('/samples/new')}
+        onBack={() => setFlowState('confirming')}
+        onCancel={resetClassificationFlow}
       />
 
       {/* Q.cls.2.3: Modal de revisao da ficha unificada. Avancar dispara

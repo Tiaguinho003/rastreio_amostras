@@ -4,19 +4,20 @@ import { useEffect } from 'react';
 
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
-// Q.cls.2: amostra nao encontrada (Flow A — sem context). Pelo plano
-// "Caminho A unico" pos-Q.cls.2 esse fluxo nao deveria mais ser
-// alcancavel (acesso direto a /camera sem sampleId nao existe), mas
-// o componente fica como fallback de seguranca pra cenarios legados.
+// Q.cls.2: lote nao encontrado (Flow A — sem context). O lote e resolvido no
+// "Avancar" do review; se nao acha, este modal. Sem cadastro daqui de
+// proposito: o registro e sequencial, entao cadastrar fora da sequencia pela
+// classificacao nao faz sentido. Duas saidas iguais: Voltar (volta pro review
+// pra corrigir o lote) e Cancelar (sai do fluxo). Sem X; Escape = Cancelar.
 
 type Props = {
   open: boolean;
   lot: string;
-  onSair: () => void;
-  onCadastrarNova: () => void;
+  onBack: () => void;
+  onCancel: () => void;
 };
 
-export function ClassificationNotFoundModal({ open, lot, onSair, onCadastrarNova }: Props) {
+export function ClassificationNotFoundModal({ open, lot, onBack, onCancel }: Props) {
   const focusTrapRef = useFocusTrap(open);
 
   useEffect(() => {
@@ -24,12 +25,12 @@ export function ClassificationNotFoundModal({ open, lot, onSair, onCadastrarNova
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onSair();
+        onCancel();
       }
     }
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [open, onSair]);
+  }, [open, onCancel]);
 
   if (!open) return null;
 
@@ -46,17 +47,9 @@ export function ClassificationNotFoundModal({ open, lot, onSair, onCadastrarNova
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="not-found-title" className="app-modal-title">
-              Amostra não encontrada
+              {lot ? `Lote ${lot} não encontrado` : 'Lote não encontrado'}
             </h3>
-            <p className="app-modal-description">
-              {lot
-                ? `Nenhuma amostra cadastrada com o lote ${lot}.`
-                : 'Nenhuma amostra cadastrada com este lote.'}
-            </p>
           </div>
-          <button type="button" className="app-modal-close" onClick={onSair} aria-label="Fechar">
-            <span aria-hidden="true">&times;</span>
-          </button>
         </header>
 
         <div className="app-modal-content not-found-content">
@@ -65,12 +58,12 @@ export function ClassificationNotFoundModal({ open, lot, onSair, onCadastrarNova
             cadastre antes de classificar.
           </p>
 
-          <div className="app-modal-actions">
-            <button type="button" className="app-modal-submit" onClick={onCadastrarNova}>
-              Cadastrar nova amostra
+          <div className="app-modal-actions not-found-actions">
+            <button type="button" className="app-modal-submit" onClick={onBack}>
+              Voltar
             </button>
-            <button type="button" className="app-modal-secondary" onClick={onSair}>
-              Sair
+            <button type="button" className="app-modal-secondary" onClick={onCancel}>
+              Cancelar
             </button>
           </div>
         </div>
