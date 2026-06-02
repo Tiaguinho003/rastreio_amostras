@@ -504,6 +504,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 | ClassificationDataMismatchModal    | `components/samples/ClassificationDataMismatchModal.tsx`    | Sub-caminho 4 (sacas/safra)         | `is-themed is-wide`        |
 | ClassificationReclassifyModal      | `components/samples/ClassificationReclassifyModal.tsx`      | Sub-caminho 5 (reclassificação)     | `is-themed` + `.is-danger` |
 | ClassificationNotFoundModal        | `components/samples/ClassificationNotFoundModal.tsx`        | Flow A legacy fallback              | `is-themed`                |
+| ClassificationStatusInvalidModal   | `components/samples/ClassificationStatusInvalidModal.tsx`   | Status inválido (no Avançar)        | `is-themed`                |
 | ClassificationSuccessModal         | `components/samples/ClassificationSuccessModal.tsx`         | Tela de sucesso pós-classificação   | `is-themed`                |
 
 > Padrao da extracao: avisos de erro/mismatch usam `role="alertdialog"`; modal de tipo+classifier+revisao usam `role="dialog"`. Modais com seta de Voltar no header (Type, ManualConfirm, Classifier) reutilizam a classe `.type-modal-back` que aplica fundo branco translucido + ESC = onBack.
@@ -561,19 +562,22 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
            ▼ extracao OK
        confirming (ReviewModal) ─── "Cancelar" ─── reset
            │
-           ▼ "Avançar" (≥1 campo)
+           ▼ "Avançar" (≥1 campo) → handleReviewAdvance — valida ANTES do tipo:
+           │     ├── Flow A: resolve lote → nao encontrado ─► not-found (NotFoundModal) ─ "Sair"/"Cadastrar nova"
+           │     ├── status ∉ {RC, CLASSIFIED} ───────────► status-invalid (StatusInvalidModal) ─ "Cancelar"/"Ver detalhes"
+           │     └── ok ─► selecting-type
+           ▼
        selecting-type (TypeModal) ─── ← Voltar (seta) ─── confirming
            │ click num tipo
            ▼
        selecting-classifier (ClassifierModal) ─── ← Voltar (seta) ─── selecting-type
            │ "Confirmar"
            ▼
-       handleConfirmClassification
+       handleConfirmClassification (status/resolve ja feitos no Avancar)
            ├── lote(editavel) ≠ contextSampleLot ──► lot-mismatch (LotMismatchModal) ─ "Tirar outra" ─ reset
            │                                                                          "Cancelar"    ─ router.back()
            ├── divergencias sacas/safra ───────────► data-mismatch (DataMismatchModal) ─ ESCOLHA campo a campo ─► "Aplicar e salvar"
-           ├── sample CLASSIFIED (Flow A) ─────────► overwrite-confirm (ReclassifyModal com reason) ─► "Confirmar" ─► save
-           ├── lote nao encontrado (Flow A) ───────► not-found (NotFoundModal) ─ "Sair" / "Cadastrar nova"
+           ├── sample CLASSIFIED ──────────────────► overwrite-confirm (ReclassifyModal com reason) ─► "Confirmar" ─► save
            └── tudo OK ─────────────────────────────► saveClassification → submitting → success
 ```
 

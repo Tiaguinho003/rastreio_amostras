@@ -1422,6 +1422,14 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-02 — Sessão 10 (status inválido vira modal + validação antecipada) ✅
+
+"Amostra não pode ser classificada" (status inválido) deixa de ser **erro inline tardio** (e **invisível no Flow B** — `setFlowError` em `selecting-classifier`, que não renderiza `flowError`) e vira **modal central** (`ClassificationStatusInvalidModal`, `.app-modal.is-themed` `role="alertdialog"`) com ações **"Cancelar"** (sai: `router.back` no Flow B / reset no Flow A) e **"Ver detalhes"** (abre a amostra).
+
+**Validação antecipada**: novo `handleReviewAdvance` (onAdvance do review) valida o status **entre o review e o tipo** — Flow B usa `contextSampleStatus`; Flow A passa a **resolver o lote no Avançar** (resolve + not-found + status cedo), em vez de só no Confirmar. `handleConfirmClassification` simplificado: Flow A usa o `resolvedSample` já resolvido; mantém lot-mismatch, data-mismatch, overwrite (reclassificação) e save. Consequência boa: `not-found` (Flow A) também passa a aparecer cedo. CSS `.status-invalid-*`. `skill-maintenance`: skill `modals` atualizada (tabela de variantes + mapa de fluxo). Commits: `796d56e` (feature) + este (docs).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit.
+
 ### 2026-06-02 — Sessão 9 (ficha não detectada vira modal central) ✅
 
 `detect-failed` deixa de ser um painel na própria área da câmera e vira **modal central** (`ClassificationDetectFailedModal`) no mesmo padrão dos avisos de erro de extração (`.app-modal.is-themed`, `role="alertdialog"`). Botões **"Tentar novamente"** (reseta o fluxo) e **"Continuar"** (extrai da foto completa, sem crop), lado a lado com respiro das bordas (`.detect-failed-*` espelha o layout do `extraction-error`). Sem X — as 2 ações cobrem as escolhas; Escape = Tentar novamente. Removido o painel inline + o CSS morto `.camera-hub-extracting*` (keyframe `cam-spin` mantido, pois é compartilhado). `skill-maintenance`: skill `modals` atualizada (tabela de variantes + mapa de fluxo). Commits: `c262bbc` (feature) + este (docs).
