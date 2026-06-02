@@ -342,6 +342,28 @@ function clearSamplesSnapshot() {
   }
 }
 
+/* O elemento que realmente rola depende do breakpoint: no desktop a lista rola
+   no container interno (.spv2-list-scroll, height-constrained via @media
+   min-width:901px); no mobile o container NAO e constrangido e quem rola e a
+   janela/body. Por isso o snapshot precisa ler/escrever o scroll do scroller
+   correto — senao no mobile o container reporta sempre 0 e o scroll se perde
+   ao voltar da detail. */
+function readListScrollTop(container: HTMLElement | null): number {
+  if (container && container.scrollHeight - container.clientHeight > 1) {
+    return container.scrollTop;
+  }
+  if (typeof window === 'undefined') return 0;
+  return window.scrollY || document.documentElement.scrollTop || 0;
+}
+
+function applyListScrollTop(container: HTMLElement | null, top: number): void {
+  if (container && container.scrollHeight - container.clientHeight > 1) {
+    container.scrollTo({ top });
+    return;
+  }
+  if (typeof window !== 'undefined') window.scrollTo({ top });
+}
+
 /* ── Samples list reducer (scroll infinito com cursor) ── */
 
 type SampleCursor = { createdAt: string; id: string };
@@ -589,7 +611,11 @@ function SamplesPage() {
     const pending = pendingScrollRestoreRef.current;
     if (pending === null) return;
     pendingScrollRestoreRef.current = null;
-    samplesScrollRef.current?.scrollTo({ top: pending });
+    applyListScrollTop(samplesScrollRef.current, pending);
+    // Belt: reaplica no proximo frame. No mobile quem rola e a janela e o
+    // valor pode nao "pegar" antes do layout final / da navegacao concluir.
+    const raf = requestAnimationFrame(() => applyListScrollTop(samplesScrollRef.current, pending));
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -956,7 +982,7 @@ function SamplesPage() {
       items: samplesState.items,
       total: samplesState.total,
       nextCursor: samplesState.nextCursor,
-      scrollTop: samplesScrollRef.current?.scrollTop ?? 0,
+      scrollTop: readListScrollTop(samplesScrollRef.current),
       searchInput,
       appliedSearch,
       appliedHiddenFilters,

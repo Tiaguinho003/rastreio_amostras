@@ -1974,7 +1974,12 @@ export default function SampleDetailPage() {
             {/* Header verde */}
             <header className="sdv-header">
               <div className="sdv-header-top">
-                <Link href="/samples" className="nsv2-back" aria-label="Voltar aos registros">
+                <Link
+                  href="/samples"
+                  scroll={false}
+                  className="nsv2-back"
+                  aria-label="Voltar aos registros"
+                >
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                     <path d="M15 18l-6-6 6-6" />
                   </svg>
