@@ -17864,50 +17864,10 @@ button:disabled {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.camera-hub-extracting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: clamp(14px, 4vw, 18px) clamp(18px, 5vw, 24px);
-  border-radius: clamp(14px, 4vw, 16px);
-  background: rgba(9, 15, 12, 0.55);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  max-width: min(360px, calc(100vw - 2rem));
-}
-
-.camera-hub-extracting-label.is-secondary {
-  font-size: 0.8em;
-  opacity: 0.7;
-}
-
-.camera-hub-extracting-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.camera-hub-extracting-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #6fcf97;
-  border-radius: 50%;
-  animation: cam-spin 0.8s linear infinite;
-}
-
 @keyframes cam-spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.camera-hub-extracting-label {
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
 }
 
 .camera-hub-success-icon {
@@ -18905,6 +18865,57 @@ button:disabled {
 }
 
 .app-modal.is-themed .app-modal-actions.extraction-error-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: clamp(0.5rem, 2vw, 0.9rem);
+  padding-right: clamp(0.5rem, 2vw, 0.9rem);
+  font-size: clamp(0.8rem, 3vw, 0.92rem);
+  min-height: 2.9rem;
+  line-height: 1.2;
+}
+
+/* ── Ficha nao detectada (detect-failed) — modal de decisao no mesmo padrao
+   dos avisos de erro de extracao. ── */
+.detect-failed-modal {
+  width: min(34rem, calc(100vw - 1.5rem));
+  max-width: min(34rem, calc(100vw - 1.5rem));
+}
+
+.detect-failed-content {
+  padding: clamp(1.1rem, 3.5vw, 1.5rem) !important;
+  gap: clamp(1rem, 2.5vw, 1.25rem) !important;
+}
+
+.detect-failed-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 2.5vw, 14px);
+}
+
+.detect-failed-icon {
+  width: clamp(48px, 12vw, 60px);
+  height: clamp(48px, 12vw, 60px);
+}
+
+.detect-failed-text {
+  margin: 0;
+  font-size: clamp(0.92rem, 3vw, 1rem);
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+/* 2 botoes lado a lado, largura igual, com respiro das bordas (padding proprio
+   + gap). Especificidade alta pra vencer .app-modal.is-themed .app-modal-actions. */
+.app-modal.is-themed .app-modal-actions.detect-failed-actions {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: clamp(0.4rem, 1.5vw, 0.6rem);
+  width: 100%;
+}
+
+.app-modal.is-themed .app-modal-actions.detect-failed-actions > button {
   flex: 1 1 0;
   min-width: 0;
   padding-left: clamp(0.5rem, 2vw, 0.9rem);

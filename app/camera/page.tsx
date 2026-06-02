@@ -8,6 +8,7 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { type LookupKind, SampleLookupResultModal } from '../../components/SampleLookupResultModal';
 import { ClassificationClassifierModal } from '../../components/samples/ClassificationClassifierModal';
 import { ClassificationDataMismatchModal } from '../../components/samples/ClassificationDataMismatchModal';
+import { ClassificationDetectFailedModal } from '../../components/samples/ClassificationDetectFailedModal';
 import { ClassificationExtractionErrorModal } from '../../components/samples/ClassificationExtractionErrorModal';
 import { ClassificationLotMismatchModal } from '../../components/samples/ClassificationLotMismatchModal';
 import { ClassificationManualConfirmModal } from '../../components/samples/ClassificationManualConfirmModal';
@@ -1376,39 +1377,8 @@ function CameraPageContent() {
                   (reduz altura suavemente). Apenas detect-failed continua aqui
                   no stage por enquanto — proxima sessao pode migrar tambem. */}
 
-              {/* Detection failed */}
-              {flowState === 'detect-failed' ? (
-                <div className="camera-hub-extracting">
-                  <span className="camera-hub-extracting-label">
-                    Nao foi possivel encontrar a ficha automaticamente.
-                  </span>
-                  <span className="camera-hub-extracting-label is-secondary">
-                    Tente fotografar com a ficha mais visivel, ou continue para extrair da foto
-                    completa.
-                  </span>
-                  <div className="camera-hub-extracting-actions">
-                    <button
-                      type="button"
-                      className="camera-hub-btn camera-hub-btn-secondary"
-                      onClick={() => {
-                        setFlowState('idle');
-                        setCapturedPhoto(null);
-                        setCapturedPhotoUrl(null);
-                        setDetectedPhotoToken(null);
-                      }}
-                    >
-                      Fotografar novamente
-                    </button>
-                    <button
-                      type="button"
-                      className="camera-hub-btn camera-hub-btn-primary"
-                      onClick={() => void handleContinueWithoutCrop()}
-                    >
-                      Continuar assim
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              {/* detect-failed virou modal central (ClassificationDetectFailedModal),
+                  renderizado junto com os outros modais raiz abaixo. */}
             </div>
           </div>
         </section>
@@ -1556,6 +1526,13 @@ function CameraPageContent() {
           setManualConfirmSource('technical');
           setFlowState('manual-confirm');
         }}
+      />
+
+      {/* Ficha nao detectada: modal de decisao (Tentar novamente / Continuar). */}
+      <ClassificationDetectFailedModal
+        open={flowState === 'detect-failed'}
+        onRetake={resetClassificationFlow}
+        onContinue={() => void handleContinueWithoutCrop()}
       />
 
       {/* Q.cls.2 sub-caminho 3b → 2o modal: confirma o modo manual antes
