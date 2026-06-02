@@ -5125,7 +5125,9 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: clamp(12px, 3.5vw, 16px);
-  padding: clamp(15px, 4.4vw, 18px) clamp(14px, 4vw, 18px);
+  /* Padding vertical reduzido pra encurtar um pouco a altura do card
+     recolhido (havia folga). Horizontal mantido. */
+  padding: clamp(12px, 3.6vw, 15px) clamp(14px, 4vw, 18px);
   background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
   border-radius: clamp(14px, 4vw, 16px);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -5182,7 +5184,8 @@ button:disabled {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 1.8vw, 8px);
+  /* gap reduzido pra encurtar um pouco a altura do card recolhido. */
+  gap: clamp(5px, 1.5vw, 6px);
 }
 
 .spv2-card-top {
@@ -5386,6 +5389,12 @@ button:disabled {
   opacity: 1;
 }
 
+/* Ao expandir, sacas/safra do header ficam levemente mais grossas (mais
+   nitidas). So o peso muda — sem mexer no tamanho, pra nao reflow a linha. */
+.spv2-card-wrap.is-expanded .spv2-card-detail {
+  font-weight: 600;
+}
+
 /* Divider sutil no topo. Gradiente que fade nas bordas pra nao parecer
    um corte brusco. Extende edge-to-edge via margem negativa que cancela
    o padding lateral do inner. */
@@ -5428,12 +5437,27 @@ button:disabled {
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.42);
+  /* Nome do dado em verde (marca). So o nome — o valor continua escuro. */
+  color: var(--brand-green);
   line-height: 1.2;
   /* Single-line: nunca quebra nem transborda — trunca se faltar largura. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Tracinho verde antes do nome do dado (accent). inline-block + vertical-align
+   middle pra ficar ao lado do texto sem quebrar o truncamento (ellipsis) nem
+   empurrar a largura da coluna. */
+.spv2-card-stat-label::before {
+  content: '';
+  display: inline-block;
+  width: clamp(6px, 1.8vw, 9px);
+  height: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+  background: var(--brand-green);
+  border-radius: 1px;
 }
 
 .spv2-card-stat-value {
