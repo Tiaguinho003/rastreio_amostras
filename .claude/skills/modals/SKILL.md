@@ -585,7 +585,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
            ├── divergencias sacas/safra ───────────► data-mismatch (DataMismatchModal) ─ ESCOLHA campo a campo ─► "Aplicar" ─► save (ou overwrite-confirm se CLASSIFIED)
            ├── sample CLASSIFIED ──────────────────► overwrite-confirm (ReclassifyModal com reason):
            │         ├ "Confirmar recl." (laranja/is-warning, direita) ─► save
-           │         ├ "Voltar" (esquerda) ─ modal anterior (selecting-classifier / data-mismatch, via overwriteOrigin)
+           │         ├ "Voltar" (esquerda) ─ confirming (review / dados extraidos, pra reconferir o lote)
            │         └ "x" ─ cancela processo → camera (hasContext ? router.back : reset)
            └── tudo OK ─────────────────────────────► saveClassification → submitting → success
 ```
