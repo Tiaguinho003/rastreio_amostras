@@ -568,7 +568,7 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
            ▼ extracao OK
        confirming (ReviewModal) ─── "Cancelar" ─── reset
            │
-           ▼ "Avançar" (≥1 campo) → handleReviewAdvance — valida ANTES do tipo:
+           ▼ "Avançar" — sheet valida lote obrigatorio (inline) + ≥1 campo + numerico → handleReviewAdvance valida status/existencia ANTES do tipo:
            │     ├── Flow A: resolve lote → nao encontrado ─► not-found (NotFoundModal) ─ "Voltar"/"Cancelar"
            │     ├── status ∉ {RC, CLASSIFIED} ───────────► status-invalid (StatusInvalidModal) ─ "Cancelar"/"Ver detalhes"
            │     └── ok ─► selecting-type

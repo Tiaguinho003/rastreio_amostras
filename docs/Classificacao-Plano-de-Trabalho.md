@@ -1422,6 +1422,12 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-02 — Sessão 13 (erro de lote obrigatório no padrão + validado primeiro) ✅
+
+O erro de **lote obrigatório** no review (dados extraídos) deixa de ser um **banner tardio** (`flowError` no topo da sheet, setado em `handleReviewAdvance` **depois** do aviso "preencha pelo menos um campo" e da validação numérica — desconectado do campo e fora de ordem) e passa a seguir o **padrão de inline error** da skill `feedback-messages` §3: mensagem **dentro do próprio campo** (placeholder **"Obrigatório"** em vermelho suave `#c45c5c` + `.review-field-input.has-error` + `aria-invalid`), que **limpa ao digitar** e dá **foco** no campo. Além disso é validado **primeiro** no Avançar (`ClassificationReviewSheetBody.handleSubmit`, antes do "≥1 campo" e do numérico), então aparece **logo** que o operador tenta avançar. `handleReviewAdvance` perde o `setFlowError` do lote (vira guard defensivo, sem banner, pra não duplicar — anti-pattern §8); o banner do topo segue só para erros assíncronos (resolve do lote). `skill-maintenance`: `feedback-messages` §10 (referência) + `modals` (mapa de fluxo do Avançar).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit.
+
 ### 2026-06-02 — Sessão 12 (modal de reclassificação: botões + semântica do x) ✅
 
 `ClassificationReclassifyModal` (sub-caminho 5, amostra já CLASSIFIED): **"Confirmar reclassificação"** passa de vermelho (`is-danger`) pra **laranja** (`is-warning`) — a ação é "prosseguir com aviso", não destrutiva. **"Cancelar"** vira **"Voltar"** (novo prop `onBack`) e os botões **trocam de lado**: **Voltar à esquerda** (secundário) / **Confirmar reclassificação à direita** (laranja), com largura igual via `.reclassify-actions` (mesmo padrão side-by-side dos demais modais de decisão). O **"x"** do header passa a **cancelar o processo todo** → câmera (`hasContext ? router.back : resetClassificationFlow`), já que "Voltar" cobre o retorno. **"Voltar"** leva ao modal de **revisão (dados extraídos)** (`confirming`) — assim a conferência do lote antes de reclassificar fica mais fácil. `skill-maintenance`: skill `modals` atualizada (variante `.is-warning` na tabela de modificadores + seção de botões + linha do ReclassifyModal + mapa de fluxo).
