@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import {
   type ClassificationFormState,
@@ -88,15 +88,32 @@ export function ClassificationReviewSheetBody({
   const [zoomOpen, setZoomOpen] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
+  // Lote obrigatorio (so quando editavel — Flow A / manual). Erro inline no
+  // proprio campo (placeholder vermelho suave), padrao da skill
+  // feedback-messages §3. Limpa ao digitar.
+  const [lotError, setLotError] = useState(false);
+  const lotInputRef = useRef<HTMLInputElement>(null);
 
   // Limpa o erro de validacao ao editar qualquer campo ("limpa ao digitar").
   useEffect(() => {
     setAdvanceError(null);
   }, [form]);
 
+  useEffect(() => {
+    setLotError(false);
+  }, [lotValue]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    // Lote e a identificacao da amostra — valida PRIMEIRO e inline no proprio
+    // campo, pra que o erro apareca logo ao tentar avancar (e ao lado do
+    // input), em vez de num banner tardio depois dos outros avisos.
+    if (lotEditable && lotValue.trim() === '') {
+      setLotError(true);
+      lotInputRef.current?.focus();
+      return;
+    }
     const hasAtLeastOneField = CLASSIFICATION_FIELD_KEYS.some((key) => form[key].trim() !== '');
     if (!hasAtLeastOneField) {
       setWarningOpen(true);
@@ -172,16 +189,20 @@ export function ClassificationReviewSheetBody({
             <label className="review-field">
               <span className="review-field-label">Lote</span>
               <input
+                ref={lotInputRef}
                 type="text"
                 inputMode="numeric"
-                className={`review-field-input${lotEditable ? '' : ' is-readonly'}`}
+                className={`review-field-input${lotEditable ? '' : ' is-readonly'}${
+                  lotError ? ' has-error' : ''
+                }`}
                 value={lotValue}
                 disabled={saving || !lotEditable}
                 readOnly={!lotEditable}
+                aria-invalid={lotError || undefined}
                 onChange={(event) =>
                   lotEditable ? onLotChange(event.target.value.toUpperCase()) : undefined
                 }
-                placeholder={lotEditable ? 'Número do lote' : ''}
+                placeholder={lotEditable ? (lotError ? 'Obrigatório' : 'Número do lote') : ''}
               />
             </label>
             <label className="review-field">

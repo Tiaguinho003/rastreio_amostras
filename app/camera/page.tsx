@@ -973,11 +973,11 @@ function CameraPageContent() {
     }
 
     // Flow A: resolve o lote agora pra validar status/existencia cedo.
+    // Lote obrigatorio ja e validado inline na sheet (review) ANTES do
+    // onAdvance — aqui so um guard defensivo, sem banner (pra nao duplicar
+    // o erro inline; ver skill feedback-messages §8).
     const lot = editableLot.trim();
-    if (!lot) {
-      setFlowError('Numero do lote e obrigatorio.');
-      return;
-    }
+    if (!lot) return;
     setFlowState('resolving');
     setFlowError(null);
     try {

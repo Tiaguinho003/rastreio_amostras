@@ -18547,6 +18547,22 @@ button:disabled {
   cursor: default;
 }
 
+/* Erro inline de validacao (lote obrigatorio): vermelho suave, mensagem no
+   placeholder. Padrao da skill feedback-messages §3. O override de
+   focus-visible mantem o vermelho mesmo com o campo focado (auto-focus). */
+.review-field-input.has-error,
+.review-field-input.has-error:focus-visible {
+  border-color: rgba(196, 92, 92, 0.5);
+}
+
+.review-field-input.has-error:focus-visible {
+  box-shadow: 0 0 0 3px rgba(196, 92, 92, 0.12);
+}
+
+.review-field-input.has-error::placeholder {
+  color: #c45c5c;
+}
+
 .review-fundos-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
