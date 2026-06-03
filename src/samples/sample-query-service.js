@@ -421,10 +421,14 @@ function resolveSacksRange({ sacksMin = null, sacksMax = null }) {
     return null;
   }
 
-  return {
-    gte: min ?? undefined,
-    lte: max ?? undefined,
-  };
+  // UX "1 valor = exato, 2 = intervalo": com exatamente um campo preenchido o
+  // filtro vira busca EXATA (equals); com os dois, intervalo [min, max]. Antes
+  // um valor sozinho virava intervalo aberto (gte/lte).
+  if (min === null || max === null) {
+    return { equals: min ?? max };
+  }
+
+  return { gte: min, lte: max };
 }
 
 function parseCreatedDateRangeInSaoPaulo(createdDate) {

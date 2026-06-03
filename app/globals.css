@@ -12342,6 +12342,13 @@ button:disabled {
   padding-left: 0.05rem;
 }
 
+.samples-filter-field-hint {
+  font-size: 0.63rem;
+  color: #8a968c;
+  padding-left: 0.05rem;
+  margin-top: 0.05rem;
+}
+
 .samples-filter-field-input {
   width: 100%;
   min-width: 0;

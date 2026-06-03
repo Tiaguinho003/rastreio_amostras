@@ -252,15 +252,13 @@ function formatSacksSummary(filters: HiddenFilters) {
   const sacksMax = filters.sacksMax.trim();
 
   if (sacksMin && sacksMax) {
-    return `De ${sacksMin} ate ${sacksMax}`;
+    return `${sacksMin} a ${sacksMax} sacas`;
   }
 
-  if (sacksMin) {
-    return `Minimo ${sacksMin}`;
-  }
-
-  if (sacksMax) {
-    return `Ate ${sacksMax}`;
+  // 1 valor preenchido = busca exata.
+  const exact = sacksMin || sacksMax;
+  if (exact) {
+    return `${exact} sacas`;
   }
 
   return 'Qualquer volume';
@@ -1378,7 +1376,7 @@ function SamplesPage() {
                   sacksMin: event.target.value.replace(/\D+/g, ''),
                 }))
               }
-              placeholder="De"
+              placeholder="Ex.: 100"
             />
             <input
               className="samples-filter-field-input"
@@ -1393,9 +1391,10 @@ function SamplesPage() {
                   sacksMax: event.target.value.replace(/\D+/g, ''),
                 }))
               }
-              placeholder="Ate"
+              placeholder="até"
             />
           </div>
+          <span className="samples-filter-field-hint">1 valor = busca exata · 2 = intervalo</span>
         </div>
 
         <div className="samples-filter-field">
