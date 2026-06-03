@@ -528,11 +528,12 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 - `cdm-modal` (Client Detail Modal em `/clients`, `/users`, `/samples`)
 - `cld-modal` (Classification Detail Modal em `/samples/[sampleId]/page.tsx`) — usa `cld-*` (cld-header/section/field/grid). Q.cls.2 audit do tipo (commit `15a5a07`) adicionou seção "Tipo" seguindo o padrão interno (cld-section + cld-field-input + chevron SVG no select), mas o modal pai segue legacy.
 - `SampleMovementModal` — ja usa portal.
-- `samples-filter-modal` em `/samples`
 - `InactivateUserModal`, `CancelInactivationDialog`, `InactivateConfirmDialog` em `/users`
 - `SampleLookupResultModal` — usa `.app-modal-lookup-result` legacy mas **ja renderiza via portal pra body** (fix pra bug de stacking sob `<PageTransition>` no dashboard).
 
 > Refatorar pra `.is-themed` somente quando tiver outro motivo pra mexer no modal — nao e prioridade visual hoje.
+
+> **`samples-filter-modal`** (`/samples`) migrou pra `.is-themed` (header verde + body branco + botoes canonicos) mantendo estrutura **custom**: body rolavel na vertical (`.samples-filter-modal-content` = `overflow-y: auto; overflow-x: hidden`) + **actions fixas** fora do scroll (2a linha do grid `.samples-filter-modal-form { flex: 1; grid-template-rows: minmax(0,1fr) auto }`), diferente do canonico (actions dentro do `.app-modal-content` rolavel). Largura 26rem via `.app-modal.is-themed.samples-filter-modal` (3 classes pra vencer o default 38rem). Ainda inline (sem `createPortal`) — pendencia legacy.
 
 ### 🚫 Excecoes legitimas (NAO refatorar)
 

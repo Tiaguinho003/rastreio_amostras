@@ -1598,7 +1598,7 @@ function SamplesPage() {
           <section
             ref={filtersTrapRef}
             id="samples-filter-modal"
-            className="app-modal samples-filter-modal"
+            className="app-modal is-themed samples-filter-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="samples-filter-modal-title"
@@ -1625,6 +1625,9 @@ function SamplesPage() {
               <div className="samples-filter-modal-content">{renderFilterFields()}</div>
 
               <div className="app-modal-actions samples-filter-modal-actions">
+                <button type="submit" className="app-modal-submit">
+                  Aplicar
+                </button>
                 <button
                   type="button"
                   className="app-modal-secondary"
@@ -1632,9 +1635,6 @@ function SamplesPage() {
                   disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
                 >
                   Limpar
-                </button>
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
                 </button>
               </div>
             </form>

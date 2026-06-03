@@ -12180,35 +12180,22 @@ button:disabled {
   backdrop-filter: blur(20px) saturate(1.02);
 }
 
-.samples-filter-modal {
+/* Largura mais estreita que o default do .is-themed (38rem) — painel de
+   filtros. Header verde / body branco / actions vem do .is-themed. Selector
+   com 3 classes pra vencer o `.app-modal.is-themed { width: 38rem }`. */
+.app-modal.is-themed.samples-filter-modal {
   width: min(26rem, calc(100vw - 1rem));
   max-height: min(42rem, calc(100dvh - 2rem));
-  overflow: hidden;
-  overflow-x: hidden;
-  border-radius: 24px;
-  padding: 0.8rem;
-  gap: 0.5rem;
   box-sizing: border-box;
 }
 
-.samples-filter-modal-header {
-  padding-bottom: 0;
-}
-
-.samples-filter-modal .app-modal-close {
-  min-width: 1.8rem;
-  min-height: 1.8rem;
-}
-
-.samples-filter-modal .app-modal-close span {
-  font-size: 1.1rem;
-}
-
+/* Form ocupa o espaco restante do modal flex-column e bound a a area de
+   conteudo, que rola na vertical (actions ficam fixas na 2a linha). */
 .samples-filter-modal-form {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0.5rem;
-  min-height: 0;
 }
 
 .samples-filter-modal-content {
@@ -12219,7 +12206,7 @@ button:disabled {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.5rem;
+  padding: clamp(0.9rem, 3vw, 1.2rem);
 }
 
 /* Typeahead (ClientLookupField) de proprietario/comprador dentro do modal de
@@ -12382,18 +12369,11 @@ button:disabled {
   overflow: hidden;
 }
 
+/* Actions fora da area de scroll (2a linha do grid do form) — precisam do
+   padding horizontal/inferior proprio (o .is-themed so da padding-top + a
+   borda separadora; o resto vinha do padding do .app-modal-content canonico). */
 .samples-filter-modal-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
-  padding-top: 0;
-}
-
-.samples-filter-modal-actions .app-modal-secondary,
-.samples-filter-modal-actions .app-modal-submit {
-  min-height: 2.1rem;
-  padding: 0.36rem 0.6rem;
-  font-size: 0.78rem;
-  border-radius: 999px;
+  padding: 0.75rem clamp(0.9rem, 3vw, 1.2rem) clamp(0.9rem, 3vw, 1.2rem);
 }
 
 @media (max-width: 900px) {
