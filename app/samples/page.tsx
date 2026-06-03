@@ -1265,45 +1265,44 @@ function SamplesPage() {
             }))
         )}
 
-        <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Status</span>
-          <div className="samples-filter-chip-row">
-            {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`samples-filter-chip${draftHiddenFilters.displayStatus === option.value ? ' is-selected' : ''}`}
-                onClick={() =>
-                  setDraftHiddenFilters((c) => ({
-                    ...c,
-                    displayStatus: c.displayStatus === option.value ? '' : option.value,
-                  }))
-                }
-              >
-                {option.label}
-              </button>
-            ))}
+        <div className="samples-filter-row">
+          <div className="samples-filter-field">
+            <span className="samples-filter-field-label">Status</span>
+            <select
+              className="samples-filter-field-input"
+              value={draftHiddenFilters.displayStatus}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({
+                  ...c,
+                  displayStatus: event.target.value as DisplayStatusFilter,
+                }))
+              }
+            >
+              <option value="">Selecionar</option>
+              {DISPLAY_STATUS_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Safra</span>
-          <div className="samples-filter-chip-row">
-            {HARVEST_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`samples-filter-chip${draftHiddenFilters.harvest === option ? ' is-selected' : ''}`}
-                onClick={() =>
-                  setDraftHiddenFilters((c) => ({
-                    ...c,
-                    harvest: c.harvest === option ? '' : option,
-                  }))
-                }
-              >
-                {option}
-              </button>
-            ))}
+          <div className="samples-filter-field">
+            <span className="samples-filter-field-label">Safra</span>
+            <select
+              className="samples-filter-field-input"
+              value={draftHiddenFilters.harvest}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({ ...c, harvest: event.target.value }))
+              }
+            >
+              <option value="">Selecionar</option>
+              {HARVEST_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
