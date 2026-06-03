@@ -835,9 +835,8 @@ export function listSamples(
     harvest?: string;
     sacksMin?: string;
     sacksMax?: string;
-    createdDate?: string;
-    createdMonth?: string;
-    createdYear?: string;
+    createdFrom?: string;
+    createdTo?: string;
     // Liga B1.1 (Wave A3.3 backend): quando true, cada item da resposta
     // ganha eligibility + committedSacks pra UI do modo seleção decidir
     // o que acinzentar e quanto está comprometido (F1.B + T0.B).
@@ -871,9 +870,8 @@ export function listSamples(
   if (query.harvest) params.set('harvest', query.harvest);
   if (query.sacksMin) params.set('sacksMin', query.sacksMin);
   if (query.sacksMax) params.set('sacksMax', query.sacksMax);
-  if (query.createdDate) params.set('createdDate', query.createdDate);
-  if (query.createdMonth) params.set('createdMonth', query.createdMonth);
-  if (query.createdYear) params.set('createdYear', query.createdYear);
+  if (query.createdFrom) params.set('createdFrom', query.createdFrom);
+  if (query.createdTo) params.set('createdTo', query.createdTo);
   if (query.eligibleForBlend) params.set('eligibleForBlend', 'true');
 
   const suffix = params.size ? `?${params.toString()}` : '';

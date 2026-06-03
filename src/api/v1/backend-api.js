@@ -520,9 +520,8 @@ export function createBackendApiV1({
           harvest: readOptionalQueryString(query.harvest),
           sacksMin: readOptionalQueryString(query.sacksMin),
           sacksMax: readOptionalQueryString(query.sacksMax),
-          createdDate: readOptionalQueryString(query.createdDate),
-          createdMonth: readOptionalQueryString(query.createdMonth),
-          createdYear: readOptionalQueryString(query.createdYear),
+          createdFrom: readOptionalQueryString(query.createdFrom),
+          createdTo: readOptionalQueryString(query.createdTo),
           // Liga A3.3 (F1.B + T0.B): quando true, enriquece cada sample
           // com eligibility + committedSacks.
           eligibleForBlend: readOptionalQueryString(query.eligibleForBlend) === 'true',

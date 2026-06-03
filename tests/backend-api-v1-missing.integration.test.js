@@ -741,7 +741,6 @@ if (!databaseUrl || !databaseReachable) {
     let targetInternalLotNumber = null;
     const dateInSaoPaulo = formatDateInSaoPaulo();
     const monthInSaoPaulo = dateInSaoPaulo.slice(0, 7);
-    const yearInSaoPaulo = dateInSaoPaulo.slice(0, 4);
     const ownerClientIds = new Map();
 
     for (let index = 0; index < 35; index += 1) {
@@ -818,7 +817,7 @@ if (!databaseUrl || !databaseReachable) {
           lot: targetInternalLotNumber,
           owner: targetOwner.toLowerCase(),
           harvest: targetHarvest,
-          createdDate: dateInSaoPaulo,
+          createdFrom: dateInSaoPaulo,
         },
       })
     );
@@ -830,31 +829,20 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(filtered.body.items[0].declared.harvest, targetHarvest);
     assert.equal(filtered.body.items[0].internalLotNumber, targetInternalLotNumber);
 
-    const monthFiltered = await api.listSamples(
+    // Periodo entre 2 datas (intervalo): do inicio do mes ate hoje inclui o alvo.
+    const rangeFiltered = await api.listSamples(
       buildInput({
         query: {
           owner: targetOwner.toLowerCase(),
-          createdMonth: monthInSaoPaulo,
+          createdFrom: `${monthInSaoPaulo}-01`,
+          createdTo: dateInSaoPaulo,
         },
       })
     );
 
-    assert.equal(monthFiltered.status, 200);
-    assert.equal(monthFiltered.body.page.total, 1);
-    assert.equal(monthFiltered.body.items[0].internalLotNumber, targetInternalLotNumber);
-
-    const yearFiltered = await api.listSamples(
-      buildInput({
-        query: {
-          owner: targetOwner,
-          createdYear: yearInSaoPaulo,
-        },
-      })
-    );
-
-    assert.equal(yearFiltered.status, 200);
-    assert.equal(yearFiltered.body.page.total, 1);
-    assert.equal(yearFiltered.body.items[0].internalLotNumber, targetInternalLotNumber);
+    assert.equal(rangeFiltered.status, 200);
+    assert.equal(rangeFiltered.body.page.total, 1);
+    assert.equal(rangeFiltered.body.items[0].internalLotNumber, targetInternalLotNumber);
 
     const searchByLot = await api.listSamples(
       buildInput({
@@ -1389,46 +1377,36 @@ if (!databaseUrl || !databaseReachable) {
   });
 
   test('GET /samples validates period parameters and page', async () => {
-    const invalidDate = await api.listSamples(
+    const invalidFrom = await api.listSamples(
       buildInput({
         query: {
-          createdDate: '2026-99-99',
+          createdFrom: '2026-99-99',
         },
       })
     );
 
-    assert.equal(invalidDate.status, 422);
+    assert.equal(invalidFrom.status, 422);
 
-    const invalidMonth = await api.listSamples(
+    const invalidTo = await api.listSamples(
       buildInput({
         query: {
-          createdMonth: '2026-13',
+          createdTo: '2026-02-30',
         },
       })
     );
 
-    assert.equal(invalidMonth.status, 422);
+    assert.equal(invalidTo.status, 422);
 
-    const invalidYear = await api.listSamples(
+    const fromAfterTo = await api.listSamples(
       buildInput({
         query: {
-          createdYear: '26',
+          createdFrom: '2026-03-10',
+          createdTo: '2026-03-05',
         },
       })
     );
 
-    assert.equal(invalidYear.status, 422);
-
-    const conflictingPeriod = await api.listSamples(
-      buildInput({
-        query: {
-          createdDate: '2026-03-05',
-          createdMonth: '2026-03',
-        },
-      })
-    );
-
-    assert.equal(conflictingPeriod.status, 422);
+    assert.equal(fromAfterTo.status, 422);
 
     const invalidStatusGroup = await api.listSamples(
       buildInput({

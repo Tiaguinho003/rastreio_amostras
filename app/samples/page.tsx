@@ -49,7 +49,6 @@ const DISPLAY_STATUS_FILTER_OPTIONS = [
   { value: 'INVALIDATED', label: 'Invalidada' },
 ] as const;
 type DisplayStatusFilter = '' | (typeof DISPLAY_STATUS_FILTER_OPTIONS)[number]['value'];
-type PeriodMode = 'exact' | 'month' | 'year';
 type FilterSectionId =
   | 'owner'
   | 'buyer'
@@ -67,8 +66,8 @@ interface HiddenFilters {
   harvest: string;
   sacksMin: string;
   sacksMax: string;
-  periodMode: PeriodMode;
-  periodValue: string;
+  periodFrom: string;
+  periodTo: string;
 }
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
@@ -79,8 +78,8 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   harvest: '',
   sacksMin: '',
   sacksMax: '',
-  periodMode: 'exact',
-  periodValue: '',
+  periodFrom: '',
+  periodTo: '',
 };
 
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
@@ -102,7 +101,8 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
     filters.sacksMax.trim().length > 0 ||
-    filters.periodValue.trim().length > 0
+    filters.periodFrom.trim().length > 0 ||
+    filters.periodTo.trim().length > 0
   );
 }
 
@@ -115,8 +115,8 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
     sacksMax: filters.sacksMax.trim(),
-    periodMode: filters.periodMode,
-    periodValue: filters.periodValue.trim(),
+    periodFrom: filters.periodFrom.trim(),
+    periodTo: filters.periodTo.trim(),
   };
 }
 
@@ -128,49 +128,17 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
-  if (filters.periodValue.trim()) count += 1;
+  if (filters.periodFrom.trim() || filters.periodTo.trim()) count += 1;
   return count;
 }
 
 function buildPeriodQuery(filters: HiddenFilters) {
-  const normalizedValue = filters.periodValue.trim();
-  if (!normalizedValue) {
-    return {};
-  }
-
-  if (filters.periodMode === 'month') {
-    return { createdMonth: normalizedValue };
-  }
-
-  if (filters.periodMode === 'year') {
-    return { createdYear: normalizedValue };
-  }
-
-  return { createdDate: normalizedValue };
-}
-
-function getPeriodInputType(periodMode: PeriodMode) {
-  if (periodMode === 'month') {
-    return 'month';
-  }
-
-  if (periodMode === 'year') {
-    return 'number';
-  }
-
-  return 'date';
-}
-
-function getPeriodInputLabel(periodMode: PeriodMode) {
-  if (periodMode === 'month') {
-    return 'Mes';
-  }
-
-  if (periodMode === 'year') {
-    return 'Ano';
-  }
-
-  return 'Data';
+  const from = filters.periodFrom.trim();
+  const to = filters.periodTo.trim();
+  const query: { createdFrom?: string; createdTo?: string } = {};
+  if (from) query.createdFrom = from;
+  if (to) query.createdTo = to;
+  return query;
 }
 
 // Liga B2.2: gera clientDraftId pra idempotencia do createBlend.
@@ -181,22 +149,6 @@ function buildBlendDraftId(): string {
     return crypto.randomUUID();
   }
   return `blend-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getPeriodPlaceholder(periodMode: PeriodMode) {
-  if (periodMode === 'year') {
-    return '2026';
-  }
-
-  return '';
-}
-
-function normalizePeriodValueForMode(periodMode: PeriodMode, value: string) {
-  if (periodMode === 'year') {
-    return value.replace(/[^0-9]/g, '').slice(0, 4);
-  }
-
-  return value;
 }
 
 function getClientFilterLabel(client: ClientSummary): string {
@@ -220,23 +172,22 @@ function getDisplayStatusLabel(value: DisplayStatusFilter) {
   );
 }
 
+function formatPeriodDate(value: string): string {
+  const [year, month, day] = value.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
 function formatPeriodSummary(filters: HiddenFilters) {
-  const periodValue = filters.periodValue.trim();
-  if (!periodValue) {
-    return 'Qualquer data';
+  const from = filters.periodFrom.trim();
+  const to = filters.periodTo.trim();
+  if (from && to) {
+    return `${formatPeriodDate(from)} a ${formatPeriodDate(to)}`;
   }
-
-  if (filters.periodMode === 'month') {
-    const [year, month] = periodValue.split('-');
-    return year && month ? `Mes ${month}/${year}` : `Mes ${periodValue}`;
+  const single = from || to;
+  if (single) {
+    return formatPeriodDate(single);
   }
-
-  if (filters.periodMode === 'year') {
-    return `Ano ${periodValue}`;
-  }
-
-  const [year, month, day] = periodValue.split('-');
-  return year && month && day ? `Data ${day}/${month}/${year}` : `Data ${periodValue}`;
+  return 'Qualquer data';
 }
 
 function formatSacksSummary(filters: HiddenFilters) {
@@ -281,7 +232,7 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
     return filters.sacksMin.trim().length > 0 || filters.sacksMax.trim().length > 0;
   }
 
-  return filters.periodValue.trim().length > 0;
+  return filters.periodFrom.trim().length > 0 || filters.periodTo.trim().length > 0;
 }
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
@@ -1396,38 +1347,26 @@ function SamplesPage() {
         <div className="samples-filter-field">
           <span className="samples-filter-field-label">Periodo</span>
           <div className="samples-filter-split-grid">
-            <select
-              className="samples-filter-field-input"
-              value={draftHiddenFilters.periodMode}
-              onChange={(event) =>
-                setDraftHiddenFilters((c) => ({
-                  ...c,
-                  periodMode: event.target.value as PeriodMode,
-                  periodValue: '',
-                }))
-              }
-            >
-              <option value="exact">Data</option>
-              <option value="month">Mes</option>
-              <option value="year">Ano</option>
-            </select>
             <input
               className="samples-filter-field-input"
-              type={getPeriodInputType(draftHiddenFilters.periodMode)}
-              value={draftHiddenFilters.periodValue}
+              type="date"
+              value={draftHiddenFilters.periodFrom}
               onChange={(event) =>
-                setDraftHiddenFilters((c) => ({
-                  ...c,
-                  periodValue: normalizePeriodValueForMode(c.periodMode, event.target.value),
-                }))
+                setDraftHiddenFilters((c) => ({ ...c, periodFrom: event.target.value }))
               }
-              placeholder={getPeriodPlaceholder(draftHiddenFilters.periodMode)}
-              inputMode={draftHiddenFilters.periodMode === 'year' ? 'numeric' : undefined}
-              min={draftHiddenFilters.periodMode === 'year' ? '2000' : undefined}
-              max={draftHiddenFilters.periodMode === 'year' ? '2100' : undefined}
-              step={draftHiddenFilters.periodMode === 'year' ? '1' : undefined}
+              aria-label="Data inicial"
+            />
+            <input
+              className="samples-filter-field-input"
+              type="date"
+              value={draftHiddenFilters.periodTo}
+              onChange={(event) =>
+                setDraftHiddenFilters((c) => ({ ...c, periodTo: event.target.value }))
+              }
+              aria-label="Data final"
             />
           </div>
+          <span className="samples-filter-field-hint">1 data = dia especifico · 2 = intervalo</span>
         </div>
       </div>
     );

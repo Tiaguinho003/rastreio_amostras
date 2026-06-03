@@ -431,15 +431,15 @@ function resolveSacksRange({ sacksMin = null, sacksMax = null }) {
   return { gte: min, lte: max };
 }
 
-function parseCreatedDateRangeInSaoPaulo(createdDate) {
-  const normalized = normalizeOptionalText(createdDate);
+function parseCreatedDateRangeInSaoPaulo(value, fieldName = 'createdDate') {
+  const normalized = normalizeOptionalText(value);
   if (!normalized) {
     return null;
   }
 
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
   if (!match) {
-    throw new HttpError(422, 'createdDate must follow YYYY-MM-DD format');
+    throw new HttpError(422, `${fieldName} must follow YYYY-MM-DD format`);
   }
 
   const year = Number(match[1]);
@@ -452,7 +452,7 @@ function parseCreatedDateRangeInSaoPaulo(createdDate) {
     parsed.getUTCMonth() !== month - 1 ||
     parsed.getUTCDate() !== day
   ) {
-    throw new HttpError(422, 'createdDate must be a valid calendar date');
+    throw new HttpError(422, `${fieldName} must be a valid calendar date`);
   }
 
   const startUtc = new Date(Date.UTC(year, month - 1, day, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
@@ -464,83 +464,26 @@ function parseCreatedDateRangeInSaoPaulo(createdDate) {
   };
 }
 
-function parseCreatedMonthRangeInSaoPaulo(createdMonth) {
-  const normalized = normalizeOptionalText(createdMonth);
-  if (!normalized) {
+function resolveCreatedDateRangeInSaoPaulo({ createdFrom = null, createdTo = null }) {
+  const fromRange = parseCreatedDateRangeInSaoPaulo(createdFrom, 'createdFrom');
+  const toRange = parseCreatedDateRangeInSaoPaulo(createdTo, 'createdTo');
+
+  if (!fromRange && !toRange) {
     return null;
   }
 
-  const match = /^(\d{4})-(\d{2})$/.exec(normalized);
-  if (!match) {
-    throw new HttpError(422, 'createdMonth must follow YYYY-MM format');
+  // UX "1 data = dia especifico, 2 = intervalo": com as duas datas o range vai
+  // do inicio do dia menor ao fim do dia maior (em Sao Paulo); com uma so, e
+  // aquele dia exato. parseCreatedDateRangeInSaoPaulo ja validou formato/calendario.
+  if (fromRange && toRange) {
+    if (fromRange.startUtc.getTime() > toRange.startUtc.getTime()) {
+      throw new HttpError(422, 'createdFrom cannot be after createdTo');
+    }
+    return { startUtc: fromRange.startUtc, endUtc: toRange.endUtc };
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const parsed = new Date(Date.UTC(year, month - 1, 1));
-  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1) {
-    throw new HttpError(422, 'createdMonth must be a valid calendar month');
-  }
-
-  const startUtc = new Date(Date.UTC(year, month - 1, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-  const endUtc = new Date(Date.UTC(year, month, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-
-  return {
-    startUtc,
-    endUtc,
-  };
-}
-
-function parseCreatedYearRangeInSaoPaulo(createdYear) {
-  const normalized = normalizeOptionalText(createdYear);
-  if (!normalized) {
-    return null;
-  }
-
-  if (!/^\d{4}$/.test(normalized)) {
-    throw new HttpError(422, 'createdYear must follow YYYY format');
-  }
-
-  const year = Number(normalized);
-  const startUtc = new Date(Date.UTC(year, 0, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-  const endUtc = new Date(Date.UTC(year + 1, 0, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0));
-
-  return {
-    startUtc,
-    endUtc,
-  };
-}
-
-function resolveCreatedPeriodRangeInSaoPaulo({
-  createdDate = null,
-  createdMonth = null,
-  createdYear = null,
-}) {
-  const normalizedDate = normalizeOptionalText(createdDate);
-  const normalizedMonth = normalizeOptionalText(createdMonth);
-  const normalizedYear = normalizeOptionalText(createdYear);
-
-  const informedPeriods = [normalizedDate, normalizedMonth, normalizedYear].filter(Boolean).length;
-  if (informedPeriods > 1) {
-    throw new HttpError(
-      422,
-      'Use only one period filter: createdDate, createdMonth or createdYear'
-    );
-  }
-
-  if (normalizedDate) {
-    return parseCreatedDateRangeInSaoPaulo(normalizedDate);
-  }
-
-  if (normalizedMonth) {
-    return parseCreatedMonthRangeInSaoPaulo(normalizedMonth);
-  }
-
-  if (normalizedYear) {
-    return parseCreatedYearRangeInSaoPaulo(normalizedYear);
-  }
-
-  return null;
+  const single = fromRange ?? toRange;
+  return { startUtc: single.startUtc, endUtc: single.endUtc };
 }
 
 function resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber }) {
@@ -1256,9 +1199,8 @@ export class SampleQueryService {
     harvest = null,
     sacksMin = null,
     sacksMax = null,
-    createdDate = null,
-    createdMonth = null,
-    createdYear = null,
+    createdFrom = null,
+    createdTo = null,
     // Liga A3.3: quando true, enriquece cada sample com
     // `eligibility: { eligible, reason }` (F1.B) e `committedSacks`
     // (T0.B). NAO filtra inelegiveis fora — frontend renderiza
@@ -1279,10 +1221,9 @@ export class SampleQueryService {
     const resolvedOffset = cursor ? 0 : safePage ? (safePage - 1) * safeLimit : safeOffset;
     const resolvedPage = cursor ? null : (safePage ?? Math.floor(resolvedOffset / safeLimit) + 1);
 
-    const createdPeriodRange = resolveCreatedPeriodRangeInSaoPaulo({
-      createdDate,
-      createdMonth,
-      createdYear,
+    const createdPeriodRange = resolveCreatedDateRangeInSaoPaulo({
+      createdFrom,
+      createdTo,
     });
     const sacksRange = resolveSacksRange({
       sacksMin,
