@@ -50,11 +50,19 @@ const DISPLAY_STATUS_FILTER_OPTIONS = [
 ] as const;
 type DisplayStatusFilter = '' | (typeof DISPLAY_STATUS_FILTER_OPTIONS)[number]['value'];
 type PeriodMode = 'exact' | 'month' | 'year';
-type FilterSectionId = 'owner' | 'buyer' | 'displayStatus' | 'harvest' | 'sacks' | 'period';
+type FilterSectionId =
+  | 'owner'
+  | 'buyer'
+  | 'sentTo'
+  | 'displayStatus'
+  | 'harvest'
+  | 'sacks'
+  | 'period';
 
 interface HiddenFilters {
   ownerClients: ClientSummary[];
   buyerClients: ClientSummary[];
+  sentToClients: ClientSummary[];
   displayStatus: DisplayStatusFilter;
   harvest: string;
   sacksMin: string;
@@ -66,6 +74,7 @@ interface HiddenFilters {
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   ownerClients: [],
   buyerClients: [],
+  sentToClients: [],
   displayStatus: '',
   harvest: '',
   sacksMin: '',
@@ -85,6 +94,7 @@ const AGING_LABELS: Record<AgingBand, string> = {
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'owner',
   'buyer',
+  'sentTo',
   'displayStatus',
   'harvest',
   'sacks',
@@ -95,6 +105,7 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
     filters.ownerClients.length > 0 ||
     filters.buyerClients.length > 0 ||
+    filters.sentToClients.length > 0 ||
     filters.displayStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
@@ -107,6 +118,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
   return {
     ownerClients: filters.ownerClients,
     buyerClients: filters.buyerClients,
+    sentToClients: filters.sentToClients,
     displayStatus: filters.displayStatus,
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
@@ -120,6 +132,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   let count = 0;
   if (filters.ownerClients.length > 0) count += 1;
   if (filters.buyerClients.length > 0) count += 1;
+  if (filters.sentToClients.length > 0) count += 1;
   if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
@@ -262,6 +275,10 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
     return filters.buyerClients.length > 0;
   }
 
+  if (sectionId === 'sentTo') {
+    return filters.sentToClients.length > 0;
+  }
+
   if (sectionId === 'displayStatus') {
     return filters.displayStatus.length > 0;
   }
@@ -284,6 +301,10 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
 
   if (sectionId === 'buyer') {
     return getClientsFilterSummary(filters.buyerClients, 'Qualquer comprador', 'compradores');
+  }
+
+  if (sectionId === 'sentTo') {
+    return getClientsFilterSummary(filters.sentToClients, 'Qualquer envio', 'envios');
   }
 
   if (sectionId === 'displayStatus') {
@@ -598,6 +619,12 @@ function SamplesPage() {
         active: hasFilterSectionValue('buyer', draftHiddenFilters),
       },
       {
+        id: 'sentTo',
+        label: 'Enviado para',
+        summary: getFilterSectionSummary('sentTo', draftHiddenFilters),
+        active: hasFilterSectionValue('sentTo', draftHiddenFilters),
+      },
+      {
         id: 'displayStatus',
         label: 'Status',
         summary: getFilterSectionSummary('displayStatus', draftHiddenFilters),
@@ -736,6 +763,7 @@ function SamplesPage() {
       search: filters.appliedSearch || undefined,
       ownerClientIds: filters.appliedHiddenFilters.ownerClients.map((client) => client.id),
       buyerClientIds: filters.appliedHiddenFilters.buyerClients.map((client) => client.id),
+      sentToClientIds: filters.appliedHiddenFilters.sentToClients.map((client) => client.id),
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
@@ -792,6 +820,7 @@ function SamplesPage() {
         search: appliedSearch || undefined,
         ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
         buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
+        sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -856,6 +885,7 @@ function SamplesPage() {
             search: appliedSearch || undefined,
             ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
             buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
+            sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
             harvest: appliedHiddenFilters.harvest || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -1177,7 +1207,7 @@ function SamplesPage() {
   // Filtro multi-select de cliente (proprietario/comprador): picker que
   // adiciona (ClientLookupField com clearOnSelect) + chips removiveis.
   function renderClientMultiFilter(
-    kind: 'owner' | 'buyer',
+    kind: 'owner' | 'buyer' | 'any',
     label: string,
     placeholder: string,
     emptyMessage: string,
@@ -1267,6 +1297,26 @@ function SamplesPage() {
             setDraftHiddenFilters((c) => ({
               ...c,
               buyerClients: c.buyerClients.filter((existing) => existing.id !== clientId),
+            }))
+        )}
+
+        {renderClientMultiFilter(
+          'any',
+          'Enviado para',
+          'Buscar destinatario',
+          'Nenhum destinatario encontrado',
+          'Remover destinatario',
+          draftHiddenFilters.sentToClients,
+          (client) =>
+            setDraftHiddenFilters((c) =>
+              c.sentToClients.some((existing) => existing.id === client.id)
+                ? c
+                : { ...c, sentToClients: [...c.sentToClients, client] }
+            ),
+          (clientId) =>
+            setDraftHiddenFilters((c) => ({
+              ...c,
+              sentToClients: c.sentToClients.filter((existing) => existing.id !== clientId),
             }))
         )}
 

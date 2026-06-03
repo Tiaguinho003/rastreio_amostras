@@ -828,6 +828,7 @@ export function listSamples(
     buyer?: string;
     ownerClientIds?: string[];
     buyerClientIds?: string[];
+    sentToClientIds?: string[];
     statusGroup?: string;
     commercialStatus?: string;
     displayStatus?: string;
@@ -861,6 +862,9 @@ export function listSamples(
   }
   if (query.buyerClientIds && query.buyerClientIds.length > 0) {
     params.set('buyerClientIds', query.buyerClientIds.join(','));
+  }
+  if (query.sentToClientIds && query.sentToClientIds.length > 0) {
+    params.set('sentToClientIds', query.sentToClientIds.join(','));
   }
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);

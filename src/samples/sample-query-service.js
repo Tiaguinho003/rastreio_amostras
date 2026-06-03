@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 import { buildCompletenessWhere } from '../clients/client-service.js';
 import { HttpError } from '../contracts/errors.js';
 
@@ -1229,6 +1231,46 @@ export class SampleQueryService {
     }));
   }
 
+  // Filtro "Enviado para": projeta os envios fisicos (event-sourced) e retorna
+  // os sample_id distintos com >=1 envio ATIVO cujo destinatario ATUAL esta em
+  // `clientIds`. Envio = evento PHYSICAL_SAMPLE_SENT; destinatario atual =
+  // ultimo PHYSICAL_SAMPLE_SEND_UPDATED (por sequence_number) ou o do SENT;
+  // ativo = sem PHYSICAL_SAMPLE_SEND_CANCELLED pra aquele envio. Espelha
+  // projectPhysicalSendState (command service) em SQL — mesmo padrao raw do
+  // getDashboardRecentActivity. So roda quando o filtro esta ativo.
+  async resolveSampleIdsSentToClients(clientIds) {
+    const list = Array.isArray(clientIds)
+      ? clientIds.filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+    if (list.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.$queryRaw`
+      SELECT DISTINCT sent.sample_id AS "sampleId"
+      FROM "sample_event" sent
+      WHERE sent.event_type = 'PHYSICAL_SAMPLE_SENT'
+        AND NOT EXISTS (
+          SELECT 1 FROM "sample_event" canc
+          WHERE canc.event_type = 'PHYSICAL_SAMPLE_SEND_CANCELLED'
+            AND canc.payload->>'sendEventId' = sent.event_id::text
+        )
+        AND COALESCE(
+          (
+            SELECT upd.payload->>'recipientClientId'
+            FROM "sample_event" upd
+            WHERE upd.event_type = 'PHYSICAL_SAMPLE_SEND_UPDATED'
+              AND upd.payload->>'sendEventId' = sent.event_id::text
+            ORDER BY upd.sequence_number DESC
+            LIMIT 1
+          ),
+          sent.payload->>'recipientClientId'
+        ) IN (${Prisma.join(list)})
+    `;
+
+    return rows.map((row) => row.sampleId);
+  }
+
   async listSamples({
     search = null,
     status = null,
@@ -1246,6 +1288,7 @@ export class SampleQueryService {
     buyer = null,
     ownerClientIds = [],
     buyerClientIds = [],
+    sentToClientIds = [],
     harvest = null,
     sacksMin = null,
     sacksMax = null,
@@ -1382,6 +1425,17 @@ export class SampleQueryService {
           },
         },
       });
+    }
+
+    // Filtro "Enviado para" (envio fisico, event-sourced): projeta os ids das
+    // amostras com envio ativo p/ os clientes selecionados e restringe por id.
+    // Lista vazia -> { id: { in: [] } } -> zero resultados (correto).
+    const sentToClientIdList = Array.isArray(sentToClientIds)
+      ? sentToClientIds.filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+    if (sentToClientIdList.length > 0) {
+      const sentSampleIds = await this.resolveSampleIdsSentToClients(sentToClientIdList);
+      conditions.push({ id: { in: sentSampleIds } });
     }
 
     const normalizedHarvest = normalizeOptionalText(harvest);
