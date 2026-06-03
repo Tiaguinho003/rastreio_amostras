@@ -115,7 +115,8 @@ REGRAS DE FORMATO POR TIPO DE CAMPO:
 - Lote: codigo manuscrito grande do canto superior esquerdo da L1 (ex: "5567", "5640"). String.
 - Sacas: numero inteiro manuscrito da celula SCS (ex: "100"). String.
 - Safra: texto manuscrito da celula SAFRA (ex: "25/26"). String.
-- Padrao, Aspecto, Certif: texto livre manuscrito.
+- Padrao: par Lote-Peneira no formato L<numero>-P<numero>, com UM hifen unico entre os dois termos, em MAIUSCULO, SEM pontos/espacos/tracos internos (ex: "L3-P3"). Se houver letra no fim, mantenha-a COLADA ao segundo termo (ex: "L3-P3B", NUNCA "L3-P3 B").
+- Aspecto, Certif: texto livre manuscrito.
 - Peneiras (p18..p10, mk): SOMENTE o numero (ex: "12,5", "8"). Sem "%".
 - Fundos: peneira e geralmente numero (ex: "13"); percentual e numero (ex: "8", "1,5"). Sem "%".
 - Catacao: SOMENTE o numero (ex: "0,5", "2"). Sem "%".
@@ -645,7 +646,7 @@ export class ClassificationExtractionService {
             content: [
               {
                 type: 'text',
-                text: `${USER_PROMPT}\n\nEXEMPLO DE REFERENCIA (apenas pra ilustrar formato e estilo de extracao — NAO copie estes valores nem a quantidade de campos preenchidos):\n\nA imagem-exemplo abaixo e uma ficha SAFRAS com os seguintes valores manuscritos extraidos:\n- Lote: "5689", Sacas: "250", Safra: "26/27"\n- Padrao: "L4 P3", Aspecto: "GC", Certif: vazio\n- Peneiras: P17="38", MK="8" (demais peneiras vazias)\n- Fundos: FD1 peneira "13" percentual "3" (FD2 vazio), Catacao="33"\n- Defeitos: IMP="0,1", BROCA="1" (demais vazios)\n- Obs: "otelita", Bebida: vazio\n\nEsse exemplo mostra COMO interpretar a ficha. A quantidade de campos preenchidos varia de ficha pra ficha: algumas tem 8+ peneiras, outras 3, outras nenhuma. SEMPRE extraia o que voce VE na FOTO REAL (a segunda imagem, mais abaixo), NUNCA replique a quantidade ou os valores do exemplo.`,
+                text: `${USER_PROMPT}\n\nEXEMPLO DE REFERENCIA (apenas pra ilustrar formato e estilo de extracao — NAO copie estes valores nem a quantidade de campos preenchidos):\n\nA imagem-exemplo abaixo e uma ficha SAFRAS com os seguintes valores manuscritos extraidos:\n- Lote: "5689", Sacas: "250", Safra: "26/27"\n- Padrao: "L4-P3", Aspecto: "GC", Certif: vazio\n- Peneiras: P17="38", MK="8" (demais peneiras vazias)\n- Fundos: FD1 peneira "13" percentual "3" (FD2 vazio), Catacao="33"\n- Defeitos: IMP="0,1", BROCA="1" (demais vazios)\n- Obs: "otelita", Bebida: vazio\n\nEsse exemplo mostra COMO interpretar a ficha. A quantidade de campos preenchidos varia de ficha pra ficha: algumas tem 8+ peneiras, outras 3, outras nenhuma. SEMPRE extraia o que voce VE na FOTO REAL (a segunda imagem, mais abaixo), NUNCA replique a quantidade ou os valores do exemplo.`,
               },
               {
                 type: 'image_url',

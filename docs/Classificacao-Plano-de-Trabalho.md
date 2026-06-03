@@ -1422,6 +1422,18 @@ _(Ainda não iniciado.)_
 
 ## Log de sessões
 
+### 2026-06-03 — Sessão 14 (extração do `Padrão`: formato canônico `L<n>-P<n>`) ✅
+
+`canonicalizePadrao` (`src/samples/classification-canonicalization.js`) reescrita de **substituições encadeadas** (tirava hífen → inseria espaço → colapsava) para **reconhecimento estrutural** do par: regex `^L[\s._-]*(\d+)[\s._-]*P[\s._-]*(\d+)[\s._-]*([A-Z]*)$` reconstruindo em `L{lote}-P{peneira}{letras}`. Corrige 3 defeitos do comportamento anterior, todos pedidos pelo usuário:
+
+1. **Separador**: saída passa de `L4 P3` (espaço) para **`L4-P3`** (hífen único). Toda variação de grafia (`L3 P3`, `L-3 P-3`, `L3-P3`, `L.3 P.3`, `L 3 P 3`, `L3P3`) colapsa pro mesmo canônico.
+2. **Pontos**: `L.3 P.3` (antes passava intacto — o regex de espaço não tocava em pontos) agora vira `L3-P3`.
+3. **Letra final**: `L3 P3B` (antes o regex `([A-Z]\d+)(?=[A-Z])` **separava** → `L3 P3 B`) agora **cola no 2º termo** → `L3-P3B`, por construção (capturada no grupo do P). `L3 P3 B` já separado é **recolado**.
+
+Termo único / texto livre (`L3`, `especial`, `P3B` sem `L`) cai num **fallback** que só faz uppercase+trim — não força o formato (decisão do usuário). **Save manual intocado** — canoniza só na extração da IA (`normalizeClassificationDataFieldValue` no command service e `formToClassificationPayload` no front seguem só com trim). IA alinhada: regra de formato do `Padrao` na seção "REGRAS DE FORMATO POR TIPO DE CAMPO" do `USER_PROMPT` + texto descritivo do few-shot + fixture `extraction-example.json` (`L4 P3` → `L4-P3`); `promptVersion` muda sozinho. Testes em `tests/classification-canonicalization.test.js` cobrem cada caso (3 grupos novos: par L/P, letra colada, fallback/vazios).
+
+**Quality gates**: lint · format:check · typecheck · build · test:unit (194 ok).
+
 ### 2026-06-02 — Sessão 13 (erro de lote obrigatório no padrão + validado primeiro) ✅
 
 O erro de **lote obrigatório** no review (dados extraídos) deixa de ser um **banner tardio** (`flowError` no topo da sheet, setado em `handleReviewAdvance` **depois** do aviso "preencha pelo menos um campo" e da validação numérica — desconectado do campo e fora de ordem) e passa a seguir o **padrão de inline error** da skill `feedback-messages` §3: mensagem **dentro do próprio campo** (placeholder **"Obrigatório"** em vermelho suave `#c45c5c` + `.review-field-input.has-error` + `aria-invalid`), que **limpa ao digitar** e dá **foco** no campo. Além disso é validado **primeiro** no Avançar (`ClassificationReviewSheetBody.handleSubmit`, antes do "≥1 campo" e do numérico), então aparece **logo** que o operador tenta avançar. `handleReviewAdvance` perde o `setFlowError` do lote (vira guard defensivo, sem banner, pra não duplicar — anti-pattern §8); o banner do topo segue só para erros assíncronos (resolve do lote). `skill-maintenance`: `feedback-messages` §10 (referência) + `modals` (mapa de fluxo do Avançar).

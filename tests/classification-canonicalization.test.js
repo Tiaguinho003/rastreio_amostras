@@ -11,13 +11,31 @@ import {
 
 // F3.13: testes dos canonicalizers de campos texto livre da classificacao.
 
-test('canonicalizePadrao normaliza variacoes comuns para "L4 P3"', () => {
-  assert.equal(canonicalizePadrao('L4 P3'), 'L4 P3');
-  assert.equal(canonicalizePadrao('L4 - P3'), 'L4 P3');
-  assert.equal(canonicalizePadrao('L-4 P-3'), 'L4 P3');
-  assert.equal(canonicalizePadrao('L4P3'), 'L4 P3');
-  assert.equal(canonicalizePadrao('l4 p3'), 'L4 P3');
-  assert.equal(canonicalizePadrao('  L4   P3  '), 'L4 P3');
+test('canonicalizePadrao normaliza o par L/P para "L<n>-P<n>" (hifen unico)', () => {
+  // Toda variacao de separador interno colapsa pro mesmo canonico.
+  assert.equal(canonicalizePadrao('L3 P3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('L-3 P-3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('L3-P3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('L.3 P.3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('L 3 P 3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('L3P3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('l3 p3'), 'L3-P3');
+  assert.equal(canonicalizePadrao('  L4   P3  '), 'L4-P3');
+});
+
+test('canonicalizePadrao cola a letra final no segundo termo (nunca separa)', () => {
+  assert.equal(canonicalizePadrao('L3 P3B'), 'L3-P3B');
+  assert.equal(canonicalizePadrao('L3 P3 B'), 'L3-P3B'); // ja separado -> recola
+  assert.equal(canonicalizePadrao('L10 P5A'), 'L10-P5A');
+});
+
+test('canonicalizePadrao nao forca formato em termo unico / texto livre', () => {
+  assert.equal(canonicalizePadrao('L3'), 'L3');
+  assert.equal(canonicalizePadrao('especial'), 'ESPECIAL');
+  assert.equal(canonicalizePadrao('P3B'), 'P3B'); // sem L -> fallback
+});
+
+test('canonicalizePadrao retorna null para vazios', () => {
   assert.equal(canonicalizePadrao(null), null);
   assert.equal(canonicalizePadrao(''), null);
   assert.equal(canonicalizePadrao('   '), null);

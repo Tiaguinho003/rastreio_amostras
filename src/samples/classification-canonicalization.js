@@ -7,21 +7,40 @@
 
 /**
  * Canoniza o campo `padrao`.
- * - trim + uppercase
- * - remove hifens (e quaisquer espacos cercando o hifen)
- * - insere 1 espaco entre tokens consecutivos sem separador (L4P3 -> L4 P3)
- * - colapsa espacos multiplos em 1
  *
- * Ex: "l4 - p3" -> "L4 P3"; "L-4P-3" -> "L4 P3"; "L 4 P 3" -> "L 4 P 3"
+ * Caso canonico — par "Lote/Peneira" no formato `L<n>-P<n>[<letra(s)>]`:
+ * - uppercase + trim
+ * - colapsa qualquer separador interno (espaco, ponto, hifen, underscore) ao
+ *   redor e entre os dois termos
+ * - junta os termos com UM hifen unico
+ * - letra(s) no fim ficam COLADAS ao segundo termo (regra do operador: a letra
+ *   pertence sempre ao 2o padrao escrito, nunca vira termo solto)
+ *
+ * Ex: "L3 P3" / "L-3 P-3" / "L3-P3" / "L.3 P.3" / "L 3 P 3" / "L3P3" -> "L3-P3"
+ *     "L3 P3B" / "L3 P3 B" -> "L3-P3B"
+ *
+ * Qualquer valor que NAO seja esse par (termo unico, texto livre) passa so por
+ * uppercase + trim + colapso de espacos — sem forcar o formato.
+ *
+ * Ex: "L3" -> "L3"; "especial" -> "ESPECIAL"
  */
 export function canonicalizePadrao(value) {
   if (value == null) return null;
-  let s = String(value).trim().toUpperCase();
+  const s = String(value).trim().toUpperCase();
   if (s.length === 0) return null;
-  s = s.replace(/\s*-\s*/g, '');
-  s = s.replace(/([A-Z]\d+)(?=[A-Z])/g, '$1 ');
-  s = s.replace(/\s+/g, ' ').trim();
-  return s.length > 0 ? s : null;
+
+  // Reconhece a estrutura do par e reconstroi no formato canonico. SEP =
+  // separadores "ruido" entre/dentro dos termos: espaco, ponto, hifen, underscore.
+  // A(s) letra(s) final(is) sao capturadas junto do 2o termo por construcao.
+  const match = s.match(/^L[\s._-]*(\d+)[\s._-]*P[\s._-]*(\d+)[\s._-]*([A-Z]*)$/);
+  if (match) {
+    const [, lote, peneira, letras] = match;
+    return `L${lote}-P${peneira}${letras}`;
+  }
+
+  // Fallback: nao e o par L/P — preserva limpo (uppercase + 1 espaco), sem forcar.
+  const fallback = s.replace(/\s+/g, ' ').trim();
+  return fallback.length > 0 ? fallback : null;
 }
 
 /**
