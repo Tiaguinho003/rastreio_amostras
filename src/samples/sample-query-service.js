@@ -1244,8 +1244,8 @@ export class SampleQueryService {
     lot = null,
     owner = null,
     buyer = null,
-    ownerClientId = null,
-    buyerClientId = null,
+    ownerClientIds = [],
+    buyerClientIds = [],
     harvest = null,
     sacksMin = null,
     sacksMax = null,
@@ -1358,22 +1358,27 @@ export class SampleQueryService {
       conditions.push(buyerFilter);
     }
 
-    // Filtro por identidade do cliente (typeahead de proprietario/comprador no
-    // /samples) — match exato e indexado (idx_sample_owner_client /
-    // idx_sample_movement_buyer_*). Complementa os filtros por texto acima.
-    const normalizedOwnerClientId = normalizeOptionalText(ownerClientId);
-    if (normalizedOwnerClientId) {
-      conditions.push({ ownerClientId: normalizedOwnerClientId });
+    // Filtro multi-select por identidade do cliente (typeahead de
+    // proprietario/comprador no /samples) — match exato e indexado
+    // (idx_sample_owner_client / idx_sample_movement_buyer_*). OR dentro de
+    // cada campo (qualquer um dos proprietarios/compradores selecionados).
+    const ownerClientIdList = Array.isArray(ownerClientIds)
+      ? ownerClientIds.filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+    if (ownerClientIdList.length > 0) {
+      conditions.push({ ownerClientId: { in: ownerClientIdList } });
     }
 
-    const normalizedBuyerClientId = normalizeOptionalText(buyerClientId);
-    if (normalizedBuyerClientId) {
+    const buyerClientIdList = Array.isArray(buyerClientIds)
+      ? buyerClientIds.filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+    if (buyerClientIdList.length > 0) {
       conditions.push({
         movements: {
           some: {
             movementType: 'SALE',
             status: 'ACTIVE',
-            buyerClientId: normalizedBuyerClientId,
+            buyerClientId: { in: buyerClientIdList },
           },
         },
       });

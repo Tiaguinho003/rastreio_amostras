@@ -38,6 +38,12 @@ type ClientLookupFieldProps = {
   createButtonStyle?: 'secondary' | 'inline-cta';
   compact?: boolean;
   required?: boolean;
+  /**
+   * Multi-select: ao selecionar, limpa o campo (sem travar no selecionado) e
+   * mantem o foco, pra permitir adicionar varios. O parent gerencia a lista
+   * (selectedClient deve ficar null nesse modo).
+   */
+  clearOnSelect?: boolean;
 };
 
 type LookupRow = {
@@ -109,6 +115,7 @@ export function ClientLookupField({
   createButtonStyle = 'secondary',
   compact = false,
   required = false,
+  clearOnSelect = false,
 }: ClientLookupFieldProps) {
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
@@ -218,6 +225,21 @@ export function ClientLookupField({
   }, [disabled, kind, normalizedSearch, open, session]);
 
   function handleSelectClient(client: ClientSummary, unit: ClientUnitSummary | null) {
+    if (clearOnSelect) {
+      // Modo multi-select: nao trava o input no selecionado — limpa pra
+      // adicionar o proximo e mantem o foco (sem blur, ao contrario do
+      // single-select que recolhe o teclado).
+      lastSelectedIdRef.current = null;
+      setSearch('');
+      setItems([]);
+      setOpen(false);
+      setError(null);
+      onSelectClient(client);
+      if (isHierarchical && onSelectUnit) {
+        onSelectUnit(client, unit);
+      }
+      return;
+    }
     lastSelectedIdRef.current = client.id;
     setSearch(client.displayName ?? '');
     setOpen(false);

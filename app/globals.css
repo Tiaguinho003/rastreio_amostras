@@ -12273,6 +12273,56 @@ button:disabled {
   max-height: min(13rem, 32vh);
 }
 
+/* Chips dos clientes selecionados nos filtros multi-select (proprietario /
+   comprador). Espelha o visual dos chips do user-multi-select. */
+.samples-filter-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.samples-filter-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.2rem 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: #eef3ec;
+  border: 1px solid rgba(195, 200, 190, 0.85);
+  max-width: 100%;
+}
+
+.samples-filter-token-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #2f3a30;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12rem;
+}
+
+.samples-filter-token-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #5a6b5e;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.samples-filter-token-remove:hover {
+  background: rgba(47, 58, 48, 0.12);
+}
+
 .samples-filter-fields {
   display: grid;
   gap: 0.5rem;

@@ -90,6 +90,23 @@ function readOptionalQueryString(value) {
   return normalized.length > 0 ? normalized : null;
 }
 
+// Le uma lista de ids separada por virgula ("a,b,c") — usada nos filtros
+// multi-select (proprietarios/compradores). Dedup + remove vazios.
+function readOptionalIdList(value) {
+  const raw = readOptionalQueryString(value);
+  if (!raw) {
+    return [];
+  }
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+    ),
+  ];
+}
+
 function assignIfDefined(target, key, value) {
   if (value !== undefined) {
     target[key] = value;
@@ -494,8 +511,8 @@ export function createBackendApiV1({
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
           buyer: readOptionalQueryString(query.buyer),
-          ownerClientId: readOptionalQueryString(query.ownerClientId),
-          buyerClientId: readOptionalQueryString(query.buyerClientId),
+          ownerClientIds: readOptionalIdList(query.ownerClientIds),
+          buyerClientIds: readOptionalIdList(query.buyerClientIds),
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           displayStatus: readOptionalQueryString(query.displayStatus),

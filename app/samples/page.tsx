@@ -53,8 +53,8 @@ type PeriodMode = 'exact' | 'month' | 'year';
 type FilterSectionId = 'owner' | 'buyer' | 'displayStatus' | 'harvest' | 'sacks' | 'period';
 
 interface HiddenFilters {
-  ownerClient: ClientSummary | null;
-  buyerClient: ClientSummary | null;
+  ownerClients: ClientSummary[];
+  buyerClients: ClientSummary[];
   displayStatus: DisplayStatusFilter;
   harvest: string;
   sacksMin: string;
@@ -64,8 +64,8 @@ interface HiddenFilters {
 }
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
-  ownerClient: null,
-  buyerClient: null,
+  ownerClients: [],
+  buyerClients: [],
   displayStatus: '',
   harvest: '',
   sacksMin: '',
@@ -93,8 +93,8 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
   return (
-    filters.ownerClient != null ||
-    filters.buyerClient != null ||
+    filters.ownerClients.length > 0 ||
+    filters.buyerClients.length > 0 ||
     filters.displayStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
@@ -105,8 +105,8 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
 
 function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
   return {
-    ownerClient: filters.ownerClient,
-    buyerClient: filters.buyerClient,
+    ownerClients: filters.ownerClients,
+    buyerClients: filters.buyerClients,
     displayStatus: filters.displayStatus,
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
@@ -118,8 +118,8 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
 
 function countActiveHiddenFilters(filters: HiddenFilters) {
   let count = 0;
-  if (filters.ownerClient) count += 1;
-  if (filters.buyerClient) count += 1;
+  if (filters.ownerClients.length > 0) count += 1;
+  if (filters.buyerClients.length > 0) count += 1;
   if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
@@ -198,6 +198,16 @@ function getClientFilterLabel(client: ClientSummary): string {
   return client.displayName ?? client.fullName ?? client.legalName ?? client.tradeName ?? 'Cliente';
 }
 
+function getClientsFilterSummary(
+  clients: ClientSummary[],
+  emptyLabel: string,
+  pluralWord: string
+): string {
+  if (clients.length === 0) return emptyLabel;
+  if (clients.length === 1) return getClientFilterLabel(clients[0]);
+  return `${clients.length} ${pluralWord}`;
+}
+
 function getDisplayStatusLabel(value: DisplayStatusFilter) {
   return (
     DISPLAY_STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.label ??
@@ -245,11 +255,11 @@ function formatSacksSummary(filters: HiddenFilters) {
 
 function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilters) {
   if (sectionId === 'owner') {
-    return filters.ownerClient != null;
+    return filters.ownerClients.length > 0;
   }
 
   if (sectionId === 'buyer') {
-    return filters.buyerClient != null;
+    return filters.buyerClients.length > 0;
   }
 
   if (sectionId === 'displayStatus') {
@@ -269,13 +279,11 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
   if (sectionId === 'owner') {
-    return filters.ownerClient
-      ? getClientFilterLabel(filters.ownerClient)
-      : 'Qualquer proprietario';
+    return getClientsFilterSummary(filters.ownerClients, 'Qualquer proprietario', 'proprietarios');
   }
 
   if (sectionId === 'buyer') {
-    return filters.buyerClient ? getClientFilterLabel(filters.buyerClient) : 'Qualquer comprador';
+    return getClientsFilterSummary(filters.buyerClients, 'Qualquer comprador', 'compradores');
   }
 
   if (sectionId === 'displayStatus') {
@@ -726,8 +734,8 @@ function SamplesPage() {
       cursorCreatedAt: cursor.createdAt,
       cursorId: cursor.id,
       search: filters.appliedSearch || undefined,
-      ownerClientId: filters.appliedHiddenFilters.ownerClient?.id,
-      buyerClientId: filters.appliedHiddenFilters.buyerClient?.id,
+      ownerClientIds: filters.appliedHiddenFilters.ownerClients.map((client) => client.id),
+      buyerClientIds: filters.appliedHiddenFilters.buyerClients.map((client) => client.id),
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
@@ -782,8 +790,8 @@ function SamplesPage() {
       {
         limit: SAMPLE_PAGE_LIMIT,
         search: appliedSearch || undefined,
-        ownerClientId: appliedHiddenFilters.ownerClient?.id,
-        buyerClientId: appliedHiddenFilters.buyerClient?.id,
+        ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
+        buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -846,8 +854,8 @@ function SamplesPage() {
           {
             limit: SAMPLE_PAGE_LIMIT,
             search: appliedSearch || undefined,
-            ownerClientId: appliedHiddenFilters.ownerClient?.id,
-            buyerClientId: appliedHiddenFilters.buyerClient?.id,
+            ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
+            buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
             harvest: appliedHiddenFilters.harvest || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -1166,43 +1174,101 @@ function SamplesPage() {
     samplesState.items.length > 0 &&
     samplesState.nextCursor === null;
 
+  // Filtro multi-select de cliente (proprietario/comprador): picker que
+  // adiciona (ClientLookupField com clearOnSelect) + chips removiveis.
+  function renderClientMultiFilter(
+    kind: 'owner' | 'buyer',
+    label: string,
+    placeholder: string,
+    emptyMessage: string,
+    removeLabel: string,
+    selected: ClientSummary[],
+    onAdd: (client: ClientSummary) => void,
+    onRemove: (clientId: string) => void
+  ) {
+    if (!session) return null;
+    return (
+      <div className="samples-filter-field">
+        <span className="samples-filter-field-label">{label}</span>
+        <ClientLookupField
+          session={session}
+          kind={kind}
+          label={label}
+          compact
+          clearOnSelect
+          selectedClient={null}
+          onSelectClient={(client) => {
+            if (client) onAdd(client);
+          }}
+          placeholder={placeholder}
+          emptyMessage={emptyMessage}
+        />
+        {selected.length > 0 ? (
+          <div className="samples-filter-tokens">
+            {selected.map((client) => (
+              <span key={client.id} className="samples-filter-token">
+                <span className="samples-filter-token-label">{getClientFilterLabel(client)}</span>
+                <button
+                  type="button"
+                  className="samples-filter-token-remove"
+                  aria-label={`${removeLabel}: ${getClientFilterLabel(client)}`}
+                  onClick={() => onRemove(client.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   function renderFilterFields() {
     // O typeahead de cliente exige sessao nao-nula; o painel so abre logado,
     // entao isto e so o narrowing pro TS (nunca renderiza null na pratica).
     if (!session) return null;
     return (
       <div className="samples-filter-fields">
-        <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Proprietario</span>
-          <ClientLookupField
-            session={session}
-            kind="owner"
-            label="Proprietario"
-            compact
-            selectedClient={draftHiddenFilters.ownerClient}
-            onSelectClient={(client) =>
-              setDraftHiddenFilters((c) => ({ ...c, ownerClient: client }))
-            }
-            placeholder="Buscar proprietario"
-            emptyMessage="Nenhum proprietario encontrado"
-          />
-        </div>
+        {renderClientMultiFilter(
+          'owner',
+          'Proprietario',
+          'Buscar proprietario',
+          'Nenhum proprietario encontrado',
+          'Remover proprietario',
+          draftHiddenFilters.ownerClients,
+          (client) =>
+            setDraftHiddenFilters((c) =>
+              c.ownerClients.some((existing) => existing.id === client.id)
+                ? c
+                : { ...c, ownerClients: [...c.ownerClients, client] }
+            ),
+          (clientId) =>
+            setDraftHiddenFilters((c) => ({
+              ...c,
+              ownerClients: c.ownerClients.filter((existing) => existing.id !== clientId),
+            }))
+        )}
 
-        <div className="samples-filter-field">
-          <span className="samples-filter-field-label">Comprador</span>
-          <ClientLookupField
-            session={session}
-            kind="buyer"
-            label="Comprador"
-            compact
-            selectedClient={draftHiddenFilters.buyerClient}
-            onSelectClient={(client) =>
-              setDraftHiddenFilters((c) => ({ ...c, buyerClient: client }))
-            }
-            placeholder="Buscar comprador"
-            emptyMessage="Nenhum comprador encontrado"
-          />
-        </div>
+        {renderClientMultiFilter(
+          'buyer',
+          'Comprador',
+          'Buscar comprador',
+          'Nenhum comprador encontrado',
+          'Remover comprador',
+          draftHiddenFilters.buyerClients,
+          (client) =>
+            setDraftHiddenFilters((c) =>
+              c.buyerClients.some((existing) => existing.id === client.id)
+                ? c
+                : { ...c, buyerClients: [...c.buyerClients, client] }
+            ),
+          (clientId) =>
+            setDraftHiddenFilters((c) => ({
+              ...c,
+              buyerClients: c.buyerClients.filter((existing) => existing.id !== clientId),
+            }))
+        )}
 
         <div className="samples-filter-field">
           <span className="samples-filter-field-label">Status</span>

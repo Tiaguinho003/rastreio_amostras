@@ -826,8 +826,8 @@ export function listSamples(
     lot?: string;
     owner?: string;
     buyer?: string;
-    ownerClientId?: string;
-    buyerClientId?: string;
+    ownerClientIds?: string[];
+    buyerClientIds?: string[];
     statusGroup?: string;
     commercialStatus?: string;
     displayStatus?: string;
@@ -856,8 +856,12 @@ export function listSamples(
   if (query.lot) params.set('lot', query.lot);
   if (query.owner) params.set('owner', query.owner);
   if (query.buyer) params.set('buyer', query.buyer);
-  if (query.ownerClientId) params.set('ownerClientId', query.ownerClientId);
-  if (query.buyerClientId) params.set('buyerClientId', query.buyerClientId);
+  if (query.ownerClientIds && query.ownerClientIds.length > 0) {
+    params.set('ownerClientIds', query.ownerClientIds.join(','));
+  }
+  if (query.buyerClientIds && query.buyerClientIds.length > 0) {
+    params.set('buyerClientIds', query.buyerClientIds.join(','));
+  }
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
   if (query.displayStatus) params.set('displayStatus', query.displayStatus);
