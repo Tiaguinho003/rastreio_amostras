@@ -880,6 +880,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(searchByOwner.body.page.total, 1);
     assert.equal(searchByOwner.body.items[0].declared.owner, targetOwner);
 
+    // owner agora e busca PARCIAL (contains, insensitive), igual a busca geral:
+    // 'Fazenda Filtro' casa 'Fazenda Filtro Unica'. Antes era match exato (0).
     const ownerPartial = await api.listSamples(
       buildInput({
         query: {
@@ -889,7 +891,8 @@ if (!databaseUrl || !databaseReachable) {
     );
 
     assert.equal(ownerPartial.status, 200);
-    assert.equal(ownerPartial.body.page.total, 0);
+    assert.equal(ownerPartial.body.page.total, 1);
+    assert.equal(ownerPartial.body.items[0].internalLotNumber, targetInternalLotNumber);
   });
 
   test('GET /samples paginates with cursor (createdAt + id) without duplicates', async () => {
