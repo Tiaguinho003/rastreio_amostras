@@ -1300,8 +1300,7 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 .sample-created-modal .app-modal-actions {
   align-items: center;
   gap: clamp(0.5rem, 1.6vw, 0.65rem);
-  padding: clamp(0.7rem, 2.2vw, 0.9rem) clamp(1.2rem, 3.6vw, 1.5rem)
-    clamp(1.1rem, 3.4vw, 1.35rem);
+  padding: clamp(0.7rem, 2.2vw, 0.9rem) clamp(1.2rem, 3.6vw, 1.5rem) clamp(1.1rem, 3.4vw, 1.35rem);
   border-top: 0;
   margin-top: 0;
 }
@@ -4586,7 +4585,11 @@ button:disabled {
 
 /* Estado has-input: botao vira CTA verde + seta entra/lupa sai. */
 .sample-search-field.has-input .sample-search-icon-button {
-  background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+  background: linear-gradient(
+    135deg,
+    var(--brand-green, #1f5d43),
+    var(--brand-green-soft, #2f8a5e)
+  );
   color: #ffffff;
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(15, 64, 41, 0.32);
@@ -4748,7 +4751,11 @@ button:disabled {
 
 /* Has-input: botao vira CTA verde + seta entra/lupa sai. */
 .hero-search-bar.has-input .hero-search-submit {
-  background: linear-gradient(135deg, var(--brand-green, #1f5d43), var(--brand-green-soft, #2f8a5e));
+  background: linear-gradient(
+    135deg,
+    var(--brand-green, #1f5d43),
+    var(--brand-green-soft, #2f8a5e)
+  );
   color: #ffffff;
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(15, 64, 41, 0.32);
@@ -4890,57 +4897,6 @@ button:disabled {
    coberto pelo FAB flutuante. Vale tanto modo normal quanto selecao. */
 .samples-page-v2 .spv2-list-scroll {
   padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + clamp(0.6rem, 2vw, 0.9rem));
-}
-
-/* ── spv2: aging banner ── */
-
-.spv2-aging-banner {
-  display: flex;
-  align-items: center;
-  gap: clamp(8px, 2.5vw, 10px);
-  margin: 0 clamp(10px, 3vw, 14px);
-  padding: clamp(8px, 2.5vw, 10px) clamp(12px, 3.5vw, 14px);
-  background: rgba(30, 70, 32, 0.06);
-  border: 1px solid rgba(30, 70, 32, 0.15);
-  border-radius: clamp(8px, 2.5vw, 10px);
-}
-
-.spv2-aging-banner-text {
-  flex: 1;
-  font-size: clamp(11px, 3.2vw, 13px);
-  font-weight: 600;
-  color: var(--brand-green);
-  line-height: 1.3;
-}
-
-.spv2-aging-banner-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(24px, 7vw, 28px);
-  height: clamp(24px, 7vw, 28px);
-  border: none;
-  border-radius: 50%;
-  background: rgba(30, 70, 32, 0.1);
-  color: var(--brand-green);
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0;
-  transition: background 0.15s ease;
-}
-
-.spv2-aging-banner-clear:active {
-  transform: scale(0.9);
-  background: rgba(30, 70, 32, 0.18);
-}
-
-.spv2-aging-banner-clear svg {
-  width: clamp(14px, 4vw, 16px);
-  height: clamp(14px, 4vw, 16px);
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  fill: none;
 }
 
 /* ── spv2: chips ── */
@@ -19634,8 +19590,7 @@ button:disabled {
     0 2px 6px rgba(10, 30, 18, 0.08);
   overflow: hidden;
   transform-origin: top right;
-  animation: classifier-pop-in 0.22s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1))
-    backwards;
+  animation: classifier-pop-in 0.22s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) backwards;
 }
 
 @keyframes classifier-pop-in {
@@ -20945,7 +20900,7 @@ button:disabled {
    Card unico full-width: titulo "Lotes disponiveis" no topo, body em
    grid de 2 colunas (donut alinhado a esquerda + legenda das cores
    a direita) e CTA branco flutuando no canto inferior direito que
-   abre o SalesAgingModal com a lista detalhada por band. */
+   leva pra /samples?displayStatus=OPEN (lotes em aberto). */
 
 .sales-card {
   position: relative;
@@ -20963,7 +20918,6 @@ button:disabled {
     0 8px 20px rgba(15, 64, 41, 0.14);
   text-align: left;
   font: inherit;
-  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   width: 100%;
   transition:
@@ -21000,10 +20954,6 @@ button:disabled {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.sales-card:active {
-  transform: scale(0.98);
 }
 
 .sales-card-title {
@@ -21135,7 +21085,12 @@ button:disabled {
   font-weight: 500;
   line-height: 1;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-  pointer-events: none;
+  text-decoration: none;
+  transition: transform 0.12s ease;
+}
+
+.sales-card-detail-button:active {
+  transform: scale(0.96);
 }
 
 .sales-card-detail-button svg {
@@ -21146,124 +21101,6 @@ button:disabled {
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* ── Modal de distribuicao (acessivel via .sales-chart-cta) ── */
-
-.sales-aging-modal {
-  width: min(28rem, calc(100vw - 1.5rem));
-  max-width: min(28rem, calc(100vw - 1.5rem));
-}
-
-.sales-aging-modal-list {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.55rem, 2vw, 0.8rem);
-}
-
-.sales-aging-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(0.7rem, 2.4vw, 0.95rem);
-  padding: clamp(0.7rem, 2.6vw, 0.95rem) clamp(0.85rem, 3vw, 1.1rem);
-  background: #ffffff;
-  border-radius: clamp(8px, 2.4vw, 10px);
-  /* Institucional: superficie chata com borda sutil + acento fino a esquerda
-     (em vez de sombra "flutuante"). */
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-left: 3px solid currentColor;
-  text-decoration: none;
-  color: inherit;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-  min-width: 0;
-}
-
-.sales-aging-card:active {
-  transform: scale(0.97);
-}
-
-.sales-aging-card--over30 {
-  color: #c0392b;
-}
-
-.sales-aging-card--from15to30 {
-  color: #e5a100;
-}
-
-.sales-aging-card--under15 {
-  color: #27ae60;
-}
-
-.sales-aging-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.15rem, 0.7vw, 0.2rem);
-  min-width: 0;
-}
-
-.sales-aging-label {
-  font-size: clamp(0.9rem, 3vw, 1rem);
-  font-weight: 600;
-  /* Frase em tom institucional sobrio (nao na cor da faixa) — a cor
-     semantica fica so no numero + acento, pra nao ficar colorido demais. */
-  color: #2a3d2f;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-}
-
-.sales-aging-card-meta {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.45rem, 1.6vw, 0.65rem);
-  flex-shrink: 0;
-}
-
-/* Metrica institucional: numero medido (nao gigante) + unidade rotulada. */
-.sales-aging-count-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.sales-aging-count {
-  font-size: clamp(1.25rem, 4.2vw, 1.5rem);
-  font-weight: 700;
-  color: currentColor;
-  line-height: 1;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.sales-aging-unit {
-  font-size: clamp(0.6rem, 2vw, 0.68rem);
-  font-weight: 600;
-  color: #8a929b;
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
-}
-
-/* Seta visual ao lado do count — indica que o card e clicavel. Cor
-   herda da variante (currentColor = mesma cor do count e do border-left). */
-.sales-aging-arrow {
-  display: block;
-  width: clamp(0.9rem, 3vw, 1.05rem);
-  height: clamp(0.9rem, 3vw, 1.05rem);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.4;
-  flex-shrink: 0;
 }
 
 /* ── Skeleton ── */
@@ -22641,21 +22478,6 @@ button:disabled {
     max-width: none;
   }
 
-  /* Hover desktop nos mini-cards de aging. */
-  .sales-aging-card {
-    cursor: pointer;
-  }
-
-  .sales-aging-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(0, 0, 0, 0.14);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  }
-
-  .sales-aging-card:active {
-    transform: translateY(0) scale(0.97);
-  }
-
   .sales-total-number {
     font-size: 3rem;
   }
@@ -23001,16 +22823,6 @@ button:disabled {
     width: 26px;
     height: 26px;
     stroke-width: 2.2;
-  }
-
-  .samples-page-v2 .spv2-aging-banner {
-    margin: 0 0 0.6rem;
-    padding: 0.7rem 1rem;
-    border-radius: 12px;
-  }
-
-  .samples-page-v2 .spv2-aging-banner-text {
-    font-size: 0.9rem;
   }
 
   .samples-page-v2 .spv2-empty {
@@ -25280,8 +25092,7 @@ button:disabled {
 .app-confirm-modal .app-modal-content {
   align-items: center;
   text-align: center;
-  padding: clamp(1.3rem, 4vw, 1.6rem) clamp(1.2rem, 3.6vw, 1.5rem)
-    clamp(0.7rem, 2vw, 0.9rem);
+  padding: clamp(1.3rem, 4vw, 1.6rem) clamp(1.2rem, 3.6vw, 1.5rem) clamp(0.7rem, 2vw, 0.9rem);
   gap: clamp(0.85rem, 2.6vw, 1.05rem);
 }
 
@@ -25332,8 +25143,7 @@ button:disabled {
 .app-confirm-modal .app-modal-actions {
   display: flex;
   gap: 0.55rem;
-  padding: clamp(0.6rem, 2vw, 0.8rem) clamp(1.2rem, 3.6vw, 1.5rem)
-    clamp(1.1rem, 3.4vw, 1.35rem);
+  padding: clamp(0.6rem, 2vw, 0.8rem) clamp(1.2rem, 3.6vw, 1.5rem) clamp(1.1rem, 3.4vw, 1.35rem);
   border-top: 0;
   margin-top: 0;
 }

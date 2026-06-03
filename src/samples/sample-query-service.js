@@ -543,8 +543,6 @@ function resolveCreatedPeriodRangeInSaoPaulo({
   return null;
 }
 
-const CLASSIFIED_AGING_BANDS = ['over30', 'from15to30', 'under15'];
-
 function resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber }) {
   const normalizedCreatedAt = normalizeOptionalText(cursorCreatedAt);
   const normalizedId = normalizeOptionalText(cursorId);
@@ -572,44 +570,6 @@ function resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber }) {
     id: normalizedId,
     internalLotNumber: normalizedInternalLotNumber,
   };
-}
-
-function resolveClassifiedAgingConditions(classifiedAging) {
-  const normalized = normalizeOptionalText(classifiedAging);
-  if (!normalized) return null;
-
-  if (!CLASSIFIED_AGING_BANDS.includes(normalized)) {
-    throw new HttpError(422, 'classifiedAging must be one of: over30, from15to30, under15');
-  }
-
-  const nowUtc = new Date();
-  const nowSp = new Date(nowUtc.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
-  const spYear = nowSp.getUTCFullYear();
-  const spMonth = nowSp.getUTCMonth();
-  const spDay = nowSp.getUTCDate();
-
-  const boundary30 = new Date(
-    Date.UTC(spYear, spMonth, spDay - 30, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-  );
-  const boundary15 = new Date(
-    Date.UTC(spYear, spMonth, spDay - 15, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0, 0)
-  );
-
-  const conditions = [
-    { status: 'CLASSIFIED' },
-    { commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] } },
-    { classifiedAt: { not: null } },
-  ];
-
-  if (normalized === 'over30') {
-    conditions.push({ classifiedAt: { lt: boundary30 } });
-  } else if (normalized === 'from15to30') {
-    conditions.push({ classifiedAt: { gte: boundary30, lt: boundary15 } });
-  } else {
-    conditions.push({ classifiedAt: { gte: boundary15 } });
-  }
-
-  return conditions;
 }
 
 function resolveStatusGroupStatuses(statusGroup) {
@@ -1299,7 +1259,6 @@ export class SampleQueryService {
     createdDate = null,
     createdMonth = null,
     createdYear = null,
-    classifiedAging = null,
     // Liga A3.3: quando true, enriquece cada sample com
     // `eligibility: { eligible, reason }` (F1.B) e `committedSacks`
     // (T0.B). NAO filtra inelegiveis fora — frontend renderiza
@@ -1462,11 +1421,6 @@ export class SampleQueryService {
           lt: createdPeriodRange.endUtc,
         },
       });
-    }
-
-    const agingConditions = resolveClassifiedAgingConditions(classifiedAging);
-    if (agingConditions) {
-      conditions.push(...agingConditions);
     }
 
     const whereForCount = conditions.length > 0 ? { AND: conditions } : undefined;

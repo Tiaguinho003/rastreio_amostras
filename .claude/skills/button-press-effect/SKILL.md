@@ -87,7 +87,7 @@ Combinacoes permitidas (so propriedades de **profundidade**, nunca cor):
 | --------------- | --------------------------------------- | ------------------------------------------------------------------------ |
 | Scale simples   | `transform: scale(0.96)`                | Botoes pequenos/medios (icone, CTA pill)                                 |
 | Scale agressivo | `transform: scale(0.92)`                | Botoes que precisam de feedback mais marcado (close button, fab)         |
-| Scale sutil     | `transform: scale(0.98)`                | Cards grandes clicaveis (.sales-card, .dashboard-operation-card)         |
+| Scale sutil     | `transform: scale(0.98)`                | Cards grandes clicaveis (.dashboard-operation-card)                      |
 | Scale + opacity | `transform: scale(0.96); opacity: 0.92` | Botoes coloridos pequenos onde opacity reforça o "press" sem mudar matiz |
 | TranslateY      | `transform: translateY(1px)`            | "Botao afundando" — usado em fab buttons elevados (raro)                 |
 
@@ -183,14 +183,13 @@ mudanca implicita do browser. Confirmado por `git log` do fix.
 
 Lista de seletores que ja seguem o pattern corretamente — podem ser usados como referencia:
 
-| Selector                       | Arquivo:linha      | Variante                             |
-| ------------------------------ | ------------------ | ------------------------------------ |
-| `.dashboard-operation-card`    | globals.css ~3776  | scale(0.95) + focus outline          |
-| `.sales-card`                  | globals.css ~19183 | scale(0.98) — card grande clicavel   |
-| `.sales-aging-card`            | globals.css ~19336 | scale(0.97) — Link em modal          |
-| `.app-modal-card-classify-cta` | globals.css ~1601  | scale(0.96) + opacity(0.92)          |
-| `.dashboard-hero-avatar`       | globals.css ~15250 | scale(0.92) — botao pequeno circular |
-| `.app-modal-close` (themed)    | globals.css ~1189  | scale(0.94) — close button           |
+| Selector                       | Arquivo:linha      | Variante                                               |
+| ------------------------------ | ------------------ | ------------------------------------------------------ |
+| `.dashboard-operation-card`    | globals.css ~3776  | scale(0.95) + focus outline                            |
+| `.sales-card-detail-button`    | globals.css        | scale(0.96) — Link "Ver disponiveis" no card de vendas |
+| `.app-modal-card-classify-cta` | globals.css ~1601  | scale(0.96) + opacity(0.92)                            |
+| `.dashboard-hero-avatar`       | globals.css ~15250 | scale(0.92) — botao pequeno circular                   |
+| `.app-modal-close` (themed)    | globals.css ~1189  | scale(0.94) — close button                             |
 
 ## 7. Como auditar um elemento existente
 

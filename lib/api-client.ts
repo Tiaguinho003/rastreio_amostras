@@ -838,7 +838,6 @@ export function listSamples(
     createdDate?: string;
     createdMonth?: string;
     createdYear?: string;
-    classifiedAging?: string;
     // Liga B1.1 (Wave A3.3 backend): quando true, cada item da resposta
     // ganha eligibility + committedSacks pra UI do modo seleção decidir
     // o que acinzentar e quanto está comprometido (F1.B + T0.B).
@@ -875,7 +874,6 @@ export function listSamples(
   if (query.createdDate) params.set('createdDate', query.createdDate);
   if (query.createdMonth) params.set('createdMonth', query.createdMonth);
   if (query.createdYear) params.set('createdYear', query.createdYear);
-  if (query.classifiedAging) params.set('classifiedAging', query.classifiedAging);
   if (query.eligibleForBlend) params.set('eligibleForBlend', 'true');
 
   const suffix = params.size ? `?${params.toString()}` : '';

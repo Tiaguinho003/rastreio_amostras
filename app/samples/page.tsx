@@ -83,14 +83,6 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   periodValue: '',
 };
 
-const AGING_BANDS = ['over30', 'from15to30', 'under15'] as const;
-type AgingBand = (typeof AGING_BANDS)[number];
-const AGING_LABELS: Record<AgingBand, string> = {
-  over30: 'Mais de 30 dias',
-  from15to30: 'Entre 15 e 30 dias',
-  under15: 'Ate 15 dias',
-};
-
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'owner',
   'buyer',
@@ -339,7 +331,6 @@ interface SamplesSnapshot {
   searchInput: string;
   appliedSearch: string;
   appliedHiddenFilters: HiddenFilters;
-  agingParam: string | null;
   savedAt: number;
 }
 
@@ -480,19 +471,30 @@ function SamplesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const agingParam = searchParams.get('aging');
-  const activeAging: AgingBand | null =
-    agingParam && AGING_BANDS.includes(agingParam as AgingBand) ? (agingParam as AgingBand) : null;
+  // Deep-link de status via URL (ex.: dashboard "Ver disponiveis" -> ?displayStatus=OPEN).
+  const displayStatusParam = searchParams.get('displayStatus');
+  const urlDisplayStatus: DisplayStatusFilter =
+    displayStatusParam &&
+    DISPLAY_STATUS_FILTER_OPTIONS.some((option) => option.value === displayStatusParam)
+      ? (displayStatusParam as DisplayStatusFilter)
+      : '';
 
   const [initialSnapshot] = useState<SamplesSnapshot | null>(() => {
     const snap = readSamplesSnapshot();
     if (!snap) return null;
-    if (snap.agingParam !== agingParam) {
+    // O deep-link da URL tem prioridade sobre um snapshot com status diferente.
+    if (urlDisplayStatus && snap.appliedHiddenFilters.displayStatus !== urlDisplayStatus) {
       clearSamplesSnapshot();
       return null;
     }
     return snap;
   });
+
+  const initialFilters: HiddenFilters = initialSnapshot
+    ? initialSnapshot.appliedHiddenFilters
+    : urlDisplayStatus
+      ? { ...EMPTY_HIDDEN_FILTERS, displayStatus: urlDisplayStatus }
+      : EMPTY_HIDDEN_FILTERS;
 
   const [samplesState, dispatchSamples] = useReducer(
     samplesListReducer,
@@ -510,11 +512,9 @@ function SamplesPage() {
   );
   const [searchInput, setSearchInput] = useState(() => initialSnapshot?.searchInput ?? '');
   const [appliedSearch, setAppliedSearch] = useState(() => initialSnapshot?.appliedSearch ?? '');
-  const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(
-    () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
-  );
+  const [draftHiddenFilters, setDraftHiddenFilters] = useState<HiddenFilters>(() => initialFilters);
   const [appliedHiddenFilters, setAppliedHiddenFilters] = useState<HiddenFilters>(
-    () => initialSnapshot?.appliedHiddenFilters ?? EMPTY_HIDDEN_FILTERS
+    () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Modal de nova amostra: `open` controla intencao (abrir/fechar) e
@@ -587,7 +587,7 @@ function SamplesPage() {
   // de load-more, sem precisar incluir os valores nas deps do useCallback (o que
   // recriaria o callback a cada mudanca e forcaria o observer a reconectar).
   const sessionRef = useRef(session);
-  const filtersRef = useRef({ appliedSearch, appliedHiddenFilters, activeAging });
+  const filtersRef = useRef({ appliedSearch, appliedHiddenFilters });
   const hasDraftHiddenFilters = useMemo(
     () => hasAnyHiddenFilter(draftHiddenFilters),
     [draftHiddenFilters]
@@ -719,9 +719,18 @@ function SamplesPage() {
     sessionRef.current = session;
   }, [session]);
 
+  // Consome o ?displayStatus= da URL: o filtro ja foi semeado no estado inicial;
+  // limpa a URL pra um refresh nao re-forcar o status (mesmo padrao do antigo aging).
   useEffect(() => {
-    filtersRef.current = { appliedSearch, appliedHiddenFilters, activeAging };
-  }, [appliedSearch, appliedHiddenFilters, activeAging]);
+    if (displayStatusParam) {
+      router.replace('/samples', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    filtersRef.current = { appliedSearch, appliedHiddenFilters };
+  }, [appliedSearch, appliedHiddenFilters]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -767,7 +776,6 @@ function SamplesPage() {
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
       ...buildPeriodQuery(filters.appliedHiddenFilters),
-      classifiedAging: filters.activeAging || undefined,
     })
       .then((response) => {
         state.inFlight = false;
@@ -824,7 +832,6 @@ function SamplesPage() {
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters),
-        classifiedAging: activeAging || undefined,
       },
       {
         signal: abortController.signal,
@@ -861,7 +868,7 @@ function SamplesPage() {
       active = false;
       abortController.abort();
     };
-  }, [activeAging, appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey]);
+  }, [appliedHiddenFilters, appliedSearch, session, newSampleRefetchKey]);
 
   // Liga B1.4 — refetch otimista quando entra em modo selecao.
   // Lista atual permanece visivel; quando refetch retorna, atualiza com
@@ -888,7 +895,6 @@ function SamplesPage() {
             harvest: appliedHiddenFilters.harvest || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
             sacksMax: appliedHiddenFilters.sacksMax || undefined,
-            classifiedAging: activeAging || undefined,
             eligibleForBlend: true,
           },
           { signal: controller.signal }
@@ -992,21 +998,14 @@ function SamplesPage() {
     return () => observer.disconnect();
   }, [runLoadMore, samplesState.nextCursor, samplesState.status, session]);
 
-  function clearAging() {
-    clearSamplesSnapshot();
-    router.replace('/samples', { scroll: false });
-  }
-
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (activeAging) clearAging();
     clearSamplesSnapshot();
     setAppliedSearch(searchInput.trim());
   }
 
   function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (activeAging) clearAging();
     clearSamplesSnapshot();
     const nextFilters = normalizeHiddenFilters(draftHiddenFilters);
     setAppliedHiddenFilters(nextFilters);
@@ -1016,7 +1015,6 @@ function SamplesPage() {
   }
 
   function handleClearFiltersOnly() {
-    if (activeAging) clearAging();
     clearSamplesSnapshot();
     setDraftHiddenFilters(EMPTY_HIDDEN_FILTERS);
     setAppliedHiddenFilters(EMPTY_HIDDEN_FILTERS);
@@ -1032,7 +1030,6 @@ function SamplesPage() {
       searchInput,
       appliedSearch,
       appliedHiddenFilters,
-      agingParam,
     });
   }, [
     samplesState.items,
@@ -1041,7 +1038,6 @@ function SamplesPage() {
     searchInput,
     appliedSearch,
     appliedHiddenFilters,
-    agingParam,
   ]);
 
   function openFilters(trigger: HTMLButtonElement) {
@@ -1486,7 +1482,6 @@ function SamplesPage() {
                 // mesmo padrao do clients (debounced), aqui aplicado
                 // imediatamente pra nao precisar submeter o form.
                 if (newValue.trim() === '' && appliedSearch !== '') {
-                  if (activeAging) clearAging();
                   clearSamplesSnapshot();
                   setAppliedSearch('');
                 }
@@ -1536,25 +1531,6 @@ function SamplesPage() {
         </div>
 
         <section className="samples-page-v2-sheet">
-          {activeAging ? (
-            <div className="spv2-aging-banner">
-              <span className="spv2-aging-banner-text">
-                {AGING_LABELS[activeAging]} — classificadas, em aberto
-              </span>
-              <button
-                type="button"
-                className="spv2-aging-banner-clear"
-                onClick={clearAging}
-                aria-label="Limpar filtro"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
-            </div>
-          ) : null}
-
           {/* Section 2: Count + filter btn (ou contador de selecionadas em modo blend) */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{samplesState.total} registros</span>

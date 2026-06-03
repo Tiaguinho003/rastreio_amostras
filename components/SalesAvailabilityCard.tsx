@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 
-import { SalesAgingModal } from './SalesAgingModal';
 import type { DashboardSalesAvailabilityResponse } from '../lib/types';
 
 type AgingKey = 'over30' | 'from15to30' | 'under15';
@@ -99,56 +98,45 @@ function AgingDonut({
 }
 
 export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabilityResponse }) {
-  const [modalOpen, setModalOpen] = useState(false);
   const total = data.bands.over30 + data.bands.from15to30 + data.bands.under15;
 
   return (
-    <>
-      <button
-        type="button"
-        className="sales-card"
-        onClick={() => setModalOpen(true)}
-        aria-label="Ver distribuicao detalhada por tempo"
-      >
-        <div className="sales-card-header">
-          <h3 className="sales-card-title">Lotes disponíveis</h3>
-          <span className="sales-card-chart-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M3 16.5 9 10.5 13 14 20 7" />
-              <path d="M15 7 20 7 20 12" />
-            </svg>
-          </span>
-        </div>
-
-        <div className="sales-card-body">
-          <AgingDonut bands={data.bands} total={total} />
-
-          <ul className="sales-chart-legend">
-            {SEGMENT_ORDER.map(({ key, color, label }) => (
-              <li key={key} className="sales-chart-legend-item">
-                <span
-                  className="sales-chart-legend-dot"
-                  style={{ background: color }}
-                  aria-hidden="true"
-                />
-                <span className="sales-chart-legend-label">{label}</span>
-                <span className="sales-chart-legend-count">{data.bands[key]}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Pilula "Ver detalhes" — puramente visual, o card todo e o
-            botao clicavel que abre o SalesAgingModal. */}
-        <span className="sales-card-detail-button" aria-hidden="true">
-          Ver detalhes
+    <div className="sales-card">
+      <div className="sales-card-header">
+        <h3 className="sales-card-title">Lotes disponíveis</h3>
+        <span className="sales-card-chart-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
-            <path d="m9 6 6 6-6 6" />
+            <path d="M3 16.5 9 10.5 13 14 20 7" />
+            <path d="M15 7 20 7 20 12" />
           </svg>
         </span>
-      </button>
+      </div>
 
-      {modalOpen ? <SalesAgingModal data={data} onClose={() => setModalOpen(false)} /> : null}
-    </>
+      <div className="sales-card-body">
+        <AgingDonut bands={data.bands} total={total} />
+
+        <ul className="sales-chart-legend">
+          {SEGMENT_ORDER.map(({ key, color, label }) => (
+            <li key={key} className="sales-chart-legend-item">
+              <span
+                className="sales-chart-legend-dot"
+                style={{ background: color }}
+                aria-hidden="true"
+              />
+              <span className="sales-chart-legend-label">{label}</span>
+              <span className="sales-chart-legend-count">{data.bands[key]}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Unica acao do card: leva pra lista de amostras disponiveis (em aberto). */}
+      <Link href="/samples?displayStatus=OPEN" className="sales-card-detail-button">
+        Ver disponíveis
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      </Link>
+    </div>
   );
 }

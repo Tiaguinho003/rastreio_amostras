@@ -122,11 +122,10 @@ Banner é uma faixa horizontal informando uma condição que **permanece enquant
 
 ### Padrões existentes
 
-| Classe                              | Quando                                     | Exemplo                                      |
-| ----------------------------------- | ------------------------------------------ | -------------------------------------------- |
-| `.spv2-aging-banner`                | Filtro de aging ativo em `/samples`        | "Mais de 30 dias — classificadas, em aberto" |
-| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`        | "Sem conexão"                                |
-| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo) | "Este cliente PF não tem fazenda ativa"      |
+| Classe                              | Quando                                     | Exemplo                                 |
+| ----------------------------------- | ------------------------------------------ | --------------------------------------- |
+| `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`        | "Sem conexão"                           |
+| `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo) | "Este cliente PF não tem fazenda ativa" |
 
 ### Estrutura
 

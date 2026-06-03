@@ -523,7 +523,6 @@ export function createBackendApiV1({
           createdDate: readOptionalQueryString(query.createdDate),
           createdMonth: readOptionalQueryString(query.createdMonth),
           createdYear: readOptionalQueryString(query.createdYear),
-          classifiedAging: readOptionalQueryString(query.classifiedAging),
           // Liga A3.3 (F1.B + T0.B): quando true, enriquece cada sample
           // com eligibility + committedSacks.
           eligibleForBlend: readOptionalQueryString(query.eligibleForBlend) === 'true',
