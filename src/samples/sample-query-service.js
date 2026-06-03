@@ -1244,6 +1244,8 @@ export class SampleQueryService {
     lot = null,
     owner = null,
     buyer = null,
+    ownerClientId = null,
+    buyerClientId = null,
     harvest = null,
     sacksMin = null,
     sacksMax = null,
@@ -1354,6 +1356,27 @@ export class SampleQueryService {
     const buyerFilter = buildBuyerMovementFilter(buyer);
     if (buyerFilter) {
       conditions.push(buyerFilter);
+    }
+
+    // Filtro por identidade do cliente (typeahead de proprietario/comprador no
+    // /samples) — match exato e indexado (idx_sample_owner_client /
+    // idx_sample_movement_buyer_*). Complementa os filtros por texto acima.
+    const normalizedOwnerClientId = normalizeOptionalText(ownerClientId);
+    if (normalizedOwnerClientId) {
+      conditions.push({ ownerClientId: normalizedOwnerClientId });
+    }
+
+    const normalizedBuyerClientId = normalizeOptionalText(buyerClientId);
+    if (normalizedBuyerClientId) {
+      conditions.push({
+        movements: {
+          some: {
+            movementType: 'SALE',
+            status: 'ACTIVE',
+            buyerClientId: normalizedBuyerClientId,
+          },
+        },
+      });
     }
 
     const normalizedHarvest = normalizeOptionalText(harvest);

@@ -494,6 +494,8 @@ export function createBackendApiV1({
           lot: readOptionalQueryString(query.lot),
           owner: readOptionalQueryString(query.owner),
           buyer: readOptionalQueryString(query.buyer),
+          ownerClientId: readOptionalQueryString(query.ownerClientId),
+          buyerClientId: readOptionalQueryString(query.buyerClientId),
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           displayStatus: readOptionalQueryString(query.displayStatus),

@@ -12266,6 +12266,13 @@ button:disabled {
   padding-bottom: 0.5rem;
 }
 
+/* Typeahead (ClientLookupField) de proprietario/comprador dentro do modal de
+   filtros: dropdown acima dos demais campos e com altura que cabe no painel. */
+.samples-filter-modal .client-lookup-dropdown {
+  z-index: 24;
+  max-height: min(13rem, 32vh);
+}
+
 .samples-filter-fields {
   display: grid;
   gap: 0.5rem;
