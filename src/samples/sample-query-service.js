@@ -1340,9 +1340,12 @@ export class SampleQueryService {
 
     const normalizedOwner = normalizeOptionalText(owner);
     if (normalizedOwner) {
+      // Busca parcial (contains), igual a busca geral (declaredOwner acima) e ao
+      // filtro de comprador. Antes era `equals` exato, que exigia o nome
+      // completo perfeito — digitar parte do nome nao encontrava nada.
       conditions.push({
         declaredOwner: {
-          equals: normalizedOwner,
+          contains: normalizedOwner,
           mode: 'insensitive',
         },
       });

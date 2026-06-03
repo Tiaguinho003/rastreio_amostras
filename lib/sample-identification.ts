@@ -114,6 +114,24 @@ export function normalizeHarvest(value: string | null | undefined): string | nul
   return unified;
 }
 
+/**
+ * Presets de safra para selects/filtros, deslizando com o ano corrente: da
+ * safra retrasada (ano-2/ano-1) ate a proxima (ano+1/ano+2). Formato "AA/AA".
+ * Fonte unica usada no registro (NewSampleModal) e no filtro de /samples, pra
+ * que as duas listas nunca divirjam.
+ *
+ * Ex (2026): ["24/25", "25/26", "26/27", "27/28"]
+ */
+export function buildHarvestPresets(): readonly string[] {
+  const year = new Date().getFullYear() % 100;
+  return [
+    `${year - 2}/${year - 1}`,
+    `${year - 1}/${year}`,
+    `${year}/${year + 1}`,
+    `${year + 1}/${year + 2}`,
+  ];
+}
+
 function toComparableExtracted(
   field: IdentificationField,
   extracted: string | null | undefined

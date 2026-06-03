@@ -11,6 +11,7 @@ import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
 import { ApiError, createSample, getClient } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
+import { buildHarvestPresets } from '../lib/sample-identification';
 import type {
   ClientSummary,
   ClientUnitSummary,
@@ -58,16 +59,6 @@ function clearPersistedDraftId() {
   try {
     sessionStorage.removeItem(DRAFT_ID_STORAGE_KEY);
   } catch {}
-}
-
-function buildHarvestPresets(): readonly string[] {
-  const year = new Date().getFullYear() % 100;
-  return [
-    `${year - 2}/${year - 1}`,
-    `${year - 1}/${year}`,
-    `${year}/${year + 1}`,
-    `${year + 1}/${year + 2}`,
-  ];
 }
 
 const HARVEST_PRESET_OPTIONS = buildHarvestPresets();

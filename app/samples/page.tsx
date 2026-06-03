@@ -31,13 +31,16 @@ import {
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
 import { ApiError, createBlend, listSamples } from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
+import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
 const SAMPLE_PAGE_LIMIT = 20;
-const HARVEST_OPTIONS = ['24/25', '25/26'] as const;
+// Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
+// as safras selecionaveis ao cadastrar. Ver buildHarvestPresets.
+const HARVEST_OPTIONS = buildHarvestPresets();
 const DISPLAY_STATUS_FILTER_OPTIONS = [
   { value: 'OPEN', label: 'Em aberto' },
   { value: 'SOLD', label: 'Vendido' },
