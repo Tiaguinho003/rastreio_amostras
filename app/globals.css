@@ -27915,10 +27915,9 @@ body.is-selection-mode .hero-search-filter-btn {
   border: 0;
 }
 
-.spv2-card.is-blend-selected {
-  background: linear-gradient(180deg, #f0faf3 0%, #e6f4e9 100%);
-  box-shadow: 0 0 0 1.5px var(--brand-green) inset;
-}
+/* Selecionado no modo liga: o unico indicador e o circulo com check
+   (.sample-card-selection-circle.is-selected). Sem borda nem fundo verde no
+   card — pedido do usuario pra um visual mais limpo. */
 
 .spv2-card.is-ineligible-blend {
   opacity: 0.55;
