@@ -18,7 +18,7 @@ import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { NotificationBell } from '../../components/NotificationBell';
-import { PadraoFilterField } from '../../components/samples/PadraoFilterField';
+import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import {
@@ -31,7 +31,7 @@ import {
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
-import { ApiError, createBlend, listPadroes, listSamples } from '../../lib/api-client';
+import { ApiError, createBlend, listClassificationValues, listSamples } from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -63,8 +63,11 @@ interface HiddenFilters {
   ownerClients: ClientSummary[];
   buyerClients: ClientSummary[];
   sentToClients: ClientSummary[];
-  // Padrao (classificacao): multi-selecao de valores canonicos existentes.
+  // Classificacao: multi-selecao de valores canonicos existentes.
   padroes: string[];
+  aspectos: string[];
+  catacoes: string[];
+  certificados: string[];
   displayStatus: DisplayStatusFilter;
   harvest: string;
   sacksMin: string;
@@ -78,6 +81,9 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   buyerClients: [],
   sentToClients: [],
   padroes: [],
+  aspectos: [],
+  catacoes: [],
+  certificados: [],
   displayStatus: '',
   harvest: '',
   sacksMin: '',
@@ -102,6 +108,9 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.buyerClients.length > 0 ||
     filters.sentToClients.length > 0 ||
     filters.padroes.length > 0 ||
+    filters.aspectos.length > 0 ||
+    filters.catacoes.length > 0 ||
+    filters.certificados.length > 0 ||
     filters.displayStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
@@ -117,6 +126,9 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     buyerClients: filters.buyerClients,
     sentToClients: filters.sentToClients,
     padroes: filters.padroes,
+    aspectos: filters.aspectos,
+    catacoes: filters.catacoes,
+    certificados: filters.certificados,
     displayStatus: filters.displayStatus,
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
@@ -132,6 +144,9 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.buyerClients.length > 0) count += 1;
   if (filters.sentToClients.length > 0) count += 1;
   if (filters.padroes.length > 0) count += 1;
+  if (filters.aspectos.length > 0) count += 1;
+  if (filters.catacoes.length > 0) count += 1;
+  if (filters.certificados.length > 0) count += 1;
   if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
@@ -481,10 +496,15 @@ function SamplesPage() {
     () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Opcoes do filtro de Padrao (valores distintos canonicos da classificacao),
-  // carregadas sob demanda toda vez que o modal de filtros abre.
-  const [padraoOptions, setPadraoOptions] = useState<string[]>([]);
-  const [padraoOptionsLoading, setPadraoOptionsLoading] = useState(false);
+  // Opcoes dos filtros de classificacao (valores distintos canonicos), por
+  // campo, carregadas sob demanda toda vez que o modal de filtros abre.
+  const [classificationOptions, setClassificationOptions] = useState<{
+    padrao: string[];
+    aspecto: string[];
+    catacao: string[];
+    certif: string[];
+  }>({ padrao: [], aspecto: [], catacao: [], certif: [] });
+  const [classificationOptionsLoading, setClassificationOptionsLoading] = useState(false);
   // Modal de nova amostra: `open` controla intencao (abrir/fechar) e
   // `mounted` controla presenca no DOM. Quando o user fecha, `open`
   // vira false imediatamente (BottomSheet anima saida) mas `mounted`
@@ -661,24 +681,36 @@ function SamplesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen]);
 
-  // Carrega as opcoes do filtro de Padrao toda vez que o modal abre (mantem a
-  // lista atual em caso de erro/abort). Query distinct e barata.
+  // Carrega as opcoes dos filtros de classificacao (4 campos em paralelo) toda
+  // vez que o modal abre (mantem as listas atuais em caso de erro/abort).
   useEffect(() => {
     if (!filtersOpen || !session) {
       return;
     }
     let active = true;
     const controller = new AbortController();
-    setPadraoOptionsLoading(true);
-    listPadroes(session, { signal: controller.signal })
-      .then((res) => {
-        if (active) setPadraoOptions(res.values ?? []);
+    setClassificationOptionsLoading(true);
+    Promise.all([
+      listClassificationValues(session, 'padrao', { signal: controller.signal }),
+      listClassificationValues(session, 'aspecto', { signal: controller.signal }),
+      listClassificationValues(session, 'catacao', { signal: controller.signal }),
+      listClassificationValues(session, 'certif', { signal: controller.signal }),
+    ])
+      .then(([padrao, aspecto, catacao, certif]) => {
+        if (active) {
+          setClassificationOptions({
+            padrao: padrao.values ?? [],
+            aspecto: aspecto.values ?? [],
+            catacao: catacao.values ?? [],
+            certif: certif.values ?? [],
+          });
+        }
       })
       .catch(() => {
         /* mantem opcoes anteriores; ignora abort/erro transitorio */
       })
       .finally(() => {
-        if (active) setPadraoOptionsLoading(false);
+        if (active) setClassificationOptionsLoading(false);
       });
     return () => {
       active = false;
@@ -765,6 +797,9 @@ function SamplesPage() {
       buyerClientIds: filters.appliedHiddenFilters.buyerClients.map((client) => client.id),
       sentToClientIds: filters.appliedHiddenFilters.sentToClients.map((client) => client.id),
       padroes: filters.appliedHiddenFilters.padroes,
+      aspectos: filters.appliedHiddenFilters.aspectos,
+      catacoes: filters.appliedHiddenFilters.catacoes,
+      certificados: filters.appliedHiddenFilters.certificados,
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
@@ -822,6 +857,9 @@ function SamplesPage() {
         buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
         sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
         padroes: appliedHiddenFilters.padroes,
+        aspectos: appliedHiddenFilters.aspectos,
+        catacoes: appliedHiddenFilters.catacoes,
+        certificados: appliedHiddenFilters.certificados,
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -887,6 +925,9 @@ function SamplesPage() {
             buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
             sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
             padroes: appliedHiddenFilters.padroes,
+            aspectos: appliedHiddenFilters.aspectos,
+            catacoes: appliedHiddenFilters.catacoes,
+            certificados: appliedHiddenFilters.certificados,
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
             harvest: appliedHiddenFilters.harvest || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -1311,11 +1352,40 @@ function SamplesPage() {
             }))
         )}
 
-        <PadraoFilterField
-          options={padraoOptions}
+        <ClassificationFilterField
+          label="Padrão"
+          placeholder="Qualquer padrão"
+          options={classificationOptions.padrao}
           selected={draftHiddenFilters.padroes}
-          loading={padraoOptionsLoading}
+          loading={classificationOptionsLoading}
           onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
+        />
+
+        <ClassificationFilterField
+          label="Aspecto"
+          placeholder="Qualquer aspecto"
+          options={classificationOptions.aspecto}
+          selected={draftHiddenFilters.aspectos}
+          loading={classificationOptionsLoading}
+          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, aspectos: next }))}
+        />
+
+        <ClassificationFilterField
+          label="Catação"
+          placeholder="Qualquer catação"
+          options={classificationOptions.catacao}
+          selected={draftHiddenFilters.catacoes}
+          loading={classificationOptionsLoading}
+          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
+        />
+
+        <ClassificationFilterField
+          label="Certificado"
+          placeholder="Qualquer certificado"
+          options={classificationOptions.certif}
+          selected={draftHiddenFilters.certificados}
+          loading={classificationOptionsLoading}
+          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, certificados: next }))}
         />
 
         <div className="samples-filter-row">

@@ -226,7 +226,7 @@ Excecao a regra "nunca verde ao clicar":
 
 ### Campos de filtro multi-select (chips dentro do campo)
 
-- No modal de filtros de `/samples`, campos de selecao multipla usam o box `.samples-filter-multi`: os itens selecionados viram chips (`.samples-filter-token`) **dentro** do box, nunca abaixo do campo. Duas variantes: `--lookup` (typeahead `ClientLookupField` borderless ocupando a linha abaixo dos chips — Proprietario/Comprador/Enviado para) e `--select` (box clicavel + chevron que abre `.samples-filter-multi-dropdown` com checklist — Padrao e futuros campos de classificacao). Opcoes de classificacao (ex.: Padrao) vem de valores distintos canonicos do backend (`GET /samples/padroes`).
+- No modal de filtros de `/samples`, campos de selecao multipla usam o box `.samples-filter-multi`: os itens selecionados viram chips (`.samples-filter-token`) **dentro** do box, nunca abaixo do campo. Duas variantes: `--lookup` (typeahead `ClientLookupField` borderless ocupando a linha abaixo dos chips — Proprietario/Comprador/Enviado para) e `--select` (box clicavel + chevron que abre `.samples-filter-multi-dropdown` com checklist — campos de classificacao via `ClassificationFilterField`: Padrao/Aspecto/Catacao/Certificado). As opcoes de classificacao vem de valores distintos canonicos do backend (`GET /samples/classification-values?field=padrao|aspecto|catacao|certif`).
 
 ### Regras universais de botao
 

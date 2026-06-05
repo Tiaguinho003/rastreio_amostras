@@ -1,16 +1,21 @@
 'use client';
 
-// Filtro de Padrao (classificacao) do modal de /samples. Multi-selecao sobre os
-// valores distintos canonicos existentes (carregados sob demanda). Os
-// selecionados ficam como chips DENTRO do campo; um clique no campo abre o
-// dropdown com a checklist (busca aparece quando ha muitas opcoes).
+// Filtro multi-selecao de um campo de classificacao (Padrao/Aspecto/Catacao/
+// Certificado) no modal de /samples. As opcoes sao os valores distintos
+// canonicos existentes (carregados sob demanda). Os selecionados ficam como
+// chips DENTRO do campo; um clique abre o dropdown com a checklist (busca
+// aparece quando ha muitas opcoes).
 
 import { useEffect, useRef, useState } from 'react';
 
 type Props = {
-  /** Valores distintos canonicos de padrao (vindos do backend, ja ordenados). */
+  /** Rotulo do campo (ex.: "Padrão", "Aspecto"). */
+  label: string;
+  /** Texto exibido quando nada esta selecionado (ex.: "Qualquer padrão"). */
+  placeholder: string;
+  /** Valores distintos canonicos (vindos do backend, ja ordenados). */
   options: string[];
-  /** Padroes selecionados (draft). */
+  /** Valores selecionados (draft). */
   selected: string[];
   /** Carregando as opcoes. */
   loading?: boolean;
@@ -19,7 +24,14 @@ type Props = {
 
 const SEARCH_THRESHOLD = 8;
 
-export function PadraoFilterField({ options, selected, loading = false, onChange }: Props) {
+export function ClassificationFilterField({
+  label,
+  placeholder,
+  options,
+  selected,
+  loading = false,
+  onChange,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -61,7 +73,7 @@ export function PadraoFilterField({ options, selected, loading = false, onChange
 
   return (
     <div className="samples-filter-field" ref={wrapRef}>
-      <span className="samples-filter-field-label">Padrão</span>
+      <span className="samples-filter-field-label">{label}</span>
       <div className="samples-filter-multi-wrap">
         <div
           className={`samples-filter-multi samples-filter-multi--select${open ? ' is-open' : ''}`}
@@ -78,7 +90,7 @@ export function PadraoFilterField({ options, selected, loading = false, onChange
           }}
         >
           {selected.length === 0 ? (
-            <span className="samples-filter-multi-placeholder">Qualquer padrão</span>
+            <span className="samples-filter-multi-placeholder">{placeholder}</span>
           ) : (
             selected.map((value) => (
               <span key={value} className="samples-filter-token">
@@ -86,7 +98,7 @@ export function PadraoFilterField({ options, selected, loading = false, onChange
                 <button
                   type="button"
                   className="samples-filter-token-remove"
-                  aria-label={`Remover padrão ${value}`}
+                  aria-label={`Remover ${label}: ${value}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     remove(value);
@@ -109,7 +121,7 @@ export function PadraoFilterField({ options, selected, loading = false, onChange
                 className="samples-filter-multi-search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar padrão"
+                placeholder={`Buscar ${label.toLowerCase()}`}
                 autoComplete="off"
                 autoFocus
               />
@@ -118,7 +130,9 @@ export function PadraoFilterField({ options, selected, loading = false, onChange
               <p className="samples-filter-multi-empty">Carregando…</p>
             ) : filtered.length === 0 ? (
               <p className="samples-filter-multi-empty">
-                {options.length === 0 ? 'Nenhum padrão registrado' : 'Nenhum padrão encontrado'}
+                {options.length === 0
+                  ? `Nenhum ${label.toLowerCase()} registrado`
+                  : 'Nenhum resultado'}
               </p>
             ) : (
               <ul className="samples-filter-multi-list">
