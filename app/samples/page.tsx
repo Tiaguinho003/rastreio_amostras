@@ -1340,14 +1340,13 @@ function SamplesPage() {
               placeholder="até"
             />
           </div>
-          <span className="samples-filter-field-hint">1 valor = busca exata · 2 = intervalo</span>
         </div>
 
         <div className="samples-filter-field">
           <span className="samples-filter-field-label">Periodo</span>
           <div className="samples-filter-split-grid">
             <input
-              className="samples-filter-field-input"
+              className={`samples-filter-field-input${draftHiddenFilters.periodFrom === '' ? ' is-placeholder' : ''}`}
               type="date"
               value={draftHiddenFilters.periodFrom}
               onChange={(event) =>
@@ -1356,7 +1355,7 @@ function SamplesPage() {
               aria-label="Data inicial"
             />
             <input
-              className="samples-filter-field-input"
+              className={`samples-filter-field-input${draftHiddenFilters.periodTo === '' ? ' is-placeholder' : ''}`}
               type="date"
               value={draftHiddenFilters.periodTo}
               onChange={(event) =>
@@ -1365,7 +1364,6 @@ function SamplesPage() {
               aria-label="Data final"
             />
           </div>
-          <span className="samples-filter-field-hint">1 data = dia especifico · 2 = intervalo</span>
         </div>
       </div>
     );

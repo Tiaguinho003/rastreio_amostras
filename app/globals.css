@@ -12277,13 +12277,6 @@ button:disabled {
   padding-left: 0.05rem;
 }
 
-.samples-filter-field-hint {
-  font-size: 0.63rem;
-  color: #8a968c;
-  padding-left: 0.05rem;
-  margin-top: 0.05rem;
-}
-
 .samples-filter-field-input {
   width: 100%;
   min-width: 0;
@@ -12303,8 +12296,20 @@ button:disabled {
 }
 
 .samples-filter-field-input::placeholder {
-  color: rgba(0, 0, 0, 0.22);
+  color: rgba(0, 0, 0, 0.16);
   font-weight: 400;
+  /* opacity:1 anula o fade extra que o Firefox aplica em placeholders, pra
+     que o alpha acima seja o tom real exibido. */
+  opacity: 1;
+}
+
+/* Placeholder do typeahead de cliente (Buscar proprietario/comprador/
+   destinatario) dentro do modal: sem regra propria, herdava o cinza escuro
+   padrao do navegador. Alinha ao mesmo tom apagado dos demais campos. */
+.samples-filter-modal .client-lookup-shell input::placeholder {
+  color: rgba(0, 0, 0, 0.16);
+  font-weight: 400;
+  opacity: 1;
 }
 
 .samples-filter-field-input:focus-visible {
@@ -12343,6 +12348,40 @@ select.samples-filter-field-input {
 .samples-filter-split-grid .samples-filter-field-input {
   max-width: 100%;
   overflow: hidden;
+}
+
+/* iOS Safari/WebKit ignora width/min-width em input[type=date] nativo: o campo
+   mantem a largura intrinseca e o indicador de calendario transborda, fazendo
+   os dois campos de Periodo se sobreporem e cortarem dentro do split-grid.
+   Mesmo fix do .cdm-lookup-modal: desativar a aparencia nativa faz o browser
+   tratar como input de texto, respeitando o minmax(0,1fr) do grid. Reaplicamos
+   o icone de calendario via background pra manter a dica visual. */
+.samples-filter-field-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6b5e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 0.85rem 0.85rem;
+  padding-right: 1.5rem;
+}
+
+.samples-filter-field-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Campo de data vazio (mostra dd/mm/aaaa): texto-prompt apagado como os demais
+   placeholders. Ao escolher uma data, .is-placeholder sai e volta ao --ink. */
+.samples-filter-field-input[type='date'].is-placeholder,
+.samples-filter-field-input[type='date'].is-placeholder::-webkit-datetime-edit {
+  color: rgba(0, 0, 0, 0.16);
+}
+
+/* Valor (dd/mm/aaaa) alinhado a esquerda e sem forcar largura minima. */
+.samples-filter-field-input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
 }
 
 /* Actions fora da area de scroll (2a linha do grid do form) — precisam do
