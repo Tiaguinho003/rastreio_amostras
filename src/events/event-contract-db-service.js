@@ -1,6 +1,11 @@
 import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
-import { canonicalizePadrao } from '../samples/classification-canonicalization.js';
+import {
+  canonicalizeAspecto,
+  canonicalizeCatacao,
+  canonicalizeCertif,
+  canonicalizePadrao,
+} from '../samples/classification-canonicalization.js';
 import { isPrismaUniqueViolation } from './prisma-event-store.js';
 
 // Q.print: QR_PRINT_REQUESTED e QR_PRINTED viraram audit-only (nao
@@ -71,9 +76,13 @@ const DEFEITO_KEYS = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
 // consistentes independente do caminho de escrita (IA ja canoniza na extracao;
 // edicao manual nao). Isso alimenta o filtro de /samples por valores distintos.
 // Forward-only no projetor + backfill da projecao existente cobrem o legado.
-// Escopo atual: padrao. Proximos filtros (aspecto/certif/bebida) entram aqui.
+// Alimenta os filtros de /samples por valores distintos (Padrao/Aspecto/
+// Catacao/Certificado).
 const CLASSIFICATION_FIELD_CANONICALIZERS = {
   padrao: canonicalizePadrao,
+  aspecto: canonicalizeAspecto,
+  catacao: canonicalizeCatacao,
+  certif: canonicalizeCertif,
 };
 
 function applyClassificationDataPatch(target, source) {

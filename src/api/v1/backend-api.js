@@ -514,9 +514,12 @@ export function createBackendApiV1({
           ownerClientIds: readOptionalIdList(query.ownerClientIds),
           buyerClientIds: readOptionalIdList(query.buyerClientIds),
           sentToClientIds: readOptionalIdList(query.sentToClientIds),
-          // padroes: lista CSV de valores de padrao (classificacao). readOptionalIdList
-          // e um split CSV generico (trim + dedup), serve pra strings tambem.
+          // Filtros de classificacao (CSV de valores). readOptionalIdList e um
+          // split CSV generico (trim + dedup), serve pra strings tambem.
           padroes: readOptionalIdList(query.padroes),
+          aspectos: readOptionalIdList(query.aspectos),
+          catacoes: readOptionalIdList(query.catacoes),
+          certificados: readOptionalIdList(query.certificados),
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           displayStatus: readOptionalQueryString(query.displayStatus),
@@ -536,11 +539,13 @@ export function createBackendApiV1({
         };
       }),
 
-    // Valores distintos de `padrao` (classificacao) — opcoes do filtro de /samples.
-    listPadroes: (input) =>
+    // Valores distintos de um campo de classificacao (?field=padrao|aspecto|
+    // catacao|certif) — opcoes dos filtros multi-select de /samples.
+    listClassificationValues: (input) =>
       executeApiForInput(input, async () => {
         await resolveActorContext(input, authService);
-        const result = await queryService.listPadroes();
+        const field = readOptionalQueryString(input?.query?.field);
+        const result = await queryService.listClassificationValues(field);
         return {
           status: 200,
           body: result,

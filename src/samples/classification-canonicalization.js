@@ -87,6 +87,27 @@ export function canonicalizeCertif(value) {
 }
 
 /**
+ * Canoniza o campo `catacao` (percentual numerico, sem "%").
+ * - trim + remove espacos internos
+ * - numero (inteiro ou decimal com `,` ou `.`): padroniza o separador decimal
+ *   pra virgula (pt-BR). Ex: "0.5" / " 0,5 " -> "0,5"; "33" -> "33"
+ * - valor nao-numerico (raro, texto livre): uppercase + colapso de espacos
+ *
+ * Agrupa as variacoes de grafia do mesmo valor pro filtro de /samples.
+ */
+export function canonicalizeCatacao(value) {
+  if (value == null) return null;
+  const compact = String(value).trim().replace(/\s+/g, '');
+  if (compact.length === 0) return null;
+  const numMatch = compact.match(/^(\d+)(?:[.,](\d+))?$/);
+  if (numMatch) {
+    const [, intPart, decPart] = numMatch;
+    return decPart != null ? `${intPart},${decPart}` : intPart;
+  }
+  return String(value).trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+/**
  * Canoniza o campo `safra`.
  * Mesma logica de `lib/sample-identification.ts:normalizeHarvest`, mas em JS
  * (backend nao importa de lib/*.ts pra nao quebrar test:unit com strip-types).

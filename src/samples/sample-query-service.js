@@ -2,7 +2,25 @@ import { Prisma } from '@prisma/client';
 
 import { buildCompletenessWhere } from '../clients/client-service.js';
 import { HttpError } from '../contracts/errors.js';
-import { canonicalizePadrao } from './classification-canonicalization.js';
+import {
+  canonicalizeAspecto,
+  canonicalizeCatacao,
+  canonicalizeCertif,
+  canonicalizePadrao,
+} from './classification-canonicalization.js';
+
+// Campos de classificacao filtraveis por valores distintos (multi-selecao).
+// param = chave da query/CSV; key = chave no JSON latestClassificationData;
+// canon = canonicalizador (mesmo do projetor) aplicado a opcoes e ao filtro.
+const CLASSIFICATION_FILTER_FIELDS = [
+  { param: 'padroes', key: 'padrao', canon: canonicalizePadrao },
+  { param: 'aspectos', key: 'aspecto', canon: canonicalizeAspecto },
+  { param: 'catacoes', key: 'catacao', canon: canonicalizeCatacao },
+  { param: 'certificados', key: 'certif', canon: canonicalizeCertif },
+];
+const CLASSIFICATION_FILTER_FIELD_BY_KEY = new Map(
+  CLASSIFICATION_FILTER_FIELDS.map((field) => [field.key, field])
+);
 
 // Q.print: PRINT_PENDING_STATUSES removido — impressao virou acao pura,
 // estado de impressao vive na tabela PrintJob.status='PENDING' (sem
@@ -1198,6 +1216,9 @@ export class SampleQueryService {
     buyerClientIds = [],
     sentToClientIds = [],
     padroes = [],
+    aspectos = [],
+    catacoes = [],
+    certificados = [],
     harvest = null,
     sacksMin = null,
     sacksMax = null,
@@ -1351,26 +1372,35 @@ export class SampleQueryService {
       });
     }
 
-    // Filtro por padrao (classificacao). Os valores na projecao sao canonicos
-    // (projetor + backfill), entao canonizamos os valores recebidos e fazemos
-    // match exato no JSON path 'padrao'. OR-de-equals (Prisma nao garante `in`
-    // em filtro de path JSON entre versoes). Amostras sem classificacao
-    // (latestClassificationData null) nunca casam — ficam de fora.
-    const canonicalPadroes = Array.isArray(padroes)
-      ? Array.from(
-          new Set(
-            padroes
-              .map((value) => canonicalizePadrao(value))
-              .filter((value) => typeof value === 'string' && value.length > 0)
+    // Filtros de classificacao (Padrao/Aspecto/Catacao/Certificado). Os valores
+    // na projecao sao canonicos (projetor + backfill), entao canonizamos os
+    // valores recebidos e fazemos match exato no JSON path. OR-de-equals (Prisma
+    // nao garante `in` em filtro de path JSON entre versoes). Amostras sem
+    // classificacao (latestClassificationData null) nunca casam — ficam de fora.
+    const classificationFilterInputs = {
+      padrao: padroes,
+      aspecto: aspectos,
+      catacao: catacoes,
+      certif: certificados,
+    };
+    for (const { key, canon } of CLASSIFICATION_FILTER_FIELDS) {
+      const rawValues = classificationFilterInputs[key];
+      const canonical = Array.isArray(rawValues)
+        ? Array.from(
+            new Set(
+              rawValues
+                .map((value) => canon(value))
+                .filter((value) => typeof value === 'string' && value.length > 0)
+            )
           )
-        )
-      : [];
-    if (canonicalPadroes.length > 0) {
-      conditions.push({
-        OR: canonicalPadroes.map((value) => ({
-          latestClassificationData: { path: ['padrao'], equals: value },
-        })),
-      });
+        : [];
+      if (canonical.length > 0) {
+        conditions.push({
+          OR: canonical.map((value) => ({
+            latestClassificationData: { path: [key], equals: value },
+          })),
+        });
+      }
     }
 
     if (sacksRange) {
@@ -1466,21 +1496,31 @@ export class SampleQueryService {
     };
   }
 
-  // Valores distintos de `padrao` existentes nas classificacoes — alimenta as
-  // opcoes do filtro de /samples (estilo "autofiltro do Excel"). Canoniza no
-  // app pra agrupar variacoes mesmo em linhas ainda nao backfilladas, e
-  // ordena. Cardinalidade pequena (numero de padroes), entao DISTINCT cru +
-  // canonicalizacao em JS e suficiente.
-  async listPadroes() {
+  // Valores distintos de um campo de classificacao (padrao/aspecto/catacao/
+  // certif) existentes nas amostras — alimenta as opcoes dos filtros de
+  // /samples (estilo "autofiltro do Excel"). Canoniza no app pra agrupar
+  // variacoes mesmo em linhas ainda nao backfilladas, e ordena. Cardinalidade
+  // pequena, entao DISTINCT cru + canonicalizacao em JS e suficiente.
+  async listClassificationValues(field) {
+    const config = CLASSIFICATION_FILTER_FIELD_BY_KEY.get(field);
+    if (!config) {
+      throw new HttpError(422, `Campo de classificacao invalido: ${field}`, {
+        code: 'INVALID_CLASSIFICATION_FIELD',
+        field: 'field',
+      });
+    }
+    // O JSON key vem da whitelist (config existe), e ainda assim passa como
+    // parametro vinculado ($1) no operador ->> — sem input livre na query.
+    const jsonKey = config.key;
     const rows = await this.prisma.$queryRaw`
-      SELECT DISTINCT s."latest_classification_data"->>'padrao' AS padrao
+      SELECT DISTINCT s."latest_classification_data"->>${jsonKey} AS value
       FROM "sample" s
-      WHERE s."latest_classification_data"->>'padrao' IS NOT NULL
-        AND length(trim(s."latest_classification_data"->>'padrao')) > 0
+      WHERE s."latest_classification_data"->>${jsonKey} IS NOT NULL
+        AND length(trim(s."latest_classification_data"->>${jsonKey})) > 0
     `;
     const canonicalSet = new Set();
     for (const row of rows) {
-      const canonical = canonicalizePadrao(row.padrao);
+      const canonical = config.canon(row.value);
       if (canonical) {
         canonicalSet.add(canonical);
       }

@@ -832,6 +832,9 @@ export function listSamples(
     buyerClientIds?: string[];
     sentToClientIds?: string[];
     padroes?: string[];
+    aspectos?: string[];
+    catacoes?: string[];
+    certificados?: string[];
     statusGroup?: string;
     commercialStatus?: string;
     displayStatus?: string;
@@ -870,6 +873,15 @@ export function listSamples(
   if (query.padroes && query.padroes.length > 0) {
     params.set('padroes', query.padroes.join(','));
   }
+  if (query.aspectos && query.aspectos.length > 0) {
+    params.set('aspectos', query.aspectos.join(','));
+  }
+  if (query.catacoes && query.catacoes.length > 0) {
+    params.set('catacoes', query.catacoes.join(','));
+  }
+  if (query.certificados && query.certificados.length > 0) {
+    params.set('certificados', query.certificados.join(','));
+  }
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
   if (query.displayStatus) params.set('displayStatus', query.displayStatus);
@@ -888,14 +900,24 @@ export function listSamples(
   });
 }
 
-// Valores distintos de `padrao` (classificacao) — opcoes do filtro multi-select
-// de /samples. Ja vem canonicos e ordenados do backend.
-export function listPadroes(session: SessionData, options: { signal?: AbortSignal } = {}) {
-  return request<{ values: string[] }>(`/samples/padroes`, {
-    method: 'GET',
-    session,
-    signal: options.signal,
-  });
+// Campos de classificacao filtraveis por valores distintos em /samples.
+export type ClassificationFilterField = 'padrao' | 'aspecto' | 'catacao' | 'certif';
+
+// Valores distintos canonicos de um campo de classificacao — opcoes dos filtros
+// multi-select de /samples. Ja vem canonicos e ordenados do backend.
+export function listClassificationValues(
+  session: SessionData,
+  field: ClassificationFilterField,
+  options: { signal?: AbortSignal } = {}
+) {
+  return request<{ values: string[] }>(
+    `/samples/classification-values?field=${encodeURIComponent(field)}`,
+    {
+      method: 'GET',
+      session,
+      signal: options.signal,
+    }
+  );
 }
 
 // Fase Q: orquestrador único do registro. Antes da Fase P2 chamava-se
