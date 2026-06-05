@@ -399,7 +399,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(detail.events.length, 6);
     assert.equal(detail.sample.latestClassification.data?.padrao, 'PADRAO-1');
     assert.equal(detail.sample.latestClassification.data?.bebida, 'DURA');
-    assert.equal(detail.sample.latestClassification.data?.aspecto, 'verde');
+    // aspecto e canonizado na projecao (canonicalizeAspecto): 'verde' -> 'VERDE'.
+    assert.equal(detail.sample.latestClassification.data?.aspecto, 'VERDE');
 
     const printJobs = await prisma.printJob.findMany({
       where: { sampleId },
