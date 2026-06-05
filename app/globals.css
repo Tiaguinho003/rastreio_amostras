@@ -14630,6 +14630,39 @@ select.samples-filter-field-input {
 
 .client-quick-create-modal .user-multi-select {
   border-width: 2px;
+  /* Mesma altura do input Telefone (campo nao cresce ao adicionar chips). */
+  min-height: 2.5rem;
+  justify-content: center;
+}
+
+.client-quick-create-modal .client-quick-create-field input,
+.client-quick-create-modal .client-quick-create-field select {
+  min-height: 2.5rem;
+}
+
+/* Chips dos responsaveis enfileiram na horizontal (linha unica). Excesso
+   rola lateralmente em vez de empurrar o campo pra baixo. */
+.client-quick-create-modal .user-multi-select__chips {
+  flex: 1;
+  min-height: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+  padding-block: 4px;
+  scrollbar-width: none;
+}
+
+.client-quick-create-modal .user-multi-select__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.client-quick-create-modal .user-multi-select__chip {
+  flex-shrink: 0;
+}
+
+.client-quick-create-modal .user-multi-select__input {
+  min-width: 60px;
 }
 
 .client-quick-create-field.is-field-error {
@@ -14698,13 +14731,29 @@ select.samples-filter-field-input {
 
 .client-quick-create-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  /* Cancelar | Cadastrar lado a lado em todas as larguras (mobile incluso). */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.56rem;
 }
 
 .client-quick-create-actions .app-modal-secondary,
 .client-quick-create-actions .app-modal-submit {
   min-height: 2.82rem;
+}
+
+/* Mobile: o dropdown de responsaveis precisa sobrepor as linhas/botoes
+   abaixo. O body rola (overflow-y:auto) e recortaria o dropdown; aqui o
+   body deixa de recortar e o scroll passa pro modal, que recorta apenas no
+   proprio limite — o dropdown sobrepoe os botoes sem vazar do modal. */
+@media (max-width: 900px) {
+  .client-quick-create-modal {
+    overflow-y: auto;
+  }
+
+  .client-quick-create-body {
+    overflow: visible;
+    min-height: auto;
+  }
 }
 
 .client-reg-modal {
