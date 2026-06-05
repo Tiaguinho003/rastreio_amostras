@@ -147,7 +147,7 @@ export function ClientQuickCreateModal({
       .then((response) => {
         if (!cancelled) {
           // So usuarios COMMERCIAL podem ser responsaveis comerciais —
-          // alinhado com o filtro do ClientUserFilterButton em /clients.
+          // alinhado com o filtro de responsavel do ClientsFilterButton em /clients.
           setUsers(response.items.filter((u) => u.role === 'COMMERCIAL'));
         }
       })

@@ -291,6 +291,7 @@ export function listClients(
     isBuyer?: boolean;
     isSeller?: boolean;
     commercialUserId?: string;
+    completeness?: string;
     limit?: number;
     cursorDisplayName?: string;
     cursorId?: string;
@@ -304,6 +305,7 @@ export function listClients(
   if (typeof query.isBuyer === 'boolean') params.set('isBuyer', String(query.isBuyer));
   if (typeof query.isSeller === 'boolean') params.set('isSeller', String(query.isSeller));
   if (query.commercialUserId) params.set('commercialUserId', query.commercialUserId);
+  if (query.completeness) params.set('completeness', query.completeness);
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
   if (typeof query.cursorDisplayName === 'string') {
     params.set('cursorDisplayName', query.cursorDisplayName);

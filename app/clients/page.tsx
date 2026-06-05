@@ -16,7 +16,11 @@ import {
 import { AppShell } from '../../components/AppShell';
 import { NotificationBell } from '../../components/NotificationBell';
 import { ClientQuickCreateModal } from '../../components/clients/ClientQuickCreateModal';
-import { ClientUserFilterButton } from '../../components/clients/ClientUserFilterButton';
+import {
+  ClientsFilterButton,
+  EMPTY_CLIENT_FILTERS,
+  type ClientFilters,
+} from '../../components/clients/ClientsFilterButton';
 import { IncompleteIcon } from '../../components/clients/IncompleteIcon';
 import { UserAvatarStack } from '../../components/users/UserAvatarStack';
 import { isClientComplete } from '../../lib/clients/client-completeness';
@@ -34,14 +38,15 @@ import { useRequireAuth } from '../../lib/use-auth';
 const CLIENT_PAGE_LIMIT = 60;
 // 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
 // v1 antigos no browser ficam orfaos; proximo save sobrescreve com v2.
-const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v2';
+// v3: filtros consolidados num objeto (ClientFilters) — substitui os antigos
+// commercialUserFilter + showOnlyIncomplete. Snapshots v2 ficam orfaos.
+const CLIENTS_SNAPSHOT_KEY = 'clients-list-snapshot-v3';
 // 14.7.K: TTL 10min — snapshot expira apos esse periodo de inatividade.
 const CLIENTS_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
 
 type ClientsSnapshot = {
   appliedClientSearch: string;
-  commercialUserFilter: string;
-  showOnlyIncomplete: boolean;
+  filters: ClientFilters;
   items: ClientSummary[];
   total: number;
   incompleteTotal: number;
@@ -86,6 +91,20 @@ function clearSnapshot(): void {
   } catch {
     // ignore
   }
+}
+
+// Converte os filtros consolidados nos params server-side do listClients.
+// O papel ('buyer'/'seller') vira os booleans isBuyer/isSeller; os demais sao
+// 1:1 (string vazia = sem filtro -> undefined).
+function clientFiltersToQuery(filters: ClientFilters) {
+  return {
+    status: filters.status || undefined,
+    personType: filters.personType || undefined,
+    isBuyer: filters.role === 'buyer' ? true : undefined,
+    isSeller: filters.role === 'seller' ? true : undefined,
+    commercialUserId: filters.commercialUserId || undefined,
+    completeness: filters.completeness || undefined,
+  };
 }
 // 14.6.D: rootMargin '0px' — sentinel so dispara fetch quando ja esta
 // realmente visivel (sem prefetch agressivo). Combinado com lock de scroll
@@ -352,6 +371,11 @@ function ClientsPage() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const searchParams = useSearchParams();
 
+  // URL ?incomplete=true tem precedencia sobre o snapshot — quando o user
+  // clica no card "Cadastros pendentes" do dashboard, a intencao explicita e
+  // ver a lista filtrada (completeness=incomplete), independente do estado salvo.
+  const incompleteFromUrl = searchParams.get('incomplete') === 'true';
+
   // 14.7.K: snapshot persistente — restaura filtros + items + scroll
   // ao retornar pra pagina dentro do TTL (10min).
   const initialSnapshotRef = useRef<ClientsSnapshot | null>(null);
@@ -359,7 +383,9 @@ function ClientsPage() {
     initialSnapshotRef.current = readSnapshot();
   }
   const initialSnapshot = initialSnapshotRef.current;
-  const skipInitialFetchRef = useRef<boolean>(initialSnapshot !== null);
+  // Deep-link ?incomplete=true forca refetch (completeness e server-side agora):
+  // pular o fetch mostraria os items restaurados sem o filtro aplicado.
+  const skipInitialFetchRef = useRef<boolean>(initialSnapshot !== null && !incompleteFromUrl);
   const pendingScrollRestoreRef = useRef<number | null>(
     initialSnapshot ? initialSnapshot.scrollTop : null
   );
@@ -392,16 +418,13 @@ function ClientsPage() {
   const [clientQuickCreateOpen, setClientQuickCreateOpen] = useState(false);
   const clientSearchDebounceRef = useRef<number | null>(null);
 
-  const [commercialUserFilter, setCommercialUserFilter] = useState<string>(
-    () => initialSnapshot?.commercialUserFilter ?? ''
-  );
-  // URL ?incomplete=true tem precedencia sobre o snapshot — quando o user
-  // clica no card "Cadastros pendentes" do dashboard, a intencao explicita e
-  // ver a lista filtrada, independente do estado anterior salvo.
-  const incompleteFromUrl = searchParams.get('incomplete') === 'true';
-  const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(
-    () => incompleteFromUrl || (initialSnapshot?.showOnlyIncomplete ?? false)
-  );
+  // Filtros consolidados (responsavel, status, tipo, papel, completude).
+  // Semeado pelo snapshot; o deep-link ?incomplete=true sobrescreve a
+  // completude pra 'incomplete'.
+  const [appliedFilters, setAppliedFilters] = useState<ClientFilters>(() => {
+    const base = initialSnapshot?.filters ?? EMPTY_CLIENT_FILTERS;
+    return incompleteFromUrl ? { ...base, completeness: 'incomplete' } : base;
+  });
   const [users, setUsers] = useState<UserLookupItem[]>([]);
 
   const clientsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -423,12 +446,10 @@ function ClientsPage() {
   // que somava sobre items carregados (numero subia conforme scroll).
 
   // 14.6.C: backend agora paginate por cursor alfabetico (displayName ASC,
-  // id ASC) — items ja vem ordenados. Sort client-side removido. So aplica
-  // filtro client-side de incompletos via chip.
-  const displayClients = useMemo(() => {
-    if (!showOnlyIncomplete) return clientsState.items;
-    return clientsState.items.filter((c) => !isClientComplete(c).complete);
-  }, [clientsState.items, showOnlyIncomplete]);
+  // id ASC) — items ja vem ordenados. Sort client-side removido. A completude
+  // tambem virou filtro server-side (param completeness no listClients), entao
+  // nao ha mais filtro client-side: a lista exibida e a que veio do backend.
+  const displayClients = clientsState.items;
 
   // 14.4.B: agrupa cards por inicial para divisores alfabeticos (mobile-only;
   // CSS hide em desktop grid).
@@ -501,7 +522,7 @@ function ClientsPage() {
   }, [session]);
 
   // 14.4.A: scroll infinito por cursor — fetch inicial dispara quando muda
-  // search ou commercialUserFilter (filtro server-side). Cursor é resetado.
+  // search ou qualquer filtro (todos server-side). Cursor é resetado.
   useEffect(() => {
     if (!session) {
       return;
@@ -528,7 +549,7 @@ function ClientsPage() {
       session,
       {
         search: appliedClientSearch || undefined,
-        commercialUserId: commercialUserFilter || undefined,
+        ...clientFiltersToQuery(appliedFilters),
         limit: CLIENT_PAGE_LIMIT,
       },
       { signal: abortController.signal }
@@ -556,7 +577,7 @@ function ClientsPage() {
       active = false;
       abortController.abort();
     };
-  }, [appliedClientSearch, commercialUserFilter, session]);
+  }, [appliedClientSearch, appliedFilters, session]);
 
   // 14.4.A: load-more pelo cursor. inFlight + token protegem contra race
   // condition em scrolls rápidos (mesmo padrão de /samples).
@@ -579,7 +600,7 @@ function ClientsPage() {
         session,
         {
           search: appliedClientSearch || undefined,
-          commercialUserId: commercialUserFilter || undefined,
+          ...clientFiltersToQuery(appliedFilters),
           limit: CLIENT_PAGE_LIMIT,
           cursorDisplayName: cursor.displayName,
           cursorId: cursor.id,
@@ -610,7 +631,7 @@ function ClientsPage() {
           }
         });
     },
-    [session, appliedClientSearch, commercialUserFilter]
+    [session, appliedClientSearch, appliedFilters]
   );
 
   // 14.4.A: IntersectionObserver no sentinel — quando entra na viewport
@@ -670,8 +691,7 @@ function ClientsPage() {
     const handle = window.setTimeout(() => {
       saveSnapshot({
         appliedClientSearch,
-        commercialUserFilter,
-        showOnlyIncomplete,
+        filters: appliedFilters,
         items: clientsState.items,
         total: clientsState.total,
         incompleteTotal: clientsState.incompleteTotal,
@@ -683,8 +703,7 @@ function ClientsPage() {
     return () => window.clearTimeout(handle);
   }, [
     appliedClientSearch,
-    commercialUserFilter,
-    showOnlyIncomplete,
+    appliedFilters,
     clientsState.items,
     clientsState.total,
     clientsState.incompleteTotal,
@@ -831,7 +850,7 @@ function ClientsPage() {
     try {
       const response = await listClients(session, {
         search: nextSearch || undefined,
-        commercialUserId: commercialUserFilter || undefined,
+        ...clientFiltersToQuery(appliedFilters),
         limit: CLIENT_PAGE_LIMIT,
       });
 
@@ -944,30 +963,17 @@ function ClientsPage() {
 
         {/* Sheet */}
         <section className="clients-v2-sheet">
-          {/* 14.6.B: filtros em uma unica linha — contador esq + chips dir
-             (incompletos + responsavel via botao icone azul ancorado). */}
+          {/* 14.6.B: contador esq + botao de filtros (dropdown diagonal) dir.
+             Consolida responsavel + completude + status/tipo/papel num so botao. */}
           <div className="spv2-list-meta">
             <span className="spv2-list-count">{clientsState.total} clientes</span>
             <div className="spv2-list-meta-actions">
-              <button
-                type="button"
-                className={`cv2-filter-incomplete-chip${showOnlyIncomplete ? ' is-active' : ''}`}
-                onClick={() => setShowOnlyIncomplete((v) => !v)}
-                aria-pressed={showOnlyIncomplete}
-                aria-label={`Filtrar somente clientes incompletos (${clientsState.incompleteTotal})`}
-                title={
-                  showOnlyIncomplete
-                    ? `Mostrando ${clientsState.incompleteTotal} incompleto(s). Clique para ver todos.`
-                    : `${clientsState.incompleteTotal} cadastro(s) incompleto(s). Clique para filtrar.`
-                }
-              >
-                <IncompleteIcon className="cv2-filter-incomplete-icon" />
-                <span className="cv2-filter-incomplete-count">{clientsState.incompleteTotal}</span>
-              </button>
-              <ClientUserFilterButton
+              <ClientsFilterButton
                 users={users}
-                selectedUserId={commercialUserFilter}
-                onChange={setCommercialUserFilter}
+                applied={appliedFilters}
+                onApply={setAppliedFilters}
+                onClear={() => setAppliedFilters(EMPTY_CLIENT_FILTERS)}
+                incompleteTotal={clientsState.incompleteTotal}
               />
             </div>
           </div>
