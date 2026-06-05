@@ -5080,10 +5080,12 @@ button:disabled {
 .spv2-card {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 3.5vw, 16px);
+  gap: clamp(8px, 2.4vw, 11px);
   /* Padding vertical reduzido pra encurtar um pouco a altura do card
-     recolhido (havia folga). Horizontal mantido. */
-  padding: clamp(12px, 3.6vw, 15px) clamp(14px, 4vw, 18px);
+     recolhido (havia folga). Padding direito menor que o esquerdo pra
+     aproximar o chevron da borda e liberar largura pro conteudo. */
+  padding: clamp(12px, 3.6vw, 15px) clamp(7px, 2.2vw, 10px) clamp(12px, 3.6vw, 15px)
+    clamp(14px, 4vw, 18px);
   background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
   border-radius: clamp(14px, 4vw, 16px);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -5176,7 +5178,11 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: clamp(6px, 1.8vw, 8px);
-  flex-wrap: wrap;
+  /* Sempre uma unica linha: o nome (owner) trunca com reticencias quando
+     falta largura; sacas e safra ficam intactos. Evita que a linha quebre
+     em 2 e aumente a altura do card. */
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .spv2-card-owner {
@@ -5186,7 +5192,10 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 40%;
+  /* Unico item flexivel da linha: encolhe e trunca pra caber em 1 linha,
+     mantendo sacas e safra intactos. */
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .spv2-card-sep {
@@ -5203,6 +5212,8 @@ button:disabled {
   font-size: clamp(11px, 3vw, 12px);
   color: #aaa;
   white-space: nowrap;
+  /* Sacas/safra mantem o tamanho — quem cede na linha unica e o nome. */
+  flex-shrink: 0;
 }
 
 .spv2-card-detail svg {
@@ -5217,8 +5228,8 @@ button:disabled {
 }
 
 .spv2-card-chevron {
-  width: clamp(14px, 4vw, 16px);
-  height: clamp(14px, 4vw, 16px);
+  width: clamp(12px, 3.4vw, 14px);
+  height: clamp(12px, 3.4vw, 14px);
   flex-shrink: 0;
   fill: none;
   stroke: #ccc;
@@ -5402,29 +5413,10 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-/* Tracinho verde vertical antes do nome do dado (accent). Barra fina na
-   vertical ocupa pouquissima largura — ao lado do nome sem atrapalhar a
-   disposicao nem quebrar o truncamento (ellipsis). So no nome, nunca no valor.
-   height em em (~altura das letras / cap height), escala com a fonte. */
-.spv2-card-stat-label::before {
-  content: '';
-  display: inline-block;
-  width: 2px;
-  height: 0.72em;
-  margin-right: 3px;
-  vertical-align: middle;
-  background: var(--brand-green);
-  border-radius: 1px;
-}
-
-/* Dado ausente (valor "—"): nome + tracinho em cinza apagado, sinalizando que
-   nao ha informacao (igual ao tom do proprio "—" do valor). */
+/* Dado ausente (valor "—"): nome em cinza apagado, sinalizando que nao ha
+   informacao (igual ao tom do proprio "—" do valor). */
 .spv2-card-stat.is-empty .spv2-card-stat-label {
   color: rgba(0, 0, 0, 0.3);
-}
-
-.spv2-card-stat.is-empty .spv2-card-stat-label::before {
-  background: rgba(0, 0, 0, 0.3);
 }
 
 .spv2-card-stat-value {
