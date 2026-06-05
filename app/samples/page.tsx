@@ -18,6 +18,7 @@ import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { NotificationBell } from '../../components/NotificationBell';
+import { PadraoFilterField } from '../../components/samples/PadraoFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
 import {
@@ -30,7 +31,7 @@ import {
   type SelectedSampleSummary,
 } from '../../components/samples/SelectedSamplesDropdown';
 import { SelectionModeHeader } from '../../components/samples/SelectionModeHeader';
-import { ApiError, createBlend, listSamples } from '../../lib/api-client';
+import { ApiError, createBlend, listPadroes, listSamples } from '../../lib/api-client';
 import { mapEligibilityReasonToLabel } from '../../lib/samples/eligibility-labels';
 import { buildHarvestPresets } from '../../lib/sample-identification';
 import { useToast } from '../../lib/toast/ToastProvider';
@@ -62,6 +63,8 @@ interface HiddenFilters {
   ownerClients: ClientSummary[];
   buyerClients: ClientSummary[];
   sentToClients: ClientSummary[];
+  // Padrao (classificacao): multi-selecao de valores canonicos existentes.
+  padroes: string[];
   displayStatus: DisplayStatusFilter;
   harvest: string;
   sacksMin: string;
@@ -74,6 +77,7 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   ownerClients: [],
   buyerClients: [],
   sentToClients: [],
+  padroes: [],
   displayStatus: '',
   harvest: '',
   sacksMin: '',
@@ -97,6 +101,7 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.ownerClients.length > 0 ||
     filters.buyerClients.length > 0 ||
     filters.sentToClients.length > 0 ||
+    filters.padroes.length > 0 ||
     filters.displayStatus.length > 0 ||
     filters.harvest.trim().length > 0 ||
     filters.sacksMin.trim().length > 0 ||
@@ -111,6 +116,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     ownerClients: filters.ownerClients,
     buyerClients: filters.buyerClients,
     sentToClients: filters.sentToClients,
+    padroes: filters.padroes,
     displayStatus: filters.displayStatus,
     harvest: filters.harvest.trim(),
     sacksMin: filters.sacksMin.trim(),
@@ -125,6 +131,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.ownerClients.length > 0) count += 1;
   if (filters.buyerClients.length > 0) count += 1;
   if (filters.sentToClients.length > 0) count += 1;
+  if (filters.padroes.length > 0) count += 1;
   if (filters.displayStatus) count += 1;
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
@@ -296,6 +303,12 @@ function readSamplesSnapshot(): SamplesSnapshot | null {
     if (!parsed || !Array.isArray(parsed.items)) return null;
     if (typeof parsed.savedAt !== 'number') return null;
     if (Date.now() - parsed.savedAt > SAMPLES_SNAPSHOT_TTL_MS) return null;
+    // Snapshots antigos podem nao ter campos novos de HiddenFilters (ex.:
+    // padroes). Mescla com os defaults pra garantir arrays/strings validos.
+    parsed.appliedHiddenFilters = {
+      ...EMPTY_HIDDEN_FILTERS,
+      ...(parsed.appliedHiddenFilters ?? {}),
+    };
     return parsed as SamplesSnapshot;
   } catch {
     return null;
@@ -468,6 +481,10 @@ function SamplesPage() {
     () => initialFilters
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Opcoes do filtro de Padrao (valores distintos canonicos da classificacao),
+  // carregadas sob demanda toda vez que o modal de filtros abre.
+  const [padraoOptions, setPadraoOptions] = useState<string[]>([]);
+  const [padraoOptionsLoading, setPadraoOptionsLoading] = useState(false);
   // Modal de nova amostra: `open` controla intencao (abrir/fechar) e
   // `mounted` controla presenca no DOM. Quando o user fecha, `open`
   // vira false imediatamente (BottomSheet anima saida) mas `mounted`
@@ -644,6 +661,31 @@ function SamplesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen]);
 
+  // Carrega as opcoes do filtro de Padrao toda vez que o modal abre (mantem a
+  // lista atual em caso de erro/abort). Query distinct e barata.
+  useEffect(() => {
+    if (!filtersOpen || !session) {
+      return;
+    }
+    let active = true;
+    const controller = new AbortController();
+    setPadraoOptionsLoading(true);
+    listPadroes(session, { signal: controller.signal })
+      .then((res) => {
+        if (active) setPadraoOptions(res.values ?? []);
+      })
+      .catch(() => {
+        /* mantem opcoes anteriores; ignora abort/erro transitorio */
+      })
+      .finally(() => {
+        if (active) setPadraoOptionsLoading(false);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [filtersOpen, session]);
+
   useEffect(() => {
     if (!filtersOpen || !activeFilterSection) {
       return;
@@ -722,6 +764,7 @@ function SamplesPage() {
       ownerClientIds: filters.appliedHiddenFilters.ownerClients.map((client) => client.id),
       buyerClientIds: filters.appliedHiddenFilters.buyerClients.map((client) => client.id),
       sentToClientIds: filters.appliedHiddenFilters.sentToClients.map((client) => client.id),
+      padroes: filters.appliedHiddenFilters.padroes,
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
@@ -778,6 +821,7 @@ function SamplesPage() {
         ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
         buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
         sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
+        padroes: appliedHiddenFilters.padroes,
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -842,6 +886,7 @@ function SamplesPage() {
             ownerClientIds: appliedHiddenFilters.ownerClients.map((client) => client.id),
             buyerClientIds: appliedHiddenFilters.buyerClients.map((client) => client.id),
             sentToClientIds: appliedHiddenFilters.sentToClients.map((client) => client.id),
+            padroes: appliedHiddenFilters.padroes,
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
             harvest: appliedHiddenFilters.harvest || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
@@ -1162,39 +1207,40 @@ function SamplesPage() {
     onRemove: (clientId: string) => void
   ) {
     if (!session) return null;
+    // Chips dos selecionados ficam DENTRO do box (.samples-filter-multi), antes
+    // do typeahead (que vira borderless e ocupa a linha de baixo). Sem chips, o
+    // box parece um campo normal.
     return (
       <div className="samples-filter-field">
         <span className="samples-filter-field-label">{label}</span>
-        <ClientLookupField
-          session={session}
-          kind={kind}
-          label={label}
-          compact
-          clearOnSelect
-          selectedClient={null}
-          onSelectClient={(client) => {
-            if (client) onAdd(client);
-          }}
-          placeholder={placeholder}
-          emptyMessage={emptyMessage}
-        />
-        {selected.length > 0 ? (
-          <div className="samples-filter-tokens">
-            {selected.map((client) => (
-              <span key={client.id} className="samples-filter-token">
-                <span className="samples-filter-token-label">{getClientFilterLabel(client)}</span>
-                <button
-                  type="button"
-                  className="samples-filter-token-remove"
-                  aria-label={`${removeLabel}: ${getClientFilterLabel(client)}`}
-                  onClick={() => onRemove(client.id)}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <div className="samples-filter-multi samples-filter-multi--lookup">
+          {selected.map((client) => (
+            <span key={client.id} className="samples-filter-token">
+              <span className="samples-filter-token-label">{getClientFilterLabel(client)}</span>
+              <button
+                type="button"
+                className="samples-filter-token-remove"
+                aria-label={`${removeLabel}: ${getClientFilterLabel(client)}`}
+                onClick={() => onRemove(client.id)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <ClientLookupField
+            session={session}
+            kind={kind}
+            label={label}
+            compact
+            clearOnSelect
+            selectedClient={null}
+            onSelectClient={(client) => {
+              if (client) onAdd(client);
+            }}
+            placeholder={placeholder}
+            emptyMessage={emptyMessage}
+          />
+        </div>
       </div>
     );
   }
@@ -1264,6 +1310,13 @@ function SamplesPage() {
               sentToClients: c.sentToClients.filter((existing) => existing.id !== clientId),
             }))
         )}
+
+        <PadraoFilterField
+          options={padraoOptions}
+          selected={draftHiddenFilters.padroes}
+          loading={padraoOptionsLoading}
+          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
+        />
 
         <div className="samples-filter-row">
           <div className="samples-filter-field">

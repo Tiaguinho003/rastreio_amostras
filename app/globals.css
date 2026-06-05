@@ -12049,15 +12049,197 @@ button:disabled {
   max-height: min(13rem, 32vh);
 }
 
-/* Chips dos clientes selecionados nos filtros multi-select (proprietario /
-   comprador). Espelha o visual dos chips do user-multi-select. */
-.samples-filter-tokens {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.35rem;
+/* ── Filtros multi-select: box com chips DENTRO do campo ──────────────
+   Usado por Proprietario/Comprador/Enviado para (typeahead) e por Padrao
+   (checklist). Os selecionados viram chips dentro do box — nada cai abaixo
+   do campo (ocupava espaco vertical desnecessario). */
+.samples-filter-multi-wrap {
+  position: relative;
 }
 
+.samples-filter-multi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.3rem;
+  padding: 0.28rem 0.4rem;
+  border: 1px solid rgba(195, 200, 190, 0.85);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.samples-filter-multi:focus-within,
+.samples-filter-multi.is-open {
+  border-color: #7ca16f;
+  box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.14);
+}
+
+/* Variante typeahead: ClientLookupField borderless ocupando a linha inteira
+   abaixo dos chips (flex-basis 100%), pro dropdown alinhar a largura do box. */
+.samples-filter-multi--lookup .client-lookup-shell {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+
+.samples-filter-multi--lookup .client-lookup-shell input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.18rem 0.2rem;
+  font-size: 0.82rem;
+}
+
+.samples-filter-multi--lookup .client-lookup-shell.has-selection input {
+  padding-right: 2.4rem;
+}
+
+/* Variante select (Padrao): box clicavel + chevron a direita. */
+.samples-filter-multi--select {
+  cursor: pointer;
+}
+
+.samples-filter-multi-placeholder {
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.32);
+  font-weight: 500;
+}
+
+.samples-filter-multi-chevron {
+  width: 1rem;
+  height: 1rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  fill: none;
+  stroke: #5a6b5e;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+
+.samples-filter-multi--select.is-open .samples-filter-multi-chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown da checklist (Padrao) — ancorado ao box, acima dos demais campos. */
+.samples-filter-multi-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  max-height: min(14rem, 36vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.3rem;
+  border: 1px solid rgba(195, 200, 190, 0.95);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(19, 35, 24, 0.16);
+  scrollbar-width: thin;
+}
+
+.samples-filter-multi-search {
+  width: 100%;
+  margin-bottom: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(195, 200, 190, 0.85);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
+.samples-filter-multi-search:focus-visible {
+  outline: none;
+  border-color: #7ca16f;
+  box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.14);
+}
+
+.samples-filter-multi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.samples-filter-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.samples-filter-multi-option:hover {
+  background: rgba(47, 107, 74, 0.08);
+}
+
+.samples-filter-multi-option.is-selected {
+  background: rgba(47, 107, 74, 0.1);
+  font-weight: 600;
+}
+
+.samples-filter-multi-check {
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1.5px solid rgba(120, 140, 110, 0.6);
+  border-radius: 5px;
+  background: #fff;
+}
+
+.samples-filter-multi-option.is-selected .samples-filter-multi-check {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.samples-filter-multi-check svg {
+  width: 0.72rem;
+  height: 0.72rem;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.samples-filter-multi-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.samples-filter-multi-empty {
+  margin: 0;
+  padding: 0.7rem 0.5rem;
+  font-size: 0.8rem;
+  color: #8a968c;
+  text-align: center;
+}
+
+/* Chips dos selecionados (clientes ou padroes), reutilizados dentro do box. */
 .samples-filter-token {
   display: inline-flex;
   align-items: center;
