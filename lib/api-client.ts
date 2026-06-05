@@ -831,6 +831,7 @@ export function listSamples(
     ownerClientIds?: string[];
     buyerClientIds?: string[];
     sentToClientIds?: string[];
+    padroes?: string[];
     statusGroup?: string;
     commercialStatus?: string;
     displayStatus?: string;
@@ -866,6 +867,9 @@ export function listSamples(
   if (query.sentToClientIds && query.sentToClientIds.length > 0) {
     params.set('sentToClientIds', query.sentToClientIds.join(','));
   }
+  if (query.padroes && query.padroes.length > 0) {
+    params.set('padroes', query.padroes.join(','));
+  }
   if (query.statusGroup) params.set('statusGroup', query.statusGroup);
   if (query.commercialStatus) params.set('commercialStatus', query.commercialStatus);
   if (query.displayStatus) params.set('displayStatus', query.displayStatus);
@@ -878,6 +882,16 @@ export function listSamples(
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<ListSamplesResponse>(`/samples${suffix}`, {
+    method: 'GET',
+    session,
+    signal: options.signal,
+  });
+}
+
+// Valores distintos de `padrao` (classificacao) — opcoes do filtro multi-select
+// de /samples. Ja vem canonicos e ordenados do backend.
+export function listPadroes(session: SessionData, options: { signal?: AbortSignal } = {}) {
+  return request<{ values: string[] }>(`/samples/padroes`, {
     method: 'GET',
     session,
     signal: options.signal,

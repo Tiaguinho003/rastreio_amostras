@@ -1,5 +1,6 @@
 import { EventValidator } from '../contracts/event-validator.js';
 import { HttpError } from '../contracts/errors.js';
+import { canonicalizePadrao } from '../samples/classification-canonicalization.js';
 import { isPrismaUniqueViolation } from './prisma-event-store.js';
 
 // Q.print: QR_PRINT_REQUESTED e QR_PRINTED viraram audit-only (nao
@@ -65,15 +66,26 @@ const CLASSIFICATION_DATA_KEYS = [
 const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
 const DEFEITO_KEYS = ['imp', 'pva', 'broca', 'gpi', 'ap', 'defeito'];
 
+// Canonicalizacao na projecao: alguns flat fields sao normalizados ao serem
+// folded na projecao (latestClassificationData), pra que os valores fiquem
+// consistentes independente do caminho de escrita (IA ja canoniza na extracao;
+// edicao manual nao). Isso alimenta o filtro de /samples por valores distintos.
+// Forward-only no projetor + backfill da projecao existente cobrem o legado.
+// Escopo atual: padrao. Proximos filtros (aspecto/certif/bebida) entram aqui.
+const CLASSIFICATION_FIELD_CANONICALIZERS = {
+  padrao: canonicalizePadrao,
+};
+
 function applyClassificationDataPatch(target, source) {
   if (!isObject(source)) {
     return;
   }
 
-  // Flat fields (texto livre).
+  // Flat fields (texto livre). Campos com canonicalizador sao normalizados.
   for (const key of CLASSIFICATION_DATA_KEYS) {
     if (hasOwn(source, key)) {
-      target[key] = source[key];
+      const canonicalize = CLASSIFICATION_FIELD_CANONICALIZERS[key];
+      target[key] = canonicalize ? canonicalize(source[key]) : source[key];
     }
   }
 

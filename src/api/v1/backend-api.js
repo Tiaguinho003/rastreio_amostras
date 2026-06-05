@@ -514,6 +514,9 @@ export function createBackendApiV1({
           ownerClientIds: readOptionalIdList(query.ownerClientIds),
           buyerClientIds: readOptionalIdList(query.buyerClientIds),
           sentToClientIds: readOptionalIdList(query.sentToClientIds),
+          // padroes: lista CSV de valores de padrao (classificacao). readOptionalIdList
+          // e um split CSV generico (trim + dedup), serve pra strings tambem.
+          padroes: readOptionalIdList(query.padroes),
           statusGroup: readOptionalQueryString(query.statusGroup),
           commercialStatus: readOptionalQueryString(query.commercialStatus),
           displayStatus: readOptionalQueryString(query.displayStatus),
@@ -527,6 +530,17 @@ export function createBackendApiV1({
           eligibleForBlend: readOptionalQueryString(query.eligibleForBlend) === 'true',
         });
 
+        return {
+          status: 200,
+          body: result,
+        };
+      }),
+
+    // Valores distintos de `padrao` (classificacao) — opcoes do filtro de /samples.
+    listPadroes: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const result = await queryService.listPadroes();
         return {
           status: 200,
           body: result,

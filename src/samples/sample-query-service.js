@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { buildCompletenessWhere } from '../clients/client-service.js';
 import { HttpError } from '../contracts/errors.js';
+import { canonicalizePadrao } from './classification-canonicalization.js';
 
 // Q.print: PRINT_PENDING_STATUSES removido — impressao virou acao pura,
 // estado de impressao vive na tabela PrintJob.status='PENDING' (sem
@@ -1196,6 +1197,7 @@ export class SampleQueryService {
     ownerClientIds = [],
     buyerClientIds = [],
     sentToClientIds = [],
+    padroes = [],
     harvest = null,
     sacksMin = null,
     sacksMax = null,
@@ -1349,6 +1351,28 @@ export class SampleQueryService {
       });
     }
 
+    // Filtro por padrao (classificacao). Os valores na projecao sao canonicos
+    // (projetor + backfill), entao canonizamos os valores recebidos e fazemos
+    // match exato no JSON path 'padrao'. OR-de-equals (Prisma nao garante `in`
+    // em filtro de path JSON entre versoes). Amostras sem classificacao
+    // (latestClassificationData null) nunca casam — ficam de fora.
+    const canonicalPadroes = Array.isArray(padroes)
+      ? Array.from(
+          new Set(
+            padroes
+              .map((value) => canonicalizePadrao(value))
+              .filter((value) => typeof value === 'string' && value.length > 0)
+          )
+        )
+      : [];
+    if (canonicalPadroes.length > 0) {
+      conditions.push({
+        OR: canonicalPadroes.map((value) => ({
+          latestClassificationData: { path: ['padrao'], equals: value },
+        })),
+      });
+    }
+
     if (sacksRange) {
       conditions.push({
         declaredSacks: sacksRange,
@@ -1440,6 +1464,29 @@ export class SampleQueryService {
         nextCursor,
       },
     };
+  }
+
+  // Valores distintos de `padrao` existentes nas classificacoes — alimenta as
+  // opcoes do filtro de /samples (estilo "autofiltro do Excel"). Canoniza no
+  // app pra agrupar variacoes mesmo em linhas ainda nao backfilladas, e
+  // ordena. Cardinalidade pequena (numero de padroes), entao DISTINCT cru +
+  // canonicalizacao em JS e suficiente.
+  async listPadroes() {
+    const rows = await this.prisma.$queryRaw`
+      SELECT DISTINCT s."latest_classification_data"->>'padrao' AS padrao
+      FROM "sample" s
+      WHERE s."latest_classification_data"->>'padrao' IS NOT NULL
+        AND length(trim(s."latest_classification_data"->>'padrao')) > 0
+    `;
+    const canonicalSet = new Set();
+    for (const row of rows) {
+      const canonical = canonicalizePadrao(row.padrao);
+      if (canonical) {
+        canonicalSet.add(canonical);
+      }
+    }
+    const values = Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return { values };
   }
 
   // Liga A3.3: query agregada que retorna Map<sampleId, committedSacks>
