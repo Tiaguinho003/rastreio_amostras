@@ -5953,7 +5953,11 @@ button:disabled {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #faf8f4;
+  /* Bege quente que casa com o gradiente do .clients-v2-sheet (#fdf9ec ->
+     #f4f0e7) na faixa onde o divisor sticky fica — antes era #faf8f4 (branco
+     mais frio), que destacava o retangulo sobre o bege. Opaco pra esconder os
+     cards que rolam por baixo. */
+  background: #faf6ea;
 }
 
 .cv2-section-divider-letter {
