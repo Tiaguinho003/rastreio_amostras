@@ -83,8 +83,8 @@ export function isClientComplete(client: ClientSummary | null | undefined): Comp
   return { complete: missing.length === 0, missing };
 }
 
-// Fase R: helper reusavel para detectar campos faltantes em uma unit PF.
-// Usado pelo OwnerUnitField para mostrar o badge de incompleta no dropdown.
+// Helper reusavel para detectar campos faltantes em uma unit PF (badge de
+// "incompleta"). Usado no cadastro/gestao de fazendas do cliente.
 export function missingPfUnitFields(unit: ClientUnitSummary): string[] {
   const missing: string[] = [];
   for (const field of PF_UNIT_RECOMMENDED_FIELDS) {

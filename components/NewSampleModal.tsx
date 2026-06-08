@@ -6,18 +6,12 @@ import { useRouter } from 'next/navigation';
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ClientLookupField } from './clients/ClientLookupField';
 import { ClientQuickCreateModal } from './clients/ClientQuickCreateModal';
-import { OwnerUnitField } from './samples/OwnerUnitField';
 import { SampleCreatedSuccessModal } from './samples/SampleCreatedSuccessModal';
-import { ApiError, createSample, getClient } from '../lib/api-client';
+import { ApiError, createSample } from '../lib/api-client';
 import { useRegisterDirtyState } from '../lib/dirty-state/DirtyStateProvider';
 import { createSampleDraftSchema } from '../lib/form-schemas';
 import { buildHarvestPresets } from '../lib/sample-identification';
-import type {
-  ClientSummary,
-  ClientUnitSummary,
-  CreateSampleResponse,
-  SessionData,
-} from '../lib/types';
+import type { ClientSummary, CreateSampleResponse, SessionData } from '../lib/types';
 
 // ════════════════════════════════════════════════════════════════
 // Constantes e helpers (escopo de modulo)
@@ -70,7 +64,7 @@ const HARVEST_PRESET_OPTIONS = buildHarvestPresets();
 type WizardStep = 'form' | 'created';
 type WizardStatus = 'idle' | 'submitting' | 'error';
 
-type RequiredFieldName = 'owner' | 'ownerUnit' | 'sacks' | 'harvest';
+type RequiredFieldName = 'owner' | 'sacks' | 'harvest';
 type RequiredFieldErrors = Record<RequiredFieldName, string | null>;
 
 interface WizardState {
@@ -102,7 +96,6 @@ interface NewSampleModalProps {
 
 const EMPTY_REQUIRED_FIELD_ERRORS: RequiredFieldErrors = {
   owner: null,
-  ownerUnit: null,
   sacks: null,
   harvest: null,
 };
@@ -126,7 +119,6 @@ function getMissingRequiredFieldErrors(
 ): RequiredFieldErrors {
   return {
     owner: values.owner.trim() ? null : REQUIRED_FIELD_MESSAGE,
-    ownerUnit: null,
     sacks: values.sacks.trim() ? null : REQUIRED_FIELD_MESSAGE,
     harvest: values.harvest.trim() ? null : REQUIRED_FIELD_MESSAGE,
   };
@@ -209,9 +201,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const [clientDraftId, setClientDraftId] = useState<string>(() => '');
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerUnits, setOwnerUnits] = useState<ClientUnitSummary[]>([]);
-  const [selectedOwnerUnitId, setSelectedOwnerUnitId] = useState<string | null>(null);
-  const [ownerUnitLoading, setOwnerUnitLoading] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
@@ -270,46 +259,11 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   const navigateToSample =
     onSuccessNavigate ?? ((sampleId: string) => router.push(`/samples/${sampleId}`));
 
-  // ── Owner units load (mesmo padrao do form atual)
+  // ── Sincroniza o nome do proprietario com o cliente selecionado. O lote nao
+  // vincula mais fazenda/unit, entao nao ha carregamento de filiais aqui.
   useEffect(() => {
-    if (!session || !selectedOwnerClient) {
-      setOwnerUnits([]);
-      setSelectedOwnerUnitId(null);
-      setOwnerUnitLoading(false);
-      setOwner(selectedOwnerClient?.displayName ?? '');
-      return;
-    }
-
-    let active = true;
-    setOwnerUnitLoading(true);
-    setError(null);
-    setOwner(selectedOwnerClient.displayName ?? '');
-
-    getClient(session, selectedOwnerClient.id)
-      .then((response) => {
-        if (!active) return;
-        const activeUnits = response.units.filter((unit) => unit.status === 'ACTIVE');
-        setOwnerUnits(activeUnits);
-        setSelectedOwnerUnitId((current) =>
-          activeUnits.some((unit) => unit.id === current) ? current : null
-        );
-      })
-      .catch((cause) => {
-        if (!active) return;
-        setOwnerUnits([]);
-        setSelectedOwnerUnitId(null);
-        setError(
-          cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do proprietario'
-        );
-      })
-      .finally(() => {
-        if (active) setOwnerUnitLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedOwnerClient, session]);
+    setOwner(selectedOwnerClient?.displayName ?? '');
+  }, [selectedOwnerClient]);
 
   // ── Cleanup timeouts ao desmontar
   useEffect(() => {
@@ -380,7 +334,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
   }
 
   function focusFirstInvalidField(fieldErrors: RequiredFieldErrors) {
-    const firstInvalid = (['owner', 'ownerUnit', 'sacks', 'harvest'] as const).find((f) =>
+    const firstInvalid = (['owner', 'sacks', 'harvest'] as const).find((f) =>
       Boolean(fieldErrors[f])
     );
     if (firstInvalid) focusRequiredField(firstInvalid);
@@ -390,9 +344,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
     setClientDraftId(renewDraftId());
     setOwner('');
     setSelectedOwnerClient(null);
-    setOwnerUnits([]);
-    setSelectedOwnerUnitId(null);
-    setOwnerUnitLoading(false);
     setQuickCreateOpen(false);
     setQuickCreateSeed('');
     setSacks('');
@@ -430,18 +381,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
       return;
     }
 
-    if (selectedOwnerClient.personType === 'PF' && ownerUnits.length === 0) {
-      setError(
-        'Este cliente PF nao tem fazenda ativa. Cadastre uma fazenda na pagina do cliente antes de registrar amostras.'
-      );
-      return;
-    }
-
     const missingRequiredFieldErrors = getMissingRequiredFieldErrors({ owner, sacks, harvest });
-
-    if (selectedOwnerClient.personType === 'PF' && !selectedOwnerUnitId) {
-      missingRequiredFieldErrors.ownerUnit = REQUIRED_FIELD_MESSAGE;
-    }
 
     if (hasRequiredFieldErrors(missingRequiredFieldErrors)) {
       dispatch({ type: 'SET_FIELD_ERRORS', errors: missingRequiredFieldErrors });
@@ -477,7 +417,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         clientDraftId,
         owner: parsed.data.owner,
         ownerClientId: selectedOwnerClient.id,
-        ownerUnitId: selectedOwnerUnitId,
         sacks: parsed.data.sacks,
         harvest: parsed.data.harvest,
         originLot: parsed.data.originLot ?? null,
@@ -542,13 +481,7 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
               markDirty();
               setSelectedOwnerClient(client);
               setOwner(client?.displayName ?? '');
-              if (!client) {
-                setSelectedOwnerUnitId(null);
-              } else if (selectedOwnerClient?.id !== client.id) {
-                setSelectedOwnerUnitId(null);
-              }
               clearFieldError('owner');
-              clearFieldError('ownerUnit');
               setError(null);
             }}
             onRequestCreate={(searchTerm) => {
@@ -557,28 +490,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
             }}
             createLabel="Adicionar cliente"
             createButtonStyle="inline-cta"
-          />
-        </div>
-
-        <div className="nsv2-grid-full">
-          <OwnerUnitField
-            session={session}
-            client={selectedOwnerClient}
-            units={ownerUnits}
-            loading={ownerUnitLoading}
-            selectedUnitId={selectedOwnerUnitId}
-            onSelect={(unitId) => {
-              markDirty();
-              setSelectedOwnerUnitId(unitId);
-              clearFieldError('ownerUnit');
-            }}
-            onUnitCreated={(unit) => {
-              setOwnerUnits((prev) => [...prev, unit]);
-            }}
-            required={selectedOwnerClient?.personType === 'PF'}
-            invalid={Boolean(fieldErrors.ownerUnit)}
-            invalidText={fieldErrors.ownerUnit ?? 'Obrigatório'}
-            onClearError={() => clearFieldError('ownerUnit')}
           />
         </div>
 
@@ -840,7 +751,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
           markDirty();
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setSelectedOwnerUnitId(null);
           clearFieldError('owner');
           setMessage('Cliente criado e selecionado para a amostra.');
         }}

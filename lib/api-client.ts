@@ -930,7 +930,6 @@ export function createSample(
     clientDraftId: string;
     owner: string;
     ownerClientId?: string | null;
-    ownerUnitId?: string | null;
     sacks: number;
     harvest: string;
     originLot?: string | null;
@@ -946,7 +945,6 @@ export function createSample(
       clientDraftId: data.clientDraftId,
       owner: data.owner,
       ownerClientId: data.ownerClientId ?? null,
-      ownerUnitId: data.ownerUnitId ?? null,
       sacks: data.sacks,
       harvest: data.harvest,
       originLot: data.originLot ?? null,
@@ -971,7 +969,6 @@ export function createBlend(
     clientDraftId: string;
     components: Array<{ originSampleId: string; contributedSacks: number }>;
     ownerClientId?: string | null;
-    ownerUnitId?: string | null;
     idempotencyKey?: string;
   }
 ) {
@@ -979,7 +976,6 @@ export function createBlend(
     clientDraftId: data.clientDraftId,
     components: data.components,
     ownerClientId: data.ownerClientId ?? null,
-    ownerUnitId: data.ownerUnitId ?? null,
   };
   if (data.idempotencyKey) body.idempotencyKey = data.idempotencyKey;
   return request<CreateSampleResponse>('/samples/blends', {

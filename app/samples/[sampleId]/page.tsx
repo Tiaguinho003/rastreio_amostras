@@ -9,7 +9,6 @@ import { NotificationBell } from '../../../components/NotificationBell';
 import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
-import { ClientUnitSelect } from '../../../components/clients/ClientUnitSelect';
 import { BlendBadge } from '../../../components/samples/BlendBadge';
 import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
@@ -47,7 +46,6 @@ import type {
   BlendFeasibilityResponse,
   ClassificationType,
   ClassifierSnapshot,
-  ClientUnitSummary,
   ClientSummary,
   InvalidateReasonCode,
   SampleDetailResponse,
@@ -469,9 +467,6 @@ export default function SampleDetailPage() {
 
   const [owner, setOwner] = useState('');
   const [selectedOwnerClient, setSelectedOwnerClient] = useState<ClientSummary | null>(null);
-  const [ownerUnits, setOwnerUnits] = useState<ClientUnitSummary[]>([]);
-  const [selectedOwnerUnitId, setSelectedOwnerUnitId] = useState<string | null>(null);
-  const [ownerUnitLoading, setOwnerUnitLoading] = useState(false);
   const [ownerQuickCreateOpen, setOwnerQuickCreateOpen] = useState(false);
   const [ownerQuickCreateSeed, setOwnerQuickCreateSeed] = useState('');
   const [sacks, setSacks] = useState('');
@@ -613,7 +608,6 @@ export default function SampleDetailPage() {
           setSelectedOwnerClient(
             mapSampleOwnerClientToSummary(response.sample.ownerClient ?? null)
           );
-          setSelectedOwnerUnitId(response.sample.ownerUnitId ?? null);
           setSacks(response.sample.declared.sacks ? String(response.sample.declared.sacks) : '');
           setHarvest(response.sample.declared.harvest ?? '');
           setOriginLot(response.sample.declared.originLot ?? '');
@@ -653,51 +647,12 @@ export default function SampleDetailPage() {
     return fetchDetail({ showLoading: false });
   }, [fetchDetail]);
 
+  // Sincroniza o nome do proprietario com o cliente selecionado no modal de
+  // edicao. O lote nao vincula mais fazenda/unit, entao nao ha carregamento de
+  // filiais aqui.
   useEffect(() => {
-    if (!session || !selectedOwnerClient) {
-      setOwnerUnits([]);
-      setOwnerUnitLoading(false);
-      setSelectedOwnerUnitId(null);
-      setOwner(selectedOwnerClient?.displayName ?? detailRef.current?.sample.declared.owner ?? '');
-      return;
-    }
-
-    let active = true;
-    setOwnerUnitLoading(true);
-    setOwner(selectedOwnerClient.displayName ?? '');
-
-    getClient(session, selectedOwnerClient.id)
-      .then((response) => {
-        if (!active) {
-          return;
-        }
-
-        const activeUnits = response.units.filter((u) => u.status === 'ACTIVE');
-        setOwnerUnits(activeUnits);
-      })
-      .catch((cause) => {
-        if (!active) {
-          return;
-        }
-
-        setOwnerUnits([]);
-        setSelectedOwnerUnitId(null);
-        setGeneralNotice({
-          kind: 'error',
-          text:
-            cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do proprietario',
-        });
-      })
-      .finally(() => {
-        if (active) {
-          setOwnerUnitLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedOwnerClient, session]);
+    setOwner(selectedOwnerClient?.displayName ?? detailRef.current?.sample.declared.owner ?? '');
+  }, [selectedOwnerClient]);
 
   const syncDetailState = useCallback(
     async (_options: { refreshHistory?: boolean } = {}) => {
@@ -799,9 +754,6 @@ export default function SampleDetailPage() {
     setActiveMovements(null);
     setActiveMovementsError(null);
     setSelectedOwnerClient(null);
-    setOwnerUnits([]);
-    setSelectedOwnerUnitId(null);
-    setOwnerUnitLoading(false);
     setOwnerQuickCreateOpen(false);
     setOwnerQuickCreateSeed('');
     setClassificationSelectedPhoto(null);
@@ -1566,7 +1518,6 @@ export default function SampleDetailPage() {
 
     setOwner(detail.sample.declared.owner ?? '');
     setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
-    setSelectedOwnerUnitId(detail.sample.ownerUnitId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -1585,7 +1536,6 @@ export default function SampleDetailPage() {
 
     setOwner(detail.sample.declared.owner ?? '');
     setSelectedOwnerClient(mapSampleOwnerClientToSummary(detail.sample.ownerClient ?? null));
-    setSelectedOwnerUnitId(detail.sample.ownerUnitId ?? null);
     setSacks(detail.sample.declared.sacks ? String(detail.sample.declared.sacks) : '');
     setHarvest(detail.sample.declared.harvest ?? '');
     setOriginLot(detail.sample.declared.originLot ?? '');
@@ -1647,7 +1597,6 @@ export default function SampleDetailPage() {
       } = {
         declared: parsedForm.data,
         ownerClientId: selectedOwnerClient.id,
-        ownerUnitId: selectedOwnerUnitId,
       };
 
       await updateRegistration(session, sampleId, {
@@ -2863,7 +2812,6 @@ export default function SampleDetailPage() {
           setOwnerQuickCreateOpen(false);
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setSelectedOwnerUnitId(null);
           setGeneralNotice({
             kind: 'success',
             text: 'Cliente proprietario criado e selecionado com sucesso.',
@@ -2911,7 +2859,6 @@ export default function SampleDetailPage() {
                   onSelectClient={(client) => {
                     setSelectedOwnerClient(client);
                     setOwner(client?.displayName ?? '');
-                    setSelectedOwnerUnitId(null);
                     setGeneralNotice(null);
                   }}
                   onRequestCreate={(searchTerm) => {
@@ -2919,17 +2866,6 @@ export default function SampleDetailPage() {
                     setOwnerQuickCreateOpen(true);
                   }}
                   createLabel="Cadastrar proprietario"
-                />
-              </div>
-              <div className="sdv-edit-field">
-                <ClientUnitSelect
-                  label="Inscricao"
-                  units={ownerUnits}
-                  value={selectedOwnerUnitId}
-                  disabled={!selectedOwnerClient || ownerUnitLoading || registrationUpdating}
-                  onChange={setSelectedOwnerUnitId}
-                  placeholder="Selecionar"
-                  compact
                 />
               </div>
               <div className="sdv-edit-row">

@@ -486,12 +486,12 @@ export function SampleMovementsPanel({
         availableSacks={sample.availableSacks ?? 0}
         blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
         activeBlends={!sample.isBlend ? activeBlends : []}
-        onAssignOwner={async (ownerClientId, ownerUnitId) => {
+        onAssignOwner={async (ownerClientId) => {
           // Liga B4 Fase 5b (F3.A): atribui o dono à liga sem dono e recarrega
           // o detalhe — o modal continua aberto e reflete o dono preenchido.
           await updateRegistration(session, sampleId, {
             expectedVersion: sample.version,
-            after: { ownerClientId, ownerUnitId },
+            after: { ownerClientId },
             reasonCode: 'DATA_FIX',
             reasonText: 'Atribuicao de dono a liga antes da movimentacao comercial',
           });

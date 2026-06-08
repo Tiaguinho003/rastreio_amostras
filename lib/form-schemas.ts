@@ -46,10 +46,9 @@ export const registrationFormSchema = z.object({
 
 export const createSampleDraftSchema = z.object({
   owner: z.string().trim().min(1, 'Proprietario e obrigatorio'),
-  // Fase R: bindings estruturados de proprietário. ownerUnitId obrigatório
-  // para PF (validacao cross-field no backend; Zod nao tem o personType).
+  // O lote se vincula apenas ao proprietario (ownerClient); nao ha mais
+  // selecao de fazenda/unit.
   ownerClientId: z.string().uuid().optional().nullable(),
-  ownerUnitId: z.string().uuid().optional().nullable(),
   sacks: z.coerce.number().int().min(1, 'Sacas deve ser >= 1'),
   harvest: z.string().trim().min(1, 'Safra e obrigatoria'),
   originLot: z

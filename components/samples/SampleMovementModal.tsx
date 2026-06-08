@@ -3,12 +3,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { ApiError, getBlendFeasibility, getClient } from '../../lib/api-client';
+import { ApiError, getBlendFeasibility } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
   ActiveBlendDetail,
   BlendFeasibilityResponse,
-  ClientUnitSummary,
   ClientSummary,
   SampleMovement,
   SampleMovementType,
@@ -43,7 +42,7 @@ type SampleMovementModalProps = {
   blend?: { sampleId: string; ownerClientId: string | null } | null;
   // Liga B4 Fase 5b (F3.A): atribui um dono à liga sem dono antes da
   // movimentação. O painel implementa (updateRegistration + refetch).
-  onAssignOwner?: (ownerClientId: string, ownerUnitId: string | null) => Promise<void>;
+  onAssignOwner?: (ownerClientId: string) => Promise<void>;
   // Liga B4 Fase 8 (B3.8): ligas ativas que usam este sample como origem.
   // So pra amostra normal — dispara um aviso informativo nao-bloqueante ao
   // vender/perder (pode inviabilizar essas ligas). Vazio = sem aviso.
@@ -123,14 +122,11 @@ export function SampleMovementModal({
   const [buyerClient, setBuyerClient] = useState<ClientSummary | null>(
     toClientSummary(movement?.buyerClient ?? null)
   );
-  const [buyerUnits, setBuyerUnits] = useState<ClientUnitSummary[]>([]);
-  const [buyerUnitId, setBuyerUnitId] = useState<string | null>(movement?.buyerUnitId ?? null);
   const [quantitySacks, setQuantitySacks] = useState(String(movement?.quantitySacks ?? ''));
   const [movementDate, setMovementDate] = useState(movement?.movementDate ?? todayAsInputDate());
   const [notes, setNotes] = useState(movement?.notes ?? '');
   const [lossReasonText, setLossReasonText] = useState(movement?.lossReasonText ?? '');
   const [reasonText, setReasonText] = useState('');
-  const [, setLoadingUnits] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Liga B4 Fase 5: viabilidade da venda da liga (pre-validacao da cascata).
   const [feasibility, setFeasibility] = useState<BlendFeasibilityResponse | null>(null);
@@ -141,7 +137,6 @@ export function SampleMovementModal({
   const [ownerDismissed, setOwnerDismissed] = useState(false);
   const [ownerModalOpen, setOwnerModalOpen] = useState(false);
   const [ownerPickClient, setOwnerPickClient] = useState<ClientSummary | null>(null);
-  const [ownerPickUnitId, setOwnerPickUnitId] = useState<string | null>(null);
   const [assigningOwner, setAssigningOwner] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
   // Liga B4 Fase 8 (B3.8): aviso de origem em liga(s). `dismissed` = clicou
@@ -168,10 +163,9 @@ export function SampleMovementModal({
   // participa de liga(s) ativa(s). So ao criar venda/perda.
   const showBlendOriginWarning =
     mode === 'create' && activeBlends.length > 0 && !blendWarningDismissed;
-  // Sub-modal de atribuir dono: confirma so com cliente escolhido (e, se PF,
-  // a filial tambem — PF exige unidade).
-  const ownerAssignDisabled =
-    ownerPickClient === null || (ownerPickClient.personType === 'PF' && ownerPickUnitId === null);
+  // Sub-modal de atribuir dono: confirma com o cliente escolhido (a amostra/
+  // lote nao vincula mais fazenda/unit).
+  const ownerAssignDisabled = ownerPickClient === null;
 
   useEffect(() => {
     if (!open) {
@@ -180,7 +174,6 @@ export function SampleMovementModal({
 
     setMovementType(movement?.movementType ?? initialMovementType);
     setBuyerClient(toClientSummary(movement?.buyerClient ?? null));
-    setBuyerUnitId(movement?.buyerUnitId ?? null);
     setQuantitySacks(movement?.quantitySacks ? String(movement.quantitySacks) : '');
     setMovementDate(movement?.movementDate ?? todayAsInputDate());
     setNotes(movement?.notes ?? '');
@@ -190,56 +183,11 @@ export function SampleMovementModal({
     setOwnerDismissed(false);
     setOwnerModalOpen(false);
     setOwnerPickClient(null);
-    setOwnerPickUnitId(null);
     setAssigningOwner(false);
     setOwnerError(null);
     setBlendWarningDismissed(false);
     setBlendWarningExpanded(false);
   }, [initialMovementType, movement, open]);
-
-  useEffect(() => {
-    if (!open || !buyerClient) {
-      setBuyerUnits([]);
-      setLoadingUnits(false);
-      if (movementType === 'SALE') {
-        setBuyerUnitId(null);
-      }
-      return;
-    }
-
-    const controller = new AbortController();
-    setLoadingUnits(true);
-
-    getClient(session, buyerClient.id, { signal: controller.signal })
-      .then((response) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const activeUnits = response.units.filter((unit) => unit.status === 'ACTIVE');
-        setBuyerUnits(activeUnits);
-      })
-      .catch((cause) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setBuyerUnits([]);
-        setBuyerUnitId(null);
-        setError(
-          cause instanceof ApiError ? cause.message : 'Falha ao carregar filiais do comprador'
-        );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoadingUnits(false);
-        }
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [buyerClient, movementType, open, session]);
 
   // Liga B4 Fase 5: ao abrir o modal de uma liga, busca a viabilidade da
   // venda — a arvore de descendentes e quais origens nao tem saldo pra
@@ -365,15 +313,6 @@ export function SampleMovementModal({
       return;
     }
 
-    // F7.4: PJ sem matriz nao pode ser comprador. O lookup desabilita a
-    // selecao, mas defesa em profundidade impede submit por outras rotas.
-    if (showBuyerFields && buyerClient?.personType === 'PJ' && buyerUnits.length === 0) {
-      setError(
-        'Este comprador PJ ainda nao tem CNPJ cadastrado. Cadastre o CNPJ na pagina do cliente antes de registrar a venda.'
-      );
-      return;
-    }
-
     if (mode === 'edit' && !reasonText.trim()) {
       setError('Informe o motivo da edicao da movimentacao.');
       return;
@@ -383,7 +322,7 @@ export function SampleMovementModal({
     await onSubmit({
       movementType,
       buyerClientId: showBuyerFields ? (buyerClient?.id ?? null) : null,
-      buyerUnitId: showBuyerFields ? buyerUnitId : null,
+      buyerUnitId: null,
       quantitySacks: isBlend ? availableSacks : parsedQuantity,
       movementDate,
       notes: notes.trim() ? notes.trim() : null,
@@ -437,7 +376,6 @@ export function SampleMovementModal({
                 disabled={saving}
                 onClick={() => {
                   setOwnerPickClient(null);
-                  setOwnerPickUnitId(null);
                   setOwnerError(null);
                   setOwnerModalOpen(true);
                 }}
@@ -507,19 +445,13 @@ export function SampleMovementModal({
             <div className="sdv-edit-field">
               <ClientLookupField
                 session={session}
-                label="Comprador / Filial"
+                label="Comprador"
                 kind="buyer"
                 selectedClient={buyerClient}
                 disabled={saving}
                 compact
                 onSelectClient={(client) => {
                   setBuyerClient(client);
-                  if (!client) setBuyerUnitId(null);
-                  setError(null);
-                }}
-                onSelectUnit={(client, unit) => {
-                  setBuyerClient(client);
-                  setBuyerUnitId(unit?.id ?? null);
                   setError(null);
                 }}
                 emptyMessage="Nenhum comprador encontrado."
@@ -713,19 +645,13 @@ export function SampleMovementModal({
                 <div className="sdv-edit-field">
                   <ClientLookupField
                     session={session}
-                    label="Dono / Filial"
+                    label="Dono"
                     kind="owner"
                     selectedClient={ownerPickClient}
                     disabled={assigningOwner}
                     compact
                     onSelectClient={(client) => {
                       setOwnerPickClient(client);
-                      setOwnerPickUnitId(null);
-                      setOwnerError(null);
-                    }}
-                    onSelectUnit={(client, unit) => {
-                      setOwnerPickClient(client);
-                      setOwnerPickUnitId(unit?.id ?? null);
                       setOwnerError(null);
                     }}
                     emptyMessage="Nenhum cliente encontrado."
@@ -744,7 +670,7 @@ export function SampleMovementModal({
                       setAssigningOwner(true);
                       setOwnerError(null);
                       try {
-                        await onAssignOwner(ownerPickClient.id, ownerPickUnitId);
+                        await onAssignOwner(ownerPickClient.id);
                         setOwnerModalOpen(false);
                       } catch (cause) {
                         setOwnerError(

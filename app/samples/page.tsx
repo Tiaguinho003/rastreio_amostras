@@ -1179,7 +1179,6 @@ function SamplesPage() {
         clientDraftId: blendDraftIdRef.current,
         components,
         ownerClientId: null,
-        ownerUnitId: null,
       });
       const sampleId = result.sample.id;
       const lotNumber = result.sample.internalLotNumber ?? sampleId;

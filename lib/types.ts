@@ -405,7 +405,6 @@ export interface SampleSnapshot {
   version: number;
   lastEventSequence: number;
   ownerClientId?: string | null;
-  ownerUnitId?: string | null;
   // Liga A1: flag denotando se este sample é uma liga (Sample com
   // composição em SampleBlendComponent). Sample normal: false.
   isBlend?: boolean;
@@ -436,7 +435,6 @@ export interface SampleSnapshot {
     isSeller: boolean;
     status: ClientStatus;
   } | null;
-  ownerUnit?: ClientUnitSummary | null;
   soldSacks?: number;
   lostSacks?: number;
   availableSacks?: number | null;
