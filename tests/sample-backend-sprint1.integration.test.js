@@ -211,35 +211,37 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
   });
 
-  test('Fase R: createSample PF sem ownerUnitId rejeita 422 OWNER_UNIT_REQUIRED_FOR_PF', async () => {
+  test('Lote nao vincula fazenda: createSample PF SEM fazenda -> 201, ownerUnitId null', async () => {
     const sampleId = randomUUID();
     const pfOwner = await createPfSellerClient();
 
-    await assert.rejects(
-      () =>
-        commandService.createSample(
-          {
-            sampleId,
-            clientDraftId: 'draft-pf-no-unit',
-            ownerClientId: pfOwner.client.id,
-            // ownerUnitId omitido — backend deve rejeitar
-            owner: pfOwner.client.displayName,
-            sacks: 5,
-            harvest: '25/26',
-            originLot: 'ORIG-PF-NO-UNIT',
-            receivedChannel: 'in_person',
-            idempotencyKey: randomUUID(),
-          },
-          actorClassifier
-        ),
-      (error) =>
-        error instanceof HttpError &&
-        error.status === 422 &&
-        error.details?.code === 'OWNER_UNIT_REQUIRED_FOR_PF'
+    const confirmed = await commandService.createSample(
+      {
+        sampleId,
+        clientDraftId: 'draft-pf-no-unit',
+        ownerClientId: pfOwner.client.id,
+        // ownerUnitId omitido — PF nao exige mais fazenda
+        owner: pfOwner.client.displayName,
+        sacks: 5,
+        harvest: '25/26',
+        originLot: 'ORIG-PF-NO-UNIT',
+        receivedChannel: 'in_person',
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
     );
+
+    assert.equal(confirmed.statusCode, 201);
+    assert.equal(confirmed.sample.status, 'REGISTRATION_CONFIRMED');
+    const persisted = await prisma.sample.findUnique({
+      where: { id: sampleId },
+      select: { ownerClientId: true, ownerUnitId: true },
+    });
+    assert.equal(persisted.ownerClientId, pfOwner.client.id);
+    assert.equal(persisted.ownerUnitId, null);
   });
 
-  test('Fase R: createSample PF com ownerUnitId valido -> 201', async () => {
+  test('Lote nao vincula fazenda: ownerUnitId enviado e IGNORADO (fica null)', async () => {
     const sampleId = randomUUID();
     const pfOwner = await createPfSellerClient();
     const fazenda1Id = pfOwner.client.units[0].id;
@@ -249,6 +251,7 @@ if (!databaseUrl || !databaseReachable) {
         sampleId,
         clientDraftId: 'draft-pf-ok',
         ownerClientId: pfOwner.client.id,
+        // enviado por cliente antigo — deve ser ignorado pelo backend
         ownerUnitId: fazenda1Id,
         owner: pfOwner.client.displayName,
         sacks: 8,
@@ -267,7 +270,7 @@ if (!databaseUrl || !databaseReachable) {
       select: { ownerClientId: true, ownerUnitId: true },
     });
     assert.equal(persisted.ownerClientId, pfOwner.client.id);
-    assert.equal(persisted.ownerUnitId, fazenda1Id);
+    assert.equal(persisted.ownerUnitId, null);
   });
 
   test('Fase R: createSample PJ sem ownerUnitId aceita -> 201 (regressao)', async () => {

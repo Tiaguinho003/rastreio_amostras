@@ -264,9 +264,9 @@ function buildSampleCreateData(event) {
     if (hasOwn(event.payload, 'ownerClientId')) {
       data.ownerClientId = event.payload.ownerClientId ?? null;
     }
-    if (hasOwn(event.payload, 'ownerUnitId')) {
-      data.ownerUnitId = event.payload.ownerUnitId ?? null;
-    }
+    // O lote nao se vincula mais a uma fazenda/unit especifica: o projetor
+    // ignora ownerUnitId mesmo quando presente em eventos historicos, pra a
+    // coluna (zerada na migracao) permanecer null tambem apos um rebuild.
     data.declaredOwner = event.payload.declared.owner;
     data.declaredSacks = event.payload.declared.sacks;
     data.declaredHarvest = event.payload.declared.harvest;
@@ -298,10 +298,9 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     updateData.internalLotNumber = event.payload.sampleLotNumber;
     if (hasOwn(event.payload, 'ownerClientId')) {
       updateData.ownerClientId = event.payload.ownerClientId ?? null;
-      updateData.ownerUnitId = hasOwn(event.payload, 'ownerUnitId')
-        ? (event.payload.ownerUnitId ?? null)
-        : null;
     }
+    // ownerUnitId nao e mais projetado (lote nao vincula fazenda). Ver nota em
+    // buildSampleCreateData.
     updateData.declaredOwner = event.payload.declared.owner;
     updateData.declaredSacks = event.payload.declared.sacks;
     updateData.declaredHarvest = event.payload.declared.harvest;
@@ -315,7 +314,7 @@ function buildSampleUpdateData(currentSample, event, mutatesSample) {
     const declaredAfter = after.declared ?? {};
 
     if (hasOwn(after, 'ownerClientId')) updateData.ownerClientId = after.ownerClientId;
-    if (hasOwn(after, 'ownerUnitId')) updateData.ownerUnitId = after.ownerUnitId;
+    // ownerUnitId ignorado de proposito (lote nao vincula fazenda).
 
     if (hasOwn(after, 'owner')) updateData.declaredOwner = after.owner;
     if (hasOwn(after, 'sacks')) updateData.declaredSacks = after.sacks;

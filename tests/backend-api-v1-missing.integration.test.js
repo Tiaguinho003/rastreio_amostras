@@ -517,19 +517,16 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(created.body.sample.ownerUnitId, null);
     assert.equal(created.body.sample.declared.owner, ownerClient.client.displayName);
 
     const detail = await queryService.getSampleDetail(created.body.sample.id, { eventLimit: 20 });
     assert.equal(detail.sample.ownerClientId, ownerClient.client.id);
-    assert.equal(detail.sample.ownerUnitId, null);
     assert.equal(detail.sample.declared.owner, ownerClient.client.displayName);
 
     const registrationConfirmed = detail.events.find(
       (event) => event.eventType === 'REGISTRATION_CONFIRMED'
     );
     assert.equal(registrationConfirmed?.payload?.ownerClientId, ownerClient.client.id);
-    assert.equal(registrationConfirmed?.payload?.ownerUnitId, null);
   });
 
   test('POST /registration/update can attach structured owner to a registered sample and clear previous registration on owner change', async () => {
@@ -559,7 +556,6 @@ if (!databaseUrl || !databaseReachable) {
 
     const attachedSample = await queryService.requireSample(sampleId);
     assert.equal(attachedSample.ownerClientId, firstOwner.client.id);
-    assert.equal(attachedSample.ownerUnitId, null);
     assert.equal(attachedSample.declared.owner, firstOwner.client.displayName);
 
     const secondOwner = await createSellerClient({
@@ -587,7 +583,6 @@ if (!databaseUrl || !databaseReachable) {
 
     const switchedSample = await queryService.requireSample(sampleId);
     assert.equal(switchedSample.ownerClientId, secondOwner.client.id);
-    assert.equal(switchedSample.ownerUnitId, null);
     assert.equal(switchedSample.declared.owner, secondOwner.client.displayName);
   });
 

@@ -234,8 +234,9 @@ const UNIT_INCLUDE_SELECT = {
 };
 
 const SAMPLE_OWNER_INCLUDE = {
+  // O lote nao vincula mais fazenda/unit: nao carregamos ownerUnit. (buyerUnit
+  // segue carregada no SAMPLE_MOVEMENT_INCLUDE pro historico de vendas.)
   ownerClient: { select: CLIENT_INCLUDE_SELECT },
-  ownerUnit: { select: UNIT_INCLUDE_SELECT },
 };
 const SAMPLE_INCLUDE = { ...SAMPLE_OWNER_INCLUDE };
 const SAMPLE_MOVEMENT_INCLUDE = {
@@ -816,7 +817,6 @@ function mapSample(row) {
     version: row.version,
     lastEventSequence: row.lastEventSequence,
     ownerClientId: row.ownerClientId ?? null,
-    ownerUnitId: row.ownerUnitId ?? null,
     // Liga A2.4: expor flag isBlend pra branches de cascata em
     // createSampleMovement e checagens de domínio.
     isBlend: row.isBlend ?? false,
@@ -834,7 +834,6 @@ function mapSample(row) {
       location: row.declaredLocation ?? null,
     },
     ownerClient: mapOwnerClient(row.ownerClient),
-    ownerUnit: mapOwnerUnit(row.ownerUnit),
     latestClassification: {
       version: row.latestClassificationVersion,
       data: latestClassificationData,

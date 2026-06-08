@@ -241,7 +241,6 @@ model Sample {
   @@index([declaredHarvest], map: "idx_sample_declared_harvest")
   @@index([createdAt], map: "idx_sample_created_at")
   @@index([ownerClientId], map: "idx_sample_owner_client")
-  @@index([ownerUnitId], map: "idx_sample_owner_unit")
   @@index([status, updatedAt, id], map: "idx_sample_status_updated_id")
   @@index([status, createdAt, id], map: "idx_sample_status_created_id")
   @@index([status, commercialStatus, classifiedAt], map: "idx_sample_classified_availability")

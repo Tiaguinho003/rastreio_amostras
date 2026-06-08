@@ -865,9 +865,7 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
   const hasStructuredPatch =
     parsedPatch.hasOwnerClientId === true || parsedPatch.hasOwnerUnitId === true;
   const currentOwnerClientId = sample.ownerClientId ?? null;
-  const currentOwnerUnitId = sample.ownerUnitId ?? null;
   const nextOwnerClientId = parsedPatch.resolvedOwnerBinding?.ownerClientId ?? null;
-  const nextOwnerUnitId = parsedPatch.resolvedOwnerBinding?.ownerUnitId ?? null;
   const nextOwnerDisplayName = parsedPatch.resolvedOwnerBinding?.displayName ?? null;
   const before = {};
   const after = {};
@@ -897,10 +895,7 @@ function buildRegistrationUpdatePayload(sample, parsedPatch) {
       after.ownerClientId = nextOwnerClientId;
     }
 
-    if (!valuesEqual(currentOwnerUnitId, nextOwnerUnitId)) {
-      before.ownerUnitId = currentOwnerUnitId;
-      after.ownerUnitId = nextOwnerUnitId;
-    }
+    // ownerUnitId nao e mais emitido: o lote nao vincula fazenda.
 
     const currentOwnerValue = hasOwn(currentDeclared, 'owner') ? currentDeclared.owner : null;
     if (!valuesEqual(currentOwnerValue, nextOwnerDisplayName)) {
@@ -1013,15 +1008,13 @@ async function resolveStructuredOwnerForWrite({
   });
 }
 
-async function resolveBuyerBindingForMovement({ clientService, buyerClientId, buyerUnitId }) {
+async function resolveBuyerBindingForMovement({ clientService, buyerClientId }) {
   if (!clientService) {
     throw new Error('clientService is required for sale movements');
   }
 
-  return clientService.resolveBuyerBinding({
-    buyerClientId,
-    buyerUnitId,
-  });
+  // Unidade do comprador descontinuada: resolve apenas o cliente.
+  return clientService.resolveBuyerBinding({ buyerClientId });
 }
 
 function buildClassificationUpdatePayload(sample, parsedPatch) {
@@ -1532,7 +1525,7 @@ export class SampleCommandService {
           sampleLotNumber,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
+          // ownerUnitId nao e mais emitido: o lote nao vincula fazenda.
           receivedChannel,
           notes,
         },
@@ -1725,7 +1718,7 @@ export class SampleCommandService {
           sampleLotNumber,
           declared,
           ownerClientId: ownerBinding?.ownerClientId ?? null,
-          ownerUnitId: ownerBinding?.ownerUnitId ?? null,
+          // ownerUnitId nao e mais emitido: a liga/lote nao vincula fazenda.
           // Liga T0.C: 'internal' substitui 'in_person' silencioso.
           receivedChannel: 'internal',
           notes,
@@ -2885,24 +2878,22 @@ export class SampleCommandService {
     if (isSale && (patch.buyerClientId !== undefined || patch.buyerUnitId !== undefined)) {
       const nextClientId =
         patch.buyerClientId !== undefined ? patch.buyerClientId : rootMovement.buyerClientId;
-      const nextUnitId =
-        patch.buyerUnitId !== undefined
-          ? patch.buyerUnitId
-          : patch.buyerClientId !== undefined && patch.buyerClientId !== rootMovement.buyerClientId
-            ? null
-            : rootMovement.buyerUnitId;
       if (!nextClientId) {
         throw new HttpError(422, 'buyerClientId is required for SALE');
       }
+      // Unidade do comprador descontinuada: resolve so o cliente. Cliente
+      // inalterado preserva a unidade/snapshot historicos; cliente novo zera.
+      const buyerClientChanged = nextClientId !== rootMovement.buyerClientId;
       const buyerBinding = await resolveBuyerBindingForMovement({
         clientService: this.clientService,
         buyerClientId: nextClientId,
-        buyerUnitId: nextUnitId,
       });
       changes.buyerClientId = buyerBinding.buyerClientId;
-      changes.buyerUnitId = buyerBinding.buyerUnitId;
       changes.buyerClientSnapshot = buyerBinding.buyerClient ?? null;
-      changes.buyerUnitSnapshot = buyerBinding.buyerUnit ?? null;
+      changes.buyerUnitId = buyerClientChanged ? null : (rootMovement.buyerUnitId ?? null);
+      changes.buyerUnitSnapshot = buyerClientChanged
+        ? null
+        : (rootMovement.buyerUnitSnapshot ?? null);
     }
 
     if (Object.keys(changes).length === 0) {
@@ -3043,38 +3034,36 @@ export class SampleCommandService {
     let buyerBinding = null;
     let nextBuyerClientId = null;
     let nextBuyerUnitId = null;
+    let nextBuyerUnitSnapshot = null;
     let nextLossReasonText = null;
 
     if (nextMovementType === MOVEMENT_TYPES.SALE) {
-      const shouldRebindBuyer =
-        movement.movementType !== MOVEMENT_TYPES.SALE ||
-        patch.buyerClientId !== undefined ||
-        patch.buyerUnitId !== undefined ||
-        patch.movementType !== undefined;
       const nextClientId =
         patch.buyerClientId !== undefined ? patch.buyerClientId : movement.buyerClientId;
-      const nextUnitIdInput =
-        patch.buyerUnitId !== undefined
-          ? patch.buyerUnitId
-          : patch.buyerClientId !== undefined && patch.buyerClientId !== movement.buyerClientId
-            ? null
-            : movement.buyerUnitId;
 
       if (!nextClientId) {
         throw new HttpError(422, 'buyerClientId is required for SALE');
       }
 
-      if (shouldRebindBuyer) {
+      // Unidade do comprador descontinuada: o cliente pode ser editado, a
+      // unidade nao. Quando o cliente nao muda, preserva a unidade/snapshot
+      // historicos do movimento; quando muda (ou virou venda), zera (cliente
+      // novo nao tem unidade vinculada).
+      const buyerClientChanged =
+        movement.movementType !== MOVEMENT_TYPES.SALE || nextClientId !== movement.buyerClientId;
+
+      if (buyerClientChanged) {
         buyerBinding = await resolveBuyerBindingForMovement({
           clientService: this.clientService,
           buyerClientId: nextClientId,
-          buyerUnitId: nextUnitIdInput,
         });
         nextBuyerClientId = buyerBinding.buyerClientId;
-        nextBuyerUnitId = buyerBinding.buyerUnitId;
+        nextBuyerUnitId = null;
+        nextBuyerUnitSnapshot = null;
       } else {
         nextBuyerClientId = movement.buyerClientId;
-        nextBuyerUnitId = movement.buyerUnitId;
+        nextBuyerUnitId = movement.buyerUnitId ?? null;
+        nextBuyerUnitSnapshot = movement.buyerUnitSnapshot ?? null;
       }
       nextLossReasonText = null;
     } else {
@@ -3103,10 +3092,7 @@ export class SampleCommandService {
         nextMovementType === MOVEMENT_TYPES.SALE
           ? (buyerBinding?.buyerClient ?? movement.buyerClientSnapshot ?? null)
           : null,
-      buyerUnitSnapshot:
-        nextMovementType === MOVEMENT_TYPES.SALE
-          ? (buyerBinding?.buyerUnit ?? movement.buyerUnitSnapshot ?? null)
-          : null,
+      buyerUnitSnapshot: nextMovementType === MOVEMENT_TYPES.SALE ? nextBuyerUnitSnapshot : null,
       status: movement.status,
     };
 

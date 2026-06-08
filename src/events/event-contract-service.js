@@ -155,12 +155,8 @@ export class EventContractService {
           )
             ? (event.payload.ownerClientId ?? null)
             : (sample.ownerClientId ?? null);
-          nextSample.ownerUnitId = Object.prototype.hasOwnProperty.call(
-            event.payload,
-            'ownerUnitId'
-          )
-            ? (event.payload.ownerUnitId ?? null)
-            : (sample.ownerUnitId ?? null);
+          // ownerUnitId nao e mais projetado (lote nao vincula fazenda); fica
+          // null (default da criacao), inclusive em rebuild.
           nextSample.declared = {
             owner: event.payload.declared?.owner ?? null,
             sacks: event.payload.declared?.sacks ?? null,
@@ -176,9 +172,7 @@ export class EventContractService {
           if (Object.prototype.hasOwnProperty.call(after, 'ownerClientId')) {
             nextSample.ownerClientId = after.ownerClientId ?? null;
           }
-          if (Object.prototype.hasOwnProperty.call(after, 'ownerUnitId')) {
-            nextSample.ownerUnitId = after.ownerUnitId ?? null;
-          }
+          // ownerUnitId ignorado de proposito (lote nao vincula fazenda).
 
           nextSample.declared = {
             owner: Object.prototype.hasOwnProperty.call(declaredAfter, 'owner')

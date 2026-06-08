@@ -378,9 +378,11 @@ export class ClientService {
     }
   }
 
-  // L5: owner binding valida ownerUnitId (opcional, so PF) + ownerClientId.
-  // C2: ambos sao denormalizados; unit.clientId DEVE ser igual a ownerClientId.
-  async resolveOwnerBinding({ ownerClientId, ownerUnitId = null }) {
+  // O lote nao se vincula mais a uma fazenda/unit especifica — apenas ao
+  // proprietario (ownerClient). Valida so o ownerClientId. Um ownerUnitId
+  // eventualmente recebido (cliente antigo) e ignorado; a unit permanece como
+  // conceito apenas do cadastro de clientes (guarda-fiscal do PF).
+  async resolveOwnerBinding({ ownerClientId }) {
     if (typeof ownerClientId !== 'string' || ownerClientId.length === 0) {
       throw new HttpError(422, 'ownerClientId is required for structured owner binding', {
         code: 'OWNER_CLIENT_REQUIRED',
@@ -413,50 +415,19 @@ export class ClientService {
       });
     }
 
-    // Fase R: PF exige selecao explicita de fazenda (ownerUnitId). PJ
-    // continua sem unit (PJ nao tem ClientUnit pos-L5).
-    if (
-      client.personType === CLIENT_PERSON_TYPES.PF &&
-      (ownerUnitId === null || ownerUnitId === undefined)
-    ) {
-      throw new HttpError(422, 'Cliente PF exige selecao de fazenda (ownerUnitId).', {
-        code: 'OWNER_UNIT_REQUIRED_FOR_PF',
-        field: 'ownerUnitId',
-      });
-    }
-
-    let unit = null;
-    if (ownerUnitId !== null && ownerUnitId !== undefined) {
-      unit = await this.prisma.clientUnit.findFirst({
-        where: { id: ownerUnitId, clientId: client.id },
-        select: CLIENT_UNIT_SUMMARY_SELECT,
-      });
-
-      if (!unit) {
-        throw new HttpError(422, 'ownerUnitId must belong to ownerClientId', {
-          code: 'OWNER_UNIT_MISMATCH',
-          field: 'ownerUnitId',
-        });
-      }
-
-      if (unit.status !== CLIENT_UNIT_STATUSES.ACTIVE) {
-        throw new HttpError(422, 'ownerUnitId must reference an active unit', {
-          code: 'OWNER_UNIT_INACTIVE',
-          field: 'ownerUnitId',
-        });
-      }
-    }
-
     return {
       ownerClientId: client.id,
-      ownerUnitId: unit?.id ?? null,
+      ownerUnitId: null,
       displayName: buildClientDisplayName(client),
       ownerClient: mapClientRow(client),
-      ownerUnit: unit ? toClientUnitSummary(unit) : null,
+      ownerUnit: null,
     };
   }
 
-  async resolveBuyerBinding({ buyerClientId, buyerUnitId = null }) {
+  // Unidade do comprador descontinuada em novas vendas: um buyerUnitId recebido
+  // e ignorado. O historico das vendas antigas e preservado nos snapshots dos
+  // proprios movimentos, nao aqui.
+  async resolveBuyerBinding({ buyerClientId }) {
     if (typeof buyerClientId !== 'string' || buyerClientId.length === 0) {
       throw new HttpError(422, 'buyerClientId is required for sale movement', {
         code: 'BUYER_CLIENT_REQUIRED',
@@ -489,33 +460,11 @@ export class ClientService {
       });
     }
 
-    let unit = null;
-    if (buyerUnitId !== null && buyerUnitId !== undefined) {
-      unit = await this.prisma.clientUnit.findFirst({
-        where: { id: buyerUnitId, clientId: client.id },
-        select: CLIENT_UNIT_SUMMARY_SELECT,
-      });
-
-      if (!unit) {
-        throw new HttpError(422, 'buyerUnitId must belong to buyerClientId', {
-          code: 'BUYER_UNIT_MISMATCH',
-          field: 'buyerUnitId',
-        });
-      }
-
-      if (unit.status !== CLIENT_UNIT_STATUSES.ACTIVE) {
-        throw new HttpError(422, 'buyerUnitId must reference an active unit', {
-          code: 'BUYER_UNIT_INACTIVE',
-          field: 'buyerUnitId',
-        });
-      }
-    }
-
     return {
       buyerClientId: client.id,
-      buyerUnitId: unit?.id ?? null,
+      buyerUnitId: null,
       buyerClient: mapClientRow(client),
-      buyerUnit: unit ? toClientUnitSummary(unit) : null,
+      buyerUnit: null,
     };
   }
 
