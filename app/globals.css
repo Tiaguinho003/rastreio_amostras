@@ -7654,6 +7654,26 @@ button:disabled {
   line-height: 1.2;
 }
 
+/* Reserva sempre a largura do texto mais longo ("Reclassificar"), via um sizer
+   invisivel (::after) sobreposto na MESMA celula de grid que o texto visivel.
+   Assim o botao (e o conteudo) nao mudam de tamanho/posicao ao alternar
+   Classificar <-> Reclassificar. */
+.sdv-classify-label {
+  display: inline-grid;
+  justify-items: center;
+}
+
+.sdv-classify-label > span,
+.sdv-classify-label::after {
+  grid-area: 1 / 1;
+}
+
+.sdv-classify-label::after {
+  content: 'Reclassificar';
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Content */
 @keyframes sdv-fadeIn {
   from {

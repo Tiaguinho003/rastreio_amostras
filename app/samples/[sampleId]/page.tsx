@@ -2288,8 +2288,8 @@ export default function SampleDetailPage() {
                                 <path d="m21 21-4.35-4.35" />
                               </svg>
                             </span>
-                            <span className="sdv-action-card-label">
-                              {isClassified ? 'Reclassificar' : 'Classificar'}
+                            <span className="sdv-action-card-label sdv-classify-label">
+                              <span>{isClassified ? 'Reclassificar' : 'Classificar'}</span>
                             </span>
                           </button>
                         </div>
