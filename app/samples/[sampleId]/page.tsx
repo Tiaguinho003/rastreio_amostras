@@ -505,7 +505,13 @@ export default function SampleDetailPage() {
   const [registrationEditReasonCode, setRegistrationEditReasonCode] =
     useState<UpdateReasonCode>('OTHER');
   const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
-  const [registrationEditReasonModalOpen, setRegistrationEditReasonModalOpen] = useState(false);
+  // Erros de validacao por campo do modal de edicao — mostrados dentro do
+  // proprio campo (placeholder vermelho + borda), limpos ao focar.
+  const [registrationFieldErrors, setRegistrationFieldErrors] = useState<
+    Partial<Record<'owner' | 'sacks' | 'harvest' | 'originLot' | 'location' | 'reasonText', string>>
+  >({});
+  // Efeito de check ao salvar com sucesso (substitui a mensagem verde).
+  const [registrationSaveSuccess, setRegistrationSaveSuccess] = useState(false);
   const [classificationDetailOpen, setClassificationDetailOpen] = useState(false);
   const [classificationDetailEditing, setClassificationDetailEditing] = useState(false);
   const [classificationDetailSaving, setClassificationDetailSaving] = useState(false);
@@ -543,7 +549,7 @@ export default function SampleDetailPage() {
   const [classificationUpdating, setClassificationUpdating] = useState(false);
   const invalidateTrapRef = useFocusTrap(invalidateModalOpen);
   const labelTrapRef = useFocusTrap(labelModalOpen);
-  const registrationEditTrapRef = useFocusTrap(registrationEditReasonModalOpen);
+  const registrationEditTrapRef = useFocusTrap(registrationEditMode);
   const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
   const exportTypeTrapRef = useFocusTrap(exportTypeSelectorOpen);
   const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
@@ -741,7 +747,6 @@ export default function SampleDetailPage() {
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
-    setRegistrationEditReasonModalOpen(false);
     setClassificationStep('PHOTO');
     classificationEditModeRef.current = false;
     setClassificationEditMode(false);
@@ -1524,7 +1529,21 @@ export default function SampleDetailPage() {
     setLocation(detail.sample.declared.location ?? '');
     registrationEditModeRef.current = true;
     setRegistrationEditMode(true);
+    setRegistrationFieldErrors({});
+    setRegistrationSaveSuccess(false);
+    setRegistrationModalNotice(null);
     setGeneralNotice(null);
+  }
+
+  function clearRegField(
+    key: 'owner' | 'sacks' | 'harvest' | 'originLot' | 'location' | 'reasonText'
+  ) {
+    setRegistrationFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   function cancelRegistrationEdit() {
@@ -1544,7 +1563,8 @@ export default function SampleDetailPage() {
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
     setRegistrationEditReasonText('');
-    setRegistrationEditReasonModalOpen(false);
+    setRegistrationFieldErrors({});
+    setRegistrationSaveSuccess(false);
   }
 
   async function handleConfirmRegistrationUpdate() {
@@ -1553,8 +1573,20 @@ export default function SampleDetailPage() {
     }
 
     if (!selectedOwnerClient) {
+      setRegistrationFieldErrors({ owner: 'Selecione o proprietário' });
       return;
     }
+
+    const fieldErrors: Partial<
+      Record<'owner' | 'sacks' | 'harvest' | 'originLot' | 'location' | 'reasonText', string>
+    > = {};
+    const SHORT_FIELD_ERROR = {
+      owner: 'Obrigatório',
+      sacks: 'Mín. 1 saca',
+      harvest: 'Obrigatória',
+      originLot: 'Máx. 100 caract.',
+      location: 'Máx. 30 caract.',
+    } as const;
 
     const parsedForm = registrationFormSchema.safeParse({
       owner: selectedOwnerClient.displayName ?? owner,
@@ -1564,11 +1596,18 @@ export default function SampleDetailPage() {
       location: location.trim() ? location : null,
     });
     if (!parsedForm.success) {
-      setRegistrationModalNotice({
-        kind: 'error',
-        text: parsedForm.error.issues[0]?.message ?? 'Dados de registro invalidos',
-      });
-      return;
+      for (const issue of parsedForm.error.issues) {
+        const key = issue.path[0];
+        if (
+          key === 'owner' ||
+          key === 'sacks' ||
+          key === 'harvest' ||
+          key === 'originLot' ||
+          key === 'location'
+        ) {
+          fieldErrors[key] = SHORT_FIELD_ERROR[key];
+        }
+      }
     }
 
     const parsedReason = updateReasonSchema.safeParse({
@@ -1576,14 +1615,20 @@ export default function SampleDetailPage() {
       reasonText: registrationEditReasonText,
     });
     if (!parsedReason.success) {
-      setRegistrationModalNotice({
-        kind: 'error',
-        text: parsedReason.error.issues[0]?.message ?? 'Justificativa invalida',
-      });
+      fieldErrors.reasonText =
+        registrationEditReasonText.trim().length === 0 ? 'Obrigatória' : 'Máx. 10 palavras';
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setRegistrationFieldErrors(fieldErrors);
+      return;
+    }
+    if (!parsedForm.success || !parsedReason.success) {
       return;
     }
 
     setRegistrationUpdating(true);
+    setRegistrationFieldErrors({});
     setRegistrationModalNotice(null);
 
     try {
@@ -1606,12 +1651,15 @@ export default function SampleDetailPage() {
         reasonText: parsedReason.data.reasonText,
       });
 
-      setRegistrationEditReasonModalOpen(false);
-      registrationEditModeRef.current = false;
-      setRegistrationEditMode(false);
-      setRegistrationEditReasonCode('OTHER');
-      setRegistrationEditReasonText('');
-      setGeneralNotice({ kind: 'success', text: 'Edicao de registro salva com sucesso.' });
+      // Sucesso: efeito de check por ~900ms e fecha o modal (sem mensagem verde).
+      setRegistrationSaveSuccess(true);
+      window.setTimeout(() => {
+        setRegistrationSaveSuccess(false);
+        registrationEditModeRef.current = false;
+        setRegistrationEditMode(false);
+        setRegistrationEditReasonCode('OTHER');
+        setRegistrationEditReasonText('');
+      }, 900);
       await syncDetailState();
     } catch (cause) {
       if (cause instanceof ApiError) {
@@ -2802,7 +2850,7 @@ export default function SampleDetailPage() {
       <ClientQuickCreateModal
         session={session}
         open={ownerQuickCreateOpen}
-        title="Cadastro rapido de proprietario"
+        title="Novo cliente"
         initialSearch={ownerQuickCreateSeed}
         initialPersonType="PJ"
         initialIsSeller
@@ -2812,161 +2860,201 @@ export default function SampleDetailPage() {
           setOwnerQuickCreateOpen(false);
           setSelectedOwnerClient(client);
           setOwner(client.displayName ?? '');
-          setGeneralNotice({
-            kind: 'success',
-            text: 'Cliente proprietario criado e selecionado com sucesso.',
-          });
         }}
       />
 
       {registrationEditMode ? (
-        <div className="app-modal-backdrop">
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            if (!registrationUpdating) cancelRegistrationEdit();
+          }}
+        >
           <section
             ref={registrationEditTrapRef}
-            className="app-modal cdm-modal"
+            className="app-modal is-themed sample-detail-reg-edit-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="registration-edit-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header">
-              <h3 id="registration-edit-modal-title" className="cdm-header-name">
-                Editar informacoes
-              </h3>
+            {registrationSaveSuccess ? (
+              <div className="client-create-success-overlay" aria-live="polite">
+                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#2f8a3e"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 27l7 7 15-15"
+                  />
+                </svg>
+              </div>
+            ) : null}
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="registration-edit-modal-title" className="app-modal-title">
+                  Editar informações
+                </h3>
+              </div>
               <button
                 type="button"
-                className="app-modal-close cdm-close"
+                className="app-modal-close"
                 onClick={cancelRegistrationEdit}
                 disabled={registrationUpdating}
                 aria-label="Fechar"
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
+                <span aria-hidden="true">&times;</span>
               </button>
-            </div>
+            </header>
 
-            <div className="sdv-edit-fields">
-              <div className="sdv-edit-field">
-                <ClientLookupField
-                  session={session}
-                  label="Proprietario"
-                  kind="owner"
-                  selectedClient={selectedOwnerClient}
-                  disabled={registrationUpdating}
-                  compact
-                  onSelectClient={(client) => {
-                    setSelectedOwnerClient(client);
-                    setOwner(client?.displayName ?? '');
-                    setGeneralNotice(null);
-                  }}
-                  onRequestCreate={(searchTerm) => {
-                    setOwnerQuickCreateSeed(searchTerm);
-                    setOwnerQuickCreateOpen(true);
-                  }}
-                  createLabel="Cadastrar proprietario"
-                />
-              </div>
-              <div className="sdv-edit-row">
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Sacas</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={sacks}
-                    onChange={(event) => setSacks(event.target.value)}
-                    inputMode="numeric"
+            <form
+              className="sample-detail-reg-edit-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (registrationUpdating) {
+                  return;
+                }
+                // Nao bloqueia por justificativa vazia: deixa a validacao rodar
+                // e exibir o erro no proprio campo.
+                void handleConfirmRegistrationUpdate();
+              }}
+            >
+              <div className="sample-detail-reg-edit-body">
+                <div className="app-modal-field">
+                  <ClientLookupField
+                    session={session}
+                    label="Proprietario"
+                    kind="owner"
+                    selectedClient={selectedOwnerClient}
                     disabled={registrationUpdating}
+                    compact
+                    invalid={Boolean(registrationFieldErrors.owner)}
+                    invalidText={registrationFieldErrors.owner ?? ''}
+                    onSelectClient={(client) => {
+                      setSelectedOwnerClient(client);
+                      setOwner(client?.displayName ?? '');
+                      clearRegField('owner');
+                      setGeneralNotice(null);
+                    }}
+                    onRequestCreate={(searchTerm) => {
+                      setOwnerQuickCreateSeed(searchTerm);
+                      setOwnerQuickCreateOpen(true);
+                    }}
+                    createLabel="Cadastrar proprietario"
                   />
-                </label>
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Safra</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={harvest}
-                    onChange={(event) => setHarvest(event.target.value.toUpperCase())}
-                    disabled={registrationUpdating}
-                  />
-                </label>
-              </div>
-              <div className="sdv-edit-row">
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Lote de origem</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={originLot}
-                    onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
-                    disabled={registrationUpdating}
-                  />
-                </label>
-                <label className="sdv-edit-field">
-                  <span className="sdv-edit-label">Local</span>
-                  <input
-                    className="sdv-edit-input"
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value.toUpperCase())}
-                    maxLength={30}
-                    placeholder="Ex: BM, Patos"
-                    disabled={registrationUpdating}
-                  />
-                </label>
-              </div>
-              <div className="sdv-edit-sep" />
+                </div>
 
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Motivo da edicao</span>
-                <select
-                  className="sdv-edit-input"
-                  value={registrationEditReasonCode}
-                  onChange={(event) =>
-                    setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
-                  }
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Sacas</span>
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.sacks ? ' has-error' : ''}`}
+                      value={sacks}
+                      onChange={(event) => setSacks(event.target.value)}
+                      onFocus={() => clearRegField('sacks')}
+                      placeholder={registrationFieldErrors.sacks ?? ''}
+                      inputMode="numeric"
+                      disabled={registrationUpdating}
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Safra</span>
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.harvest ? ' has-error' : ''}`}
+                      value={harvest}
+                      onChange={(event) => setHarvest(event.target.value.toUpperCase())}
+                      onFocus={() => clearRegField('harvest')}
+                      placeholder={registrationFieldErrors.harvest ?? ''}
+                      disabled={registrationUpdating}
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-row">
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Lote de origem</span>
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.originLot ? ' has-error' : ''}`}
+                      value={originLot}
+                      onChange={(event) => setOriginLot(event.target.value.toUpperCase())}
+                      onFocus={() => clearRegField('originLot')}
+                      placeholder={registrationFieldErrors.originLot ?? ''}
+                      disabled={registrationUpdating}
+                    />
+                  </label>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Local</span>
+                    <input
+                      className={`app-modal-input${registrationFieldErrors.location ? ' has-error' : ''}`}
+                      value={location}
+                      onChange={(event) => setLocation(event.target.value.toUpperCase())}
+                      onFocus={() => clearRegField('location')}
+                      maxLength={30}
+                      placeholder={registrationFieldErrors.location ?? 'Ex: BM, Patos'}
+                      disabled={registrationUpdating}
+                    />
+                  </label>
+                </div>
+
+                <div className="sdv-edit-sep" />
+
+                <label className="app-modal-field">
+                  <span className="app-modal-label">Motivo da edição</span>
+                  <select
+                    className="app-modal-input"
+                    value={registrationEditReasonCode}
+                    onChange={(event) =>
+                      setRegistrationEditReasonCode(event.target.value as UpdateReasonCode)
+                    }
+                    disabled={registrationUpdating}
+                  >
+                    {UPDATE_REASON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="app-modal-field">
+                  <span className="app-modal-label">
+                    Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatória)' : ''}
+                  </span>
+                  <input
+                    className={`app-modal-input${registrationFieldErrors.reasonText ? ' has-error' : ''}`}
+                    value={registrationEditReasonText}
+                    onChange={(event) =>
+                      setRegistrationEditReasonText(event.target.value.toUpperCase())
+                    }
+                    onFocus={() => clearRegField('reasonText')}
+                    placeholder={
+                      registrationFieldErrors.reasonText ??
+                      (registrationEditReasonCode === 'OTHER' ? 'Explique a alteração' : 'Opcional')
+                    }
+                    disabled={registrationUpdating}
+                  />
+                </label>
+
+                <NoticeSlot notice={registrationModalNotice} />
+                <NoticeSlot notice={generalNotice} />
+              </div>
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={cancelRegistrationEdit}
                   disabled={registrationUpdating}
                 >
-                  {UPDATE_REASON_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">
-                  Justificativa{registrationEditReasonCode === 'OTHER' ? ' (obrigatoria)' : ''}
-                </span>
-                <input
-                  className="sdv-edit-input"
-                  value={registrationEditReasonText}
-                  onChange={(event) =>
-                    setRegistrationEditReasonText(event.target.value.toUpperCase())
-                  }
-                  placeholder={
-                    registrationEditReasonCode === 'OTHER' ? 'Explique a alteracao' : 'Opcional'
-                  }
-                  disabled={registrationUpdating}
-                />
-              </label>
-            </div>
-
-            <NoticeSlot notice={registrationModalNotice} />
-            <NoticeSlot notice={generalNotice} />
-
-            <div className="sdv-edit-actions">
-              <button
-                type="button"
-                className="cdm-manage-link"
-                onClick={() => {
-                  void handleConfirmRegistrationUpdate();
-                }}
-                disabled={
-                  registrationUpdating ||
-                  (registrationEditReasonCode === 'OTHER' &&
-                    registrationEditReasonText.trim().length === 0)
-                }
-              >
-                {registrationUpdating ? 'Salvando...' : 'Salvar edicao'}
-              </button>
-            </div>
+                  Cancelar
+                </button>
+                <button type="submit" className="app-modal-submit" disabled={registrationUpdating}>
+                  {registrationUpdating ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}

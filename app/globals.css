@@ -1358,6 +1358,66 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   max-width: min(46rem, calc(100vw - 1.5rem));
 }
 
+/* Modal de edicao das Informacoes principais (detalhe da amostra): poucos
+   campos (sem fazenda/inscricao), entao mais estreito que o is-themed padrao
+   pra nao sobrar espaco horizontal vazio. */
+.app-modal.is-themed.sample-detail-reg-edit-modal {
+  position: relative;
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-width: min(30rem, calc(100vw - 1.5rem));
+}
+
+/* Erro de campo dentro do input: placeholder vermelho (a borda vermelha vem de
+   .app-modal-input.has-error). Some quando o usuario foca o campo. */
+.sample-detail-reg-edit-modal .app-modal-input.has-error::placeholder {
+  color: #c45c5c;
+  opacity: 1;
+}
+
+/* Form em grid: body rolavel (1a linha) + actions fixas (2a linha), pra os
+   botoes Salvar/Cancelar ficarem sempre visiveis mesmo com o body rolando. */
+.sample-detail-reg-edit-form {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.sample-detail-reg-edit-body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 1.6vw, 0.65rem);
+  padding: clamp(0.8rem, 2.6vw, 1.05rem);
+}
+
+/* Campos mais compactos que o app-modal-input padrao (mais alto/largo). */
+.sample-detail-reg-edit-modal .app-modal-input {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.sample-detail-reg-edit-modal .app-modal-label {
+  font-size: 0.72rem;
+}
+
+/* Actions fixas fora do scroll: padding horizontal/inferior proprio (nao
+   herdam mais o padding do body). */
+.sample-detail-reg-edit-modal .app-modal-actions {
+  padding: 0.7rem clamp(0.8rem, 2.6vw, 1.05rem) clamp(0.8rem, 2.6vw, 1.05rem);
+}
+
+/* NoticeSlot colapsa quando vazio — sem vao reservado dentro do body. */
+.sample-detail-reg-edit-modal .notice-slot {
+  min-height: 0;
+}
+
 .app-modal-field {
   display: grid;
   gap: 0.32rem;

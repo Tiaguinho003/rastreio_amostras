@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
@@ -278,7 +279,7 @@ export function ClientQuickCreateModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
@@ -495,6 +496,7 @@ export function ClientQuickCreateModal({
           </div>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
