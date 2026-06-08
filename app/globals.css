@@ -7484,6 +7484,33 @@ button:disabled {
     0 6px 14px rgba(197, 125, 12, 0.14);
 }
 
+/* Acao "Classificar" — reaproveita a identidade dourada do antigo FAB
+   (sdv-fab-classify). Fundo claro pede texto/icone escuros (override do
+   color:#fff base). */
+.sdv-action-card.is-classify {
+  background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
+  color: #1a1a1a;
+  box-shadow:
+    0 2px 6px rgba(212, 160, 23, 0.3),
+    0 6px 14px rgba(212, 160, 23, 0.16);
+}
+
+/* Acoes Venda/Perda no rodape do Resumo comercial (mesmo padrao action-card).
+   Verde positivo pra venda, vermelho pra perda. */
+.sdv-action-card.is-sale {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  box-shadow:
+    0 2px 6px rgba(27, 94, 32, 0.28),
+    0 6px 14px rgba(27, 94, 32, 0.14);
+}
+
+.sdv-action-card.is-loss {
+  background: linear-gradient(135deg, #e05a4f, #c0392b);
+  box-shadow:
+    0 2px 6px rgba(192, 57, 43, 0.28),
+    0 6px 14px rgba(192, 57, 43, 0.14);
+}
+
 .sdv-action-card.is-highlight-pulse {
   animation: sdv-print-pulse 1.2s ease-in-out infinite;
 }
@@ -8519,15 +8546,131 @@ button:disabled {
 /* Info card compact (no title) */
 .sdv-info-compact {
   position: relative;
-  padding: clamp(10px, 2.8vw, 14px) clamp(14px, 3.5vw, 16px);
+  display: flex;
+  flex-direction: column;
+  /* Altura fixa (responsiva) pra o card ficar consistente independente do
+     conteudo. A sobra vertical vai pra info (grid flex:1, abaixo), nao pra
+     folga dos botoes. Padding inferior = mesmo do .sdv-card base, pra a folga
+     sob os botoes casar com a do container de Classificacao. */
+  min-height: clamp(296px, 80vw, 340px);
+  padding: clamp(10px, 2.8vw, 14px) clamp(14px, 3.5vw, 16px) clamp(14px, 3.5vw, 16px);
 }
 
 .sdv-info-compact .sdv-info-grid {
+  /* Ocupa o espaco entre o cabecalho e os botoes e distribui os campos
+     (space-between): a folga da altura fixa fica entre as informacoes, e os
+     botoes encostam logo abaixo do ultimo campo (folga superior pequena). */
+  flex: 1;
+  align-content: space-between;
   gap: 0 clamp(14px, 4vw, 20px);
 }
 
 .sdv-info-compact .sdv-info-item {
-  padding: clamp(6px, 1.5vw, 8px) 0;
+  padding: clamp(7px, 1.8vw, 9px) 0;
+}
+
+/* Folga superior pequena entre o ultimo campo e os botoes (sem margin auto —
+   a sobra ja foi absorvida pela info acima). */
+.sdv-info-compact .sdv-info-actions {
+  margin-top: 0;
+  padding-top: clamp(8px, 2vw, 10px);
+}
+
+/* O NoticeSlot fica depois dos botoes e reserva 1.25rem por padrao (anti-jump),
+   criando um vao fixo abaixo dos botoes. Aqui ele colapsa quando vazio — so
+   ocupa altura quando ha de fato um aviso (feedback transitorio de edicao). */
+.sdv-info-compact .notice-slot {
+  min-height: 0;
+}
+
+/* Container 1 (Informacoes): separacao explicita — porem discreta — entre o
+   cabecalho (titulo + Editar) e os campos. Hairline full-bleed: as margens
+   negativas cancelam o padding horizontal do card pra a linha ir de borda a
+   borda, e o padding interno reposiciona o conteudo. */
+.sdv-info-compact .sdv-card-header {
+  margin: 0 calc(-1 * clamp(14px, 3.5vw, 16px)) clamp(11px, 2.8vw, 13px);
+  padding: 0 clamp(14px, 3.5vw, 16px) clamp(10px, 2.6vw, 12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+/* Titulo do cabecalho um pouco mais legivel que o cinza-claro padrao dos
+   demais cards, pra ler como um header de secao — sem ficar chamativo. */
+.sdv-info-compact .sdv-card-header .sdv-card-title {
+  font-size: clamp(9.5px, 2.6vw, 10.5px);
+  color: #8a948c;
+}
+
+/* Container 1 (Informacoes principais): linha discreta de status da etiqueta,
+   logo acima da fileira de acoes. Substitui o antigo card sdv-print-section —
+   a acao de imprimir virou o botao "Imprimir" na fileira. Cores reaproveitam o
+   mesmo padrao por estado (idle/pending/success/failed). */
+.sdv-etiqueta-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(6px, 1.8vw, 8px);
+  margin-top: clamp(10px, 2.8vw, 12px);
+  padding-top: clamp(10px, 2.8vw, 12px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.sdv-etiqueta-status-label {
+  font-size: clamp(8.5px, 2.3vw, 9.5px);
+  font-weight: 700;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sdv-etiqueta-status-value {
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 600;
+  padding: 2px clamp(8px, 2vw, 10px);
+  border-radius: 999px;
+  background: #f4eeda;
+  color: #5b4b2d;
+}
+
+.sdv-etiqueta-status.is-pending .sdv-etiqueta-status-value {
+  background: rgba(46, 125, 50, 0.12);
+  color: var(--brand-green);
+}
+
+.sdv-etiqueta-status.is-success .sdv-etiqueta-status-value {
+  background: rgba(46, 125, 50, 0.16);
+  color: #2e7d32;
+}
+
+.sdv-etiqueta-status.is-failed .sdv-etiqueta-status-value,
+.sdv-etiqueta-status.is-expired .sdv-etiqueta-status-value {
+  background: #fde7e3;
+  color: #c0392b;
+}
+
+.sdv-etiqueta-status-error {
+  flex-basis: 100%;
+  font-size: clamp(11px, 3vw, 12px);
+  color: #c0392b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fileira de acoes principais no rodape do container 1: Imprimir | Laudo |
+   Enviar. Reaproveita os .sdv-action-card (is-print/is-report/is-send) que
+   antes ficavam na barra do topo (sdv-actions-bar, removida). */
+.sdv-info-actions {
+  display: flex;
+  gap: clamp(6px, 2vw, 8px);
+  margin-top: clamp(10px, 2.8vw, 12px);
+}
+
+.sdv-info-actions .sdv-action-card {
+  min-width: 0;
+}
+
+.sdv-info-actions .sdv-action-card-label {
+  white-space: nowrap;
 }
 
 .sdv-edit-btn-inline {
@@ -9481,6 +9624,16 @@ button:disabled {
   background: #fef2f2;
   border-color: #fecaca;
 }
+/* Envio de amostra (laranja, casa com a acao Enviar) e criacao de laudo (azul,
+   casa com a acao Laudo) na timeline unificada de Movimentacoes. */
+.sdv-com-mov-icon.is-send {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+.sdv-com-mov-icon.is-report {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
 
 .sdv-com-mov-icon svg {
   width: 50%;
@@ -9496,6 +9649,12 @@ button:disabled {
 }
 .sdv-com-mov-icon.is-loss svg {
   stroke: #c0392b;
+}
+.sdv-com-mov-icon.is-send svg {
+  stroke: #c57d0c;
+}
+.sdv-com-mov-icon.is-report svg {
+  stroke: #1e5f8f;
 }
 
 .sdv-com-mov-content {
@@ -9524,6 +9683,7 @@ button:disabled {
   text-transform: uppercase;
   padding: 1px clamp(5px, 1.5vw, 7px);
   border-radius: 5px;
+  flex-shrink: 0;
 }
 
 .sdv-com-mov-badge.is-sale {
@@ -9534,9 +9694,30 @@ button:disabled {
   color: #c0392b;
   background: #fef2f2;
 }
+.sdv-com-mov-badge.is-send {
+  color: #c57d0c;
+  background: #fff7ed;
+}
+.sdv-com-mov-badge.is-report {
+  color: #1e5f8f;
+  background: #eff6ff;
+}
 .sdv-com-mov-badge.is-cancelled {
   color: #999;
   background: #f0f0f0;
+}
+
+/* Nome do destinatario (envio/laudo) na timeline: primario, mas pode encolher
+   com reticencias pra nao empurrar o badge. */
+.sdv-com-mov-name {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(13px, 3.5vw, 14px);
+  font-weight: 600;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sdv-com-mov-bottom {

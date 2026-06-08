@@ -614,6 +614,28 @@ export interface SampleMovementsResponse {
   movements: SampleMovement[];
 }
 
+// Item projetado do historico de envios (laudo PDF exportado / amostra fisica
+// enviada). Consumido tanto pela detail page (projecao a partir dos eventos)
+// quanto pelo SampleMovementsPanel (timeline unificada de Movimentacoes).
+export type SendHistoryItem =
+  | {
+      kind: 'REPORT';
+      key: string;
+      recipientName: string;
+      dateLabel: string;
+      occurredAt: string;
+    }
+  | {
+      kind: 'PHYSICAL';
+      key: string;
+      sendEventId: string;
+      recipientClientId: string | null;
+      recipientName: string;
+      sentDate: string;
+      occurredAt: string;
+      cancelled: boolean;
+    };
+
 export interface ListSamplesResponse {
   items: SampleSnapshot[];
   page: {
