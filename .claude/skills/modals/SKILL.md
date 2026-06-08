@@ -517,8 +517,8 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 ### ⚠ Visual igual mas implementacao com classes proprias (refatorar quando tocar)
 
-| Modal                  | Arquivo                                         | Pendencia                                                                                                                                  |
-| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Modal                  | Arquivo                                         | Pendencia                                                                                                                                                                                                                                                                   |
+| ---------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | Usa `client-quick-create-*` no lugar de `.is-themed` + `.app-modal-header/-field/-input/-actions`. Resultado visual igual mas duplica CSS. Ja renderiza via `createPortal` pra body (fica na frente de modais inline, ex: aberto de dentro do modal de edicao de registro). |
 
 ### ⚠ Compactos sem `.is-themed` (legados, refatorar quando tocar)
