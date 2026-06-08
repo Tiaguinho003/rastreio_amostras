@@ -519,7 +519,7 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 | Modal                  | Arquivo                                         | Pendencia                                                                                                                                  |
 | ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | Usa `client-quick-create-*` no lugar de `.is-themed` + `.app-modal-header/-field/-input/-actions`. Resultado visual igual mas duplica CSS. |
+| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | Usa `client-quick-create-*` no lugar de `.is-themed` + `.app-modal-header/-field/-input/-actions`. Resultado visual igual mas duplica CSS. Ja renderiza via `createPortal` pra body (fica na frente de modais inline, ex: aberto de dentro do modal de edicao de registro). |
 
 ### ⚠ Compactos sem `.is-themed` (legados, refatorar quando tocar)
 
@@ -534,6 +534,8 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 > Refatorar pra `.is-themed` somente quando tiver outro motivo pra mexer no modal — nao e prioridade visual hoje.
 
 > **`samples-filter-modal`** (`/samples`) migrou pra `.is-themed` (header verde + body branco + botoes canonicos) mantendo estrutura **custom**: body rolavel na vertical (`.samples-filter-modal-content` = `overflow-y: auto; overflow-x: hidden`) + **actions fixas** fora do scroll (2a linha do grid `.samples-filter-modal-form { flex: 1; grid-template-rows: minmax(0,1fr) auto }`), diferente do canonico (actions dentro do `.app-modal-content` rolavel). Largura 26rem via `.app-modal.is-themed.samples-filter-modal` (3 classes pra vencer o default 38rem). Ainda inline (sem `createPortal`) — pendencia legacy.
+
+> **Modal de edicao de registro** (`/samples/[sampleId]`, `.sample-detail-reg-edit-modal`) migrou pra `.is-themed` com a mesma estrutura custom de body rolavel + actions fixas (grid `.sample-detail-reg-edit-form { flex: 1; grid-template-rows: minmax(0,1fr) auto }`, body em `.sample-detail-reg-edit-body`). Largura 30rem escopada (3 classes), inputs mais compactos e `notice-slot` colapsado quando vazio. Botoes na ordem **Cancelar (esq) / Salvar (dir)** — divergencia intencional do canonico `[Submit, Secondary]`. Erros de validacao **por campo** (placeholder vermelho + `.app-modal-input.has-error`, limpa ao focar; o submit NAO bloqueia por campo invalido — deixa a validacao rodar e marcar o campo) e sucesso via **efeito de check** (`.client-create-success-overlay`, sem mensagem). Ainda inline (sob AppShell).
 
 ### 🚫 Excecoes legitimas (NAO refatorar)
 
