@@ -240,15 +240,6 @@ function buildReadableValue(value: unknown): string {
   return '';
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString('pt-BR');
-}
-
 function canEditRegistrationStatus(status: SampleStatus): boolean {
   return REGISTRATION_EDITABLE_STATUSES.includes(status);
 }
@@ -2082,13 +2073,6 @@ export default function SampleDetailPage() {
                         <span className="sdv-info-label">Local</span>
                         <span className="sdv-info-value">
                           {buildReadableValue(detail.sample.declared.location)}
-                        </span>
-                      </div>
-                      <div className="sdv-info-sep" />
-                      <div className="sdv-info-item is-full">
-                        <span className="sdv-info-label">Recebido em</span>
-                        <span className="sdv-info-value">
-                          {formatTimestamp(detail.sample.createdAt)}
                         </span>
                       </div>
                     </div>

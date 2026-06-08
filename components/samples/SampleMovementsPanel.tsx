@@ -92,12 +92,14 @@ export function SampleMovementsPanel({
   const [stampType, setStampType] = useState<SampleMovementType | null>(null);
   const stampTimeoutRef = useRef<number | null>(null);
 
-  // Timeline unificada de Movimentacoes: venda/perda (sortKey = createdAt) +
-  // envio de amostra / criacao de laudo (sortKey = occurredAt), ordenada por
-  // data — mais recente primeiro.
+  // Timeline unificada de Movimentacoes: registro/chegada (sortKey =
+  // sample.createdAt) + venda/perda (sortKey = createdAt) + envio de amostra /
+  // criacao de laudo (sortKey = occurredAt), ordenada por data — mais recente
+  // primeiro. O registro e o evento mais antigo, entao ancora o fim da lista.
   type TimelineEntry =
     | { type: 'movement'; sortKey: string; movement: SampleMovement }
-    | { type: 'send'; sortKey: string; item: SendHistoryItem };
+    | { type: 'send'; sortKey: string; item: SendHistoryItem }
+    | { type: 'registration'; sortKey: string };
 
   const timeline = useMemo<TimelineEntry[]>(() => {
     const movEntries: TimelineEntry[] = movements.map((m) => ({
@@ -110,10 +112,12 @@ export function SampleMovementsPanel({
       sortKey: it.occurredAt,
       item: it,
     }));
-    return [...movEntries, ...sendEntries].sort((a, b) =>
-      a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0
-    );
-  }, [movements, sendItems]);
+    const entries: TimelineEntry[] = [...movEntries, ...sendEntries];
+    if (sample.createdAt) {
+      entries.push({ type: 'registration', sortKey: sample.createdAt });
+    }
+    return entries.sort((a, b) => (a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0));
+  }, [movements, sendItems, sample.createdAt]);
 
   const hasTimeline = timeline.length > 0;
 
@@ -370,6 +374,30 @@ export function SampleMovementsPanel({
                         </button>
                       </div>
                     ) : null}
+                  </div>
+                );
+              }
+
+              // Registro/chegada da amostra — somente leitura, ancora o fim da
+              // timeline (evento mais antigo).
+              if (entry.type === 'registration') {
+                return (
+                  <div key="registration" className="sdv-com-mov" style={{ animationDelay }}>
+                    <div className="sdv-com-mov-icon is-registration">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 22V4" />
+                        <path d="M4 4h13l-2 4 2 4H4" />
+                      </svg>
+                    </div>
+                    <div className="sdv-com-mov-content">
+                      <div className="sdv-com-mov-top">
+                        <span className="sdv-com-mov-badge is-registration">Registro</span>
+                        <span className="sdv-com-mov-name">Chegada da amostra</span>
+                      </div>
+                      <div className="sdv-com-mov-bottom">
+                        <span>{formatMovementDate(entry.sortKey)}</span>
+                      </div>
+                    </div>
                   </div>
                 );
               }
