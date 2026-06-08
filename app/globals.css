@@ -1418,6 +1418,36 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   min-height: 0;
 }
 
+/* Modais compactos do detalhe da amostra (envio de amostra fisica, impressao
+   de etiqueta): is-themed porem mais estreitos e com inputs menores — poucos
+   campos, sem exagero de tamanho. */
+.app-modal.is-themed.sample-detail-compact-modal {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: min(28rem, calc(100vw - 1.5rem));
+}
+
+.sample-detail-compact-modal .app-modal-input {
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.sample-detail-compact-modal .app-modal-content {
+  gap: clamp(0.55rem, 1.6vw, 0.72rem);
+}
+
+.app-modal.is-themed.sample-detail-compact-modal .app-modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: stretch;
+}
+
+.app-modal.is-themed.sample-detail-compact-modal .app-modal-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
 .app-modal-field {
   display: grid;
   gap: 0.32rem;
@@ -7548,11 +7578,13 @@ button:disabled {
    (sdv-fab-classify). Fundo claro pede texto/icone escuros (override do
    color:#fff base). */
 .sdv-action-card.is-classify {
-  background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
-  color: #1a1a1a;
+  /* Mesmo padrao dos demais action cards: gradiente colorido + texto branco
+     (o dourado claro com texto escuro destoava). Ambar escurecido pra o branco
+     ter contraste. */
+  background: linear-gradient(135deg, #cf9a1a, #a6760f);
   box-shadow:
-    0 2px 6px rgba(212, 160, 23, 0.3),
-    0 6px 14px rgba(212, 160, 23, 0.16);
+    0 2px 6px rgba(166, 118, 15, 0.28),
+    0 6px 14px rgba(166, 118, 15, 0.14);
 }
 
 /* Acoes Venda/Perda no rodape do Resumo comercial (mesmo padrao action-card).
@@ -8658,62 +8690,6 @@ button:disabled {
 .sdv-info-compact .sdv-card-header .sdv-card-title {
   font-size: clamp(9.5px, 2.6vw, 10.5px);
   color: #8a948c;
-}
-
-/* Container 1 (Informacoes principais): linha discreta de status da etiqueta,
-   logo acima da fileira de acoes. Substitui o antigo card sdv-print-section —
-   a acao de imprimir virou o botao "Imprimir" na fileira. Cores reaproveitam o
-   mesmo padrao por estado (idle/pending/success/failed). */
-.sdv-etiqueta-status {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(6px, 1.8vw, 8px);
-  margin-top: clamp(10px, 2.8vw, 12px);
-  padding-top: clamp(10px, 2.8vw, 12px);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.sdv-etiqueta-status-label {
-  font-size: clamp(8.5px, 2.3vw, 9.5px);
-  font-weight: 700;
-  color: #bbb;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-}
-
-.sdv-etiqueta-status-value {
-  font-size: clamp(11px, 3vw, 12px);
-  font-weight: 600;
-  padding: 2px clamp(8px, 2vw, 10px);
-  border-radius: 999px;
-  background: #f4eeda;
-  color: #5b4b2d;
-}
-
-.sdv-etiqueta-status.is-pending .sdv-etiqueta-status-value {
-  background: rgba(46, 125, 50, 0.12);
-  color: var(--brand-green);
-}
-
-.sdv-etiqueta-status.is-success .sdv-etiqueta-status-value {
-  background: rgba(46, 125, 50, 0.16);
-  color: #2e7d32;
-}
-
-.sdv-etiqueta-status.is-failed .sdv-etiqueta-status-value,
-.sdv-etiqueta-status.is-expired .sdv-etiqueta-status-value {
-  background: #fde7e3;
-  color: #c0392b;
-}
-
-.sdv-etiqueta-status-error {
-  flex-basis: 100%;
-  font-size: clamp(11px, 3vw, 12px);
-  color: #c0392b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Fileira de acoes principais no rodape do container 1: Imprimir | Laudo |

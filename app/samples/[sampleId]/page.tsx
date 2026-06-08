@@ -67,8 +67,6 @@ import {
   buildTechnicalFromClassificationData,
 } from '../../../lib/classification-form';
 
-type LabelModalStep = 'review' | 'completed';
-
 // Q.print: QR_PENDING_PRINT/QR_PRINTED removidos — sample fica em
 // REGISTRATION_CONFIRMED ate ser classificada.
 const REGISTRATION_EDITABLE_STATUSES: SampleStatus[] = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
@@ -364,19 +362,6 @@ function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): 
   return `classificacao-${lot}-${datePart}.jpg`;
 }
 
-// Q.print: impressao virou acao pura — sem distinguir PRINT/REPRINT.
-function buildLabelModalTitle(step: LabelModalStep) {
-  if (step === 'review') {
-    return 'Confirme os dados da etiqueta';
-  }
-
-  return 'Impressao enviada';
-}
-
-function getLabelPrintActionForStatus(status: SampleStatus): boolean {
-  return status !== 'INVALIDATED';
-}
-
 function mapSampleOwnerClientToSummary(
   client: SampleDetailResponse['sample']['ownerClient']
 ): ClientSummary | null {
@@ -458,6 +443,7 @@ export default function SampleDetailPage() {
   const [physicalSending, setPhysicalSending] = useState(false);
   const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
   const [physicalSendError, setPhysicalSendError] = useState<string | null>(null);
+  const [physicalSendSuccess, setPhysicalSendSuccess] = useState(false);
   const [cancelConfirmSendEventId, setCancelConfirmSendEventId] = useState<string | null>(null);
   const [cancellingSend, setCancellingSend] = useState(false);
   const [cancelSendError, setCancelSendError] = useState<string | null>(null);
@@ -476,10 +462,9 @@ export default function SampleDetailPage() {
 
   const [printerId] = useState('printer-main');
   const [labelModalOpen, setLabelModalOpen] = useState(false);
-  const [labelModalStep, setLabelModalStep] = useState<LabelModalStep>('review');
   const [labelModalSubmitting, setLabelModalSubmitting] = useState(false);
   const [labelModalError, setLabelModalError] = useState<string | null>(null);
-  const [labelModalMessage, setLabelModalMessage] = useState<string | null>(null);
+  const [labelPrintSuccess, setLabelPrintSuccess] = useState(false);
   const [invalidateReasonCode, setInvalidateReasonCode] = useState<InvalidateReasonCode>('OTHER');
   const [invalidateReasonText, setInvalidateReasonText] = useState('');
   const [invalidating, setInvalidating] = useState(false);
@@ -739,10 +724,9 @@ export default function SampleDetailPage() {
     setPendingExportType(null);
     setExportRecipientClient(null);
     setLabelModalOpen(false);
-    setLabelModalStep('review');
     setLabelModalSubmitting(false);
     setLabelModalError(null);
-    setLabelModalMessage(null);
+    setLabelPrintSuccess(false);
     registrationEditModeRef.current = false;
     setRegistrationEditMode(false);
     setRegistrationEditReasonCode('OTHER');
@@ -794,14 +778,14 @@ export default function SampleDetailPage() {
     [detail?.sample.internalLotNumber, detail?.sample.id]
   );
   const canQuickPrint = detail
-    ? detail.sample.status === 'REGISTRATION_CONFIRMED' ||
-      canRequestReprintStatus(detail.sample.status)
+    ? (detail.sample.status === 'REGISTRATION_CONFIRMED' ||
+        canRequestReprintStatus(detail.sample.status)) &&
+      detail.sample.commercialStatus !== 'LOST'
     : false;
   const canQuickReport = Boolean(
     detail && detail.sample.status === 'CLASSIFIED' && classificationAttachment
   );
   const canPhysicalSend = detail ? PHYSICAL_SEND_ALLOWED_STATUSES.has(detail.sample.status) : false;
-  const canCloseLabelModal = labelModalStep === 'review' || labelModalStep === 'completed';
   const classificationServerPhotoUrl = classificationAttachment
     ? `/api/v1/samples/${sampleId}/photos/${classificationAttachment.id}`
     : null;
@@ -816,7 +800,7 @@ export default function SampleDetailPage() {
     const previousOverflow = document.body.style.overflow;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !canCloseLabelModal) {
+      if (event.key !== 'Escape') {
         return;
       }
 
@@ -827,12 +811,7 @@ export default function SampleDetailPage() {
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
     window.setTimeout(() => {
-      if (canCloseLabelModal) {
-        labelModalCloseButtonRef.current?.focus();
-        return;
-      }
-
-      labelModalPrimaryActionRef.current?.focus();
+      labelModalCloseButtonRef.current?.focus();
     }, 0);
 
     return () => {
@@ -842,7 +821,26 @@ export default function SampleDetailPage() {
         lastQuickPrintButtonRef.current?.focus();
       }, 0);
     };
-  }, [canCloseLabelModal, labelModalOpen]);
+  }, [labelModalOpen]);
+
+  // Erros dos modais de acao somem sozinhos depois de 5s.
+  useEffect(() => {
+    if (!labelModalError) return;
+    const timer = window.setTimeout(() => setLabelModalError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [labelModalError]);
+
+  useEffect(() => {
+    if (!physicalSendError) return;
+    const timer = window.setTimeout(() => setPhysicalSendError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [physicalSendError]);
+
+  useEffect(() => {
+    if (!cancelSendError) return;
+    const timer = window.setTimeout(() => setCancelSendError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [cancelSendError]);
 
   useEffect(() => {
     if (!invalidateModalOpen) {
@@ -1127,21 +1125,21 @@ export default function SampleDetailPage() {
           recipientClientId: physicalSendClient?.id ?? null,
           sentDate: physicalSendDate,
         });
-        setGeneralNotice({ kind: 'success', text: 'Envio atualizado com sucesso.' });
       } else {
         await recordPhysicalSampleSent(session, sampleId, {
           recipientClientId: physicalSendClient?.id ?? null,
           sentDate: physicalSendDate,
         });
-        setGeneralNotice({
-          kind: 'success',
-          text: 'Envio de amostra fisica registrado com sucesso.',
-        });
       }
 
-      setPhysicalSendModalOpen(false);
-      setEditingSendEventId(null);
       fetchSendHistory();
+      // Sucesso: efeito de check verde por ~900ms e fecha o modal (sem mensagem).
+      setPhysicalSendSuccess(true);
+      window.setTimeout(() => {
+        setPhysicalSendSuccess(false);
+        setPhysicalSendModalOpen(false);
+        setEditingSendEventId(null);
+      }, 900);
     } catch (cause) {
       if (cause instanceof ApiError) {
         setPhysicalSendError(cause.message);
@@ -1203,31 +1201,17 @@ export default function SampleDetailPage() {
 
   function resetLabelModal() {
     setLabelModalOpen(false);
-    setLabelModalStep('review');
     setLabelModalSubmitting(false);
     setLabelModalError(null);
-    setLabelModalMessage(null);
+    setLabelPrintSuccess(false);
   }
 
   function closeLabelModal() {
-    if (!canCloseLabelModal) {
-      return;
-    }
-
     resetLabelModal();
   }
 
   function openLabelReviewModal(trigger?: HTMLButtonElement) {
     if (!detail) {
-      return;
-    }
-
-    const printAction = getLabelPrintActionForStatus(detail.sample.status);
-    if (!printAction) {
-      setGeneralNotice({
-        kind: 'error',
-        text: 'A impressao ainda nao esta disponivel para este status.',
-      });
       return;
     }
 
@@ -1237,8 +1221,7 @@ export default function SampleDetailPage() {
 
     setGeneralNotice(null);
     setLabelModalError(null);
-    setLabelModalMessage(null);
-    setLabelModalStep('review');
+    setLabelPrintSuccess(false);
     setLabelModalOpen(true);
   }
 
@@ -1247,15 +1230,9 @@ export default function SampleDetailPage() {
       return;
     }
 
-    const printAction = getLabelPrintActionForStatus(detail.sample.status);
-    if (!printAction) {
-      setLabelModalError('A impressao ainda nao esta disponivel para este status.');
-      return;
-    }
-
     setLabelModalSubmitting(true);
     setLabelModalError(null);
-    setLabelModalMessage(null);
+    setLabelPrintSuccess(false);
     setGeneralNotice(null);
 
     try {
@@ -1268,10 +1245,12 @@ export default function SampleDetailPage() {
       });
 
       void refreshDetail();
-      setLabelModalStep('completed');
-      setLabelModalMessage(
-        `Lote ${detail.sample.internalLotNumber ?? detail.sample.id} enviado pra impressao. Anote o numero na saca enquanto a etiqueta sai.`
-      );
+      // Sucesso: efeito de check verde por ~900ms e fecha o modal (sem mensagem).
+      setLabelPrintSuccess(true);
+      window.setTimeout(() => {
+        setLabelPrintSuccess(false);
+        resetLabelModal();
+      }, 900);
     } catch (cause) {
       if (cause instanceof ApiError) {
         setLabelModalError(cause.message);
@@ -2116,19 +2095,25 @@ export default function SampleDetailPage() {
                     <div className="sdv-info-actions">
                       <button
                         type="button"
-                        className="sdv-action-card is-report"
-                        onClick={handleOpenExportTypeSelector}
-                        disabled={!canQuickReport || Boolean(exportingPdfType)}
+                        className={`sdv-action-card is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
+                        disabled={
+                          !canQuickPrint ||
+                          labelModalSubmitting ||
+                          detail.latestPrintJob?.status === 'PENDING'
+                        }
+                        onClick={(event) => {
+                          setPrintHighlighted(false);
+                          openLabelReviewModal(event.currentTarget);
+                        }}
                       >
                         <span className="sdv-action-card-icon">
                           <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M7 4.8h7l3 3V19.2H7z" />
-                            <path d="M14 4.8v3h3" />
-                            <path d="M9 12h6" />
-                            <path d="M9 15h6" />
+                            <path d="M6 9V2h12v7" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" rx="1" />
                           </svg>
                         </span>
-                        <span className="sdv-action-card-label">Laudo</span>
+                        <span className="sdv-action-card-label">Imprimir</span>
                       </button>
                       <button
                         type="button"
@@ -2199,19 +2184,6 @@ export default function SampleDetailPage() {
                     const isClassified = detail.sample.status === 'CLASSIFIED';
                     const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
 
-                    const job = detail.latestPrintJob;
-                    const statusText = !job
-                      ? 'Nao impressa'
-                      : job.status === 'PENDING'
-                        ? 'Imprimindo...'
-                        : job.status === 'SUCCESS'
-                          ? 'Impressa'
-                          : job.status === 'FAILED'
-                            ? 'Falhou'
-                            : job.status === 'EXPIRED'
-                              ? 'Tempo esgotado'
-                              : job.status;
-
                     return (
                       <div className="sdv-card sdv-cls-block">
                         <div className="sdv-card-header">
@@ -2259,43 +2231,22 @@ export default function SampleDetailPage() {
                           <p className="sdv-empty-text">Sem classificação</p>
                         )}
 
-                        {detail.sample.status !== 'INVALIDATED' ? (
-                          <div
-                            className={`sdv-etiqueta-status is-${job?.status?.toLowerCase() ?? 'idle'}`}
-                          >
-                            <span className="sdv-etiqueta-status-label">Etiqueta</span>
-                            <span className="sdv-etiqueta-status-value">
-                              {statusText}
-                              {job ? ` · tentativa ${job.attemptNumber}` : ''}
-                            </span>
-                            {job?.error ? (
-                              <span className="sdv-etiqueta-status-error">{job.error}</span>
-                            ) : null}
-                          </div>
-                        ) : null}
-
                         <div className="sdv-info-actions">
                           <button
                             type="button"
-                            className={`sdv-action-card is-print${printHighlighted ? ' is-highlight-pulse' : ''}`}
-                            disabled={
-                              !canQuickPrint ||
-                              labelModalSubmitting ||
-                              detail.latestPrintJob?.status === 'PENDING'
-                            }
-                            onClick={(event) => {
-                              setPrintHighlighted(false);
-                              openLabelReviewModal(event.currentTarget);
-                            }}
+                            className="sdv-action-card is-report"
+                            onClick={handleOpenExportTypeSelector}
+                            disabled={!canQuickReport || Boolean(exportingPdfType)}
                           >
                             <span className="sdv-action-card-icon">
                               <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M6 9V2h12v7" />
-                                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                                <rect x="6" y="14" width="12" height="8" rx="1" />
+                                <path d="M7 4.8h7l3 3V19.2H7z" />
+                                <path d="M14 4.8v3h3" />
+                                <path d="M9 12h6" />
+                                <path d="M9 15h6" />
                               </svg>
                             </span>
-                            <span className="sdv-action-card-label">Imprimir</span>
+                            <span className="sdv-action-card-label">Laudo</span>
                           </button>
                           <button
                             type="button"
@@ -2746,39 +2697,57 @@ export default function SampleDetailPage() {
       ) : null}
 
       {detail && labelModalOpen ? (
-        <div className="app-modal-backdrop new-sample-label-modal-backdrop">
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            closeLabelModal();
+          }}
+        >
           <section
             ref={labelTrapRef}
-            className="app-modal new-sample-label-modal"
+            className="app-modal is-themed sample-detail-compact-modal sample-detail-print-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-label-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="new-sample-label-modal-header">
-              <h3 id="sample-detail-label-modal-title" className="new-sample-label-modal-title">
-                {buildLabelModalTitle(labelModalStep)}
-              </h3>
-
-              {canCloseLabelModal ? (
-                <button
-                  ref={labelModalCloseButtonRef}
-                  type="button"
-                  className="new-sample-label-modal-close"
-                  onClick={closeLabelModal}
-                  aria-label="Fechar modal"
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              ) : null}
+            {labelPrintSuccess ? (
+              <div className="client-create-success-overlay" aria-live="polite">
+                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#2f8a3e"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 27l7 7 15-15"
+                  />
+                </svg>
+              </div>
+            ) : null}
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="sample-detail-label-modal-title" className="app-modal-title">
+                  Confirme os dados
+                </h3>
+              </div>
+              <button
+                ref={labelModalCloseButtonRef}
+                type="button"
+                className="app-modal-close"
+                onClick={closeLabelModal}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
             </header>
 
-            <div className="new-sample-label-modal-content">
+            <div className="app-modal-content">
               <article className="label-print-card new-sample-label-print-card">
                 <div className="label-qr">
                   <QRCodeCanvas value={qrValue} size={120} />
                 </div>
-
                 <div className="label-meta">
                   <p>
                     <strong>Lote interno:</strong>{' '}
@@ -2800,48 +2769,28 @@ export default function SampleDetailPage() {
                   </p>
                 </div>
               </article>
-            </div>
 
-            {labelModalError ? (
-              <p className="error new-sample-label-modal-feedback">{labelModalError}</p>
-            ) : null}
-            {labelModalMessage ? (
-              <p className="success new-sample-label-modal-feedback">{labelModalMessage}</p>
-            ) : null}
+              {labelModalError ? <p className="sdv-modal-error">{labelModalError}</p> : null}
 
-            <div className="row new-sample-print-actions new-sample-label-modal-actions">
-              {labelModalStep === 'review' ? (
-                <>
-                  <button
-                    ref={labelModalPrimaryActionRef}
-                    type="button"
-                    className="new-sample-label-action-confirm"
-                    disabled={labelModalSubmitting}
-                    onClick={() => void handleSubmitLabelReview()}
-                  >
-                    {labelModalSubmitting ? 'Enviando...' : 'Imprimir etiqueta'}
-                  </button>
-                  <button
-                    type="button"
-                    className="new-sample-label-action-edit"
-                    disabled={labelModalSubmitting}
-                    onClick={closeLabelModal}
-                  >
-                    Fechar
-                  </button>
-                </>
-              ) : null}
-
-              {labelModalStep === 'completed' ? (
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  disabled={labelModalSubmitting}
+                  onClick={closeLabelModal}
+                >
+                  Fechar
+                </button>
                 <button
                   ref={labelModalPrimaryActionRef}
                   type="button"
-                  className="new-sample-label-action-new"
-                  onClick={resetLabelModal}
+                  className="app-modal-submit"
+                  disabled={labelModalSubmitting}
+                  onClick={() => void handleSubmitLabelReview()}
                 >
-                  Anotei, fechar
+                  {labelModalSubmitting ? 'Enviando...' : 'Imprimir'}
                 </button>
-              ) : null}
+              </div>
             </div>
           </section>
         </div>
@@ -3740,21 +3689,48 @@ export default function SampleDetailPage() {
       ) : null}
 
       {physicalSendModalOpen ? (
-        <div className="app-modal-backdrop">
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            if (!physicalSending) {
+              setPhysicalSendModalOpen(false);
+              setEditingSendEventId(null);
+              setPhysicalSendError(null);
+            }
+          }}
+        >
           <section
             ref={physicalSendTrapRef}
-            className="app-modal cdm-modal cdm-lookup-modal"
+            className="app-modal is-themed sample-detail-compact-modal"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="physical-send-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header">
-              <h3 className="cdm-header-name">
-                {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra fisica'}
-              </h3>
+            {physicalSendSuccess ? (
+              <div className="client-create-success-overlay" aria-live="polite">
+                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#2f8a3e"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 27l7 7 15-15"
+                  />
+                </svg>
+              </div>
+            ) : null}
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="physical-send-modal-title" className="app-modal-title">
+                  {editingSendEventId ? 'Editar envio de amostra' : 'Enviar amostra'}
+                </h3>
+              </div>
               <button
                 type="button"
-                className="app-modal-close cdm-close"
+                className="app-modal-close"
                 onClick={() => {
                   setPhysicalSendModalOpen(false);
                   setEditingSendEventId(null);
@@ -3763,58 +3739,67 @@ export default function SampleDetailPage() {
                 disabled={physicalSending}
                 aria-label="Fechar"
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
+                <span aria-hidden="true">&times;</span>
               </button>
-            </div>
-            <div className="sdv-edit-fields">
-              <div className="sdv-edit-field">
-                <span className="sdv-edit-label">Destinatario</span>
+            </header>
+
+            <form
+              className="app-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (physicalSending) return;
+                void handlePhysicalSend();
+              }}
+            >
+              <div className="app-modal-field">
                 <ClientLookupField
                   session={session!}
-                  label="Destinatario"
+                  label="Destinatário"
                   kind="any"
                   selectedClient={physicalSendClient}
                   onSelectClient={setPhysicalSendClient}
                   disabled={physicalSending}
-                  placeholder="Busque por nome, documento ou codigo"
+                  placeholder="Busque por nome, documento ou código"
                   compact
                 />
               </div>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Data de envio</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data de envio</span>
                 <input
                   type="date"
-                  className="sdv-edit-input"
+                  className="app-modal-input"
                   value={physicalSendDate}
                   onChange={(event) => setPhysicalSendDate(event.target.value)}
                   disabled={physicalSending}
                 />
               </label>
-              {physicalSendError ? (
-                <div className="sdv-modal-error" role="alert">
-                  {physicalSendError}
-                </div>
-              ) : null}
-            </div>
-            <div className="sdv-edit-actions">
-              <button
-                type="button"
-                className="cdm-manage-link"
-                onClick={handlePhysicalSend}
-                disabled={physicalSending}
-              >
-                {physicalSending
-                  ? editingSendEventId
-                    ? 'Salvando...'
-                    : 'Registrando...'
-                  : editingSendEventId
-                    ? 'Salvar alteracoes'
-                    : 'Confirmar envio'}
-              </button>
-            </div>
+
+              {physicalSendError ? <p className="sdv-modal-error">{physicalSendError}</p> : null}
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => {
+                    setPhysicalSendModalOpen(false);
+                    setEditingSendEventId(null);
+                    setPhysicalSendError(null);
+                  }}
+                  disabled={physicalSending}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="app-modal-submit" disabled={physicalSending}>
+                  {physicalSending
+                    ? editingSendEventId
+                      ? 'Salvando...'
+                      : 'Enviando...'
+                    : editingSendEventId
+                      ? 'Salvar'
+                      : 'Enviar'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}
