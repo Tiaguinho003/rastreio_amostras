@@ -7691,7 +7691,7 @@ button:disabled {
 .sdv-general {
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 3vw, 12px);
+  gap: clamp(13px, 3.6vw, 16px);
 }
 
 /* Bloco "Comercial" abaixo do .sdv-general — 2 cards brancos:
@@ -8221,9 +8221,9 @@ button:disabled {
   border-radius: clamp(14px, 4vw, 16px);
   padding: clamp(14px, 3.5vw, 16px);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.07),
-    0 8px 24px rgba(0, 0, 0, 0.03),
+    0 1px 3px rgba(0, 0, 0, 0.07),
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    0 14px 32px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.06);
   animation: sdv-fadeIn 0.3s ease backwards;
@@ -8585,12 +8585,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-.sdv-info-sep {
-  grid-column: 1 / -1;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.04);
-}
-
 /* Photo Card */
 .sdv-photo-wrap {
   display: block;
@@ -8640,32 +8634,19 @@ button:disabled {
   position: relative;
   display: flex;
   flex-direction: column;
-  /* Altura fixa (responsiva) pra o card ficar consistente independente do
-     conteudo. A sobra vertical vai pra info (grid flex:1, abaixo), nao pra
-     folga dos botoes. Padding inferior = mesmo do .sdv-card base, pra a folga
-     sob os botoes casar com a do container de Classificacao. */
-  min-height: clamp(296px, 80vw, 340px);
+  /* Card dimensiona pelo conteudo (sem altura fixa): campos compactos e os
+     botoes logo abaixo, com o mesmo gap do container de Classificacao. */
   padding: clamp(10px, 2.8vw, 14px) clamp(14px, 3.5vw, 16px) clamp(14px, 3.5vw, 16px);
 }
 
 .sdv-info-compact .sdv-info-grid {
-  /* Ocupa o espaco entre o cabecalho e os botoes e distribui os campos
-     (space-between): a folga da altura fixa fica entre as informacoes, e os
-     botoes encostam logo abaixo do ultimo campo (folga superior pequena). */
-  flex: 1;
-  align-content: space-between;
-  gap: 0 clamp(14px, 4vw, 20px);
+  /* Mesmo gap vertical do container de Classificacao. */
+  align-content: start;
+  gap: clamp(6px, 1.5vw, 8px) clamp(14px, 4vw, 20px);
 }
 
 .sdv-info-compact .sdv-info-item {
-  padding: clamp(7px, 1.8vw, 9px) 0;
-}
-
-/* Folga superior pequena entre o ultimo campo e os botoes (sem margin auto —
-   a sobra ja foi absorvida pela info acima). */
-.sdv-info-compact .sdv-info-actions {
-  margin-top: 0;
-  padding-top: clamp(8px, 2vw, 10px);
+  padding: clamp(3px, 1vw, 5px) 0;
 }
 
 /* O NoticeSlot fica depois dos botoes e reserva 1.25rem por padrao (anti-jump),
@@ -8675,19 +8656,22 @@ button:disabled {
   min-height: 0;
 }
 
-/* Container 1 (Informacoes): separacao explicita — porem discreta — entre o
-   cabecalho (titulo + Editar) e os campos. Hairline full-bleed: as margens
-   negativas cancelam o padding horizontal do card pra a linha ir de borda a
-   borda, e o padding interno reposiciona o conteudo. */
-.sdv-info-compact .sdv-card-header {
+/* Containers Informacoes e Classificacao: separacao explicita — porem
+   discreta — entre o cabecalho (titulo + Editar) e o conteudo. Hairline
+   full-bleed: as margens negativas cancelam o padding horizontal do card pra a
+   linha ir de borda a borda, e o padding interno reposiciona o conteudo. Ambos
+   tem o mesmo padding horizontal base (clamp(14px,3.5vw,16px)). */
+.sdv-info-compact .sdv-card-header,
+.sdv-cls-block .sdv-card-header {
   margin: 0 calc(-1 * clamp(14px, 3.5vw, 16px)) clamp(11px, 2.8vw, 13px);
   padding: 0 clamp(14px, 3.5vw, 16px) clamp(10px, 2.6vw, 12px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 /* Titulo do cabecalho um pouco mais legivel que o cinza-claro padrao dos
    demais cards, pra ler como um header de secao — sem ficar chamativo. */
-.sdv-info-compact .sdv-card-header .sdv-card-title {
+.sdv-info-compact .sdv-card-header .sdv-card-title,
+.sdv-cls-block .sdv-card-header .sdv-card-title {
   font-size: clamp(9.5px, 2.6vw, 10.5px);
   color: #8a948c;
 }
@@ -8749,8 +8733,15 @@ button:disabled {
   transition: transform 0.15s;
 }
 
-.sdv-edit-btn:active {
+.sdv-edit-btn:active:not(:disabled) {
   transform: scale(0.92);
+}
+
+/* Sem classificacao: o "Expandir" continua visivel como dica, porem opaco e
+   inativo (nao ha o que expandir). */
+.sdv-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .sdv-edit-btn svg {
@@ -9417,23 +9408,75 @@ button:disabled {
 .sdv-cls-block-summary {
   display: flex;
   gap: clamp(10px, 3vw, 14px);
-  align-items: flex-start;
+  align-items: stretch;
+  /* Iguala o gap cabecalho→foto ao gap cabecalho→"Proprietario" do container de
+     Informacoes: la o primeiro campo tem padding-top clamp(3px,1vw,5px); aqui a
+     foto e flush, entao replicamos esse espaco com margin-top. */
+  margin-top: clamp(3px, 1vw, 5px);
 }
 
+/* Area da foto: largura fixa (um pouco mais larga) e altura que estica do topo
+   do Aspecto ate o fim do Classificador (align-self: stretch). Quem dita a
+   altura sao os campos ao lado — a div nao tem altura intrinseca, entao a area
+   fica do MESMO tamanho com ou sem imagem. O <img> fica absoluto dentro pra
+   nunca inflar a altura. */
 .sdv-cls-block-thumb {
-  width: clamp(60px, 18vw, 80px);
-  height: clamp(60px, 18vw, 80px);
-  object-fit: cover;
+  position: relative;
+  align-self: stretch;
+  width: clamp(84px, 25vw, 104px);
+  min-height: clamp(60px, 18vw, 80px);
   border-radius: clamp(8px, 2vw, 10px);
+  overflow: hidden;
   flex-shrink: 0;
+}
+
+.sdv-cls-block-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Placeholder "Sem foto": mesma area da foto (estica igual via .sdv-cls-block-thumb)
+   pra o conteiner nao mudar de tamanho quando nao ha classificacao. */
+.sdv-cls-block-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 1px dashed rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.02);
+  color: #b8b8b8;
+  font-size: clamp(9px, 2.4vw, 10px);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-align: center;
 }
 
 .sdv-cls-block-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: clamp(6px, 1.5vw, 8px) clamp(10px, 3vw, 14px);
   flex: 1;
   min-width: 0;
+}
+
+/* Campos mais compactos dentro da classificacao pra as 2 linhas (Aspecto/
+   Catacao + Classificador) baterem com a altura da foto, sem desperdicar
+   espaco nem estourar a area. */
+.sdv-cls-block-fields .sdv-info-item {
+  padding: clamp(3px, 1vw, 5px) 0;
+}
+
+/* Estado vazio: labels mais opacos e o tracinho do valor mais suave, pra
+   sinalizar "sem informacao" mantendo posicao e tamanho dos campos. */
+.sdv-cls-block-summary.is-empty .sdv-info-label {
+  opacity: 0.55;
+}
+
+.sdv-cls-block-summary.is-empty .sdv-info-value {
+  color: #c4c4c4;
 }
 
 /* Floating classify button */
@@ -10982,6 +11025,45 @@ button:disabled {
   letter-spacing: 0.01em;
 }
 
+/* "Editar" movido do cabecalho pro corpo: alinhado a borda direita da imagem,
+   entre a foto e a secao Tipo. Estilo claro (verde sobre branco), diferente do
+   .cld-header-action que era branco translucido sobre o header verde. */
+.cld-edit-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: clamp(-8px, -1.8vw, -6px);
+}
+
+.cld-edit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid rgba(22, 91, 42, 0.28);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--brand-green);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.cld-edit-action:active {
+  transform: scale(0.94);
+}
+
+.cld-edit-action svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+}
+
 /* PhotoZoomViewer — fullscreen com zoom e pan */
 
 .pzv-stage {
@@ -11136,27 +11218,6 @@ button:disabled {
   will-change: transform;
 }
 
-/* cld section accent variants */
-
-.cld-section.is-type {
-  --sc: #1f5d43;
-}
-.cld-section.is-general {
-  --sc: #2f6b4a;
-}
-.cld-section.is-sieves {
-  --sc: #2980b9;
-}
-.cld-section.is-funds {
-  --sc: #d4a017;
-}
-.cld-section.is-defects {
-  --sc: #c0392b;
-}
-.cld-section.is-notes {
-  --sc: #7d3c98;
-}
-
 .cdm-manage-link svg {
   width: 16px;
   height: 16px;
@@ -11222,40 +11283,46 @@ button:disabled {
   height: 14px;
 }
 
+/* Linha de 2 secoes lado a lado (Tipo | Bebida), cada uma com metade da
+   largura. minmax(0, 1fr) deixa o conteudo truncar em vez de estourar a
+   margem; align-items: stretch iguala a altura das duas. */
+.cld-section-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(0.7rem, 2vw, 0.95rem);
+  align-items: stretch;
+}
+
+/* Minimalista: secoes neutras (sem cor de accent, sem bolinha), separadas por
+   uma borda discreta. O titulo e um header de secao com hairline embaixo. */
 .cld-section {
   display: flex;
   flex-direction: column;
   gap: clamp(8px, 2.5vw, 10px);
-  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-left: 3px solid var(--sc, var(--brand-green-soft));
+  padding: clamp(11px, 3vw, 13px) clamp(12px, 3.5vw, 14px);
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
   border-radius: clamp(10px, 3vw, 12px);
-  background: linear-gradient(180deg, #ffffff 0%, #faf8f4 100%);
+  background: #ffffff;
 }
 
 .cld-section-title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
   gap: clamp(6px, 2vw, 8px);
-  font-size: clamp(11px, 3vw, 12px);
+  padding-bottom: clamp(6px, 1.8vw, 8px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: clamp(10px, 2.7vw, 11px);
   font-weight: 700;
-  color: #555;
+  color: #8a8a8a;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.cld-dot {
-  width: clamp(7px, 2vw, 8px);
-  height: clamp(7px, 2vw, 8px);
-  border-radius: 50%;
-  background: var(--sc, var(--brand-green-soft));
-  flex-shrink: 0;
+  letter-spacing: 0.7px;
 }
 
 .cld-section-unit {
   font-size: clamp(9px, 2.5vw, 10px);
   font-weight: 500;
-  color: #999;
+  color: #b0b0b0;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -11319,6 +11386,12 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Campo sem informacao (valor "—"): mais opaco pra diferenciar dos preenchidos
+   sem poluir. So no modo leitura (em edicao o campo tem input). */
+.cld-field.is-empty {
+  opacity: 0.45;
 }
 
 .cld-obs-value {

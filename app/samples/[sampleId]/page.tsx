@@ -2049,7 +2049,6 @@ export default function SampleDetailPage() {
                           {buildReadableValue(detail.sample.declared.owner)}
                         </span>
                       </div>
-                      <div className="sdv-info-sep" />
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">Sacas</span>
                         <span className="sdv-info-value">
@@ -2062,7 +2061,6 @@ export default function SampleDetailPage() {
                           {buildReadableValue(detail.sample.declared.harvest)}
                         </span>
                       </div>
-                      <div className="sdv-info-sep" />
                       <div className="sdv-info-item">
                         <span className="sdv-info-label">Lote de origem</span>
                         <span className="sdv-info-value">
@@ -2138,6 +2136,7 @@ export default function SampleDetailPage() {
                     const cd = (classData ?? null) as Record<string, unknown> | null;
                     const aspecto = cd ? String(cd.aspecto ?? '—') : '—';
                     const catacao = cd ? String(cd.catacao ?? '—') : '—';
+                    const padrao = cd ? String(cd.padrao ?? '—') : '—';
                     // Classificadores: campo canonico `classificadores` (array de
                     // snapshots). Fallback para `conferidoPor` (eventos antigos) ou
                     // string legacy `classificador`.
@@ -2168,10 +2167,67 @@ export default function SampleDetailPage() {
                     const isClassified = detail.sample.status === 'CLASSIFIED';
                     const canClassifyNow = detail.sample.status === 'REGISTRATION_CONFIRMED';
 
+                    // Conteiner sempre com o mesmo layout: area da foto + os 3 campos
+                    // sempre visiveis. Sem classificacao => placeholder "Sem foto" e
+                    // valores "—" (labels mais opacos via .sdv-cls-block-summary.is-empty).
+                    const clsPhotoNode = classPhotoUrl ? (
+                      <div className="sdv-cls-block-thumb">
+                        {/* next/image nao se aplica: src vem do upload local; dimensoes via CSS */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={classPhotoUrl}
+                          alt="Foto da classificacao"
+                          className="sdv-cls-block-thumb-img"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="sdv-cls-block-thumb sdv-cls-block-thumb-empty"
+                        aria-hidden="true"
+                      >
+                        Sem foto
+                      </div>
+                    );
+                    const clsFieldsNode = (
+                      <div className="sdv-cls-block-fields">
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Aspecto</span>
+                          <span className="sdv-info-value">{aspecto}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Catacao</span>
+                          <span className="sdv-info-value">{catacao}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">Padrão</span>
+                          <span className="sdv-info-value">{padrao}</span>
+                        </div>
+                        <div className="sdv-info-item">
+                          <span className="sdv-info-label">{classificadorLabel}</span>
+                          <span className="sdv-info-value">{classificador}</span>
+                        </div>
+                      </div>
+                    );
+
                     return (
                       <div className="sdv-card sdv-cls-block">
                         <div className="sdv-card-header">
                           <span className="sdv-card-title">Classificação</span>
+                          <button
+                            type="button"
+                            className="sdv-edit-btn"
+                            onClick={openClassificationDetail}
+                            disabled={!cd}
+                            aria-label="Expandir classificacao"
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M15 3h6v6" />
+                              <path d="M9 21H3v-6" />
+                              <path d="M21 3l-7 7" />
+                              <path d="M3 21l7-7" />
+                            </svg>
+                            <span>Expandir</span>
+                          </button>
                         </div>
                         {cd ? (
                           <div
@@ -2187,32 +2243,14 @@ export default function SampleDetailPage() {
                             }}
                             aria-label="Ver classificacao completa"
                           >
-                            {classPhotoUrl ? (
-                              // next/image nao se aplica: src vem do upload local, dimensoes via CSS class
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={classPhotoUrl}
-                                alt="Foto da classificacao"
-                                className="sdv-cls-block-thumb"
-                              />
-                            ) : null}
-                            <div className="sdv-cls-block-fields">
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Aspecto</span>
-                                <span className="sdv-info-value">{aspecto}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">Catacao</span>
-                                <span className="sdv-info-value">{catacao}</span>
-                              </div>
-                              <div className="sdv-info-item">
-                                <span className="sdv-info-label">{classificadorLabel}</span>
-                                <span className="sdv-info-value">{classificador}</span>
-                              </div>
-                            </div>
+                            {clsPhotoNode}
+                            {clsFieldsNode}
                           </div>
                         ) : (
-                          <p className="sdv-empty-text">Sem classificação</p>
+                          <div className="sdv-cls-block-summary is-empty">
+                            {clsPhotoNode}
+                            {clsFieldsNode}
+                          </div>
                         )}
 
                         <div className="sdv-info-actions">
@@ -3004,38 +3042,42 @@ export default function SampleDetailPage() {
               key: keyof ClassificationFormState,
               label: string,
               inputMode: 'text' | 'decimal' = 'text'
-            ) => (
-              <div className="cld-field" key={key}>
-                <span className="cld-field-label">{label}</span>
-                {editing ? (
-                  <input
-                    type="text"
-                    inputMode={inputMode}
-                    className="cld-field-input"
-                    value={f[key]}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      updateClassificationDetailField(
-                        key,
-                        inputMode === 'decimal' ? raw : raw.toUpperCase()
-                      );
-                    }}
-                    disabled={saving}
-                    placeholder="\u2014"
-                  />
-                ) : (
-                  <span className="cld-field-value">{f[key] || '\u2014'}</span>
-                )}
-              </div>
-            );
-            const renderStatic = (label: string, value: string | number | null | undefined) => (
-              <div className="cld-field">
-                <span className="cld-field-label">{label}</span>
-                <span className="cld-field-value">
-                  {value !== null && value !== undefined && value !== '' ? String(value) : '\u2014'}
-                </span>
-              </div>
-            );
+            ) => {
+              const isEmpty = !editing && !f[key];
+              return (
+                <div className={`cld-field${isEmpty ? ' is-empty' : ''}`} key={key}>
+                  <span className="cld-field-label">{label}</span>
+                  {editing ? (
+                    <input
+                      type="text"
+                      inputMode={inputMode}
+                      className="cld-field-input"
+                      value={f[key]}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        updateClassificationDetailField(
+                          key,
+                          inputMode === 'decimal' ? raw : raw.toUpperCase()
+                        );
+                      }}
+                      disabled={saving}
+                      placeholder="\u2014"
+                    />
+                  ) : (
+                    <span className="cld-field-value">{f[key] || '\u2014'}</span>
+                  )}
+                </div>
+              );
+            };
+            const renderStatic = (label: string, value: string | number | null | undefined) => {
+              const isEmpty = value === null || value === undefined || value === '';
+              return (
+                <div className={`cld-field${isEmpty ? ' is-empty' : ''}`}>
+                  <span className="cld-field-label">{label}</span>
+                  <span className="cld-field-value">{isEmpty ? '\u2014' : String(value)}</span>
+                </div>
+              );
+            };
             return (
               <div className="app-modal-backdrop" onClick={closeClassificationDetail}>
                 <section
@@ -3049,51 +3091,10 @@ export default function SampleDetailPage() {
                   <header className="app-modal-header">
                     <div className="app-modal-title-wrap">
                       <h3 id="cld-modal-title" className="app-modal-title">
-                        Classifica\u00e7\u00e3o
+                        Classificação
                       </h3>
                     </div>
                     <div className="cld-header-actions">
-                      {canEdit && !editing ? (
-                        <button
-                          type="button"
-                          className="cld-header-action"
-                          onClick={() => setReclassifyModalOpen(true)}
-                          aria-label="Reclassificar amostra"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M21 12a9 9 0 1 1-3-6.7" />
-                            <path d="M21 4v5h-5" />
-                          </svg>
-                          Reclassificar
-                        </button>
-                      ) : null}
-                      {canEdit && !editing ? (
-                        <button
-                          type="button"
-                          className="cld-header-action"
-                          onClick={() => setClassificationDetailEditing(true)}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                          </svg>
-                          Editar
-                        </button>
-                      ) : null}
                       <button
                         type="button"
                         className="app-modal-close"
@@ -3129,50 +3130,89 @@ export default function SampleDetailPage() {
                           )}
                         </div>
 
+                        {canEdit && !editing ? (
+                          <div className="cld-edit-row">
+                            <button
+                              type="button"
+                              className="cld-edit-action"
+                              onClick={() => setClassificationDetailEditing(true)}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                              </svg>
+                              Editar
+                            </button>
+                          </div>
+                        ) : null}
+
                         {/* Q.cls.2.7 cleanup: ficha unificada — sem ramificacao
                             por classificationType. Layout espelha o
                             ClassificationReviewModal (tipo → identificacao →
                             visual → peneiras 2x5 → fundos → catacao+defeitos →
                             obs+beb). */}
-                        <div className="cld-section is-type">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Tipo
+                        <div className="cld-section-row">
+                          <div className="cld-section is-type">
+                            <div className="cld-section-title">Tipo</div>
+                            {editing ? (
+                              <select
+                                className="cld-field-input cld-type-select"
+                                value={classificationDetailType ?? ''}
+                                onChange={(e) =>
+                                  setClassificationDetailType(
+                                    e.target.value === ''
+                                      ? null
+                                      : (e.target.value as ClassificationType)
+                                  )
+                                }
+                                disabled={saving}
+                              >
+                                <option value="">— Sem tipo —</option>
+                                <option value="BICA">BICA</option>
+                                <option value="PREPARADO">PREPARADO</option>
+                                <option value="BAIXO">BAIXO</option>
+                                <option value="ESCOLHA">ESCOLHA</option>
+                                <option value="CONILON">CONILON</option>
+                              </select>
+                            ) : (
+                              <span className="cld-field-value">
+                                {classificationDetailType
+                                  ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
+                                  : '—'}
+                              </span>
+                            )}
                           </div>
-                          {editing ? (
-                            <select
-                              className="cld-field-input cld-type-select"
-                              value={classificationDetailType ?? ''}
-                              onChange={(e) =>
-                                setClassificationDetailType(
-                                  e.target.value === ''
-                                    ? null
-                                    : (e.target.value as ClassificationType)
-                                )
-                              }
-                              disabled={saving}
-                            >
-                              <option value="">— Sem tipo —</option>
-                              <option value="BICA">BICA</option>
-                              <option value="PREPARADO">PREPARADO</option>
-                              <option value="BAIXO">BAIXO</option>
-                              <option value="ESCOLHA">ESCOLHA</option>
-                              <option value="CONILON">CONILON</option>
-                            </select>
-                          ) : (
-                            <span className="cld-field-value">
-                              {classificationDetailType
-                                ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
-                                : '—'}
-                            </span>
-                          )}
+                          <div className="cld-section is-bebida">
+                            <div className="cld-section-title">Bebida</div>
+                            {editing ? (
+                              <input
+                                type="text"
+                                className="cld-field-input"
+                                value={f.bebida}
+                                onChange={(e) =>
+                                  updateClassificationDetailField(
+                                    'bebida',
+                                    e.target.value.toUpperCase()
+                                  )
+                                }
+                                disabled={saving}
+                                placeholder="—"
+                              />
+                            ) : (
+                              <span className="cld-field-value">{f.bebida || '—'}</span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="cld-section is-general">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Identificação
-                          </div>
+                          <div className="cld-section-title">Identificação</div>
                           <div className="cld-grid cld-grid-3">
                             {renderStatic('Lote', detail.sample.internalLotNumber)}
                             {renderStatic('Sacas', detail.sample.declared.sacks)}
@@ -3185,11 +3225,53 @@ export default function SampleDetailPage() {
                           </div>
                         </div>
 
-                        <div className="cld-section is-classifier">
+                        <div className="cld-section is-sieves">
                           <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Classificadores
+                            Peneiras <span className="cld-section-unit">%</span>
                           </div>
+                          <div className="cld-grid cld-grid-5">
+                            {renderVal('peneiraP18', 'P18', 'decimal')}
+                            {renderVal('peneiraP17', 'P17', 'decimal')}
+                            {renderVal('peneiraP16', 'P16', 'decimal')}
+                            {renderVal('peneiraMk', 'MK', 'decimal')}
+                            {renderVal('peneiraP15', 'P15', 'decimal')}
+                          </div>
+                          <div className="cld-grid cld-grid-5">
+                            {renderVal('peneiraP14', 'P14', 'decimal')}
+                            {renderVal('peneiraP13', 'P13', 'decimal')}
+                            {renderVal('peneiraP12', 'P12', 'decimal')}
+                            {renderVal('peneiraP11', 'P11', 'decimal')}
+                            {renderVal('peneiraP10', 'P10', 'decimal')}
+                          </div>
+                        </div>
+
+                        <div className="cld-section is-funds">
+                          <div className="cld-section-title">Fundos</div>
+                          <div className="cld-grid cld-grid-4">
+                            {renderVal('fundo1Peneira', 'FD1 Pen.')}
+                            {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
+                            {renderVal('fundo2Peneira', 'FD2 Pen.')}
+                            {renderVal('fundo2Percent', 'FD2 %', 'decimal')}
+                          </div>
+                        </div>
+
+                        <div className="cld-section is-defects">
+                          <div className="cld-section-title">Catação e defeitos</div>
+                          <div className="cld-grid cld-grid-3">
+                            {renderVal('catacao', 'Cat.')}
+                            {renderVal('imp', 'Imp.')}
+                            {renderVal('pva', 'PVA')}
+                          </div>
+                          <div className="cld-grid cld-grid-3">
+                            {renderVal('broca', 'Broca')}
+                            {renderVal('gpi', 'GPI')}
+                            {renderVal('ap', 'AP')}
+                          </div>
+                          <div className="cld-grid cld-grid-1">{renderVal('defeito', 'Def.')}</div>
+                        </div>
+
+                        <div className="cld-section is-classifier">
+                          <div className="cld-section-title">Classificadores</div>
                           {classificationDetailClassifiers.length === 0 ? (
                             <span className="cld-field-value">
                               {editing
@@ -3316,71 +3398,8 @@ export default function SampleDetailPage() {
                           ) : null}
                         </div>
 
-                        <div className="cld-section is-sieves">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Peneiras <span className="cld-section-unit">%</span>
-                          </div>
-                          <div className="cld-grid cld-grid-5">
-                            {renderVal('peneiraP18', 'P18', 'decimal')}
-                            {renderVal('peneiraP17', 'P17', 'decimal')}
-                            {renderVal('peneiraP16', 'P16', 'decimal')}
-                            {renderVal('peneiraMk', 'MK', 'decimal')}
-                            {renderVal('peneiraP15', 'P15', 'decimal')}
-                          </div>
-                          <div className="cld-grid cld-grid-5">
-                            {renderVal('peneiraP14', 'P14', 'decimal')}
-                            {renderVal('peneiraP13', 'P13', 'decimal')}
-                            {renderVal('peneiraP12', 'P12', 'decimal')}
-                            {renderVal('peneiraP11', 'P11', 'decimal')}
-                            {renderVal('peneiraP10', 'P10', 'decimal')}
-                          </div>
-                        </div>
-
-                        <div className="cld-section is-funds">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Fundos
-                          </div>
-                          <div className="cld-grid cld-grid-4">
-                            {renderVal('fundo1Peneira', 'FD1 Pen.')}
-                            {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
-                            {renderVal('fundo2Peneira', 'FD2 Pen.')}
-                            {renderVal('fundo2Percent', 'FD2 %', 'decimal')}
-                          </div>
-                        </div>
-
-                        <div className="cld-section is-defects">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Catação e defeitos
-                          </div>
-                          <div className="cld-grid cld-grid-3">
-                            {renderVal('catacao', 'Cat.')}
-                            {renderVal('imp', 'Imp.')}
-                            {renderVal('pva', 'PVA')}
-                          </div>
-                          <div className="cld-grid cld-grid-3">
-                            {renderVal('broca', 'Broca')}
-                            {renderVal('gpi', 'GPI')}
-                            {renderVal('ap', 'AP')}
-                          </div>
-                          <div className="cld-grid cld-grid-1">{renderVal('defeito', 'Def.')}</div>
-                        </div>
-
-                        <div className="cld-section is-bebida">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Bebida
-                          </div>
-                          {renderVal('bebida', 'Beb.')}
-                        </div>
-
                         <div className="cld-section is-notes">
-                          <div className="cld-section-title">
-                            <span className="cld-dot" />
-                            Observações
-                          </div>
+                          <div className="cld-section-title">Observações</div>
                           {editing ? (
                             <textarea
                               className="cld-field-input cld-textarea"
