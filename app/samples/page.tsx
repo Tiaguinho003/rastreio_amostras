@@ -1352,41 +1352,47 @@ function SamplesPage() {
             }))
         )}
 
-        <ClassificationFilterField
-          label="Padrão"
-          placeholder="Qualquer padrão"
-          options={classificationOptions.padrao}
-          selected={draftHiddenFilters.padroes}
-          loading={classificationOptionsLoading}
-          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
-        />
+        {/* Padrao + Aspecto e Catacao + Certificado vao 2 por linha (mesmo grid
+            do par Status/Safra) pra economizar espaco vertical no modal. */}
+        <div className="samples-filter-row">
+          <ClassificationFilterField
+            label="Padrão"
+            placeholder="Qualquer padrão"
+            options={classificationOptions.padrao}
+            selected={draftHiddenFilters.padroes}
+            loading={classificationOptionsLoading}
+            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, padroes: next }))}
+          />
 
-        <ClassificationFilterField
-          label="Aspecto"
-          placeholder="Qualquer aspecto"
-          options={classificationOptions.aspecto}
-          selected={draftHiddenFilters.aspectos}
-          loading={classificationOptionsLoading}
-          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, aspectos: next }))}
-        />
+          <ClassificationFilterField
+            label="Aspecto"
+            placeholder="Qualquer aspecto"
+            options={classificationOptions.aspecto}
+            selected={draftHiddenFilters.aspectos}
+            loading={classificationOptionsLoading}
+            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, aspectos: next }))}
+          />
+        </div>
 
-        <ClassificationFilterField
-          label="Catação"
-          placeholder="Qualquer catação"
-          options={classificationOptions.catacao}
-          selected={draftHiddenFilters.catacoes}
-          loading={classificationOptionsLoading}
-          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
-        />
+        <div className="samples-filter-row">
+          <ClassificationFilterField
+            label="Catação"
+            placeholder="Qualquer catação"
+            options={classificationOptions.catacao}
+            selected={draftHiddenFilters.catacoes}
+            loading={classificationOptionsLoading}
+            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, catacoes: next }))}
+          />
 
-        <ClassificationFilterField
-          label="Certificado"
-          placeholder="Qualquer certificado"
-          options={classificationOptions.certif}
-          selected={draftHiddenFilters.certificados}
-          loading={classificationOptionsLoading}
-          onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, certificados: next }))}
-        />
+          <ClassificationFilterField
+            label="Certificado"
+            placeholder="Qualquer certificado"
+            options={classificationOptions.certif}
+            selected={draftHiddenFilters.certificados}
+            loading={classificationOptionsLoading}
+            onChange={(next) => setDraftHiddenFilters((c) => ({ ...c, certificados: next }))}
+          />
+        </div>
 
         <div className="samples-filter-row">
           <div className="samples-filter-field">

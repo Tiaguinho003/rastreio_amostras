@@ -12059,6 +12059,10 @@ button:disabled {
    do campo (ocupava espaco vertical desnecessario). */
 .samples-filter-multi-wrap {
   position: relative;
+  /* Deixa o box encolher quando o campo esta numa coluna do .samples-filter-row
+     (2 por linha) — sem isto o min-content dos tokens/placeholder estouraria a
+     coluna de 1fr. */
+  min-width: 0;
 }
 
 .samples-filter-multi {
@@ -12110,9 +12114,17 @@ button:disabled {
 }
 
 .samples-filter-multi-placeholder {
+  flex: 1;
+  min-width: 0;
   font-size: 0.82rem;
   color: rgba(0, 0, 0, 0.32);
   font-weight: 500;
+  /* Em meia largura (2 campos por linha) um placeholder longo ("Qualquer
+     certificado") nao deve quebrar em 2 linhas e variar a altura do box: fica em
+     1 linha com reticencias. O label acima ja identifica o campo. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .samples-filter-multi-chevron {
@@ -12295,6 +12307,9 @@ button:disabled {
 .samples-filter-field {
   display: grid;
   gap: 0.22rem;
+  /* Permite encolher quando esta numa coluna do .samples-filter-row (2 por
+     linha); sem isto o conteudo forcaria a coluna a ultrapassar 1fr. */
+  min-width: 0;
 }
 
 .samples-filter-field-label {
@@ -17359,10 +17374,14 @@ select.samples-filter-field-input {
     gap: clamp(0.28rem, 1.2vw, 0.4rem);
   }
 
-  .samples-filter-input {
+  /* Altura-piso para todos os campos do modal (selects, numero e principalmente
+     os de Periodo type=date). Os campos type=date levam -webkit-appearance:none
+     pra corrigir o overflow do icone no iOS, o que os colapsa pra altura de um
+     input de texto — sem este floor eles ficavam mais finos que os selects/numero
+     (que tem altura intrinseca nativa) e dificeis de tocar. So min-height: padding
+     e raio dos demais ja estao corretos e nao devem mudar. */
+  .samples-filter-field-input {
     min-height: clamp(2.1rem, 7vw, 2.46rem);
-    padding: clamp(0.46rem, 1.8vw, 0.64rem) clamp(0.6rem, 2.5vw, 0.88rem);
-    border-radius: clamp(12px, 4vw, 16px);
   }
 
   .samples-filter-modal-actions {
@@ -17371,9 +17390,9 @@ select.samples-filter-field-input {
 
   .samples-filter-modal-actions .app-modal-secondary,
   .samples-filter-modal-actions .app-modal-submit {
-    min-height: clamp(1.9rem, 6.5vw, 2.24rem);
-    padding: clamp(0.28rem, 1.1vw, 0.38rem) clamp(0.42rem, 1.8vw, 0.62rem);
-    font-size: clamp(0.66rem, 2.3vw, 0.8rem);
+    min-height: clamp(2.3rem, 8vw, 2.7rem);
+    padding: clamp(0.4rem, 1.5vw, 0.55rem) clamp(0.6rem, 2.4vw, 0.9rem);
+    font-size: clamp(0.76rem, 2.6vw, 0.9rem);
   }
 
   .sample-detail-top-bar {
