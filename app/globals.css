@@ -11073,8 +11073,15 @@ button:disabled {
     transform 0.15s;
 }
 
-.cld-edit-action:active {
+.cld-edit-action:active:not(:disabled) {
   transform: scale(0.94);
+}
+
+/* Em modo edicao o "Editar" nao some (mantem o layout estavel): fica opaco e
+   inativo. */
+.cld-edit-action:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .cld-edit-action svg {
@@ -11259,6 +11266,27 @@ button:disabled {
   /* Posicionamento + scroll do saved overlay. Largura/altura/padding/
      animacao herdadas de .app-modal.is-themed.is-wide. */
   position: relative;
+  /* Padding do campo compartilhado entre LEITURA e EDICAO: garante que a caixa
+     do valor e do input sejam identicas — ao editar so a borda aparece. */
+  --cld-field-pad: clamp(8px, 2.2vw, 10px) clamp(10px, 2.6vw, 12px);
+}
+
+/* Acoes de edicao (Cancelar | Salvar): metade pra cada, com gap claro das bordas
+   — alem do padding do corpo do modal, um inset horizontal extra recua os botoes
+   (a divisoria/border-top continua na largura toda). margin-bottom afasta do
+   rodape. Especificidade alta pra sobrescrever o flex/flex-end base. */
+.app-modal.is-themed .app-modal-actions.cld-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(0.6rem, 2.5vw, 0.85rem);
+  padding: clamp(0.75rem, 2.4vw, 1rem) clamp(0.45rem, 2vw, 0.7rem) 0;
+  margin-bottom: clamp(0.25rem, 1.2vw, 0.45rem);
+}
+
+.cld-edit-actions > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.6rem;
 }
 
 /* Acoes secundarias no header verde (Reclassificar, Editar). Visualmente
@@ -11303,16 +11331,6 @@ button:disabled {
   height: 14px;
 }
 
-/* Linha de 2 secoes lado a lado (Tipo | Bebida), cada uma com metade da
-   largura. minmax(0, 1fr) deixa o conteudo truncar em vez de estourar a
-   margem; align-items: stretch iguala a altura das duas. */
-.cld-section-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(0.7rem, 2vw, 0.95rem);
-  align-items: stretch;
-}
-
 /* Minimalista: secoes neutras (sem cor de accent, sem bolinha), separadas por
    uma borda discreta. O titulo e um header de secao com hairline embaixo. */
 .cld-section {
@@ -11323,6 +11341,14 @@ button:disabled {
   border: 1.5px solid rgba(0, 0, 0, 0.12);
   border-radius: clamp(10px, 3vw, 12px);
   background: #ffffff;
+}
+
+/* Tipo | Bebida: dois cards separados (cada um com sua borda), lado a lado em
+   50/50, com o mesmo gap entre eles e conteudo centralizado. */
+.cld-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(0.7rem, 2vw, 0.95rem);
 }
 
 .cld-section-title {
@@ -11349,7 +11375,7 @@ button:disabled {
 
 .cld-grid {
   display: grid;
-  gap: clamp(6px, 2vw, 8px) clamp(8px, 2.5vw, 10px);
+  gap: clamp(14px, 3.6vw, 17px) clamp(12px, 3.4vw, 14px);
 }
 
 .cld-grid-1 {
@@ -11387,12 +11413,12 @@ button:disabled {
 .cld-field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .cld-field-label {
-  font-size: clamp(9px, 2.5vw, 10px);
+  font-size: clamp(11px, 2.9vw, 12px);
   font-weight: 600;
   color: #999;
   text-transform: uppercase;
@@ -11400,8 +11426,17 @@ button:disabled {
 }
 
 .cld-field-value {
-  font-size: clamp(12px, 3.4vw, 13px);
-  font-weight: 600;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  /* Borda neutra sutil ja no modo leitura (mesma caixa do input). Ao editar so a
+     cor muda pra verde — zero mudanca de tamanho/posicao. */
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: var(--cld-field-pad);
+  line-height: 1.4;
+  font-size: clamp(14px, 4vw, 15.5px);
+  font-weight: 500;
   color: #1a1a1a;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -11417,34 +11452,53 @@ button:disabled {
 .cld-obs-value {
   white-space: normal;
   font-weight: 500;
+  /* Mesma caixa do textarea de edicao (altura minima + padding), pra Observacoes
+     tambem nao "abrir" ao editar. */
+  overflow: visible;
+  min-height: clamp(44px, 13vw, 56px);
+  padding: var(--cld-field-pad);
 }
 
+/* Modo edicao SEM deslocar nada: o input ocupa exatamente a mesma caixa do
+   valor (mesma fonte/peso/tamanho, largura cheia, padding 0, line-height
+   herdado). A "borda" e desenhada via box-shadow, que NAO ocupa espaco de
+   layout — entao posicao e tamanho dos campos ficam identicos ao modo leitura;
+   so aparece a moldura ao redor do valor pra indicar que da pra clicar/editar. */
 .cld-field-input {
   width: 100%;
-  padding: clamp(6px, 2vw, 8px) clamp(8px, 2.5vw, 10px);
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  border-radius: clamp(7px, 2.2vw, 9px);
-  background: #faf9f6;
-  font-size: clamp(12px, 3.4vw, 13px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--cld-field-pad);
+  /* Mesma caixa do .cld-field-value (mesma fonte, line-height, border-box,
+     largura, padding e borda 1.5px) — so a cor da borda fica visivel. */
+  border: 1.5px solid rgba(22, 91, 42, 0.4);
+  border-radius: 8px;
+  background: transparent;
   font-family: inherit;
+  font-size: clamp(14px, 4vw, 15.5px);
+  font-weight: 500;
   color: #1a1a1a;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
+  line-height: 1.4;
+  appearance: none;
+  -webkit-appearance: none;
   outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .cld-field-input:focus {
-  background: #ffffff;
   border-color: var(--brand-green-soft);
-  box-shadow: 0 0 0 2.5px rgba(46, 125, 50, 0.1);
+  background: rgba(22, 91, 42, 0.05);
 }
 
+/* Observacoes e multilinha: mantem altura propria + um padding interno (a
+   moldura precisa de respiro num campo alto). box-sizing border-box evita
+   crescer na horizontal. */
 .cld-textarea {
   resize: vertical;
-  min-height: clamp(60px, 18vw, 80px);
+  min-height: clamp(44px, 13vw, 56px);
+  padding: var(--cld-field-pad);
   font-family: inherit;
 }
 
@@ -11560,22 +11614,6 @@ button:disabled {
   color: #7f1d1d;
   background: rgba(254, 226, 226, 0.4);
   border-radius: 8px;
-}
-
-.cld-classifier-search {
-  width: 100%;
-  padding: clamp(8px, 2.4vw, 10px) clamp(10px, 3vw, 12px);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  background: #ffffff;
-  font-size: clamp(12px, 3.4vw, 13px);
-  font-family: inherit;
-  color: #1a1a1a;
-  outline: none;
-}
-
-.cld-classifier-search:focus {
-  border-color: var(--brand-green-soft);
 }
 
 .cld-classifier-list {

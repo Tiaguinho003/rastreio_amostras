@@ -489,6 +489,7 @@ export default function SampleDetailPage() {
   // Efeito de check ao salvar com sucesso (substitui a mensagem verde).
   const [registrationSaveSuccess, setRegistrationSaveSuccess] = useState(false);
   const [classificationDetailOpen, setClassificationDetailOpen] = useState(false);
+  const [classificationSaveConfirmOpen, setClassificationSaveConfirmOpen] = useState(false);
   const [classificationDetailEditing, setClassificationDetailEditing] = useState(false);
   const [classificationDetailSaving, setClassificationDetailSaving] = useState(false);
   const [classificationDetailSaved, setClassificationDetailSaved] = useState(false);
@@ -504,7 +505,6 @@ export default function SampleDetailPage() {
     UserLookupItem[]
   >([]);
   const [classificationDetailLoadingUsers, setClassificationDetailLoadingUsers] = useState(false);
-  const [classificationDetailUserSearch, setClassificationDetailUserSearch] = useState('');
   const [classificationDetailUserError, setClassificationDetailUserError] = useState<string | null>(
     null
   );
@@ -516,6 +516,8 @@ export default function SampleDetailPage() {
   const [classificationDetailTypeOriginal, setClassificationDetailTypeOriginal] =
     useState<ClassificationType | null>(null);
   const classificationDetailTrapRef = useFocusTrap(classificationDetailOpen);
+  const classificationSaveConfirmTrapRef = useFocusTrap(classificationSaveConfirmOpen);
+  const classificationPhotoSectionRef = useRef<HTMLDivElement | null>(null);
   const [, setClassificationEditMode] = useState(false);
   const classificationEditModeRef = useRef(false);
   const [classificationEditReasonCode, setClassificationEditReasonCode] =
@@ -1680,7 +1682,6 @@ export default function SampleDetailPage() {
     setClassificationDetailType(initialType);
     setClassificationDetailTypeOriginal(initialType);
     setClassificationDetailPickerOpen(false);
-    setClassificationDetailUserSearch('');
     setClassificationDetailUserError(null);
     setClassificationDetailEditing(false);
     setClassificationDetailSaved(false);
@@ -1693,7 +1694,6 @@ export default function SampleDetailPage() {
     setClassificationDetailSaving(false);
     setClassificationDetailSaved(false);
     setClassificationDetailPickerOpen(false);
-    setClassificationDetailUserSearch('');
   }
 
   function updateClassificationDetailField(key: keyof ClassificationFormState, value: string) {
@@ -1741,6 +1741,18 @@ export default function SampleDetailPage() {
     return original.some((o) => !currentIds.has(o.id));
   }
 
+  // Cancelar a edicao: descarta as alteracoes (restaura valores originais) e
+  // sai do modo edicao, voltando o modal expandido pro modo leitura.
+  function cancelClassificationDetailEdit() {
+    if (detail && session) {
+      setClassificationDetailForm(buildClassificationFormState(detail));
+    }
+    setClassificationDetailClassifiers(classificationDetailClassifiersOriginal);
+    setClassificationDetailType(classificationDetailTypeOriginal);
+    setClassificationDetailPickerOpen(false);
+    setClassificationDetailEditing(false);
+  }
+
   async function saveClassificationDetail() {
     if (!session || !detail || detail.sample.status === 'INVALIDATED') return;
 
@@ -1786,6 +1798,13 @@ export default function SampleDetailPage() {
           }`
         : 'Edicao rapida';
 
+      // Sequencia continua: o check ja aparece no modal expandido na MESMA render
+      // do fechamento da confirmacao (sem esperar a API). O save roda em seguida;
+      // em caso de falha, reverte (tira o check e volta pro modo edicao).
+      setClassificationDetailSaved(true);
+      setClassificationDetailEditing(false);
+      setClassificationDetailPickerOpen(false);
+
       await updateClassification(session, sampleId, {
         expectedVersion: detail.sample.version,
         after: afterPayload as { [key: string]: import('../../../lib/api-client').JsonValue },
@@ -1794,16 +1813,15 @@ export default function SampleDetailPage() {
         classificationType: classificationDetailType,
       });
 
-      setClassificationDetailSaved(true);
-      setClassificationDetailEditing(false);
-      setClassificationDetailPickerOpen(false);
-      await syncDetailState({ refreshHistory: true });
-
-      setTimeout(() => {
-        setClassificationDetailSaved(false);
-      }, 2000);
+      // Refresh em background pra nao segurar a animacao; fecha logo apos o check.
+      void syncDetailState({ refreshHistory: true });
+      window.setTimeout(() => {
+        closeClassificationDetail();
+      }, 800);
     } catch {
-      // Silently fail — user can retry
+      // Falha: reverte o check e volta pro modo edicao pra tentar de novo.
+      setClassificationDetailSaved(false);
+      setClassificationDetailEditing(true);
     } finally {
       setClassificationDetailSaving(false);
     }
@@ -3041,7 +3059,7 @@ export default function SampleDetailPage() {
             const renderVal = (
               key: keyof ClassificationFormState,
               label: string,
-              inputMode: 'text' | 'decimal' = 'text'
+              inputMode: 'text' | 'decimal' | 'numeric' = 'text'
             ) => {
               const isEmpty = !editing && !f[key];
               return (
@@ -3055,13 +3073,15 @@ export default function SampleDetailPage() {
                       value={f[key]}
                       onChange={(e) => {
                         const raw = e.target.value;
-                        updateClassificationDetailField(
-                          key,
-                          inputMode === 'decimal' ? raw : raw.toUpperCase()
-                        );
+                        const next =
+                          inputMode === 'numeric'
+                            ? raw.replace(/\D/g, '')
+                            : inputMode === 'decimal'
+                              ? raw
+                              : raw.toUpperCase();
+                        updateClassificationDetailField(key, next);
                       }}
                       disabled={saving}
-                      placeholder="\u2014"
                     />
                   ) : (
                     <span className="cld-field-value">{f[key] || '\u2014'}</span>
@@ -3109,7 +3129,7 @@ export default function SampleDetailPage() {
                   {(() => {
                     return (
                       <div className="app-modal-content cld-body">
-                        <div className="cld-photo-section">
+                        <div className="cld-photo-section" ref={classificationPhotoSectionRef}>
                           {classificationServerPhotoUrl ? (
                             <button
                               type="button"
@@ -3130,12 +3150,31 @@ export default function SampleDetailPage() {
                           )}
                         </div>
 
-                        {canEdit && !editing ? (
+                        {canEdit ? (
                           <div className="cld-edit-row">
                             <button
                               type="button"
                               className="cld-edit-action"
-                              onClick={() => setClassificationDetailEditing(true)}
+                              onClick={() => {
+                                setClassificationDetailEditing(true);
+                                // Scroll natural ate a borda inferior da foto, revelando
+                                // os campos pra edicao. requestAnimationFrame garante medir
+                                // apos o DOM refletir o modo edicao.
+                                requestAnimationFrame(() => {
+                                  const photoEl = classificationPhotoSectionRef.current;
+                                  const bodyEl = photoEl?.closest('.cld-body') as
+                                    | HTMLElement
+                                    | null
+                                    | undefined;
+                                  if (photoEl && bodyEl) {
+                                    const delta =
+                                      photoEl.getBoundingClientRect().bottom -
+                                      bodyEl.getBoundingClientRect().top;
+                                    bodyEl.scrollBy({ top: delta, behavior: 'smooth' });
+                                  }
+                                });
+                              }}
+                              disabled={editing}
                             >
                               <svg
                                 viewBox="0 0 24 24"
@@ -3158,56 +3197,63 @@ export default function SampleDetailPage() {
                             ClassificationReviewModal (tipo → identificacao →
                             visual → peneiras 2x5 → fundos → catacao+defeitos →
                             obs+beb). */}
-                        <div className="cld-section-row">
-                          <div className="cld-section is-type">
-                            <div className="cld-section-title">Tipo</div>
-                            {editing ? (
-                              <select
-                                className="cld-field-input cld-type-select"
-                                value={classificationDetailType ?? ''}
-                                onChange={(e) =>
-                                  setClassificationDetailType(
-                                    e.target.value === ''
-                                      ? null
-                                      : (e.target.value as ClassificationType)
-                                  )
-                                }
-                                disabled={saving}
-                              >
-                                <option value="">— Sem tipo —</option>
-                                <option value="BICA">BICA</option>
-                                <option value="PREPARADO">PREPARADO</option>
-                                <option value="BAIXO">BAIXO</option>
-                                <option value="ESCOLHA">ESCOLHA</option>
-                                <option value="CONILON">CONILON</option>
-                              </select>
-                            ) : (
-                              <span className="cld-field-value">
-                                {classificationDetailType
-                                  ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
-                                  : '—'}
-                              </span>
-                            )}
+                        <div className="cld-pair">
+                          <div className="cld-section">
+                            <div
+                              className={`cld-field${
+                                !editing && !classificationDetailType ? ' is-empty' : ''
+                              }`}
+                            >
+                              <span className="cld-field-label">Tipo</span>
+                              {editing ? (
+                                <select
+                                  className="cld-field-input cld-type-select"
+                                  value={classificationDetailType ?? ''}
+                                  onChange={(e) =>
+                                    setClassificationDetailType(
+                                      e.target.value === ''
+                                        ? null
+                                        : (e.target.value as ClassificationType)
+                                    )
+                                  }
+                                  disabled={saving}
+                                >
+                                  <option value="">— Sem tipo —</option>
+                                  <option value="BICA">BICA</option>
+                                  <option value="PREPARADO">PREPARADO</option>
+                                  <option value="BAIXO">BAIXO</option>
+                                  <option value="ESCOLHA">ESCOLHA</option>
+                                  <option value="CONILON">CONILON</option>
+                                </select>
+                              ) : (
+                                <span className="cld-field-value">
+                                  {classificationDetailType
+                                    ? CLASSIFICATION_TYPE_LABEL[classificationDetailType]
+                                    : '—'}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="cld-section is-bebida">
-                            <div className="cld-section-title">Bebida</div>
-                            {editing ? (
-                              <input
-                                type="text"
-                                className="cld-field-input"
-                                value={f.bebida}
-                                onChange={(e) =>
-                                  updateClassificationDetailField(
-                                    'bebida',
-                                    e.target.value.toUpperCase()
-                                  )
-                                }
-                                disabled={saving}
-                                placeholder="—"
-                              />
-                            ) : (
-                              <span className="cld-field-value">{f.bebida || '—'}</span>
-                            )}
+                          <div className="cld-section">
+                            <div className={`cld-field${!editing && !f.bebida ? ' is-empty' : ''}`}>
+                              <span className="cld-field-label">Bebida</span>
+                              {editing ? (
+                                <input
+                                  type="text"
+                                  className="cld-field-input"
+                                  value={f.bebida}
+                                  onChange={(e) =>
+                                    updateClassificationDetailField(
+                                      'bebida',
+                                      e.target.value.toUpperCase()
+                                    )
+                                  }
+                                  disabled={saving}
+                                />
+                              ) : (
+                                <span className="cld-field-value">{f.bebida || '—'}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -3258,7 +3304,7 @@ export default function SampleDetailPage() {
                         <div className="cld-section is-defects">
                           <div className="cld-section-title">Catação e defeitos</div>
                           <div className="cld-grid cld-grid-3">
-                            {renderVal('catacao', 'Cat.')}
+                            {renderVal('catacao', 'Cat.', 'numeric')}
                             {renderVal('imp', 'Imp.')}
                             {renderVal('pva', 'PVA')}
                           </div>
@@ -3282,7 +3328,11 @@ export default function SampleDetailPage() {
                             <div className="cld-classifier-chips">
                               {classificationDetailClassifiers.map((entry) => (
                                 <span key={entry.id} className="cld-classifier-chip">
-                                  <span className="cld-classifier-chip-name">{entry.fullName}</span>
+                                  {editing ? null : (
+                                    <span className="cld-classifier-chip-name">
+                                      {entry.fullName}
+                                    </span>
+                                  )}
                                   <span className="cld-classifier-chip-user">
                                     @{entry.username}
                                   </span>
@@ -3326,33 +3376,13 @@ export default function SampleDetailPage() {
                                 </div>
                               ) : (
                                 <>
-                                  <input
-                                    type="text"
-                                    className="cld-classifier-search"
-                                    placeholder="Buscar por nome ou usuario"
-                                    value={classificationDetailUserSearch}
-                                    onChange={(e) =>
-                                      setClassificationDetailUserSearch(e.target.value)
-                                    }
-                                  />
                                   <div className="cld-classifier-list">
-                                    {(() => {
-                                      const q = classificationDetailUserSearch.trim().toLowerCase();
-                                      const filtered = q
-                                        ? classificationDetailAvailableUsers.filter(
-                                            (u) =>
-                                              u.fullName.toLowerCase().includes(q) ||
-                                              u.username.toLowerCase().includes(q)
-                                          )
-                                        : classificationDetailAvailableUsers;
-                                      if (filtered.length === 0) {
-                                        return (
-                                          <div className="cld-classifier-empty">
-                                            Nenhum usuario encontrado.
-                                          </div>
-                                        );
-                                      }
-                                      return filtered.map((user) => {
+                                    {classificationDetailAvailableUsers.length === 0 ? (
+                                      <div className="cld-classifier-empty">
+                                        Nenhum usuario disponivel.
+                                      </div>
+                                    ) : (
+                                      classificationDetailAvailableUsers.map((user) => {
                                         const selected = classificationDetailClassifiers.some(
                                           (c) => c.id === user.id
                                         );
@@ -3382,8 +3412,8 @@ export default function SampleDetailPage() {
                                             </span>
                                           </button>
                                         );
-                                      });
-                                    })()}
+                                      })
+                                    )}
                                   </div>
                                   <button
                                     type="button"
@@ -3411,7 +3441,6 @@ export default function SampleDetailPage() {
                                 )
                               }
                               disabled={saving}
-                              placeholder="\u2014"
                               rows={3}
                             />
                           ) : (
@@ -3425,33 +3454,22 @@ export default function SampleDetailPage() {
                   })()}
 
                   {editing ? (
-                    <div className="app-modal-actions">
-                      <button
-                        type="button"
-                        className="app-modal-submit"
-                        onClick={() => void saveClassificationDetail()}
-                        disabled={saving}
-                      >
-                        {saving ? 'Salvando...' : 'Salvar'}
-                      </button>
+                    <div className="app-modal-actions cld-edit-actions">
                       <button
                         type="button"
                         className="app-modal-secondary"
-                        onClick={() => {
-                          if (detail && session)
-                            setClassificationDetailForm(buildClassificationFormState(detail));
-                          setClassificationDetailClassifiers(
-                            classificationDetailClassifiersOriginal
-                          );
-                          // Q.cls.2 audit do tipo: cancelar restaura o tipo original.
-                          setClassificationDetailType(classificationDetailTypeOriginal);
-                          setClassificationDetailPickerOpen(false);
-                          setClassificationDetailUserSearch('');
-                          setClassificationDetailEditing(false);
-                        }}
+                        onClick={cancelClassificationDetailEdit}
                         disabled={saving}
                       >
                         Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="app-modal-submit"
+                        onClick={() => setClassificationSaveConfirmOpen(true)}
+                        disabled={saving}
+                      >
+                        {saving ? 'Salvando...' : 'Salvar'}
                       </button>
                     </div>
                   ) : null}
@@ -3475,6 +3493,66 @@ export default function SampleDetailPage() {
             );
           })()
         : null}
+
+      {classificationSaveConfirmOpen ? (
+        <div className="app-modal-backdrop" onClick={() => setClassificationSaveConfirmOpen(false)}>
+          <section
+            ref={classificationSaveConfirmTrapRef}
+            className="app-modal is-themed sample-detail-compact-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cls-save-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="cls-save-confirm-title" className="app-modal-title">
+                  Salvar sem reclassificar
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="app-modal-close"
+                onClick={() => setClassificationSaveConfirmOpen(false)}
+                aria-label="Fechar"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </header>
+            <div className="app-modal-content">
+              <p className="sdv-modal-hint">
+                As informações serão atualizadas sem trocar a foto de classificação.
+              </p>
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={() => {
+                    setClassificationSaveConfirmOpen(false);
+                    // Volta pro modal expandido em modo leitura, com os valores
+                    // antigos (descarta a edicao). Pra editar de novo, clica Editar.
+                    cancelClassificationDetailEdit();
+                  }}
+                  disabled={classificationDetailSaving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="app-modal-submit"
+                  onClick={() => {
+                    setClassificationSaveConfirmOpen(false);
+                    void saveClassificationDetail();
+                  }}
+                  disabled={classificationDetailSaving}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {classificationEditReasonModalOpen ? (
         <div className="app-modal-backdrop">
