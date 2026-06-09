@@ -183,13 +183,15 @@ mudanca implicita do browser. Confirmado por `git log` do fix.
 
 Lista de seletores que ja seguem o pattern corretamente — podem ser usados como referencia:
 
-| Selector                       | Arquivo:linha      | Variante                                               |
-| ------------------------------ | ------------------ | ------------------------------------------------------ |
-| `.dashboard-operation-card`    | globals.css ~3776  | scale(0.95) + focus outline                            |
-| `.sales-card-detail-button`    | globals.css        | scale(0.96) — Link "Ver disponiveis" no card de vendas |
-| `.app-modal-card-classify-cta` | globals.css ~1601  | scale(0.96) + opacity(0.92)                            |
-| `.dashboard-hero-avatar`       | globals.css ~15250 | scale(0.92) — botao pequeno circular                   |
-| `.app-modal-close` (themed)    | globals.css ~1189  | scale(0.94) — close button                             |
+| Selector                       | Arquivo:linha      | Variante                                                     |
+| ------------------------------ | ------------------ | ------------------------------------------------------------ |
+| `.dashboard-operation-card`    | globals.css ~3776  | scale(0.95) + focus outline                                  |
+| `.sales-card-detail-button`    | globals.css        | scale(0.96) — Link "Ver disponiveis" no card de vendas       |
+| `.app-modal-card-classify-cta` | globals.css ~1601  | scale(0.96) + opacity(0.92)                                  |
+| `.dashboard-hero-avatar`       | globals.css ~15250 | scale(0.92) — botao pequeno circular                         |
+| `.app-modal-close` (themed)    | globals.css ~1189  | scale(0.94) — close button                                   |
+| `.header-avatar-trigger`       | globals.css        | scale(0.92) — botao de avatar no header (abre menu da conta) |
+| `.header-avatar-menu-row`      | globals.css        | scale(0.98) — linha do menu da conta (depth-only, sem cor)   |
 
 ## 7. Como auditar um elemento existente
 

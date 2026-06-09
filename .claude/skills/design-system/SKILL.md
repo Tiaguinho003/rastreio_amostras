@@ -250,7 +250,7 @@ Excecao a regra "nunca verde ao clicar":
 
 > Componente reusavel: `components/BottomSheet.tsx`. Usar este wrapper ao construir qualquer bottom sheet novo — nao replicar o CSS na mao. Em desktop (>900px) o mesmo componente transforma-se em modal centralizado via CSS responsivo.
 
-**API:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss?, dragDisabled?, ariaLabel? }` (controlled, declarativo). `onDismissAttempt` async permite cancelar fechamento (ex: modal de confirmacao "Descartar?").
+**API:** `{ open, onClose, onDismissAttempt?, title?, footer?, children, dragToDismiss?, dragDisabled?, ariaLabel?, className? }` (controlled, declarativo). `onDismissAttempt` async permite cancelar fechamento (ex: modal de confirmacao "Descartar?").
 
 **Caracteristicas do CSS base (`bottom-sheet*` em globals.css):**
 
@@ -268,6 +268,7 @@ Excecao a regra "nunca verde ao clicar":
 - Focus trap via `useFocusTrap`; `role="dialog"` + `aria-modal="true"`
 - `translate3d` permanente: GPU layer; previne scroll lock iOS standalone PWA
 - **Conteudo congelado no close:** ao fechar (`open=false`), o sheet fica montado por `ANIMATION_MS` (350ms) pro slide-down e renderiza um **snapshot do ultimo estado aberto** (children/title/footer/className/ariaLabel). Se o consumidor recomputar os props pro proximo estado durante o close (ex: trocar `flowState`), o conteudo e a altura **nao** mudam no meio da saida — evita o sheet "crescer + trocar de body" enquanto desce. Durante o close o `.bottom-sheet` fica `pointer-events: none` (sem clique fantasma no footer congelado). Snapshot gravado via layout-effect; ao reabrir volta aos props ao vivo.
+- **Variante `.is-menu` (altura por conteudo):** `className="is-menu"` troca a altura fixa alta por `height: auto` + `max-height: min(72dvh, 30rem)`, pro sheet encolher ao conteudo (poucas linhas em vez de ocupar quase a tela). Usada pelo menu da conta no header mobile (`components/HeaderAvatarMenu.tsx`): botao de avatar (`.header-avatar-trigger`, mobile-only, substituiu o antigo sino) que abre um launcher com resumo (nome+cargo) + linhas Perfil/Usuarios(adm)/Metricas(desab. "Em breve")/Sair — cada linha fecha o sheet e navega.
 
 **Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
 
