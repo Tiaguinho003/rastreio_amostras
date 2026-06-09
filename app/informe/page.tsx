@@ -6,11 +6,11 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { useRequireAuth } from '../../lib/use-auth';
 
-// Pagina "Informe" — substitui o item Perfil no tabbar mobile (Perfil migrou
-// pro menu do avatar no header). Conteudo ainda nao definido: placeholder "Em
-// construcao". Reusa o shell e o empty-state das paginas de lista
-// (.clients-page-v2 / .spv2-empty) pra herdar header, fundo e clearance do
-// tabbar sem CSS novo; o navbar fica visivel (rota fora de hideMobileTabbar).
+// Pagina "Informe" (item do tabbar mobile; Perfil migrou pro menu do avatar).
+// Conteudo ainda nao definido: placeholder "Em construcao". Segue o padrao das
+// demais paginas: verde em cima (.sdv-header transparente sobre o app-shell
+// verde — rota layered no AppShell) + bege embaixo (.sdv-content). Navbar
+// visivel (fora de hideMobileTabbar).
 export default function InformePage() {
   const { session, loading, logout, setSession } = useRequireAuth();
 
@@ -29,28 +29,26 @@ export default function InformePage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <section className="clients-page-v2">
-        <header className="clients-v2-header">
-          <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <div className="clients-v2-header-center">
-            <h2 className="nsv2-title">Informe</h2>
+      <section className="sdv-page">
+        <header className="sdv-header">
+          <div className="sdv-header-top">
+            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </Link>
+            <span className="sdv-header-title">Informe</span>
+            <HeaderAvatarMenu session={session} onLogout={logout} />
+            <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
+              <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
+            </Link>
           </div>
-          <HeaderAvatarMenu session={session} onLogout={logout} />
-          <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
-            <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
-          </Link>
         </header>
 
-        <div className="spv2-list-scroll">
-          <div className="spv2-empty">
-            <p className="spv2-empty-text">Em construção</p>
-            <p className="spv2-empty-sub">Esta área estará disponível em breve.</p>
-          </div>
-        </div>
+        <section className="sdv-content informe-content">
+          <p className="informe-empty-text">Em construção</p>
+          <p className="informe-empty-sub">Esta área estará disponível em breve.</p>
+        </section>
       </section>
     </AppShell>
   );

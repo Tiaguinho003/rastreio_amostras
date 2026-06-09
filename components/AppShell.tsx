@@ -204,6 +204,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const isClientDetail = pathname.startsWith('/clients/') && pathname !== '/clients';
   const isUsersPage = pathname === '/users';
   const isProfilePage = pathname === '/profile';
+  const isInformePage = pathname === '/informe';
   const isLayeredRoute =
     isDashboard ||
     isNewSample ||
@@ -212,7 +213,8 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     isSampleDetail ||
     isClientDetail ||
     isUsersPage ||
-    isProfilePage;
+    isProfilePage ||
+    isInformePage;
   const headerMobileClass = isLayeredRoute ? 'topbar--dashboard-only' : 'topbar--hidden';
   // Rotas onde a tabbar mobile NAO deve renderizar (paginas de detalhe com
   // header proprio + back button; a tabbar so polui visualmente). A tabbar
