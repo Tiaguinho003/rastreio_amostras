@@ -1750,9 +1750,6 @@ function SamplesPage() {
               <div className="samples-filter-modal-content">{renderFilterFields()}</div>
 
               <div className="app-modal-actions samples-filter-modal-actions">
-                <button type="submit" className="app-modal-submit">
-                  Aplicar
-                </button>
                 <button
                   type="button"
                   className="app-modal-secondary"
@@ -1760,6 +1757,9 @@ function SamplesPage() {
                   disabled={!hasDraftHiddenFilters && !hasAppliedHiddenFilters}
                 >
                   Limpar
+                </button>
+                <button type="submit" className="app-modal-submit">
+                  Aplicar
                 </button>
               </div>
             </form>

@@ -2333,7 +2333,10 @@ button:disabled {
    Usado pelo modal de reclassificacao e pelo modal de edicao de Informacoes. */
 .app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
 .app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-movement-actions {
+.app-modal.is-themed .app-modal-actions.sample-detail-movement-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
+.app-modal.is-themed .app-modal-actions.blend-revert-actions,
+.app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
@@ -2341,7 +2344,10 @@ button:disabled {
 
 .sample-detail-reclassify-actions > button,
 .sample-detail-reg-edit-actions > button,
-.sample-detail-movement-actions > button {
+.sample-detail-movement-actions > button,
+.sample-detail-invalidate-actions > button,
+.blend-revert-actions > button,
+.samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;
 }
