@@ -256,7 +256,7 @@ Excecao a regra "nunca verde ao clicar":
 
 - Mobile: `position: fixed`, `transform: translate3d(0, 100%, 0)` → `translate3d(0, 0, 0)` ao abrir
 - Transition: `0.35s cubic-bezier(0.16, 1, 0.3, 1)`
-- Overlay: `rgba(0, 0, 0, 0.4)` com `backdrop-filter: blur(16px) saturate(1.05)`, fecha ao clicar (passa por `onDismissAttempt`)
+- Overlay: `rgba(0, 0, 0, 0.4)` com `backdrop-filter: blur(16px) saturate(1.05)`, fecha ao clicar (passa por `onDismissAttempt`). **NUNCA animar o `backdrop-filter`** (transition): animar blur re-borra a viewport inteira a cada frame e trava no mobile (jank + distorcao nas bordas no abrir/fechar). O blur fica estavel (so no estado aberto, sem transition); o fade suave e so do scrim (`background`).
 - Drag handle: barra `clamp(2.4rem, 11vw, 3.2rem)` x `4px`, cor `var(--color-line)`
 - Swipe down para fechar (threshold 60px); pausa se `dragDisabled=true` ou se target tem scroll
 - Fundo: `var(--brand-cream-soft)`
