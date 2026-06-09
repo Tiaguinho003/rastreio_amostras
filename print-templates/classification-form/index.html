@@ -252,6 +252,27 @@
         opacity: 0.7;
       }
 
+      /* "%" no canto superior direito dos campos percentuais, alinhado
+         verticalmente ao label (que fica no canto superior esquerdo). Mesmo
+         estilo discreto do "%" dos fundos. Campos cobertos:
+         - peneiras: as 2 linhas .row-sieve (P18..P15/MK + P14..P10);
+         - CAT.: 3a celula da linha de fundos (as 2 primeiras sao FD, que ja
+           tem seu proprio "%" via .fd-perc::after);
+         - IMP./PVA/BROCA: 1a linha de defeitos (6o filho do card, todas);
+         - GPI/AP: 2a linha de defeitos (7o filho), exceto a 3a celula (DEF.). */
+      .row-sieve > .cell::after,
+      .row-fundos > .cell:nth-child(3)::after,
+      .row-defects:nth-child(6) > .cell::after,
+      .row-defects:nth-child(7) > .cell:nth-child(-n + 2)::after {
+        content: '%';
+        position: absolute;
+        top: 0.6mm;
+        right: 1.2mm;
+        font-size: var(--label-size);
+        line-height: 1;
+        opacity: 0.7;
+      }
+
       /* Estilo de corte para exibir guias de impressao apenas na tela. */
       @media screen {
         :root {
