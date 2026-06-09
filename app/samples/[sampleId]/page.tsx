@@ -2379,9 +2379,15 @@ export default function SampleDetailPage() {
                         Backend mantem `components` em liga revertida (F8.3) —
                         a secao continua visivel como historico. */}
                   {detail.sample.isBlend && detail.components && detail.components.length > 0 ? (
-                    <div className="sdv-card">
-                      <span className="sdv-card-title">Composição da liga</span>
-                      <ul className="sdv-related-list">
+                    <div className="sdv-card sdv-blend-composition">
+                      <div className="sdv-card-header">
+                        <span className="sdv-card-title">Composição da liga</span>
+                        <span className="sdv-blend-composition-count">
+                          {detail.components.length}{' '}
+                          {detail.components.length === 1 ? 'registro' : 'registros'}
+                        </span>
+                      </div>
+                      <ul className="sdv-related-list sdv-blend-composition-list">
                         {detail.components.map((component, idx) => {
                           const origin = component.originSample;
                           if (!origin) {

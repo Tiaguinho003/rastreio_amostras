@@ -8725,7 +8725,8 @@ button:disabled {
 .sdv-info-compact .sdv-card-header,
 .sdv-cls-block .sdv-card-header,
 .sdv-com-summary .sdv-card-header,
-.sdv-com-movements-card .sdv-card-header {
+.sdv-com-movements-card .sdv-card-header,
+.sdv-blend-composition .sdv-card-header {
   margin: 0 calc(-1 * clamp(14px, 3.5vw, 16px)) clamp(11px, 2.8vw, 13px);
   padding: 0 clamp(14px, 3.5vw, 16px) clamp(10px, 2.6vw, 12px);
   border-bottom: 2px solid rgba(0, 0, 0, 0.1);
@@ -8736,9 +8737,106 @@ button:disabled {
 .sdv-info-compact .sdv-card-header .sdv-card-title,
 .sdv-cls-block .sdv-card-header .sdv-card-title,
 .sdv-com-summary .sdv-card-header .sdv-card-title,
-.sdv-com-movements-card .sdv-card-header .sdv-card-title {
+.sdv-com-movements-card .sdv-card-header .sdv-card-title,
+.sdv-blend-composition .sdv-card-header .sdv-card-title {
   font-size: clamp(9.5px, 2.6vw, 10.5px);
   color: #8a948c;
+}
+
+/* Contador de registros no canto direito do header (espelha o estilo mudo
+   do titulo da secao). */
+.sdv-blend-composition-count {
+  font-size: clamp(9.5px, 2.6vw, 10.5px);
+  font-weight: 600;
+  color: #8a948c;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Lista da composicao: capacidade de 3 cards sem scroll; com >3, rola dentro
+   do container (so vertical — nunca lateral). */
+.sdv-blend-composition-list {
+  max-height: 11.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* respiro horizontal pra sombra do card nao ser cortada pelo overflow-x. */
+  padding: clamp(10px, 2.5vw, 14px) clamp(2px, 1vw, 4px) clamp(2px, 1vw, 4px);
+}
+
+.sdv-blend-composition-list::-webkit-scrollbar {
+  width: 0.4rem;
+}
+
+.sdv-blend-composition-list::-webkit-scrollbar-thumb {
+  background: #d6d0c1;
+  border-radius: 999px;
+}
+
+.sdv-blend-composition-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Em telas largas os clamps de altura do card chegam ao maximo (cards mais
+   altos), entao a lista precisa de um pouco mais de altura pra ainda caber 3
+   sem cortar o terceiro. */
+@media (min-width: 600px) {
+  .sdv-blend-composition-list {
+    max-height: 13rem;
+  }
+}
+
+/* ── Card da composicao da liga (RelatedSampleRow): chrome do .spv2-card numa
+   linha so ──────────────────────────────────────────────────────────────── */
+.sdv-blend-card {
+  /* card mais baixo que o da lista (1 linha em vez de 2). */
+  padding: clamp(9px, 2.6vw, 12px) clamp(8px, 2.4vw, 11px) clamp(9px, 2.6vw, 12px)
+    clamp(12px, 3.4vw, 15px);
+  gap: clamp(8px, 2.2vw, 10px);
+}
+
+.sdv-blend-card .spv2-card-bar {
+  /* barra acompanha a altura da linha unica. */
+  height: clamp(22px, 6.5vw, 28px);
+}
+
+.sdv-blend-card .spv2-card-content {
+  flex-direction: row;
+  align-items: center;
+  gap: clamp(6px, 1.8vw, 8px);
+  flex-wrap: nowrap;
+}
+
+.sdv-blend-card-lot {
+  /* lote nao "engole" a linha: largura de conteudo, encolhe/ellipsis se preciso. */
+  flex: 0 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 1.4vw, 6px);
+}
+
+.sdv-blend-card-lot-text {
+  font-weight: 700;
+  font-size: clamp(13px, 3.8vw, 15px);
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sdv-blend-card-owner {
+  /* unico item que cede: ocupa o espaco restante e trunca. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(12px, 3.5vw, 13px);
+  color: #666;
+  font-weight: 500;
 }
 
 /* Fileira de acoes principais no rodape do container 1: Imprimir | Laudo |
