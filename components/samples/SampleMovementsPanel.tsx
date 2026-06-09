@@ -135,11 +135,6 @@ export function SampleMovementsPanel({
   const lost = sample.lostSacks ?? 0;
   const available = sample.availableSacks ?? 0;
   const commercialAllowed = COMMERCIAL_ALLOWED_STATUSES.includes(sample.status);
-  const totalDeclared = sample.declared?.sacks ?? sold + lost + available;
-  const total = totalDeclared || 1;
-  const soldPct = (sold / total) * 100;
-  const lostPct = (lost / total) * 100;
-  const availPct = Math.max(0, 100 - soldPct - lostPct);
 
   const STATUS_LABEL: Record<string, string> = {
     OPEN: 'Disponivel',
@@ -172,20 +167,6 @@ export function SampleMovementsPanel({
           >
             {commercialLabel}
           </span>
-        </div>
-        <div className="sdv-com-bar">
-          <div
-            className="sdv-com-bar-seg is-sold"
-            style={{ width: `${soldPct}%`, animationDelay: '0s' }}
-          />
-          <div
-            className="sdv-com-bar-seg is-lost"
-            style={{ width: `${lostPct}%`, animationDelay: '0.1s' }}
-          />
-          <div
-            className="sdv-com-bar-seg is-avail"
-            style={{ width: `${availPct}%`, animationDelay: '0.2s' }}
-          />
         </div>
         <div className="sdv-com-minis">
           <div className="sdv-com-mini is-sold">
@@ -224,24 +205,6 @@ export function SampleMovementsPanel({
         <div className="sdv-info-actions">
           <button
             type="button"
-            className="sdv-action-card is-sale"
-            disabled={!commercialAllowed || available <= 0}
-            onClick={() => {
-              setCreateType('SALE');
-              setCreateOpen(true);
-              clearFeedback();
-            }}
-          >
-            <span className="sdv-action-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-            </span>
-            <span className="sdv-action-card-label">Venda</span>
-          </button>
-          <button
-            type="button"
             className="sdv-action-card is-loss"
             disabled={!commercialAllowed || available <= 0}
             onClick={() => {
@@ -257,6 +220,24 @@ export function SampleMovementsPanel({
               </svg>
             </span>
             <span className="sdv-action-card-label">Perda</span>
+          </button>
+          <button
+            type="button"
+            className="sdv-action-card is-sale"
+            disabled={!commercialAllowed || available <= 0}
+            onClick={() => {
+              setCreateType('SALE');
+              setCreateOpen(true);
+              clearFeedback();
+            }}
+          >
+            <span className="sdv-action-card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </span>
+            <span className="sdv-action-card-label">Venda</span>
           </button>
         </div>
       </div>

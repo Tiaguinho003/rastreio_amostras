@@ -9570,39 +9570,9 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* Stacked bar */
-@keyframes sdv-barGrow {
-  from {
-    width: 0;
-  }
-}
-
-.sdv-com-bar {
-  display: flex;
-  height: 10px;
-  border-radius: 5px;
-  overflow: hidden;
-  gap: 2px;
-  margin: clamp(12px, 3vw, 16px) 0;
-}
-
-.sdv-com-bar-seg {
-  border-radius: 5px;
-  min-width: 4px;
-  animation: sdv-barGrow 0.8s ease both;
-}
-
-.sdv-com-bar-seg.is-sold {
-  background: #27ae60;
-}
-.sdv-com-bar-seg.is-lost {
-  background: #c0392b;
-}
-.sdv-com-bar-seg.is-avail {
-  background: #2980b9;
-}
-
-/* Mini cards */
+/* Mini cards — stat cards sobrios: superficie neutra unica (paleta creme do
+   app) + rotulo muted. A cor semantica fica concentrada no icone e no numero,
+   em tons profundos da paleta — sem os blocos tintados "infantis" de antes. */
 .sdv-com-minis {
   display: flex;
   gap: clamp(6px, 1.8vw, 8px);
@@ -9613,27 +9583,16 @@ button:disabled {
   border-radius: clamp(10px, 3vw, 12px);
   padding: clamp(12px, 3.5vw, 16px) clamp(8px, 2.2vw, 10px);
   text-align: center;
-  border: 1px solid;
-}
-
-.sdv-com-mini.is-sold {
-  background: rgba(39, 174, 96, 0.08);
-  border-color: rgba(39, 174, 96, 0.15);
-}
-.sdv-com-mini.is-lost {
-  background: rgba(192, 57, 43, 0.08);
-  border-color: rgba(192, 57, 43, 0.15);
-}
-.sdv-com-mini.is-avail {
-  background: rgba(41, 128, 185, 0.08);
-  border-color: rgba(41, 128, 185, 0.15);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(36, 57, 47, 0.04);
 }
 
 .sdv-com-mini-label {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: clamp(4px, 1.2vw, 6px);
 }
 
@@ -9646,45 +9605,38 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-.sdv-com-mini.is-sold .sdv-com-mini-label svg {
-  stroke: #27ae60;
-}
-.sdv-com-mini.is-sold .sdv-com-mini-label span {
-  color: #27ae60;
-}
-.sdv-com-mini.is-lost .sdv-com-mini-label svg {
-  stroke: #c0392b;
-}
-.sdv-com-mini.is-lost .sdv-com-mini-label span {
-  color: #c0392b;
-}
-.sdv-com-mini.is-avail .sdv-com-mini-label svg {
-  stroke: #2980b9;
-}
-.sdv-com-mini.is-avail .sdv-com-mini-label span {
-  color: #2980b9;
-}
-
 .sdv-com-mini-label span {
   font-size: clamp(10px, 2.8vw, 11px);
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
 .sdv-com-mini-value {
   display: block;
-  font-size: clamp(24px, 7vw, 30px);
+  font-size: clamp(20px, 6vw, 26px);
   font-weight: 700;
 }
 
+/* Acento de cor semantica — so no icone e no numero, em tons profundos. */
+.sdv-com-mini.is-sold .sdv-com-mini-label svg {
+  stroke: var(--brand-green);
+}
 .sdv-com-mini.is-sold .sdv-com-mini-value {
-  color: #27ae60;
+  color: var(--brand-green);
+}
+.sdv-com-mini.is-lost .sdv-com-mini-label svg {
+  stroke: var(--danger);
 }
 .sdv-com-mini.is-lost .sdv-com-mini-value {
-  color: #c0392b;
+  color: var(--danger);
+}
+.sdv-com-mini.is-avail .sdv-com-mini-label svg {
+  stroke: #3f6d8c;
 }
 .sdv-com-mini.is-avail .sdv-com-mini-value {
-  color: #2980b9;
+  color: #3f6d8c;
 }
 
 .sdv-com-mini-total {
@@ -24373,12 +24325,6 @@ select.samples-filter-field-input {
 
   /* ── Comercial: modais e info maiores ── */
 
-  .sdv-com-bar {
-    height: 14px;
-    border-radius: 7px;
-    margin: 1rem 0;
-  }
-
   .sdv-com-minis {
     gap: 0.75rem;
   }
@@ -24398,7 +24344,7 @@ select.samples-filter-field-input {
   }
 
   .sdv-com-mini-value {
-    font-size: 2rem;
+    font-size: 1.55rem;
   }
 
   .sdv-com-mini-total {
