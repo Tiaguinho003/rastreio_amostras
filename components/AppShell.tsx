@@ -22,7 +22,7 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar';
+type NavIcon = 'dashboard' | 'camera' | 'samples' | 'users' | 'clients' | 'avatar' | 'informe';
 type MobileRouteMeta = {
   title: string;
   subtitle: string;
@@ -69,9 +69,9 @@ const MOBILE_NAV_ITEMS = [
     emphasis: 'default' as const,
   },
   {
-    href: '/profile',
-    mobileLabel: 'Perfil',
-    icon: 'avatar' as NavIcon,
+    href: '/informe',
+    mobileLabel: 'Informe',
+    icon: 'informe' as NavIcon,
     emphasis: 'default' as const,
   },
 ] as const;
@@ -93,8 +93,8 @@ function isMainNavItemActive(pathname: string, href: string) {
     return pathname === '/clients' || pathname.startsWith('/clients/');
   }
 
-  if (href === '/profile') {
-    return pathname === '/profile';
+  if (href === '/informe') {
+    return pathname === '/informe';
   }
 
   return pathname === href;
@@ -139,6 +139,17 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
         <circle cx="12" cy="8" r="3.5" />
         <path d="M5 20a7 7 0 0 1 14 0" />
+      </svg>
+    );
+  }
+
+  if (icon === 'informe') {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <rect x="5.5" y="3.5" width="13" height="17" rx="2.2" />
+        <path d="M9 8h6" />
+        <path d="M9 11.5h6" />
+        <path d="M9 15h4" />
       </svg>
     );
   }
