@@ -7,6 +7,7 @@ import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-c
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
 import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-validation';
 import { useFocusTrap } from '../../lib/use-focus-trap';
+import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
 import { UserMultiSelect } from '../users/UserMultiSelect';
 
@@ -147,9 +148,10 @@ export function ClientQuickCreateModal({
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          // So usuarios COMMERCIAL podem ser responsaveis comerciais —
-          // alinhado com o filtro de responsavel do ClientsFilterButton em /clients.
-          setUsers(response.items.filter((u) => u.role === 'COMMERCIAL'));
+          // So papeis comerciais (COMMERCIAL + PROSPECTOR) podem ser
+          // responsaveis comerciais — alinhado com o filtro de responsavel do
+          // ClientsFilterButton em /clients.
+          setUsers(response.items.filter((u) => isCommercialRole(u.role)));
         }
       })
       .catch(() => {

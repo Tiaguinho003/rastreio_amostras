@@ -34,6 +34,7 @@ import type {
   UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
+import { isCommercialRole } from '../../lib/roles';
 
 const CLIENT_PAGE_LIMIT = 60;
 // 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
@@ -503,10 +504,10 @@ function ClientsPage() {
     lookupUsersForReference(session, { limit: 200 })
       .then((response) => {
         if (!cancelled) {
-          // 14.6.F: filtro de responsavel comercial mostra SO usuarios com
-          // role COMMERCIAL — outros papeis (admin, classifier, registration)
-          // nao costumam ser responsaveis comerciais de cliente.
-          const commercials = response.items.filter((u) => u.role === 'COMMERCIAL');
+          // 14.6.F: filtro de responsavel comercial mostra papeis comerciais
+          // (COMMERCIAL + PROSPECTOR) — admin/classifier/registration nao
+          // costumam ser responsaveis comerciais de cliente.
+          const commercials = response.items.filter((u) => isCommercialRole(u.role));
           setUsers(commercials);
         }
       })

@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import { assertRoleAllowed, isKnownRole, USER_ROLES } from '../src/auth/roles.js';
 import { HttpError } from '../src/contracts/errors.js';
 
-test('USER_ROLES contains the four known roles', () => {
+test('USER_ROLES contains the five known roles', () => {
   assert.deepEqual(Object.keys(USER_ROLES).sort(), [
     'ADMIN',
     'CLASSIFIER',
     'COMMERCIAL',
+    'PROSPECTOR',
     'REGISTRATION',
   ]);
 });
@@ -48,6 +49,7 @@ test('isKnownRole returns true for valid roles and false for invalid ones', () =
   assert.equal(isKnownRole('CLASSIFIER'), true);
   assert.equal(isKnownRole('REGISTRATION'), true);
   assert.equal(isKnownRole('COMMERCIAL'), true);
+  assert.equal(isKnownRole('PROSPECTOR'), true);
   assert.equal(isKnownRole('BANANA'), false);
   assert.equal(isKnownRole(undefined), false);
   assert.equal(isKnownRole(''), false);

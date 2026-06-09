@@ -6366,6 +6366,11 @@ button:disabled {
   color: #1e3a8a;
 }
 
+.user-multi-select__chip-role.is-role-prospector {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
 .user-multi-select__chip-role.is-role-classifier {
   background: #fef3c7;
   color: #78350f;
@@ -6493,6 +6498,11 @@ button:disabled {
 .user-multi-select__option-role.is-role-commercial {
   background: #dbeafe;
   color: #1e3a8a;
+}
+
+.user-multi-select__option-role.is-role-prospector {
+  background: #ccfbf1;
+  color: #115e59;
 }
 
 .user-multi-select__option-role.is-role-classifier {
@@ -7103,6 +7113,13 @@ button:disabled {
   color: #27ae60;
   background: #f0fdf4;
   border-color: #bbf7d0;
+}
+
+.cv2-card-role.is-role-prospector,
+.cdm-type-badge.is-role-prospector {
+  color: #0d9488;
+  background: #f0fdfa;
+  border-color: #99f6e4;
 }
 
 .cv2-card-role.is-locked,
@@ -25537,7 +25554,8 @@ select.samples-filter-field-input {
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-admin,
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-classifier,
   .clients-page-v2 .cv2-card .cv2-card-role.is-role-registration,
-  .clients-page-v2 .cv2-card .cv2-card-role.is-role-commercial {
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-commercial,
+  .clients-page-v2 .cv2-card .cv2-card-role.is-role-prospector {
     font-size: 0.62rem;
     padding: 3px 9px;
     border-radius: 7px;
@@ -26349,6 +26367,11 @@ select.samples-filter-field-input {
 .inactivate-user-modal__role-badge.is-role-commercial {
   background: #dbeafe;
   color: #1e3a8a;
+}
+
+.inactivate-user-modal__role-badge.is-role-prospector {
+  background: #ccfbf1;
+  color: #115e59;
 }
 
 .inactivate-user-modal__role-badge.is-role-classifier {

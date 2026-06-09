@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'CLASSIFIER' | 'REGISTRATION' | 'COMMERCIAL';
+export type UserRole = 'ADMIN' | 'CLASSIFIER' | 'REGISTRATION' | 'COMMERCIAL' | 'PROSPECTOR';
 export type UserStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface ClassifierSnapshot {

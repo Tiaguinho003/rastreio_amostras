@@ -45,6 +45,7 @@ const ROLE_LABEL: Record<string, string> = {
   COMMERCIAL: 'Comercial',
   CLASSIFIER: 'Classificador',
   REGISTRATION: 'Registro',
+  PROSPECTOR: 'Prospector',
 };
 
 function getInitials(name: string): string {

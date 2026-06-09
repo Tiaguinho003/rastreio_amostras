@@ -138,6 +138,7 @@ enum UserRole {
   CLASSIFIER
   REGISTRATION
   COMMERCIAL
+  PROSPECTOR
 }
 
 enum UserStatus {

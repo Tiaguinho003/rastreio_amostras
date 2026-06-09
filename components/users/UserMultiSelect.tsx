@@ -36,6 +36,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   COMMERCIAL: 'Comercial',
   CLASSIFIER: 'Classificador',
   REGISTRATION: 'Registro',
+  PROSPECTOR: 'Prospector',
 };
 
 function roleClass(role?: UserRole): string {

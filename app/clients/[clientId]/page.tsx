@@ -47,6 +47,7 @@ import { useDocumentMask } from '../../../lib/use-document-mask';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
+import { isCommercialRole } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import type {
   ClientPurchaseListItem,
@@ -647,8 +648,8 @@ export default function ClientDetailPage() {
     setLoadingUsers(true);
     lookupUsersForReference(session, { limit: 200 })
       .then((response) =>
-        // So usuarios COMMERCIAL podem ser responsaveis comerciais.
-        setUsers(response.items.filter((u) => u.role === 'COMMERCIAL'))
+        // So papeis comerciais (COMMERCIAL + PROSPECTOR) podem ser responsaveis.
+        setUsers(response.items.filter((u) => isCommercialRole(u.role)))
       )
       .catch(() => setUsers([]))
       .finally(() => setLoadingUsers(false));

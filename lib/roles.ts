@@ -5,6 +5,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   CLASSIFIER: 'Classificador',
   REGISTRATION: 'Registro',
   COMMERCIAL: 'Comercial',
+  PROSPECTOR: 'Prospector',
 };
 
 export function getRoleLabel(role: UserRole): string {
@@ -17,4 +18,11 @@ export function isRoleAllowed(role: UserRole, allowedRoles: UserRole[]): boolean
 
 export function isAdmin(role: UserRole): boolean {
   return role === 'ADMIN';
+}
+
+// Papeis "comerciais": podem ser responsavel comercial de cliente. PROSPECTOR
+// espelha COMMERCIAL por enquanto; concentrar a regra aqui facilita
+// especializa-la no futuro.
+export function isCommercialRole(role: UserRole | null | undefined): boolean {
+  return role === 'COMMERCIAL' || role === 'PROSPECTOR';
 }

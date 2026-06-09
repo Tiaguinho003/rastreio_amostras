@@ -22,7 +22,13 @@ import { getRoleLabel } from '../../lib/roles';
 import { useRequireAuth } from '../../lib/use-auth';
 import type { UserRole, UserStatus, UserSummary } from '../../lib/types';
 
-const ROLE_OPTIONS: UserRole[] = ['ADMIN', 'CLASSIFIER', 'REGISTRATION', 'COMMERCIAL'];
+const ROLE_OPTIONS: UserRole[] = [
+  'ADMIN',
+  'CLASSIFIER',
+  'REGISTRATION',
+  'COMMERCIAL',
+  'PROSPECTOR',
+];
 const PAGE_LIMIT = 10;
 
 function userStatusLabel(status: UserStatus) {
@@ -81,6 +87,8 @@ function getRoleModifierClass(role: UserRole): string {
       return 'is-role-registration';
     case 'COMMERCIAL':
       return 'is-role-commercial';
+    case 'PROSPECTOR':
+      return 'is-role-prospector';
     default:
       return '';
   }

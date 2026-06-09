@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
-import { USER_ROLES } from '../auth/roles.js';
+import { USER_ROLES, isCommercialRole } from '../auth/roles.js';
 import {
   INITIAL_PASSWORD_DECISIONS,
   LOGIN_MAX_ATTEMPTS,
@@ -575,9 +575,10 @@ export class UserService {
         : {}),
     };
 
-    // Buscamos com fullName ASC e ordenamos COMMERCIAL primeiro em memoria.
-    // Como o limit maximo e 500, o custo e negligivel; e o Prisma + Postgres
-    // nao tem suporte direto a "ORDER BY CASE" sem raw SQL.
+    // Buscamos com fullName ASC e ordenamos papeis comerciais (COMMERCIAL +
+    // PROSPECTOR) primeiro em memoria. Como o limit maximo e 500, o custo e
+    // negligivel; e o Prisma + Postgres nao tem suporte direto a "ORDER BY
+    // CASE" sem raw SQL.
     const items = await this.prisma.user.findMany({
       where,
       orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
@@ -591,8 +592,8 @@ export class UserService {
     });
 
     items.sort((a, b) => {
-      const aPriority = a.role === USER_ROLES.COMMERCIAL ? 0 : 1;
-      const bPriority = b.role === USER_ROLES.COMMERCIAL ? 0 : 1;
+      const aPriority = isCommercialRole(a.role) ? 0 : 1;
+      const bPriority = isCommercialRole(b.role) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
       return a.fullName.localeCompare(b.fullName);
     });
