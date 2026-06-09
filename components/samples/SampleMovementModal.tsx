@@ -568,16 +568,18 @@ export function SampleMovementModal({
             </>
           )}
 
-          <label className="app-modal-field">
-            <span className="app-modal-label">Observacoes (opcional)</span>
-            <input
-              className="app-modal-input"
-              value={notes}
-              disabled={saving}
-              onChange={(event) => setNotes(event.target.value.toUpperCase())}
-              placeholder="Observacoes adicionais"
-            />
-          </label>
+          {showBuyerFields ? (
+            <label className="app-modal-field">
+              <span className="app-modal-label">Observacoes (opcional)</span>
+              <input
+                className="app-modal-input"
+                value={notes}
+                disabled={saving}
+                onChange={(event) => setNotes(event.target.value.toUpperCase())}
+                placeholder="Observacoes adicionais"
+              />
+            </label>
+          ) : null}
 
           {mode === 'edit' ? (
             <label className="app-modal-field">
