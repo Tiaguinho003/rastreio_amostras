@@ -425,6 +425,8 @@ export default function SampleDetailPage() {
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<SampleExportType | null>(null);
+  // Efeito de check verde no modal de laudo (substitui a mensagem verde).
+  const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
 
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
@@ -986,6 +988,7 @@ export default function SampleDetailPage() {
     }
 
     setGeneralNotice(null);
+    setExportPdfSuccess(false);
     setPendingExportType(exportType);
     setExportRecipientClients([]);
     setExportConfirmationOpen(true);
@@ -1037,27 +1040,24 @@ export default function SampleDetailPage() {
         shareTitle: `Laudo ${typeLabel}`,
       });
 
-      if (result === 'cancelled') {
-        setGeneralNotice({
-          kind: 'success',
-          text: `Laudo PDF (${typeLabel}) cancelado.`,
-        });
-      } else if (result === 'shared') {
-        setGeneralNotice({
-          kind: 'success',
-          text: `Laudo PDF (${typeLabel}) compartilhado.`,
-        });
-      } else {
-        setGeneralNotice({
-          kind: 'success',
-          text: `Laudo PDF (${typeLabel}) baixado.`,
-        });
-      }
-
-      setExportConfirmationOpen(false);
-      setPendingExportType(null);
-      setExportRecipientClients([]);
       fetchSendHistory();
+
+      if (result === 'cancelled') {
+        // Usuario fechou a folha de compartilhamento — fecha sem alarde.
+        setExportConfirmationOpen(false);
+        setPendingExportType(null);
+        setExportRecipientClients([]);
+      } else {
+        // Sucesso (compartilhado/baixado): efeito de check verde por ~900ms e
+        // fecha o modal — sem mensagem verde no conteiner.
+        setExportPdfSuccess(true);
+        window.setTimeout(() => {
+          setExportPdfSuccess(false);
+          setExportConfirmationOpen(false);
+          setPendingExportType(null);
+          setExportRecipientClients([]);
+        }, 900);
+      }
     } catch (cause) {
       if (cause instanceof ApiError) {
         setGeneralNotice({ kind: 'error', text: cause.message });
@@ -3646,6 +3646,21 @@ export default function SampleDetailPage() {
             aria-labelledby="export-confirm-title"
             onClick={(event) => event.stopPropagation()}
           >
+            {exportPdfSuccess ? (
+              <div className="client-create-success-overlay" aria-live="polite">
+                <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#2f8a3e"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 27l7 7 15-15"
+                  />
+                </svg>
+              </div>
+            ) : null}
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="export-confirm-title" className="app-modal-title">
