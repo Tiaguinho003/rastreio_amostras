@@ -56,11 +56,25 @@ gcloud run services update-traffic rastreio-prod-app \
 
 - `scripts/gcp/build-image.sh cloud-production` — build com tag=git SHA e guard de tree limpo
 - `scripts/gcp/deploy-cloud.sh cloud-production [--canary]` — deploy service + jobs
-- `scripts/gcp/execute-job.sh <migrate|seed> cloud-production` — executa jobs
+- `scripts/gcp/execute-job.sh <migrate|seed|backfill-liga> cloud-production [--dry-run]` — executa jobs
 - `scripts/gcp/preflight.sh cloud-production` — valida auth e recursos
 - `scripts/gcp/smoke.sh cloud-production` — smoke test HTTP
 
 O parametro `cloud-production` e obrigatorio em todos os scripts.
+
+## Job `backfill-liga` (one-off)
+
+Recalcula safra/proprietario das ligas existentes a partir das origens e emite um
+`REGISTRATION_UPDATED` (ator `SYSTEM`) por liga stale. Reusa a imagem do job migrate
+— que agora carrega `src/` + `scripts/` no Dockerfile — sobrescrevendo o comando.
+Idempotente por re-derivacao (re-run = no-op). **Rodar SO depois** do recurso
+owner+safra-reativo estar em prod (senao edicoes reintroduzem drift), e sempre
+`--dry-run` antes do apply:
+
+```bash
+scripts/gcp/execute-job.sh backfill-liga cloud-production --dry-run  # so relatorio
+scripts/gcp/execute-job.sh backfill-liga cloud-production            # aplica
+```
 
 ## Antipadroes (NUNCA fazer)
 

@@ -30,8 +30,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/docs/schemas ./docs/schemas
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
-# F3.4 (few-shot visual): fixtures lidas em runtime pelo classification-extraction-service.
-COPY --from=builder /app/src/samples/fixtures ./src/samples/fixtures
+# src/ + scripts/ crus em runtime: fixtures few-shot (classification-extraction-service)
+# e scripts de migracao one-off (ex: backfill-liga) que importam modulos crus de src/.
+# O bundle do app vive em .next; isto e so pros entrypoints de node fora do Next
+# (jobs/scripts rodados via `npm run ...`).
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/scripts ./scripts
 
 RUN mkdir -p /app/.next/cache/images /mnt/runtime/uploads /mnt/runtime/email-outbox \
   && chown -R nextjs:nodejs /app/.next /mnt/runtime
