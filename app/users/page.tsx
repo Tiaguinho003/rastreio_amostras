@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
-import { NotificationBell } from '../../components/NotificationBell';
+import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { InactivateUserModal } from '../../components/users/InactivateUserModal';
 import {
   ApiError,
@@ -589,7 +589,7 @@ export default function UsersPage() {
           <div className="clients-v2-header-center">
             <h2 className="nsv2-title">Usuarios</h2>
           </div>
-          <NotificationBell className="header-notification-bell" />
+          <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{userAvatarInitials}</span>
           </Link>

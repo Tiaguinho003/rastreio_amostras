@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import { NotificationBell } from '../NotificationBell';
+import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
 import { getDashboardRecentActivity } from '../../lib/api-client';
@@ -39,9 +39,16 @@ interface DashboardMobileProps {
   data: DashboardPendingResponse | null;
   salesData: DashboardSalesAvailabilityResponse | null;
   error: string | null;
+  onLogout: () => void | Promise<void>;
 }
 
-export function DashboardMobile({ session, data, salesData, error }: DashboardMobileProps) {
+export function DashboardMobile({
+  session,
+  data,
+  salesData,
+  error,
+  onLogout,
+}: DashboardMobileProps) {
   const router = useRouter();
   const {
     activeOperationPanel,
@@ -115,7 +122,7 @@ export function DashboardMobile({ session, data, salesData, error }: DashboardMo
                 {roleLabel}
               </span>
             </div>
-            <NotificationBell className="header-notification-bell" />
+            <HeaderAvatarMenu session={session} onLogout={onLogout} />
             <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
               <span className="dashboard-hero-avatar-initials">{initials}</span>
             </Link>

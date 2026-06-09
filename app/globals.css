@@ -22210,9 +22210,9 @@ select.samples-filter-field-input {
     display: none;
   }
 
-  /* Sem o back a esquerda, o .header-notification-bell (2.55rem) a direita
-     desbalanceia o flex e o titulo fica off-center pra esquerda. Adiciona
-     pseudo-element invisivel com mesma largura do bell pra restaurar o
+  /* Sem o back a esquerda, o botao de avatar (.header-avatar-trigger, 2.55rem)
+     a direita desbalanceia o flex e o titulo fica off-center pra esquerda.
+     Adiciona pseudo-element invisivel com a mesma largura pra restaurar o
      centro visual. */
   .samples-page-v2-header::before,
   .clients-v2-header::before {
@@ -27211,33 +27211,6 @@ select.samples-filter-field-input {
   outline-offset: 2px;
 }
 
-/* ── NotificationBell (placeholder visual nao-clicavel) ──
-   Reserva espaco visual e affordance para a feature futura de
-   notificacoes. Cursor default e ausencia de onClick deixam claro
-   que nao ha acao agora. */
-.notification-bell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.55rem;
-  height: 2.55rem;
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.08);
-  cursor: default;
-  flex-shrink: 0;
-}
-
-.notification-bell svg {
-  width: 55%;
-  height: 55%;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* ── Topbar: visibilidade condicional do dropdown desktop ──
    Em mobile (<= 900px), o avatar dropdown do header some (Perfil ja
    esta na tabbar). Em desktop, o dropdown e o ponto de entrada do perfil. */
@@ -27247,12 +27220,26 @@ select.samples-filter-field-input {
   }
 }
 
-/* ── Sino de notificacoes nos headers de pagina (placeholder) ──
-   Em mobile (<= 900px), o avatar do header de cada pagina some e da lugar
-   ao sino de notificacoes (decisao 5.16 + Nota 6.22). Em desktop, o avatar
-   permanece visivel (Link pra /profile) e o sino fica oculto. */
-.header-notification-bell {
+/* ── Botao de avatar nos headers de pagina (HeaderAvatarMenu) ──
+   Substitui o antigo sino. Mobile-only: em <= 900px o avatar Link de desktop
+   (.nsv2-avatar / .dashboard-hero-avatar) some e da lugar a este botao, que
+   abre o bottom sheet de menu da conta. Em desktop o botao fica oculto e o
+   acesso ao perfil continua pelo dropdown do topbar (.topbar-profile). */
+.header-avatar-trigger {
   display: none;
+  width: 2.55rem;
+  height: 2.55rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.header-avatar-trigger:active {
+  transform: scale(0.92);
 }
 
 @media (max-width: 900px) {
@@ -27260,8 +27247,124 @@ select.samples-filter-field-input {
   .dashboard-hero-avatar {
     display: none;
   }
-  .header-notification-bell {
-    display: inline-flex;
+  .header-avatar-trigger {
+    display: inline-grid;
+  }
+}
+
+/* ── Bottom sheet "menu da conta" (variante curta do BottomSheet) ──
+   .is-menu: altura por conteudo em vez da altura fixa alta do sheet padrao,
+   ja que o menu tem poucas linhas. Mesmo precedente da variante desktop. */
+.bottom-sheet.is-menu {
+  height: auto;
+  max-height: min(72dvh, 30rem);
+}
+
+@supports not (height: 100dvh) {
+  .bottom-sheet.is-menu {
+    max-height: min(72vh, 30rem);
+  }
+}
+
+.header-avatar-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-avatar-menu-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: clamp(0.4rem, 2vw, 0.7rem) clamp(0.4rem, 2vw, 0.6rem) clamp(0.7rem, 2.6vw, 0.9rem);
+  border-bottom: 1px solid var(--color-line, rgba(0, 0, 0, 0.08));
+}
+
+.header-avatar-menu-summary-name {
+  font-size: clamp(1rem, 4vw, 1.1rem);
+  font-weight: 700;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-avatar-menu-summary-role {
+  font-size: clamp(0.78rem, 3vw, 0.85rem);
+  font-weight: 500;
+  color: var(--muted, #6b6b6b);
+}
+
+.header-avatar-menu-list {
+  display: flex;
+  flex-direction: column;
+  padding-top: clamp(0.3rem, 1.5vw, 0.45rem);
+}
+
+.header-avatar-menu-row {
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.7rem, 3vw, 0.95rem);
+  width: 100%;
+  padding: clamp(0.8rem, 3.2vw, 1rem) clamp(0.3rem, 1.5vw, 0.5rem);
+  border: 0;
+  background: transparent;
+  color: #1a1a1a;
+  font-size: clamp(0.98rem, 4vw, 1.06rem);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease;
+}
+
+.header-avatar-menu-row + .header-avatar-menu-row {
+  border-top: 1px solid var(--color-line, rgba(0, 0, 0, 0.06));
+}
+
+.header-avatar-menu-row:active {
+  transform: scale(0.98);
+}
+
+.header-avatar-menu-row-icon {
+  width: clamp(1.3rem, 5.5vw, 1.5rem);
+  height: clamp(1.3rem, 5.5vw, 1.5rem);
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--brand-green, #1f5d43);
+}
+
+.header-avatar-menu-row-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-avatar-menu-row-tag {
+  flex-shrink: 0;
+  font-size: clamp(0.68rem, 2.8vw, 0.74rem);
+  font-weight: 600;
+  color: var(--muted, #8a8a8a);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.header-avatar-menu-row.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.header-avatar-menu-row.is-danger,
+.header-avatar-menu-row.is-danger .header-avatar-menu-row-icon {
+  color: var(--color-danger, #b83232);
+}
+
+@media (hover: hover) {
+  .header-avatar-menu-row:not(.is-disabled):hover {
+    background: rgba(0, 0, 0, 0.035);
   }
 }
 

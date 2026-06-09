@@ -16,7 +16,13 @@ export default function DashboardPage() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      <DashboardMobile session={session} data={data} salesData={salesData} error={error} />
+      <DashboardMobile
+        session={session}
+        data={data}
+        salesData={salesData}
+        error={error}
+        onLogout={logout}
+      />
       <DashboardDesktop session={session} data={data} salesData={salesData} error={error} />
     </AppShell>
   );

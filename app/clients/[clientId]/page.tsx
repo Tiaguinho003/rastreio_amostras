@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppShell } from '../../../components/AppShell';
-import { NotificationBell } from '../../../components/NotificationBell';
+import { HeaderAvatarMenu } from '../../../components/HeaderAvatarMenu';
 import { IncompleteIcon } from '../../../components/clients/IncompleteIcon';
 import {
   ClientInactivateWithCascadeModal,
@@ -1026,7 +1026,7 @@ export default function ClientDetailPage() {
                   </svg>
                 </Link>
                 <span className="sdv-header-title" aria-hidden="true" />
-                <NotificationBell className="header-notification-bell" />
+                <HeaderAvatarMenu session={session} onLogout={logout} />
                 <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
                   <span className="nsv2-avatar-initials">{sessionInitials}</span>
                 </Link>

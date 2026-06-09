@@ -17,7 +17,7 @@ import {
 import { AppShell } from '../../components/AppShell';
 import { NewSampleModal } from '../../components/NewSampleModal';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
-import { NotificationBell } from '../../components/NotificationBell';
+import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClassificationFilterField } from '../../components/samples/ClassificationFilterField';
 import { SampleCard } from '../../components/samples/SampleCard';
 import { SampleCreateRadialFab } from '../../components/samples/SampleCreateRadialFab';
@@ -1522,7 +1522,7 @@ function SamplesPage() {
           <div className="samples-page-v2-header-center">
             <h2 className="nsv2-title">Amostras</h2>
           </div>
-          <NotificationBell className="header-notification-bell" />
+          <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
             <span className="nsv2-avatar-initials">{avatarInitials}</span>
           </Link>
