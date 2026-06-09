@@ -25,9 +25,20 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
 
   const displayName = session.user.fullName?.trim() || session.user.username;
 
-  // Item launcher: fecha o sheet e navega. O BottomSheet congela o conteudo
-  // durante o close (350ms), entao nao ha flicker das linhas ao sair.
+  // Item launcher: fecha o sheet e navega pra rota.
+  //
+  // O BottomSheet injeta uma entry de history (`state.bottomSheet`) pra fechar
+  // com o back do Android e a desfaz via `history.back()` no cleanup do close.
+  // No App Router o `router.push` e assincrono, entao esse `history.back()`
+  // rodava antes e DESFAZIA a navegacao (bug: Perfil/Usuarios nao abriam). Aqui
+  // limpamos o marcador da entry atual ANTES de fechar: o cleanup ve
+  // `state.bottomSheet` falsy, nao chama `history.back()`, e o `push` se mantem.
+  // O back do Android segue fechando o sheet nos dismissals normais
+  // (X / backdrop / swipe), que nao passam por aqui.
   function go(href: string) {
+    if (typeof window !== 'undefined' && window.history.state?.bottomSheet) {
+      window.history.replaceState({ ...window.history.state, bottomSheet: false }, '');
+    }
     setOpen(false);
     router.push(href);
   }
