@@ -8785,6 +8785,29 @@ button:disabled {
   margin-bottom: 0;
 }
 
+/* Cabecalho do container de Classificacao: titulo + badge de status agrupados
+   a esquerda (o botao Expandir continua a direita pelo space-between). */
+.sdv-cls-header-title {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 2vw, 8px);
+  min-width: 0;
+}
+
+/* Badge de status da classificacao (Pendente / Classificada / Invalidada) —
+   mesmas cores do badge do cabecalho da pagina (via style inline do sdvStatus).
+   Espelha o visual do .sdv-identity-badge. */
+.sdv-cls-status-badge {
+  font-size: clamp(9px, 2.5vw, 10px);
+  font-weight: 700;
+  padding: 2px clamp(8px, 2.5vw, 10px);
+  border-radius: 6px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
 .sdv-edit-btn {
   display: flex;
   align-items: center;

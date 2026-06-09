@@ -1930,7 +1930,7 @@ export default function SampleDetailPage() {
           color: '#E67E22',
           bg: '#FFF7ED',
           border: '#FDE68A',
-          label: 'Aguardando classificacao',
+          label: 'Pendente',
         };
       case 'CLASSIFIED':
         return { color: '#27AE60', bg: '#F0FDF4', border: '#BBF7D0', label: 'Classificada' };
@@ -2242,7 +2242,21 @@ export default function SampleDetailPage() {
                     return (
                       <div className="sdv-card sdv-cls-block">
                         <div className="sdv-card-header">
-                          <span className="sdv-card-title">Classificação</span>
+                          <div className="sdv-cls-header-title">
+                            <span className="sdv-card-title">Classificação</span>
+                            {sdvStatus ? (
+                              <span
+                                className="sdv-cls-status-badge"
+                                style={{
+                                  color: sdvStatus.color,
+                                  background: sdvStatus.bg,
+                                  borderColor: sdvStatus.border,
+                                }}
+                              >
+                                {sdvStatus.label}
+                              </span>
+                            ) : null}
+                          </div>
                           <button
                             type="button"
                             className="sdv-edit-btn"
