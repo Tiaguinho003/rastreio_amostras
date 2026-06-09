@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../lib/use-focus-trap';
 
@@ -253,13 +254,17 @@ export function BottomSheet({
     }
   }
 
-  if (!visible) return null;
+  if (!visible || typeof document === 'undefined') return null;
 
   // translate3d mantem GPU layer permanente, previne scroll lock em iOS
   // Safari standalone PWA (mesmo padrao do antigo ProfileBottomSheet).
   const sheetTransform = dragOffset > 0 ? `translate3d(0, ${dragOffset}px, 0)` : undefined;
 
-  return (
+  // Portal pro document.body: o sheet e position: fixed e precisa escapar do
+  // contexto de empilhamento de onde o componente esta montado. Sem isso, um
+  // BottomSheet renderizado dentro do header de uma pagina (ex: HeaderAvatarMenu)
+  // fica preso ATRAS do conteudo da pagina. Mesmo motivo do portal no MobileTabbar.
+  return createPortal(
     <div
       className={`bottom-sheet-backdrop${isOpen ? ' is-open' : ''}`}
       onClick={() => void requestDismiss()}
@@ -311,6 +316,7 @@ export function BottomSheet({
 
         {content.footer ? <div className="bottom-sheet-footer">{content.footer}</div> : null}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
