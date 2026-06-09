@@ -575,6 +575,8 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 
 > **Modal de confirmacao de propagacao de safra** (`BlendHarvestPropagationModal`, `.blend-harvest-propagation-modal`) segue `.is-themed` + `createPortal`, acoes **50/50** (`.blend-harvest-propagation-actions` — regra compartilhada) na ordem **Cancelar (esq) / `Aplicar e propagar` (dir, `.app-modal-submit.is-warning`)**. Disparado pelo 409 `BLEND_HARVEST_PROPAGATION_REQUIRED` ao salvar a edicao de safra de um lote que e origem de ligas ativas (avisar-e-confirmar): lista as ligas afetadas com a transicao safra atual→nova (`.bhp-*`) e destaca as comercializadas/classificadas (`.sdv-warn-box` + chips `.bhp-chip`). Ao confirmar, re-submete o update com `confirmHarvestPropagation: true`.
 
+> **Modal de selecao de safra do laudo** (`ReportHarvestSelectModal`, `.report-harvest-select-modal`) segue `.is-themed` + `createPortal`, acoes **50/50** (`.report-harvest-select-actions`) na ordem **Voltar (esq) / Confirmar (dir)** — Confirmar so habilita apos escolher uma safra. Aberto ao confirmar o destinatario do laudo quando a amostra tem mais de uma safra (liga): lista as safras como radio cards (`.rhs-option` + `.rhs-option-mark`, `role="radiogroup"`, selecao unica) pra o operador escolher qual sai no laudo — o PDF nunca imprime a safra concatenada (anti-vazamento de liga). "Voltar" reabre o modal de destinatario; "x" cancela.
+
 ### 🚫 Excecoes legitimas (NAO refatorar)
 
 | Modal               | Por que e excecao                                                  |

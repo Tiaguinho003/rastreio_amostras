@@ -1061,6 +1061,9 @@ export async function exportSamplePdf(
     exportType: SampleExportType;
     destination?: string | null;
     recipientClientId?: string | null;
+    /** Liga: safra escolhida pro laudo quando a amostra tem mais de uma safra.
+     *  Override de apresentacao (nao muda o declaredHarvest). */
+    reportedHarvest?: string | null;
   }
 ) {
   const response = await fetch(`${API_BASE}/samples/${sampleId}/export/pdf`, {
@@ -1072,6 +1075,7 @@ export async function exportSamplePdf(
       exportType: data.exportType,
       destination: data.destination ?? null,
       recipientClientId: data.recipientClientId ?? null,
+      reportedHarvest: data.reportedHarvest ?? null,
     }),
     cache: 'no-store',
     credentials: 'same-origin',

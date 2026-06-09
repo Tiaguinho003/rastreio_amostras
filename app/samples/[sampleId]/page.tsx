@@ -14,6 +14,7 @@ import { BlendBadge } from '../../../components/samples/BlendBadge';
 import { BlendHarvestPropagationModal } from '../../../components/samples/BlendHarvestPropagationModal';
 import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
+import { ReportHarvestSelectModal } from '../../../components/samples/ReportHarvestSelectModal';
 import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
 import { SampleMovementsPanel } from '../../../components/samples/SampleMovementsPanel';
 import {
@@ -483,6 +484,9 @@ export default function SampleDetailPage() {
   // Efeito de check verde no modal de laudo (substitui a mensagem verde).
   const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
+  // Liga: modal de selecao de safra do laudo (amostra com mais de uma safra).
+  const [harvestChoiceOpen, setHarvestChoiceOpen] = useState(false);
+  const [harvestOptions, setHarvestOptions] = useState<string[]>([]);
 
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
   const [physicalSendClients, setPhysicalSendClients] = useState<ClientSummary[]>([]);
@@ -1067,7 +1071,11 @@ export default function SampleDetailPage() {
     setExportRecipientClients([]);
   }
 
-  async function handleExportPdf(exportType: SampleExportType, recipientClients: ClientSummary[]) {
+  async function handleExportPdf(
+    exportType: SampleExportType,
+    recipientClients: ClientSummary[],
+    reportedHarvest?: string | null
+  ) {
     if (!session || !detail) {
       return;
     }
@@ -1095,6 +1103,7 @@ export default function SampleDetailPage() {
         exportType,
         destination,
         recipientClientId: recipientClients[0]?.id ?? null,
+        reportedHarvest: reportedHarvest ?? null,
       });
 
       // Laudo unico (tecnico): o titulo de compartilhamento e sempre
@@ -1112,6 +1121,7 @@ export default function SampleDetailPage() {
       if (result === 'cancelled') {
         // Usuario fechou a folha de compartilhamento — fecha sem alarde.
         setExportConfirmationOpen(false);
+        setHarvestChoiceOpen(false);
         setPendingExportType(null);
         setExportRecipientClients([]);
       } else {
@@ -1121,6 +1131,7 @@ export default function SampleDetailPage() {
         window.setTimeout(() => {
           setExportPdfSuccess(false);
           setExportConfirmationOpen(false);
+          setHarvestChoiceOpen(false);
           setPendingExportType(null);
           setExportRecipientClients([]);
         }, 900);
@@ -1137,7 +1148,21 @@ export default function SampleDetailPage() {
   }
 
   async function handleConfirmExportFromModal() {
-    if (!pendingExportType) {
+    if (!pendingExportType || !detail) {
+      return;
+    }
+
+    // Liga: se a amostra tem mais de uma safra, o laudo nao pode imprimir a
+    // string concatenada — abre o modal de selecao de safra antes de gerar.
+    const harvest = detail.sample.declared?.harvest ?? '';
+    const options = harvest
+      .split(/\s*,\s*/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    if (options.length > 1) {
+      setExportConfirmationOpen(false);
+      setHarvestOptions(options);
+      setHarvestChoiceOpen(true);
       return;
     }
 
@@ -3941,6 +3966,26 @@ export default function SampleDetailPage() {
           </section>
         </div>
       ) : null}
+
+      <ReportHarvestSelectModal
+        open={harvestChoiceOpen}
+        harvests={harvestOptions}
+        submitting={Boolean(exportingPdfType)}
+        onConfirm={(selected) => {
+          if (pendingExportType) {
+            void handleExportPdf(pendingExportType, exportRecipientClients, selected);
+          }
+        }}
+        onBack={() => {
+          setHarvestChoiceOpen(false);
+          setExportConfirmationOpen(true);
+        }}
+        onClose={() => {
+          setHarvestChoiceOpen(false);
+          setPendingExportType(null);
+          setExportRecipientClients([]);
+        }}
+      />
 
       {physicalSendModalOpen ? (
         <div

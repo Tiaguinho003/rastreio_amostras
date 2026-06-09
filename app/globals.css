@@ -2396,6 +2396,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
 .app-modal.is-themed .app-modal-actions.blend-revert-actions,
 .app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
+.app-modal.is-themed .app-modal-actions.report-harvest-select-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2408,6 +2409,7 @@ button:disabled {
 .sample-detail-invalidate-actions > button,
 .blend-revert-actions > button,
 .blend-harvest-propagation-actions > button,
+.report-harvest-select-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;
@@ -11176,6 +11178,68 @@ button:disabled {
 .bhp-harvest-to {
   font-weight: 700;
   color: var(--brand-green);
+}
+
+/* Liga: modal de selecao da safra do laudo — opcoes de safra como radio cards. */
+.rhs-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rhs-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: clamp(12px, 3vw, 15px) clamp(14px, 3.5vw, 16px);
+  background: #ffffff;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  font-size: clamp(0.95rem, 2.8vw, 1.05rem);
+  font-weight: 600;
+  color: #1a1a17;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.rhs-option:active {
+  transform: scale(0.99);
+}
+
+.rhs-option.is-selected {
+  border-color: var(--brand-green);
+  background: rgba(22, 91, 42, 0.06);
+}
+
+.rhs-option-mark {
+  position: relative;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+  transition: border-color 0.15s ease;
+}
+
+.rhs-option.is-selected .rhs-option-mark {
+  border-color: var(--brand-green);
+}
+
+.rhs-option.is-selected .rhs-option-mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--brand-green);
+}
+
+.rhs-option-label {
+  flex: 1;
 }
 
 /* Liga B4 Fase 5: modal de venda/perda de liga — linha "vende 100%" (a liga
