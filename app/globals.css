@@ -3817,10 +3817,11 @@ button:disabled {
   /* Clamp ativa no range de phones — camera escala junto com os outros
      icones (mantem proporcao visual entre primary e os links comuns). */
   width: clamp(4.75rem, 19vw, 5.5rem);
-  /* Camera centralizada verticalmente no navbar, no mesmo eixo dos demais
-     itens (sem o deslocamento pra cima que tinha antes). Tamanho do botao
-     preservado pelos clamps de width/height do .mobile-tabbar-pill. */
-  margin-top: 0;
+  /* Camera levemente elevada em relacao aos demais itens: margin-top negativo
+     moderado (~metade do deslocamento antigo) a partir do eixo central.
+     Tamanho do botao preservado pelos clamps de width/height do
+     .mobile-tabbar-pill. */
+  margin-top: clamp(-0.85rem, -2.4vw, -0.55rem);
   padding: 0;
   background: transparent;
   color: #ffffff;
