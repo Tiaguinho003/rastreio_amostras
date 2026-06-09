@@ -344,10 +344,6 @@ function projectSendHistoryItems(events: SampleEvent[]): SendHistoryItem[] {
   );
 }
 
-function getExportTypeLabel(exportType: SampleExportType): string {
-  return exportType === 'COMPLETO' ? 'Completo' : 'Comprador Parcial';
-}
-
 const DETAIL_EVENT_PREVIEW_LIMIT = 1;
 
 function buildClassificationPhotoFilename(detail: SampleDetailResponse | null): string {
@@ -1075,10 +1071,14 @@ export default function SampleDetailPage() {
         recipientClientId: recipientClients[0]?.id ?? null,
       });
 
-      const typeLabel = getExportTypeLabel(exportType);
+      // Laudo unico (tecnico): o titulo de compartilhamento e sempre
+      // "Laudo Tecnico (lote)". exportType continua indo pro backend (filtra os
+      // campos do PDF), mas nao aparece mais no titulo — antes o COMPRADOR_PARCIAL
+      // virava "Laudo Comprador Parcial" no share do WhatsApp.
+      const lot = detail.sample.internalLotNumber?.trim();
       const result = await shareOrDownloadFile(exported.blob, exported.fileName, {
         mimeType: 'application/pdf',
-        shareTitle: `Laudo ${typeLabel}`,
+        shareTitle: lot ? `Laudo Técnico (${lot})` : 'Laudo Técnico',
       });
 
       fetchSendHistory();
