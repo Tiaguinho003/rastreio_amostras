@@ -690,9 +690,15 @@ export type DashboardRecentActivityType =
   | 'REGISTRATION_CONFIRMED'
   | 'SALE_CREATED'
   | 'LOSS_RECORDED'
+  | 'SALE_CANCELLED'
+  | 'LOSS_CANCELLED'
   | 'PHYSICAL_SAMPLE_SENT';
 
 export interface DashboardRecentActivityItem {
+  // Chave unica por evento (`${sampleId}:${sequenceNumber}`) — o feed agora e
+  // por-evento, entao um mesmo sample pode aparecer mais de uma vez (ex: venda
+  // + cancelamento).
+  id: string;
   sampleId: string;
   internalLotNumber: string | null;
   producer: string | null;

@@ -154,7 +154,7 @@ function mondayOfBrtDate(dateStr) {
   return monday.toISOString().slice(0, 10);
 }
 
-const RECENT_ACTIVITY_LIMIT = 20;
+const RECENT_ACTIVITY_LIMIT = 25;
 
 function mapRecentActivityRow(row) {
   const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
@@ -178,6 +178,9 @@ function mapRecentActivityRow(row) {
   }
 
   return {
+    // Feed por-evento: chave unica por evento (um sample pode aparecer varias
+    // vezes, ex: venda + cancelamento).
+    id: `${row.sampleId}:${row.sequenceNumber}`,
     sampleId: row.sampleId,
     internalLotNumber: row.internalLotNumber ?? null,
     producer: row.declaredOwner ?? null,
@@ -2056,40 +2059,33 @@ export class SampleQueryService {
   //     acima de 200ms P95, OU
   //   - Latencia do endpoint /api/v1/dashboard/recent-activity > 500ms.
   async getDashboardRecentActivity() {
+    // Feed por-evento (nao mais "ultimo evento por sample"): cada acao vira um
+    // card. Inclui os cancelamentos de movimentacao (SALE_CANCELLED /
+    // LOSS_CANCELLED) — assim "vendeu e depois cancelou" aparece como 2
+    // atividades. Amostras invalidadas saem do feed por inteiro.
     const rows = await this.prisma.$queryRaw`
-      WITH ranked AS (
-        SELECT
-          se.sample_id,
-          se.event_type::text AS event_type,
-          se.payload,
-          se.occurred_at,
-          se.sequence_number,
-          ROW_NUMBER() OVER (
-            PARTITION BY se.sample_id
-            ORDER BY se.occurred_at DESC, se.sequence_number DESC
-          ) AS rn
-        FROM "sample_event" se
-        WHERE se.event_type IN (
-          'REGISTRATION_CONFIRMED',
-          'SALE_CREATED',
-          'LOSS_RECORDED',
-          'PHYSICAL_SAMPLE_SENT'
-        )
-      )
       SELECT
-        r.sample_id AS "sampleId",
-        r.event_type AS "eventType",
-        r.payload AS "payload",
-        r.occurred_at AS "occurredAt",
+        se.sample_id AS "sampleId",
+        se.event_type::text AS "eventType",
+        se.payload AS "payload",
+        se.occurred_at AS "occurredAt",
+        se.sequence_number AS "sequenceNumber",
         s.internal_lot_number AS "internalLotNumber",
         s.declared_owner AS "declaredOwner",
         s.declared_sacks AS "declaredSacks",
         s.is_blend AS "isBlend"
-      FROM ranked r
-      JOIN "sample" s ON s.id = r.sample_id
-      WHERE r.rn = 1
+      FROM "sample_event" se
+      JOIN "sample" s ON s.id = se.sample_id
+      WHERE se.event_type IN (
+        'REGISTRATION_CONFIRMED',
+        'SALE_CREATED',
+        'LOSS_RECORDED',
+        'SALE_CANCELLED',
+        'LOSS_CANCELLED',
+        'PHYSICAL_SAMPLE_SENT'
+      )
         AND s.status != 'INVALIDATED'
-      ORDER BY r.occurred_at DESC, s.id DESC
+      ORDER BY se.occurred_at DESC, se.sequence_number DESC
       LIMIT ${RECENT_ACTIVITY_LIMIT}
     `;
 

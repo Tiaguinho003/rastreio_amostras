@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { formatRelativeTime, getEventConfig } from '../../lib/dashboard-activity';
+import { formatRelativeTime, getActivityFocus, getEventConfig } from '../../lib/dashboard-activity';
 import type { DashboardRecentActivityItem, DashboardRecentActivityType } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 // Container tem altura fixa pra mostrar 6 items VISIVEIS sem scroll;
-// dentro do card cabem ate 15 items (os 9 extras acessiveis via scroll
-// interno). Backend continua retornando ate 20 (desktop usa todos).
-const MAX_ITEMS = 15;
+// dentro do card cabem ate 20 items (os extras acessiveis via scroll
+// interno). Backend retorna ate 25 (desktop usa todos).
+const MAX_ITEMS = 20;
 const VISIBLE_ITEMS_NO_SCROLL = 6;
 const SKELETON_PLACEHOLDERS = VISIBLE_ITEMS_NO_SCROLL;
 
@@ -53,6 +53,15 @@ function ActivityIcon({ type }: { type: DashboardRecentActivityType }) {
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
           <path d="M22 2 11 13" />
           <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+        </svg>
+      );
+    case 'SALE_CANCELLED':
+    case 'LOSS_CANCELLED':
+      return (
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+          <line x1="15" y1="9" x2="9" y2="15" />
         </svg>
       );
     default: {
@@ -107,9 +116,9 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
             const cfg = getEventConfig(item.activity.type);
             const lotLabel = formatLot(item.internalLotNumber, item.sampleId);
             return (
-              <li key={item.sampleId} className="recent-activity-mobile-item">
+              <li key={item.id} className="recent-activity-mobile-item">
                 <Link
-                  href={`/samples/${item.sampleId}`}
+                  href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
                   className="recent-activity-mobile-link"
                   aria-label={`${cfg.label} — lote ${lotLabel} — ${formatRelativeTime(item.activity.at, now)}`}
                   style={

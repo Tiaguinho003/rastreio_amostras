@@ -241,7 +241,7 @@ export function SampleMovementsPanel({
       </div>
 
       {/* Card 2: Movimentações */}
-      <div className="sdv-card sdv-com-movements-card">
+      <div id="sdv-movimentacoes" className="sdv-card sdv-com-movements-card">
         <div className="sdv-card-header">
           <span className="sdv-card-title">Movimentacoes</span>
           <span className="sdv-com-count">{timeline.length} registros</span>

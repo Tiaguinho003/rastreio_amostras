@@ -36,6 +36,16 @@ export const EVENT_CONFIG: Record<DashboardRecentActivityType, DashboardActivity
     color: '#9a3434',
     bg: 'rgba(154, 52, 52, 0.12)',
   },
+  SALE_CANCELLED: {
+    label: 'Venda cancelada',
+    color: '#6b7280',
+    bg: 'rgba(107, 114, 128, 0.14)',
+  },
+  LOSS_CANCELLED: {
+    label: 'Perda cancelada',
+    color: '#6b7280',
+    bg: 'rgba(107, 114, 128, 0.14)',
+  },
   PHYSICAL_SAMPLE_SENT: {
     label: 'Enviada',
     color: '#b56a1d',
@@ -57,6 +67,17 @@ const FALLBACK_CONFIG: DashboardActivityConfig = {
  */
 export function getEventConfig(type: DashboardRecentActivityType): DashboardActivityConfig {
   return EVENT_CONFIG[type] ?? FALLBACK_CONFIG;
+}
+
+/**
+ * Container do detalhe da amostra pra onde o card de atividade leva (via
+ * `?focus=`): movimentacoes (vendas/perdas/cancelamentos/envios — todos na
+ * timeline de Movimentacoes) ou informacoes (registro).
+ */
+export function getActivityFocus(
+  type: DashboardRecentActivityType
+): 'movimentacoes' | 'informacoes' {
+  return type === 'REGISTRATION_CONFIRMED' ? 'informacoes' : 'movimentacoes';
 }
 
 /**

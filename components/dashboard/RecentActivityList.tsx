@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { formatRelativeTime, getEventConfig } from '../../lib/dashboard-activity';
+import { formatRelativeTime, getActivityFocus, getEventConfig } from '../../lib/dashboard-activity';
 import type { DashboardRecentActivityItem } from '../../lib/types';
 import { BlendBadge } from '../samples/BlendBadge';
 
@@ -87,8 +87,8 @@ export function RecentActivityList({ items }: RecentActivityListProps) {
           const cfg = getEventConfig(item.activity.type);
           return (
             <Link
-              key={item.sampleId}
-              href={`/samples/${item.sampleId}`}
+              key={item.id}
+              href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
               className="dd-activity-card"
             >
               <span className="dd-activity-lot">

@@ -407,6 +407,32 @@ export default function SampleDetailPage() {
 
   const [detail, setDetail] = useState<SampleDetailResponse | null>(null);
   const detailRef = useRef<SampleDetailResponse | null>(null);
+  // Foco vindo do dashboard (?focus=movimentacoes|informacoes): assim que o
+  // detalhe carrega, navega-primeiro-rola-depois — scroll suave (rapido) ate o
+  // container correspondente, uma unica vez.
+  const focusScrolledRef = useRef(false);
+  useEffect(() => {
+    if (focusScrolledRef.current || !detail) {
+      return;
+    }
+    const focus = searchParams.get('focus');
+    const targetId =
+      focus === 'movimentacoes'
+        ? 'sdv-movimentacoes'
+        : focus === 'informacoes'
+          ? 'sdv-informacoes'
+          : null;
+    if (!targetId) {
+      return;
+    }
+    focusScrolledRef.current = true;
+    const raf = window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 90);
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [detail, searchParams]);
   // Liga B4 Fase 7: viabilidade da liga (flag derivado "liga inviavel").
   // Buscado so pra liga ainda vendavel; null pra amostra normal ou em erro.
   const [blendFeasibility, setBlendFeasibility] = useState<BlendFeasibilityResponse | null>(null);
@@ -2026,7 +2052,7 @@ export default function SampleDetailPage() {
                       Editar) separado dos campos por uma divisoria discreta, e a
                       fileira de acoes (Laudo | Enviar) no rodape. Imprimir e o
                       status da etiqueta vivem no container de Classificacao. */}
-                  <div className="sdv-card sdv-info-compact">
+                  <div id="sdv-informacoes" className="sdv-card sdv-info-compact">
                     <div className="sdv-card-header">
                       <span className="sdv-card-title">Informações</span>
                       {canEditRegistrationStatus(detail.sample.status) ? (
