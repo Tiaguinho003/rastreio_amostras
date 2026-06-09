@@ -336,6 +336,28 @@ Padrao 2: **toast global** + fechamento imediato — usar para fluxos rapidos on
 
 Sob `.is-themed`, `flex; justify-content: flex-end` faz Submit aparecer **a esquerda** do Cancelar visualmente. Mantem a ordem JSX `[Submit, Secondary]`.
 
+### Largura total 50/50 (variante muito usada)
+
+Vários modais do detalhe da amostra (e o de filtros em `/samples`) usam ações **50/50**: os dois botões dividem a largura do modal igualmente, em vez do `flex-end` canônico. **Ordem nessa variante: secundário à ESQUERDA, primário à DIREITA** (ex: Cancelar / Limpar / Voltar à esquerda; Registrar / Aplicar / Invalidar / Confirmar à direita) — ou seja, JSX `[Secondary, Submit]`, o inverso da ordem canônica.
+
+Implementação: **regra compartilhada** em `globals.css` — NÃO criar uma nova por modal. Só adicione a classe da fileira de ações às duas listas de seletores existentes:
+
+```css
+.app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-movement-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
+.app-modal.is-themed .app-modal-actions.blend-revert-actions,
+.app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+/* + a mesma classe na lista `.<classe> > button { width: 100%; min-width: 0 }` */
+```
+
+No JSX, a fileira leva `className="app-modal-actions <classe-da-modal>"` e os botões na ordem `[Secondary, Submit]`. A `.sample-detail-compact-modal` já é 50/50 por conta própria (flex `> button { flex: 1 }`) — não precisa entrar na regra compartilhada.
+
 ### Submit
 
 `.app-modal-submit`:
@@ -535,6 +557,8 @@ Estes usam `.app-modal` simples (430px max, fundo glass) ou variante `cdm-modal`
 > **`samples-filter-modal`** (`/samples`) migrou pra `.is-themed` (header verde + body branco + botoes canonicos) mantendo estrutura **custom**: body rolavel na vertical (`.samples-filter-modal-content` = `overflow-y: auto; overflow-x: hidden`) + **actions fixas** fora do scroll (2a linha do grid `.samples-filter-modal-form { flex: 1; grid-template-rows: minmax(0,1fr) auto }`), diferente do canonico (actions dentro do `.app-modal-content` rolavel). Largura 26rem via `.app-modal.is-themed.samples-filter-modal` (3 classes pra vencer o default 38rem). Ainda inline (sem `createPortal`) — pendencia legacy.
 
 > **Modal de venda/perda** (`SampleMovementModal`, `.sample-detail-movement-modal`) migrou pra `.is-themed` (header + content + `app-modal-field/-input/-actions`). Largura 30rem escopada; `position: relative` pra ancorar o overlay do carimbo. Campos **empilhados** (cada um em linha própria full-width: Comprador/Motivo → Sacas → Data → Observações); o botão "Todas" fica inline com o input de sacas via `.sdv-mov-qty-inline` (mesma altura). Ações **50/50** (`.sample-detail-movement-actions` — regra compartilhada com reclassify/reg-edit) na ordem **Cancelar (esq) / Registrar (dir)**. O sub-modal "Atribuir dono" (ligas) também é `.is-themed` e renderiza via `createPortal` pra body (o pai tem `overflow: hidden`). **Sucesso = carimbo**: overlay `.sdv-stamp-overlay.is-sale/.is-loss` com `.sdv-stamp` na diagonal ("Vendido" dourado / "Perdido" vermelho, anel duplo + `mix-blend-mode: multiply`), animação de _slam_ (`sdv-stamp-slam`) e tremor do modal (`.is-stamping` → `sdv-stamp-shake`), com guarda `prefers-reduced-motion`. O carimbo aparece antes de fechar (o `SampleMovementsPanel` segura o modal ~1.5s via `stampType`). O **modal de cancelar movimentação** (no `SampleMovementsPanel`) também migrou pra `.is-themed` (`.sample-detail-compact-modal`, 28rem, ações 50/50 com `.app-modal-submit.is-danger` + secundário "Voltar"). Os cards de venda/perda **não têm mais editar** — só excluir (cancelar) — e a lista `.sdv-com-movements` tem scroll interno com teto de ~4 cards no mobile (`max-height`; no desktop o pane preenche, `max-height: none`).
+
+> **Modais de invalidar amostra** (`.sample-detail-invalidate-modal`, inline em `/samples/[sampleId]`) e **reverter liga** (`BlendRevertModal`) migraram pra `.is-themed`, ações **50/50** (`.sample-detail-invalidate-actions` / `.blend-revert-actions`) com `.app-modal-submit.is-danger`. Avisos em **vermelho** via `.sdv-warn-box` (ícone de triângulo) dentro do `.app-modal-content`. **Sucesso = efeito de X vermelho** (`.sdv-x-effect`, overlay full-screen via `createPortal`): "Movimentações canceladas" (fica na página) ou "Amostra invalidada" / "Liga revertida" (depois volta pra `/samples` via `router.push`) — substitui as mensagens verdes (`generalNotice`) que apareciam no container. Estado `xEffect: string | null` + helper `showXEffect(label, redirectToList)`.
 
 > **Modal de edicao de registro** (`/samples/[sampleId]`, `.sample-detail-reg-edit-modal`) migrou pra `.is-themed` com a mesma estrutura custom de body rolavel + actions fixas (grid `.sample-detail-reg-edit-form { flex: 1; grid-template-rows: minmax(0,1fr) auto }`, body em `.sample-detail-reg-edit-body`). Largura 30rem escopada (3 classes), inputs mais compactos e `notice-slot` colapsado quando vazio. Botoes **50/50** (largura toda, grid `1fr 1fr` via `.sample-detail-reg-edit-actions` — regra compartilhada com o modal de reclassificacao `.sample-detail-reclassify-actions`) na ordem **Cancelar (esq) / Salvar (dir)** — divergencia intencional do canonico `[Submit, Secondary]` em flex-end. Erros de validacao **por campo** (placeholder vermelho + `.app-modal-input.has-error`, limpa ao focar; o submit NAO bloqueia por campo invalido — deixa a validacao rodar e marcar o campo) e sucesso via **efeito de check** (`.client-create-success-overlay`, sem mensagem). Ainda inline (sob AppShell).
 
