@@ -211,6 +211,7 @@ Definicoes em `app/globals.css` linhas 1015–1405. NAO duplicar; usar as classe
 - `padding: 0.82rem 1.1rem`
 - `font-size: 1rem`
 - Focado: `border-color: rgba(22, 91, 42, 0.5)` + `box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1)` (glow verde)
+- **Inputs `type="date"` (e `number`/`time`):** `.app-modal-field` traz `min-width: 0` e `.app-modal-input` traz `min-width: 0` + `max-width: 100%`. Sem isso o date picker nativo do WebKit/iOS tem `min-content` largo e, como item de grid/flex, estoura a largura do modal (scroll lateral). Nao remover.
 
 ### `.app-modal-label` sob `.is-themed`
 
@@ -252,6 +253,16 @@ Para 2 campos lado a lado (ex: CPF | telefone), envolver com `<div className="sd
 Para proporcoes diferentes, usar `style={{ gridTemplateColumns: '1fr 2fr' }}` inline.
 
 Para campo full-width dentro de grid de 2 colunas, usar modificador `.is-full` no `.app-modal-field` (depende do CSS scoping local — ver `cudm-info-grid > .app-modal-field.is-full` em `globals.css` como exemplo).
+
+### ClientLookupField num modal (dropdown que escapa)
+
+Modal central que hospeda um `<ClientLookupField>` (ex.: envio fisico e gerar laudo no detalhe da amostra): o dropdown de resultados e `position: absolute` dentro do `.app-modal-content` (que tem `overflow: auto`), entao fica **recortado** pelas bordas. Pra ele "escapar" sem aumentar o modal, adicionar a classe **`.sample-detail-lookup-modal`** no `<section>` (junto de `.app-modal is-themed ...`):
+
+- libera `overflow: visible` no modal e no `.app-modal-content` (o card continua arredondado pelo `border-radius` e o header tem radius proprio — so o dropdown, que e filho, passa pra fora);
+- o dropdown ganha `max-height` pra ~4 itens + scroll **vertical** (`overflow-x: hidden`);
+- capar resultados com a prop **`maxResults={10}`** no `ClientLookupField` (alem de 10, o usuario refina a digitacao).
+
+**Multi-select de clientes:** chips dentro do box `.samples-filter-multi .samples-filter-multi--lookup` + `ClientLookupField` com `clearOnSelect` (o pai mantem o array e renderiza os chips). Rotulo do chip capado em ~10 chars + `…` (nome completo no `title`), placeholder sai quando ha selecao. Ver `design-system` §"Campos de filtro multi-select".
 
 ## 6. Erros e validacao
 
