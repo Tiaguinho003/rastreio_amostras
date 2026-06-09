@@ -1237,6 +1237,8 @@ export class SampleQueryService {
     // (T0.B). NAO filtra inelegiveis fora — frontend renderiza
     // acinzentados (F1.4).
     eligibleForBlend = false,
+    // Liga: filtro "Apenas ligas" (toggle em /samples). true -> so isBlend=true.
+    isBlend = null,
   } = {}) {
     const safeLimit = Math.min(Math.max(limit, 1), SAMPLES_LIST_MAX_LIMIT);
     const cursor = resolveCursor({ cursorCreatedAt, cursorId, cursorInternalLotNumber });
@@ -1276,6 +1278,17 @@ export class SampleQueryService {
             declaredOwner: {
               contains: normalizedSearch,
               mode: 'insensitive',
+            },
+          },
+          // Liga: casa a liga pelo proprietario de qualquer origem (mesma
+          // logica do filtro de proprietario).
+          {
+            blendComponents: {
+              some: {
+                originSample: {
+                  declaredOwner: { contains: normalizedSearch, mode: 'insensitive' },
+                },
+              },
             },
           },
         ],
@@ -1320,14 +1333,22 @@ export class SampleQueryService {
 
     const normalizedOwner = normalizeOptionalText(owner);
     if (normalizedOwner) {
-      // Busca parcial (contains), igual a busca geral (declaredOwner acima) e ao
-      // filtro de comprador. Antes era `equals` exato, que exigia o nome
-      // completo perfeito — digitar parte do nome nao encontrava nada.
+      // Busca parcial (contains). Liga: casa tambem pela origem — uma liga de
+      // donos divergentes (sem dono proprio) aparece se o termo bate o dono de
+      // qualquer origem.
       conditions.push({
-        declaredOwner: {
-          contains: normalizedOwner,
-          mode: 'insensitive',
-        },
+        OR: [
+          { declaredOwner: { contains: normalizedOwner, mode: 'insensitive' } },
+          {
+            blendComponents: {
+              some: {
+                originSample: {
+                  declaredOwner: { contains: normalizedOwner, mode: 'insensitive' },
+                },
+              },
+            },
+          },
+        ],
       });
     }
 
@@ -1344,7 +1365,18 @@ export class SampleQueryService {
       ? ownerClientIds.filter((id) => typeof id === 'string' && id.length > 0)
       : [];
     if (ownerClientIdList.length > 0) {
-      conditions.push({ ownerClientId: { in: ownerClientIdList } });
+      // Liga: casa a amostra pelo proprio dono OU pelo dono de qualquer origem
+      // (liga de donos divergentes aparece ao filtrar por qualquer um deles).
+      conditions.push({
+        OR: [
+          { ownerClientId: { in: ownerClientIdList } },
+          {
+            blendComponents: {
+              some: { originSample: { ownerClientId: { in: ownerClientIdList } } },
+            },
+          },
+        ],
+      });
     }
 
     const buyerClientIdList = Array.isArray(buyerClientIds)
@@ -1384,6 +1416,11 @@ export class SampleQueryService {
       conditions.push({
         declaredHarvest: { contains: normalizedHarvest },
       });
+    }
+
+    // Liga: filtro "Apenas ligas" (toggle). Indexado (idx_sample_is_blend).
+    if (isBlend === true) {
+      conditions.push({ isBlend: true });
     }
 
     // Filtros de classificacao (Padrao/Aspecto/Catacao/Certificado). Os valores
@@ -2401,6 +2438,8 @@ export class SampleQueryService {
         soldSacks: true,
         lostSacks: true,
         declaredHarvest: true,
+        ownerClientId: true,
+        declaredOwner: true,
         internalLotNumber: true,
         version: true,
       },
@@ -2417,6 +2456,8 @@ export class SampleQueryService {
       lostSacks: row.lostSacks,
       availableSacks: (row.declaredSacks ?? 0) - row.soldSacks - row.lostSacks,
       declaredHarvest: row.declaredHarvest ?? null,
+      ownerClientId: row.ownerClientId ?? null,
+      declaredOwner: row.declaredOwner ?? null,
       internalLotNumber: row.internalLotNumber,
       version: row.version,
     };
@@ -2482,6 +2523,8 @@ export class SampleQueryService {
           parent.status::text AS status,
           parent.commercial_status::text AS commercial_status,
           parent.declared_harvest,
+          parent.owner_client_id,
+          parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
           parent.lost_sacks
@@ -2499,6 +2542,8 @@ export class SampleQueryService {
           parent.status::text AS status,
           parent.commercial_status::text AS commercial_status,
           parent.declared_harvest,
+          parent.owner_client_id,
+          parent.declared_owner,
           parent.internal_lot_number,
           parent.sold_sacks,
           parent.lost_sacks
@@ -2515,6 +2560,8 @@ export class SampleQueryService {
         status,
         commercial_status,
         declared_harvest,
+        owner_client_id,
+        declared_owner,
         internal_lot_number,
         sold_sacks,
         lost_sacks
@@ -2529,6 +2576,8 @@ export class SampleQueryService {
       status: row.status,
       commercialStatus: row.commercial_status,
       declaredHarvest: row.declared_harvest ?? null,
+      ownerClientId: row.owner_client_id ?? null,
+      declaredOwner: row.declared_owner ?? null,
       internalLotNumber: row.internal_lot_number,
       soldSacks: Number(row.sold_sacks),
       lostSacks: Number(row.lost_sacks),
@@ -2536,8 +2585,9 @@ export class SampleQueryService {
   }
 
   // Liga: carrega as origens diretas de um conjunto de ligas numa unica query
-  // (evita N+1 no recalculo de safra). Retorna Map<blendId, Array<{originId,
-  // declaredHarvest}>>. Aceita transacao opcional (executor).
+  // (evita N+1 no recalculo de safra/proprietario). Retorna Map<blendId,
+  // Array<{originId, declaredHarvest, ownerClientId, declaredOwner}>>. Aceita
+  // transacao opcional (executor).
   async loadDirectOriginsForBlends(blendIds, { executor = null } = {}) {
     const result = new Map();
     if (!Array.isArray(blendIds) || blendIds.length === 0) {
@@ -2548,7 +2598,9 @@ export class SampleQueryService {
       SELECT
         bc.sample_id AS blend_id,
         bc.origin_sample_id AS origin_id,
-        origin.declared_harvest
+        origin.declared_harvest,
+        origin.owner_client_id,
+        origin.declared_owner
       FROM sample_blend_component bc
       JOIN sample origin ON origin.id = bc.origin_sample_id
       WHERE bc.sample_id = ANY(${blendIds}::uuid[])
@@ -2561,6 +2613,8 @@ export class SampleQueryService {
       result.get(blendId).push({
         originId: row.origin_id,
         declaredHarvest: row.declared_harvest ?? null,
+        ownerClientId: row.owner_client_id ?? null,
+        declaredOwner: row.declared_owner ?? null,
       });
     }
     return result;

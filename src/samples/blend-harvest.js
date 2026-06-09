@@ -37,3 +37,27 @@ export function deriveBlendHarvest(harvestStrings) {
   if (distinct.size === 0) return null;
   return Array.from(distinct).sort().join(HARVEST_SEPARATOR);
 }
+
+/**
+ * Deriva o proprietario de uma liga a partir das origens. Regra de UNANIMIDADE:
+ * se TODAS as origens tem o mesmo `ownerClientId` (nao-nulo), a liga herda esse
+ * dono; qualquer origem sem dono OU donos divergentes -> liga sem dono (null).
+ * A unanimidade e SEMPRE por `ownerClientId` (o id e a verdade); o nome
+ * (`declaredOwner`) e o snapshot da 1a origem (todas tem o mesmo id quando
+ * unanime). Usado por createBlend e pela propagacao reativa do proprietario.
+ *
+ * @param {Array<{ownerClientId: string|null, declaredOwner: string|null}>} origins
+ * @returns {{ownerClientId: string|null, declaredOwner: string|null}}
+ */
+export function deriveBlendOwner(origins) {
+  if (!Array.isArray(origins) || origins.length === 0) {
+    return { ownerClientId: null, declaredOwner: null };
+  }
+  const ids = origins.map((origin) => origin?.ownerClientId ?? null);
+  const distinct = new Set(ids);
+  // Divergentes (size > 1) ou a unica e nula -> sem dono.
+  if (distinct.size !== 1 || ids[0] === null) {
+    return { ownerClientId: null, declaredOwner: null };
+  }
+  return { ownerClientId: ids[0], declaredOwner: origins[0]?.declaredOwner ?? null };
+}

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
-import { deriveBlendHarvest } from './blend-harvest.js';
+import { deriveBlendHarvest, deriveBlendOwner } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
 const USER_ACTION_ROLES = [
@@ -51,9 +51,9 @@ const MAX_UPDATE_REASON_WORDS = 10;
 const DEFAULT_REGISTRATION_UPDATE_REASON_CODE = 'OTHER';
 const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
 // Liga: reasonText sintetico dos eventos REGISTRATION_UPDATED emitidos pela
-// propagacao reativa de safra (recalculo de liga por edicao de origem). <=10
-// palavras pra casar com o regex do schema registration-updated.
-const BLEND_HARVEST_PROPAGATION_REASON_TEXT = 'Safra recalculada por edicao de origem';
+// propagacao reativa (recalculo de safra e/ou proprietario da liga por edicao de
+// origem). <=10 palavras pra casar com o regex do schema registration-updated.
+const BLEND_PROPAGATION_REASON_TEXT = 'Liga recalculada por edicao de origem';
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
@@ -1610,6 +1610,7 @@ export class SampleCommandService {
     // paralelo pra derivar a safra da liga automaticamente (modal F3
     // removido — operador nao informa mais manualmente).
     const originHarvests = [];
+    const originOwners = [];
     for (const component of normalizedComponents) {
       const origin = await this.queryService.loadSampleSummary(component.originSampleId);
       if (!origin) {
@@ -1641,6 +1642,10 @@ export class SampleCommandService {
         );
       }
       originHarvests.push(origin.declaredHarvest);
+      originOwners.push({
+        ownerClientId: origin.ownerClientId,
+        declaredOwner: origin.declaredOwner,
+      });
     }
 
     const declaredSacks = normalizedComponents.reduce(
@@ -1658,9 +1663,11 @@ export class SampleCommandService {
       ? normalizeRequiredText(input.harvest, 'harvest')
       : derivedHarvest;
 
-    // 3. Owner binding manual (resolveStructuredOwnerForWrite em mode=create
-    // obriga ownerClientId; aqui ele e opcional — F3.1 permite null pra liga
-    // sem dono / carteira da corretora).
+    // 3. Owner: override manual (`input.ownerClientId`) tem precedencia; senao
+    // deriva das origens por UNANIMIDADE — todas com o mesmo ownerClientId
+    // (nao-nulo) -> liga herda; divergente/alguma sem dono -> liga sem dono
+    // (null). Mesma logica usada pela propagacao reativa do proprietario. Nome
+    // (declaredOwner) vem do snapshot da 1a origem (deriveBlendOwner).
     const inputOwnerClientId = normalizeNullableUuid(input.ownerClientId, 'ownerClientId');
     const inputOwnerUnitId = normalizeNullableUuid(input.ownerUnitId, 'ownerUnitId');
     let ownerBinding = null;
@@ -1671,6 +1678,14 @@ export class SampleCommandService {
       });
     } else if (inputOwnerUnitId) {
       throw new HttpError(422, 'ownerUnitId requires ownerClientId');
+    } else {
+      const derivedOwner = deriveBlendOwner(originOwners);
+      if (derivedOwner.ownerClientId) {
+        ownerBinding = {
+          ownerClientId: derivedOwner.ownerClientId,
+          displayName: derivedOwner.declaredOwner,
+        };
+      }
     }
 
     // 4. declared.* — owner pode ser null (F3.3 / T0.C docstring Prisma).
@@ -2334,11 +2349,24 @@ export class SampleCommandService {
     const harvestChanged =
       updatePayload.after?.declared &&
       Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'harvest');
+    const ownerChanged = Object.prototype.hasOwnProperty.call(
+      updatePayload.after ?? {},
+      'ownerClientId'
+    );
 
-    if (harvestChanged) {
-      const propagation = await this._buildHarvestPropagation({
+    if (harvestChanged || ownerChanged) {
+      // Liga: propagacao reativa unificada (safra E/OU proprietario). Semeia o
+      // estado com o valor NOVO do campo que mudou e o valor ATUAL do que NAO
+      // mudou — senao a liga recalcularia o outro campo errado.
+      const propagation = await this._buildBlendPropagation({
         editedSampleId: sample.id,
-        newHarvest: updatePayload.after.declared.harvest,
+        newHarvest: harvestChanged
+          ? updatePayload.after.declared.harvest
+          : (sample.declared?.harvest ?? null),
+        newOwnerClientId: ownerChanged ? updatePayload.after.ownerClientId : sample.ownerClientId,
+        newDeclaredOwner: ownerChanged
+          ? (updatePayload.after.declared?.owner ?? null)
+          : (sample.declared?.owner ?? null),
         actor,
         causationEventId: editedEventId,
       });
@@ -2349,7 +2377,7 @@ export class SampleCommandService {
         if (input.confirmHarvestPropagation !== true) {
           throw new HttpError(
             409,
-            `Esta edicao de safra altera a safra de ${propagation.affectedBlends.length} liga(s).`,
+            `Esta edicao altera ${propagation.affectedBlends.length} liga(s).`,
             {
               code: 'BLEND_HARVEST_PROPAGATION_REQUIRED',
               affectedBlends: propagation.affectedBlends,
@@ -2372,21 +2400,29 @@ export class SampleCommandService {
     });
   }
 
-  // Liga: monta os eventos de recalculo de safra das ligas ancestrais de um
-  // lote cuja safra foi editada. Sobe a arvore (loadAncestorBlendTree),
-  // deduplica diamantes por sampleId (mantendo o maior depth) e recalcula a
-  // safra de cada liga em ordem topologica (depth ASC), reusando
-  // deriveBlendHarvest com override em memoria (harvestBySampleId) — liga-de-liga
-  // le o valor ja recalculado da liga-filha. Emite REGISTRATION_UPDATED apenas
-  // para as ligas cujo valor efetivamente muda (no-op nao gera evento, mas o
-  // Map recebe o valor recalculado pra ligas acima lerem certo). Retorna drafts
-  // + optionsByIndex prontos pro mesmo appendEventBatch do evento do lote, e
-  // affectedBlends pra UX de confirmacao.
+  // Liga: monta os eventos de recalculo das ligas ancestrais de um lote cuja
+  // SAFRA e/ou PROPRIETARIO foi editado. Sobe a arvore (loadAncestorBlendTree),
+  // deduplica diamantes por sampleId (mantendo o maior depth) e recalcula safra
+  // (deriveBlendHarvest) e owner (deriveBlendOwner — unanimidade) de cada liga em
+  // ordem topologica (depth ASC), com um Map de estado {harvest, ownerClientId,
+  // declaredOwner} — liga-de-liga le o valor JA recalculado da filha. Emite UM
+  // REGISTRATION_UPDATED por liga cujo valor muda (no-op = safra E owner
+  // inalterados; o Map recebe o estado recalculado SEMPRE, mesmo no no-op, pra
+  // ligas acima lerem certo). Owner comparado por id. before/after montados
+  // condicionalmente (so os campos que mudam). Retorna drafts + optionsByIndex +
+  // affectedBlends.
   //
   // A arvore e carregada fora da tx do batch — confia no expectedVersion por
   // liga (igual _createBlendCascadeMovement): escrita concorrente vira conflito
   // de versao no batch (409) e o cliente re-tenta.
-  async _buildHarvestPropagation({ editedSampleId, newHarvest, actor, causationEventId }) {
+  async _buildBlendPropagation({
+    editedSampleId,
+    newHarvest,
+    newOwnerClientId,
+    newDeclaredOwner,
+    actor,
+    causationEventId,
+  }) {
     const tree = await this.queryService.loadAncestorBlendTree(editedSampleId);
     if (tree.length === 0) {
       return { affectedBlends: [], drafts: [], optionsByIndex: [] };
@@ -2408,24 +2444,63 @@ export class SampleCommandService {
       blends.map((blend) => blend.sampleId)
     );
 
-    const harvestBySampleId = new Map([[editedSampleId, newHarvest]]);
+    // Estado por sampleId: {harvest, ownerClientId, declaredOwner}. Seed com o
+    // lote editado (valor novo do campo mudado + atual do nao-mudado).
+    const stateBySampleId = new Map([
+      [
+        editedSampleId,
+        { harvest: newHarvest, ownerClientId: newOwnerClientId, declaredOwner: newDeclaredOwner },
+      ],
+    ]);
     const affectedBlends = [];
     const drafts = [];
     const optionsByIndex = [];
 
     for (const blend of blends) {
       const origins = originsByBlend.get(blend.sampleId) ?? [];
-      const harvests = origins.map(
-        (origin) => harvestBySampleId.get(origin.originId) ?? origin.declaredHarvest
-      );
-      const recalculated = deriveBlendHarvest(harvests);
-      // Registra SEMPRE (mesmo no no-op) pra ligas ancestrais lerem o valor certo.
-      harvestBySampleId.set(blend.sampleId, recalculated);
 
-      // No-op: safra da liga nao muda — nao emite evento (schema exige
-      // before != after via minProperties, e evita poluir o historico).
-      if (recalculated === blend.declaredHarvest) {
+      const recalcHarvest = deriveBlendHarvest(
+        origins.map(
+          (origin) => stateBySampleId.get(origin.originId)?.harvest ?? origin.declaredHarvest
+        )
+      );
+      const recalcOwner = deriveBlendOwner(
+        origins.map((origin) => {
+          const state = stateBySampleId.get(origin.originId);
+          return state
+            ? { ownerClientId: state.ownerClientId, declaredOwner: state.declaredOwner }
+            : { ownerClientId: origin.ownerClientId, declaredOwner: origin.declaredOwner };
+        })
+      );
+
+      // Registra SEMPRE (mesmo no no-op) pra ligas ancestrais lerem o valor certo.
+      stateBySampleId.set(blend.sampleId, {
+        harvest: recalcHarvest,
+        ownerClientId: recalcOwner.ownerClientId,
+        declaredOwner: recalcOwner.declaredOwner,
+      });
+
+      const harvestChanged = recalcHarvest !== blend.declaredHarvest;
+      const ownerChanged = recalcOwner.ownerClientId !== blend.ownerClientId;
+      // No-op: nem safra nem owner mudam -> nao emite evento.
+      if (!harvestChanged && !ownerChanged) {
         continue;
+      }
+
+      // before/after so com os campos que mudam (schema exige minProperties:1;
+      // owner em after.ownerClientId top-level + after.declared.owner — formato
+      // que o projetor ja entende).
+      const before = { declared: {} };
+      const after = { declared: {} };
+      if (harvestChanged) {
+        before.declared.harvest = blend.declaredHarvest;
+        after.declared.harvest = recalcHarvest;
+      }
+      if (ownerChanged) {
+        before.ownerClientId = blend.ownerClientId;
+        after.ownerClientId = recalcOwner.ownerClientId;
+        before.declared.owner = blend.declaredOwner;
+        after.declared.owner = recalcOwner.declaredOwner;
       }
 
       affectedBlends.push({
@@ -2436,7 +2511,9 @@ export class SampleCommandService {
         soldSacks: blend.soldSacks,
         lostSacks: blend.lostSacks,
         currentHarvest: blend.declaredHarvest,
-        newHarvest: recalculated,
+        newHarvest: recalcHarvest,
+        currentOwner: blend.declaredOwner,
+        newOwner: recalcOwner.declaredOwner,
       });
 
       drafts.push(
@@ -2444,10 +2521,10 @@ export class SampleCommandService {
           eventType: 'REGISTRATION_UPDATED',
           sampleId: blend.sampleId,
           payload: {
-            before: { declared: { harvest: blend.declaredHarvest } },
-            after: { declared: { harvest: recalculated } },
+            before,
+            after,
             reasonCode: 'DATA_FIX',
-            reasonText: BLEND_HARVEST_PROPAGATION_REASON_TEXT,
+            reasonText: BLEND_PROPAGATION_REASON_TEXT,
           },
           fromStatus: null,
           toStatus: null,

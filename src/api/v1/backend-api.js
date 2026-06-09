@@ -534,6 +534,8 @@ export function createBackendApiV1({
           // Liga A3.3 (F1.B + T0.B): quando true, enriquece cada sample
           // com eligibility + committedSacks.
           eligibleForBlend: readOptionalQueryString(query.eligibleForBlend) === 'true',
+          // Liga: filtro "Apenas ligas".
+          isBlend: readOptionalQueryString(query.isBlend) === 'true' ? true : null,
         });
 
         return {
