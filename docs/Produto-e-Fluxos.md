@@ -152,9 +152,14 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 ### 4. Laudo e consulta
 
 1. O laudo PDF so pode ser gerado quando a amostra esta `CLASSIFIED`.
-2. O fluxo atual oferece dois tipos de exportacao:
-   `COMPLETO` e `COMPRADOR_PARCIAL`.
-3. O detalhe da amostra expoe historico, anexos, QR, dados principais, classificacao e status comercial.
+2. A interface gera um **unico laudo** ("Laudo Tecnico"), que omite proprietario e
+   lote de origem (internamente usa o tipo `COMPRADOR_PARCIAL`). O tipo `COMPLETO`
+   (com proprietario) permanece no backend apenas por compatibilidade com eventos
+   `REPORT_EXPORTED` historicos — nao ha acesso a ele pela UI.
+3. Em amostra com mais de uma safra (liga de safras diferentes), ao gerar o laudo
+   o operador escolhe qual safra sai nele (`reportedHarvest`, registrado no evento):
+   o laudo nunca imprime a safra concatenada, pra nao revelar que e uma liga.
+4. O detalhe da amostra expoe historico, anexos, QR, dados principais, classificacao e status comercial.
 
 ## Regras de ajuste e auditoria
 
