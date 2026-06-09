@@ -915,6 +915,10 @@ export class ClientService {
           ownerClientId: client.id,
           status: { not: 'INVALIDATED' },
           commercialStatus: { in: ['OPEN', 'PARTIALLY_SOLD'] },
+          // Liga: nao contar ligas no agregado do cliente. As sacas de uma liga
+          // unanime sao as mesmas das origens (committed) — contar liga +
+          // origens inflaria o total. Os lotes (origens) ja contam.
+          isBlend: false,
         },
         _count: { _all: true },
         _sum: { declaredSacks: true },
