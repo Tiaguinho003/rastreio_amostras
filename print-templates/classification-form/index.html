@@ -240,15 +240,15 @@
         align-items: center;
         justify-content: center;
       }
-      /* "%" no canto direito do campo do percentual, centralizado
-         verticalmente (mesma altura do "="). */
+      /* "%" no canto superior direito do campo do percentual, alinhado ao
+         label (mesma posicao dos demais campos percentuais). */
       .fd .fd-perc::after {
         content: '%';
         position: absolute;
         right: 1.2mm;
-        top: 50%;
-        transform: translateY(-50%);
+        top: 0.6mm;
         font-size: var(--label-size);
+        line-height: 1;
         opacity: 0.7;
       }
 
