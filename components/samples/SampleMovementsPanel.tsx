@@ -154,7 +154,7 @@ export function SampleMovementsPanel({
   return (
     <section className="sdv-commercial">
       {/* Card 1: Resumo */}
-      <div className="sdv-card">
+      <div className="sdv-card sdv-com-summary">
         <div className="sdv-card-header">
           <span className="sdv-card-title">Resumo comercial</span>
           <span
