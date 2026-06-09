@@ -25,13 +25,14 @@ case "$1" in
     ;;
   backfill-liga)
     # Backfill de safra/owner das ligas: reusa a imagem do job migrate (que carrega
-    # src/ + scripts/) e sobrescreve o comando pra rodar o script. --dry-run (3o arg)
+    # src/ + scripts/) e sobrescreve so os ARGS — o comando do job ja e `npm`, e
+    # `gcloud run jobs execute` nao aceita --command (so --args). --dry-run (3o arg)
     # e repassado ao script via `npm run backfill:liga -- --dry-run`.
     JOB_NAME="${GCLOUD_CLOUD_RUN_MIGRATE_JOB}"
     if [[ "${3:-}" == "--dry-run" ]]; then
-      OVERRIDE_ARGS=(--command npm --args "run,backfill:liga,--,--dry-run")
+      OVERRIDE_ARGS=(--args "run,backfill:liga,--,--dry-run")
     else
-      OVERRIDE_ARGS=(--command npm --args "run,backfill:liga")
+      OVERRIDE_ARGS=(--args "run,backfill:liga")
     fi
     ;;
   *)
