@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Poppins } from 'next/font/google';
 
+import { LoadingProvider } from '../components/LoadingProvider';
 import { PageTransition } from '../components/PageTransition';
 import { PwaRegistration } from '../components/PwaRegistration';
 import { ViewportDebugOverlay } from '../components/ViewportDebugOverlay';
@@ -63,7 +64,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastProvider>
           <DirtyStateProvider>
             <ScannerBridge>
-              <PageTransition>{children}</PageTransition>
+              <LoadingProvider>
+                <PageTransition>{children}</PageTransition>
+              </LoadingProvider>
             </ScannerBridge>
           </DirtyStateProvider>
         </ToastProvider>

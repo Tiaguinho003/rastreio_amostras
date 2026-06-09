@@ -44,6 +44,7 @@ import {
 import { isClientComplete } from '../../../lib/clients/client-completeness';
 import { useCepLookup } from '../../../lib/clients/use-cep-lookup';
 import { useDocumentMask } from '../../../lib/use-document-mask';
+import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
@@ -299,6 +300,9 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientSummary | null>(null);
   const [units, setUnits] = useState<ClientUnitSummary[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
+  // Loader da marca (logo + barra + bolinhas) se o cliente demorar a carregar —
+  // substitui o "Carregando cliente..." verde.
+  useGlobalLoading(loadingPage);
 
   /* ---- commercial summary (4 cards: open / sold / lost / bought) ---- */
   const [commercialSummary, setCommercialSummary] = useState<{
@@ -1011,8 +1015,6 @@ export default function ClientDetailPage() {
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
-        {loadingPage ? <div className="sdv-loading">Carregando cliente...</div> : null}
-
         {!loadingPage && client ? (
           <>
             {/* Header verde */}

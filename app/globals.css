@@ -7395,14 +7395,6 @@ button:disabled {
   overflow: hidden;
 }
 
-.sdv-loading {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: clamp(13px, 3.5vw, 14px);
-}
-
 .sdv-header {
   flex-shrink: 0;
   background: transparent;
@@ -21106,6 +21098,45 @@ select.samples-filter-field-input {
 .splash-screen.is-exiting {
   animation: splash-exit 700ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
+}
+
+/* Variante "loader de página lenta" (não é o boot): fica logo ABAIXO do splash
+   de boot (99999) — assim, no startup, o boot opaco o esconde e não há glitch.
+   Aparece mais ágil (delays internos menores) e a barra para em ~88%
+   (indeterminada — não finge 100% enquanto a página ainda carrega). */
+.splash-screen.is-page-loader {
+  z-index: 99998;
+}
+
+.splash-screen.is-page-loader .splash-center {
+  animation-delay: 40ms;
+}
+
+.splash-screen.is-page-loader .splash-footer {
+  animation-delay: 200ms;
+}
+
+.splash-screen.is-page-loader .splash-logo {
+  animation-delay: 320ms;
+}
+
+.splash-screen.is-page-loader .splash-progress-fill {
+  animation: splash-progress-page 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 200ms forwards;
+}
+
+@keyframes splash-progress-page {
+  0% {
+    width: 0%;
+  }
+  25% {
+    width: 38%;
+  }
+  55% {
+    width: 64%;
+  }
+  100% {
+    width: 88%;
+  }
 }
 
 @keyframes splash-bg-in {

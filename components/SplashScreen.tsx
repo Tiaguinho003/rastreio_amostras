@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, getCurrentSession } from '../lib/api-client';
+import { SplashVisual } from './SplashVisual';
 
 function isOffline(): boolean {
   return typeof navigator !== 'undefined' && !navigator.onLine;
@@ -162,34 +162,5 @@ export function SplashScreen() {
 
   if (!visible) return null;
 
-  return (
-    <div className={`splash-screen${exiting ? ' is-exiting' : ''}`} aria-hidden="true">
-      <div className="splash-particles">
-        {Array.from({ length: 14 }).map((_, i) => (
-          <span key={i} className="splash-particle" style={{ '--p': i } as React.CSSProperties} />
-        ))}
-      </div>
-
-      <div className="splash-center">
-        <div className="splash-logo-glow" />
-        <Image
-          src="/logo-safras-branco.png"
-          alt=""
-          width={1024}
-          height={299}
-          priority
-          className="splash-logo"
-        />
-      </div>
-
-      <div className="splash-footer">
-        <div className="splash-progress-track">
-          <div className="splash-progress-fill" />
-        </div>
-        <p className="splash-status">
-          Preparando tudo<span className="splash-dots">...</span>
-        </p>
-      </div>
-    </div>
-  );
+  return <SplashVisual exiting={exiting} statusText="Preparando tudo" />;
 }

@@ -41,6 +41,7 @@ import {
   updateReasonSchema,
 } from '../../../lib/form-schemas';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
+import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ActiveBlendDetail,
@@ -437,6 +438,9 @@ export default function SampleDetailPage() {
   // Buscado so pra liga ainda vendavel; null pra amostra normal ou em erro.
   const [blendFeasibility, setBlendFeasibility] = useState<BlendFeasibilityResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
+  // Enquanto a amostra carrega, mostra o loader da marca (logo + barra +
+  // bolinhas) se demorar — substitui o "Carregando amostra..." verde.
+  useGlobalLoading(loadingDetail);
   const [pageNotice, setPageNotice] = useState<Notice>(null);
   const [generalNotice, setGeneralNotice] = useState<Notice>(null);
   const [registrationModalNotice, setRegistrationModalNotice] = useState<Notice>(null);
@@ -1942,8 +1946,6 @@ export default function SampleDetailPage() {
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
       <section className="sdv-page">
-        {loadingDetail ? <div className="sdv-loading">Carregando amostra...</div> : null}
-
         {!loadingDetail && detail ? (
           <>
             {/* Header verde */}

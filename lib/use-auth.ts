@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getCurrentSession, logout as logoutRequest } from './api-client';
+import { useGlobalLoading } from './loading/loading-context';
 import { isRoleAllowed } from './roles';
 import type { SessionData, UserRole } from './types';
 
@@ -123,6 +124,9 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
 
   const router = useRouter();
   const { session, loading, replaceSession, failureReason } = useAuthState();
+  // Loader global da marca enquanto a sessão/página inicial carrega — cobre
+  // qualquer página que demore (substitui o "Carregando..." verde).
+  useGlobalLoading(loading);
   const isAuthorized = useMemo(() => {
     if (!session) {
       return false;
