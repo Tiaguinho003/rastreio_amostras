@@ -146,7 +146,6 @@ function CameraPageContent() {
   >('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
-  const [captureFlashKey, setCaptureFlashKey] = useState(0);
 
   // QR result modal
   const [result, setResult] = useState<ResolveSampleByQrResponse | null>(null);
@@ -660,8 +659,6 @@ function CameraPageContent() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    setCaptureFlashKey((key) => key + 1);
-
     const canvas = canvasRef.current ?? document.createElement('canvas');
     canvasRef.current = canvas;
     canvas.width = video.videoWidth;
@@ -1170,9 +1167,6 @@ function CameraPageContent() {
 
   return (
     <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
-      {captureFlashKey > 0 ? (
-        <div key={captureFlashKey} className="camera-capture-flash" aria-hidden="true" />
-      ) : null}
       <section className="camera-hub-page">
         <section className="camera-hub-panel">
           <div className="camera-hub-stage">
