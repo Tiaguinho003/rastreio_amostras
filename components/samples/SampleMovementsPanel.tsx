@@ -614,6 +614,14 @@ export function SampleMovementsPanel({
                   <div className="app-modal-actions">
                     <button
                       type="button"
+                      className="app-modal-secondary"
+                      onClick={() => setCancelMovement(null)}
+                      disabled={saving}
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
                       className="app-modal-submit is-danger"
                       disabled={saving || cancelReasonText.trim().length === 0}
                       onClick={async () => {
@@ -639,15 +647,7 @@ export function SampleMovementsPanel({
                         }
                       }}
                     >
-                      {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
-                    </button>
-                    <button
-                      type="button"
-                      className="app-modal-secondary"
-                      onClick={() => setCancelMovement(null)}
-                      disabled={saving}
-                    >
-                      Voltar
+                      {saving ? 'Cancelando...' : 'Confirmar'}
                     </button>
                   </div>
                 </div>
