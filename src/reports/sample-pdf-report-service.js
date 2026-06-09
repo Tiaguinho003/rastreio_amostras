@@ -26,9 +26,9 @@ import {
 const PDF_PAGE_WIDTH = 595.28;
 const PDF_PAGE_HEIGHT = 841.89;
 const COMPANY_INFO = {
-  cityUf: 'Sao Sebastiao do Paraiso/MG',
+  cityUf: 'São Sebastião do Paraíso/MG',
   phone: '(35) 3531-4046',
-  address: 'Av. Oliveira Rezende, 1397 - Jardim Bernadete - Sao Sebastiao do Paraiso - MG',
+  address: 'Av. Oliveira Rezende, 1397 - Jardim Bernadete - São Sebastião do Paraíso - MG',
 };
 
 function drawPageBackground(page) {
@@ -104,49 +104,6 @@ function fitTextToWidth(text, font, size, maxWidth) {
   return `${normalized.slice(0, low).trimEnd()}${ellipsis}`;
 }
 
-function wrapTextToWidth(text, font, size, maxWidth, maxLines = 2) {
-  const normalized = String(text ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!normalized) {
-    return [];
-  }
-
-  const words = normalized.split(' ');
-  const lines = [];
-  let current = '';
-  let truncated = false;
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      current = candidate;
-      continue;
-    }
-
-    if (current) {
-      lines.push(current);
-      current = word;
-    } else {
-      lines.push(fitTextToWidth(word, font, size, maxWidth));
-      current = '';
-    }
-
-    if (lines.length === maxLines) {
-      truncated = true;
-      break;
-    }
-  }
-
-  if (!truncated && current) {
-    lines.push(current);
-  } else if (truncated) {
-    lines[maxLines - 1] = fitTextToWidth(`${lines[maxLines - 1]}...`, font, size, maxWidth);
-  }
-
-  return lines.slice(0, maxLines).filter(Boolean);
-}
-
 function drawImageCover(page, image, { x, y, width, height }) {
   if (width <= 0 || height <= 0) {
     return;
@@ -166,33 +123,6 @@ function drawImageCover(page, image, { x, y, width, height }) {
     height: drawHeight,
   });
   page.pushOperators(popGraphicsState());
-}
-
-function drawImageContain(page, image, { x, y, width, height }) {
-  if (width <= 0 || height <= 0) {
-    return;
-  }
-
-  page.drawRectangle({
-    x,
-    y,
-    width,
-    height,
-    color: rgb(0.94, 0.94, 0.94),
-  });
-
-  const scale = Math.min(width / image.width, height / image.height);
-  const drawWidth = image.width * scale;
-  const drawHeight = image.height * scale;
-  const drawX = x + (width - drawWidth) / 2;
-  const drawY = y + (height - drawHeight) / 2;
-
-  page.drawImage(image, {
-    x: drawX,
-    y: drawY,
-    width: drawWidth,
-    height: drawHeight,
-  });
 }
 
 function buildReportFileName(sample) {
@@ -266,13 +196,34 @@ async function embedImage(pdfDoc, bytes, mimeType) {
   return pdfDoc.embedPng(pngBytes);
 }
 
-async function renderSamplePdf({
+// Silhueta branca preservando o canal alpha — usada pra marca d'agua clara do
+// icone (arvore) sobre a banda verde escura do cabecalho. Pinta todo pixel
+// visivel de branco e mantem a transparencia original.
+async function makeWhiteSilhouette(bytes) {
+  const { data, info } = await sharp(bytes)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += info.channels) {
+    data[i] = 255;
+    data[i + 1] = 255;
+    data[i + 2] = 255;
+  }
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: info.channels },
+  })
+    .png()
+    .toBuffer();
+}
+
+export async function renderSamplePdf({
   sample,
   classificationAttachment,
   classificationPhotoBytes,
   selectedFieldEntries,
   issuedAtIso,
   logoPath,
+  iconPath,
   destination,
 }) {
   const pdfDoc = await PDFDocument.create();
@@ -281,6 +232,16 @@ async function renderSamplePdf({
 
   const logoBytes = await tryReadLogoBytes(logoPath);
   const logoImage = logoBytes ? await pdfDoc.embedPng(logoBytes).catch(() => null) : null;
+
+  const iconBytes = await tryReadLogoBytes(iconPath);
+  let iconWhiteImage = null;
+  if (iconBytes) {
+    try {
+      iconWhiteImage = await pdfDoc.embedPng(await makeWhiteSilhouette(iconBytes));
+    } catch {
+      iconWhiteImage = null;
+    }
+  }
   const classificationImage = await embedImage(
     pdfDoc,
     classificationPhotoBytes,
@@ -314,9 +275,13 @@ async function renderSamplePdf({
 
   const lineLeft = docX + 24;
   const lineRight = docX + docWidth - 24;
-  const headerHeight = 94;
+
+  // ─── Cabecalho: banda verde no topo do card ───
+  // Logo (lockup branco) a esquerda | divisoria vertical | titulo "LAUDO
+  // TECNICO" + lote/emissao a direita, sobre marca d'agua do icone (arvore).
+  const headerHeight = 116;
   const headerY = docTop - headerHeight;
-  const headerGreen = rgb(0.14, 0.43, 0.29);
+  const headerGreen = rgb(0.098, 0.298, 0.169);
   page.drawRectangle({
     x: docX + 1,
     y: headerY,
@@ -325,79 +290,76 @@ async function renderSamplePdf({
     color: headerGreen,
   });
 
+  // Marca d'agua: icone claro, grande, recortado nos limites da banda.
+  if (iconWhiteImage) {
+    const wmHeight = headerHeight * 1.55;
+    const wmScale = wmHeight / iconWhiteImage.height;
+    const wmWidth = iconWhiteImage.width * wmScale;
+    page.pushOperators(
+      pushGraphicsState(),
+      rectangle(docX + 1, headerY, docWidth - 2, headerHeight - 1),
+      clip(),
+      endPath()
+    );
+    page.drawImage(iconWhiteImage, {
+      x: docX + docWidth - wmWidth * 0.62,
+      y: headerY + (headerHeight - wmHeight) / 2,
+      width: wmWidth,
+      height: wmHeight,
+      opacity: 0.07,
+    });
+    page.pushOperators(popGraphicsState());
+  }
+
+  // Logo a esquerda, centralizado verticalmente.
   if (logoImage) {
-    const logoMaxWidth = 280;
-    const logoMaxHeight = 76;
-    const logoScale = Math.min(logoMaxWidth / logoImage.width, logoMaxHeight / logoImage.height);
-    const logoWidth = logoImage.width * logoScale;
-    const logoHeight = logoImage.height * logoScale;
+    const logoMaxWidth = 200;
+    let logoHeight = 50;
+    let logoWidth = (logoImage.width / logoImage.height) * logoHeight;
+    if (logoWidth > logoMaxWidth) {
+      logoHeight *= logoMaxWidth / logoWidth;
+      logoWidth = logoMaxWidth;
+    }
     page.drawImage(logoImage, {
-      x: docX + 20,
+      x: docX + 26,
       y: headerY + (headerHeight - logoHeight) / 2,
       width: logoWidth,
       height: logoHeight,
     });
   }
 
-  const companyInfoRightEdge = docX + docWidth - 16;
-  const companyLineSpacing = 12;
-  const companyStartY = headerY + headerHeight - 24;
-
-  page.drawText(COMPANY_INFO.cityUf, {
-    x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(COMPANY_INFO.cityUf, 8),
-    y: companyStartY,
-    size: 8,
-    font: fontRegular,
-    color: rgb(1, 1, 1),
-  });
-
-  page.drawText(COMPANY_INFO.phone, {
-    x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(COMPANY_INFO.phone, 8),
-    y: companyStartY - companyLineSpacing,
-    size: 8,
-    font: fontRegular,
-    color: rgb(1, 1, 1),
-  });
-
-  const addressLines = wrapTextToWidth(COMPANY_INFO.address, fontRegular, 7, 220, 2);
-  let addrY = companyStartY - companyLineSpacing * 2;
-  for (const line of addressLines) {
-    page.drawText(line, {
-      x: companyInfoRightEdge - fontRegular.widthOfTextAtSize(line, 7),
-      y: addrY,
-      size: 7,
-      font: fontRegular,
-      color: rgb(0.85, 0.92, 0.85),
-    });
-    addrY -= 9;
-  }
-
+  // Divisoria vertical entre logo e titulo.
+  const dividerX = docX + 252;
   page.drawLine({
-    start: { x: lineLeft, y: headerY },
-    end: { x: lineRight, y: headerY },
+    start: { x: dividerX, y: headerY + 22 },
+    end: { x: dividerX, y: headerY + headerHeight - 22 },
     thickness: 1,
-    color: docLine,
+    color: rgb(1, 1, 1),
+    opacity: 0.33,
   });
 
-  const title = 'LAUDO TECNICO DE AMOSTRA';
-  const titleWidth = fontBold.widthOfTextAtSize(title, 16.5);
-  const titleY = headerY - 36;
-  page.drawText(title, {
-    x: docX + (docWidth - titleWidth) / 2,
-    y: titleY,
-    size: 16.5,
+  // Titulo + meta (lote/emissao) no lado direito da banda.
+  const headerRightX = dividerX + 26;
+  const headerRightLimit = docX + docWidth - 150;
+  const headerTitleY = headerY + headerHeight - 44;
+  page.drawText('LAUDO TÉCNICO', {
+    x: headerRightX,
+    y: headerTitleY,
+    size: 21,
     font: fontBold,
-    color: docGreen,
+    color: rgb(1, 1, 1),
   });
 
+  const headerUnderlineY = headerTitleY - 13;
   page.drawLine({
-    start: { x: lineLeft, y: titleY - 10 },
-    end: { x: lineRight, y: titleY - 10 },
-    thickness: 1,
-    color: docLine,
+    start: { x: headerRightX, y: headerUnderlineY },
+    end: { x: headerRightLimit, y: headerUnderlineY },
+    thickness: 0.8,
+    color: rgb(1, 1, 1),
+    opacity: 0.45,
   });
 
-  const metaRows = [
+  const headerMeta = [
     {
       label: 'Lote Interno',
       value:
@@ -408,66 +370,89 @@ async function renderSamplePdf({
     { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
   ];
   if (destination) {
-    metaRows.push({ label: 'Destinatario', value: destination });
+    headerMeta.push({ label: 'Destinatário', value: destination });
+  }
+
+  let headerMetaY = headerUnderlineY - 20;
+  for (const row of headerMeta) {
+    const labelText = `${row.label}: `;
+    page.drawText(labelText, {
+      x: headerRightX,
+      y: headerMetaY,
+      size: 10.5,
+      font: fontRegular,
+      color: rgb(1, 1, 1),
+    });
+    const labelW = fontRegular.widthOfTextAtSize(labelText, 10.5);
+    // O valor pode avancar sobre a marca d'agua (texto solido por cima do
+    // icone clarinho), entao usa uma margem direita maior que a da divisoria.
+    const value = fitTextToWidth(
+      String(row.value ?? '-'),
+      fontBold,
+      10.5,
+      docX + docWidth - 30 - (headerRightX + labelW)
+    );
+    page.drawText(value || '-', {
+      x: headerRightX + labelW,
+      y: headerMetaY,
+      size: 10.5,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+    headerMetaY -= 16;
   }
 
   const entryById = new Map(selectedFieldEntries.map((entry) => [entry.id, entry]));
-  const usedIds = new Set();
   const asValue = (entry) => String(entry?.value ?? '').trim();
 
-  const summaryRows = [];
-  for (const [id, label] of [
-    ['owner', 'Proprietario'],
-    ['harvest', 'Safra'],
-    ['sacks', 'Quantidade'],
-  ]) {
-    const entry = entryById.get(id);
-    if (entry) {
-      summaryRows.push({ label, value: asValue(entry) });
-      usedIds.add(id);
-    }
-  }
+  // ── Resumo do Lote: dados de cabecalho do lote ──
+  const resumoRows = [
+    {
+      label: 'Lote interno',
+      value:
+        typeof sample.internalLotNumber === 'string' && sample.internalLotNumber.trim()
+          ? sample.internalLotNumber
+          : '-',
+    },
+    { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
+    { label: 'Safra', value: asValue(entryById.get('harvest')) || '-' },
+    { label: 'Sacas', value: asValue(entryById.get('sacks')) || '-' },
+    { label: 'Data da classificação', value: asValue(entryById.get('classificationDate')) || '-' },
+  ];
 
+  // ── Dados de Classificacao: todos os campos autorizados no laudo, exceto os
+  // que ja aparecem no Resumo do Lote. Campos sem valor ja vem filtrados de
+  // selectedFieldEntries (excludeEmpty), entao so aparece o que foi registrado.
   const classificationRows = [];
   for (const [id, label] of [
-    ['classificationDate', 'Data Classificacao'],
-    ['padrao', 'Padrao'],
-    ['catacao', 'Catacao'],
+    ['padrao', 'Padrão'],
+    ['catacao', 'Catação'],
     ['aspecto', 'Aspecto'],
     ['bebida', 'Bebida'],
     ['broca', 'Broca'],
     ['pva', 'PVA'],
     ['imp', 'IMP'],
-    ['defeito', 'Defeitos'],
-    ['umidade', 'Umidade'],
-    ['classificador', 'Classificador'],
+    ['defeito', 'Defeito'],
   ]) {
     const entry = entryById.get(id);
     if (entry) {
       classificationRows.push({ label, value: asValue(entry) });
-      usedIds.add(id);
     }
   }
 
-  // Classificadores: expande em multiplas rows (padrao analogo ao sieveRows)
-  // para preservar legibilidade no laudo, ja que o renderer nao faz wrapping.
-  // Cap de 8 nomes visiveis; o resto vira um sufixo contando os adicionais.
-  // Aceita tanto o campo novo `classifiers` quanto o legacy `conferredBy`
-  // (ambos retornam a mesma string pipe-separada do export-fields.js).
+  // Classificadores: uma row por nome (cap visivel + sufixo de overflow).
+  // Aceita o campo novo `classifiers` ou o legacy `conferredBy` (mesma string
+  // pipe-separada do export-fields.js).
   const classifiersEntry = entryById.get('classifiers') ?? entryById.get('conferredBy');
   if (classifiersEntry) {
-    usedIds.add(classifiersEntry === entryById.get('classifiers') ? 'classifiers' : 'conferredBy');
     const names = asValue(classifiersEntry)
       .split('|')
       .map((part) => part.trim())
       .filter(Boolean);
-    const CLASSIFIERS_VISIBLE_CAP = 8;
+    const CLASSIFIERS_VISIBLE_CAP = 6;
     const visible = names.slice(0, CLASSIFIERS_VISIBLE_CAP);
     for (let i = 0; i < visible.length; i++) {
-      classificationRows.push({
-        label: i === 0 ? 'Classificadores' : '',
-        value: visible[i],
-      });
+      classificationRows.push({ label: i === 0 ? 'Classificadores' : '', value: visible[i] });
     }
     const overflow = names.length - visible.length;
     if (overflow > 0) {
@@ -478,56 +463,47 @@ async function renderSamplePdf({
     }
   }
 
-  // Observacoes por ultimo na secao de classificacao
-  const observacoesEntry = entryById.get('observacoes');
-  if (observacoesEntry) {
-    classificationRows.push({ label: 'Observacoes', value: asValue(observacoesEntry) });
-    usedIds.add('observacoes');
-  }
-
-  const technicalRows = [];
-  for (const [id, label] of [
-    ['technicalType', 'Tipo Tecnico'],
-    ['technicalScreen', 'Peneira Tecnica'],
-    ['technicalDensity', 'Densidade Tecnica'],
-  ]) {
-    const entry = entryById.get(id);
-    if (entry) {
-      technicalRows.push({ label, value: asValue(entry) });
-      usedIds.add(id);
-    }
-  }
-
-  const sieveRows = [];
+  // Peneiras percentuais: uma row por peneira ("P18: 5%" -> Peneira P18 | 5%).
   const sieveEntry = entryById.get('peneirasPercentuais');
   if (sieveEntry) {
-    usedIds.add('peneirasPercentuais');
     const parts = asValue(sieveEntry)
       .split('|')
       .map((part) => part.trim())
       .filter(Boolean);
     for (const part of parts) {
-      const separatorIndex = part.indexOf(':');
-      if (separatorIndex > 0) {
-        sieveRows.push({
-          label: part.slice(0, separatorIndex).trim(),
-          value: part.slice(separatorIndex + 1).trim(),
+      const sep = part.indexOf(':');
+      if (sep > 0) {
+        classificationRows.push({
+          label: `Peneira ${part.slice(0, sep).trim()}`,
+          value: part.slice(sep + 1).trim(),
         });
       } else {
-        sieveRows.push({ label: 'Peneira', value: part });
+        classificationRows.push({ label: 'Peneira', value: part });
       }
     }
   }
 
-  const extraRows = [];
-  for (const entry of selectedFieldEntries) {
-    if (!usedIds.has(entry.id)) {
-      extraRows.push({ label: entry.label, value: asValue(entry) });
+  // Dados tecnicos autorizados (a area dedicada foi removida): entram aqui se
+  // tiverem valor.
+  for (const [id, label] of [
+    ['technicalType', 'Tipo técnico'],
+    ['technicalScreen', 'Peneira técnica'],
+    ['technicalDensity', 'Densidade técnica'],
+  ]) {
+    const entry = entryById.get(id);
+    if (entry) {
+      classificationRows.push({ label, value: asValue(entry) });
     }
   }
 
-  const drawSection = ({ x, topY, width, height, title, rows }) => {
-    if (height <= sectionHeaderHeight + 20) {
+  // Observações por último.
+  const observacoesEntry = entryById.get('observacoes');
+  if (observacoesEntry) {
+    classificationRows.push({ label: 'Observações', value: asValue(observacoesEntry) });
+  }
+
+  const drawSection = ({ x, topY, width, height, title, rows, labelRatio = 0.46 }) => {
+    if (height <= sectionHeaderHeight + 18) {
       return;
     }
 
@@ -548,65 +524,74 @@ async function renderSamplePdf({
       color: docGreen,
     });
     page.drawText(title, {
-      x: x + 10,
+      x: x + 12,
       y: topY - sectionHeaderHeight + 6.5,
       size: 9.8,
       font: fontBold,
       color: rgb(1, 1, 1),
     });
 
-    const contentX = x + 10;
-    const contentWidth = width - 20;
-    const labelColumnWidth = Math.max(82, Math.min(contentWidth * 0.48, 130));
-    const rowHeight = 14;
+    const sx = x + 12;
+    const sWidth = width - 24;
+    const labelColumnWidth = Math.max(70, sWidth * labelRatio);
     const rowTop = topY - sectionHeaderHeight - 12;
-    const rowBottom = topY - height + 10;
-    const maxRows = Math.max(1, Math.floor((rowTop - rowBottom) / rowHeight));
-    const visibleRows = rows.slice(0, maxRows);
-    const hiddenRows = rows.length - visibleRows.length;
+    const rowBottom = topY - height + 12;
+    const avail = rowTop - rowBottom;
 
-    let cursorY = rowTop;
+    // Gap vertical moderado: parte de distribuir pra encher, mas com um teto
+    // (pra nao explodir quando ha poucas linhas) e um minimo de 17pt (pra caber
+    // mais info quando necessario — o excedente vira "+N adicionais").
+    const minRowHeight = 17;
+    const maxRowHeight = 26;
+    let visibleRows = rows.slice(0, Math.max(1, Math.floor(avail / minRowHeight)));
+    let hiddenRows = rows.length - visibleRows.length;
+    if (hiddenRows > 0 && visibleRows.length > 1) {
+      visibleRows = visibleRows.slice(0, visibleRows.length - 1);
+      hiddenRows = rows.length - visibleRows.length;
+    }
+
+    const bands = visibleRows.length + (hiddenRows > 0 ? 1 : 0);
+    const step = Math.min(maxRowHeight, bands > 0 ? avail / bands : avail);
+    // Alinhado ao topo: as linhas comecam logo abaixo do cabecalho da secao
+    // (sobra de espaco, quando ha poucas linhas, fica embaixo).
+    const startY = rowTop;
+
     for (let index = 0; index < visibleRows.length; index += 1) {
       const row = visibleRows[index];
-      const label = fitTextToWidth(row.label, fontBold, 8.6, labelColumnWidth - 4);
-      const value = fitTextToWidth(
-        row.value,
-        fontRegular,
-        8.6,
-        contentWidth - labelColumnWidth - 2
-      );
+      const baselineY = startY - (index + 0.5) * step - 3;
+      const label = fitTextToWidth(row.label, fontBold, 8.8, labelColumnWidth - 6);
+      const value = fitTextToWidth(row.value, fontRegular, 8.8, sWidth - labelColumnWidth - 2);
 
       page.drawText(label, {
-        x: contentX,
-        y: cursorY,
-        size: 8.6,
+        x: sx,
+        y: baselineY,
+        size: 8.8,
         font: fontBold,
         color: rgb(0.25, 0.29, 0.26),
       });
       page.drawText(value || '-', {
-        x: contentX + labelColumnWidth,
-        y: cursorY,
-        size: 8.6,
+        x: sx + labelColumnWidth,
+        y: baselineY,
+        size: 8.8,
         font: fontRegular,
         color: docText,
       });
 
-      if (index < visibleRows.length - 1) {
+      if (index < visibleRows.length - 1 || hiddenRows > 0) {
+        const sepY = startY - (index + 1) * step;
         page.drawLine({
-          start: { x: contentX, y: cursorY - 3 },
-          end: { x: contentX + contentWidth, y: cursorY - 3 },
+          start: { x: sx, y: sepY },
+          end: { x: sx + sWidth, y: sepY },
           thickness: 0.7,
           color: rgb(0.9, 0.91, 0.92),
         });
       }
-
-      cursorY -= rowHeight;
     }
 
     if (hiddenRows > 0) {
       page.drawText(`+${hiddenRows} linhas adicionais`, {
-        x: contentX,
-        y: Math.max(rowBottom, cursorY - 1),
+        x: sx,
+        y: startY - (visibleRows.length + 0.5) * step - 3,
         size: 8.2,
         font: fontRegular,
         color: rgb(0.45, 0.47, 0.44),
@@ -616,176 +601,121 @@ async function renderSamplePdf({
 
   const contentX = docX + 24;
   const contentWidth = docWidth - 48;
-  const blockGap = 12;
-  const hasSummary = summaryRows.length > 0;
-  const topLeftWidth = hasSummary ? Math.round(contentWidth * 0.4) : 0;
-  const topRightWidth = hasSummary ? contentWidth - topLeftWidth - blockGap : contentWidth;
-  const photoX = hasSummary ? contentX + topLeftWidth + blockGap : contentX;
+  const blockGap = 14;
+  const footerAreaHeight = 77; // rodape (-20% do pico de 96)
 
-  const metaWidth = hasSummary ? topLeftWidth : Math.min(320, contentWidth);
-  const metaX = contentX;
-  let metaY = titleY - 38;
-  for (const row of metaRows) {
-    const labelText = `${row.label}:`;
-    const labelWidth = fontBold.widthOfTextAtSize(labelText, 9);
-    const maxLines = row.label === 'Destinatario' ? 2 : 1;
-    const lines = wrapTextToWidth(row.value, fontRegular, 9, metaWidth - labelWidth - 6, maxLines);
-
-    page.drawText(labelText, {
-      x: metaX,
-      y: metaY,
-      size: 9,
-      font: fontBold,
-      color: rgb(0.23, 0.27, 0.25),
-    });
-
-    let valueY = metaY;
-    const renderedLines = lines.length > 0 ? lines : ['-'];
-    for (const line of renderedLines) {
-      page.drawText(line, {
-        x: metaX + labelWidth + 6,
-        y: valueY,
-        size: 9,
-        font: fontRegular,
-        color: docText,
-      });
-      valueY -= 10.5;
-    }
-
-    metaY -= Math.max(13, renderedLines.length * 10.5);
-  }
-
-  const contentTop = Math.min(docTop - 188, metaY - 10);
-  const contentBottom = docBottom + 64;
+  const contentTop = headerY - 22;
+  const contentBottom = docBottom + footerAreaHeight;
   const contentHeight = contentTop - contentBottom;
-  const topRowHeight = 230;
+
+  // ── Linha superior: Resumo do Lote (esq, mais largo) + Foto (dir, retrato) ──
+  // A caixa da foto respeita a proporcao real da imagem (foto de celular na
+  // vertical): mais alta e mais fina, sem barras. O Resumo ocupa a largura que
+  // sobra (mais larga), com os valores afastados dos rotulos (labelRatio).
+  const photoTitleSpace = 20;
+  const imgAspect =
+    classificationImage.height > 0 ? classificationImage.width / classificationImage.height : 0.75;
+  const photoMaxImgW = Math.round(contentWidth * 0.46);
+  const photoMaxImgH = Math.min(360, contentHeight - 170);
+  let imgBoxH = photoMaxImgH;
+  let imgBoxW = imgBoxH * imgAspect;
+  if (imgBoxW > photoMaxImgW) {
+    imgBoxW = photoMaxImgW;
+    imgBoxH = imgBoxW / imgAspect;
+  }
+  const topRowHeight = imgBoxH + photoTitleSpace;
+  const resumoWidth = contentWidth - imgBoxW - blockGap;
+  const photoX = contentX + resumoWidth + blockGap;
 
   let cursorTop = contentTop;
 
-  if (hasSummary) {
-    drawSection({
-      x: contentX,
-      topY: cursorTop,
-      width: topLeftWidth,
-      height: topRowHeight,
-      title: 'Resumo do Lote',
-      rows: summaryRows,
-    });
-  }
+  drawSection({
+    x: contentX,
+    topY: cursorTop,
+    width: resumoWidth,
+    height: topRowHeight,
+    title: 'Resumo do Lote',
+    rows: resumoRows,
+    labelRatio: 0.52,
+  });
 
-  page.drawText('Foto da Classificacao', {
-    x: photoX + 10,
-    y: cursorTop - 14,
+  page.drawText('Foto da Classificação', {
+    x: photoX + 2,
+    y: cursorTop - 13,
     size: 9.8,
     font: fontBold,
     color: docGreen,
   });
   page.drawLine({
-    start: { x: photoX + 10, y: cursorTop - 17.5 },
-    end: { x: photoX + topRightWidth - 10, y: cursorTop - 17.5 },
+    start: { x: photoX + 2, y: cursorTop - 16.5 },
+    end: { x: photoX + imgBoxW - 2, y: cursorTop - 16.5 },
     thickness: 0.8,
     color: rgb(0.86, 0.89, 0.88),
   });
 
-  const photoInnerX = photoX;
-  const photoInnerY = cursorTop - topRowHeight + 2;
-  const photoInnerW = topRightWidth;
-  const photoInnerH = topRowHeight - 26;
-
-  drawImageContain(page, classificationImage, {
-    x: photoInnerX,
-    y: photoInnerY,
-    width: photoInnerW,
-    height: photoInnerH,
+  const imgBoxY = cursorTop - topRowHeight;
+  drawImageCover(page, classificationImage, {
+    x: photoX,
+    y: imgBoxY,
+    width: imgBoxW,
+    height: imgBoxH,
+  });
+  page.drawRectangle({
+    x: photoX,
+    y: imgBoxY,
+    width: imgBoxW,
+    height: imgBoxH,
+    borderWidth: 1,
+    borderColor: docLine,
   });
 
   cursorTop -= topRowHeight;
 
-  const hasClassification = classificationRows.length > 0;
-  const hasSieve = sieveRows.length > 0;
-  const hasTechnical = technicalRows.length > 0 || extraRows.length > 0;
-  const extraSectionRows = extraRows.length > 0 ? extraRows : [];
-
-  const additionalBlocks = [];
-  if (hasClassification || hasSieve) {
-    additionalBlocks.push('middle');
-  }
-  if (hasTechnical) {
-    additionalBlocks.push('technical');
-  }
-  const remainingHeight =
-    contentHeight - topRowHeight - Math.max(0, additionalBlocks.length) * blockGap;
-
-  if (additionalBlocks.includes('middle')) {
+  // ── Dados de Classificacao: largura total, ocupando ate o rodape ──
+  if (classificationRows.length > 0) {
     cursorTop -= blockGap;
-    const middleHeight =
-      additionalBlocks.length === 2 ? Math.round(remainingHeight * 0.62) : remainingHeight;
-    const classWidth =
-      hasClassification && hasSieve ? Math.round(contentWidth * 0.6) : contentWidth;
-    const sieveWidth = contentWidth - classWidth - (hasClassification && hasSieve ? blockGap : 0);
-
-    if (hasClassification) {
-      drawSection({
-        x: contentX,
-        topY: cursorTop,
-        width: classWidth,
-        height: middleHeight,
-        title: 'Dados de Classificacao',
-        rows: classificationRows,
-      });
-    }
-
-    if (hasSieve) {
-      drawSection({
-        x: hasClassification ? contentX + classWidth + blockGap : contentX,
-        topY: cursorTop,
-        width: hasClassification ? sieveWidth : contentWidth,
-        height: middleHeight,
-        title: 'Peneiras Percentuais',
-        rows: sieveRows,
-      });
-    }
-
-    cursorTop -= middleHeight;
-  }
-
-  if (additionalBlocks.includes('technical')) {
-    cursorTop -= blockGap;
-    const technicalHeight = cursorTop - contentBottom;
+    const classHeight = cursorTop - contentBottom;
     drawSection({
       x: contentX,
       topY: cursorTop,
       width: contentWidth,
-      height: technicalHeight,
-      title: 'Dados Tecnicos',
-      rows: [...technicalRows, ...extraSectionRows],
+      height: classHeight,
+      title: 'Dados de Classificação',
+      rows: classificationRows,
+      labelRatio: 0.42,
     });
-    cursorTop -= technicalHeight;
   }
 
-  const footerY = docBottom + 18;
+  // ── Rodape (area ~50% maior, preenchida) ──
+  const footerYear = new Date(issuedAtIso).getUTCFullYear();
   page.drawLine({
-    start: { x: lineLeft, y: footerY + 30 },
-    end: { x: lineRight, y: footerY + 30 },
+    start: { x: lineLeft, y: docBottom + footerAreaHeight - 12 },
+    end: { x: lineRight, y: docBottom + footerAreaHeight - 12 },
     thickness: 1,
     color: docLine,
   });
-  const footerYear = new Date(issuedAtIso).getUTCFullYear();
-  const footerMain = `(c) ${footerYear} Safras & Negocios. Todos os direitos reservados.`;
-  const footerSub = `${COMPANY_INFO.cityUf} | ${COMPANY_INFO.phone} | ${COMPANY_INFO.address}`;
-  const footerSubFitted = fitTextToWidth(footerSub, fontRegular, 7.1, docWidth - 56) || footerSub;
-
+  const footerMain = `© ${footerYear} Safras & Negócios. Todos os direitos reservados.`;
   page.drawText(footerMain, {
-    x: docX + (docWidth - fontBold.widthOfTextAtSize(footerMain, 8)) / 2,
-    y: footerY + 14,
-    size: 8,
+    x: docX + (docWidth - fontBold.widthOfTextAtSize(footerMain, 8.5)) / 2,
+    y: docBottom + 48,
+    size: 8.5,
     font: fontBold,
     color: rgb(0.33, 0.37, 0.35),
   });
-  page.drawText(footerSubFitted, {
-    x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerSubFitted, 7.1)) / 2,
-    y: footerY + 4,
-    size: 7.1,
+  const footerCityPhone = `${COMPANY_INFO.cityUf}   ·   ${COMPANY_INFO.phone}`;
+  page.drawText(footerCityPhone, {
+    x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerCityPhone, 8)) / 2,
+    y: docBottom + 34,
+    size: 8,
+    font: fontRegular,
+    color: rgb(0.45, 0.48, 0.45),
+  });
+  const footerAddr =
+    fitTextToWidth(COMPANY_INFO.address, fontRegular, 8, docWidth - 80) || COMPANY_INFO.address;
+  page.drawText(footerAddr, {
+    x: docX + (docWidth - fontRegular.widthOfTextAtSize(footerAddr, 8)) / 2,
+    y: docBottom + 20,
+    size: 8,
     font: fontRegular,
     color: rgb(0.45, 0.48, 0.45),
   });
@@ -799,7 +729,8 @@ export class SamplePdfReportService {
     queryService,
     commandService,
     uploadsBaseDir,
-    logoPath = path.resolve(process.cwd(), 'public/logo-laudo.png'),
+    logoPath = path.resolve(process.cwd(), 'public/logo-safras-branco.png'),
+    iconPath = path.resolve(process.cwd(), 'public/icon-safras.png'),
   }) {
     if (!queryService) {
       throw new Error('SamplePdfReportService requires queryService');
@@ -817,7 +748,8 @@ export class SamplePdfReportService {
     this.commandService = commandService;
     this.uploadsBaseDir = uploadsBaseDir;
     this.logoPath = logoPath;
-    this.logoFallbackPath = path.resolve(process.cwd(), 'public/logo-safras-branco.png');
+    this.iconPath = iconPath;
+    this.logoFallbackPath = path.resolve(process.cwd(), 'public/logo-laudo.png');
   }
 
   async exportSamplePdf(input, actorContext) {
@@ -871,6 +803,7 @@ export class SamplePdfReportService {
       selectedFieldEntries,
       issuedAtIso,
       logoPath: [this.logoPath, this.logoFallbackPath],
+      iconPath: this.iconPath,
       destination,
     });
 
