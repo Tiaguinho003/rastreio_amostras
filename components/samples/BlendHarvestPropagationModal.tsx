@@ -71,8 +71,8 @@ export function BlendHarvestPropagationModal({
   const commercializedCount = blends.filter((blend) => blend.commercialStatus !== 'OPEN').length;
   const description =
     count === 1
-      ? 'Salvar esta safra recalcula a safra de 1 liga que usa esta amostra.'
-      : `Salvar esta safra recalcula a safra de ${count} ligas que usam esta amostra.`;
+      ? 'Salvar recalcula 1 liga que usa esta amostra.'
+      : `Salvar recalcula ${count} ligas que usam esta amostra.`;
 
   function handleBackdrop() {
     if (!submitting) {
@@ -94,7 +94,7 @@ export function BlendHarvestPropagationModal({
         <header className="app-modal-header">
           <div className="app-modal-title-wrap">
             <h3 id="bhp-title" className="app-modal-title">
-              Atualizar safra das ligas
+              Atualizar dados das ligas
             </h3>
             <p id="bhp-desc" className="app-modal-description">
               {description}
@@ -142,13 +142,28 @@ export function BlendHarvestPropagationModal({
                       <span className="bhp-chip is-muted">Classificada</span>
                     ) : null}
                   </div>
-                  <div className="bhp-row-harvest">
-                    <span className="bhp-harvest-from">{blend.currentHarvest?.trim() || '—'}</span>
-                    <svg className="bhp-harvest-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 12h14M13 6l6 6-6 6" />
-                    </svg>
-                    <span className="bhp-harvest-to">{blend.newHarvest?.trim() || '—'}</span>
-                  </div>
+                  {blend.currentHarvest !== blend.newHarvest ? (
+                    <div className="bhp-row-harvest">
+                      <span className="bhp-change-label">Safra</span>
+                      <span className="bhp-harvest-from">
+                        {blend.currentHarvest?.trim() || '—'}
+                      </span>
+                      <svg className="bhp-harvest-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14M13 6l6 6-6 6" />
+                      </svg>
+                      <span className="bhp-harvest-to">{blend.newHarvest?.trim() || '—'}</span>
+                    </div>
+                  ) : null}
+                  {blend.currentOwner !== blend.newOwner ? (
+                    <div className="bhp-row-harvest">
+                      <span className="bhp-change-label">Proprietário</span>
+                      <span className="bhp-harvest-from">{blend.currentOwner?.trim() || '—'}</span>
+                      <svg className="bhp-harvest-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14M13 6l6 6-6 6" />
+                      </svg>
+                      <span className="bhp-harvest-to">{blend.newOwner?.trim() || '—'}</span>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

@@ -57,7 +57,8 @@ type FilterSectionId =
   | 'displayStatus'
   | 'harvest'
   | 'sacks'
-  | 'period';
+  | 'period'
+  | 'onlyBlend';
 
 interface HiddenFilters {
   ownerClients: ClientSummary[];
@@ -74,6 +75,7 @@ interface HiddenFilters {
   sacksMax: string;
   periodFrom: string;
   periodTo: string;
+  onlyBlend: boolean;
 }
 
 const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
@@ -90,6 +92,7 @@ const EMPTY_HIDDEN_FILTERS: HiddenFilters = {
   sacksMax: '',
   periodFrom: '',
   periodTo: '',
+  onlyBlend: false,
 };
 
 const FILTER_SECTION_ORDER: FilterSectionId[] = [
@@ -100,6 +103,7 @@ const FILTER_SECTION_ORDER: FilterSectionId[] = [
   'harvest',
   'sacks',
   'period',
+  'onlyBlend',
 ];
 
 function hasAnyHiddenFilter(filters: HiddenFilters) {
@@ -116,7 +120,8 @@ function hasAnyHiddenFilter(filters: HiddenFilters) {
     filters.sacksMin.trim().length > 0 ||
     filters.sacksMax.trim().length > 0 ||
     filters.periodFrom.trim().length > 0 ||
-    filters.periodTo.trim().length > 0
+    filters.periodTo.trim().length > 0 ||
+    filters.onlyBlend
   );
 }
 
@@ -135,6 +140,7 @@ function normalizeHiddenFilters(filters: HiddenFilters): HiddenFilters {
     sacksMax: filters.sacksMax.trim(),
     periodFrom: filters.periodFrom.trim(),
     periodTo: filters.periodTo.trim(),
+    onlyBlend: filters.onlyBlend,
   };
 }
 
@@ -151,6 +157,7 @@ function countActiveHiddenFilters(filters: HiddenFilters) {
   if (filters.harvest.trim()) count += 1;
   if (filters.sacksMin.trim() || filters.sacksMax.trim()) count += 1;
   if (filters.periodFrom.trim() || filters.periodTo.trim()) count += 1;
+  if (filters.onlyBlend) count += 1;
   return count;
 }
 
@@ -254,7 +261,11 @@ function hasFilterSectionValue(sectionId: FilterSectionId, filters: HiddenFilter
     return filters.sacksMin.trim().length > 0 || filters.sacksMax.trim().length > 0;
   }
 
-  return filters.periodFrom.trim().length > 0 || filters.periodTo.trim().length > 0;
+  if (sectionId === 'period') {
+    return filters.periodFrom.trim().length > 0 || filters.periodTo.trim().length > 0;
+  }
+
+  return filters.onlyBlend;
 }
 
 function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilters) {
@@ -282,7 +293,11 @@ function getFilterSectionSummary(sectionId: FilterSectionId, filters: HiddenFilt
     return formatSacksSummary(filters);
   }
 
-  return formatPeriodSummary(filters);
+  if (sectionId === 'period') {
+    return formatPeriodSummary(filters);
+  }
+
+  return filters.onlyBlend ? 'Apenas ligas' : 'Todas';
 }
 
 function getInitialFilterSection(filters: HiddenFilters): FilterSectionId {
@@ -802,6 +817,7 @@ function SamplesPage() {
       certificados: filters.appliedHiddenFilters.certificados,
       displayStatus: filters.appliedHiddenFilters.displayStatus || undefined,
       harvest: filters.appliedHiddenFilters.harvest || undefined,
+      isBlend: filters.appliedHiddenFilters.onlyBlend || undefined,
       sacksMin: filters.appliedHiddenFilters.sacksMin || undefined,
       sacksMax: filters.appliedHiddenFilters.sacksMax || undefined,
       ...buildPeriodQuery(filters.appliedHiddenFilters),
@@ -862,6 +878,7 @@ function SamplesPage() {
         certificados: appliedHiddenFilters.certificados,
         displayStatus: appliedHiddenFilters.displayStatus || undefined,
         harvest: appliedHiddenFilters.harvest || undefined,
+        isBlend: appliedHiddenFilters.onlyBlend || undefined,
         sacksMin: appliedHiddenFilters.sacksMin || undefined,
         sacksMax: appliedHiddenFilters.sacksMax || undefined,
         ...buildPeriodQuery(appliedHiddenFilters),
@@ -930,6 +947,7 @@ function SamplesPage() {
             certificados: appliedHiddenFilters.certificados,
             displayStatus: appliedHiddenFilters.displayStatus || undefined,
             harvest: appliedHiddenFilters.harvest || undefined,
+            isBlend: appliedHiddenFilters.onlyBlend || undefined,
             sacksMin: appliedHiddenFilters.sacksMin || undefined,
             sacksMax: appliedHiddenFilters.sacksMax || undefined,
             eligibleForBlend: true,
@@ -1492,6 +1510,22 @@ function SamplesPage() {
               aria-label="Data final"
             />
           </div>
+        </div>
+
+        <div className="samples-filter-field">
+          <span className="samples-filter-field-label">Tipo de lote</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={draftHiddenFilters.onlyBlend}
+            className={`samples-filter-toggle${draftHiddenFilters.onlyBlend ? ' is-on' : ''}`}
+            onClick={() => setDraftHiddenFilters((c) => ({ ...c, onlyBlend: !c.onlyBlend }))}
+          >
+            <span className="samples-filter-toggle-track" aria-hidden="true">
+              <span className="samples-filter-toggle-thumb" />
+            </span>
+            <span className="samples-filter-toggle-text">Apenas ligas</span>
+          </button>
         </div>
       </div>
     );

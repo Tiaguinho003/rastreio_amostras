@@ -11206,6 +11206,16 @@ button:disabled {
   color: var(--brand-green);
 }
 
+/* Rotulo da linha de mudanca (Safra / Proprietario) no modal de propagacao. */
+.bhp-change-label {
+  min-width: 5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: rgba(0, 0, 0, 0.45);
+}
+
 /* Liga: modal de selecao da safra do laudo — opcoes de safra como radio cards. */
 .rhs-options {
   display: flex;
@@ -13175,6 +13185,68 @@ button:disabled {
   font-weight: 600;
   color: #5a6b5e;
   padding-left: 0.05rem;
+}
+
+/* Liga: toggle "Apenas ligas" no filtro de /samples (switch on/off). */
+.samples-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0.72rem 0.9rem;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: clamp(0.9rem, 2.6vw, 1rem);
+  font-weight: 600;
+  color: #1a1a17;
+  transition:
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.samples-filter-toggle:active {
+  transform: scale(0.99);
+}
+
+.samples-filter-toggle.is-on {
+  border-color: var(--brand-green);
+}
+
+.samples-filter-toggle-track {
+  position: relative;
+  width: 38px;
+  min-width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.15s ease;
+}
+
+.samples-filter-toggle.is-on .samples-filter-toggle-track {
+  background: var(--brand-green);
+}
+
+.samples-filter-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.samples-filter-toggle.is-on .samples-filter-toggle-thumb {
+  transform: translateX(16px);
+}
+
+.samples-filter-toggle-text {
+  flex: 1;
+  text-align: left;
 }
 
 .samples-filter-field-input {

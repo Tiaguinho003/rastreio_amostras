@@ -847,6 +847,8 @@ export function listSamples(
     // ganha eligibility + committedSacks pra UI do modo seleção decidir
     // o que acinzentar e quanto está comprometido (F1.B + T0.B).
     eligibleForBlend?: boolean;
+    /** Liga: filtro "Apenas ligas". */
+    isBlend?: boolean;
   } = {},
   options: { signal?: AbortSignal } = {}
 ) {
@@ -891,6 +893,7 @@ export function listSamples(
   if (query.createdFrom) params.set('createdFrom', query.createdFrom);
   if (query.createdTo) params.set('createdTo', query.createdTo);
   if (query.eligibleForBlend) params.set('eligibleForBlend', 'true');
+  if (query.isBlend) params.set('isBlend', 'true');
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<ListSamplesResponse>(`/samples${suffix}`, {

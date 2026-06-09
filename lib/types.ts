@@ -545,6 +545,8 @@ export interface AffectedBlendDetail {
   lostSacks: number;
   currentHarvest: string | null;
   newHarvest: string | null;
+  currentOwner: string | null;
+  newOwner: string | null;
 }
 
 // Liga B4 Fase 2: viabilidade da venda de uma liga. `getBlendFeasibility`

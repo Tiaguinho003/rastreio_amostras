@@ -147,7 +147,7 @@ export function SampleCard({
             <span className="spv2-card-badge">{cardStatus.label}</span>
           </div>
           <div className="spv2-card-bottom">
-            <span className="spv2-card-owner">{sample.declared.owner || 'Nao informado'}</span>
+            <span className="spv2-card-owner">{sample.declared.owner || '—'}</span>
             <span className="spv2-card-sep" />
             <span className="spv2-card-detail">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -213,7 +213,7 @@ export function SampleCard({
             <span className="spv2-card-badge">{cardStatus.label}</span>
           </div>
           <div className="spv2-card-bottom">
-            <span className="spv2-card-owner">{sample.declared.owner || 'Nao informado'}</span>
+            <span className="spv2-card-owner">{sample.declared.owner || '—'}</span>
             <span className="spv2-card-sep" />
             <span className="spv2-card-detail">
               <svg viewBox="0 0 24 24" aria-hidden="true">
