@@ -211,7 +211,7 @@ Definicoes em `app/globals.css` linhas 1015–1405. NAO duplicar; usar as classe
 - `padding: 0.82rem 1.1rem`
 - `font-size: 1rem`
 - Focado: `border-color: rgba(22, 91, 42, 0.5)` + `box-shadow: 0 0 0 3px rgba(22, 91, 42, 0.1)` (glow verde)
-- **Inputs `type="date"` (e `number`/`time`):** `.app-modal-field` traz `min-width: 0` e `.app-modal-input` traz `min-width: 0` + `max-width: 100%`. Sem isso o date picker nativo do WebKit/iOS tem `min-content` largo e, como item de grid/flex, estoura a largura do modal (scroll lateral). Nao remover.
+- **Inputs `type="date"`:** no WebKit/iOS o input nativo **ignora `width`/`max-width`** (usa a largura intrinseca do valor — o pseudo `::-webkit-date-and-time-value` tem `min-width` proprio) e estoura o modal (campo gigante + scroll lateral). `min-width:0`/`max-width:100%` em `.app-modal-field`/`.app-modal-input` **nao bastam**. O fix de verdade (regra `.app-modal.is-themed .app-modal-input[type='date']`): `-webkit-appearance: none` (vira input de texto, respeita `width:100%`) **+** `::-webkit-date-and-time-value { min-width: 0; text-align: left }`. O icone de calendario volta via `background-image` (a `.is-themed` pinta o fundo branco, entao precisa de especificidade 0,3,1). Mesmo padrao de `.samples-filter-field-input[type='date']`. Nao remover.
 
 ### `.app-modal-label` sob `.is-themed`
 

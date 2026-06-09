@@ -1488,10 +1488,10 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 .app-modal-input {
   width: 100%;
-  /* Trava o input na largura do campo. Critico pra <input type="date">: como
-     item de grid/flex o min-width padrao e auto (= min-content), e o min-content
-     do date picker nativo e largo no WebKit/iOS — sem isto ele ignora o
-     width:100% e estoura o modal (scroll lateral). */
+  /* Item de grid/flex: min-width:auto (padrao) deixaria o conteudo empurrar a
+     largura. Pra <input type="date"> isto NAO basta no WebKit/iOS (ele ignora
+     width/max-width pela aparencia nativa) — o fix de verdade esta na regra
+     .app-modal.is-themed .app-modal-input[type='date'] (appearance:none) abaixo. */
   min-width: 0;
   max-width: 100%;
   border: 1px solid rgba(210, 210, 210, 0.6);
@@ -1517,6 +1517,34 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   box-shadow:
     inset 0 1px 2px rgba(0, 0, 0, 0.04),
     0 0 0 4px rgba(22, 91, 42, 0.08);
+}
+
+/* <input type="date"> nos modais (envio, venda, perda): no WebKit/iOS o input
+   nativo usa a largura intrinseca do valor — o pseudo ::-webkit-date-and-time-
+   value tem min-width proprio — e ignora width/max-width, estourando o modal
+   (campo gigante + scroll lateral). Fix definitivo, identico ao que ja funciona
+   em .samples-filter-field-input: desativar a aparencia nativa (vira input de
+   texto que respeita width:100%) e zerar o min-width do pseudo do valor. O
+   icone de calendario volta via background; especificidade 0,3,1 pra vencer o
+   fundo branco do .is-themed e o padding dos modais compactos. */
+.app-modal.is-themed .app-modal-input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6b5e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4.5' y='5.5' width='15' height='14' rx='2.2'/><path d='M7.5 3.8v3.2'/><path d='M16.5 3.8v3.2'/><path d='M4.5 9.5h15'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem 1rem;
+  padding-right: 2.4rem;
+}
+
+.app-modal.is-themed .app-modal-input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-modal.is-themed .app-modal-input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
 }
 
 .app-modal-chip {
