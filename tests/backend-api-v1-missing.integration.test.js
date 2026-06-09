@@ -1553,6 +1553,81 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  // Liga: laudo de amostra com mais de uma safra exige escolha de UMA safra
+  // (anti-vazamento — o laudo nunca imprime a string concatenada).
+  test('POST /export/pdf bloqueia safra multipla sem reportedHarvest (422, nada gerado)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+    await prisma.sample.update({
+      where: { id: sampleId },
+      data: { declaredHarvest: '24/25, 25/26' },
+    });
+
+    const blocked = await api.exportSamplePdf(
+      buildInput({ params: { sampleId }, body: { exportType: 'COMPRADOR_PARCIAL' } })
+    );
+
+    assert.equal(blocked.status, 422);
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
+    const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
+    assert.equal(reportEvents.length, 0);
+  });
+
+  test('POST /export/pdf gera laudo com a safra escolhida e registra reportedHarvest', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+    await prisma.sample.update({
+      where: { id: sampleId },
+      data: { declaredHarvest: '24/25, 25/26' },
+    });
+
+    const exported = await api.exportSamplePdf(
+      buildInput({
+        params: { sampleId },
+        body: { exportType: 'COMPRADOR_PARCIAL', reportedHarvest: '25/26' },
+      })
+    );
+
+    assert.equal(exported.status, 200);
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
+    const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
+    assert.equal(reportEvents.length, 1);
+    assert.equal(reportEvents[0].payload.reportedHarvest, '25/26');
+  });
+
+  test('POST /export/pdf rejeita reportedHarvest fora das safras da amostra (422)', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+    await prisma.sample.update({
+      where: { id: sampleId },
+      data: { declaredHarvest: '24/25, 25/26' },
+    });
+
+    const blocked = await api.exportSamplePdf(
+      buildInput({
+        params: { sampleId },
+        body: { exportType: 'COMPRADOR_PARCIAL', reportedHarvest: '99/00' },
+      })
+    );
+
+    assert.equal(blocked.status, 422);
+  });
+
+  test('POST /export/pdf de safra unica gera sem reportedHarvest no payload', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToClassified(sampleId);
+
+    const exported = await api.exportSamplePdf(
+      buildInput({ params: { sampleId }, body: { exportType: 'COMPRADOR_PARCIAL' } })
+    );
+
+    assert.equal(exported.status, 200);
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
+    const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
+    assert.equal(reportEvents.length, 1);
+    assert.equal(reportEvents[0].payload.reportedHarvest, undefined);
+  });
+
   test('POST /samples/:sampleId/export/pdf rejects invalid exportType', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);

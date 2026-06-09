@@ -19,6 +19,7 @@ import {
   SAMPLE_EXPORT_FIELDS,
   SAMPLE_EXPORT_TYPES,
   buildSelectedExportFieldEntries,
+  normalizeReportedHarvest,
   normalizeSampleExportType,
   resolveSampleExportFieldsForType,
 } from './export-fields.js';
@@ -766,6 +767,13 @@ export class SamplePdfReportService {
     const exportType = normalizeSampleExportType(input?.exportType);
     const destination = normalizeReportDestination(input?.destination);
     const selectedFields = resolveSampleExportFieldsForType(exportType);
+    // Liga: resolve a safra que sai no laudo. Em amostra de safra multipla
+    // (liga), exige a escolha de UMA safra — o laudo nunca imprime a string
+    // concatenada (anti-vazamento). Em safra unica, fica null (usa o declarado).
+    const reportedHarvest = normalizeReportedHarvest(
+      input?.reportedHarvest,
+      detail.sample.declared?.harvest ?? null
+    );
 
     const classificationAttachment = detail.attachments.find(
       (attachment) => attachment.kind === 'CLASSIFICATION_PHOTO'
@@ -792,6 +800,13 @@ export class SamplePdfReportService {
     const selectedFieldEntries = buildSelectedExportFieldEntries(detail, selectedFields, {
       excludeEmpty: true,
     });
+    // Liga: sobrescreve a safra impressa pela escolhida (so quando ha override).
+    if (reportedHarvest) {
+      const harvestEntry = selectedFieldEntries.find((entry) => entry.id === 'harvest');
+      if (harvestEntry) {
+        harvestEntry.value = reportedHarvest;
+      }
+    }
     const exportedFields = selectedFieldEntries.map((entry) => entry.id);
     const issuedAtIso = new Date().toISOString();
     const fileName = buildReportFileName(detail.sample);
@@ -822,6 +837,7 @@ export class SamplePdfReportService {
         templateVersion: 'v1',
         sizeBytes: pdfBuffer.length,
         checksumSha256,
+        reportedHarvest,
       },
       actorContext
     );

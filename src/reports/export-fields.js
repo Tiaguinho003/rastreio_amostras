@@ -301,6 +301,42 @@ export function resolveSampleExportFieldsForType(exportType) {
   return [...SAMPLE_EXPORT_FIELDS_BY_TYPE[normalized]];
 }
 
+// Liga: valida e resolve a safra que sai no laudo. Quando a amostra tem mais de
+// uma safra (string canonica separada por virgula, ex: '24/25, 25/26'), o laudo
+// NAO pode imprimir a string concatenada — isso vazaria que e uma liga. Por isso
+// uma escolha explicita de UMA das safras e obrigatoria. Retorna a safra
+// escolhida (override de apresentacao) ou null quando ha safra unica e nada foi
+// escolhido (o laudo usa o valor declarado como esta). Lanca 422 se a escolha
+// for invalida ou faltar numa amostra de safra multipla.
+export function normalizeReportedHarvest(rawReported, declaredHarvest) {
+  const options = (typeof declaredHarvest === 'string' ? declaredHarvest : '')
+    .split(/\s*,\s*/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  const reported =
+    rawReported === undefined || rawReported === null ? null : String(rawReported).trim();
+
+  if (options.length > 1) {
+    if (!reported) {
+      throw new HttpError(
+        422,
+        'reportedHarvest e obrigatorio quando a amostra tem mais de uma safra'
+      );
+    }
+    if (!options.includes(reported)) {
+      throw new HttpError(422, `reportedHarvest "${reported}" nao e uma das safras da amostra`);
+    }
+    return reported;
+  }
+
+  if (reported && !options.includes(reported)) {
+    throw new HttpError(422, `reportedHarvest "${reported}" nao e uma das safras da amostra`);
+  }
+
+  return reported && options.includes(reported) ? reported : null;
+}
+
 export function buildSelectedExportFieldEntries(detail, selectedFields, options = {}) {
   const { excludeEmpty = false } = options;
   const values = buildFieldValueMap(detail);

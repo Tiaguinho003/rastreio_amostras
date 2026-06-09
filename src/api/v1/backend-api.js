@@ -603,6 +603,9 @@ export function createBackendApiV1({
             exportType: body.exportType,
             destination: body.destination,
             recipientClientId: body.recipientClientId,
+            // Liga: safra escolhida pro laudo quando a amostra tem mais de uma
+            // safra (override de apresentacao; nao muda o declaredHarvest).
+            reportedHarvest: body.reportedHarvest,
           },
           actor
         );

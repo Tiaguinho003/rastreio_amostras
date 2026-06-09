@@ -3439,6 +3439,10 @@ export class SampleCommandService {
       throw new HttpError(422, 'checksumSha256 must be a 64-char lowercase hex string');
     }
 
+    // Liga: safra escolhida pro laudo (override) quando a amostra tem mais de
+    // uma safra. Ja validada no pdf-service; aqui so registra no evento.
+    const reportedHarvest = normalizeOptionalText(input.reportedHarvest, 'reportedHarvest', 32);
+
     let recipientClientId = null;
     let recipientClientSnapshot = null;
     let destination = normalizeOptionalText(input.destination, 'destination', 255);
@@ -3468,6 +3472,7 @@ export class SampleCommandService {
         templateVersion,
         sizeBytes,
         checksumSha256,
+        ...(reportedHarvest ? { reportedHarvest } : {}),
       },
       fromStatus: null,
       toStatus: null,

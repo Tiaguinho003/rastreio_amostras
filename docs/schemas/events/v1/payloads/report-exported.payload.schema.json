@@ -78,6 +78,11 @@
     "checksumSha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "reportedHarvest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
     }
   },
   "required": [
