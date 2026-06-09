@@ -344,14 +344,15 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 @keyframes coffee-bean-fall {
   0% {
-    transform: translateY(-10px) rotate(var(--bean-start-rotation));
+    transform: translate(0, -16px) rotate(var(--bean-start-rotation));
     opacity: var(--bean-opacity);
   }
   50% {
-    opacity: calc(var(--bean-opacity) * 1.3);
+    transform: translate(6px, 0) rotate(calc(var(--bean-start-rotation) + 12deg));
+    opacity: calc(var(--bean-opacity) * 1.35);
   }
   100% {
-    transform: translateY(10px) rotate(calc(var(--bean-start-rotation) + 15deg));
+    transform: translate(0, 16px) rotate(calc(var(--bean-start-rotation) + 24deg));
     opacity: var(--bean-opacity);
   }
 }
