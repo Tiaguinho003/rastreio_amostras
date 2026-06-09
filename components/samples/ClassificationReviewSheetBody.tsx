@@ -48,6 +48,29 @@ const CLASSIFICATION_FIELD_KEYS: Array<keyof ClassificationFormState> = [
   'bebida',
 ];
 
+// Campos exibidos em porcentagem: ganham um "%" decorativo no canto superior
+// direito do campo (mesma linha do label, do lado direito). O "%" e puramente
+// visual — NAO entra no valor salvo nem afeta a extracao da IA (que mapeia por
+// chave, nao por label). Fundos mantem seu proprio "%" (layout "Peneira = %").
+const PERCENT_FIELD_KEYS: ReadonlySet<keyof ClassificationFormState> = new Set([
+  'peneiraP18',
+  'peneiraP17',
+  'peneiraP16',
+  'peneiraMk',
+  'peneiraP15',
+  'peneiraP14',
+  'peneiraP13',
+  'peneiraP12',
+  'peneiraP11',
+  'peneiraP10',
+  'catacao',
+  'imp',
+  'pva',
+  'broca',
+  'gpi',
+  'ap',
+]);
+
 // Edicao no meio do texto sem o caret pular pro fim. Quando a transformacao
 // (ex: toUpperCase) muda o valor digitado, o React reescreve input.value e o
 // browser joga o caret pro fim do campo. Aqui sincronizamos o DOM com o valor
@@ -165,9 +188,19 @@ export function ClassificationReviewSheetBody({
     options: { inputMode?: 'text' | 'decimal'; uppercase?: boolean; maxLength?: number } = {}
   ) {
     const { inputMode = 'text', uppercase = true, maxLength } = options;
+    const showPercent = PERCENT_FIELD_KEYS.has(key);
     return (
       <label className="review-field">
-        <span className="review-field-label">{label}</span>
+        {showPercent ? (
+          <span className="review-field-head">
+            <span className="review-field-label">{label}</span>
+            <span className="review-field-unit" aria-hidden="true">
+              %
+            </span>
+          </span>
+        ) : (
+          <span className="review-field-label">{label}</span>
+        )}
         <input
           type="text"
           inputMode={inputMode}

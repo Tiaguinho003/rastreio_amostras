@@ -11696,6 +11696,24 @@ button:disabled {
   letter-spacing: 0.4px;
 }
 
+/* Cabecalho do campo (espelha .review-field-head): nome a esquerda + unidade
+   "%" no canto superior direito. So nos campos percentuais. Decorativo. */
+.cld-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cld-field-unit {
+  flex: 0 0 auto;
+  font-size: clamp(10px, 2.6vw, 11px);
+  font-weight: 600;
+  color: #bbb;
+  letter-spacing: 0.4px;
+  line-height: 1;
+}
+
 .cld-field-value {
   display: block;
   box-sizing: border-box;
@@ -19387,6 +19405,25 @@ select.samples-filter-field-input {
   letter-spacing: 0.5px;
   color: rgba(0, 0, 0, 0.6);
   text-transform: uppercase;
+}
+
+/* Cabecalho do campo: nome a esquerda + unidade "%" no canto superior direito,
+   na mesma linha do label. So aparece nos campos percentuais (peneiras +
+   defeitos). O "%" e decorativo — nao faz parte do valor. */
+.review-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.review-field-unit {
+  flex: 0 0 auto;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: rgba(0, 0, 0, 0.32);
+  line-height: 1;
 }
 
 .review-field-input {

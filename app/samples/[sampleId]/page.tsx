@@ -3142,15 +3142,46 @@ export default function SampleDetailPage() {
             const saving = classificationDetailSaving;
             const saved = classificationDetailSaved;
             const canEdit = detail.sample.status === 'CLASSIFIED';
+            // Campos em porcentagem: "%" decorativo no canto superior direito do
+            // campo (mesma linha do label). Visual apenas — nao entra no valor.
+            // Fundos mantem seu proprio "%" no label (FD1 %, FD2 %).
+            const percentKeys: ReadonlySet<keyof ClassificationFormState> = new Set([
+              'peneiraP18',
+              'peneiraP17',
+              'peneiraP16',
+              'peneiraMk',
+              'peneiraP15',
+              'peneiraP14',
+              'peneiraP13',
+              'peneiraP12',
+              'peneiraP11',
+              'peneiraP10',
+              'catacao',
+              'imp',
+              'pva',
+              'broca',
+              'gpi',
+              'ap',
+            ]);
             const renderVal = (
               key: keyof ClassificationFormState,
               label: string,
               inputMode: 'text' | 'decimal' | 'numeric' = 'text'
             ) => {
               const isEmpty = !editing && !f[key];
+              const showPercent = percentKeys.has(key);
               return (
                 <div className={`cld-field${isEmpty ? ' is-empty' : ''}`} key={key}>
-                  <span className="cld-field-label">{label}</span>
+                  {showPercent ? (
+                    <span className="cld-field-head">
+                      <span className="cld-field-label">{label}</span>
+                      <span className="cld-field-unit" aria-hidden="true">
+                        %
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="cld-field-label">{label}</span>
+                  )}
                   {editing ? (
                     <input
                       type="text"
