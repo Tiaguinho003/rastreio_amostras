@@ -132,6 +132,37 @@ export function buildHarvestPresets(): readonly string[] {
   ];
 }
 
+/**
+ * Resume a safra de uma amostra para exibicao compacta (card da lista).
+ * Quando ha mais de uma safra (liga de safras diferentes, ex.: "24/25, 25/26"),
+ * retorna apenas a mais nova (maior ano inicial) + `hasMore=true` pra UI
+ * sinalizar que existem outras (o detalhe da amostra mostra todas). Safra unica
+ * passa direto com `hasMore=false`.
+ */
+export function summarizeHarvest(harvest: string): { newest: string; hasMore: boolean } {
+  const parts = harvest
+    .split(/\s*,\s*/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length <= 1) {
+    return { newest: harvest.trim(), hasMore: false };
+  }
+
+  // Mais nova = maior ano inicial. Formato canonico "AA/AA": parseInt pega o 1o
+  // numero; fallback lexicografico se nao parsear.
+  const newest = parts.reduce((acc, current) => {
+    const currentYear = Number.parseInt(current, 10);
+    const accYear = Number.parseInt(acc, 10);
+    if (Number.isFinite(currentYear) && Number.isFinite(accYear)) {
+      return currentYear > accYear ? current : acc;
+    }
+    return current > acc ? current : acc;
+  });
+
+  return { newest, hasMore: true };
+}
+
 function toComparableExtracted(
   field: IdentificationField,
   extracted: string | null | undefined

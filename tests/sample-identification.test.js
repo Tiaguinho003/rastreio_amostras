@@ -6,6 +6,7 @@ import {
   normalizeHarvest,
   normalizeLot,
   normalizeSacks,
+  summarizeHarvest,
 } from '../lib/sample-identification.ts';
 
 // --- normalizeLot ---
@@ -241,4 +242,26 @@ test('compareIdentification: apenas sacas extraido, bate com cadastrado -> nenhu
     { internalLotNumber: 'L-42', declaredSacks: 30, declaredHarvest: '23/24' }
   );
   assert.deepEqual(result, []);
+});
+
+// --- summarizeHarvest ---
+
+test('summarizeHarvest: safra unica retorna newest com hasMore false', () => {
+  assert.deepEqual(summarizeHarvest('24/25'), { newest: '24/25', hasMore: false });
+});
+
+test('summarizeHarvest: multiplas safras retorna a mais nova com hasMore true', () => {
+  assert.deepEqual(summarizeHarvest('24/25, 25/26'), { newest: '25/26', hasMore: true });
+});
+
+test('summarizeHarvest: independe da ordem de entrada', () => {
+  assert.deepEqual(summarizeHarvest('25/26, 24/25'), { newest: '25/26', hasMore: true });
+});
+
+test('summarizeHarvest: tres safras pega a de maior ano inicial', () => {
+  assert.deepEqual(summarizeHarvest('22/23, 25/26, 24/25'), { newest: '25/26', hasMore: true });
+});
+
+test('summarizeHarvest: tolera virgula sem espaco', () => {
+  assert.deepEqual(summarizeHarvest('24/25,25/26'), { newest: '25/26', hasMore: true });
 });

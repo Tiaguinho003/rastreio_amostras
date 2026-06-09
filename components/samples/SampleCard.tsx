@@ -11,6 +11,7 @@
 
 import Link from 'next/link';
 
+import { summarizeHarvest } from '../../lib/sample-identification';
 import type { SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { BlendBadge } from './BlendBadge';
 
@@ -91,6 +92,9 @@ export function SampleCard({
   const cardStatus = deriveCardStatus(sample);
   const availableSacks = sample.availableSacks;
   const animationDelay = `${index * 0.04}s`;
+  // Liga: no card so a safra mais nova; "+" sinaliza que ha outras (liga de
+  // safras diferentes). Detalhe da amostra mostra todas.
+  const harvestSummary = sample.declared.harvest ? summarizeHarvest(sample.declared.harvest) : null;
 
   // Liga B1.4: branching idle vs blend.
   if (selectionMode === 'blend') {
@@ -152,7 +156,7 @@ export function SampleCard({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
-            {sample.declared.harvest ? (
+            {harvestSummary ? (
               <>
                 <span className="spv2-card-sep" />
                 <span className="spv2-card-detail">
@@ -160,7 +164,10 @@ export function SampleCard({
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" />
                   </svg>
-                  {sample.declared.harvest}
+                  {harvestSummary.newest}
+                  {harvestSummary.hasMore ? (
+                    <span className="spv2-card-harvest-more"> +</span>
+                  ) : null}
                 </span>
               </>
             ) : null}
@@ -215,7 +222,7 @@ export function SampleCard({
               </svg>
               {availableSacks === null || availableSacks === undefined ? '—' : availableSacks} sacas
             </span>
-            {sample.declared.harvest ? (
+            {harvestSummary ? (
               <>
                 <span className="spv2-card-sep" />
                 <span className="spv2-card-detail">
@@ -223,7 +230,10 @@ export function SampleCard({
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M16 2v4M8 2v4M3 10h18" />
                   </svg>
-                  {sample.declared.harvest}
+                  {harvestSummary.newest}
+                  {harvestSummary.hasMore ? (
+                    <span className="spv2-card-harvest-more"> +</span>
+                  ) : null}
                 </span>
               </>
             ) : null}

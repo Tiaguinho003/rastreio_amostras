@@ -5423,6 +5423,14 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* Liga: indicador "+" de que ha mais de uma safra (o card mostra so a mais
+   nova; o detalhe da amostra mostra todas). Discreto: um tom mais escuro que o
+   texto do detalhe (#aaa) + negrito. */
+.spv2-card-harvest-more {
+  font-weight: 700;
+  color: #888;
+}
+
 .spv2-card-chevron {
   width: clamp(12px, 3.4vw, 14px);
   height: clamp(12px, 3.4vw, 14px);
