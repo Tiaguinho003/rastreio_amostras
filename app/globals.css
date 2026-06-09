@@ -2265,6 +2265,19 @@ button:disabled {
   min-height: 0;
 }
 
+/* Gaps uniformes entre os conteineres da pagina de detalhe da amostra.
+   Referencia = gap do .sdv-general (Info <-> Classificacao, clamp 13-16px).
+   Replicamos esse valor em Classificacao <-> Resumo comercial (era o margin-top
+   de 72-96px do .sdv-commercial) e em Resumo <-> Movimentacoes (era o gap
+   interno de 10-12px). Scoped por .sample-detail-commercial-pane pra nao mexer
+   no .sdv-commercial do cliente detail. No desktop, a regra mais especifica
+   .sdv-content:has(...) .sdv-commercial mantem o gap horizontal de 1.25rem
+   entre as duas colunas. */
+.sample-detail-commercial-pane .sdv-commercial {
+  margin-top: clamp(13px, 3.6vw, 16px);
+  gap: clamp(13px, 3.6vw, 16px);
+}
+
 .sample-detail-invalidate-modal {
   width: min(28rem, calc(100vw - 1.25rem));
 }
