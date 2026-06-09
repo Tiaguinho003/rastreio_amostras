@@ -2332,14 +2332,16 @@ button:disabled {
    sobrescrever o flex/flex-end base de .app-modal.is-themed .app-modal-actions.
    Usado pelo modal de reclassificacao e pelo modal de edicao de Informacoes. */
 .app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
-.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions {
+.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-movement-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
 }
 
 .sample-detail-reclassify-actions > button,
-.sample-detail-reg-edit-actions > button {
+.sample-detail-reg-edit-actions > button,
+.sample-detail-movement-actions > button {
   width: 100%;
   min-width: 0;
 }
@@ -10442,66 +10444,122 @@ button:disabled {
   box-shadow: 0 4px 16px rgba(192, 57, 43, 0.25);
 }
 
+/* ── Carimbo de venda/perda: overlay no modal antes de fechar ──
+   "Vendido" dourado / "Perdido" vermelho, na diagonal, estilo carimbo de
+   borracha (anel duplo + tinta translucida via multiply). Entra com um "slam"
+   de impacto e faz o modal tremer levemente (.is-stamping). */
 .sdv-stamp-overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(253, 249, 236, 0.92);
+  background: rgba(255, 252, 244, 0.78);
   border-radius: inherit;
-  z-index: 10;
-  animation: sdv-element-in 0.25s ease-out backwards;
+  overflow: hidden;
+  z-index: 12;
+  animation: sdv-stamp-veil-in 0.16s ease-out backwards;
 }
 
-.sdv-stamp-content {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(6px, 2vw, 8px);
-}
-
-.sdv-stamp-icon {
-  display: inline-grid;
+.sdv-stamp {
+  --stamp-color: #b8860b;
+  position: relative;
+  display: grid;
   place-items: center;
-  width: clamp(44px, 12vw, 52px);
-  height: clamp(44px, 12vw, 52px);
-  border-radius: 50%;
-  border: 1px solid;
+  padding: clamp(8px, 2.4vw, 12px) clamp(22px, 6.5vw, 38px);
+  border: 3px solid var(--stamp-color);
+  border-radius: 12px;
+  color: var(--stamp-color);
+  font-size: clamp(28px, 9.5vw, 42px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.9;
+  mix-blend-mode: multiply;
+  transform: rotate(-13deg);
+  animation: sdv-stamp-slam 0.5s cubic-bezier(0.2, 1.5, 0.35, 1) both;
 }
 
-.sdv-stamp-overlay.is-sale .sdv-stamp-icon {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+/* Anel interno fino — look de carimbo de borracha (borda dupla). */
+.sdv-stamp::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1.5px solid var(--stamp-color);
+  border-radius: 8px;
 }
 
-.sdv-stamp-overlay.is-loss .sdv-stamp-icon {
-  background: #fef2f2;
-  border-color: #fecaca;
+.sdv-stamp-text {
+  position: relative;
 }
 
-.sdv-stamp-icon svg {
-  width: clamp(20px, 5.5vw, 24px);
-  height: clamp(20px, 5.5vw, 24px);
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.sdv-stamp-overlay.is-sale .sdv-stamp {
+  --stamp-color: #b8860b;
 }
 
-.sdv-stamp-overlay.is-sale .sdv-stamp-icon svg {
-  stroke: #27ae60;
+.sdv-stamp-overlay.is-loss .sdv-stamp {
+  --stamp-color: #c0392b;
 }
 
-.sdv-stamp-overlay.is-loss .sdv-stamp-icon svg {
-  stroke: #c0392b;
+@keyframes sdv-stamp-veil-in {
+  from {
+    opacity: 0;
+  }
 }
 
-.sdv-stamp-label {
-  margin: 0;
-  font-size: clamp(14px, 3.8vw, 15px);
-  font-weight: 700;
-  color: #1a1a1a;
+@keyframes sdv-stamp-slam {
+  0% {
+    transform: rotate(-13deg) scale(2.3);
+    opacity: 0;
+  }
+  55% {
+    transform: rotate(-13deg) scale(0.9);
+    opacity: 0.96;
+  }
+  72% {
+    transform: rotate(-13deg) scale(1.06);
+    opacity: 0.88;
+  }
+  100% {
+    transform: rotate(-13deg) scale(1);
+    opacity: 0.9;
+  }
+}
+
+/* Tremor do modal no impacto do carimbo (atraso pra bater com o slam). */
+.sample-detail-movement-modal.is-stamping {
+  animation: sdv-stamp-shake 0.42s ease 0.1s 1;
+}
+
+@keyframes sdv-stamp-shake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  16% {
+    transform: translate3d(-3px, 1px, 0) rotate(-0.4deg);
+  }
+  32% {
+    transform: translate3d(3px, -2px, 0) rotate(0.4deg);
+  }
+  48% {
+    transform: translate3d(-2px, 2px, 0) rotate(-0.3deg);
+  }
+  64% {
+    transform: translate3d(2px, -1px, 0) rotate(0.2deg);
+  }
+  80% {
+    transform: translate3d(-1px, 1px, 0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sample-detail-movement-modal.is-stamping {
+    animation: none;
+  }
+  .sdv-stamp {
+    animation: sdv-stamp-veil-in 0.2s ease-out both;
+  }
 }
 
 .sdv-modal-error {
@@ -10526,14 +10584,44 @@ button:disabled {
   color: #999;
 }
 
-.sdv-edit-row-inline {
-  display: flex;
-  gap: 6px;
+/* ── Modal de venda/perda (movimentacao) — padrao .is-themed ── */
+.sample-detail-movement-modal {
+  width: min(30rem, calc(100vw - 1.5rem));
+  /* Ancora pro overlay do carimbo (position: absolute; inset: 0). */
+  position: relative;
 }
 
-.sdv-edit-row-inline .sdv-edit-input {
+/* Sub-modal "Atribuir dono" (empilhado) — um pouco mais estreito que o pai. */
+.sample-detail-movement-owner-modal {
+  width: min(28rem, calc(100vw - 1.5rem));
+}
+
+/* Erro e avisos de liga ficam entre o header e o conteudo — inset lateral pra
+   acompanhar o padding do .app-modal-content (que e quem tem o recuo). */
+.sample-detail-movement-modal > .sdv-modal-error,
+.sample-detail-movement-modal > .sdv-blend-no-owner,
+.sample-detail-movement-modal > .sdv-blend-origin-warn {
+  margin: clamp(0.7rem, 2vw, 0.95rem) clamp(1rem, 3vw, 1.4rem) 0;
+}
+
+/* Sacas: input + botao "Todas" inline, mesma altura, sem estourar a coluna. */
+.sdv-mov-qty-inline {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.sdv-mov-qty-inline .app-modal-input {
   flex: 1;
   min-width: 0;
+}
+
+.sdv-mov-qty-inline .sdv-mov-all-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sdv-com-mov-reason {

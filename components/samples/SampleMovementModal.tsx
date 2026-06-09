@@ -335,29 +335,30 @@ export function SampleMovementModal({
     <div className="app-modal-backdrop">
       <section
         ref={focusTrapRef}
-        className="app-modal cdm-modal"
+        className={`app-modal is-themed sample-detail-movement-modal${
+          stampType ? ' is-stamping' : ''
+        }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sample-movement-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="cdm-header">
-          <h3 id="sample-movement-modal-title" className="cdm-header-name">
-            {title}
-          </h3>
+        <header className="app-modal-header">
+          <div className="app-modal-title-wrap">
+            <h3 id="sample-movement-modal-title" className="app-modal-title">
+              {title}
+            </h3>
+          </div>
           <button
             type="button"
-            className="app-modal-close cdm-close"
+            className="app-modal-close"
             onClick={onClose}
             disabled={saving}
             aria-label="Fechar"
           >
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
+            <span aria-hidden="true">&times;</span>
           </button>
-        </div>
+        </header>
 
         {error ? <p className="sdv-modal-error">{error}</p> : null}
 
@@ -440,9 +441,10 @@ export function SampleMovementModal({
           </div>
         ) : null}
 
-        <form className="sdv-edit-fields" onSubmit={handleSubmit}>
+        <form className="app-modal-content" onSubmit={handleSubmit}>
           {showBuyerFields ? (
-            <div className="sdv-edit-field">
+            <div className="app-modal-field">
+              <span className="app-modal-label">Comprador</span>
               <ClientLookupField
                 session={session}
                 label="Comprador"
@@ -458,10 +460,10 @@ export function SampleMovementModal({
               />
             </div>
           ) : (
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Motivo da perda</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da perda</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={lossReasonText}
                 disabled={saving}
                 onChange={(event) => setLossReasonText(event.target.value.toUpperCase())}
@@ -513,10 +515,10 @@ export function SampleMovementModal({
                 </div>
               ) : null}
 
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Data</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data</span>
                 <input
-                  className="sdv-edit-input"
+                  className="app-modal-input"
                   type="date"
                   value={movementDate}
                   disabled={saving}
@@ -525,17 +527,14 @@ export function SampleMovementModal({
               </label>
             </>
           ) : (
-            <div className="sdv-edit-row">
-              <div className="sdv-edit-field">
-                <span className="sdv-edit-label">
-                  Sacas{' '}
-                  <span className="sdv-edit-label-hint">
-                    ({effectiveLimit} {effectiveLimit === 1 ? 'disponivel' : 'disponiveis'})
-                  </span>
+            <>
+              <div className="app-modal-field">
+                <span className="app-modal-label">
+                  Sacas <span className="sdv-edit-label-hint">({effectiveLimit} disp.)</span>
                 </span>
-                <div className="sdv-edit-row-inline">
+                <div className="sdv-mov-qty-inline">
                   <input
-                    className={`sdv-edit-input${isQuantityOverLimit ? ' has-error' : ''}`}
+                    className={`app-modal-input${isQuantityOverLimit ? ' has-error' : ''}`}
                     value={quantitySacks}
                     inputMode="numeric"
                     disabled={saving}
@@ -556,23 +555,23 @@ export function SampleMovementModal({
                   ) : null}
                 </div>
               </div>
-              <label className="sdv-edit-field">
-                <span className="sdv-edit-label">Data</span>
+              <label className="app-modal-field">
+                <span className="app-modal-label">Data</span>
                 <input
-                  className="sdv-edit-input"
+                  className="app-modal-input"
                   type="date"
                   value={movementDate}
                   disabled={saving}
                   onChange={(event) => setMovementDate(event.target.value)}
                 />
               </label>
-            </div>
+            </>
           )}
 
-          <label className="sdv-edit-field">
-            <span className="sdv-edit-label">Observacoes (opcional)</span>
+          <label className="app-modal-field">
+            <span className="app-modal-label">Observacoes (opcional)</span>
             <input
-              className="sdv-edit-input"
+              className="app-modal-input"
               value={notes}
               disabled={saving}
               onChange={(event) => setNotes(event.target.value.toUpperCase())}
@@ -581,10 +580,10 @@ export function SampleMovementModal({
           </label>
 
           {mode === 'edit' ? (
-            <label className="sdv-edit-field">
-              <span className="sdv-edit-label">Motivo da edicao</span>
+            <label className="app-modal-field">
+              <span className="app-modal-label">Motivo da edicao</span>
               <input
-                className="sdv-edit-input"
+                className="app-modal-input"
                 value={reasonText}
                 disabled={saving}
                 onChange={(event) => setReasonText(event.target.value.toUpperCase())}
@@ -593,113 +592,128 @@ export function SampleMovementModal({
             </label>
           ) : null}
 
-          <div className="sdv-edit-actions">
-            <button type="submit" className="cdm-manage-link" disabled={saving || submitDisabled}>
+          <div className="app-modal-actions sample-detail-movement-actions">
+            <button
+              type="button"
+              className="app-modal-secondary"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="app-modal-submit" disabled={saving || submitDisabled}>
               {saving ? 'Salvando...' : mode === 'create' ? 'Registrar' : 'Salvar'}
             </button>
           </div>
         </form>
 
-        {ownerModalOpen ? (
-          <div
-            className="app-modal-backdrop is-stacked"
-            onClick={() => {
-              if (!assigningOwner) setOwnerModalOpen(false);
-            }}
-          >
-            <section
-              className="app-modal cdm-modal is-stacked"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="assign-owner-modal-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="cdm-header">
-                <h3 id="assign-owner-modal-title" className="cdm-header-name">
-                  Atribuir dono à liga
-                </h3>
-                <button
-                  type="button"
-                  className="app-modal-close cdm-close"
-                  onClick={() => {
-                    if (!assigningOwner) setOwnerModalOpen(false);
-                  }}
-                  disabled={assigningOwner}
-                  aria-label="Fechar"
+        {ownerModalOpen
+          ? createPortal(
+              <div
+                className="app-modal-backdrop is-stacked"
+                onClick={() => {
+                  if (!assigningOwner) setOwnerModalOpen(false);
+                }}
+              >
+                <section
+                  className="app-modal is-themed is-stacked sample-detail-movement-owner-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="assign-owner-modal-title"
+                  onClick={(event) => event.stopPropagation()}
                 >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                </button>
-              </div>
+                  <header className="app-modal-header">
+                    <div className="app-modal-title-wrap">
+                      <h3 id="assign-owner-modal-title" className="app-modal-title">
+                        Atribuir dono à liga
+                      </h3>
+                      <p className="app-modal-description">
+                        A venda/perda passa a ser registrada em nome dele.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="app-modal-close"
+                      onClick={() => {
+                        if (!assigningOwner) setOwnerModalOpen(false);
+                      }}
+                      disabled={assigningOwner}
+                      aria-label="Fechar"
+                    >
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </header>
 
-              <p className="sdv-modal-hint">
-                Escolha o produtor dono desta liga. A venda/perda passa a ser registrada em nome
-                dele.
-              </p>
+                  <div className="app-modal-content">
+                    {ownerError ? <p className="sdv-modal-error">{ownerError}</p> : null}
 
-              {ownerError ? <p className="sdv-modal-error">{ownerError}</p> : null}
+                    <div className="app-modal-field">
+                      <span className="app-modal-label">Dono</span>
+                      <ClientLookupField
+                        session={session}
+                        label="Dono"
+                        kind="owner"
+                        selectedClient={ownerPickClient}
+                        disabled={assigningOwner}
+                        compact
+                        onSelectClient={(client) => {
+                          setOwnerPickClient(client);
+                          setOwnerError(null);
+                        }}
+                        emptyMessage="Nenhum cliente encontrado."
+                      />
+                    </div>
 
-              <div className="sdv-edit-fields">
-                <div className="sdv-edit-field">
-                  <ClientLookupField
-                    session={session}
-                    label="Dono"
-                    kind="owner"
-                    selectedClient={ownerPickClient}
-                    disabled={assigningOwner}
-                    compact
-                    onSelectClient={(client) => {
-                      setOwnerPickClient(client);
-                      setOwnerError(null);
-                    }}
-                    emptyMessage="Nenhum cliente encontrado."
-                  />
-                </div>
-
-                <div className="sdv-edit-actions">
-                  <button
-                    type="button"
-                    className="cdm-manage-link"
-                    disabled={assigningOwner || ownerAssignDisabled}
-                    onClick={async () => {
-                      if (!onAssignOwner || !ownerPickClient) {
-                        return;
-                      }
-                      setAssigningOwner(true);
-                      setOwnerError(null);
-                      try {
-                        await onAssignOwner(ownerPickClient.id);
-                        setOwnerModalOpen(false);
-                      } catch (cause) {
-                        setOwnerError(
-                          cause instanceof ApiError ? cause.message : 'Falha ao atribuir o dono'
-                        );
-                      } finally {
-                        setAssigningOwner(false);
-                      }
-                    }}
-                  >
-                    {assigningOwner ? 'Atribuindo...' : 'Atribuir dono'}
-                  </button>
-                </div>
-              </div>
-            </section>
-          </div>
-        ) : null}
+                    <div className="app-modal-actions">
+                      <button
+                        type="button"
+                        className="app-modal-submit"
+                        disabled={assigningOwner || ownerAssignDisabled}
+                        onClick={async () => {
+                          if (!onAssignOwner || !ownerPickClient) {
+                            return;
+                          }
+                          setAssigningOwner(true);
+                          setOwnerError(null);
+                          try {
+                            await onAssignOwner(ownerPickClient.id);
+                            setOwnerModalOpen(false);
+                          } catch (cause) {
+                            setOwnerError(
+                              cause instanceof ApiError ? cause.message : 'Falha ao atribuir o dono'
+                            );
+                          } finally {
+                            setAssigningOwner(false);
+                          }
+                        }}
+                      >
+                        {assigningOwner ? 'Atribuindo...' : 'Atribuir dono'}
+                      </button>
+                      <button
+                        type="button"
+                        className="app-modal-secondary"
+                        onClick={() => {
+                          if (!assigningOwner) setOwnerModalOpen(false);
+                        }}
+                        disabled={assigningOwner}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>,
+              document.body
+            )
+          : null}
 
         {stampType ? (
-          <div className={`sdv-stamp-overlay is-${stampType === 'SALE' ? 'sale' : 'loss'}`}>
-            <div className="sdv-stamp-content">
-              <div className="sdv-stamp-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m5 12.5 4.3 4.2L19 7" />
-                </svg>
-              </div>
-              <p className="sdv-stamp-label">
-                {stampType === 'SALE' ? 'Venda registrada' : 'Perda registrada'}
-              </p>
+          <div
+            className={`sdv-stamp-overlay is-${stampType === 'SALE' ? 'sale' : 'loss'}`}
+            aria-hidden="true"
+          >
+            <div className="sdv-stamp">
+              <span className="sdv-stamp-text">{stampType === 'SALE' ? 'Vendido' : 'Perdido'}</span>
             </div>
           </div>
         ) : null}
