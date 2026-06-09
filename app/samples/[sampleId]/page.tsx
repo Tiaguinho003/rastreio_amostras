@@ -3389,9 +3389,7 @@ export default function SampleDetailPage() {
                         </div>
 
                         <div className="cld-section is-sieves">
-                          <div className="cld-section-title">
-                            Peneiras <span className="cld-section-unit">%</span>
-                          </div>
+                          <div className="cld-section-title">Peneiras</div>
                           <div className="cld-grid cld-grid-5">
                             {renderVal('peneiraP18', 'P18', 'decimal')}
                             {renderVal('peneiraP17', 'P17', 'decimal')}

@@ -312,7 +312,7 @@ export function ClassificationReviewSheetBody({
         </section>
 
         <section className="review-section">
-          <h4 className="review-section-title">Peneiras (%)</h4>
+          <h4 className="review-section-title">Peneiras</h4>
           <div className="review-grid review-grid-5">
             {renderField('peneiraP18', 'P18', { inputMode: 'decimal' })}
             {renderField('peneiraP17', 'P17', { inputMode: 'decimal' })}
