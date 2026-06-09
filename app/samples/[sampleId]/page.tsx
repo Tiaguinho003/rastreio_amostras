@@ -423,10 +423,9 @@ export default function SampleDetailPage() {
   );
   const [printHighlighted, setPrintHighlighted] = useState(false);
   const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
-  const [exportTypeSelectorOpen, setExportTypeSelectorOpen] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<SampleExportType | null>(null);
-  const [exportRecipientClient, setExportRecipientClient] = useState<ClientSummary | null>(null);
+  const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
 
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
   const [physicalSendClient, setPhysicalSendClient] = useState<ClientSummary | null>(null);
@@ -529,7 +528,6 @@ export default function SampleDetailPage() {
   const labelTrapRef = useFocusTrap(labelModalOpen);
   const registrationEditTrapRef = useFocusTrap(registrationEditMode);
   const classificationEditTrapRef = useFocusTrap(classificationEditReasonModalOpen);
-  const exportTypeTrapRef = useFocusTrap(exportTypeSelectorOpen);
   const exportConfirmTrapRef = useFocusTrap(exportConfirmationOpen);
   const physicalSendTrapRef = useFocusTrap(physicalSendModalOpen);
   const labelModalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -712,10 +710,9 @@ export default function SampleDetailPage() {
   }, [detail?.latestPrintJob?.status, refreshDetail]);
 
   useEffect(() => {
-    setExportTypeSelectorOpen(false);
     setExportConfirmationOpen(false);
     setPendingExportType(null);
-    setExportRecipientClient(null);
+    setExportRecipientClients([]);
     setLabelModalOpen(false);
     setLabelModalSubmitting(false);
     setLabelModalError(null);
@@ -990,34 +987,8 @@ export default function SampleDetailPage() {
 
     setGeneralNotice(null);
     setPendingExportType(exportType);
-    setExportRecipientClient(null);
+    setExportRecipientClients([]);
     setExportConfirmationOpen(true);
-  }
-
-  function handleOpenExportTypeSelector() {
-    if (!detail) {
-      return;
-    }
-
-    if (detail.sample.status !== 'CLASSIFIED') {
-      setGeneralNotice({
-        kind: 'error',
-        text: 'A exportacao de laudo so e permitida para amostras classificadas.',
-      });
-      return;
-    }
-
-    setGeneralNotice(null);
-    setExportTypeSelectorOpen(true);
-  }
-
-  function handleCloseExportTypeSelector() {
-    setExportTypeSelectorOpen(false);
-  }
-
-  function handleSelectExportTypeFromModal(exportType: SampleExportType) {
-    setExportTypeSelectorOpen(false);
-    handleOpenExportConfirmation(exportType);
   }
 
   function handleCloseExportConfirmation() {
@@ -1027,13 +998,10 @@ export default function SampleDetailPage() {
 
     setExportConfirmationOpen(false);
     setPendingExportType(null);
-    setExportRecipientClient(null);
+    setExportRecipientClients([]);
   }
 
-  async function handleExportPdf(
-    exportType: SampleExportType,
-    recipientClient: ClientSummary | null
-  ) {
+  async function handleExportPdf(exportType: SampleExportType, recipientClients: ClientSummary[]) {
     if (!session || !detail) {
       return;
     }
@@ -1050,10 +1018,17 @@ export default function SampleDetailPage() {
     setExportingPdfType(exportType);
 
     try {
+      // TODO(specs): multi-destinatario — por ora envia todos os nomes em
+      // `destination` e vincula o 1o como recipientClientId (a API aceita 1).
+      const destination =
+        recipientClients
+          .map((c) => c.displayName ?? '')
+          .filter(Boolean)
+          .join(', ') || null;
       const exported = await exportSamplePdf(session, sampleId, {
         exportType,
-        destination: recipientClient?.displayName ?? null,
-        recipientClientId: recipientClient?.id ?? null,
+        destination,
+        recipientClientId: recipientClients[0]?.id ?? null,
       });
 
       const typeLabel = getExportTypeLabel(exportType);
@@ -1081,7 +1056,7 @@ export default function SampleDetailPage() {
 
       setExportConfirmationOpen(false);
       setPendingExportType(null);
-      setExportRecipientClient(null);
+      setExportRecipientClients([]);
       fetchSendHistory();
     } catch (cause) {
       if (cause instanceof ApiError) {
@@ -1099,7 +1074,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    await handleExportPdf(pendingExportType, exportRecipientClient);
+    await handleExportPdf(pendingExportType, exportRecipientClients);
   }
 
   async function handlePhysicalSend() {
@@ -2275,7 +2250,7 @@ export default function SampleDetailPage() {
                           <button
                             type="button"
                             className="sdv-action-card is-report"
-                            onClick={handleOpenExportTypeSelector}
+                            onClick={() => handleOpenExportConfirmation('COMPRADOR_PARCIAL')}
                             disabled={!canQuickReport || Boolean(exportingPdfType)}
                           >
                             <span className="sdv-action-card-icon">
@@ -3030,7 +3005,7 @@ export default function SampleDetailPage() {
                 <NoticeSlot notice={generalNotice} />
               </div>
 
-              <div className="app-modal-actions">
+              <div className="app-modal-actions sample-detail-reg-edit-actions">
                 <button
                   type="button"
                   className="app-modal-secondary"
@@ -3661,110 +3636,101 @@ export default function SampleDetailPage() {
         />
       ) : null}
 
-      {exportTypeSelectorOpen ? (
-        <div className="app-modal-backdrop" onClick={handleCloseExportTypeSelector}>
-          <section
-            ref={exportTypeTrapRef}
-            className="app-modal cdm-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="cdm-header">
-              <h3 className="cdm-header-name">Gerar laudo</h3>
-              <button
-                type="button"
-                className="app-modal-close cdm-close"
-                onClick={handleCloseExportTypeSelector}
-                aria-label="Fechar"
-              >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="sdv-modal-hint">Selecione o tipo de laudo</p>
-            <div className="sdv-edit-actions">
-              <button
-                type="button"
-                className="cdm-manage-link"
-                onClick={() => handleSelectExportTypeFromModal('COMPLETO')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 4.8h7l3 3V19.2H7z" />
-                  <path d="M14 4.8v3h3" />
-                  <path d="M9 12h6" />
-                  <path d="M9 15h6" />
-                </svg>
-                Laudo completo
-              </button>
-              <button
-                type="button"
-                className="cdm-manage-link is-secondary"
-                onClick={() => handleSelectExportTypeFromModal('COMPRADOR_PARCIAL')}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 4.8h7l3 3V19.2H7z" />
-                  <path d="M14 4.8v3h3" />
-                  <path d="M9 12h6" />
-                </svg>
-                Laudo comprador parcial
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
       {exportConfirmationOpen && pendingExportType ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
-            className="app-modal cdm-modal cdm-lookup-modal"
+            className="app-modal is-themed sample-detail-compact-modal"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="export-confirm-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="cdm-header">
-              <h3 className="cdm-header-name">Confirmar exportacao</h3>
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="export-confirm-title" className="app-modal-title">
+                  Gerar laudo
+                </h3>
+              </div>
               <button
                 type="button"
-                className="app-modal-close cdm-close"
+                className="app-modal-close"
                 onClick={handleCloseExportConfirmation}
                 disabled={Boolean(exportingPdfType)}
                 aria-label="Fechar"
               >
-                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
+                <span aria-hidden="true">&times;</span>
               </button>
-            </div>
-            <div className="sdv-edit-fields">
-              <div className="sdv-edit-field">
-                <span className="sdv-edit-label">Destinatario</span>
-                <ClientLookupField
-                  session={session!}
-                  label="Destinatario"
-                  kind="any"
-                  selectedClient={exportRecipientClient}
-                  onSelectClient={setExportRecipientClient}
-                  disabled={Boolean(exportingPdfType)}
-                  placeholder="Busque por nome, documento ou codigo"
-                  compact
-                />
+            </header>
+
+            <form
+              className="app-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (exportingPdfType) return;
+                void handleConfirmExportFromModal();
+              }}
+            >
+              <div className="app-modal-field">
+                <span className="app-modal-label">Selecione os destinatários</span>
+                <div className="samples-filter-multi samples-filter-multi--lookup export-recipient-multi">
+                  {exportRecipientClients.map((client) => (
+                    <span key={client.id} className="samples-filter-token">
+                      <span className="samples-filter-token-label">
+                        {client.displayName ?? 'Sem nome'}
+                      </span>
+                      <button
+                        type="button"
+                        className="samples-filter-token-remove"
+                        aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
+                        disabled={Boolean(exportingPdfType)}
+                        onClick={() =>
+                          setExportRecipientClients((prev) =>
+                            prev.filter((c) => c.id !== client.id)
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <ClientLookupField
+                    session={session!}
+                    label="Destinatários"
+                    kind="any"
+                    compact
+                    clearOnSelect
+                    selectedClient={null}
+                    onSelectClient={(client) => {
+                      if (!client) return;
+                      setExportRecipientClients((prev) =>
+                        prev.some((c) => c.id === client.id) ? prev : [...prev, client]
+                      );
+                    }}
+                    disabled={Boolean(exportingPdfType)}
+                    placeholder="Busque por nome, documento ou código"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="sdv-edit-actions">
-              <button
-                type="button"
-                className="cdm-manage-link"
-                onClick={handleConfirmExportFromModal}
-                disabled={Boolean(exportingPdfType)}
-              >
-                {exportingPdfType ? 'Exportando...' : 'Confirmar exportacao'}
-              </button>
-            </div>
+
+              <div className="app-modal-actions">
+                <button
+                  type="button"
+                  className="app-modal-secondary"
+                  onClick={handleCloseExportConfirmation}
+                  disabled={Boolean(exportingPdfType)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="app-modal-submit"
+                  disabled={Boolean(exportingPdfType)}
+                >
+                  {exportingPdfType ? 'Gerando...' : 'Gerar laudo'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}
@@ -3950,7 +3916,7 @@ export default function SampleDetailPage() {
       {reclassifyModalOpen ? (
         <div className="app-modal-backdrop sample-detail-reclassify-backdrop">
           <section
-            className="app-modal sample-detail-reclassify-modal"
+            className="app-modal is-themed sample-detail-reclassify-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-reclassify-modal-title"
@@ -3961,10 +3927,7 @@ export default function SampleDetailPage() {
                 <h3 id="sample-detail-reclassify-modal-title" className="app-modal-title">
                   Reclassificar amostra
                 </h3>
-                <p className="app-modal-description">
-                  A nova classificacao vai substituir a atual. A classificacao anterior permanece no
-                  historico de eventos.
-                </p>
+                <p className="app-modal-description">A nova classificação substitui a atual.</p>
               </div>
               <button
                 type="button"
@@ -3977,7 +3940,7 @@ export default function SampleDetailPage() {
             </header>
 
             <div className="app-modal-content">
-              <div className="app-modal-actions">
+              <div className="app-modal-actions sample-detail-reclassify-actions">
                 <button
                   type="button"
                   className="app-modal-secondary"
@@ -3994,7 +3957,7 @@ export default function SampleDetailPage() {
                     router.push(`/camera?sampleId=${sampleId}`);
                   }}
                 >
-                  Sim, reclassificar
+                  Reclassificar
                 </button>
               </div>
             </div>

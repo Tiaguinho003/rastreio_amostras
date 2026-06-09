@@ -2315,6 +2315,22 @@ button:disabled {
   width: min(26rem, calc(100vw - 1.25rem));
 }
 
+/* Botoes iguais, 50/50, ocupando a largura toda. Especificidade alta pra
+   sobrescrever o flex/flex-end base de .app-modal.is-themed .app-modal-actions.
+   Usado pelo modal de reclassificacao e pelo modal de edicao de Informacoes. */
+.app-modal.is-themed .app-modal-actions.sample-detail-reclassify-actions,
+.app-modal.is-themed .app-modal-actions.sample-detail-reg-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.sample-detail-reclassify-actions > button,
+.sample-detail-reg-edit-actions > button {
+  width: 100%;
+  min-width: 0;
+}
+
 .sample-detail-main-facts-general .client-lookup-field,
 .sample-detail-main-facts-general .client-registration-select {
   display: grid;
@@ -12467,6 +12483,39 @@ button:disabled {
 
 .samples-filter-multi--lookup .client-lookup-shell.has-selection input {
   padding-right: 2.4rem;
+}
+
+/* Laudo: o input de busca ocupa o campo inteiro (placeholder preenche bem),
+   com padding/fonte no tamanho dos demais campos do modal. */
+.export-recipient-multi {
+  min-height: 2.7rem;
+  padding: 0.25rem 0.3rem;
+}
+
+/* O campo (flex child real do box) ocupa a linha inteira, pra que a busca e o
+   placeholder preencham toda a largura — os chips selecionados ficam nas linhas
+   acima. (O `flex` antigo mirava o `.client-lookup-shell`, que e filho do
+   `.client-lookup-field` e nao o item flex do box, entao nao esticava nada.) */
+.export-recipient-multi .client-lookup-field {
+  flex: 1 0 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.export-recipient-multi .client-lookup-shell input {
+  width: 100%;
+  border: 0;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  /* Sem focus-ring do browser ao focar: a "borda preta interna" feia some.
+     O destaque do campo ja vem do focus-within verde do box externo. */
+  outline: none;
+}
+
+.export-recipient-multi .client-lookup-shell input:focus,
+.export-recipient-multi .client-lookup-shell input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* Variante select (Padrao): box clicavel + chevron a direita. */
