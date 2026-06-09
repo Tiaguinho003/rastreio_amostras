@@ -14988,6 +14988,57 @@ select.samples-filter-field-input {
   }
 }
 
+/* Efeito de X vermelho (movimentacoes canceladas / amostra invalidada) — overlay
+   full-screen breve (~1.3s) que substitui as mensagens verdes de sucesso. Apos
+   invalidar/reverter, a pagina volta pra /samples. Portal pra body. */
+.sdv-x-effect {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 245, 241, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: client-success-fade-in 0.2s ease;
+}
+
+.sdv-x-effect-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.7rem, 2.4vw, 0.95rem);
+}
+
+.sdv-x-effect-mark {
+  width: clamp(64px, 18vw, 84px);
+  height: clamp(64px, 18vw, 84px);
+  animation: sdv-x-effect-pop 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.sdv-x-effect-label {
+  margin: 0;
+  font-size: clamp(15px, 4.2vw, 17px);
+  font-weight: 700;
+  color: #8a2727;
+  text-align: center;
+}
+
+@keyframes sdv-x-effect-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* Modal central de "Amostra criada" — reaproveita os keyframes
    client-success-circle/tick acima. Cor do check casa com o header verde
    do .app-modal.is-themed. */

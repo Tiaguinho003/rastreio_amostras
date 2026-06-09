@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import { AppShell } from '../../../components/AppShell';
 import { NotificationBell } from '../../../components/NotificationBell';
@@ -465,6 +466,9 @@ export default function SampleDetailPage() {
   const [revertModalOpen, setRevertModalOpen] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [revertError, setRevertError] = useState<string | null>(null);
+  // Efeito de X vermelho (movimentacoes canceladas / amostra invalidada) que
+  // substitui as mensagens verdes de sucesso. Guarda o rotulo (ou null).
+  const [xEffect, setXEffect] = useState<string | null>(null);
   // Liga B3.5: modal de bloqueio quando a amostra é origem de liga(s) ativa(s).
   const [blockedBlends, setBlockedBlends] = useState<ActiveBlendDetail[]>([]);
   const [invalidateBlockedOpen, setInvalidateBlockedOpen] = useState(false);
@@ -1230,6 +1234,19 @@ export default function SampleDetailPage() {
     }
   }
 
+  // Mostra o efeito de X vermelho (~1.3s) e, se pedido, volta pra /samples.
+  // Substitui as mensagens verdes de sucesso de invalidacao/cancelamento.
+  function showXEffect(label: string, redirectToList: boolean) {
+    setXEffect(label);
+    window.setTimeout(() => {
+      if (redirectToList) {
+        router.push('/samples');
+      } else {
+        setXEffect(null);
+      }
+    }, 1300);
+  }
+
   async function handleInvalidateSample() {
     if (!session || !detail) {
       return;
@@ -1266,10 +1283,10 @@ export default function SampleDetailPage() {
         reasonText: parsed.data.reasonText,
       });
       setInvalidateModalOpen(false);
-      setGeneralNotice({ kind: 'success', text: 'Amostra invalidada com sucesso.' });
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
-      await syncDetailState();
+      // Efeito de X (sem mensagem verde) e volta pra lista de amostras.
+      showXEffect('Amostra invalidada', true);
     } catch (cause) {
       // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
       // o modal de invalidação e abre o modal de bloqueio com as ligas.
@@ -1305,8 +1322,8 @@ export default function SampleDetailPage() {
         reasonText,
       });
       setRevertModalOpen(false);
-      setGeneralNotice({ kind: 'success', text: 'Liga revertida com sucesso.' });
-      await syncDetailState();
+      // Reverter a liga invalida a amostra — mesmo efeito de X + volta pra lista.
+      showXEffect('Liga revertida', true);
     } catch (cause) {
       if (cause instanceof ApiError) {
         setRevertError(cause.message);
@@ -1365,14 +1382,9 @@ export default function SampleDetailPage() {
       setInvalidateModalOpen(false);
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
-      setGeneralNotice({
-        kind: 'success',
-        text:
-          activeMovements.length === 1
-            ? 'Movimentacao cancelada com sucesso.'
-            : 'Movimentacoes canceladas com sucesso.',
-      });
-      await syncDetailState();
+      // Efeito de X (sem mensagem verde), permanecendo na pagina.
+      showXEffect('Movimentações canceladas', false);
+      void syncDetailState();
     } catch (cause) {
       setInvalidateModalNotice({
         kind: 'error',
@@ -1433,11 +1445,8 @@ export default function SampleDetailPage() {
       setInvalidateModalOpen(false);
       setInvalidateReasonCode('OTHER');
       setInvalidateReasonText('');
-      setGeneralNotice({
-        kind: 'success',
-        text: 'Movimentacoes canceladas e amostra invalidada.',
-      });
-      await syncDetailState();
+      // Invalidou — efeito de X + volta pra lista de amostras.
+      showXEffect('Amostra invalidada', true);
     } catch (cause) {
       // Liga B3.5 (rede de segurança): 409 SAMPLE_HAS_ACTIVE_BLENDS → fecha
       // o modal de invalidação e abre o modal de bloqueio com as ligas.
@@ -2451,11 +2460,33 @@ export default function SampleDetailPage() {
         onClose={() => setInvalidateBlockedOpen(false)}
       />
 
+      {xEffect
+        ? createPortal(
+            <div className="sdv-x-effect" role="alert" aria-live="assertive">
+              <div className="sdv-x-effect-card">
+                <svg className="sdv-x-effect-mark" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="24" fill="none" stroke="#c0392b" strokeWidth="2.5" />
+                  <path
+                    fill="none"
+                    stroke="#c0392b"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M18 18 34 34M34 18 18 34"
+                  />
+                </svg>
+                <p className="sdv-x-effect-label">{xEffect}</p>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
       {detail && invalidateModalOpen ? (
         <div className="app-modal-backdrop">
           <section
             ref={invalidateTrapRef}
-            className="app-modal sample-detail-invalidate-modal"
+            className="app-modal is-themed sample-detail-invalidate-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-detail-invalidate-modal-title"
@@ -2467,7 +2498,7 @@ export default function SampleDetailPage() {
                   Invalidar amostra
                 </h3>
                 <p className="app-modal-description">
-                  Retire a amostra do fluxo apenas quando a operacao realmente exigir.
+                  Use apenas quando a operação realmente exigir.
                 </p>
               </div>
               <button
@@ -2512,8 +2543,8 @@ export default function SampleDetailPage() {
                           ? `${activeMovements.length} movimentacao${activeMovements.length > 1 ? 'oes' : ''} ativa${activeMovements.length > 1 ? 's' : ''}`
                           : 'movimentacoes ativas'}
                       </strong>
-                      Para invalidar, todas as vendas e perdas registradas serao canceladas. Voce
-                      tambem pode apenas cancelar as movimentacoes sem invalidar a amostra.
+                      Para invalidar, todas as vendas e perdas serão canceladas. Você também pode só
+                      cancelar as movimentações.
                     </div>
                   </div>
 
@@ -2637,11 +2668,11 @@ export default function SampleDetailPage() {
                       activeMovements.length === 0
                     }
                   >
-                    {invalidating ? 'Cancelando...' : 'So cancelar movimentacoes'}
+                    {invalidating ? 'Cancelando...' : 'Cancelar movimentações'}
                   </button>
                   <button
                     type="submit"
-                    className="danger sample-detail-invalidate-submit"
+                    className="app-modal-submit is-danger sample-detail-invalidate-submit"
                     disabled={
                       invalidating ||
                       invalidateReasonText.trim().length === 0 ||
@@ -2649,7 +2680,7 @@ export default function SampleDetailPage() {
                       activeMovements.length === 0
                     }
                   >
-                    {invalidating ? 'Processando...' : 'Cancelar e invalidar'}
+                    {invalidating ? 'Invalidando...' : 'Invalidar'}
                   </button>
                 </div>
               ) : (
@@ -2668,7 +2699,7 @@ export default function SampleDetailPage() {
                   </button>
                   <button
                     type="submit"
-                    className="danger sample-detail-invalidate-submit"
+                    className="app-modal-submit is-danger sample-detail-invalidate-submit"
                     disabled={invalidating}
                   >
                     {invalidating ? 'Invalidando...' : 'Invalidar'}

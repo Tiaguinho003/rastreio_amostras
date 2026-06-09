@@ -92,7 +92,7 @@ export function BlendRevertModal({
     >
       <section
         ref={focusTrapRef}
-        className="app-modal app-confirm-modal blend-revert-modal"
+        className="app-modal is-themed blend-revert-modal"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="blend-revert-modal-title"
@@ -105,29 +105,23 @@ export function BlendRevertModal({
               Reverter liga {lotNumber}?
             </h3>
             <p id="blend-revert-modal-description" className="app-modal-description">
-              A liga será invalidada e sairá das listagens ativas. As amostras de origem não são
-              afetadas.
+              A liga será invalidada. As amostras de origem não são afetadas.
             </p>
           </div>
         </header>
 
-        <div className="app-confirm-modal-warning">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 9v4" />
-            <path d="M12 17v.01" />
-            <path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
-          </svg>
-          <span>Esta ação não pode ser desfeita.</span>
-        </div>
-
         <form className="app-modal-content" onSubmit={handleSubmit}>
+          <div className="sdv-warn-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
+            <div className="sdv-warn-text">
+              <strong>Esta ação não pode ser desfeita.</strong>
+            </div>
+          </div>
+
           <label className="app-modal-field">
             <span className="app-modal-label">Motivo (opcional)</span>
             <textarea
@@ -143,7 +137,7 @@ export function BlendRevertModal({
 
           {errorMessage ? <p className="sdv-modal-error">{errorMessage}</p> : null}
 
-          <div className="app-modal-actions">
+          <div className="app-modal-actions blend-revert-actions">
             <button
               type="button"
               className="app-modal-secondary"
