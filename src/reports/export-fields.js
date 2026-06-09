@@ -11,9 +11,12 @@ export const SAMPLE_EXPORT_FIELDS = [
   'catacao',
   'aspecto',
   'bebida',
+  'certif',
   'broca',
   'pva',
   'imp',
+  'ap',
+  'gpi',
   'defeito',
   'classificador',
   'conferredBy',
@@ -39,9 +42,12 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
   catacao: 'Catacao',
   aspecto: 'Aspecto',
   bebida: 'Bebida',
+  certif: 'Certificado',
   broca: 'Broca',
   pva: 'PVA',
   imp: 'IMP',
+  ap: 'AP',
+  gpi: 'GPI',
   defeito: 'Defeito',
   classificador: 'Classificador',
   conferredBy: 'Conferido por',
@@ -56,20 +62,17 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
 const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
-const PENEIRA_KEYS = [
-  'p18',
-  'p17',
-  'p16',
-  'p15',
-  'p14',
-  'p13',
-  'p12',
-  'p10',
-  'mk9',
-  'mk10',
-  'mk11',
-];
-const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set(['originLot', 'classificationOriginLot']);
+// Mesma ordem canonica do projetor (event-contract-db-service.js): peneiras
+// cheias decrescentes + MK por ultimo. (Era stale: faltava p11 e tinha mk9/10/11
+// que nao existem na ficha unificada — por isso as peneiras nunca saiam.)
+const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
+// `classificationDate` excluido do laudo (decisao de produto: a data da
+// classificacao nao deve aparecer no documento enviado ao comprador).
+const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set([
+  'originLot',
+  'classificationOriginLot',
+  'classificationDate',
+]);
 const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)
 );
@@ -155,25 +158,28 @@ function classifiersToSingleName(classifiersList, legacyString) {
   return null;
 }
 
-function formatSieve(value) {
-  if (!isRecord(value)) {
-    return null;
-  }
-
+// Peneiras vivem agrupadas em `peneiras{}` (p18..p10/mk) e os fundos num array
+// top-level `fundos[]` — sao fontes separadas na ficha unificada. Recebe as duas
+// e concatena num unico texto pipe-separado ("P18: 12% | ... | FUNDO1 P9: 2%")
+// que o renderer do PDF expande em uma row por item.
+function formatSieve(peneiras, fundos) {
   const parts = [];
-  for (const key of PENEIRA_KEYS) {
-    const parsed = toNumberOrNull(value[key]);
-    if (parsed === null) {
-      continue;
-    }
 
-    const printableKey = key.toUpperCase();
-    parts.push(`${printableKey}: ${formatNumber(parsed)}%`);
+  if (isRecord(peneiras)) {
+    for (const key of PENEIRA_KEYS) {
+      const parsed = toNumberOrNull(peneiras[key]);
+      if (parsed === null) {
+        continue;
+      }
+
+      const printableKey = key.toUpperCase();
+      parts.push(`${printableKey}: ${formatNumber(parsed)}%`);
+    }
   }
 
-  if (Array.isArray(value.fundos)) {
-    for (let i = 0; i < value.fundos.length; i++) {
-      const f = value.fundos[i];
+  if (Array.isArray(fundos)) {
+    for (let i = 0; i < fundos.length; i++) {
+      const f = fundos[i];
       if (f && f.peneira && f.percentual != null) {
         parts.push(`FUNDO${i + 1} P${f.peneira}: ${formatNumber(f.percentual)}%`);
       }
@@ -198,6 +204,11 @@ function buildFieldValueMap(detail) {
 
   const classifiersList = resolveClassifiersList(classificationData);
   const classifiersFormatted = formatClassifiersArray(classifiersList);
+  // Defeitos vivem agrupados em `defeitos{}` (imp/pva/broca/gpi/ap/defeito) na
+  // ficha unificada — nao no nivel raiz. Ler do sub-obj (era o bug que sumia
+  // broca/pva/imp/defeito do laudo). Idem peneiras (`peneiras{}`); fundos sao
+  // array top-level (`fundos[]`). Ver applyClassificationDataPatch.
+  const defeitos = isRecord(classificationData.defeitos) ? classificationData.defeitos : {};
 
   return {
     internalLotNumber: sample.internalLotNumber,
@@ -210,10 +221,13 @@ function buildFieldValueMap(detail) {
     catacao: classificationData.catacao,
     aspecto: classificationData.aspecto,
     bebida: classificationData.bebida,
-    broca: classificationData.broca,
-    pva: classificationData.pva,
-    imp: classificationData.imp,
-    defeito: classificationData.defeito,
+    certif: classificationData.certif,
+    broca: defeitos.broca,
+    pva: defeitos.pva,
+    imp: defeitos.imp,
+    ap: defeitos.ap,
+    gpi: defeitos.gpi,
+    defeito: defeitos.defeito,
     // `classificador` (legacy): deriva do array de classificadores; fallback
     // para string legacy armazenada em eventos antigos.
     classificador: classifiersToSingleName(classifiersList, classificationData.classificador),
@@ -222,7 +236,7 @@ function buildFieldValueMap(detail) {
     classifiers: classifiersFormatted,
     observacoes: classificationData.observacoes,
     classificationOriginLot: classificationData.loteOrigem,
-    peneirasPercentuais: formatSieve(classificationData.peneirasPercentuais),
+    peneirasPercentuais: formatSieve(classificationData.peneiras, classificationData.fundos),
     technicalType: technical.type,
     technicalScreen: technical.screen,
     technicalDensity: technical.density,

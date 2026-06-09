@@ -1533,6 +1533,80 @@ if (!databaseUrl || !databaseReachable) {
     assert.deepEqual(reportEvents[0].payload.selectedFields, exported.body.selectedFields);
   });
 
+  test('POST /samples/:sampleId/export/pdf inclui certificado/defeitos/peneiras e exclui a data', async () => {
+    const sampleId = randomUUID();
+    await moveSampleToRegistrationConfirmed(sampleId);
+    await commandService.addClassificationPhoto(
+      {
+        sampleId,
+        fileBuffer: tinyPngBuffer,
+        mimeType: 'image/png',
+        originalFileName: 'classificacao.png',
+      },
+      actorClassifier
+    );
+    await commandService.completeClassification(
+      {
+        sampleId,
+        expectedVersion: 1,
+        classificationData: {
+          padrao: 'PADRAO-A',
+          certif: 'Rainforest',
+          peneiras: {
+            p18: 12,
+            p17: 35,
+            p16: 20,
+            p15: 10,
+            p14: 8,
+            p13: 5,
+            p12: null,
+            p11: null,
+            p10: 3,
+            mk: 5,
+          },
+          fundos: [
+            { peneira: '9', percentual: 2 },
+            { peneira: null, percentual: null },
+          ],
+          defeitos: { imp: '1', pva: '3', broca: '2', gpi: '0', ap: '1', defeito: null },
+        },
+        classifiers: [{ userId: actorClassifier.actorUserId }],
+        idempotencyKey: randomUUID(),
+      },
+      actorClassifier
+    );
+
+    const exported = await api.exportSamplePdf(
+      buildInput({
+        params: { sampleId },
+        body: { exportType: 'COMPRADOR_PARCIAL' },
+      })
+    );
+
+    assert.equal(exported.status, 200);
+    const fields = exported.body.selectedFields;
+    // Defeitos lidos do sub-obj defeitos{} (fix do bug de chave que sumia do laudo)
+    assert.ok(fields.includes('broca'));
+    assert.ok(fields.includes('pva'));
+    assert.ok(fields.includes('imp'));
+    assert.ok(fields.includes('ap'));
+    assert.ok(fields.includes('gpi'));
+    // Certificado (Resumo do Lote) + peneiras percentuais
+    assert.ok(fields.includes('certif'));
+    assert.ok(fields.includes('peneirasPercentuais'));
+    // defeito null -> filtrado por excludeEmpty
+    assert.equal(fields.includes('defeito'), false);
+    // Data da classificacao NUNCA sai no laudo (decisao de produto)
+    assert.equal(fields.includes('classificationDate'), false);
+
+    // O REPORT_EXPORTED persiste os mesmos campos — valida o enum do schema
+    // report-exported.payload.schema.json contra os campos novos (certif/ap/gpi).
+    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
+    const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
+    assert.equal(reportEvents.length, 1);
+    assert.deepEqual(reportEvents[0].payload.selectedFields, fields);
+  });
+
   test('POST /samples/:sampleId/export/pdf blocks export when sample is not CLASSIFIED', async () => {
     const sampleId = randomUUID();
     await moveSampleToRegistrationConfirmed(sampleId);

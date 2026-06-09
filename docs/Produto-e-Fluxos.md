@@ -147,7 +147,7 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 2. Se sim, o usuario seleciona um ou mais usuarios ativos do sistema via picker com busca client-side.
 3. O backend valida a lista em `normalizeConferredBy`: rejeita auto-conferral (ator nao pode estar na lista), rejeita usuarios inativos ou inexistentes, faz dedup silencioso, limita a 50 entradas.
 4. O conjunto final e persistido como `conferredBy` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
-5. A conferencia aparece no card resumo da classificacao, no modal full-view e no laudo PDF exportado (com truncamento a partir de 8 nomes).
+5. A conferencia aparece no card resumo da classificacao, no modal full-view e no laudo PDF exportado (em linha unica, com os nomes dos classificadores separados por barra).
 
 ### 4. Laudo e consulta
 

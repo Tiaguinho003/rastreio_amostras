@@ -418,8 +418,13 @@ export async function renderSamplePdf({
     { label: 'Emitido em', value: formatIssuedAt(issuedAtIso) },
     { label: 'Safra', value: asValue(entryById.get('harvest')) || '-' },
     { label: 'Sacas', value: asValue(entryById.get('sacks')) || '-' },
-    { label: 'Data da classificação', value: asValue(entryById.get('classificationDate')) || '-' },
   ];
+  // Certificado: dado de classificacao apresentado no Resumo do Lote (decisao de
+  // produto). So aparece quando registrado (entry ja vem filtrado por excludeEmpty).
+  const certifEntry = entryById.get('certif');
+  if (certifEntry) {
+    resumoRows.push({ label: 'Certificado', value: asValue(certifEntry) || '-' });
+  }
 
   // ── Dados de Classificacao: todos os campos autorizados no laudo, exceto os
   // que ja aparecem no Resumo do Lote. Campos sem valor ja vem filtrados de
@@ -433,6 +438,8 @@ export async function renderSamplePdf({
     ['broca', 'Broca'],
     ['pva', 'PVA'],
     ['imp', 'IMP'],
+    ['ap', 'AP'],
+    ['gpi', 'GPI'],
     ['defeito', 'Defeito'],
   ]) {
     const entry = entryById.get(id);
@@ -441,26 +448,19 @@ export async function renderSamplePdf({
     }
   }
 
-  // Classificadores: uma row por nome (cap visivel + sufixo de overflow).
-  // Aceita o campo novo `classifiers` ou o legacy `conferredBy` (mesma string
-  // pipe-separada do export-fields.js).
+  // Classificadores: uma unica row com os nomes na horizontal, separados por
+  // " / " (decisao de produto: nao empilhar verticalmente). Aceita o campo novo
+  // `classifiers` ou o legacy `conferredBy` (mesma string pipe-separada do
+  // export-fields.js). Excesso de nomes e truncado com "..." pelo fitTextToWidth
+  // do renderer (largura da coluna de valor).
   const classifiersEntry = entryById.get('classifiers') ?? entryById.get('conferredBy');
   if (classifiersEntry) {
     const names = asValue(classifiersEntry)
       .split('|')
       .map((part) => part.trim())
       .filter(Boolean);
-    const CLASSIFIERS_VISIBLE_CAP = 6;
-    const visible = names.slice(0, CLASSIFIERS_VISIBLE_CAP);
-    for (let i = 0; i < visible.length; i++) {
-      classificationRows.push({ label: i === 0 ? 'Classificadores' : '', value: visible[i] });
-    }
-    const overflow = names.length - visible.length;
-    if (overflow > 0) {
-      classificationRows.push({
-        label: '',
-        value: `+${overflow} classificador${overflow > 1 ? 'es' : ''} adicional${overflow > 1 ? 'is' : ''}`,
-      });
+    if (names.length > 0) {
+      classificationRows.push({ label: 'Classificadores', value: names.join(' / ') });
     }
   }
 
