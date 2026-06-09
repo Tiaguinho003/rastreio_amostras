@@ -1373,10 +1373,16 @@ export class SampleQueryService {
       conditions.push({ id: { in: sentSampleIds } });
     }
 
+    // Filtro de safra: match por COMPONENTE. A safra de uma liga mista e a
+    // string canonica "24/25, 25/26"; filtrar por "24/25" OU por "25/26" casa a
+    // liga. `contains` (LIKE '%24/25%') e exato pra este formato — cada safra e
+    // "AA/AA" (sem virgula interna) separada por ", ", entao "24/25" so aparece
+    // como componente, nunca como substring acidental. Amostra de safra unica
+    // casa normalmente.
     const normalizedHarvest = normalizeOptionalText(harvest);
     if (normalizedHarvest) {
       conditions.push({
-        declaredHarvest: normalizedHarvest,
+        declaredHarvest: { contains: normalizedHarvest },
       });
     }
 
