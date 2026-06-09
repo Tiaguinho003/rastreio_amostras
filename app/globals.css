@@ -8715,7 +8715,8 @@ button:disabled {
    (clamp(14px,3.5vw,16px)). */
 .sdv-info-compact .sdv-card-header,
 .sdv-cls-block .sdv-card-header,
-.sdv-com-summary .sdv-card-header {
+.sdv-com-summary .sdv-card-header,
+.sdv-com-movements-card .sdv-card-header {
   margin: 0 calc(-1 * clamp(14px, 3.5vw, 16px)) clamp(11px, 2.8vw, 13px);
   padding: 0 clamp(14px, 3.5vw, 16px) clamp(10px, 2.6vw, 12px);
   border-bottom: 2px solid rgba(0, 0, 0, 0.1);
@@ -8725,7 +8726,8 @@ button:disabled {
    demais cards, pra ler como um header de secao — sem ficar chamativo. */
 .sdv-info-compact .sdv-card-header .sdv-card-title,
 .sdv-cls-block .sdv-card-header .sdv-card-title,
-.sdv-com-summary .sdv-card-header .sdv-card-title {
+.sdv-com-summary .sdv-card-header .sdv-card-title,
+.sdv-com-movements-card .sdv-card-header .sdv-card-title {
   font-size: clamp(9.5px, 2.6vw, 10.5px);
   color: #8a948c;
 }
@@ -9674,6 +9676,24 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: clamp(6px, 1.8vw, 8px);
+  /* Mostra ~4 cards sem scroll; o restante rola dentro do container. */
+  max-height: 16rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.3rem;
+}
+
+.sdv-com-movements::-webkit-scrollbar {
+  width: 0.4rem;
+}
+
+.sdv-com-movements::-webkit-scrollbar-thumb {
+  background: #d6d0c1;
+  border-radius: 999px;
+}
+
+.sdv-com-movements::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sdv-com-mov {
@@ -9684,6 +9704,7 @@ button:disabled {
   background: #fafafa;
   border-radius: clamp(10px, 3vw, 12px);
   border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
   animation: spv2-cardIn 0.35s ease backwards;
 }
 
@@ -24382,6 +24403,9 @@ select.samples-filter-field-input {
     .sdv-com-movements {
     flex: 1;
     min-height: 0;
+    /* No desktop a coluna preenche a altura do pane (o limite de ~4 cards e
+       so pro mobile, onde a pagina e empilhada). */
+    max-height: none;
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 0.3rem;

@@ -9,7 +9,6 @@ import {
   cancelSampleMovement,
   createSampleMovement,
   updateRegistration,
-  updateSampleMovement,
 } from '../../lib/api-client';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type {
@@ -83,7 +82,6 @@ export function SampleMovementsPanel({
 }: SampleMovementsPanelProps) {
   const [createType, setCreateType] = useState<SampleMovementType>('SALE');
   const [createOpen, setCreateOpen] = useState(false);
-  const [editMovement, setEditMovement] = useState<SampleMovement | null>(null);
   const [cancelMovement, setCancelMovement] = useState<SampleMovement | null>(null);
   const cancelTrapRef = useFocusTrap(cancelMovement !== null);
   const [cancelReasonText, setCancelReasonText] = useState('');
@@ -243,7 +241,7 @@ export function SampleMovementsPanel({
       </div>
 
       {/* Card 2: Movimentações */}
-      <div className="sdv-card">
+      <div className="sdv-card sdv-com-movements-card">
         <div className="sdv-card-header">
           <span className="sdv-card-title">Movimentacoes</span>
           <span className="sdv-com-count">{timeline.length} registros</span>
@@ -323,20 +321,6 @@ export function SampleMovementsPanel({
                     </div>
                     {!isCancelled && !isCascaded ? (
                       <div className="sdv-com-mov-actions">
-                        <button
-                          type="button"
-                          className="sdv-com-mov-act"
-                          onClick={() => {
-                            setEditMovement(movement);
-                            clearFeedback();
-                          }}
-                          disabled={saving}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                          </svg>
-                        </button>
                         <button
                           type="button"
                           className="sdv-com-mov-act is-danger"
@@ -562,157 +546,110 @@ export function SampleMovementsPanel({
         }}
       />
 
-      <SampleMovementModal
-        session={session}
-        open={Boolean(editMovement)}
-        mode="edit"
-        saving={saving}
-        title={editMovement?.movementType === 'SALE' ? 'Editar venda' : 'Editar perda'}
-        movement={editMovement}
-        availableSacks={available}
-        blend={sample.isBlend ? { sampleId, ownerClientId: sample.ownerClientId ?? null } : null}
-        onClose={() => {
-          if (!saving) {
-            setEditMovement(null);
-            clearFeedback();
-          }
-        }}
-        onSubmit={async (data) => {
-          if (!editMovement) {
-            return;
-          }
-
-          setSaving(true);
-          clearFeedback();
-
-          try {
-            // Liga B4 Fase 6: a quantidade de uma liga e estrutural — o
-            // backend recusa edita-la. So amostra normal envia quantitySacks.
-            const after: Record<string, string | number | null> = {
-              movementDate: data.movementDate,
-              notes: data.notes,
-            };
-
-            if (!sample.isBlend) {
-              after.quantitySacks = data.quantitySacks;
-            }
-
-            if (editMovement.movementType === 'SALE') {
-              after.buyerClientId = data.buyerClientId;
-              after.buyerUnitId = data.buyerUnitId;
-            } else {
-              after.lossReasonText = data.lossReasonText;
-            }
-
-            await updateSampleMovement(session, sampleId, editMovement.id, {
-              expectedVersion: sample.version,
-              after,
-              reasonText: data.reasonText ?? '',
-            });
-
-            setEditMovement(null);
-            await onRefresh();
-          } catch (cause) {
-            setError(cause instanceof ApiError ? cause.message : 'Falha ao atualizar movimentacao');
-          } finally {
-            setSaving(false);
-          }
-        }}
-      />
-
       {cancelMovement
         ? createPortal(
             <div className="app-modal-backdrop">
               <section
                 ref={cancelTrapRef}
-                className="app-modal cdm-modal"
+                className="app-modal is-themed sample-detail-compact-modal"
                 role="dialog"
                 aria-modal="true"
+                aria-labelledby="cancel-mov-title"
                 onClick={(event) => event.stopPropagation()}
               >
-                <div className="cdm-header">
-                  <h3 className="cdm-header-name">
-                    {sample.isBlend ? 'Cancelar movimentação da liga' : 'Cancelar movimentacao'}
-                  </h3>
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="cancel-mov-title" className="app-modal-title">
+                      {sample.isBlend ? 'Cancelar movimentação da liga' : 'Cancelar movimentação'}
+                    </h3>
+                  </div>
                   <button
                     type="button"
-                    className="app-modal-close cdm-close"
+                    className="app-modal-close"
                     onClick={() => setCancelMovement(null)}
                     disabled={saving}
                     aria-label="Fechar"
                   >
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M18 6 6 18" />
-                      <path d="m6 6 12 12" />
-                    </svg>
+                    <span aria-hidden="true">&times;</span>
                   </button>
-                </div>
+                </header>
 
-                {sample.isBlend ? (
-                  <div className="sdv-warn-box">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                      <path d="M12 9v4" />
-                      <path d="M12 17h.01" />
-                    </svg>
-                    <div className="sdv-warn-text">
-                      <strong>
-                        Isto cancela a {cancelMovement.movementType === 'SALE' ? 'venda' : 'perda'}{' '}
-                        da liga inteira
-                      </strong>
-                      A cascata é desfeita em todas as origens — elas voltam ao saldo anterior.
-                      Informe o motivo para manter a auditoria consistente.
+                <div className="app-modal-content">
+                  {error ? <p className="sdv-modal-error">{error}</p> : null}
+
+                  {sample.isBlend ? (
+                    <div className="sdv-warn-box">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                      </svg>
+                      <div className="sdv-warn-text">
+                        <strong>
+                          Isto cancela a{' '}
+                          {cancelMovement.movementType === 'SALE' ? 'venda' : 'perda'} da liga
+                          inteira
+                        </strong>
+                        A cascata é desfeita em todas as origens — elas voltam ao saldo anterior.
+                        Informe o motivo para manter a auditoria consistente.
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="sdv-modal-hint">
-                    Informe o motivo para manter a auditoria consistente.
-                  </p>
-                )}
+                  ) : (
+                    <p className="sdv-modal-hint">
+                      Informe o motivo para manter a auditoria consistente.
+                    </p>
+                  )}
 
-                <div className="sdv-edit-fields">
-                  <label className="sdv-edit-field">
-                    <span className="sdv-edit-label">Motivo do cancelamento</span>
+                  <label className="app-modal-field">
+                    <span className="app-modal-label">Motivo do cancelamento</span>
                     <input
-                      className="sdv-edit-input"
+                      className="app-modal-input"
                       value={cancelReasonText}
                       disabled={saving}
                       onChange={(event) => setCancelReasonText(event.target.value)}
                       placeholder="Descreva o motivo"
                     />
                   </label>
-                </div>
 
-                <div className="sdv-edit-actions">
-                  <button
-                    type="button"
-                    className="cdm-manage-link is-danger"
-                    disabled={saving || cancelReasonText.trim().length === 0}
-                    onClick={async () => {
-                      if (!cancelMovement) return;
-                      setSaving(true);
-                      clearFeedback();
-                      try {
-                        await cancelSampleMovement(session, sampleId, cancelMovement.id, {
-                          expectedVersion: sample.version,
-                          reasonText: cancelReasonText.trim(),
-                        });
-                        setCancelMovement(null);
-                        setCancelReasonText('');
-                        await onRefresh();
-                      } catch (cause) {
-                        setError(
-                          cause instanceof ApiError
-                            ? cause.message
-                            : 'Falha ao cancelar movimentacao'
-                        );
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                  >
-                    {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
-                  </button>
+                  <div className="app-modal-actions">
+                    <button
+                      type="button"
+                      className="app-modal-submit is-danger"
+                      disabled={saving || cancelReasonText.trim().length === 0}
+                      onClick={async () => {
+                        if (!cancelMovement) return;
+                        setSaving(true);
+                        clearFeedback();
+                        try {
+                          await cancelSampleMovement(session, sampleId, cancelMovement.id, {
+                            expectedVersion: sample.version,
+                            reasonText: cancelReasonText.trim(),
+                          });
+                          setCancelMovement(null);
+                          setCancelReasonText('');
+                          await onRefresh();
+                        } catch (cause) {
+                          setError(
+                            cause instanceof ApiError
+                              ? cause.message
+                              : 'Falha ao cancelar movimentacao'
+                          );
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
+                    </button>
+                    <button
+                      type="button"
+                      className="app-modal-secondary"
+                      onClick={() => setCancelMovement(null)}
+                      disabled={saving}
+                    >
+                      Voltar
+                    </button>
+                  </div>
                 </div>
               </section>
             </div>,
