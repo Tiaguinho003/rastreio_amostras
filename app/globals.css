@@ -1449,9 +1449,33 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   width: 100%;
 }
 
+/* Modais do detalhe que hospedam um ClientLookupField (envio fisico / laudo):
+   o dropdown precisa "escapar" do modal sem aumenta-lo. Liberamos o overflow
+   (poucos campos, sem scroll interno) — o card continua arredondado pelo
+   border-radius e o header tem radius proprio, entao so o dropdown (filho)
+   passa pra fora. Especificidade 4 classes pra vencer o .app-modal.is-themed
+   .app-modal-content (overflow-y:auto) base. */
+.app-modal.is-themed.sample-detail-lookup-modal,
+.app-modal.is-themed.sample-detail-lookup-modal .app-modal-content {
+  overflow: visible;
+}
+
+/* Dropdown maior e fora das bordas: ~4 clientes visiveis, scroll vertical
+   interno ate 10 (cap via maxResults no componente). Sem scroll horizontal. */
+.app-modal.is-themed.sample-detail-lookup-modal .client-lookup-dropdown {
+  z-index: 30;
+  max-height: min(17.5rem, 60vh);
+  overflow-x: hidden;
+}
+
 .app-modal-field {
   display: grid;
   gap: 0.32rem;
+  /* Item de flex no .app-modal-content: sem min-width:0 ele nao encolhe abaixo
+     do min-content do filho. Um <input type="date"> tem min-content largo
+     (texto nativo + icone do calendario no WebKit/iOS), entao o campo estourava
+     a largura do modal -> scroll lateral. */
+  min-width: 0;
 }
 
 .app-modal-label {
@@ -1464,6 +1488,12 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
 
 .app-modal-input {
   width: 100%;
+  /* Trava o input na largura do campo. Critico pra <input type="date">: como
+     item de grid/flex o min-width padrao e auto (= min-content), e o min-content
+     do date picker nativo e largo no WebKit/iOS — sem isto ele ignora o
+     width:100% e estoura o modal (scroll lateral). */
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(210, 210, 210, 0.6);
   border-radius: 12px;
   padding: 0.82rem 1.1rem;
@@ -12694,7 +12724,8 @@ button:disabled {
 
 /* Laudo: o input de busca ocupa o campo inteiro (placeholder preenche bem),
    com padding/fonte no tamanho dos demais campos do modal. */
-.export-recipient-multi {
+.export-recipient-multi,
+.send-recipient-multi {
   min-height: 2.7rem;
   padding: 0.25rem 0.3rem;
 }
@@ -12703,13 +12734,15 @@ button:disabled {
    placeholder preencham toda a largura — os chips selecionados ficam nas linhas
    acima. (O `flex` antigo mirava o `.client-lookup-shell`, que e filho do
    `.client-lookup-field` e nao o item flex do box, entao nao esticava nada.) */
-.export-recipient-multi .client-lookup-field {
+.export-recipient-multi .client-lookup-field,
+.send-recipient-multi .client-lookup-field {
   flex: 1 0 100%;
   min-width: 0;
   width: 100%;
 }
 
-.export-recipient-multi .client-lookup-shell input {
+.export-recipient-multi .client-lookup-shell input,
+.send-recipient-multi .client-lookup-shell input {
   width: 100%;
   border: 0;
   padding: 0.5rem 0.7rem;
@@ -12720,7 +12753,9 @@ button:disabled {
 }
 
 .export-recipient-multi .client-lookup-shell input:focus,
-.export-recipient-multi .client-lookup-shell input:focus-visible {
+.export-recipient-multi .client-lookup-shell input:focus-visible,
+.send-recipient-multi .client-lookup-shell input:focus,
+.send-recipient-multi .client-lookup-shell input:focus-visible {
   outline: none;
   box-shadow: none;
 }

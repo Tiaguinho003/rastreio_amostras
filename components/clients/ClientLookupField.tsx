@@ -44,6 +44,12 @@ type ClientLookupFieldProps = {
    * (selectedClient deve ficar null nesse modo).
    */
   clearOnSelect?: boolean;
+  /**
+   * Limita quantos resultados o dropdown apresenta. Se a busca casar com mais,
+   * mostra so os primeiros `maxResults` — o usuario deve refinar a digitacao.
+   * Usado nos modais estreitos (envio/laudo) pra capar em ~10.
+   */
+  maxResults?: number;
 };
 
 type LookupRow = {
@@ -116,6 +122,7 @@ export function ClientLookupField({
   compact = false,
   required = false,
   clearOnSelect = false,
+  maxResults,
 }: ClientLookupFieldProps) {
   const inputId = useId();
   const [search, setSearch] = useState(selectedClient?.displayName ?? '');
@@ -253,17 +260,22 @@ export function ClientLookupField({
     }
   }
 
+  const visibleItems = useMemo(
+    () => (typeof maxResults === 'number' ? items.slice(0, maxResults) : items),
+    [items, maxResults]
+  );
+
   const rows: LookupRow[] = useMemo(
     () =>
       isHierarchical
-        ? buildHierarchicalRows(items)
-        : items.map((client) => ({
+        ? buildHierarchicalRows(visibleItems)
+        : visibleItems.map((client) => ({
             key: client.id,
             client,
             unit: null,
             isHierarchicalChild: false,
           })),
-    [isHierarchical, items]
+    [isHierarchical, visibleItems]
   );
 
   return (

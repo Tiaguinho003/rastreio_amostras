@@ -127,6 +127,13 @@ function toText(value: unknown): string {
   return '';
 }
 
+// Rotulo curto do cliente dentro do campo de busca multi (chips): no maximo
+// 10 caracteres + reticencias, pra os chips ficarem pequenos e fluirem na
+// horizontal sem aumentar/estourar o campo. O nome completo fica no `title`.
+function truncateChipLabel(name: string, max = 10): string {
+  return name.length > max ? `${name.slice(0, max)}…` : name;
+}
+
 function toDateInput(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
@@ -461,7 +468,7 @@ export default function SampleDetailPage() {
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
 
   const [physicalSendModalOpen, setPhysicalSendModalOpen] = useState(false);
-  const [physicalSendClient, setPhysicalSendClient] = useState<ClientSummary | null>(null);
+  const [physicalSendClients, setPhysicalSendClients] = useState<ClientSummary[]>([]);
   const [physicalSendDate, setPhysicalSendDate] = useState('');
   const [physicalSending, setPhysicalSending] = useState(false);
   const [editingSendEventId, setEditingSendEventId] = useState<string | null>(null);
@@ -1124,14 +1131,40 @@ export default function SampleDetailPage() {
     try {
       if (isEditing && editingSendEventId) {
         await updatePhysicalSampleSend(session, sampleId, editingSendEventId, {
-          recipientClientId: physicalSendClient?.id ?? null,
+          recipientClientId: physicalSendClients[0]?.id ?? null,
           sentDate: physicalSendDate,
         });
       } else {
-        await recordPhysicalSampleSent(session, sampleId, {
-          recipientClientId: physicalSendClient?.id ?? null,
-          sentDate: physicalSendDate,
-        });
+        // Multi-destinatario: N destinatarios -> N registros (1 evento por
+        // destinatario). Sem destinatario -> 1 envio sem destinatario (preserva
+        // o comportamento anterior). Falha parcial: mantem nos chips so os que
+        // faltaram e reporta, pra um retry nao duplicar os que ja foram.
+        const recipients: (ClientSummary | null)[] =
+          physicalSendClients.length > 0 ? physicalSendClients : [null];
+        const failed: ClientSummary[] = [];
+        let firstError: unknown = null;
+        for (const client of recipients) {
+          try {
+            await recordPhysicalSampleSent(session, sampleId, {
+              recipientClientId: client?.id ?? null,
+              sentDate: physicalSendDate,
+            });
+          } catch (cause) {
+            if (client) failed.push(client);
+            if (!firstError) firstError = cause;
+          }
+        }
+
+        if (failed.length > 0 || firstError) {
+          fetchSendHistory();
+          setPhysicalSendClients(failed);
+          const names = failed.map((c) => c.displayName ?? 'sem nome').join(', ');
+          const base = firstError instanceof ApiError ? firstError.message : 'Tente novamente.';
+          setPhysicalSendError(
+            names ? `Falha ao enviar para: ${names}. ${base}` : `Falha ao registrar envio. ${base}`
+          );
+          return;
+        }
       }
 
       fetchSendHistory();
@@ -1141,6 +1174,7 @@ export default function SampleDetailPage() {
         setPhysicalSendSuccess(false);
         setPhysicalSendModalOpen(false);
         setEditingSendEventId(null);
+        setPhysicalSendClients([]);
       }, 900);
     } catch (cause) {
       if (cause instanceof ApiError) {
@@ -1166,12 +1200,12 @@ export default function SampleDetailPage() {
     if (item.recipientClientId && session) {
       try {
         const response = await getClient(session, item.recipientClientId);
-        setPhysicalSendClient(response.client);
+        setPhysicalSendClients([response.client]);
       } catch {
-        setPhysicalSendClient(null);
+        setPhysicalSendClients([]);
       }
     } else {
-      setPhysicalSendClient(null);
+      setPhysicalSendClients([]);
     }
 
     setPhysicalSendModalOpen(true);
@@ -2132,7 +2166,7 @@ export default function SampleDetailPage() {
                         className="sdv-action-card is-send"
                         onClick={() => {
                           setEditingSendEventId(null);
-                          setPhysicalSendClient(null);
+                          setPhysicalSendClients([]);
                           setPhysicalSendDate(getTodayDateInput());
                           setPhysicalSendError(null);
                           setPhysicalSendModalOpen(true);
@@ -3719,7 +3753,7 @@ export default function SampleDetailPage() {
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal"
+            className="app-modal is-themed sample-detail-compact-modal sample-detail-lookup-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="export-confirm-title"
@@ -3770,8 +3804,11 @@ export default function SampleDetailPage() {
                 <div className="samples-filter-multi samples-filter-multi--lookup export-recipient-multi">
                   {exportRecipientClients.map((client) => (
                     <span key={client.id} className="samples-filter-token">
-                      <span className="samples-filter-token-label">
-                        {client.displayName ?? 'Sem nome'}
+                      <span
+                        className="samples-filter-token-label"
+                        title={client.displayName ?? 'Sem nome'}
+                      >
+                        {truncateChipLabel(client.displayName ?? 'Sem nome')}
                       </span>
                       <button
                         type="button"
@@ -3794,6 +3831,7 @@ export default function SampleDetailPage() {
                     kind="any"
                     compact
                     clearOnSelect
+                    maxResults={10}
                     selectedClient={null}
                     onSelectClient={(client) => {
                       if (!client) return;
@@ -3802,7 +3840,11 @@ export default function SampleDetailPage() {
                       );
                     }}
                     disabled={Boolean(exportingPdfType)}
-                    placeholder="Busque por nome, documento ou código"
+                    placeholder={
+                      exportRecipientClients.length > 0
+                        ? ''
+                        : 'Busque por nome, documento ou código'
+                    }
                   />
                 </div>
               </div>
@@ -3842,7 +3884,7 @@ export default function SampleDetailPage() {
         >
           <section
             ref={physicalSendTrapRef}
-            className="app-modal is-themed sample-detail-compact-modal"
+            className="app-modal is-themed sample-detail-compact-modal sample-detail-lookup-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="physical-send-modal-title"
@@ -3892,18 +3934,67 @@ export default function SampleDetailPage() {
                 void handlePhysicalSend();
               }}
             >
-              <div className="app-modal-field">
-                <ClientLookupField
-                  session={session!}
-                  label="Destinatário"
-                  kind="any"
-                  selectedClient={physicalSendClient}
-                  onSelectClient={setPhysicalSendClient}
-                  disabled={physicalSending}
-                  placeholder="Busque por nome, documento ou código"
-                  compact
-                />
-              </div>
+              {editingSendEventId ? (
+                <div className="app-modal-field">
+                  <ClientLookupField
+                    session={session!}
+                    label="Destinatário"
+                    kind="any"
+                    maxResults={10}
+                    selectedClient={physicalSendClients[0] ?? null}
+                    onSelectClient={(client) => setPhysicalSendClients(client ? [client] : [])}
+                    disabled={physicalSending}
+                    placeholder="Busque por nome, documento ou código"
+                    compact
+                  />
+                </div>
+              ) : (
+                <div className="app-modal-field">
+                  <span className="app-modal-label">Destinatários</span>
+                  <div className="samples-filter-multi samples-filter-multi--lookup send-recipient-multi">
+                    {physicalSendClients.map((client) => (
+                      <span key={client.id} className="samples-filter-token">
+                        <span
+                          className="samples-filter-token-label"
+                          title={client.displayName ?? 'Sem nome'}
+                        >
+                          {truncateChipLabel(client.displayName ?? 'Sem nome')}
+                        </span>
+                        <button
+                          type="button"
+                          className="samples-filter-token-remove"
+                          aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
+                          disabled={physicalSending}
+                          onClick={() =>
+                            setPhysicalSendClients((prev) => prev.filter((c) => c.id !== client.id))
+                          }
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <ClientLookupField
+                      session={session!}
+                      label="Destinatários"
+                      kind="any"
+                      compact
+                      clearOnSelect
+                      maxResults={10}
+                      selectedClient={null}
+                      onSelectClient={(client) => {
+                        if (!client) return;
+                        setPhysicalSendClients((prev) =>
+                          prev.some((c) => c.id === client.id) ? prev : [...prev, client]
+                        );
+                      }}
+                      disabled={physicalSending}
+                      placeholder={
+                        physicalSendClients.length > 0 ? '' : 'Busque por nome, documento ou código'
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <label className="app-modal-field">
                 <span className="app-modal-label">Data de envio</span>
                 <input
