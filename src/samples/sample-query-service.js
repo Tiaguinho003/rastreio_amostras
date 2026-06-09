@@ -22,6 +22,12 @@ const CLASSIFICATION_FILTER_FIELD_BY_KEY = new Map(
   CLASSIFICATION_FILTER_FIELDS.map((field) => [field.key, field])
 );
 
+// Liga T0.D: profundidade maxima das arvores recursivas de liga — descendente
+// (loadBlendTree, loadBlendCascadeMovements) e ascendente (loadAncestorBlendTree).
+// Guarda defensiva contra recursao patologica; o grafo de composicao e DAG por
+// construcao (composicao imutavel apos a criacao da liga).
+const MAX_BLEND_DEPTH = 10;
+
 // Q.print: PRINT_PENDING_STATUSES removido — impressao virou acao pura,
 // estado de impressao vive na tabela PrintJob.status='PENDING' (sem
 // inflagar status do sample). Card "Aguardando impressao" foi cortado
@@ -2163,7 +2169,7 @@ export class SampleQueryService {
         FROM blend_tree bt
         JOIN sample_blend_component bc ON bc.sample_id = bt.sample_id
         JOIN sample child ON child.id = bc.origin_sample_id
-        WHERE bt.depth < 10
+        WHERE bt.depth < ${MAX_BLEND_DEPTH}
       )
       SELECT
         sample_id,
@@ -2283,7 +2289,7 @@ export class SampleQueryService {
           ce.depth + 1 AS depth
         FROM cascade_events ce
         JOIN sample_event child ON child.causation_id = ce.event_id
-        WHERE ce.depth < 10
+        WHERE ce.depth < ${MAX_BLEND_DEPTH}
           AND child.event_type::text IN ('SALE_CREATED', 'LOSS_RECORDED')
       )
       SELECT
@@ -2442,5 +2448,115 @@ export class SampleQueryService {
       declaredOwner: row.declared_owner ?? null,
       declaredHarvest: row.declared_harvest ?? null,
     }));
+  }
+
+  // Liga: CTE recursiva ASCENDENTE — todas as ligas ATIVAS que contem
+  // editedSampleId como origem, direta ou indiretamente (espelho invertido de
+  // loadBlendTree). Base da propagacao reativa de safra: ao editar a safra de
+  // um lote, recalcula a safra das ligas ancestrais.
+  //
+  // Diferente de loadBlendTree, NAO inclui o no editado como raiz (depth 0) —
+  // ele e um lote comum cuja safra ja muda no proprio evento de edicao. A
+  // ancora ja sao as ligas-pai diretas (depth 1). Ordenado por depth ASC
+  // (ordem topologica: liga de nivel 1 antes da liga-de-liga de nivel 2, pois
+  // o recalculo da segunda depende do valor ja recalculado da primeira).
+  //
+  // Topologias em diamante (uma liga alcancada por mais de um caminho) geram
+  // linhas duplicadas para o mesmo sampleId — o consumidor DEVE deduplicar por
+  // sampleId mantendo o maior depth antes de emitir eventos. Aceita transacao
+  // opcional (executor) pra ler versions consistentes dentro de uma tx.
+  async loadAncestorBlendTree(editedSampleId, { executor = null } = {}) {
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      WITH RECURSIVE ancestor_blends AS (
+        SELECT
+          parent.id AS sample_id,
+          1 AS depth,
+          parent.version,
+          parent.status::text AS status,
+          parent.commercial_status::text AS commercial_status,
+          parent.declared_harvest,
+          parent.internal_lot_number,
+          parent.sold_sacks,
+          parent.lost_sacks
+        FROM sample_blend_component bc
+        JOIN sample parent ON parent.id = bc.sample_id
+        WHERE bc.origin_sample_id = ${editedSampleId}::uuid
+          AND parent.status <> 'INVALIDATED'
+
+        UNION ALL
+
+        SELECT
+          parent.id AS sample_id,
+          ab.depth + 1 AS depth,
+          parent.version,
+          parent.status::text AS status,
+          parent.commercial_status::text AS commercial_status,
+          parent.declared_harvest,
+          parent.internal_lot_number,
+          parent.sold_sacks,
+          parent.lost_sacks
+        FROM ancestor_blends ab
+        JOIN sample_blend_component bc ON bc.origin_sample_id = ab.sample_id
+        JOIN sample parent ON parent.id = bc.sample_id
+        WHERE ab.depth < ${MAX_BLEND_DEPTH}
+          AND parent.status <> 'INVALIDATED'
+      )
+      SELECT
+        sample_id,
+        depth,
+        version,
+        status,
+        commercial_status,
+        declared_harvest,
+        internal_lot_number,
+        sold_sacks,
+        lost_sacks
+      FROM ancestor_blends
+      ORDER BY depth ASC, sample_id ASC
+    `;
+
+    return rows.map((row) => ({
+      sampleId: row.sample_id,
+      depth: Number(row.depth),
+      version: Number(row.version),
+      status: row.status,
+      commercialStatus: row.commercial_status,
+      declaredHarvest: row.declared_harvest ?? null,
+      internalLotNumber: row.internal_lot_number,
+      soldSacks: Number(row.sold_sacks),
+      lostSacks: Number(row.lost_sacks),
+    }));
+  }
+
+  // Liga: carrega as origens diretas de um conjunto de ligas numa unica query
+  // (evita N+1 no recalculo de safra). Retorna Map<blendId, Array<{originId,
+  // declaredHarvest}>>. Aceita transacao opcional (executor).
+  async loadDirectOriginsForBlends(blendIds, { executor = null } = {}) {
+    const result = new Map();
+    if (!Array.isArray(blendIds) || blendIds.length === 0) {
+      return result;
+    }
+    const client = executor ?? this.prisma;
+    const rows = await client.$queryRaw`
+      SELECT
+        bc.sample_id AS blend_id,
+        bc.origin_sample_id AS origin_id,
+        origin.declared_harvest
+      FROM sample_blend_component bc
+      JOIN sample origin ON origin.id = bc.origin_sample_id
+      WHERE bc.sample_id = ANY(${blendIds}::uuid[])
+    `;
+    for (const row of rows) {
+      const blendId = row.blend_id;
+      if (!result.has(blendId)) {
+        result.set(blendId, []);
+      }
+      result.get(blendId).push({
+        originId: row.origin_id,
+        declaredHarvest: row.declared_harvest ?? null,
+      });
+    }
+    return result;
   }
 }

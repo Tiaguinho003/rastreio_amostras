@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { HttpError } from '../contracts/errors.js';
+import { deriveBlendHarvest } from './blend-harvest.js';
 import { buildEventEnvelope, normalizeActorContext } from './sample-event-factory.js';
 
 const USER_ACTION_ROLES = [
@@ -47,6 +48,10 @@ const MOVEMENT_STATUSES = {
 const MAX_UPDATE_REASON_WORDS = 10;
 const DEFAULT_REGISTRATION_UPDATE_REASON_CODE = 'OTHER';
 const DEFAULT_REGISTRATION_UPDATE_REASON_TEXT = 'Edicao manual no detalhe da amostra';
+// Liga: reasonText sintetico dos eventos REGISTRATION_UPDATED emitidos pela
+// propagacao reativa de safra (recalculo de liga por edicao de origem). <=10
+// palavras pra casar com o regex do schema registration-updated.
+const BLEND_HARVEST_PROPAGATION_REASON_TEXT = 'Safra recalculada por edicao de origem';
 const BUSINESS_TIMEZONE = 'America/Sao_Paulo';
 const REGISTRATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
 const CLASSIFICATION_UPDATE_ALLOWED_STATUSES = ['REGISTRATION_CONFIRMED', 'CLASSIFIED'];
@@ -1602,7 +1607,7 @@ export class SampleCommandService {
     // 2026-05-19 (B2.2 refinada): coleta declaredHarvest das origens em
     // paralelo pra derivar a safra da liga automaticamente (modal F3
     // removido — operador nao informa mais manualmente).
-    const originHarvests = new Set();
+    const originHarvests = [];
     for (const component of normalizedComponents) {
       const origin = await this.queryService.loadSampleSummary(component.originSampleId);
       if (!origin) {
@@ -1633,9 +1638,7 @@ export class SampleCommandService {
           `When origin ${component.originSampleId} is a blend (F7.7), contributedSacks must equal declaredSacks. Got ${component.contributedSacks}, expected ${origin.declaredSacks}`
         );
       }
-      if (origin.declaredHarvest) {
-        originHarvests.add(origin.declaredHarvest);
-      }
+      originHarvests.push(origin.declaredHarvest);
     }
 
     const declaredSacks = normalizedComponents.reduce(
@@ -1643,13 +1646,12 @@ export class SampleCommandService {
       0
     );
 
-    // F3.2 revogada em 2026-05-19: safra deriva automaticamente das
-    // origens — distinct ordenado, join com ', '. Quando origens compartilham
-    // a mesma safra, fica '24/25'; quando mistas, fica '24/25, 25/26'. Se
-    // nenhuma origem tem safra (improvavel), fica null. Override manual
-    // (`input.harvest`) ainda aceito pra testes/integration de seed legado.
-    const derivedHarvest =
-      originHarvests.size > 0 ? Array.from(originHarvests).sort().join(', ') : null;
+    // F3.2 revogada em 2026-05-19: safra deriva automaticamente das origens
+    // via deriveBlendHarvest (distinct ordenado, join com ', '; split por
+    // virgula dedupa origens-liga ja concatenadas). Mesma a mesma logica usada
+    // pela propagacao reativa. Override manual (`input.harvest`) ainda aceito
+    // pra testes/integration de seed legado.
+    const derivedHarvest = deriveBlendHarvest(originHarvests);
     const harvest = input.harvest
       ? normalizeRequiredText(input.harvest, 'harvest')
       : derivedHarvest;
@@ -2306,7 +2308,12 @@ export class SampleCommandService {
       }
     }
 
-    const event = buildEventEnvelope({
+    // Liga: safra reativa. Monta o evento de edicao do lote com eventId
+    // explicito (raiz da cadeia de causation). Quando a edicao muda a safra e o
+    // lote e origem de ligas ativas, recalcula a safra das ligas ancestrais
+    // (recursivo) e emite tudo num appendEventBatch atomico.
+    const editedEventId = randomUUID();
+    const editedEvent = buildEventEnvelope({
       eventType: 'REGISTRATION_UPDATED',
       sampleId: sample.id,
       payload: {
@@ -2319,9 +2326,138 @@ export class SampleCommandService {
       toStatus: null,
       module: 'registration',
       actorContext: actor,
+      eventId: editedEventId,
     });
 
-    return this.eventService.appendEvent(event, { expectedVersion: input.expectedVersion });
+    const harvestChanged =
+      updatePayload.after?.declared &&
+      Object.prototype.hasOwnProperty.call(updatePayload.after.declared, 'harvest');
+
+    if (harvestChanged) {
+      const propagation = await this._buildHarvestPropagation({
+        editedSampleId: sample.id,
+        newHarvest: updatePayload.after.declared.harvest,
+        actor,
+        causationEventId: editedEventId,
+      });
+
+      if (propagation.affectedBlends.length > 0) {
+        // Avisar-e-confirmar (Liga): sem confirmacao explicita, devolve 409 com
+        // a lista de ligas afetadas pra UI confirmar antes de aplicar.
+        if (input.confirmHarvestPropagation !== true) {
+          throw new HttpError(
+            409,
+            `Esta edicao de safra altera a safra de ${propagation.affectedBlends.length} liga(s).`,
+            {
+              code: 'BLEND_HARVEST_PROPAGATION_REQUIRED',
+              affectedBlends: propagation.affectedBlends,
+            }
+          );
+        }
+
+        // Confirmado: evento do lote (raiz) + recalculos das ligas num unico
+        // batch atomico. Conflito de versao em qualquer liga reverte tudo.
+        const results = await this.eventService.appendEventBatch(
+          [editedEvent, ...propagation.drafts],
+          [{ expectedVersion: input.expectedVersion }, ...propagation.optionsByIndex]
+        );
+        return results[0];
+      }
+    }
+
+    return this.eventService.appendEvent(editedEvent, {
+      expectedVersion: input.expectedVersion,
+    });
+  }
+
+  // Liga: monta os eventos de recalculo de safra das ligas ancestrais de um
+  // lote cuja safra foi editada. Sobe a arvore (loadAncestorBlendTree),
+  // deduplica diamantes por sampleId (mantendo o maior depth) e recalcula a
+  // safra de cada liga em ordem topologica (depth ASC), reusando
+  // deriveBlendHarvest com override em memoria (harvestBySampleId) — liga-de-liga
+  // le o valor ja recalculado da liga-filha. Emite REGISTRATION_UPDATED apenas
+  // para as ligas cujo valor efetivamente muda (no-op nao gera evento, mas o
+  // Map recebe o valor recalculado pra ligas acima lerem certo). Retorna drafts
+  // + optionsByIndex prontos pro mesmo appendEventBatch do evento do lote, e
+  // affectedBlends pra UX de confirmacao.
+  //
+  // A arvore e carregada fora da tx do batch — confia no expectedVersion por
+  // liga (igual _createBlendCascadeMovement): escrita concorrente vira conflito
+  // de versao no batch (409) e o cliente re-tenta.
+  async _buildHarvestPropagation({ editedSampleId, newHarvest, actor, causationEventId }) {
+    const tree = await this.queryService.loadAncestorBlendTree(editedSampleId);
+    if (tree.length === 0) {
+      return { affectedBlends: [], drafts: [], optionsByIndex: [] };
+    }
+
+    // Dedup por sampleId mantendo o maior depth (topologia em diamante gera
+    // varias linhas pra mesma liga). Processar no maior depth garante que todas
+    // as ligas-filhas ja entraram no Map antes desta liga ser recalculada.
+    const byId = new Map();
+    for (const node of tree) {
+      const existing = byId.get(node.sampleId);
+      if (!existing || node.depth > existing.depth) {
+        byId.set(node.sampleId, node);
+      }
+    }
+    const blends = Array.from(byId.values()).sort((a, b) => a.depth - b.depth);
+
+    const originsByBlend = await this.queryService.loadDirectOriginsForBlends(
+      blends.map((blend) => blend.sampleId)
+    );
+
+    const harvestBySampleId = new Map([[editedSampleId, newHarvest]]);
+    const affectedBlends = [];
+    const drafts = [];
+    const optionsByIndex = [];
+
+    for (const blend of blends) {
+      const origins = originsByBlend.get(blend.sampleId) ?? [];
+      const harvests = origins.map(
+        (origin) => harvestBySampleId.get(origin.originId) ?? origin.declaredHarvest
+      );
+      const recalculated = deriveBlendHarvest(harvests);
+      // Registra SEMPRE (mesmo no no-op) pra ligas ancestrais lerem o valor certo.
+      harvestBySampleId.set(blend.sampleId, recalculated);
+
+      // No-op: safra da liga nao muda — nao emite evento (schema exige
+      // before != after via minProperties, e evita poluir o historico).
+      if (recalculated === blend.declaredHarvest) {
+        continue;
+      }
+
+      affectedBlends.push({
+        sampleId: blend.sampleId,
+        lotNumber: blend.internalLotNumber,
+        status: blend.status,
+        commercialStatus: blend.commercialStatus,
+        soldSacks: blend.soldSacks,
+        lostSacks: blend.lostSacks,
+        currentHarvest: blend.declaredHarvest,
+        newHarvest: recalculated,
+      });
+
+      drafts.push(
+        buildEventEnvelope({
+          eventType: 'REGISTRATION_UPDATED',
+          sampleId: blend.sampleId,
+          payload: {
+            before: { declared: { harvest: blend.declaredHarvest } },
+            after: { declared: { harvest: recalculated } },
+            reasonCode: 'DATA_FIX',
+            reasonText: BLEND_HARVEST_PROPAGATION_REASON_TEXT,
+          },
+          fromStatus: null,
+          toStatus: null,
+          module: 'registration',
+          actorContext: actor,
+          causationId: causationEventId,
+        })
+      );
+      optionsByIndex.push({ expectedVersion: blend.version });
+    }
+
+    return { affectedBlends, drafts, optionsByIndex };
   }
 
   async updateClassification(input, actorContext) {
@@ -3833,6 +3969,10 @@ export class SampleCommandService {
             after: registrationAfter,
             reasonCode: 'DATA_FIX',
             reasonText: 'Conferencia de ficha na camera',
+            // Liga: a reconciliacao de safra na ficha ja e confirmada pelo
+            // operador na camera — propaga pras ligas sem novo prompt (evita o
+            // 409 BLEND_HARVEST_PROPAGATION_REQUIRED quebrar o fluxo).
+            confirmHarvestPropagation: true,
           },
           actorContext
         );

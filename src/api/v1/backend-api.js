@@ -403,6 +403,9 @@ export function createBackendApiV1({
             after: body.after,
             reasonCode: body.reasonCode,
             reasonText: body.reasonText,
+            // Liga: confirma a propagacao da safra para as ligas ancestrais
+            // (avisar-e-confirmar). Sem isso, o backend devolve 409 com a lista.
+            confirmHarvestPropagation: body.confirmHarvestPropagation,
           },
           actor
         );
