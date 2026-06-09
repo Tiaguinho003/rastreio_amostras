@@ -7837,6 +7837,9 @@ button:disabled {
   justify-content: center;
   gap: clamp(0.3rem, 1.5vw, 0.5rem);
   text-align: center;
+  /* Topo arredondado do sheet bege sobre o verde — mesmo padrao das paginas de
+     lista (.samples-page-v2 / .clients-page-v2: border-radius 20px 20px 0 0). */
+  border-radius: 20px 20px 0 0;
 }
 
 .informe-empty-text {
