@@ -5020,10 +5020,15 @@ button:disabled {
   animation: samples-sheet-in 0.5s ease-out 0.15s both;
 }
 
-/* List-scroll do samples page: padding-bottom = clearance pro FAB
+/* List-scroll do samples/clients: padding-bottom = clearance pro FAB
    ("+" ou seta da liga) + breathing. Sem isso o ultimo item ficaria
-   coberto pelo FAB flutuante. Vale tanto modo normal quanto selecao. */
-.samples-page-v2 .spv2-list-scroll {
+   coberto pelo FAB flutuante. Vale tanto modo normal quanto selecao.
+   /clients usa o MESMO clearance (FAB "+" na mesma posicao) pra que o
+   conteudo role por tras da tabbar flutuante (o sheet ocupa a tela
+   toda) — sem sobrar faixa bege nem linha de limite visivel acima da
+   tabbar. */
+.samples-page-v2 .spv2-list-scroll,
+.clients-page-v2 .spv2-list-scroll {
   padding-bottom: calc(clamp(6.3rem, 27vw, 6.8rem) + clamp(0.6rem, 2vw, 0.9rem));
 }
 
@@ -5825,11 +5830,13 @@ button:disabled {
   background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   border-radius: 20px 20px 0 0;
   padding: clamp(4px, 1vw, 6px) 0 0;
-  /* Padding-bottom adaptativo: mesma clamp da .samples-page-v2-sheet
-     pra que ambas as pages com FAB tenham gap visual identico em
-     qualquer device. */
+  /* Pagina continua (mesmo padrao da .samples-page-v2-sheet): o sheet
+     ocupa a tela toda — so safe-area + breathing minimo aqui embaixo.
+     O clearance do FAB+tabbar mora na .spv2-list-scroll, entao a pill
+     da tabbar flutua sobre o sheet e o conteudo rola por tras dela, sem
+     sobrar faixa bege nem linha de limite visivel acima da tabbar. */
   padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(5.9rem, 25vw, 6.3rem)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.5rem, 1.6vw, 0.7rem)
   );
   overflow: hidden;
   min-height: 0;
