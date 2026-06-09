@@ -11,6 +11,7 @@ import { PhotoZoomViewer } from '../../../components/PhotoZoomViewer';
 import { ClientLookupField } from '../../../components/clients/ClientLookupField';
 import { ClientQuickCreateModal } from '../../../components/clients/ClientQuickCreateModal';
 import { BlendBadge } from '../../../components/samples/BlendBadge';
+import { BlendHarvestPropagationModal } from '../../../components/samples/BlendHarvestPropagationModal';
 import { BlendRevertModal } from '../../../components/samples/BlendRevertModal';
 import { RelatedSampleRow } from '../../../components/samples/RelatedSampleRow';
 import { SampleInvalidateBlockedModal } from '../../../components/samples/SampleInvalidateBlockedModal';
@@ -45,6 +46,7 @@ import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useRequireAuth } from '../../../lib/use-auth';
 import type {
   ActiveBlendDetail,
+  AffectedBlendDetail,
   BlendFeasibilityResponse,
   ClassificationType,
   ClassifierSnapshot,
@@ -113,6 +115,25 @@ function extractActiveBlendsBlock(cause: unknown): ActiveBlendDetail[] | null {
     return null;
   }
   return Array.isArray(activeBlends) ? (activeBlends as ActiveBlendDetail[]) : [];
+}
+
+// Liga: extrai o payload do 409 BLEND_HARVEST_PROPAGATION_REQUIRED (mesmo shape
+// achatado de extractActiveBlendsBlock). Disparado ao editar a safra de um lote
+// que e origem de ligas ativas — a UI abre o modal de confirmacao antes de
+// propagar. Retorna null quando nao e esse erro (catch cai no aviso generico).
+function extractHarvestPropagationBlock(cause: unknown): AffectedBlendDetail[] | null {
+  if (!(cause instanceof ApiError) || cause.status !== 409) {
+    return null;
+  }
+  const details = cause.details;
+  if (!isRecord(details)) {
+    return null;
+  }
+  const { code, affectedBlends } = details;
+  if (code !== 'BLEND_HARVEST_PROPAGATION_REQUIRED') {
+    return null;
+  }
+  return Array.isArray(affectedBlends) ? (affectedBlends as AffectedBlendDetail[]) : [];
 }
 
 function toText(value: unknown): string {
@@ -516,6 +537,11 @@ export default function SampleDetailPage() {
   const [registrationEditMode, setRegistrationEditMode] = useState(false);
   const registrationEditModeRef = useRef(false);
   const [registrationUpdating, setRegistrationUpdating] = useState(false);
+  // Liga: ligas afetadas pela propagacao reativa de safra (null = modal de
+  // confirmacao fechado). Preenchido pelo 409 BLEND_HARVEST_PROPAGATION_REQUIRED.
+  const [harvestPropagationBlends, setHarvestPropagationBlends] = useState<
+    AffectedBlendDetail[] | null
+  >(null);
   const [registrationEditReasonCode, setRegistrationEditReasonCode] =
     useState<UpdateReasonCode>('OTHER');
   const [registrationEditReasonText, setRegistrationEditReasonText] = useState('');
@@ -1587,7 +1613,7 @@ export default function SampleDetailPage() {
     setRegistrationSaveSuccess(false);
   }
 
-  async function handleConfirmRegistrationUpdate() {
+  async function handleConfirmRegistrationUpdate(confirmHarvestPropagation = false) {
     if (!session || !detail) {
       return;
     }
@@ -1669,9 +1695,11 @@ export default function SampleDetailPage() {
         after: afterPayload,
         reasonCode: parsedReason.data.reasonCode,
         reasonText: parsedReason.data.reasonText,
+        confirmHarvestPropagation,
       });
 
       // Sucesso: efeito de check por ~900ms e fecha o modal (sem mensagem verde).
+      setHarvestPropagationBlends(null);
       setRegistrationSaveSuccess(true);
       window.setTimeout(() => {
         setRegistrationSaveSuccess(false);
@@ -1682,7 +1710,12 @@ export default function SampleDetailPage() {
       }, 900);
       await syncDetailState();
     } catch (cause) {
-      if (cause instanceof ApiError) {
+      // Liga: 409 BLEND_HARVEST_PROPAGATION_REQUIRED abre o modal de confirmacao
+      // (avisar-e-confirmar) em vez do aviso de erro generico.
+      const propagation = extractHarvestPropagationBlock(cause);
+      if (propagation && propagation.length > 0) {
+        setHarvestPropagationBlends(propagation);
+      } else if (cause instanceof ApiError) {
         setRegistrationModalNotice({ kind: 'error', text: cause.message });
       } else {
         setRegistrationModalNotice({ kind: 'error', text: 'Falha ao salvar edicao de registro' });
@@ -2538,6 +2571,17 @@ export default function SampleDetailPage() {
         open={invalidateBlockedOpen}
         activeBlends={blockedBlends}
         onClose={() => setInvalidateBlockedOpen(false)}
+      />
+
+      <BlendHarvestPropagationModal
+        open={harvestPropagationBlends !== null}
+        blends={harvestPropagationBlends ?? []}
+        submitting={registrationUpdating}
+        onConfirm={() => {
+          setHarvestPropagationBlends(null);
+          void handleConfirmRegistrationUpdate(true);
+        }}
+        onClose={() => setHarvestPropagationBlends(null)}
       />
 
       {xEffect

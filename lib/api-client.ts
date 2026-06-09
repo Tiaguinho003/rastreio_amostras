@@ -1433,6 +1433,9 @@ export function updateRegistration(
     reasonCode?: UpdateReasonCode;
     reasonText?: string;
     before?: { [key: string]: JsonValue };
+    /** Liga: confirma a propagacao da safra para as ligas ancestrais. Sem isso,
+     *  uma edicao de safra que afeta ligas retorna 409 BLEND_HARVEST_PROPAGATION_REQUIRED. */
+    confirmHarvestPropagation?: boolean;
   }
 ) {
   const body: { [key: string]: JsonValue } = {
@@ -1450,6 +1453,10 @@ export function updateRegistration(
 
   if (data.before) {
     body.before = data.before;
+  }
+
+  if (data.confirmHarvestPropagation === true) {
+    body.confirmHarvestPropagation = true;
   }
 
   return request<CommandResponse>(`/samples/${sampleId}/registration/update`, {

@@ -532,6 +532,21 @@ export interface ActiveBlendDetail {
   declaredHarvest: string | null;
 }
 
+// Liga: liga ancestral cuja safra muda por uma edicao de safra de origem
+// (propagacao reativa). Retornada no 409 BLEND_HARVEST_PROPAGATION_REQUIRED
+// pra UI confirmar antes de aplicar — destaca ligas ja comercializadas
+// (commercialStatus != 'OPEN') e a transicao currentHarvest -> newHarvest.
+export interface AffectedBlendDetail {
+  sampleId: string;
+  lotNumber: string | null;
+  status: SampleStatus;
+  commercialStatus: CommercialStatus;
+  soldSacks: number;
+  lostSacks: number;
+  currentHarvest: string | null;
+  newHarvest: string | null;
+}
+
 // Liga B4 Fase 2: viabilidade da venda de uma liga. `getBlendFeasibility`
 // percorre a árvore recursiva de descendentes e marca, por origem, se o
 // saldo disponível ainda cobre a contribuição exigida (hard block F7.6

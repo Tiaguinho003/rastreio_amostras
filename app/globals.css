@@ -2395,6 +2395,7 @@ button:disabled {
 .app-modal.is-themed .app-modal-actions.sample-detail-movement-actions,
 .app-modal.is-themed .app-modal-actions.sample-detail-invalidate-actions,
 .app-modal.is-themed .app-modal-actions.blend-revert-actions,
+.app-modal.is-themed .app-modal-actions.blend-harvest-propagation-actions,
 .app-modal.is-themed .app-modal-actions.samples-filter-modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2406,6 +2407,7 @@ button:disabled {
 .sample-detail-movement-actions > button,
 .sample-detail-invalidate-actions > button,
 .blend-revert-actions > button,
+.blend-harvest-propagation-actions > button,
 .samples-filter-modal-actions > button {
   width: 100%;
   min-width: 0;
@@ -11089,6 +11091,91 @@ button:disabled {
 .sdv-warn-text strong {
   display: block;
   margin-bottom: 2px;
+}
+
+/* Liga: modal de confirmacao da propagacao reativa de safra — lista de ligas
+   afetadas com a transicao safra atual -> nova. */
+.bhp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2vw, 10px);
+}
+
+.bhp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: clamp(10px, 2.6vw, 12px) clamp(12px, 3vw, 14px);
+  background: #f8f8f4;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 12px;
+}
+
+.bhp-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bhp-row-lot {
+  font-weight: 700;
+  font-size: clamp(0.92rem, 2.6vw, 1rem);
+  color: #1a1a17;
+  letter-spacing: -0.01em;
+}
+
+.bhp-chip {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.bhp-chip.is-warning {
+  background: #fff4e5;
+  color: #9a5b00;
+  border: 1px solid #ffd9a8;
+}
+
+.bhp-chip.is-muted {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.bhp-row-harvest {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: clamp(0.88rem, 2.5vw, 0.98rem);
+}
+
+.bhp-harvest-from {
+  color: rgba(0, 0, 0, 0.5);
+  text-decoration: line-through;
+  text-decoration-color: rgba(0, 0, 0, 0.25);
+}
+
+.bhp-harvest-arrow {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--brand-green);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bhp-harvest-to {
+  font-weight: 700;
+  color: var(--brand-green);
 }
 
 /* Liga B4 Fase 5: modal de venda/perda de liga — linha "vende 100%" (a liga
