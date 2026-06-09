@@ -27444,12 +27444,13 @@ select.samples-filter-field-input {
   inset: 0;
   z-index: var(--z-modal-backdrop);
   background: rgba(0, 0, 0, 0);
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
-  transition:
-    background 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    backdrop-filter 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    -webkit-backdrop-filter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* O blur NAO e animado de proposito: animar backdrop-filter re-borra a
+     viewport inteira a cada frame (~350ms) e trava no mobile — era o "travada
+     + distorcao nas bordas" ao abrir/fechar. O blur fica estavel (so no estado
+     aberto, sem transition: entra/sai num unico frame) e quem faz o fade suave
+     e o scrim (background). Custo de um backdrop-filter estatico e baixo; o de
+     anima-lo e altissimo. */
+  transition: background 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
 }
 
