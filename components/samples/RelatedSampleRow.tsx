@@ -10,7 +10,7 @@
 //
 // - Quando a amostra apontada e uma liga (isBlend), renderiza <BlendBadge>
 //   ao lado do lote.
-// - owner/harvest aceitam null → fallback "—".
+// - harvest aceita null → fallback "—".
 // - status: usado pra colorir a barra lateral (is-card-open / is-card-invalid).
 
 import Link from 'next/link';
@@ -22,7 +22,6 @@ interface RelatedSampleRowProps {
   href: string;
   lot: string;
   isBlend?: boolean;
-  owner?: string | null;
   harvest?: string | null;
   contribution: number;
   status?: SampleStatus | null;
@@ -40,7 +39,6 @@ export function RelatedSampleRow({
   href,
   lot,
   isBlend = false,
-  owner,
   harvest,
   contribution,
   status,
@@ -59,8 +57,6 @@ export function RelatedSampleRow({
           <span className="sdv-blend-card-lot-text">{lot}</span>
           {isBlend ? <BlendBadge size="sm" /> : null}
         </span>
-        <span className="spv2-card-sep" aria-hidden="true" />
-        <span className="sdv-blend-card-owner">{owner?.trim() ? owner : '—'}</span>
         <span className="spv2-card-sep" aria-hidden="true" />
         <span className="spv2-card-detail">
           <svg viewBox="0 0 24 24" aria-hidden="true">

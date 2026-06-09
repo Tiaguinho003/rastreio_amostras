@@ -8867,8 +8867,10 @@ button:disabled {
 }
 
 .sdv-blend-card-lot {
-  /* lote nao "engole" a linha: largura de conteudo, encolhe/ellipsis se preciso. */
-  flex: 0 1 auto;
+  /* unico item flexivel da linha: ocupa o espaco livre (sem owner) e empurra
+     safra/sacas pra direita, junto ao chevron. Trunca com ellipsis so se o
+     lote for longo demais ao ponto de nao caber. */
+  flex: 1 1 auto;
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -8883,18 +8885,6 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-}
-
-.sdv-blend-card-owner {
-  /* unico item que cede: ocupa o espaco restante e trunca. */
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: clamp(12px, 3.5vw, 13px);
-  color: #666;
-  font-weight: 500;
 }
 
 /* Fileira de acoes principais no rodape do container 1: Imprimir | Laudo |

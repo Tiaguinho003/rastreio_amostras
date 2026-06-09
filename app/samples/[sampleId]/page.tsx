@@ -2437,7 +2437,6 @@ export default function SampleDetailPage() {
                                 href={`/samples/${origin.id}`}
                                 lot={origin.internalLotNumber ?? origin.id.slice(0, 8)}
                                 isBlend={origin.isBlend}
-                                owner={origin.declaredOwner}
                                 harvest={origin.declaredHarvest}
                                 contribution={component.contributedSacks}
                                 status={origin.status}
@@ -2468,7 +2467,6 @@ export default function SampleDetailPage() {
                               href={`/samples/${blend.sampleId}`}
                               lot={blend.lotNumber ?? blend.sampleId.slice(0, 8)}
                               isBlend={true}
-                              owner={blend.declaredOwner}
                               harvest={blend.declaredHarvest}
                               contribution={blend.contributedSacks}
                               status={blend.status}
