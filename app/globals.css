@@ -3813,15 +3813,16 @@ button:disabled {
   /* Clamp ativa no range de phones — camera escala junto com os outros
      icones (mantem proporcao visual entre primary e os links comuns). */
   width: clamp(4.75rem, 19vw, 5.5rem);
-  /* Margin-top menos negativo pra abaixar ligeiramente o botao camera
-     em relacao aos outros icones. */
-  margin-top: clamp(-1.6rem, -4.5vw, -0.95rem);
+  /* Camera centralizada verticalmente no navbar, no mesmo eixo dos demais
+     itens (sem o deslocamento pra cima que tinha antes). Tamanho do botao
+     preservado pelos clamps de width/height do .mobile-tabbar-pill. */
+  margin-top: 0;
   padding: 0;
   background: transparent;
   color: #ffffff;
   border: 0;
   box-shadow: none;
-  align-self: flex-start;
+  align-self: center;
 }
 
 .mobile-tabbar-link.is-primary:hover {
