@@ -27,10 +27,11 @@ import { useRequireAuth } from '../../lib/use-auth';
 import { VISIT_FARM_SIZE_OPTIONS, VISIT_INTEREST_OPTIONS } from '../../lib/visit-report';
 
 // Pagina "Informe" — formulario de visita (item do tabbar mobile).
-// 4 perguntas: identificacao do cliente (cadastrado via lookup OU novo via
-// campos basicos), tamanho da fazenda, interesse em comercializar e se ja
-// comercializa (com quem). Envio via POST /visit-reports: o backend carimba
-// usuario + data/hora; o admin le tudo na pagina /resumo.
+// 5 campos: identificacao do cliente (cadastrado via lookup OU novo via
+// campos basicos), tamanho da fazenda, interesse em comercializar, se ja
+// comercializa (com quem) e observacoes gerais (discursivo, opcional).
+// Envio via POST /visit-reports: o backend carimba usuario + data/hora;
+// o admin le tudo na pagina /resumo.
 // Visual: verde em cima (.sdv-header transparente sobre o app-shell verde —
 // rota layered no AppShell) + sheet bege embaixo (.sdv-content.informe-content)
 // com a navbar visivel (fora de hideMobileTabbar).
@@ -64,6 +65,7 @@ export default function InformePage() {
   const [interestNotes, setInterestNotes] = useState('');
   const [sellsCurrently, setSellsCurrently] = useState<boolean | null>(null);
   const [sellsToWhom, setSellsToWhom] = useState('');
+  const [generalNotes, setGeneralNotes] = useState('');
   const [fieldErrors, setFieldErrors] = useState<VisitFieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -104,7 +106,8 @@ export default function InformePage() {
     interestLevel !== null ||
     interestNotes !== '' ||
     sellsCurrently !== null ||
-    sellsToWhom !== '';
+    sellsToWhom !== '' ||
+    generalNotes !== '';
 
   useRegisterDirtyState('informe-visit-form', isDirty, 'Informe de visita não enviado');
 
@@ -144,6 +147,7 @@ export default function InformePage() {
     setInterestNotes('');
     setSellsCurrently(null);
     setSellsToWhom('');
+    setGeneralNotes('');
     setFieldErrors({});
   }
 
@@ -197,6 +201,7 @@ export default function InformePage() {
         interestNotes: interestNotes.trim() || null,
         sellsCurrently: sellsCurrently as boolean,
         sellsToWhom: sellsCurrently ? sellsToWhom.trim() || null : null,
+        generalNotes: generalNotes.trim() || null,
       };
 
       // Sem rede declarada: nem tenta — vai direto pra fila local.
@@ -293,11 +298,13 @@ export default function InformePage() {
       <section className="sdv-page">
         <header className="sdv-header">
           <div className="sdv-header-top">
-            <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao dashboard">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </Link>
+            {/* Spacer invisivel no lugar do botao de voltar: mantem o titulo
+                (flex: 1 + text-align: center) equilibrado com o avatar a direita. */}
+            <span
+              className="nsv2-back"
+              aria-hidden="true"
+              style={{ visibility: 'hidden', pointerEvents: 'none' }}
+            />
             <span className="sdv-header-title">Informe</span>
             <HeaderAvatarMenu session={session} onLogout={logout} />
             <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
@@ -329,10 +336,6 @@ export default function InformePage() {
 
             <header className="inf-intro">
               <h2 className="inf-intro-title">Formulário de visita</h2>
-              <p className="inf-intro-sub">
-                Registre a visita ao produtor. O envio vai para a administração com seu nome, data e
-                horário.
-              </p>
             </header>
 
             {pendingCount > 0 ? (
@@ -652,6 +655,28 @@ export default function InformePage() {
                   />
                 </label>
               ) : null}
+            </section>
+
+            {/* P5 — Observações gerais */}
+            <section className="inf-card">
+              <header className="inf-card-head">
+                <span className="inf-card-num" aria-hidden="true">
+                  5
+                </span>
+                <div className="inf-card-head-text">
+                  <h3 className="inf-card-title">Observações gerais</h3>
+                  <p className="inf-card-sub">Algo mais sobre a visita? (opcional)</p>
+                </div>
+              </header>
+
+              <textarea
+                className="inf-textarea"
+                rows={3}
+                value={generalNotes}
+                placeholder="Escreva aqui qualquer observação extra"
+                maxLength={1000}
+                onChange={(event) => setGeneralNotes(event.target.value)}
+              />
             </section>
 
             <button type="submit" className="inf-submit" disabled={submitting}>
