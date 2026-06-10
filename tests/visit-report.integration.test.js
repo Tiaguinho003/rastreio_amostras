@@ -4,10 +4,15 @@ import { randomUUID } from 'node:crypto';
 
 import { PrismaClient } from '@prisma/client';
 
+import { createBackendApiV1 } from '../src/api/v1/backend-api.js';
+import { IdempotencyStore } from '../src/api/v1/idempotency-helper.js';
+import { LocalAuthService } from '../src/auth/local-auth-service.js';
 import { VisitReportService } from '../src/visits/visit-report-service.js';
 
 // Informe de visita — service de criacao (qualquer papel autenticado, com
-// userId/createdAt carimbados no servidor) e listagem admin-only paginada.
+// userId/createdAt carimbados no servidor; capturedAt opcional da fila
+// offline) e listagem admin-only paginada. Inclui o caminho idempotente do
+// POST /visit-reports via backend-api (replay da fila nao duplica).
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -18,10 +23,59 @@ if (!databaseUrl || !databaseReachable) {
   const prisma = new PrismaClient();
   const service = new VisitReportService({ prisma });
 
+  // Actor fixo do caminho via backend-api (LocalAuthService + FK em app_user).
+  const ACTOR_USER_ID = '00000000-0000-0000-0000-000000000901';
+  let api;
+  let authHeaders;
+
+  test.before(() => {
+    const authService = new LocalAuthService({
+      secret: 'super-secret-for-visit-report-tests',
+      allowPlaintextPasswords: true,
+      users: [
+        {
+          id: ACTOR_USER_ID,
+          username: 'visit-test',
+          password: 'visit123',
+          role: 'COMMERCIAL',
+          displayName: 'Visita Teste',
+        },
+      ],
+    });
+
+    authHeaders = {
+      authorization: `Bearer ${authService.login({ username: 'visit-test', password: 'visit123' }).accessToken}`,
+      'x-source': 'web',
+    };
+
+    api = createBackendApiV1({
+      authService,
+      visitReportService: service,
+      commandService: {},
+      queryService: {},
+      idempotencyStore: new IdempotencyStore({ prisma }),
+    });
+  });
+
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE visit_report, client_audit_event, client_commercial_user, client_unit, client, user_session, app_user RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE visit_report, idempotency_record, client_audit_event, client_commercial_user, client_unit, client, user_session, app_user RESTART IDENTITY CASCADE'
     );
+  }
+
+  async function seedActorUser() {
+    return prisma.user.create({
+      data: {
+        id: ACTOR_USER_ID,
+        fullName: 'Visita Teste',
+        username: 'visit-test',
+        usernameCanonical: 'visit-test',
+        email: 'visit-test@example.com',
+        emailCanonical: 'visit-test@example.com',
+        passwordHash: 'x',
+        role: 'COMMERCIAL',
+      },
+    });
   }
 
   async function seedUser(role, suffix = randomUUID().slice(0, 8)) {
@@ -264,6 +318,113 @@ if (!databaseUrl || !databaseReachable) {
       service.listVisitReports({ limit: '9999' }, actorFor(admin)),
       (error) => error.status === 422
     );
+  });
+
+  test('createVisitReport: capturedAt passado e persistido e retornado; ausente fica null', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const capturedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+
+    const offline = await service.createVisitReport(
+      baseInput({ capturedAt }),
+      actorFor(commercial)
+    );
+    assert.equal(offline.report.capturedAt, capturedAt);
+
+    const offlineRow = await prisma.visitReport.findUnique({ where: { id: offline.report.id } });
+    assert.equal(offlineRow.capturedAt.toISOString(), capturedAt);
+
+    const direct = await service.createVisitReport(baseInput(), actorFor(commercial));
+    assert.equal(direct.report.capturedAt, null);
+  });
+
+  test('createVisitReport: capturedAt futuro ou invalido rejeita 422', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+    const actor = actorFor(commercial);
+
+    await assert.rejects(
+      service.createVisitReport(
+        baseInput({ capturedAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() }),
+        actor
+      ),
+      (error) => error.status === 422 && error.details?.code === 'VISIT_CAPTURED_AT_FUTURE'
+    );
+
+    await assert.rejects(
+      service.createVisitReport(baseInput({ capturedAt: 'ontem-de-manha' }), actor),
+      (error) => error.status === 422 && error.details?.field === 'capturedAt'
+    );
+  });
+
+  test('POST /visit-reports com Idempotency-Key: replay devolve o mesmo registro sem duplicar', async () => {
+    await resetDatabase();
+    await seedActorUser();
+
+    const key = randomUUID();
+    const body = {
+      clientKind: 'NEW',
+      newClientName: 'Fazenda Replay',
+      farmSize: 'MEDIUM',
+      interestLevel: 'HIGH',
+      sellsCurrently: false,
+      capturedAt: new Date(Date.now() - 60_000).toISOString(),
+    };
+
+    const first = await api.createVisitReport({
+      headers: { ...authHeaders, 'idempotency-key': key },
+      params: {},
+      query: {},
+      body,
+    });
+    assert.equal(first.status, 201);
+    assert.equal(first.body.report.user.id, ACTOR_USER_ID);
+
+    const second = await api.createVisitReport({
+      headers: { ...authHeaders, 'idempotency-key': key },
+      params: {},
+      query: {},
+      body,
+    });
+    assert.equal(second.status, 201);
+    assert.equal(second.idempotent, true);
+    assert.equal(second.body.report.id, first.body.report.id);
+
+    const total = await prisma.visitReport.count();
+    assert.equal(total, 1);
+  });
+
+  test('POST /visit-reports sem Idempotency-Key: envios repetidos criam registros distintos', async () => {
+    await resetDatabase();
+    await seedActorUser();
+
+    const body = {
+      clientKind: 'NEW',
+      newClientName: 'Fazenda Sem Key',
+      farmSize: 'SMALL',
+      interestLevel: 'LOW',
+      sellsCurrently: false,
+    };
+
+    const first = await api.createVisitReport({
+      headers: authHeaders,
+      params: {},
+      query: {},
+      body,
+    });
+    const second = await api.createVisitReport({
+      headers: authHeaders,
+      params: {},
+      query: {},
+      body,
+    });
+
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    assert.notEqual(second.body.report.id, first.body.report.id);
+
+    const total = await prisma.visitReport.count();
+    assert.equal(total, 2);
   });
 }
 
