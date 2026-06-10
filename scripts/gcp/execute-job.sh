@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <migrate|seed|backfill-liga> <cloud-env> [--dry-run]" >&2
+  echo "Usage: $0 <migrate|seed|backfill-liga|push-digest> <cloud-env> [--dry-run]" >&2
   exit 1
 fi
 
@@ -35,8 +35,13 @@ case "$1" in
       OVERRIDE_ARGS=(--args "run,backfill:liga")
     fi
     ;;
+  push-digest)
+    # Lembrete diario de pendencias via Web Push (mesmo job que o Cloud
+    # Scheduler dispara 1x/dia; aqui e a execucao manual).
+    JOB_NAME="${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}"
+    ;;
   *)
-    echo "Invalid job. Use migrate, seed or backfill-liga." >&2
+    echo "Invalid job. Use migrate, seed, backfill-liga or push-digest." >&2
     exit 1
     ;;
 esac

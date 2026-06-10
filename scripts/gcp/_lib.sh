@@ -94,6 +94,16 @@ runtime_env_vars_csv() {
     csv="${csv},EMAIL_OUTBOX_DIR=${EMAIL_OUTBOX_DIR},EMAIL_OUTBOX_FROM=${EMAIL_OUTBOX_FROM:-rastreio@example.local}"
   fi
 
+  # Web Push (opcional): a chave PUBLICA + subject sao env vars normais; a
+  # PRIVADA vai por secret (runtime_secret_mappings_csv). Sem as vars o app
+  # sobe com push desabilitado (rotas 501, gatilhos no-op).
+  if [[ -n "${PUSH_VAPID_PUBLIC_KEY:-}" ]]; then
+    csv="${csv},PUSH_VAPID_PUBLIC_KEY=${PUSH_VAPID_PUBLIC_KEY}"
+  fi
+  if [[ -n "${PUSH_VAPID_SUBJECT:-}" ]]; then
+    csv="${csv},PUSH_VAPID_SUBJECT=${PUSH_VAPID_SUBJECT}"
+  fi
+
   printf '%s' "${csv}"
 }
 
@@ -113,6 +123,10 @@ runtime_secret_mappings_csv() {
 
   if [[ -n "${GCLOUD_SECRET_OPENAI_API_KEY:-}" ]]; then
     csv="${csv},OPENAI_API_KEY=${GCLOUD_SECRET_OPENAI_API_KEY}:latest"
+  fi
+
+  if [[ -n "${GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY:-}" ]]; then
+    csv="${csv},PUSH_VAPID_PRIVATE_KEY=${GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY}:latest"
   fi
 
   printf '%s' "${csv}"

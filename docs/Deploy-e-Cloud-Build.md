@@ -319,6 +319,44 @@ Templates em `env/examples/cloud-production{,.ops}.env.example`.
 - `rastreio-prod-bootstrap-admin-{full-name,username,email,password}`
 - `rastreio-prod-openai-api-key`
 - `rastreio-prod-smtp-pass`
+- `rastreio-prod-push-vapid-private-key` (Web Push; opcional — sem ele o push fica desabilitado)
+
+### Web Push (notificacoes nativas)
+
+Setup one-time (par VAPID + secret + scheduler do digest diario):
+
+```bash
+# 1. Gerar o par de PRODUCAO (a privada nao passa por arquivo versionado)
+npx web-push generate-vapid-keys
+
+# 2. Privada -> Secret Manager (printf evita newline acidental)
+printf '%s' "<PRIVATE_KEY>" | gcloud secrets create rastreio-prod-push-vapid-private-key \
+  --project=safras-amostras-prod --data-file=-
+
+# 3. Publica + subject -> .env.cloud-production
+#    PUSH_VAPID_PUBLIC_KEY=<PUBLIC_KEY>
+#    PUSH_VAPID_SUBJECT=mailto:<email-do-responsavel>
+#    E no .env.cloud-production.ops:
+#    GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY=rastreio-prod-push-vapid-private-key
+#    GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB=rastreio-prod-push-digest
+
+# 4. Deploy normal (cria/atualiza o job rastreio-prod-push-digest junto)
+# 5. Agendar o digest diario (08:00 America/Sao_Paulo; idempotente)
+scripts/gcp/setup-push-digest-scheduler.sh cloud-production
+
+# Execucao manual do digest (teste):
+scripts/gcp/execute-job.sh push-digest cloud-production
+```
+
+Notas operacionais:
+
+- iOS so recebe push com o app **instalado na tela de inicio** (iOS 16.4+); a
+  permissao e pedida no card Notificacoes do Perfil.
+- O push so funciona no **host de producao** (inscricao e por origem) — o
+  canary valida rotas/card, mas a notificacao real se valida pos-promote.
+- Rotacionar a chave VAPID invalida TODAS as inscricoes existentes (os
+  envios passam a falhar 403 e os usuarios precisam reativar no Perfil) —
+  evitar salvo comprometimento.
 
 ### Cloud SQL
 
