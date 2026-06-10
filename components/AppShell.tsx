@@ -127,12 +127,12 @@ function renderNavIcon(icon: NavIcon, user?: SessionData['user']) {
   }
 
   if (icon === 'samples') {
+    // Grao de cafe: elipse inclinada + fenda central em S (sulco do grao),
+    // no mesmo estilo stroke dos demais icones do nav.
     return (
       <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-        <rect x="4.5" y="5" width="15" height="14" rx="2.4" />
-        <path d="M8 9h8" />
-        <path d="M8 12.5h8" />
-        <path d="M8 16h5" />
+        <ellipse cx="12" cy="12" rx="6.2" ry="8.7" transform="rotate(28 12 12)" />
+        <path d="M15.9 4.9c-2.9 2.1-1.1 5-2.9 7.1-1.8 2.1-4.3 2.6-4.9 7" />
       </svg>
     );
   }
