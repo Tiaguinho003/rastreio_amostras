@@ -183,6 +183,28 @@ enum UserAuditEventType {
   INITIAL_PASSWORD_DECISION_RECORDED
 }
 
+// Informe de visita (formulario da pagina /informe). Ver model VisitReport.
+enum VisitClientKind {
+  EXISTING // cliente ja cadastrado (vinculo via visit_report.client_id)
+  NEW // prospect ainda fora do cadastro (campos new_client_*)
+}
+
+// Tamanho aproximado da fazenda relatado na visita (faixas em hectares
+// definidas no produto: ate 20 / 20-100 / acima de 100).
+enum VisitFarmSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+// Nivel de interesse / disposicao do cliente para comercializar.
+enum VisitInterestLevel {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model Sample {
   id                String           @id @db.Uuid
   internalLotNumber String?          @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
@@ -374,6 +396,7 @@ model User {
   auditEventsAsActor       UserAuditEvent[]       @relation("UserAuditActor")
   clientAuditEventsAsActor ClientAuditEvent[]     @relation("ClientAuditActor")
   commercialClientLinks    ClientCommercialUser[]
+  visitReports             VisitReport[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
@@ -426,6 +449,7 @@ model Client {
   buyerMovements      SampleMovement[]       @relation("SampleMovementBuyerClient")
   auditEventsAsTarget ClientAuditEvent[]     @relation("ClientAuditTarget")
   commercialUsers     ClientCommercialUser[]
+  visitReports        VisitReport[]
 
   @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@index([status, code], map: "idx_client_status_code")
@@ -646,4 +670,36 @@ model IdempotencyRecord {
   @@unique([scope, key], map: "uq_idempotency_scope_key")
   @@index([expiresAt], map: "idx_idempotency_expires")
   @@map("idempotency_record")
+}
+
+// Informe de visita — envio do formulario da pagina /informe (1 row por
+// envio, ilimitado por usuario). Snapshot imutavel do que foi respondido:
+// nao ha update/delete via API (so create + listagem admin no /resumo).
+// userId e createdAt sao carimbados no servidor, nunca vindos do client.
+// clientKind decide a identificacao: EXISTING usa clientId (FK em client);
+// NEW usa new_client_name (obrigatorio) + cidade/telefone opcionais.
+// sellsToWhom e texto livre, presente apenas quando sellsCurrently=true.
+model VisitReport {
+  id             String             @id @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  clientKind     VisitClientKind    @map("client_kind")
+  clientId       String?            @map("client_id") @db.Uuid
+  newClientName  String?            @map("new_client_name")
+  newClientCity  String?            @map("new_client_city")
+  newClientPhone String?            @map("new_client_phone")
+  farmSize       VisitFarmSize      @map("farm_size")
+  farmSizeNotes  String?            @map("farm_size_notes")
+  interestLevel  VisitInterestLevel @map("interest_level")
+  interestNotes  String?            @map("interest_notes")
+  sellsCurrently Boolean            @map("sells_currently")
+  sellsToWhom    String?            @map("sells_to_whom")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([createdAt, id], map: "idx_visit_report_created_id")
+  @@index([userId, createdAt], map: "idx_visit_report_user_created")
+  @@index([clientId], map: "idx_visit_report_client")
+  @@map("visit_report")
 }
