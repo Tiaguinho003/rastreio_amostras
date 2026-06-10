@@ -7828,32 +7828,757 @@ button:disabled {
   animation: sdv-card-in 0.5s ease-out 0.25s backwards;
 }
 
-/* Pagina Informe (placeholder): centraliza o aviso "Em construcao" no sheet
-   bege. Texto em marrom (paleta terrosa do app). */
+/* ── Pagina Informe — formulario de visita ──
+   Sheet bege com topo arredondado (mesmo padrao das paginas de lista:
+   border-radius 20px 20px 0 0) contendo o formulario. A pagina mantem a
+   navbar mobile visivel, entao o padding-bottom soma o clearance da tabbar
+   ao safe-area (skill responsive §5). */
 .sdv-content.informe-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: clamp(0.3rem, 1.5vw, 0.5rem);
-  text-align: center;
-  /* Topo arredondado do sheet bege sobre o verde — mesmo padrao das paginas de
-     lista (.samples-page-v2 / .clients-page-v2: border-radius 20px 20px 0 0). */
   border-radius: 20px 20px 0 0;
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
+      var(--mobile-tabbar-clearance, 0rem) + clamp(0.6rem, 2vw, 1rem)
+  );
 }
 
-.informe-empty-text {
+/* Coluna do formulario: full-width no mobile, capada e centrada no desktop. */
+.inf-form {
+  width: min(100%, 36rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 3.5vw, 16px);
+  padding-top: clamp(4px, 1.5vw, 8px);
+}
+
+.inf-intro {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.8vw, 4px);
+  padding: 0 clamp(2px, 0.8vw, 4px);
+}
+
+.inf-intro-title {
   margin: 0;
-  font-size: clamp(1.15rem, 5vw, 1.4rem);
+  font-size: clamp(18px, 5vw, 20px);
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.inf-intro-sub {
+  margin: 0;
+  font-size: clamp(12px, 3.2vw, 13px);
+  color: #999;
+}
+
+/* Card branco de pergunta — estilo base de card do design system. */
+.inf-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 14px);
+  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: clamp(14px, 4vw, 16px);
+  padding: clamp(14px, 4vw, 18px);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 12px 28px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.inf-card-head {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+}
+
+.inf-card-num {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(26px, 7vw, 30px);
+  height: clamp(26px, 7vw, 30px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.15), rgba(31, 93, 67, 0.08));
+  border: 1.5px solid rgba(31, 93, 67, 0.25);
+  color: var(--brand-green);
+  font-size: clamp(12px, 3.4vw, 13px);
+  font-weight: 700;
+}
+
+.inf-card-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.inf-card-title {
+  margin: 0;
+  font-size: clamp(14px, 4vw, 15.5px);
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.inf-card-sub {
+  margin: 0;
+  font-size: clamp(11.5px, 3.2vw, 12.5px);
+  color: #999;
+}
+
+/* Opcoes empilhadas (radio-like). Selecao e estado persistente — pode tintar
+   verde (excecao legitima da skill button-press-effect §9); o :active do tap
+   continua so transform. */
+.inf-choices {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.2vw, 10px);
+}
+
+.inf-choice {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+  width: 100%;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.inf-choice:active {
+  transform: scale(0.98);
+}
+
+.inf-choice:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .inf-choice:hover {
+    border-color: rgba(31, 93, 67, 0.3);
+  }
+}
+
+.inf-choice.is-selected {
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.1), rgba(47, 107, 74, 0.05));
+  border-color: var(--brand-green-soft);
+}
+
+.inf-choice-radio {
+  position: relative;
+  width: clamp(18px, 5vw, 20px);
+  height: clamp(18px, 5vw, 20px);
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid #cfc9b8;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.inf-choice-radio::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 52%;
+  height: 52%;
+  border-radius: 50%;
+  background: var(--brand-green-soft);
+  transform: scale(0);
+  transition: transform 0.18s ease;
+}
+
+.inf-choice.is-selected .inf-choice-radio {
+  border-color: var(--brand-green-soft);
+}
+
+.inf-choice.is-selected .inf-choice-radio::after {
+  transform: scale(1);
+}
+
+.inf-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.inf-choice-label {
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.inf-choice-desc {
+  font-size: clamp(11px, 3vw, 12px);
+  color: #999;
+}
+
+.inf-choice.is-selected .inf-choice-label {
+  color: var(--brand-green);
+}
+
+/* Par de pills lado a lado (Ja cadastrado/Cliente novo, Sim/Nao). */
+.inf-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(8px, 2.2vw, 10px);
+}
+
+.inf-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(10px, 3vw, 12px);
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  font-family: inherit;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.inf-pill:active {
+  transform: scale(0.97);
+}
+
+.inf-pill:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .inf-pill:hover {
+    border-color: rgba(31, 93, 67, 0.3);
+  }
+}
+
+.inf-pill.is-selected {
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.12), rgba(47, 107, 74, 0.06));
+  border-color: var(--brand-green-soft);
+  color: var(--brand-green);
+}
+
+/* Erro de grupo de opcoes (nao ha input pra abrigar o placeholder). */
+.inf-card-error {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 500;
+  color: #c45c5c;
+}
+
+/* Campos de texto — tokens da skill design-system §6. */
+.inf-field {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1vw, 4px);
+}
+
+.inf-field-label {
+  font-size: clamp(9px, 2.5vw, 9.5px);
+  font-weight: 700;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.inf-field-optional {
+  color: #c5beae;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.2px;
+}
+
+.inf-input,
+.inf-textarea {
+  width: 100%;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-family: inherit;
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  outline: none;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+
+.inf-textarea {
+  resize: none;
+  min-height: clamp(56px, 14vw, 64px);
+}
+
+.inf-input:focus,
+.inf-textarea:focus {
+  background: #ffffff;
+  border-color: var(--brand-green-soft);
+  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.08);
+}
+
+.inf-input::placeholder,
+.inf-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.18);
+}
+
+.inf-input.has-error {
+  border-color: rgba(196, 92, 92, 0.4);
+}
+
+.inf-input.has-error::placeholder {
+  color: #c45c5c;
+}
+
+.inf-newclient {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+}
+
+/* ClientLookupField dentro do card branco: label minusculo uppercase +
+   input com os mesmos tokens dos .inf-input. */
+.inf-card .client-lookup-field > label {
+  font-size: clamp(9px, 2.5vw, 9.5px);
+  font-weight: 700;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.inf-card .client-lookup-shell input {
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  font-size: clamp(13px, 3.6vw, 14px);
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  outline: none;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+
+.inf-card .client-lookup-shell input:focus {
+  background: #ffffff;
+  border-color: var(--brand-green-soft);
+  box-shadow: 0 0 0 3px rgba(47, 107, 74, 0.08);
+}
+
+.inf-card .client-lookup-shell input::placeholder {
+  color: rgba(0, 0, 0, 0.18);
+}
+
+.inf-card .client-lookup-field.is-invalid .client-lookup-shell input {
+  border-color: rgba(196, 92, 92, 0.4);
+}
+
+.inf-card .client-lookup-field.is-invalid .client-lookup-shell input::placeholder {
+  color: #c45c5c;
+}
+
+/* Botao primario full-width (design system §7). */
+.inf-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: clamp(14px, 4vw, 16px);
+  border: 0;
+  border-radius: clamp(12px, 3.5vw, 14px);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  color: #ffffff;
+  font-size: clamp(14px, 3.8vw, 15px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.inf-submit:hover,
+.inf-submit:focus,
+.inf-submit:focus-visible {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  outline: none;
+}
+
+.inf-submit:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: 0 2px 10px rgba(31, 93, 67, 0.2);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+}
+
+.inf-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+}
+
+/* ── Pagina Resumo (admin) — feed dos informes de visita ──
+   Reusa o sheet .informe-content (topo arredondado + clearance da tabbar). */
+.rsm-feed {
+  width: min(100%, 40rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 3.5vw, 16px);
+  padding-top: clamp(4px, 1.5vw, 8px);
+}
+
+.rsm-intro {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 2.5vw, 12px);
+}
+
+.rsm-intro-text {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.8vw, 4px);
+  min-width: 0;
+}
+
+.rsm-total-chip {
+  flex-shrink: 0;
+  padding: clamp(4px, 1.2vw, 5px) clamp(10px, 3vw, 12px);
+  border-radius: 999px;
+  background: rgba(31, 93, 67, 0.1);
+  border: 1px solid rgba(31, 93, 67, 0.18);
+  color: var(--brand-green);
+  font-size: clamp(11px, 3vw, 12px);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rsm-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 14px);
+}
+
+/* Card de informe — base de card do design system. */
+.rsm-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 12px);
+  background: linear-gradient(180deg, #ffffff 0%, #f9f7f2 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: clamp(14px, 4vw, 16px);
+  padding: clamp(14px, 4vw, 16px);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 12px 28px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: sdv-fadeIn 0.3s ease backwards;
+}
+
+.rsm-card-head {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.rsm-card-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rsm-card-user {
+  margin: 0;
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 700;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rsm-card-when {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  color: #999;
+}
+
+/* Cliente visitado: faixa com tint suave + icone em caixa (design system §4). */
+.rsm-card-client {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 12px);
+  padding: clamp(8px, 2.5vw, 10px) clamp(10px, 3vw, 12px);
+  background: rgba(31, 93, 67, 0.05);
+  border: 1px solid rgba(31, 93, 67, 0.1);
+  border-radius: clamp(10px, 3vw, 12px);
+}
+
+.rsm-client-icon {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(30px, 8.4vw, 34px);
+  height: clamp(30px, 8.4vw, 34px);
+  flex-shrink: 0;
+  border-radius: clamp(8px, 2.5vw, 10px);
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.15), rgba(31, 93, 67, 0.08));
+  border: 1.5px solid rgba(31, 93, 67, 0.25);
+  color: var(--brand-green);
+}
+
+.rsm-client-icon.is-new {
+  background: linear-gradient(135deg, rgba(41, 128, 185, 0.15), rgba(41, 128, 185, 0.08));
+  border-color: rgba(41, 128, 185, 0.25);
+  color: #2980b9;
+}
+
+.rsm-client-icon svg {
+  width: 58%;
+  height: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rsm-card-client-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rsm-client-name {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 2vw, 8px);
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  color: #1a1a1a;
+  min-width: 0;
+}
+
+.rsm-client-tag {
+  flex-shrink: 0;
+  padding: 1px clamp(6px, 2vw, 8px);
+  border-radius: 6px;
+  background: rgba(41, 128, 185, 0.1);
+  border: 1px solid rgba(41, 128, 185, 0.25);
+  color: #2980b9;
+  font-size: clamp(9px, 2.6vw, 10px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.rsm-client-meta {
+  margin: 0;
+  font-size: clamp(11px, 3vw, 12px);
+  color: #777;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Respostas: lista label uppercase + valor. */
+.rsm-answers {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5vw, 10px);
+}
+
+.rsm-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: clamp(8px, 2.5vw, 10px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.rsm-answer dt {
+  font-size: clamp(9px, 2.6vw, 10px);
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.rsm-answer dd {
+  margin: 0;
+  font-size: clamp(12.5px, 3.5vw, 13.5px);
+  font-weight: 500;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
+.rsm-answer dd.rsm-answer-notes {
+  font-size: clamp(11.5px, 3.2vw, 12.5px);
+  font-weight: 400;
+  color: #777;
+  font-style: italic;
+}
+
+/* Skeleton no formato do card final (design system §3). */
+.rsm-skeleton-card {
+  height: clamp(180px, 46vw, 210px);
+  border-radius: clamp(14px, 4vw, 16px);
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation:
+    rsm-skeleton-shimmer 1.4s ease-in-out infinite,
+    sdv-fadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes rsm-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Estado vazio / erro de carga. */
+.rsm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(4px, 1.5vw, 6px);
+  text-align: center;
+  padding: clamp(2rem, 10vw, 3rem) clamp(1rem, 4vw, 1.5rem);
+}
+
+.rsm-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: clamp(44px, 12vw, 52px);
+  height: clamp(44px, 12vw, 52px);
+  margin-bottom: clamp(4px, 1.5vw, 6px);
+  border-radius: clamp(12px, 3.5vw, 14px);
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.12), rgba(31, 93, 67, 0.06));
+  border: 1.5px solid rgba(31, 93, 67, 0.2);
+  color: var(--brand-green);
+}
+
+.rsm-empty-icon svg {
+  width: 55%;
+  height: 55%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rsm-empty-title {
+  margin: 0;
+  font-size: clamp(14px, 4vw, 15px);
   font-weight: 700;
   color: #5e4329;
 }
 
-.informe-empty-sub {
+.rsm-empty-sub {
   margin: 0;
-  font-size: clamp(0.85rem, 3.4vw, 0.95rem);
-  font-weight: 500;
+  font-size: clamp(12px, 3.3vw, 13px);
   color: #8a7559;
+}
+
+.rsm-retry-btn {
+  margin-top: clamp(10px, 3vw, 12px);
+  padding: clamp(9px, 2.8vw, 11px) clamp(18px, 5vw, 22px);
+  border: 1.5px solid rgba(31, 93, 67, 0.3);
+  border-radius: clamp(10px, 3vw, 12px);
+  background: transparent;
+  color: var(--brand-green);
+  font-size: clamp(12.5px, 3.5vw, 13.5px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.rsm-retry-btn:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) {
+  .rsm-retry-btn:hover {
+    background: rgba(31, 93, 67, 0.06);
+  }
+}
+
+/* Carregar mais (paginacao append). */
+.rsm-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: clamp(11px, 3.2vw, 13px);
+  border: 1.5px solid rgba(31, 93, 67, 0.25);
+  border-radius: clamp(11px, 3.2vw, 13px);
+  background: rgba(31, 93, 67, 0.04);
+  color: var(--brand-green);
+  font-size: clamp(13px, 3.6vw, 14px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.rsm-load-more:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.rsm-load-more:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+@media (hover: hover) {
+  .rsm-load-more:hover:not(:disabled) {
+    background: rgba(31, 93, 67, 0.08);
+  }
+}
+
+.rsm-feed-error {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(11.5px, 3.2vw, 12.5px);
+  font-weight: 500;
+  color: #c45c5c;
 }
 
 .sdv-content::-webkit-scrollbar {

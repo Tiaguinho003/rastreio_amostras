@@ -39,6 +39,11 @@ import type {
   UserPasswordMutationResponse,
   UserResponse,
   UsersListResponse,
+  VisitClientKind,
+  VisitFarmSize,
+  VisitInterestLevel,
+  VisitReportMutationResponse,
+  VisitReportsListResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -1671,6 +1676,46 @@ export function listSampleEvents(
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<SampleEventsResponse>(`/samples/${sampleId}/events${suffix}`, {
+    method: 'GET',
+    session,
+  });
+}
+
+// ── Informe de visita ──
+
+export function createVisitReport(
+  session: SessionData,
+  data: {
+    clientKind: VisitClientKind;
+    clientId: string | null;
+    newClientName: string | null;
+    newClientCity: string | null;
+    newClientPhone: string | null;
+    farmSize: VisitFarmSize;
+    farmSizeNotes: string | null;
+    interestLevel: VisitInterestLevel;
+    interestNotes: string | null;
+    sellsCurrently: boolean;
+    sellsToWhom: string | null;
+  }
+) {
+  return request<VisitReportMutationResponse>('/visit-reports', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function listVisitReports(
+  session: SessionData,
+  query: { page?: number; limit?: number } = {}
+) {
+  const params = new URLSearchParams();
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<VisitReportsListResponse>(`/visit-reports${suffix}`, {
     method: 'GET',
     session,
   });

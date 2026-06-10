@@ -890,3 +890,54 @@ export interface PendingPrintQueueResponse {
   items: PendingPrintJob[];
   total: number;
 }
+
+// ── Informe de visita (pagina /informe + listagem admin /resumo) ──
+
+export type VisitClientKind = 'EXISTING' | 'NEW';
+export type VisitFarmSize = 'SMALL' | 'MEDIUM' | 'LARGE';
+export type VisitInterestLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface VisitReportSummary {
+  id: string;
+  user: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  clientKind: VisitClientKind;
+  client: {
+    id: string;
+    code: number;
+    displayName: string | null;
+    status: ClientStatus;
+  } | null;
+  newClient: {
+    name: string | null;
+    city: string | null;
+    phone: string | null;
+  } | null;
+  farmSize: VisitFarmSize;
+  farmSizeNotes: string | null;
+  interestLevel: VisitInterestLevel;
+  interestNotes: string | null;
+  sellsCurrently: boolean;
+  sellsToWhom: string | null;
+  createdAt: string;
+}
+
+export interface VisitReportMutationResponse {
+  report: VisitReportSummary;
+}
+
+export interface VisitReportsListResponse {
+  items: VisitReportSummary[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}

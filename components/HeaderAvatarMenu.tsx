@@ -93,6 +93,21 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
+            {isAdmin(session.user.role) ? (
+              <button
+                type="button"
+                className="header-avatar-menu-row"
+                onClick={() => go('/resumo')}
+              >
+                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 13h4l2 3h4l2-3h4" />
+                  <path d="M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6" />
+                  <path d="M4 13v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+                </svg>
+                <span className="header-avatar-menu-row-label">Resumo</span>
+              </button>
+            ) : null}
+
             <button
               type="button"
               className="header-avatar-menu-row is-disabled"
