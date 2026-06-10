@@ -7288,6 +7288,98 @@ button:disabled {
   stroke: #e67e22;
 }
 
+.stg-card-icon.is-notifications {
+  background: rgba(31, 93, 67, 0.08);
+  border: 1px solid rgba(31, 93, 67, 0.25);
+}
+.stg-card-icon.is-notifications svg {
+  stroke: var(--brand-green);
+}
+
+/* ── Card Notificações (Web Push) ── */
+
+.stg-push-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 3vw, 14px);
+}
+
+.stg-push-toggle-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.8vw, 3px);
+}
+
+.stg-push-toggle-label {
+  margin: 0;
+  font-size: clamp(12.5px, 3.5vw, 13.5px);
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.stg-push-description {
+  margin: 0;
+  font-size: clamp(11.5px, 3.2vw, 12.5px);
+  color: #777;
+}
+
+/* Switch: mudanca de cor reflete ESTADO ligado/desligado (excecao legitima
+   da skill button-press-effect §9); o feedback de tap segue so transform. */
+.stg-push-switch {
+  position: relative;
+  width: clamp(44px, 12vw, 48px);
+  height: clamp(26px, 7vw, 28px);
+  flex-shrink: 0;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  background: #e8e3d5;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.15s ease;
+}
+
+.stg-push-switch:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.stg-push-switch:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.15);
+  outline-offset: 2px;
+}
+
+.stg-push-switch:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.stg-push-switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: clamp(2px, 0.6vw, 3px);
+  transform: translateY(-50%);
+  width: clamp(20px, 5.6vw, 22px);
+  height: clamp(20px, 5.6vw, 22px);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: left 0.25s ease;
+}
+
+.stg-push-switch.is-on {
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
+  border-color: var(--brand-green-soft);
+}
+
+.stg-push-switch.is-on .stg-push-switch-thumb {
+  left: calc(100% - clamp(20px, 5.6vw, 22px) - clamp(2px, 0.6vw, 3px));
+}
+
 .stg-card-title {
   font-size: clamp(13px, 3.5vw, 14px);
   font-weight: 700;

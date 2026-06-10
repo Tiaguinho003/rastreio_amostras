@@ -21,6 +21,7 @@ import {
   emailChangeRequestSchema,
   updateProfileSchema,
 } from '../../lib/form-schemas';
+import { usePushNotifications } from '../../lib/push/use-push-notifications';
 import { mergeUserIntoSession, useRequireAuth } from '../../lib/use-auth';
 
 function formatExpiresAt(expiresAt: string): string | null {
@@ -180,6 +181,8 @@ export default function ProfilePage() {
 
     return formatExpiresAt(pendingEmailChange.expiresAt);
   }, [pendingEmailChange]);
+
+  const push = usePushNotifications(session);
 
   if (loading || !session) {
     return null;
@@ -618,8 +621,91 @@ export default function ProfilePage() {
             </form>
           </div>
 
-          {/* Card 4: Sair */}
+          {/* Card 4: Notificacoes (Web Push) */}
           <div className="sdv-card stg-card" style={{ '--i': 3 } as React.CSSProperties}>
+            <div className="stg-card-title-row">
+              <div className="stg-card-icon is-notifications">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+              </div>
+              <span className="stg-card-title">Notificações</span>
+            </div>
+
+            {push.status === 'loading' ? (
+              <p className="stg-push-description">Verificando o estado das notificações…</p>
+            ) : null}
+
+            {push.status === 'needs-install' ? (
+              <p className="stg-push-description">
+                Para receber notificações no iPhone, adicione o app à tela de início (compartilhar →
+                Adicionar à Tela de Início) e ative por lá.
+              </p>
+            ) : null}
+
+            {push.status === 'unsupported' ? (
+              <p className="stg-push-description">
+                Este navegador não suporta notificações. Use o app instalado no celular.
+              </p>
+            ) : null}
+
+            {push.status === 'unavailable' ? (
+              <p className="stg-push-description">
+                Notificações temporariamente indisponíveis no servidor.
+              </p>
+            ) : null}
+
+            {push.status === 'permission-denied' ? (
+              <p className="stg-push-description">
+                Notificações bloqueadas para este app. Ative em Ajustes &gt; Notificações no celular
+                (ou nas permissões do site no navegador) e volte aqui.
+              </p>
+            ) : null}
+
+            {push.status === 'inactive' || push.status === 'active' ? (
+              <>
+                <div className="stg-push-toggle-row">
+                  <div className="stg-push-toggle-text">
+                    <p className="stg-push-toggle-label">
+                      {push.status === 'active'
+                        ? 'Notificações ativadas neste aparelho'
+                        : 'Receber notificações neste aparelho'}
+                    </p>
+                    <p className="stg-push-description">
+                      Novos informes de visita, vendas e perdas registradas e o lembrete diário de
+                      pendências.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={push.status === 'active'}
+                    aria-label={
+                      push.status === 'active' ? 'Desativar notificações' : 'Ativar notificações'
+                    }
+                    className={`stg-push-switch${push.status === 'active' ? ' is-on' : ''}`}
+                    disabled={push.busy}
+                    onClick={() => {
+                      if (push.status === 'active') {
+                        void push.disable();
+                      } else {
+                        void push.enable();
+                      }
+                    }}
+                  >
+                    <span className="stg-push-switch-thumb" aria-hidden="true" />
+                  </button>
+                </div>
+                {push.errorMessage ? (
+                  <p className="stg-feedback is-error">{push.errorMessage}</p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+
+          {/* Card 5: Sair */}
+          <div className="sdv-card stg-card" style={{ '--i': 4 } as React.CSSProperties}>
             <div className="stg-card-title-row">
               <div className="stg-card-icon is-logout">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
