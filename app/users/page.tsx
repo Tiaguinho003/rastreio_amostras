@@ -26,6 +26,7 @@ const ROLE_OPTIONS: UserRole[] = [
   'ADMIN',
   'CLASSIFIER',
   'REGISTRATION',
+  'CADASTRO',
   'COMMERCIAL',
   'PROSPECTOR',
 ];

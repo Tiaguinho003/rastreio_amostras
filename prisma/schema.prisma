@@ -134,11 +134,13 @@ enum PrintJobStatus {
 }
 
 enum UserRole {
+  // Labels pt-BR de exibicao em lib/roles.ts (USER_ROLE_LABELS).
   ADMIN
   CLASSIFIER
   REGISTRATION
   COMMERCIAL
   PROSPECTOR
+  CADASTRO
 }
 
 enum UserStatus {

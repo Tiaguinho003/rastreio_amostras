@@ -14,6 +14,8 @@ const USER_ACTION_ROLES = [
   USER_ROLES.COMMERCIAL,
   // PROSPECTOR espelha integralmente o COMMERCIAL por enquanto.
   USER_ROLES.PROSPECTOR,
+  // CADASTRO espelha o REGISTRATION (operacao geral).
+  USER_ROLES.CADASTRO,
 ];
 const AUTO_LOT_NUMBER_MAX_RETRIES = 5;
 const RECEIVED_CHANNELS = new Set(['in_person', 'courier', 'driver', 'other', 'internal']);

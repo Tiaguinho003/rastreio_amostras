@@ -7,6 +7,9 @@ export const USER_ROLES = {
   COMMERCIAL: 'COMMERCIAL',
   // PROSPECTOR: por enquanto espelha integralmente os acessos do COMMERCIAL.
   PROSPECTOR: 'PROSPECTOR',
+  // CADASTRO: espelha o REGISTRATION (operacao geral) — sem admin e sem
+  // elegibilidade comercial. Especializar aqui quando precisar.
+  CADASTRO: 'CADASTRO',
 };
 
 export function assertRoleAllowed(role, allowedRoles, actionLabel) {

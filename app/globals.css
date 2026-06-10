@@ -6381,6 +6381,11 @@ button:disabled {
   color: #5b21b6;
 }
 
+.user-multi-select__chip-role.is-role-cadastro {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
 /* 14.7.C: × centralizado em ambos os eixos. font-size + line-height
    ajustados para evitar desalinhamento do glifo "×". */
 .user-multi-select__chip-remove {
@@ -6513,6 +6518,11 @@ button:disabled {
 .user-multi-select__option-role.is-role-registration {
   background: #ede9fe;
   color: #5b21b6;
+}
+
+.user-multi-select__option-role.is-role-cadastro {
+  background: #fce7f3;
+  color: #9d174d;
 }
 
 .user-multi-select__empty {

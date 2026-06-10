@@ -40,12 +40,14 @@ type Props = {
   onCancel: () => void;
 };
 
+// Variante CURTA dos labels (a canonica completa vive em lib/roles.ts).
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Admin',
   COMMERCIAL: 'Comercial',
-  CLASSIFIER: 'Classificador',
+  CLASSIFIER: 'Classificação',
   REGISTRATION: 'Registro',
-  PROSPECTOR: 'Prospector',
+  PROSPECTOR: 'Prospecção',
+  CADASTRO: 'Cadastro',
 };
 
 function getInitials(name: string): string {

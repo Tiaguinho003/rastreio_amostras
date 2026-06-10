@@ -31,12 +31,15 @@ type Props = {
   firstNameOnly?: boolean;
 };
 
+// Variante CURTA dos labels pros chips (campos estreitos) — a canonica
+// completa vive em lib/roles.ts (USER_ROLE_LABELS).
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Admin',
   COMMERCIAL: 'Comercial',
-  CLASSIFIER: 'Classificador',
+  CLASSIFIER: 'Classificação',
   REGISTRATION: 'Registro',
-  PROSPECTOR: 'Prospector',
+  PROSPECTOR: 'Prospecção',
+  CADASTRO: 'Cadastro',
 };
 
 function roleClass(role?: UserRole): string {
