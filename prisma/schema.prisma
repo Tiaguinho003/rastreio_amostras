@@ -397,6 +397,7 @@ model User {
   clientAuditEventsAsActor ClientAuditEvent[]     @relation("ClientAuditActor")
   commercialClientLinks    ClientCommercialUser[]
   visitReports             VisitReport[]
+  pushSubscriptions        PushSubscription[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
   @@index([role, createdAt, id], map: "idx_user_role_created_id")
@@ -706,4 +707,26 @@ model VisitReport {
   @@index([userId, createdAt], map: "idx_visit_report_user_created")
   @@index([clientId], map: "idx_visit_report_client")
   @@map("visit_report")
+}
+
+// Inscricao de Web Push de UM aparelho/navegador de UM usuario (N aparelhos
+// por usuario = N rows). endpoint e a URL unica do push service do navegador
+// (Apple/Google); p256dh+auth sao as chaves de criptografia da inscricao.
+// Upsert por endpoint: se outro usuario ativar no mesmo aparelho, a inscricao
+// troca de dono. Rows somem no desativar (Perfil) ou quando o push service
+// responde 404/410 (inscricao expirada/revogada — prune no envio).
+model PushSubscription {
+  id        String   @id @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique(map: "uq_push_subscription_endpoint")
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId], map: "idx_push_subscription_user")
+  @@map("push_subscription")
 }
