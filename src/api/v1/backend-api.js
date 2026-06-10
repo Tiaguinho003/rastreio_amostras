@@ -138,6 +138,7 @@ export function createBackendApiV1({
   userService = null,
   clientService = null,
   visitReportService = null,
+  pushService = null,
   commandService,
   queryService,
   reportService = null,
@@ -2080,6 +2081,66 @@ export function createBackendApiV1({
           },
           actor
         );
+
+        return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Web Push (inscricoes de notificacao nativa)
+    // ============================================================
+
+    getPushConfig: (input) =>
+      executeApiForInput(input, async () => {
+        if (!pushService) {
+          throw new HttpError(501, 'Push service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        // endpoint (opcional) permite ao card do Perfil saber se ESTE
+        // aparelho esta inscrito para o usuario logado.
+        const status = await pushService.getSubscriptionStatus(
+          { endpoint: input?.query?.endpoint },
+          actor
+        );
+
+        return {
+          status: 200,
+          body: {
+            publicKey: pushService.getPublicKey(),
+            subscribed: status.subscribed,
+          },
+        };
+      }),
+
+    savePushSubscription: (input) =>
+      executeApiForInput(input, async () => {
+        if (!pushService) {
+          throw new HttpError(501, 'Push service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await pushService.saveSubscription(
+          {
+            endpoint: body.endpoint,
+            keys: body.keys,
+            userAgent: body.userAgent ?? readHeader(input?.headers ?? {}, 'user-agent'),
+          },
+          actor
+        );
+
+        return { status: 201, body: result };
+      }),
+
+    deletePushSubscription: (input) =>
+      executeApiForInput(input, async () => {
+        if (!pushService) {
+          throw new HttpError(501, 'Push service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await pushService.removeSubscription({ endpoint: body.endpoint }, actor);
 
         return { status: 200, body: result };
       }),

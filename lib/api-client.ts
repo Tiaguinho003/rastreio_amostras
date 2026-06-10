@@ -44,6 +44,8 @@ import type {
   VisitInterestLevel,
   VisitReportMutationResponse,
   VisitReportsListResponse,
+  PushConfigResponse,
+  PushSubscriptionMutationResponse,
 } from './types';
 
 export class ApiError extends Error {
@@ -1733,5 +1735,41 @@ export function listVisitReports(
   return request<VisitReportsListResponse>(`/visit-reports${suffix}`, {
     method: 'GET',
     session,
+  });
+}
+
+// ── Web Push ──
+
+export function getPushConfig(session: SessionData, endpoint?: string | null) {
+  const params = new URLSearchParams();
+  if (endpoint) params.set('endpoint', endpoint);
+
+  const suffix = params.size ? `?${params.toString()}` : '';
+  return request<PushConfigResponse>(`/push/config${suffix}`, {
+    method: 'GET',
+    session,
+  });
+}
+
+export function savePushSubscription(
+  session: SessionData,
+  data: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    userAgent?: string | null;
+  }
+) {
+  return request<PushSubscriptionMutationResponse>('/push/subscriptions', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function deletePushSubscription(session: SessionData, endpoint: string) {
+  return request<PushSubscriptionMutationResponse>('/push/subscriptions', {
+    method: 'DELETE',
+    session,
+    body: { endpoint },
   });
 }

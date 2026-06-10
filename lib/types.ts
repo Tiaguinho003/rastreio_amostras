@@ -944,3 +944,16 @@ export interface VisitReportsListResponse {
     hasNext: boolean;
   };
 }
+
+// ── Web Push (notificações nativas) ──
+
+export interface PushConfigResponse {
+  publicKey: string;
+  /** Este aparelho (endpoint enviado na query) está inscrito pro usuário atual. */
+  subscribed: boolean;
+}
+
+export interface PushSubscriptionMutationResponse {
+  subscription?: { endpoint: string };
+  removed?: boolean;
+}
