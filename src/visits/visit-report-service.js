@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
+import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { buildClientDisplayName } from '../clients/client-support.js';
 import {
-  assertAdminActor,
   assertAuthenticatedActor,
   normalizeOptionalText,
   normalizeRequiredText,
@@ -23,6 +23,15 @@ export const VISIT_INTEREST_LEVELS = Object.freeze(['NONE', 'LOW', 'MEDIUM', 'HI
 
 export const VISIT_REPORT_LIST_LIMIT_DEFAULT = 20;
 export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
+
+// Quem ve a pagina /resumo (espelhado no front em lib/roles.ts
+// isVisitReportViewer): Administracao + Comercial + Cadastro — as
+// notificacoes situacionais de visita apontam pra la.
+export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([
+  USER_ROLES.ADMIN,
+  USER_ROLES.COMMERCIAL,
+  USER_ROLES.CADASTRO,
+]);
 
 const NEW_CLIENT_NAME_MAX = 200;
 const NEW_CLIENT_CITY_MAX = 120;
@@ -164,33 +173,69 @@ export class VisitReportService {
     this.pushService = pushService;
   }
 
-  // Side-effect fire-and-forget (padrao Q.auto): notifica os ADMINs sobre o
-  // informe novo. Nunca quebra o request — falha so loga. O replay
-  // idempotente da rota (withIdempotency) e curto-circuitado ANTES do
-  // service, entao este hook nao roda duas vezes pra mesma Idempotency-Key.
+  // Side-effects fire-and-forget (padrao Q.auto): notificacoes SITUACIONAIS
+  // do informe — um formulario pode disparar 0, 1 ou 2 (as condicoes sao
+  // independentes; sem match = sem notificacao, o informe segue no /resumo).
+  // Nunca quebram o request — falha so loga. O replay idempotente da rota
+  // (withIdempotency) e curto-circuitado ANTES do service, entao este hook
+  // nao roda duas vezes pra mesma Idempotency-Key. Tags por informe: varias
+  // notificacoes nao lidas empilham na central em vez de se substituirem.
   async _notifyVisitReportCreated(view, actorContext) {
     if (!this.pushService) {
       return;
     }
 
-    try {
-      const visitorName = view.user?.fullName ?? view.user?.username ?? 'Alguém';
-      const clientName = view.client?.displayName ?? view.newClient?.name ?? 'cliente';
-      await this.pushService.sendToRoles(
-        ['ADMIN'],
-        {
-          title: 'Novo informe de visita',
-          body: `${visitorName} visitou ${clientName}.`,
-          url: '/resumo',
-          tag: 'visit-report',
-        },
-        { excludeUserId: actorContext?.actorUserId ?? null }
+    const exclude = { excludeUserId: actorContext?.actorUserId ?? null };
+    const visitorName = view.user?.fullName ?? view.user?.username ?? 'Alguém';
+    const sends = [];
+
+    // Situacao 1 — visita promissora: tamanho (Medio OU Grande) E interesse
+    // Alto, as DUAS condicoes juntas.
+    const isPromising =
+      (view.farmSize === 'MEDIUM' || view.farmSize === 'LARGE') && view.interestLevel === 'HIGH';
+    if (isPromising) {
+      sends.push(
+        this.pushService.sendToRoles(
+          ['ADMIN', 'COMMERCIAL'],
+          {
+            title: 'Nova visita promissora enviada',
+            body: `${visitorName} visitou um cliente promissor. Confira!`,
+            url: '/resumo',
+            tag: `visit-promising-${view.id}`,
+          },
+          exclude
+        )
       );
-    } catch (cause) {
-      console.error('[push] falha ao notificar informe de visita', {
-        reportId: view.id,
-        message: cause?.message ?? 'unknown',
-      });
+    }
+
+    // Situacao 2 — cliente novo: independente das demais respostas.
+    if (view.clientKind === 'NEW') {
+      sends.push(
+        this.pushService.sendToRoles(
+          ['ADMIN', 'CADASTRO'],
+          {
+            title: 'Novo cliente encontrado!',
+            body: 'Clique para ver os dados e cadastrá-lo',
+            url: '/resumo',
+            tag: `visit-new-client-${view.id}`,
+          },
+          exclude
+        )
+      );
+    }
+
+    if (sends.length === 0) {
+      return;
+    }
+
+    const results = await Promise.allSettled(sends);
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        console.error('[push] falha ao notificar informe de visita', {
+          reportId: view.id,
+          message: result.reason?.message ?? 'unknown',
+        });
+      }
     }
   }
 
@@ -304,7 +349,8 @@ export class VisitReportService {
   }
 
   async listVisitReports(input, actorContext) {
-    assertAdminActor(actorContext, 'list visit reports');
+    const actor = assertAuthenticatedActor(actorContext, 'list visit reports');
+    assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'list visit reports');
     const page = readPageQuery(input?.page, 1);
     const limit = readLimitQuery(input?.limit, {
       fallback: VISIT_REPORT_LIST_LIMIT_DEFAULT,

@@ -27,3 +27,10 @@ export function isAdmin(role: UserRole): boolean {
 export function isCommercialRole(role: UserRole | null | undefined): boolean {
   return role === 'COMMERCIAL' || role === 'PROSPECTOR';
 }
+
+// Quem ve a pagina /resumo (informes de visita). Espelha
+// VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js):
+// as notificacoes situacionais de visita apontam pra la.
+export function isVisitReportViewer(role: UserRole | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'COMMERCIAL' || role === 'CADASTRO';
+}

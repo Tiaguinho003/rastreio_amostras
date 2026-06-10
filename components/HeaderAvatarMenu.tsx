@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { getRoleLabel, isAdmin } from '../lib/roles';
+import { getRoleLabel, isAdmin, isVisitReportViewer } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -93,7 +93,7 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            {isAdmin(session.user.role) ? (
+            {isVisitReportViewer(session.user.role) ? (
               <button
                 type="button"
                 className="header-avatar-menu-row"

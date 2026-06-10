@@ -11,10 +11,11 @@ import type { VisitReportSummary } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/visit-report';
 
-// Pagina "Resumo" (admin-only, acessada pelo menu do avatar — como Perfil e
-// Usuarios): feed dos informes de visita enviados pela equipe na pagina
+// Pagina "Resumo" (Administracao + Comercial + Cadastro — ver
+// isVisitReportViewer; acessada pelo menu do avatar e pelas notificacoes
+// situacionais de visita): feed dos informes enviados pela equipe na pagina
 // /informe. Mais recentes primeiro, com "Carregar mais" (append) no rodape.
-// Backend: GET /visit-reports (assertAdminActor no service).
+// Backend: GET /visit-reports (VISIT_REPORT_VIEWER_ROLES no service).
 
 const PAGE_LIMIT = 20;
 
@@ -39,7 +40,9 @@ function wasSentLater(report: VisitReportSummary): boolean {
 }
 
 export default function ResumoPage() {
-  const { session, loading, logout, setSession } = useRequireAuth({ allowedRoles: ['ADMIN'] });
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: ['ADMIN', 'COMMERCIAL', 'CADASTRO'],
+  });
 
   const [items, setItems] = useState<VisitReportSummary[]>([]);
   const [total, setTotal] = useState(0);

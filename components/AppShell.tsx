@@ -12,7 +12,7 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
-import { getRoleLabel, isAdmin } from '../lib/roles';
+import { getRoleLabel, isAdmin, isVisitReportViewer } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
@@ -618,7 +618,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                       Usuarios
                     </Link>
                   ) : null}
-                  {isAdmin(session.user.role) ? (
+                  {isVisitReportViewer(session.user.role) ? (
                     <Link
                       href="/resumo"
                       className="topbar-profile-link"
