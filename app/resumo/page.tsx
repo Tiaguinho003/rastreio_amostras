@@ -18,11 +18,24 @@ import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/vi
 
 const PAGE_LIMIT = 20;
 
+// Acima disso entre o preenchimento (capturedAt, fila offline) e a chegada
+// ao servidor (createdAt), o card ganha o marcador "enviado depois".
+const OFFLINE_GAP_MS = 5 * 60 * 1000;
+
 function formatVisitDateTime(value: string): string {
   const date = new Date(value);
   const day = date.toLocaleDateString('pt-BR');
   const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return `${day} · ${time}`;
+}
+
+function wasSentLater(report: VisitReportSummary): boolean {
+  if (!report.capturedAt) {
+    return false;
+  }
+
+  const gap = new Date(report.createdAt).getTime() - new Date(report.capturedAt).getTime();
+  return Number.isFinite(gap) && gap > OFFLINE_GAP_MS;
 }
 
 export default function ResumoPage() {
@@ -190,7 +203,17 @@ export default function ResumoPage() {
                           <p className="rsm-card-user">
                             {report.user?.fullName ?? report.user?.username ?? 'Usuário'}
                           </p>
-                          <p className="rsm-card-when">{formatVisitDateTime(report.createdAt)}</p>
+                          <p className="rsm-card-when">
+                            {formatVisitDateTime(report.capturedAt ?? report.createdAt)}
+                            {wasSentLater(report) ? (
+                              <span
+                                className="rsm-offline-tag"
+                                title={`Recebido em ${formatVisitDateTime(report.createdAt)}`}
+                              >
+                                enviado depois
+                              </span>
+                            ) : null}
+                          </p>
                         </div>
                       </header>
 

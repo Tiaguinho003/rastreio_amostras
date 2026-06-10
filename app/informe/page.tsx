@@ -1,13 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { ClientLookupField } from '../../components/clients/ClientLookupField';
 import { ApiError, createVisitReport } from '../../lib/api-client';
 import { useRegisterDirtyState } from '../../lib/dirty-state/DirtyStateProvider';
+import { useOnlineStatus } from '../../lib/offline/use-online-status';
+import {
+  addVisitToOutbox,
+  countVisitOutbox,
+  VISIT_OUTBOX_CHANGED_EVENT,
+  type VisitOutboxPayload,
+} from '../../lib/offline/visit-outbox';
+import { flushVisitOutbox } from '../../lib/offline/visit-sync';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
   ClientSummary,
@@ -37,6 +45,10 @@ type VisitFieldName =
 
 type VisitFieldErrors = Partial<Record<VisitFieldName, string>>;
 
+// Payload do envio sem o capturedAt — a fila offline carimba a hora local
+// do preenchimento na hora de enfileirar; envio online direto vai sem.
+type VisitDraftPayload = Omit<VisitOutboxPayload, 'capturedAt'>;
+
 export default function InformePage() {
   const { session, loading, logout, setSession } = useRequireAuth();
   const toast = useToast();
@@ -54,9 +66,32 @@ export default function InformePage() {
   const [sellsToWhom, setSellsToWhom] = useState('');
   const [fieldErrors, setFieldErrors] = useState<VisitFieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [manualSyncing, setManualSyncing] = useState(false);
 
+  const isOnline = useOnlineStatus();
   const contentRef = useRef<HTMLElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+
+  const refreshPendingCount = useCallback(async () => {
+    if (!session) {
+      return;
+    }
+    setPendingCount(await countVisitOutbox(session.user.id));
+  }, [session]);
+
+  // Contador de pendentes: carrega ao montar e segue qualquer mudanca na
+  // fila (enfileirou aqui, sync global removeu) via evento do outbox.
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    void refreshPendingCount();
+    const handleChanged = () => void refreshPendingCount();
+    window.addEventListener(VISIT_OUTBOX_CHANGED_EVENT, handleChanged);
+    return () => window.removeEventListener(VISIT_OUTBOX_CHANGED_EVENT, handleChanged);
+  }, [refreshPendingCount, session]);
 
   const isDirty =
     clientKind !== null ||
@@ -150,7 +185,7 @@ export default function InformePage() {
     try {
       const clientName =
         clientKind === 'EXISTING' ? selectedClient?.displayName : newClientName.trim();
-      await createVisitReport(session, {
+      const payload: VisitDraftPayload = {
         clientKind: clientKind as VisitClientKind,
         clientId: clientKind === 'EXISTING' ? (selectedClient?.id ?? null) : null,
         newClientName: clientKind === 'NEW' ? newClientName.trim() : null,
@@ -162,7 +197,31 @@ export default function InformePage() {
         interestNotes: interestNotes.trim() || null,
         sellsCurrently: sellsCurrently as boolean,
         sellsToWhom: sellsCurrently ? sellsToWhom.trim() || null : null,
-      });
+      };
+
+      // Sem rede declarada: nem tenta — vai direto pra fila local.
+      if (!navigator.onLine) {
+        await queueOffline(payload);
+        return;
+      }
+
+      try {
+        await createVisitReport(session, payload);
+      } catch (cause) {
+        // navigator.onLine true nao garante internet real (wifi sem rota):
+        // falha DE REDE no POST tambem enfileira em vez de perder o envio.
+        if (cause instanceof ApiError && cause.status === 0) {
+          await queueOffline(payload);
+          return;
+        }
+
+        toast.error({
+          title: 'Não foi possível enviar o informe',
+          description:
+            cause instanceof ApiError ? cause.message : 'Verifique sua conexão e tente novamente.',
+        });
+        return;
+      }
 
       resetForm();
       contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -170,14 +229,62 @@ export default function InformePage() {
         title: 'Informe enviado',
         description: clientName ? `Visita a ${clientName} registrada.` : 'Visita registrada.',
       });
-    } catch (cause) {
-      toast.error({
-        title: 'Não foi possível enviar o informe',
-        description:
-          cause instanceof ApiError ? cause.message : 'Verifique sua conexão e tente novamente.',
-      });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Guarda o informe na caixa de saida local (IndexedDB) com a hora do
+  // preenchimento. O id gerado aqui vira a Idempotency-Key do reenvio.
+  async function queueOffline(payload: VisitDraftPayload) {
+    if (!session) {
+      return;
+    }
+
+    const capturedAt = new Date().toISOString();
+    try {
+      await addVisitToOutbox({
+        id: crypto.randomUUID(),
+        userId: session.user.id,
+        payload: { ...payload, capturedAt },
+        capturedAt,
+        attempts: 0,
+        lastError: null,
+      });
+
+      resetForm();
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      toast.success({
+        title: 'Informe salvo no aparelho',
+        description: 'Será enviado automaticamente quando a internet voltar.',
+      });
+    } catch {
+      toast.error({
+        title: 'Não foi possível salvar no aparelho',
+        description: 'Tente novamente quando houver conexão.',
+      });
+    }
+  }
+
+  // "Enviar agora" dos pendentes. Sucesso/falha definitiva e anunciado pelo
+  // listener global (AppShell); aqui so cobrimos o caso silencioso de nada
+  // ter saido (falha transitoria de rede com onLine=true).
+  async function handleManualSync() {
+    if (!session || manualSyncing) {
+      return;
+    }
+
+    setManualSyncing(true);
+    try {
+      const result = await flushVisitOutbox(session);
+      if (result.sent === 0 && result.failed === 0 && !result.authExpired && result.remaining > 0) {
+        toast.error({
+          title: 'Não foi possível enviar agora',
+          description: 'Verifique sua conexão e tente novamente.',
+        });
+      }
+    } finally {
+      setManualSyncing(false);
     }
   }
 
@@ -201,6 +308,25 @@ export default function InformePage() {
 
         <section className="sdv-content informe-content" ref={contentRef}>
           <form className="inf-form" onSubmit={handleSubmit} noValidate ref={formRef}>
+            {!isOnline ? (
+              <div className="inf-offline-banner" role="status">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M2 9c5.5-5.3 14.5-5.3 20 0" />
+                  <path d="M5.5 12.5c3.6-3.4 9.4-3.4 13 0" />
+                  <path d="M9 16c1.7-1.6 4.3-1.6 6 0" />
+                  <path d="M12 19.4h.01" />
+                  <path d="M4 4l16 16" />
+                </svg>
+                <div className="inf-offline-banner-text">
+                  <p className="inf-offline-banner-title">Sem conexão</p>
+                  <p className="inf-offline-banner-sub">
+                    Informes preenchidos agora ficam salvos no aparelho e são enviados quando a
+                    internet voltar.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <header className="inf-intro">
               <h2 className="inf-intro-title">Formulário de visita</h2>
               <p className="inf-intro-sub">
@@ -208,6 +334,25 @@ export default function InformePage() {
                 horário.
               </p>
             </header>
+
+            {pendingCount > 0 ? (
+              <div className="inf-pending" role="status">
+                <span className="inf-pending-badge">{pendingCount}</span>
+                <span className="inf-pending-text">
+                  {pendingCount === 1 ? 'informe aguardando envio' : 'informes aguardando envio'}
+                </span>
+                {isOnline ? (
+                  <button
+                    type="button"
+                    className="inf-pending-send"
+                    disabled={manualSyncing}
+                    onClick={() => void handleManualSync()}
+                  >
+                    {manualSyncing ? 'Enviando…' : 'Enviar agora'}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* P1 — Identificação do cliente */}
             <section
@@ -235,6 +380,7 @@ export default function InformePage() {
                   type="button"
                   className={`inf-pill${clientKind === 'EXISTING' ? ' is-selected' : ''}`}
                   aria-pressed={clientKind === 'EXISTING'}
+                  disabled={!isOnline && clientKind !== 'EXISTING'}
                   onClick={() => {
                     setClientKind('EXISTING');
                     clearFieldError('clientKind');
@@ -259,6 +405,12 @@ export default function InformePage() {
               {fieldErrors.clientKind ? (
                 <p className="inf-card-error">{fieldErrors.clientKind}</p>
               ) : null}
+              {!isOnline ? (
+                <p className="inf-offline-note">
+                  Sem internet, a busca de clientes cadastrados fica indisponível — use Cliente
+                  novo.
+                </p>
+              ) : null}
 
               {clientKind === 'EXISTING' ? (
                 <ClientLookupField
@@ -266,6 +418,7 @@ export default function InformePage() {
                   label="Cliente"
                   kind="any"
                   required
+                  disabled={!isOnline}
                   selectedClient={selectedClient}
                   onSelectClient={(client) => {
                     setSelectedClient(client);
