@@ -332,6 +332,49 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  test('createVisitReport: generalNotes (campo 5) persiste; ausente fica null', async () => {
+    await resetDatabase();
+    const commercial = await seedUser('COMMERCIAL');
+
+    const withNotes = await service.createVisitReport(
+      baseInput({ generalNotes: '  Produtor pediu retorno em julho.  ' }),
+      actorFor(commercial)
+    );
+    assert.equal(withNotes.report.generalNotes, 'Produtor pediu retorno em julho.');
+
+    const row = await prisma.visitReport.findUnique({ where: { id: withNotes.report.id } });
+    assert.equal(row.generalNotes, 'Produtor pediu retorno em julho.');
+
+    const without = await service.createVisitReport(baseInput(), actorFor(commercial));
+    assert.equal(without.report.generalNotes, null);
+  });
+
+  test('deleteVisitReport: admin exclui; nao-admin 403; inexistente 404', async () => {
+    await resetDatabase();
+    const admin = await seedUser('ADMIN');
+    const commercial = await seedUser('COMMERCIAL');
+
+    const created = await service.createVisitReport(baseInput(), actorFor(commercial));
+
+    // Comercial (que pode LER o /resumo) nao pode excluir.
+    await assert.rejects(
+      service.deleteVisitReport({ reportId: created.report.id }, actorFor(commercial)),
+      (error) => error.status === 403
+    );
+
+    const removed = await service.deleteVisitReport(
+      { reportId: created.report.id },
+      actorFor(admin)
+    );
+    assert.deepEqual(removed, { removed: true });
+    assert.equal(await prisma.visitReport.count(), 0);
+
+    await assert.rejects(
+      service.deleteVisitReport({ reportId: created.report.id }, actorFor(admin)),
+      (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
+    );
+  });
+
   test('createVisitReport: capturedAt passado e persistido e retornado; ausente fica null', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
