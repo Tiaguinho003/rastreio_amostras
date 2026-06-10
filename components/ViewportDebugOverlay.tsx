@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { isAndroid, isIOS, isStandalone } from '../lib/platform';
+
 // Overlay de diagnostico pra investigar o bug "bottom nav levantada" em
 // PWA standalone (iOS Safari + Android Chrome). Mostra valores de
 // viewport/safe-area em tempo real + timeline de mudancas pra identificar
@@ -135,21 +137,9 @@ function captureSnapshot(label: string, startTime: number): ViewportSnapshot {
   };
 }
 
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    // iOS Safari quirk
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
 function getDeviceInfo(): string {
   if (typeof window === 'undefined') return 'ssr';
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
-  const isAndroid = /Android/.test(ua);
-  const platform = isIOS ? 'iOS' : isAndroid ? 'Android' : 'other';
+  const platform = isIOS() ? 'iOS' : isAndroid() ? 'Android' : 'other';
   const standalone = isStandalone() ? 'standalone' : 'browser';
   return `${platform}/${standalone}`;
 }
