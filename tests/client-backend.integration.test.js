@@ -196,6 +196,23 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(pj.body.client.cnpj, '03936815000175');
   });
 
+  test('POST /clients: telefone e OPCIONAL na criacao (vazio/ausente vira null)', async () => {
+    // Regressao 2026-06-10: regra orfa "phone is required" (2026-04-09) fazia
+    // o quick-create — que trata telefone como opcional desde 14.7.N — falhar
+    // 422 com o formulario visivelmente valido.
+    const semPhone = await createPfClient({ phone: '' });
+    assert.equal(semPhone.status, 201);
+    assert.equal(semPhone.body.client.phone, null);
+
+    const ausente = await createPjClient({ phone: undefined, cnpj: nextValidCnpj() });
+    assert.equal(ausente.status, 201);
+    assert.equal(ausente.body.client.phone, null);
+
+    // Preenchido continua validando formato (10-11 digitos).
+    const invalido = await createPjClient({ phone: '123', cnpj: nextValidCnpj() });
+    assert.equal(invalido.status, 422);
+  });
+
   test('L5: PJ create rejects without cnpj (PJ_REQUIRES_CNPJ)', async () => {
     const result = await api.createClient(
       buildInput({

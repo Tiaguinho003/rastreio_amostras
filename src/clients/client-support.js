@@ -542,14 +542,12 @@ function buildClientWriteData(personType, input) {
 export function normalizeCreateClientInput(input) {
   assertProtectedClientFieldsAbsent(input);
   const personType = normalizeClientPersonType(input.personType);
-  const normalizedPhone = normalizeClientPhone(input.phone);
-  if (!normalizedPhone) {
-    throw new HttpError(422, 'phone is required', {
-      code: 'VALIDATION_ERROR',
-      field: 'phone',
-    });
-  }
-
+  // Telefone e OPCIONAL na criacao (alinhado ao quick-create 14.7.N, ao
+  // update — que aceita limpar — e ao schema, onde phone e nullable).
+  // Preenchido, valida 10-11 digitos em normalizeClientPhone dentro de
+  // buildClientWriteData. A exigencia historica daqui (2026-04-09) ficou
+  // orfa quando o modal tornou o campo opcional e fazia o POST falhar 422
+  // com o formulario visivelmente valido.
   const data = buildClientWriteData(personType, input);
 
   const fromInput = resolveCommercialUserIdsFromInput(input);

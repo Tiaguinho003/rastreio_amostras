@@ -492,7 +492,11 @@ export function ClientQuickCreateModal({
             >
               Cancelar
             </button>
-            <button type="submit" className="app-modal-submit" disabled={saving || !canSubmit}>
+            {/* Habilitado fora do saving: o submit roda a validacao e REVELA
+                os erros inline (showFieldErrors depende de `submitted`).
+                Desabilitar por !canSubmit criava beco sem saida: clique morto
+                e nenhum erro visivel. */}
+            <button type="submit" className="app-modal-submit" disabled={saving}>
               {saving ? 'Salvando...' : 'Cadastrar'}
             </button>
           </div>
