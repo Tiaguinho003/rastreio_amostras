@@ -56,7 +56,8 @@ gcloud run services update-traffic rastreio-prod-app \
 
 - `scripts/gcp/build-image.sh cloud-production` — build com tag=git SHA e guard de tree limpo
 - `scripts/gcp/deploy-cloud.sh cloud-production [--canary]` — deploy service + jobs
-- `scripts/gcp/execute-job.sh <migrate|seed|backfill-liga> cloud-production [--dry-run]` — executa jobs
+- `scripts/gcp/execute-job.sh <migrate|seed|backfill-liga|push-digest> cloud-production [--dry-run]` — executa jobs
+- `scripts/gcp/setup-push-digest-scheduler.sh cloud-production` — one-time: agenda o digest diario de push (Cloud Scheduler 08:00 America/Sao_Paulo; idempotente)
 - `scripts/gcp/preflight.sh cloud-production` — valida auth e recursos
 - `scripts/gcp/smoke.sh cloud-production` — smoke test HTTP
 
@@ -75,6 +76,19 @@ owner+safra-reativo estar em prod (senao edicoes reintroduzem drift), e sempre
 scripts/gcp/execute-job.sh backfill-liga cloud-production --dry-run  # so relatorio
 scripts/gcp/execute-job.sh backfill-liga cloud-production            # aplica
 ```
+
+## Web Push (notificacoes nativas)
+
+Config por env (padrao OPENAI: faltou var -> feature desabilitada, app sobe normal):
+`PUSH_VAPID_PUBLIC_KEY` + `PUSH_VAPID_SUBJECT` (env vars normais, `.env.cloud-production`)
+e `PUSH_VAPID_PRIVATE_KEY` via secret `rastreio-prod-push-vapid-private-key`
+(`GCLOUD_SECRET_PUSH_VAPID_PRIVATE_KEY` no ops env). Job `push-digest`
+(`GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB`) e deployado junto com os demais e disparado
+1x/dia pelo Cloud Scheduler (`setup-push-digest-scheduler.sh`, one-time). Setup
+completo passo a passo em `docs/Deploy-e-Cloud-Build.md` secao "Web Push".
+Atencao: inscricao de push e POR ORIGEM — o canary valida rotas/card, mas a
+notificacao real so se valida no host de producao pos-promote; rotacionar a chave
+VAPID invalida todas as inscricoes existentes.
 
 ## Antipadroes (NUNCA fazer)
 

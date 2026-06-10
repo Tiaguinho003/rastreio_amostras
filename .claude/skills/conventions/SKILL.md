@@ -25,10 +25,12 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `src/email/` — email via SMTP ou outbox
 - `src/clients/` — dominio de clientes
 - `src/visits/` — informes de visita (formulario `/informe` + listagem admin `/resumo`)
+- `src/push/` — Web Push (inscricoes + envio VAPID; gatilhos fire-and-forget nos services)
 - `src/db/` — Prisma client singleton
 - `tests/` — testes na raiz (nao em `__tests__/`)
 - `prisma/` — schema + migrations + seed
 - `scripts/runtime/` — wrappers operacionais (compose, migrate, seed, preflight, smoke)
+- `scripts/jobs/` — scripts Node de jobs agendados/recorrentes (ex: send-daily-push-digest)
 - `scripts/gcp/` — deploy canary, build, preflight, smoke
 - `docs/` — documentacao canonica
 - `print-agent/` — agent de impressao (Node.js separado, roda no Windows do cliente)
