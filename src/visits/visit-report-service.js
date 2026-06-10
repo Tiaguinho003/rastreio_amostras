@@ -159,8 +159,39 @@ function toVisitReportView(row) {
 }
 
 export class VisitReportService {
-  constructor({ prisma }) {
+  constructor({ prisma, pushService = null }) {
     this.prisma = prisma;
+    this.pushService = pushService;
+  }
+
+  // Side-effect fire-and-forget (padrao Q.auto): notifica os ADMINs sobre o
+  // informe novo. Nunca quebra o request — falha so loga. O replay
+  // idempotente da rota (withIdempotency) e curto-circuitado ANTES do
+  // service, entao este hook nao roda duas vezes pra mesma Idempotency-Key.
+  async _notifyVisitReportCreated(view, actorContext) {
+    if (!this.pushService) {
+      return;
+    }
+
+    try {
+      const visitorName = view.user?.fullName ?? view.user?.username ?? 'Alguém';
+      const clientName = view.client?.displayName ?? view.newClient?.name ?? 'cliente';
+      await this.pushService.sendToRoles(
+        ['ADMIN'],
+        {
+          title: 'Novo informe de visita',
+          body: `${visitorName} visitou ${clientName}.`,
+          url: '/resumo',
+          tag: 'visit-report',
+        },
+        { excludeUserId: actorContext?.actorUserId ?? null }
+      );
+    } catch (cause) {
+      console.error('[push] falha ao notificar informe de visita', {
+        reportId: view.id,
+        message: cause?.message ?? 'unknown',
+      });
+    }
   }
 
   // Valida a identificacao do cliente conforme o kind:
@@ -266,7 +297,10 @@ export class VisitReportService {
       },
     });
 
-    return { report: toVisitReportView(created) };
+    const view = toVisitReportView(created);
+    await this._notifyVisitReportCreated(view, actorContext);
+
+    return { report: view };
   }
 
   async listVisitReports(input, actorContext) {
