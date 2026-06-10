@@ -2029,27 +2029,40 @@ export function createBackendApiV1({
         }
 
         // Qualquer papel autenticado envia; o service carimba userId do
-        // ator e o banco carimba createdAt.
+        // ator e o banco carimba createdAt. capturedAt (opcional) e a hora
+        // local do preenchimento quando o envio veio da fila offline.
         const actor = await resolveActorContext(input, authService);
-        const body = readRequestBody(input);
-        const result = await visitReportService.createVisitReport(
-          {
-            clientKind: body.clientKind,
-            clientId: body.clientId,
-            newClientName: body.newClientName,
-            newClientCity: body.newClientCity,
-            newClientPhone: body.newClientPhone,
-            farmSize: body.farmSize,
-            farmSizeNotes: body.farmSizeNotes,
-            interestLevel: body.interestLevel,
-            interestNotes: body.interestNotes,
-            sellsCurrently: body.sellsCurrently,
-            sellsToWhom: body.sellsToWhom,
-          },
-          actor
-        );
 
-        return { status: 201, body: result };
+        // Fila offline reenvia com Idempotency-Key = id gerado no aparelho;
+        // replay devolve o registro ja criado em vez de duplicar (T8: scope
+        // isolado por usuario).
+        return withIdempotency({
+          store: idempotencyStore,
+          scope: buildScopeKey(IDEMPOTENCY_SCOPES.CREATE_VISIT_REPORT, actor?.actorUserId),
+          headers: input?.headers,
+          handler: async () => {
+            const body = readRequestBody(input);
+            const result = await visitReportService.createVisitReport(
+              {
+                clientKind: body.clientKind,
+                clientId: body.clientId,
+                newClientName: body.newClientName,
+                newClientCity: body.newClientCity,
+                newClientPhone: body.newClientPhone,
+                farmSize: body.farmSize,
+                farmSizeNotes: body.farmSizeNotes,
+                interestLevel: body.interestLevel,
+                interestNotes: body.interestNotes,
+                sellsCurrently: body.sellsCurrently,
+                sellsToWhom: body.sellsToWhom,
+                capturedAt: body.capturedAt,
+              },
+              actor
+            );
+
+            return { status: 201, body: result };
+          },
+        });
       }),
 
     listVisitReports: (input) =>

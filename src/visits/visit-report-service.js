@@ -29,6 +29,9 @@ const NEW_CLIENT_CITY_MAX = 120;
 const NEW_CLIENT_PHONE_MAX = 40;
 const NOTES_MAX = 1000;
 
+// Tolerancia de relogio adiantado do aparelho ao validar capturedAt.
+const CAPTURED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
+
 const VISIT_REPORT_USER_SELECT = {
   id: true,
   fullName: true,
@@ -84,6 +87,39 @@ function normalizeBooleanFlag(value, fieldName) {
   return value;
 }
 
+// Hora local do preenchimento, informada pelo aparelho quando o envio veio
+// da fila offline. Opcional (null = envio online direto); quando presente
+// precisa ser data valida e nao-futura (com tolerancia pra clock skew).
+function normalizeCapturedAt(value, fieldName = 'capturedAt') {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new HttpError(422, `${fieldName} must be an ISO-8601 string`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(422, `${fieldName} must be a valid ISO-8601 date`, {
+      code: 'VALIDATION_ERROR',
+      field: fieldName,
+    });
+  }
+
+  if (parsed.getTime() > Date.now() + CAPTURED_AT_FUTURE_SKEW_MS) {
+    throw new HttpError(422, `${fieldName} must not be in the future`, {
+      code: 'VISIT_CAPTURED_AT_FUTURE',
+      field: fieldName,
+    });
+  }
+
+  return parsed;
+}
+
 function toVisitReportView(row) {
   return {
     id: row.id,
@@ -117,6 +153,7 @@ function toVisitReportView(row) {
     interestNotes: row.interestNotes,
     sellsCurrently: row.sellsCurrently,
     sellsToWhom: row.sellsToWhom,
+    capturedAt: toIsoString(row.capturedAt),
     createdAt: toIsoString(row.createdAt),
   };
 }
@@ -204,6 +241,7 @@ export class VisitReportService {
     const sellsToWhom = sellsCurrently
       ? normalizeOptionalText(input?.sellsToWhom, 'sellsToWhom', NOTES_MAX)
       : null;
+    const capturedAt = normalizeCapturedAt(input?.capturedAt);
 
     const created = await this.prisma.visitReport.create({
       data: {
@@ -220,6 +258,7 @@ export class VisitReportService {
         interestNotes,
         sellsCurrently,
         sellsToWhom,
+        capturedAt,
       },
       include: {
         user: { select: VISIT_REPORT_USER_SELECT },

@@ -23,6 +23,9 @@ export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 export const IDEMPOTENCY_SCOPES = {
   CREATE_CLIENT: 'POST /clients',
   CREATE_CLIENT_UNIT: 'POST /clients/:id/units',
+  // Informe de visita: a fila offline reenvia com a mesma key (id gerado
+  // no aparelho) ate o servidor confirmar — replay nao pode duplicar.
+  CREATE_VISIT_REPORT: 'POST /visit-reports',
 };
 
 /** Le header de qualquer formato de chave (case-insensitive em runtime do
