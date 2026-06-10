@@ -9,6 +9,7 @@ import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-uplo
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
 import { VisitReportService } from '../../visits/visit-report-service.js';
+import { createPushServiceFromEnv } from '../../push/create-push-service.js';
 import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
 import { FormDetectionService } from '../../samples/form-detection-service.js';
 import { createBackendApiV1 } from './backend-api.js';
@@ -49,7 +50,11 @@ export function createBackendApiV1FromEnv() {
     emailService,
     clientService,
   });
-  const visitReportService = new VisitReportService({ prisma });
+  const pushService = createPushServiceFromEnv({ prisma });
+  if (!pushService) {
+    console.warn('[push] PUSH_VAPID_* not configured — push notifications disabled');
+  }
+  const visitReportService = new VisitReportService({ prisma, pushService });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
     ? new ClassificationExtractionService({ apiKey: openaiApiKey })
@@ -66,6 +71,7 @@ export function createBackendApiV1FromEnv() {
     extractionService,
     formDetectionService,
     userService,
+    pushService,
   });
   const reportService = new SamplePdfReportService({
     queryService,
@@ -85,6 +91,7 @@ export function createBackendApiV1FromEnv() {
     userService,
     clientService,
     visitReportService,
+    pushService,
     commandService,
     queryService,
     reportService,
