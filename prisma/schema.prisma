@@ -679,6 +679,9 @@ model IdempotencyRecord {
 // clientKind decide a identificacao: EXISTING usa clientId (FK em client);
 // NEW usa new_client_name (obrigatorio) + cidade/telefone opcionais.
 // sellsToWhom e texto livre, presente apenas quando sellsCurrently=true.
+// capturedAt: hora local do preenchimento informada pelo aparelho quando o
+// envio passou pela fila offline (null = envio online direto). createdAt
+// segue sendo o "recebido em" carimbado pelo servidor.
 model VisitReport {
   id             String             @id @db.Uuid
   userId         String             @map("user_id") @db.Uuid
@@ -693,6 +696,7 @@ model VisitReport {
   interestNotes  String?            @map("interest_notes")
   sellsCurrently Boolean            @map("sells_currently")
   sellsToWhom    String?            @map("sells_to_whom")
+  capturedAt     DateTime?          @map("captured_at") @db.Timestamptz(6)
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
