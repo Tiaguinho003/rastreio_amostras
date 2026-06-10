@@ -137,6 +137,7 @@ export function createBackendApiV1({
   authService = null,
   userService = null,
   clientService = null,
+  visitReportService = null,
   commandService,
   queryService,
   reportService = null,
@@ -2015,6 +2016,59 @@ export function createBackendApiV1({
         );
 
         return { status: result.statusCode, body: result };
+      }),
+
+    // ============================================================
+    // Informe de visita (pagina /informe + listagem admin /resumo)
+    // ============================================================
+
+    createVisitReport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        // Qualquer papel autenticado envia; o service carimba userId do
+        // ator e o banco carimba createdAt.
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await visitReportService.createVisitReport(
+          {
+            clientKind: body.clientKind,
+            clientId: body.clientId,
+            newClientName: body.newClientName,
+            newClientCity: body.newClientCity,
+            newClientPhone: body.newClientPhone,
+            farmSize: body.farmSize,
+            farmSizeNotes: body.farmSizeNotes,
+            interestLevel: body.interestLevel,
+            interestNotes: body.interestNotes,
+            sellsCurrently: body.sellsCurrently,
+            sellsToWhom: body.sellsToWhom,
+          },
+          actor
+        );
+
+        return { status: 201, body: result };
+      }),
+
+    listVisitReports: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await visitReportService.listVisitReports(
+          {
+            page: query.page,
+            limit: query.limit,
+          },
+          actor
+        );
+
+        return { status: 200, body: result };
       }),
   };
 }

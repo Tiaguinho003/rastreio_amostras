@@ -8,6 +8,7 @@ import { SampleQueryService } from '../../samples/sample-query-service.js';
 import { createLocalUploadServiceFromEnv } from '../../uploads/create-local-upload-service.js';
 import { UserService } from '../../users/user-service.js';
 import { ClientService } from '../../clients/client-service.js';
+import { VisitReportService } from '../../visits/visit-report-service.js';
 import { ClassificationExtractionService } from '../../samples/classification-extraction-service.js';
 import { FormDetectionService } from '../../samples/form-detection-service.js';
 import { createBackendApiV1 } from './backend-api.js';
@@ -48,6 +49,7 @@ export function createBackendApiV1FromEnv() {
     emailService,
     clientService,
   });
+  const visitReportService = new VisitReportService({ prisma });
   const openaiApiKey = (process.env.OPENAI_API_KEY ?? '').trim() || null;
   const extractionService = openaiApiKey
     ? new ClassificationExtractionService({ apiKey: openaiApiKey })
@@ -82,6 +84,7 @@ export function createBackendApiV1FromEnv() {
     authService,
     userService,
     clientService,
+    visitReportService,
     commandService,
     queryService,
     reportService,
