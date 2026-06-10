@@ -341,11 +341,15 @@ printf '%s' "<PRIVATE_KEY>" | gcloud secrets create rastreio-prod-push-vapid-pri
 #    GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB=rastreio-prod-push-digest
 
 # 4. Deploy normal (cria/atualiza o job rastreio-prod-push-digest junto)
-# 5. Agendar o digest diario (08:00 America/Sao_Paulo; idempotente)
+# 5. Agendar os lembretes (idempotente; re-rodar atualiza). Cria 3 schedulers
+#    no MESMO job com override de --kind:
+#      *-classification  todos os dias 08:00  (pendencias de classificacao)
+#      *-registrations   seg-sex 08:00        (cadastros pendentes)
+#      *-prospect        seg-sex 11:00        (lembrete da Prospeccao)
 scripts/gcp/setup-push-digest-scheduler.sh cloud-production
 
-# Execucao manual do digest (teste):
-scripts/gcp/execute-job.sh push-digest cloud-production
+# Execucao manual (teste); sem --kind roda os tres:
+scripts/gcp/execute-job.sh push-digest cloud-production [--kind=classification|registrations|prospect-reminder]
 ```
 
 Notas operacionais:

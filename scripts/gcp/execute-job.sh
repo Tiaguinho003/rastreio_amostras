@@ -36,9 +36,13 @@ case "$1" in
     fi
     ;;
   push-digest)
-    # Lembrete diario de pendencias via Web Push (mesmo job que o Cloud
-    # Scheduler dispara 1x/dia; aqui e a execucao manual).
+    # Lembretes diarios via Web Push (mesmo job que o Cloud Scheduler
+    # dispara; aqui e a execucao manual). 3o arg opcional --kind=X
+    # (classification|registrations|prospect-reminder); sem ele roda os tres.
     JOB_NAME="${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}"
+    if [[ "${3:-}" == --kind=* ]]; then
+      OVERRIDE_ARGS=(--args "run,push:digest,--,${3}")
+    fi
     ;;
   *)
     echo "Invalid job. Use migrate, seed, backfill-liga or push-digest." >&2

@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Setup ONE-TIME do agendamento do digest diario de push (08:00 America/
-# Sao_Paulo, todos os dias). Idempotente: re-rodar atualiza o scheduler em
-# vez de falhar. Pre-requisito: job ${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB} ja
-# deployado (deploy-cloud.sh) e GCLOUD_SERVICE_ACCOUNT com permissao de
-# invocar Cloud Run jobs (roles/run.invoker, concedida abaixo).
+# Setup dos agendamentos dos lembretes diarios via Web Push. Idempotente:
+# re-rodar atualiza os schedulers. Cria TRES agendamentos, todos disparando
+# o MESMO job Cloud Run ${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB} com override de
+# args (--kind), via API v2 do Cloud Run:
+#
+#   *-classification  0 8 * * *    (todos os dias 08:00) --kind=classification
+#   *-registrations   0 8 * * 1-5  (seg-sex 08:00)        --kind=registrations
+#   *-prospect        0 11 * * 1-5 (seg-sex 11:00)        --kind=prospect-reminder
+#
+# Remove o scheduler legado *-daily (formato antigo sem kind), se existir.
+#
+# Pre-requisito: job deployado (deploy-cloud.sh) e GCLOUD_SERVICE_ACCOUNT
+# com roles/run.invoker no job (concedido abaixo).
 #
 # Uso: scripts/gcp/setup-push-digest-scheduler.sh <cloud-env>
 
@@ -25,10 +33,8 @@ if [[ -z "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB:-}" ]]; then
   exit 1
 fi
 
-SCHEDULER_JOB_NAME="${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-daily"
-SCHEDULE="${PUSH_DIGEST_SCHEDULE:-0 8 * * *}"
 TIME_ZONE="America/Sao_Paulo"
-RUN_JOB_URI="https://${GCLOUD_REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${GCLOUD_PROJECT_ID}/jobs/${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}:run"
+RUN_JOB_URI="https://run.googleapis.com/v2/projects/${GCLOUD_PROJECT_ID}/locations/${GCLOUD_REGION}/jobs/${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}:run"
 
 echo "[gcp] habilitando Cloud Scheduler API (no-op se ja ativa)"
 gcloud services enable cloudscheduler.googleapis.com --project "${GCLOUD_PROJECT_ID}"
@@ -40,27 +46,52 @@ gcloud run jobs add-iam-policy-binding "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}" \
   --member "serviceAccount:${GCLOUD_SERVICE_ACCOUNT}" \
   --role roles/run.invoker
 
-SCHEDULER_ARGS=(
-  --project "${GCLOUD_PROJECT_ID}"
-  --location "${GCLOUD_REGION}"
-  --schedule "${SCHEDULE}"
-  --time-zone "${TIME_ZONE}"
-  --http-method POST
-  --uri "${RUN_JOB_URI}"
-  --oauth-service-account-email "${GCLOUD_SERVICE_ACCOUNT}"
-)
+upsert_scheduler() {
+  local name="$1"
+  local schedule="$2"
+  local kind="$3"
+  local body
+  body="$(printf '{"overrides":{"containerOverrides":[{"args":["run","push:digest","--","--kind=%s"]}]}}' "${kind}")"
 
-if gcloud scheduler jobs describe "${SCHEDULER_JOB_NAME}" \
+  local args=(
+    --project "${GCLOUD_PROJECT_ID}"
+    --location "${GCLOUD_REGION}"
+    --schedule "${schedule}"
+    --time-zone "${TIME_ZONE}"
+    --http-method POST
+    --uri "${RUN_JOB_URI}"
+    --headers "Content-Type=application/json"
+    --message-body "${body}"
+    --oauth-service-account-email "${GCLOUD_SERVICE_ACCOUNT}"
+  )
+
+  if gcloud scheduler jobs describe "${name}" \
+    --project "${GCLOUD_PROJECT_ID}" --location "${GCLOUD_REGION}" >/dev/null 2>&1; then
+    echo "[gcp] atualizando scheduler ${name} ('${schedule}', kind=${kind})"
+    gcloud scheduler jobs update http "${name}" "${args[@]}" >/dev/null
+  else
+    echo "[gcp] criando scheduler ${name} ('${schedule}', kind=${kind})"
+    gcloud scheduler jobs create http "${name}" "${args[@]}" >/dev/null
+  fi
+}
+
+upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-classification" "0 8 * * *" "classification"
+upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-registrations" "0 8 * * 1-5" "registrations"
+upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-prospect" "0 11 * * 1-5" "prospect-reminder"
+
+# Scheduler legado (formato unico sem kind): remover se existir.
+LEGACY_NAME="${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-daily"
+if gcloud scheduler jobs describe "${LEGACY_NAME}" \
   --project "${GCLOUD_PROJECT_ID}" --location "${GCLOUD_REGION}" >/dev/null 2>&1; then
-  echo "[gcp] scheduler ja existe — atualizando ${SCHEDULER_JOB_NAME}"
-  gcloud scheduler jobs update http "${SCHEDULER_JOB_NAME}" "${SCHEDULER_ARGS[@]}"
-else
-  echo "[gcp] criando scheduler ${SCHEDULER_JOB_NAME}"
-  gcloud scheduler jobs create http "${SCHEDULER_JOB_NAME}" "${SCHEDULER_ARGS[@]}"
+  echo "[gcp] removendo scheduler legado ${LEGACY_NAME}"
+  gcloud scheduler jobs delete "${LEGACY_NAME}" \
+    --project "${GCLOUD_PROJECT_ID}" --location "${GCLOUD_REGION}" --quiet
 fi
 
 echo "[gcp] ============================================================"
-echo "[gcp]  Digest diario agendado: '${SCHEDULE}' (${TIME_ZONE})"
-echo "[gcp]  Scheduler: ${SCHEDULER_JOB_NAME} -> job ${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}"
-echo "[gcp]  Teste manual: scripts/gcp/execute-job.sh push-digest ${CLOUD_ENV}"
+echo "[gcp]  Lembretes agendados (${TIME_ZONE}):"
+echo "[gcp]   classification: todos os dias 08:00"
+echo "[gcp]   registrations:  seg-sex 08:00"
+echo "[gcp]   prospect:       seg-sex 11:00"
+echo "[gcp]  Teste manual: scripts/gcp/execute-job.sh push-digest ${CLOUD_ENV} [--kind=X]"
 echo "[gcp] ============================================================"

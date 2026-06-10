@@ -1,20 +1,24 @@
 #!/usr/bin/env node
-// Digest diario de pendencias via Web Push (lembrete agendado).
+// Lembretes diarios via Web Push, parametrizados por --kind. Cada kind tem
+// agendamento proprio no Cloud Scheduler (que dispara o job Cloud Run
+// `push-digest` com override de args — ver setup-push-digest-scheduler.sh):
 //
-// Disparado 1x/dia pelo Cloud Scheduler (job Cloud Run `push-digest`, ver
-// scripts/gcp/setup-push-digest-scheduler.sh) ou manualmente:
+//   --kind=classification      todos os dias 08:00 (America/Sao_Paulo)
+//     "Amostras aguardando classificação" -> ADMIN + CLASSIFIER, so com
+//     pendencia > 0.
+//   --kind=registrations       seg-sex 08:00
+//     "Revise os Cadastros!" -> ADMIN + CADASTRO, so com pendencia > 0.
+//   --kind=prospect-reminder   seg-sex 11:00
+//     "Bom dia <primeiro nome>!" -> PROSPECTOR (personalizada por usuario,
+//     sem condicao — e lembrete de preencher o formulario de visita).
+//
+// Sem --kind: roda os TRES (uso manual/smoke):
 //   npm run push:digest
-//   scripts/gcp/execute-job.sh push-digest <cloud-env>
+//   scripts/gcp/execute-job.sh push-digest <cloud-env> [--kind=X]
 //
-// O que envia (cada notificacao SO quando a contagem > 0):
-//   1. Amostras pendentes de classificacao -> ADMIN + CLASSIFIER
-//   2. Clientes com cadastro incompleto    -> ADMIN
-//
-// Caracteristicas de entrega:
-//   * TTL 12h — digest de ontem nao chega hoje junto com o novo;
-//   * topic fixo por tipo (vira apns-collapse-id): aparelho desligado por
-//     dias acorda com NO MAXIMO um digest de cada tipo, nao uma pilha;
-//   * urgency normal (nao acorda radio do aparelho como evento critico).
+// Entrega: TTL curto (12h pendencias / 6h lembrete) — lembrete de ontem nao
+// chega hoje; topic fixo por kind (apns-collapse-id) — aparelho dias offline
+// acorda com no maximo 1 de cada; urgency normal.
 //
 // Sem PUSH_VAPID_* configurado o script loga e sai com exit 0 — o job
 // agendado nao deve falhar por feature desabilitada. Exit != 0 so em falha
@@ -24,13 +28,98 @@ import { getPrismaClient } from '../../src/db/prisma-client.js';
 import { createPushServiceFromEnv } from '../../src/push/create-push-service.js';
 import { SampleQueryService } from '../../src/samples/sample-query-service.js';
 
-const DIGEST_TTL_SECONDS = 12 * 60 * 60;
+const PENDING_TTL_SECONDS = 12 * 60 * 60;
+const REMINDER_TTL_SECONDS = 6 * 60 * 60;
+
+const KNOWN_KINDS = ['classification', 'registrations', 'prospect-reminder'];
+
+function parseKinds(argv) {
+  const kindArg = argv.find((arg) => arg.startsWith('--kind='));
+  if (!kindArg) {
+    return KNOWN_KINDS;
+  }
+
+  const kind = kindArg.slice('--kind='.length).trim();
+  if (!KNOWN_KINDS.includes(kind)) {
+    console.error(`[push-digest] kind invalido: '${kind}'. Use: ${KNOWN_KINDS.join(', ')}`);
+    process.exitCode = 1;
+    return [];
+  }
+
+  return [kind];
+}
 
 function formatCount(count, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function firstName(fullName, fallback) {
+  const name = (fullName ?? '').trim().split(/\s+/)[0];
+  return name || fallback || 'time';
+}
+
+async function sendClassificationDigest({ pushService, queryService }) {
+  const pending = await queryService.getDashboardPending();
+  const total = pending?.classificationPending?.total ?? 0;
+  console.log('[push-digest] classificacao pendente', { total });
+  if (total === 0) {
+    return;
+  }
+
+  const result = await pushService.sendToRoles(
+    ['ADMIN', 'CLASSIFIER'],
+    {
+      title: 'Amostras aguardando classificação',
+      body: `${formatCount(total, 'amostra pendente', 'amostras pendentes')} de classificação.`,
+      url: '/dashboard',
+      tag: 'daily-classification',
+    },
+    { ttl: PENDING_TTL_SECONDS, urgency: 'normal', topic: 'daily-classification' }
+  );
+  console.log('[push-digest] classificacao enviada', result);
+}
+
+async function sendRegistrationsDigest({ pushService, queryService }) {
+  const pending = await queryService.getDashboardPending();
+  const total = pending?.clientsIncomplete?.total ?? 0;
+  console.log('[push-digest] cadastros pendentes', { total });
+  if (total === 0) {
+    return;
+  }
+
+  const result = await pushService.sendToRoles(
+    ['ADMIN', 'CADASTRO'],
+    {
+      title: 'Revise os Cadastros!',
+      body: `Temos ${total} pendentes`,
+      url: '/clients?incomplete=true',
+      tag: 'daily-clients',
+    },
+    { ttl: PENDING_TTL_SECONDS, urgency: 'normal', topic: 'daily-clients' }
+  );
+  console.log('[push-digest] cadastros enviado', result);
+}
+
+async function sendProspectReminder({ pushService }) {
+  const result = await pushService.sendPersonalizedToRoles(
+    ['PROSPECTOR'],
+    (user) => ({
+      title: `Bom dia ${firstName(user?.fullName, user?.username)}!`,
+      body: 'Vamos prospectar! Lembre-se dos formulários de visita.',
+      url: '/informe',
+      tag: 'prospect-reminder',
+    }),
+    { ttl: REMINDER_TTL_SECONDS, urgency: 'normal', topic: 'prospect-reminder' }
+  );
+  console.log('[push-digest] lembrete prospeccao enviado', result);
+}
+
 async function main() {
+  const kinds = parseKinds(process.argv.slice(2));
+  if (kinds.length === 0) {
+    return;
+  }
+
   const prisma = getPrismaClient();
   const pushService = createPushServiceFromEnv({ prisma });
 
@@ -40,42 +129,16 @@ async function main() {
   }
 
   const queryService = new SampleQueryService({ prisma });
-  const pending = await queryService.getDashboardPending();
+  const context = { pushService, queryService };
 
-  const classificationTotal = pending?.classificationPending?.total ?? 0;
-  const clientsIncompleteTotal = pending?.clientsIncomplete?.total ?? 0;
-
-  console.log('[push-digest] pendencias', {
-    classificationTotal,
-    clientsIncompleteTotal,
-  });
-
-  if (classificationTotal > 0) {
-    const result = await pushService.sendToRoles(
-      ['ADMIN', 'CLASSIFIER'],
-      {
-        title: 'Amostras aguardando classificação',
-        body: `${formatCount(classificationTotal, 'amostra pendente', 'amostras pendentes')} de classificação.`,
-        url: '/dashboard',
-        tag: 'daily-classification',
-      },
-      { ttl: DIGEST_TTL_SECONDS, urgency: 'normal', topic: 'daily-classification' }
-    );
-    console.log('[push-digest] classificacao', result);
-  }
-
-  if (clientsIncompleteTotal > 0) {
-    const result = await pushService.sendToRoles(
-      ['ADMIN'],
-      {
-        title: 'Cadastros incompletos',
-        body: `${formatCount(clientsIncompleteTotal, 'cliente', 'clientes')} com cadastro incompleto.`,
-        url: '/clients?incomplete=true',
-        tag: 'daily-clients',
-      },
-      { ttl: DIGEST_TTL_SECONDS, urgency: 'normal', topic: 'daily-clients' }
-    );
-    console.log('[push-digest] clientes', result);
+  for (const kind of kinds) {
+    if (kind === 'classification') {
+      await sendClassificationDigest(context);
+    } else if (kind === 'registrations') {
+      await sendRegistrationsDigest(context);
+    } else if (kind === 'prospect-reminder') {
+      await sendProspectReminder(context);
+    }
   }
 
   await prisma.$disconnect();
