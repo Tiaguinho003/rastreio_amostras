@@ -264,14 +264,26 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listVisitReports: admin-only (403 para nao-admin)', async () => {
+  test('listVisitReports: permitido a ADMIN/COMMERCIAL/CADASTRO; 403 pros demais', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
+    const cadastro = await seedUser('CADASTRO');
+    const classifier = await seedUser('CLASSIFIER');
+    const registration = await seedUser('REGISTRATION');
+    const prospector = await seedUser('PROSPECTOR');
 
-    await assert.rejects(
-      service.listVisitReports({}, actorFor(commercial)),
-      (error) => error.status === 403
-    );
+    // Papeis com acesso ao /resumo (VISIT_REPORT_VIEWER_ROLES).
+    const allowedCommercial = await service.listVisitReports({}, actorFor(commercial));
+    assert.equal(allowedCommercial.page.total, 0);
+    const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
+    assert.equal(allowedCadastro.page.total, 0);
+
+    for (const denied of [classifier, registration, prospector]) {
+      await assert.rejects(
+        service.listVisitReports({}, actorFor(denied)),
+        (error) => error.status === 403
+      );
+    }
   });
 
   test('listVisitReports: ordena mais recente primeiro e pagina com hasNext', async () => {

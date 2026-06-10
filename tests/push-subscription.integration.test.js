@@ -288,54 +288,112 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('gatilho: criar informe de visita notifica ADMINs excluindo o autor', async () => {
+  test('gatilho de visita: situacoes (promissora, cliente novo, sem match) com autor excluido', async () => {
     await resetDatabase();
     const admin = await seedUser(ACTOR_A_ID, 'ADMIN', 'a4');
-    const commercial = await seedUser(ACTOR_B_ID, 'COMMERCIAL', 'b4');
-
-    await prisma.pushSubscription.create({
+    const author = await seedUser(ACTOR_B_ID, 'COMMERCIAL', 'b4');
+    const cadastro = await seedUser(randomUUID(), 'CADASTRO', 'cad4');
+    const existingClient = await prisma.client.create({
       data: {
         id: randomUUID(),
-        userId: admin.id,
-        endpoint: 'https://push.example/admin-device',
-        p256dh: 'k',
-        auth: 'a',
+        personType: 'PF',
+        fullName: 'Produtor Existente',
+        status: 'ACTIVE',
+        isSeller: true,
       },
     });
-    // Aparelho do proprio autor: NAO deve receber.
-    await prisma.pushSubscription.create({
-      data: {
-        id: randomUUID(),
-        userId: commercial.id,
-        endpoint: 'https://push.example/author-device',
-        p256dh: 'k',
-        auth: 'a',
-      },
-    });
-    // Autor tambem precisa ser papel notificavel pra provar o exclude:
-    await prisma.user.update({ where: { id: commercial.id }, data: { role: 'ADMIN' } });
 
-    const visitBody = {
-      clientKind: 'NEW',
-      newClientName: 'Fazenda Push',
+    async function seedSubscription(userId, suffix) {
+      await prisma.pushSubscription.create({
+        data: {
+          id: randomUUID(),
+          userId,
+          endpoint: `https://push.example/trig-${suffix}`,
+          p256dh: 'k',
+          auth: 'a',
+        },
+      });
+    }
+
+    await seedSubscription(admin.id, 'admin');
+    await seedSubscription(cadastro.id, 'cadastro');
+    // Aparelho do proprio autor (COMMERCIAL): NAO recebe a promissora dele.
+    await seedSubscription(author.id, 'author');
+
+    async function sendVisit(overrides) {
+      const created = await api.createVisitReport({
+        headers: headersB,
+        params: {},
+        query: {},
+        body: {
+          clientKind: 'NEW',
+          newClientName: 'Fazenda Push',
+          farmSize: 'SMALL',
+          interestLevel: 'HIGH',
+          sellsCurrently: false,
+          ...overrides,
+        },
+      });
+      assert.equal(created.status, 201);
+    }
+
+    // Situacao 2 isolada: cliente novo + tamanho pequeno -> so "Novo cliente
+    // encontrado!" pra ADMIN + CADASTRO.
+    await sendVisit({});
+    assert.deepEqual(fakeWebPush.sent.map((s) => s.payload.title).sort(), [
+      'Novo cliente encontrado!',
+      'Novo cliente encontrado!',
+    ]);
+    assert.deepEqual(fakeWebPush.sent.map((s) => s.endpoint).sort(), [
+      'https://push.example/trig-admin',
+      'https://push.example/trig-cadastro',
+    ]);
+    assert.equal(fakeWebPush.sent[0].payload.url, '/resumo');
+    fakeWebPush.sent.length = 0;
+
+    // Situacao 1 isolada: cliente EXISTENTE + Medio + Alto -> so a
+    // promissora, pra ADMIN + COMMERCIAL com o autor (COMMERCIAL) excluido.
+    await sendVisit({
+      clientKind: 'EXISTING',
+      clientId: existingClient.id,
+      newClientName: null,
+      farmSize: 'MEDIUM',
+    });
+    assert.equal(fakeWebPush.sent.length, 1);
+    assert.equal(fakeWebPush.sent[0].endpoint, 'https://push.example/trig-admin');
+    assert.equal(fakeWebPush.sent[0].payload.title, 'Nova visita promissora enviada');
+    assert.ok(fakeWebPush.sent[0].payload.body.includes('cliente promissor'));
+    fakeWebPush.sent.length = 0;
+
+    // Interesse Alto com tamanho PEQUENO (so uma das condicoes): nao e
+    // promissora — cliente existente sem match nenhum = silencio.
+    await sendVisit({
+      clientKind: 'EXISTING',
+      clientId: existingClient.id,
+      newClientName: null,
       farmSize: 'SMALL',
       interestLevel: 'HIGH',
-      sellsCurrently: false,
-    };
-    const created = await api.createVisitReport({
-      headers: headersB,
-      params: {},
-      query: {},
-      body: visitBody,
     });
-    assert.equal(created.status, 201);
+    assert.equal(fakeWebPush.sent.length, 0);
 
-    assert.equal(fakeWebPush.sent.length, 1);
-    const notification = fakeWebPush.sent[0];
-    assert.equal(notification.endpoint, 'https://push.example/admin-device');
-    assert.equal(notification.payload.title, 'Novo informe de visita');
-    assert.ok(notification.payload.body.includes('Fazenda Push'));
-    assert.equal(notification.payload.url, '/resumo');
+    // Sem match total: existente + pequeno + interesse baixo -> silencio.
+    await sendVisit({
+      clientKind: 'EXISTING',
+      clientId: existingClient.id,
+      newClientName: null,
+      interestLevel: 'LOW',
+    });
+    assert.equal(fakeWebPush.sent.length, 0);
+
+    // As duas situacoes juntas: cliente NOVO + Grande + Alto -> promissora
+    // (ADMIN+COMMERCIAL, autor fora) E novo cliente (ADMIN+CADASTRO).
+    await sendVisit({ farmSize: 'LARGE' });
+    const titles = fakeWebPush.sent.map((s) => s.payload.title).sort();
+    assert.deepEqual(titles, [
+      'Nova visita promissora enviada',
+      'Novo cliente encontrado!',
+      'Novo cliente encontrado!',
+    ]);
   });
 }
 

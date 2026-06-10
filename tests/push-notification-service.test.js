@@ -205,9 +205,9 @@ test('_notifyMovementCreated: notifica so resultado novo, nunca replay', async (
 
   await commandService._notifyMovementCreated(freshResult, sample, ACTOR);
   assert.equal(notifications.length, 1);
-  assert.deepEqual(notifications[0].roles, ['ADMIN']);
-  assert.equal(notifications[0].message.title, 'Venda registrada');
-  assert.equal(notifications[0].message.body, '25 sacas do lote 5641 — Atlantica.');
+  assert.deepEqual(notifications[0].roles, ['ADMIN', 'COMMERCIAL']);
+  assert.equal(notifications[0].message.title, 'Venda confirmada!');
+  assert.equal(notifications[0].message.body, 'Lote 5641 vendido');
   assert.equal(notifications[0].message.url, '/samples/sample-1');
   assert.equal(notifications[0].options.excludeUserId, ACTOR.actorUserId);
 
@@ -229,8 +229,46 @@ test('_notifyMovementCreated: notifica so resultado novo, nunca replay', async (
     ACTOR
   );
   assert.equal(notifications.length, 2);
-  assert.equal(notifications[1].message.title, 'Perda registrada');
-  assert.equal(notifications[1].message.body, '3 sacas do lote 5641.');
+  assert.equal(notifications[1].message.title, 'Café perdido!');
+  assert.equal(notifications[1].message.body, 'Lote 5641 indisponível');
+});
+
+test('sendPersonalizedToRoles: mensagem montada por usuario (saudacao com nome)', async () => {
+  const prisma = buildFakePrisma({
+    subscriptions: [
+      {
+        endpoint: 'https://push.example/p1',
+        p256dh: 'k',
+        auth: 'a',
+        user: { id: 'u1', fullName: 'Maria Souza Lima', username: 'maria' },
+      },
+      {
+        endpoint: 'https://push.example/p2',
+        p256dh: 'k',
+        auth: 'a',
+        user: { id: 'u2', fullName: 'Pedro Alves', username: 'pedro' },
+      },
+    ],
+  });
+  const webPushClient = buildFakeWebPush();
+  const service = buildService({ prisma, webPushClient });
+
+  const result = await service.sendPersonalizedToRoles(
+    ['PROSPECTOR'],
+    (user) => ({
+      title: `Bom dia ${user.fullName.split(' ')[0]}!`,
+      body: 'Vamos prospectar!',
+      url: '/informe',
+      tag: 'prospect-reminder',
+    }),
+    { ttl: 21600, urgency: 'normal', topic: 'prospect-reminder' }
+  );
+
+  assert.deepEqual(result, { sent: 2, failed: 0, pruned: 0 });
+  const titles = webPushClient.sent.map((s) => s.payload.title).sort();
+  assert.deepEqual(titles, ['Bom dia Maria!', 'Bom dia Pedro!']);
+  assert.equal(webPushClient.sent[0].options.topic, 'prospect-reminder');
+  assert.deepEqual(prisma.calls.findMany[0].where.user.role, { in: ['PROSPECTOR'] });
 });
 
 test('_notifyMovementCreated: falha do push nao propaga (fire-and-forget)', async () => {
