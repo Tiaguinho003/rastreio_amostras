@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { ApiError, getCurrentSession, logout as logoutRequest } from './api-client';
 import { useGlobalLoading } from './loading/loading-context';
+import { clearCachedSession, readCachedSession, writeCachedSession } from './offline/session-cache';
 import { isRoleAllowed } from './roles';
 import type { SessionData, UserRole } from './types';
 
@@ -69,6 +70,8 @@ export function useAuthState() {
 
         setFailureReason(null);
         setSession(currentSession);
+        // Atualiza o snapshot local pra proxima abertura sem internet.
+        writeCachedSession(currentSession);
       })
       .catch((error) => {
         if (!active) {
@@ -81,8 +84,21 @@ export function useAuthState() {
               ? error.details.code
               : null;
           setFailureReason(maybeCode === 'SESSION_EXPIRED' ? 'session-expired' : 'session-ended');
-        } else {
-          setFailureReason(null);
+          // 401 real: sessao acabou de verdade — o snapshot offline morre junto.
+          clearCachedSession();
+          setSession(null);
+          return;
+        }
+
+        setFailureReason(null);
+
+        // Falha de REDE (status 0): aparelho offline. Usa a ultima sessao
+        // conhecida (se ainda valida pelo expiresAt) em vez de expulsar pro
+        // /login — que tambem nao funcionaria sem internet. Demais erros
+        // (5xx etc.) mantem o comportamento atual: sessao nula -> login.
+        if (error instanceof ApiError && error.status === 0) {
+          setSession(readCachedSession());
+          return;
         }
 
         setSession(null);
@@ -105,6 +121,12 @@ export function useAuthState() {
     failureReason,
     replaceSession(nextSession: SessionData | null) {
       setSession(nextSession);
+      // Mantem o snapshot offline em dia (atualizacoes de perfil, logout).
+      if (nextSession) {
+        writeCachedSession(nextSession);
+      } else {
+        clearCachedSession();
+      }
     },
   };
 }
