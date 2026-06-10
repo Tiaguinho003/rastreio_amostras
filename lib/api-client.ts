@@ -87,11 +87,20 @@ async function request<TResponse>(
      * que dependem de freshness garantida.
      */
     cachePolicy?: RequestCache;
+    /** Headers extras (ex: Idempotency-Key no reenvio da fila offline). */
+    extraHeaders?: Record<string, string>;
   } = {}
 ): Promise<TResponse> {
-  const { method = 'GET', body, formData, signal, cachePolicy = 'no-store' } = options;
+  const {
+    method = 'GET',
+    body,
+    formData,
+    signal,
+    cachePolicy = 'no-store',
+    extraHeaders,
+  } = options;
 
-  const headers: HeadersInit = {};
+  const headers: HeadersInit = { ...extraHeaders };
   let finalBody: BodyInit | undefined;
   if (formData) {
     finalBody = formData;
@@ -1697,12 +1706,18 @@ export function createVisitReport(
     interestNotes: string | null;
     sellsCurrently: boolean;
     sellsToWhom: string | null;
-  }
+    /** Hora local do preenchimento (fila offline). Null em envio direto. */
+    capturedAt?: string | null;
+  },
+  options: { idempotencyKey?: string } = {}
 ) {
   return request<VisitReportMutationResponse>('/visit-reports', {
     method: 'POST',
     session,
     body: data,
+    extraHeaders: options.idempotencyKey
+      ? { 'Idempotency-Key': options.idempotencyKey }
+      : undefined,
   });
 }
 

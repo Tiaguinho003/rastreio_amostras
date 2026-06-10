@@ -922,6 +922,9 @@ export interface VisitReportSummary {
   interestNotes: string | null;
   sellsCurrently: boolean;
   sellsToWhom: string | null;
+  /** Hora local do preenchimento (fila offline). Null = envio online direto. */
+  capturedAt: string | null;
+  /** "Recebido em" — carimbado pelo servidor. */
   createdAt: string;
 }
 

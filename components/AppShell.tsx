@@ -10,7 +10,10 @@ import { SampleSearchField } from './SampleSearchField';
 import { UserAvatar } from './UserAvatar';
 import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib/api-client';
 import { changePasswordSchema } from '../lib/form-schemas';
+import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
+import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
 import { getRoleLabel, isAdmin } from '../lib/roles';
+import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
 import { useFocusTrap } from '../lib/use-focus-trap';
@@ -238,6 +241,52 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   const passwordModalTrapRef = useFocusTrap(showPasswordDecisionModal);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const toast = useToast();
+
+  // Fila offline de informes de visita: tenta sincronizar ao montar, quando
+  // a internet volta e quando o app retorna ao primeiro plano. O resultado
+  // chega pelo evento global do modulo de sync — anunciado AQUI (unico
+  // listener) pra valer em qualquer pagina sem duplicar toast.
+  useVisitOutboxAutoSync(session);
+
+  useEffect(() => {
+    const handleSyncCompleted = (event: Event) => {
+      const result = (event as CustomEvent<VisitSyncResult>).detail;
+      if (!result) {
+        return;
+      }
+
+      if (result.authExpired) {
+        toast.error({
+          title: 'Sessão expirada',
+          description: 'Entre novamente para enviar os informes pendentes.',
+        });
+        return;
+      }
+
+      if (result.sent > 0) {
+        toast.success({
+          title:
+            result.sent === 1
+              ? 'Informe pendente enviado'
+              : `${result.sent} informes pendentes enviados`,
+        });
+      }
+
+      if (result.failed > 0) {
+        toast.error({
+          title:
+            result.failed === 1
+              ? '1 informe não pôde ser enviado'
+              : `${result.failed} informes não puderam ser enviados`,
+          description: 'Continuam salvos no aparelho.',
+        });
+      }
+    };
+
+    window.addEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
+    return () => window.removeEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
+  }, [toast]);
 
   const profileName =
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
