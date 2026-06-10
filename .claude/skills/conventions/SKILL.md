@@ -23,6 +23,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `src/uploads/` — upload com magic bytes validation
 - `src/email/` — email via SMTP ou outbox
 - `src/clients/` — dominio de clientes
+- `src/visits/` — informes de visita (formulario `/informe` + listagem admin `/resumo`)
 - `src/db/` — Prisma client singleton
 - `tests/` — testes na raiz (nao em `__tests__/`)
 - `prisma/` — schema + migrations + seed
