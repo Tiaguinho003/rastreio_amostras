@@ -6,7 +6,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { UserAvatar } from '../../components/UserAvatar';
-import { ApiError, listVisitReports } from '../../lib/api-client';
+import { ApiError, deleteVisitReport, listVisitReports } from '../../lib/api-client';
+import { isAdmin } from '../../lib/roles';
+import { useToast } from '../../lib/toast/ToastProvider';
 import type { VisitReportSummary } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/visit-report';
@@ -15,6 +17,9 @@ import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/vi
 // isVisitReportViewer; acessada pelo menu do avatar e pelas notificacoes
 // situacionais de visita): feed dos informes enviados pela equipe na pagina
 // /informe. Mais recentes primeiro, com "Carregar mais" (append) no rodape.
+// Cards sao accordions: colapsados mostram so cabecalho + cliente; o clique
+// expande revelando as respostas e, para admin, o "Excluir informe"
+// (DELETE /visit-reports/:id e admin-only no backend).
 // Backend: GET /visit-reports (VISIT_REPORT_VIEWER_ROLES no service).
 
 const PAGE_LIMIT = 20;
@@ -43,6 +48,7 @@ export default function ResumoPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: ['ADMIN', 'COMMERCIAL', 'CADASTRO'],
   });
+  const toast = useToast();
 
   const [items, setItems] = useState<VisitReportSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -51,6 +57,13 @@ export default function ResumoPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Accordion: ids dos cards expandidos (toggle independente por card).
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Exclusao (admin): informe alvo do modal de confirmacao + request em voo.
+  const [deleteTarget, setDeleteTarget] = useState<VisitReportSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadPage = useCallback(
     async (targetPage: number, mode: 'replace' | 'append') => {
@@ -96,9 +109,64 @@ export default function ResumoPage() {
     }
   }, [session, loadPage]);
 
+  const toggleExpanded = useCallback((reportId: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(reportId)) {
+        next.delete(reportId);
+      } else {
+        next.add(reportId);
+      }
+      return next;
+    });
+  }, []);
+
+  const removeFromList = useCallback((reportId: string) => {
+    setItems((current) => current.filter((item) => item.id !== reportId));
+    setTotal((current) => Math.max(0, current - 1));
+    setExpandedIds((current) => {
+      if (!current.has(reportId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(reportId);
+      return next;
+    });
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!session || !deleteTarget || deleting) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteVisitReport(session, deleteTarget.id);
+      removeFromList(deleteTarget.id);
+      setDeleteTarget(null);
+      toast.success({ title: 'Informe excluído' });
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        // Ja sumiu no servidor (excluido em outra sessao): alinha a lista.
+        removeFromList(deleteTarget.id);
+        setDeleteTarget(null);
+        toast.info({ title: 'Informe já havia sido excluído' });
+      } else {
+        toast.error({
+          title: 'Não foi possível excluir',
+          description: cause instanceof ApiError ? cause.message : 'Tente novamente.',
+        });
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }, [session, deleteTarget, deleting, removeFromList, toast]);
+
   if (loading || !session) {
     return null;
   }
+
+  const canDelete = isAdmin(session.user.role);
 
   const userFullName = session.user.fullName ?? session.user.username;
   const userAvatarInitials = userFullName
@@ -191,91 +259,138 @@ export default function ResumoPage() {
                     : report.client
                       ? `Código ${report.client.code}`
                       : null;
+                  const isExpanded = expandedIds.has(report.id);
 
                   return (
-                    <article key={report.id} className="rsm-card">
-                      <header className="rsm-card-head">
-                        <UserAvatar
-                          size="sm"
-                          user={{
-                            fullName: report.user?.fullName ?? report.user?.username ?? '—',
-                            username: report.user?.username ?? '—',
-                          }}
-                        />
-                        <div className="rsm-card-head-text">
-                          <p className="rsm-card-user">
-                            {report.user?.fullName ?? report.user?.username ?? 'Usuário'}
-                          </p>
-                          <p className="rsm-card-when">
-                            {formatVisitDateTime(report.capturedAt ?? report.createdAt)}
-                            {wasSentLater(report) ? (
-                              <span
-                                className="rsm-offline-tag"
-                                title={`Recebido em ${formatVisitDateTime(report.createdAt)}`}
-                              >
-                                enviado depois
-                              </span>
-                            ) : null}
-                          </p>
-                        </div>
-                      </header>
+                    <article
+                      key={report.id}
+                      className={`rsm-card${isExpanded ? ' is-expanded' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="rsm-card-toggle"
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleExpanded(report.id)}
+                      >
+                        <header className="rsm-card-head">
+                          <UserAvatar
+                            size="sm"
+                            user={{
+                              fullName: report.user?.fullName ?? report.user?.username ?? '—',
+                              username: report.user?.username ?? '—',
+                            }}
+                          />
+                          <div className="rsm-card-head-text">
+                            <p className="rsm-card-user">
+                              {report.user?.fullName ?? report.user?.username ?? 'Usuário'}
+                            </p>
+                            <p className="rsm-card-when">
+                              {formatVisitDateTime(report.capturedAt ?? report.createdAt)}
+                              {wasSentLater(report) ? (
+                                <span
+                                  className="rsm-offline-tag"
+                                  title={`Recebido em ${formatVisitDateTime(report.createdAt)}`}
+                                >
+                                  enviado depois
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+                        </header>
 
-                      <div className="rsm-card-client">
-                        <span
-                          className={`rsm-client-icon${isNewClient ? ' is-new' : ''}`}
-                          aria-hidden="true"
-                        >
-                          {isNewClient ? (
-                            <svg viewBox="0 0 24 24" focusable="false">
-                              <circle cx="10" cy="8" r="4" />
-                              <path d="M3 21c0-3.9 3.1-7 7-7 1.2 0 2.4 0.3 3.4 0.9" />
-                              <path d="M18 14v6" />
-                              <path d="M15 17h6" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 24 24" focusable="false">
-                              <circle cx="12" cy="8" r="4" />
-                              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-                            </svg>
-                          )}
-                        </span>
-                        <div className="rsm-card-client-text">
-                          <p className="rsm-client-name">
-                            {clientName}
+                        <div className="rsm-card-client">
+                          <span
+                            className={`rsm-client-icon${isNewClient ? ' is-new' : ''}`}
+                            aria-hidden="true"
+                          >
                             {isNewClient ? (
-                              <span className="rsm-client-tag">Cliente novo</span>
+                              <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="10" cy="8" r="4" />
+                                <path d="M3 21c0-3.9 3.1-7 7-7 1.2 0 2.4 0.3 3.4 0.9" />
+                                <path d="M18 14v6" />
+                                <path d="M15 17h6" />
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" focusable="false">
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                              </svg>
+                            )}
+                          </span>
+                          <div className="rsm-card-client-text">
+                            <p className="rsm-client-name">
+                              {clientName}
+                              {isNewClient ? (
+                                <span className="rsm-client-tag">Cliente novo</span>
+                              ) : null}
+                            </p>
+                            {clientMeta ? <p className="rsm-client-meta">{clientMeta}</p> : null}
+                          </div>
+                          <span className="rsm-card-chevron" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                              <path d="m6 9 6 6 6-6" />
+                            </svg>
+                          </span>
+                        </div>
+                      </button>
+
+                      <div className="rsm-card-details">
+                        <div className="rsm-card-details-inner">
+                          <dl className="rsm-answers">
+                            <div className="rsm-answer">
+                              <dt>Tamanho da fazenda</dt>
+                              <dd>{getVisitFarmSizeLabel(report.farmSize)}</dd>
+                              {report.farmSizeNotes ? (
+                                <dd className="rsm-answer-notes">“{report.farmSizeNotes}”</dd>
+                              ) : null}
+                            </div>
+                            <div className="rsm-answer">
+                              <dt>Interesse em comercializar</dt>
+                              <dd>{getVisitInterestDetailLabel(report.interestLevel)}</dd>
+                              {report.interestNotes ? (
+                                <dd className="rsm-answer-notes">“{report.interestNotes}”</dd>
+                              ) : null}
+                            </div>
+                            <div className="rsm-answer">
+                              <dt>Já comercializa</dt>
+                              <dd>
+                                {report.sellsCurrently
+                                  ? report.sellsToWhom
+                                    ? `Sim — ${report.sellsToWhom}`
+                                    : 'Sim'
+                                  : 'Não'}
+                              </dd>
+                            </div>
+                            {report.generalNotes !== null ? (
+                              <div className="rsm-answer">
+                                <dt>Observações gerais</dt>
+                                <dd>{report.generalNotes}</dd>
+                              </div>
                             ) : null}
-                          </p>
-                          {clientMeta ? <p className="rsm-client-meta">{clientMeta}</p> : null}
+                          </dl>
+
+                          {canDelete ? (
+                            <button
+                              type="button"
+                              className="rsm-delete-btn"
+                              tabIndex={isExpanded ? undefined : -1}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteTarget(report);
+                              }}
+                            >
+                              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                              </svg>
+                              Excluir informe
+                            </button>
+                          ) : null}
                         </div>
                       </div>
-
-                      <dl className="rsm-answers">
-                        <div className="rsm-answer">
-                          <dt>Tamanho da fazenda</dt>
-                          <dd>{getVisitFarmSizeLabel(report.farmSize)}</dd>
-                          {report.farmSizeNotes ? (
-                            <dd className="rsm-answer-notes">“{report.farmSizeNotes}”</dd>
-                          ) : null}
-                        </div>
-                        <div className="rsm-answer">
-                          <dt>Interesse em comercializar</dt>
-                          <dd>{getVisitInterestDetailLabel(report.interestLevel)}</dd>
-                          {report.interestNotes ? (
-                            <dd className="rsm-answer-notes">“{report.interestNotes}”</dd>
-                          ) : null}
-                        </div>
-                        <div className="rsm-answer">
-                          <dt>Já comercializa</dt>
-                          <dd>
-                            {report.sellsCurrently
-                              ? report.sellsToWhom
-                                ? `Sim — ${report.sellsToWhom}`
-                                : 'Sim'
-                              : 'Não'}
-                          </dd>
-                        </div>
-                      </dl>
                     </article>
                   );
                 })}
@@ -297,6 +412,67 @@ export default function ResumoPage() {
           </div>
         </section>
       </section>
+
+      {deleteTarget ? (
+        <div
+          className="app-modal-backdrop"
+          onClick={() => {
+            if (!deleting) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <section
+            className="app-modal is-themed app-confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="rsm-delete-title"
+            aria-describedby="rsm-delete-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="app-modal-header">
+              <div className="app-modal-title-wrap">
+                <h3 id="rsm-delete-title" className="app-modal-title">
+                  Excluir informe?
+                </h3>
+              </div>
+            </header>
+
+            <div className="app-modal-content">
+              <div className="app-confirm-modal-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 17v.01" />
+                </svg>
+              </div>
+              <p id="rsm-delete-description" className="app-confirm-modal-message">
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="app-modal-actions">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                autoFocus
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="app-modal-submit is-danger"
+                onClick={() => void handleConfirmDelete()}
+                disabled={deleting}
+              >
+                {deleting ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </AppShell>
   );
 }
