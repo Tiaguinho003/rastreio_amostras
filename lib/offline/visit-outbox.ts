@@ -18,6 +18,8 @@ export interface VisitOutboxPayload {
   interestNotes: string | null;
   sellsCurrently: boolean;
   sellsToWhom: string | null;
+  /** Campo 5: observacoes gerais (discursivo, opcional). */
+  generalNotes: string | null;
   /** Hora local do preenchimento — vai pro backend como capturedAt. */
   capturedAt: string;
 }

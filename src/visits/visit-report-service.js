@@ -4,6 +4,7 @@ import { HttpError } from '../contracts/errors.js';
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
 import { buildClientDisplayName } from '../clients/client-support.js';
 import {
+  assertAdminActor,
   assertAuthenticatedActor,
   normalizeOptionalText,
   normalizeRequiredText,
@@ -162,6 +163,7 @@ function toVisitReportView(row) {
     interestNotes: row.interestNotes,
     sellsCurrently: row.sellsCurrently,
     sellsToWhom: row.sellsToWhom,
+    generalNotes: row.generalNotes,
     capturedAt: toIsoString(row.capturedAt),
     createdAt: toIsoString(row.createdAt),
   };
@@ -317,6 +319,8 @@ export class VisitReportService {
     const sellsToWhom = sellsCurrently
       ? normalizeOptionalText(input?.sellsToWhom, 'sellsToWhom', NOTES_MAX)
       : null;
+    // Campo 5: observacoes gerais — discursivo e opcional.
+    const generalNotes = normalizeOptionalText(input?.generalNotes, 'generalNotes', NOTES_MAX);
     const capturedAt = normalizeCapturedAt(input?.capturedAt);
 
     const created = await this.prisma.visitReport.create({
@@ -334,6 +338,7 @@ export class VisitReportService {
         interestNotes,
         sellsCurrently,
         sellsToWhom,
+        generalNotes,
         capturedAt,
       },
       include: {
@@ -346,6 +351,23 @@ export class VisitReportService {
     await this._notifyVisitReportCreated(view, actorContext);
 
     return { report: view };
+  }
+
+  // Exclusao e CURADORIA do feed — exclusiva da Administracao (Comercial e
+  // Cadastro seguem somente-leitura no /resumo). Hard delete: o informe nao
+  // participa de projecoes nem do event store.
+  async deleteVisitReport(input, actorContext) {
+    assertAdminActor(actorContext, 'delete visit report');
+    const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
+
+    const result = await this.prisma.visitReport.deleteMany({ where: { id: reportId } });
+    if (result.count === 0) {
+      throw new HttpError(404, 'Visit report not found', {
+        code: 'VISIT_REPORT_NOT_FOUND',
+      });
+    }
+
+    return { removed: true };
   }
 
   async listVisitReports(input, actorContext) {

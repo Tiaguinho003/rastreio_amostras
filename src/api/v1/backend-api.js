@@ -2056,6 +2056,7 @@ export function createBackendApiV1({
                 interestNotes: body.interestNotes,
                 sellsCurrently: body.sellsCurrently,
                 sellsToWhom: body.sellsToWhom,
+                generalNotes: body.generalNotes,
                 capturedAt: body.capturedAt,
               },
               actor
@@ -2064,6 +2065,22 @@ export function createBackendApiV1({
             return { status: 201, body: result };
           },
         });
+      }),
+
+    deleteVisitReport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const reportId = input?.params?.reportId;
+        if (typeof reportId !== 'string' || reportId.length === 0) {
+          throw new HttpError(422, 'reportId path param is required');
+        }
+
+        const result = await visitReportService.deleteVisitReport({ reportId }, actor);
+        return { status: 200, body: result };
       }),
 
     listVisitReports: (input) =>

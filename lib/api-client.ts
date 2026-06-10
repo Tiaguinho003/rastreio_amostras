@@ -42,6 +42,7 @@ import type {
   VisitClientKind,
   VisitFarmSize,
   VisitInterestLevel,
+  VisitReportDeleteResponse,
   VisitReportMutationResponse,
   VisitReportsListResponse,
   PushConfigResponse,
@@ -1708,6 +1709,8 @@ export function createVisitReport(
     interestNotes: string | null;
     sellsCurrently: boolean;
     sellsToWhom: string | null;
+    /** Campo 5: observações gerais (discursivo, opcional). */
+    generalNotes: string | null;
     /** Hora local do preenchimento (fila offline). Null em envio direto. */
     capturedAt?: string | null;
   },
@@ -1720,6 +1723,13 @@ export function createVisitReport(
     extraHeaders: options.idempotencyKey
       ? { 'Idempotency-Key': options.idempotencyKey }
       : undefined,
+  });
+}
+
+export function deleteVisitReport(session: SessionData, reportId: string) {
+  return request<VisitReportDeleteResponse>(`/visit-reports/${reportId}`, {
+    method: 'DELETE',
+    session,
   });
 }
 

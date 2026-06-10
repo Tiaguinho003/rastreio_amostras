@@ -676,9 +676,10 @@ model IdempotencyRecord {
 }
 
 // Informe de visita — envio do formulario da pagina /informe (1 row por
-// envio, ilimitado por usuario). Snapshot imutavel do que foi respondido:
-// nao ha update/delete via API (so create + listagem admin no /resumo).
-// userId e createdAt sao carimbados no servidor, nunca vindos do client.
+// envio, ilimitado por usuario). Snapshot do que foi respondido: sem update
+// via API; DELETE existe e e exclusivo da Administracao (curadoria do
+// /resumo). userId e createdAt sao carimbados no servidor, nunca vindos do
+// client.
 // clientKind decide a identificacao: EXISTING usa clientId (FK em client);
 // NEW usa new_client_name (obrigatorio) + cidade/telefone opcionais.
 // sellsToWhom e texto livre, presente apenas quando sellsCurrently=true.
@@ -699,6 +700,7 @@ model VisitReport {
   interestNotes  String?            @map("interest_notes")
   sellsCurrently Boolean            @map("sells_currently")
   sellsToWhom    String?            @map("sells_to_whom")
+  generalNotes   String?            @map("general_notes")
   capturedAt     DateTime?          @map("captured_at") @db.Timestamptz(6)
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 

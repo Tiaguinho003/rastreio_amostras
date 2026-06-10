@@ -928,6 +928,8 @@ export interface VisitReportSummary {
   interestNotes: string | null;
   sellsCurrently: boolean;
   sellsToWhom: string | null;
+  /** Campo 5: observações gerais (discursivo, opcional). */
+  generalNotes: string | null;
   /** Hora local do preenchimento (fila offline). Null = envio online direto. */
   capturedAt: string | null;
   /** "Recebido em" — carimbado pelo servidor. */
@@ -936,6 +938,10 @@ export interface VisitReportSummary {
 
 export interface VisitReportMutationResponse {
   report: VisitReportSummary;
+}
+
+export interface VisitReportDeleteResponse {
+  removed: boolean;
 }
 
 export interface VisitReportsListResponse {
