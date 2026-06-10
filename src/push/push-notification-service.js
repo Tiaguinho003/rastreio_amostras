@@ -149,14 +149,45 @@ export class PushNotificationService {
    * service indicam problema de VAPID/config — loga e NAO poda.
    */
   async sendToRoles(roles, message, options = {}) {
-    const {
-      ttl = PUSH_DEFAULT_TTL_SECONDS,
-      urgency = 'high',
-      topic = undefined,
-      excludeUserId = null,
-    } = options;
+    const subscriptions = await this._findSubscriptionsByRoles(roles, options);
+    if (subscriptions.length === 0) {
+      return { sent: 0, failed: 0, pruned: 0 };
+    }
 
-    const subscriptions = await this.prisma.pushSubscription.findMany({
+    return this._dispatch(
+      subscriptions.map((subscription) => ({ subscription, message })),
+      options
+    );
+  }
+
+  /**
+   * Variante personalizada: monta a mensagem POR USUARIO (ex: saudacao com
+   * o primeiro nome). buildMessage(user) recebe { id, fullName, username }
+   * e devolve { title, body, url, tag }.
+   */
+  async sendPersonalizedToRoles(roles, buildMessage, options = {}) {
+    const subscriptions = await this._findSubscriptionsByRoles(roles, options, {
+      includeUser: true,
+    });
+    if (subscriptions.length === 0) {
+      return { sent: 0, failed: 0, pruned: 0 };
+    }
+
+    return this._dispatch(
+      subscriptions.map((subscription) => ({
+        subscription,
+        message: buildMessage(subscription.user),
+      })),
+      options
+    );
+  }
+
+  async _findSubscriptionsByRoles(
+    roles,
+    { excludeUserId = null } = {},
+    { includeUser = false } = {}
+  ) {
+    return this.prisma.pushSubscription.findMany({
       where: {
         ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
         user: {
@@ -164,19 +195,17 @@ export class PushNotificationService {
           status: 'ACTIVE',
         },
       },
-      select: { endpoint: true, p256dh: true, auth: true },
+      select: {
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+        ...(includeUser ? { user: { select: { id: true, fullName: true, username: true } } } : {}),
+      },
     });
+  }
 
-    if (subscriptions.length === 0) {
-      return { sent: 0, failed: 0, pruned: 0 };
-    }
-
-    const payload = JSON.stringify({
-      title: truncateText(message.title, TITLE_MAX),
-      body: truncateText(message.body, BODY_MAX),
-      url: message.url ?? '/dashboard',
-      tag: message.tag ?? 'rastreio',
-    });
+  async _dispatch(deliveries, options = {}) {
+    const { ttl = PUSH_DEFAULT_TTL_SECONDS, urgency = 'high', topic = undefined } = options;
 
     const sendOptions = {
       TTL: ttl,
@@ -185,13 +214,18 @@ export class PushNotificationService {
     };
 
     const results = await Promise.allSettled(
-      subscriptions.map((subscription) =>
+      deliveries.map(({ subscription, message }) =>
         this.webPushClient.sendNotification(
           {
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
-          payload,
+          JSON.stringify({
+            title: truncateText(message.title, TITLE_MAX),
+            body: truncateText(message.body, BODY_MAX),
+            url: message.url ?? '/dashboard',
+            tag: message.tag ?? 'rastreio',
+          }),
           sendOptions
         )
       )
@@ -210,7 +244,7 @@ export class PushNotificationService {
       const statusCode = result.reason?.statusCode ?? null;
       if (statusCode === 404 || statusCode === 410) {
         // Inscricao expirada/revogada pelo navegador: poda.
-        deadEndpoints.push(subscriptions[index].endpoint);
+        deadEndpoints.push(deliveries[index].subscription.endpoint);
         return;
       }
 
