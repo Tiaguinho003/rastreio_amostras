@@ -14,6 +14,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `app/` — telas e route handlers (Next.js App Router)
 - `components/` — componentes React compartilhados
 - `lib/` — tipos TS, schemas de formulario, cliente HTTP, utilitarios UI
+- `lib/offline/` — infra offline da PWA: snapshot local de sessao (session-cache), fila de informes em IndexedDB (visit-outbox) + sync com Idempotency-Key (visit-sync)
 - `src/api/` — API framework-agnostic (backend-api.js)
 - `src/samples/` — dominio de amostras (command + query services)
 - `src/users/`, `src/auth/` — usuarios, sessoes, roles, auditoria

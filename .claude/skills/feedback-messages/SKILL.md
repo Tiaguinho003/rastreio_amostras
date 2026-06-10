@@ -125,6 +125,7 @@ Banner é uma faixa horizontal informando uma condição que **permanece enquant
 | Classe                              | Quando                                     | Exemplo                                 |
 | ----------------------------------- | ------------------------------------------ | --------------------------------------- |
 | `.nsv2-offline-banner`              | Conexão offline em `NewSampleModal`        | "Sem conexão"                           |
+| `.inf-offline-banner`               | Conexão offline no formulário `/informe`   | "Sem conexão" + envio salvo no aparelho |
 | `.nsv2-inline-error` (topo de form) | Erro de submit no topo do form (não-campo) | "Este cliente PF não tem fazenda ativa" |
 
 ### Estrutura
