@@ -198,7 +198,7 @@ O `PROSPECTOR` (equipe de campo de prospeccao) usa um app restrito dentro da mes
 
 1. Paginas: apenas o dashboard dedicado e o perfil (tabbar com Inicio + Perfil). As demais rotas redirecionam para `/dashboard` — middleware (UX online) + guard de pagina via `useRequireAuth` (cobre tambem paginas servidas do cache do service worker).
 2. Dashboard dedicado: cards "Visitas hoje" e "Clientes novos hoje" (janela do dia no fuso de Brasilia, base `capturedAt ?? createdAt`), lista dos proprios informes (cards expansiveis compartilhados com `/resumo`) e botao central "+" que abre o formulario de visita num bottom sheet. A fila offline e o contador de pendentes sao os mesmos do `/informe`.
-3. Visibilidade: o prospector ve somente os informes que ele mesmo enviou (lista e contadores).
+3. Visibilidade: a lista do dashboard mostra os informes de todos os prospectores (comparacao da equipe; busca por nome do cliente e contador de registros acompanham). Os cards "Visitas/Hoje" e "Clientes novos/Hoje" contam apenas o que o proprio usuario enviou, e a lixeira de exclusao aparece so nos informes dele.
 4. Lembrete diario de push (seg–sex 11h) abre `/dashboard?informe=novo` com o formulario ja aberto.
 5. API: allowlist central — fora de sessao/conta, push, lookup de clientes e informes, qualquer endpoint autenticado responde `403 ROLE_FORBIDDEN` (fonte canonica: `src/auth/prospector-access.js`).
 6. O formulario continua disponivel na pagina `/informe` para os demais papeis; o feed `/resumo` segue com `ADMIN`, `COMMERCIAL` e `CADASTRO`.

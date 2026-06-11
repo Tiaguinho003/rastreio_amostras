@@ -14,9 +14,10 @@ import {
 
 // Informe de visita (pagina /informe): cada envio do formulario vira 1 row
 // imutavel em visit_report. Qualquer usuario autenticado envia; a listagem
-// e dos viewers (pagina /resumo, veem tudo) e do PROSPECTOR (so os proprios
-// informes, lista do dashboard dele). userId e createdAt sao carimbados
-// no servidor — o body nunca decide quem enviou nem quando.
+// e dos viewers (pagina /resumo, veem tudo) e do PROSPECTOR (informes de
+// todos os autores prospectores — comparacao da equipe — na lista do
+// dashboard dele). userId e createdAt sao carimbados no servidor — o body
+// nunca decide quem enviou nem quando.
 
 export const VISIT_CLIENT_KINDS = Object.freeze(['EXISTING', 'NEW']);
 export const VISIT_FARM_SIZES = Object.freeze(['SMALL', 'MEDIUM', 'LARGE']);
@@ -28,7 +29,7 @@ export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 // Quem ve a pagina /resumo (espelhado no front em lib/roles.ts
 // isVisitReportViewer): Administracao + Comercial + Cadastro — as
 // notificacoes situacionais de visita apontam pra la. PROSPECTOR nao e
-// viewer: lista apenas os proprios informes (escopo forcado por userId).
+// viewer: lista apenas informes de autores PROSPECTOR (escopo forcado).
 export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([
   USER_ROLES.ADMIN,
   USER_ROLES.COMMERCIAL,
@@ -407,12 +408,14 @@ export class VisitReportService {
       [...VISIT_REPORT_VIEWER_ROLES, USER_ROLES.PROSPECTOR],
       'list visit reports'
     );
-    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve apenas os
-    // proprios (lista do dashboard dele) — o escopo e forcado aqui, nunca
-    // decidido pelo cliente.
+    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve os informes
+    // de TODOS os autores com papel PROSPECTOR — o proprio incluido —
+    // para comparacao entre a equipe de campo (mas nao os dos demais
+    // papeis). O escopo e forcado aqui, nunca decidido pelo cliente; os
+    // contadores (getMyVisitReportStats) seguem sendo so do proprio ator.
     const where = {};
     if (actor.role === USER_ROLES.PROSPECTOR) {
-      where.userId = actor.actorUserId;
+      where.user = { is: { role: USER_ROLES.PROSPECTOR } };
     }
 
     // Busca por nome do cliente (barra do dashboard do prospector):

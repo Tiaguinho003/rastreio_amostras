@@ -265,15 +265,17 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listVisitReports: viewers veem tudo; PROSPECTOR so os proprios; 403 pros demais', async () => {
+  test('listVisitReports: viewers veem tudo; PROSPECTOR ve so autores prospectores; 403 pros demais', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
     const classifier = await seedUser('CLASSIFIER');
     const registration = await seedUser('REGISTRATION');
     const prospector = await seedUser('PROSPECTOR');
+    const colleague = await seedUser('PROSPECTOR');
 
-    // Informes de dois autores: 2 do prospector + 1 do comercial.
+    // Informes de tres autores: 2 do prospector + 1 do colega prospector
+    // + 1 do comercial.
     await service.createVisitReport(
       baseInput({ newClientName: 'Visita Prospector 1' }),
       actorFor(prospector)
@@ -283,22 +285,27 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(prospector)
     );
     await service.createVisitReport(
+      baseInput({ newClientName: 'Visita Colega 1' }),
+      actorFor(colleague)
+    );
+    await service.createVisitReport(
       baseInput({ newClientName: 'Visita Comercial 1' }),
       actorFor(commercial)
     );
 
     // Papeis com acesso ao /resumo (VISIT_REPORT_VIEWER_ROLES) veem tudo.
     const allowedCommercial = await service.listVisitReports({}, actorFor(commercial));
-    assert.equal(allowedCommercial.page.total, 3);
+    assert.equal(allowedCommercial.page.total, 4);
     const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
-    assert.equal(allowedCadastro.page.total, 3);
+    assert.equal(allowedCadastro.page.total, 4);
 
-    // PROSPECTOR lista apenas os proprios informes (dashboard dele) —
-    // escopo forcado por userId no service, items e total.
-    const own = await service.listVisitReports({}, actorFor(prospector));
-    assert.equal(own.page.total, 2);
-    assert.equal(own.items.length, 2);
-    assert.ok(own.items.every((item) => item.user.id === prospector.id));
+    // PROSPECTOR ve os informes de TODOS os autores prospectores
+    // (comparacao da equipe), mas nao os dos demais papeis.
+    const team = await service.listVisitReports({}, actorFor(prospector));
+    assert.equal(team.page.total, 3);
+    assert.equal(team.items.length, 3);
+    const teamAuthors = new Set(team.items.map((item) => item.user.id));
+    assert.deepEqual([...teamAuthors].sort(), [prospector.id, colleague.id].sort());
 
     for (const denied of [classifier, registration]) {
       await assert.rejects(
@@ -498,7 +505,8 @@ if (!databaseUrl || !databaseReachable) {
       baseInput({ clientKind: 'EXISTING', clientId: clientJose.id }),
       actorFor(prospector)
     );
-    // De outro autor: casa a busca, mas nunca aparece pro prospector.
+    // De autor COMERCIAL: casa a busca, mas prospector so ve autores
+    // prospectores.
     await service.createVisitReport(
       baseInput({ newClientName: 'Boa Esperanca' }),
       actorFor(commercial)
