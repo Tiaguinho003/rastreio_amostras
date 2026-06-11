@@ -52,6 +52,11 @@ const NEW_CLIENT_PHONE_MAX = 40;
 const NOTES_MAX = 1000;
 const WEEKLY_TEXT_MAX = 2000;
 
+// Regra R1 do lembrete: ultimo relatorio com mais de 6 dias e 12 horas.
+const WEEKLY_REMINDER_MIN_AGE_MS = (6 * 24 + 12) * 3600_000;
+// Regra R2: sexta-feira a partir das 17:00 BRT.
+const WEEKLY_REMINDER_FRIDAY_HOUR_BRT = 17;
+
 // Offset fixo de Brasilia (UTC-3, sem horario de verao desde 2019) —
 // mesmo padrao das demais janelas BRT do projeto.
 const SAO_PAULO_UTC_OFFSET_HOURS = 3;
@@ -483,5 +488,107 @@ export class CommercialFormsService {
       items: skeleton.map((row) => viewById.get(row.id)).filter(Boolean),
       page: buildPage(total, page, limit),
     };
+  }
+
+  // Lembrete de preenchimento do relatorio semanal (push, titulo unico
+  // "Lembre-se do seu relatório." SEM corpo) — avaliado pelo job
+  // push-digest (kind weekly-reminder) a cada execucao agendada. Para cada
+  // COMMERCIAL ATIVO sem o relatorio da SEMANA CORRENTE e sem lembrete ja
+  // emitido nesta semana, dispara quando QUALQUER uma das regras vale:
+  //   R1 — o ultimo relatorio dele (qualquer semana) tem mais de 6 dias e
+  //        12 horas (exige pelo menos um relatorio anterior);
+  //   R2 — e sexta-feira >= 17:00 BRT (cobre tambem quem nunca enviou).
+  // weekly_report_reminder (UNIQUE usuario+semana) garante NO MAXIMO 1
+  // lembrete por semana, qualquer que seja a regra — o marcador e inserido
+  // ANTES do envio (race-safe entre execucoes concorrentes do job).
+  // `now` e injetavel apenas para testes deterministas.
+  async sendWeeklyReportReminders({ pushService, now = new Date(), ttlSeconds = 6 * 3600 } = {}) {
+    if (!pushService) {
+      return { candidates: 0, reminded: 0, sent: 0, failed: 0, pruned: 0 };
+    }
+
+    const { weekStart } = computeWeekReference(now);
+    const ruleOneThreshold = new Date(now.getTime() - WEEKLY_REMINDER_MIN_AGE_MS);
+
+    const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+    const isFridayWindow =
+      brtNow.getUTCDay() === 5 && brtNow.getUTCHours() >= WEEKLY_REMINDER_FRIDAY_HOUR_BRT;
+
+    const commercials = await this.prisma.user.findMany({
+      where: { role: USER_ROLES.COMMERCIAL, status: 'ACTIVE' },
+      select: {
+        id: true,
+        weeklyReports: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true, weekStart: true },
+        },
+        weeklyReportReminders: {
+          where: { weekStart },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    });
+
+    const targets = [];
+    for (const user of commercials) {
+      // Ja lembrado nesta semana (qualquer das regras): nada a fazer.
+      if (user.weeklyReportReminders.length > 0) {
+        continue;
+      }
+
+      // O relatorio mais recente e o de maior weekStart — se for o da
+      // semana corrente, o usuario ja cumpriu a semana.
+      const last = user.weeklyReports[0] ?? null;
+      if (last && last.weekStart.getTime() === weekStart.getTime()) {
+        continue;
+      }
+
+      const ruleOne = last !== null && last.createdAt.getTime() <= ruleOneThreshold.getTime();
+      if (ruleOne || isFridayWindow) {
+        targets.push(user.id);
+      }
+    }
+
+    // Marca ANTES de enviar: a UNIQUE derruba a corrida entre execucoes.
+    const remindedIds = [];
+    for (const userId of targets) {
+      try {
+        await this.prisma.weeklyReportReminder.create({
+          data: { id: randomUUID(), userId, weekStart },
+        });
+        remindedIds.push(userId);
+      } catch (error) {
+        if (error?.code === 'P2002') {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    let sent = 0;
+    let failed = 0;
+    let pruned = 0;
+    if (remindedIds.length > 0) {
+      const result = await pushService.sendToUsers(
+        remindedIds,
+        {
+          title: 'Lembre-se do seu relatório.',
+          // Sem corpo, por decisao de produto — o SW renderiza so o titulo
+          // (body '' e intencional; fallback do SW vale so pra payload
+          // malformado).
+          body: '',
+          url: '/informe',
+          tag: 'weekly-report-reminder',
+        },
+        { ttl: ttlSeconds, urgency: 'normal' }
+      );
+      sent = result.sent;
+      failed = result.failed;
+      pruned = result.pruned;
+    }
+
+    return { candidates: targets.length, reminded: remindedIds.length, sent, failed, pruned };
   }
 }

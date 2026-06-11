@@ -8,7 +8,7 @@
 // servidos do cache antigo eternamente. Foi a causa do bug "barra bege
 // nao some" persistir por 13 tentativas de fix — todos os fixes estavam
 // em prod mas os clients viam HTML/JS cacheado do SW antigo.
-const CACHE_NAME = 'rastreio-shell-v11-2026-06-10-web-push';
+const CACHE_NAME = 'rastreio-shell-v12-2026-06-11-weekly-reminder';
 const STATIC_PATHS = ['/', '/login', '/offline', '/informe', '/manifest.webmanifest', '/logo-laudo.png', '/logo-safras-branco.png'];
 // Documentos cujo HTML e varrido no install pra precachear tambem os chunks
 // JS/CSS que eles referenciam. Sem isso o precache do documento e inutil
@@ -167,8 +167,13 @@ self.addEventListener('push', (event) => {
   }
 
   const title = (payload && payload.title) || 'Amostras Safras';
+  // body '' e INTENCIONAL (notificacao so com titulo, ex: lembrete do
+  // relatorio semanal do comercial) — o fallback generico vale apenas
+  // quando o payload veio ausente/malformado (body nao-string).
+  const body =
+    payload && typeof payload.body === 'string' ? payload.body : 'Você tem uma nova notificação.';
   const options = {
-    body: (payload && payload.body) || 'Você tem uma nova notificação.',
+    body,
     tag: (payload && payload.tag) || 'rastreio',
     icon: '/icon-safras.png',
     badge: '/icon-safras.png',

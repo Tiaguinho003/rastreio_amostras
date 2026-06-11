@@ -11,8 +11,14 @@
 //   --kind=prospect-reminder   seg-sex 11:00
 //     "Bom dia <primeiro nome>!" -> PROSPECTOR (personalizada por usuario,
 //     sem condicao — e lembrete de preencher o formulario de visita).
+//   --kind=weekly-reminder     de hora em hora, 08:00-20:00 (todos os dias)
+//     "Lembre-se do seu relatório." (SEM corpo) -> COMMERCIAL, quando o
+//     ultimo relatorio tem mais de 6d12h OU e sexta >= 17:00 BRT sem o
+//     relatorio da semana. Max 1 por usuario por semana (marcador em
+//     weekly_report_reminder) — logica em
+//     src/visits/commercial-forms-service.js (sendWeeklyReportReminders).
 //
-// Sem --kind: roda os TRES (uso manual/smoke):
+// Sem --kind: roda TODOS (uso manual/smoke):
 //   npm run push:digest
 //   scripts/gcp/execute-job.sh push-digest <cloud-env> [--kind=X]
 //
@@ -28,11 +34,12 @@
 import { getPrismaClient } from '../../src/db/prisma-client.js';
 import { createPushServiceFromEnv } from '../../src/push/create-push-service.js';
 import { SampleQueryService } from '../../src/samples/sample-query-service.js';
+import { CommercialFormsService } from '../../src/visits/commercial-forms-service.js';
 
 const PENDING_TTL_SECONDS = 12 * 60 * 60;
 const REMINDER_TTL_SECONDS = 6 * 60 * 60;
 
-const KNOWN_KINDS = ['classification', 'registrations', 'prospect-reminder'];
+const KNOWN_KINDS = ['classification', 'registrations', 'prospect-reminder', 'weekly-reminder'];
 
 function parseKinds(argv) {
   const kindArg = argv.find((arg) => arg.startsWith('--kind='));
@@ -117,6 +124,16 @@ async function sendProspectReminder({ pushService }) {
   console.log('[push-digest] lembrete prospeccao enviado', result);
 }
 
+// Lembrete do relatorio semanal do comercial — elegibilidade, dedup
+// semanal (weekly_report_reminder) e envio ficam no service.
+async function sendWeeklyReportReminder({ pushService, commercialFormsService }) {
+  const result = await commercialFormsService.sendWeeklyReportReminders({
+    pushService,
+    ttlSeconds: REMINDER_TTL_SECONDS,
+  });
+  console.log('[push-digest] lembrete relatorio semanal', result);
+}
+
 async function main() {
   const kinds = parseKinds(process.argv.slice(2));
   if (kinds.length === 0) {
@@ -132,7 +149,8 @@ async function main() {
   }
 
   const queryService = new SampleQueryService({ prisma });
-  const context = { pushService, queryService };
+  const commercialFormsService = new CommercialFormsService({ prisma });
+  const context = { pushService, queryService, commercialFormsService };
 
   for (const kind of kinds) {
     if (kind === 'classification') {
@@ -141,6 +159,8 @@ async function main() {
       await sendRegistrationsDigest(context);
     } else if (kind === 'prospect-reminder') {
       await sendProspectReminder(context);
+    } else if (kind === 'weekly-reminder') {
+      await sendWeeklyReportReminder(context);
     }
   }
 

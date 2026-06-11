@@ -161,6 +161,38 @@ export class PushNotificationService {
   }
 
   /**
+   * Envia para todos os aparelhos inscritos de usuarios ESPECIFICOS
+   * (ativos). Mesmo contrato/agregacao do sendToRoles — usado quando a
+   * elegibilidade e calculada por usuario fora daqui (ex: lembrete do
+   * relatorio semanal do comercial).
+   */
+  async sendToUsers(userIds, message, options = {}) {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return { sent: 0, failed: 0, pruned: 0 };
+    }
+
+    const subscriptions = await this.prisma.pushSubscription.findMany({
+      where: {
+        userId: { in: userIds },
+        user: { status: 'ACTIVE' },
+      },
+      select: {
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+      },
+    });
+    if (subscriptions.length === 0) {
+      return { sent: 0, failed: 0, pruned: 0 };
+    }
+
+    return this._dispatch(
+      subscriptions.map((subscription) => ({ subscription, message })),
+      options
+    );
+  }
+
+  /**
    * Variante personalizada: monta a mensagem POR USUARIO (ex: saudacao com
    * o primeiro nome). buildMessage(user) recebe { id, fullName, username }
    * e devolve { title, body, url, tag }.

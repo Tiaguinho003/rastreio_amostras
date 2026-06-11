@@ -24,8 +24,20 @@ if (!databaseUrl || !databaseReachable) {
 
   async function resetDatabase() {
     await prisma.$executeRawUnsafe(
-      'TRUNCATE TABLE commercial_visit, weekly_report, visit_report, idempotency_record, client_audit_event, client_commercial_user, client_unit, client, user_session, app_user RESTART IDENTITY CASCADE'
+      'TRUNCATE TABLE weekly_report_reminder, commercial_visit, weekly_report, visit_report, idempotency_record, client_audit_event, client_commercial_user, client_unit, client, user_session, app_user RESTART IDENTITY CASCADE'
     );
+  }
+
+  // Mock do push service pro lembrete semanal: captura os envios.
+  function createPushMock() {
+    const calls = [];
+    return {
+      calls,
+      async sendToUsers(userIds, message, options) {
+        calls.push({ userIds: [...userIds].sort(), message, options });
+        return { sent: userIds.length, failed: 0, pruned: 0 };
+      },
+    };
   }
 
   async function seedUser(role, suffix = randomUUID().slice(0, 8)) {
@@ -379,6 +391,112 @@ if (!databaseUrl || !databaseReachable) {
 
     assert.equal(await prisma.commercialVisit.count(), 0);
     assert.equal(await prisma.weeklyReport.count(), 0);
+  });
+
+  test('sendWeeklyReportReminders: R1 (>6d12h), R2 (sexta 17h BRT) e 1 lembrete por semana', async () => {
+    await resetDatabase();
+    const veteran = await seedUser('COMMERCIAL'); // tem relatorio antigo
+    const fresh = await seedUser('COMMERCIAL'); // nunca enviou
+    const done = await seedUser('COMMERCIAL'); // ja cumpriu a semana
+    await seedUser('PROSPECTOR'); // fora do papel — nunca lembrado
+
+    // "Agora": quarta 2026-06-10 14:00 BRT (17:00Z). Semana corrente: 08/06.
+    const wednesday = new Date('2026-06-10T17:00:00.000Z');
+
+    // veteran: ultimo relatorio (semana passada) ha exatos 7 dias.
+    await prisma.weeklyReport.create({
+      data: {
+        id: randomUUID(),
+        userId: veteran.id,
+        weekStart: new Date('2026-06-01'),
+        summary: 'semana passada',
+        createdAt: new Date('2026-06-03T17:00:00.000Z'),
+      },
+    });
+    // done: relatorio DESTA semana — nunca lembrado.
+    await prisma.weeklyReport.create({
+      data: {
+        id: randomUUID(),
+        userId: done.id,
+        weekStart: new Date('2026-06-08'),
+        summary: 'feita',
+        createdAt: new Date('2026-06-09T12:00:00.000Z'),
+      },
+    });
+
+    // Quarta: so R1 — apenas veteran (fresh nao tem relatorio anterior).
+    const push1 = createPushMock();
+    const r1 = await service.sendWeeklyReportReminders({ pushService: push1, now: wednesday });
+    assert.equal(r1.reminded, 1);
+    assert.deepEqual(push1.calls[0].userIds, [veteran.id]);
+    assert.equal(push1.calls[0].message.title, 'Lembre-se do seu relatório.');
+    assert.equal(push1.calls[0].message.body, '');
+    assert.equal(push1.calls[0].message.url, '/informe');
+
+    // Re-execucao (job roda de hora em hora): dedup — nada novo.
+    const push2 = createPushMock();
+    const r2 = await service.sendWeeklyReportReminders({ pushService: push2, now: wednesday });
+    assert.equal(r2.reminded, 0);
+    assert.equal(push2.calls.length, 0);
+
+    // Sexta 17:00 BRT (20:00Z): R2 pega fresh; veteran segue dedupado
+    // (uma das regras ja lembrou nesta semana); done cumpriu a semana.
+    const friday = new Date('2026-06-12T20:00:00.000Z');
+    const push3 = createPushMock();
+    const r3 = await service.sendWeeklyReportReminders({ pushService: push3, now: friday });
+    assert.equal(r3.reminded, 1);
+    assert.deepEqual(push3.calls[0].userIds, [fresh.id]);
+
+    // Semana seguinte: dedup zera (novo week_start) — veteran volta a ser
+    // elegivel por R1 (ultimo relatorio agora bem antigo).
+    const nextWednesday = new Date('2026-06-17T17:00:00.000Z');
+    const push4 = createPushMock();
+    const r4 = await service.sendWeeklyReportReminders({ pushService: push4, now: nextWednesday });
+    assert.ok(push4.calls[0].userIds.includes(veteran.id));
+    assert.equal(r4.reminded, push4.calls[0].userIds.length);
+  });
+
+  test('sendWeeklyReportReminders: fronteiras de R1 (6d12h) e R2 (17:00 BRT)', async () => {
+    await resetDatabase();
+    const user = await seedUser('COMMERCIAL');
+    // Quarta 2026-06-10 14:00 BRT.
+    const now = new Date('2026-06-10T17:00:00.000Z');
+
+    // Ultimo relatorio ha 6d11h: AINDA nao dispara.
+    await prisma.weeklyReport.create({
+      data: {
+        id: randomUUID(),
+        userId: user.id,
+        weekStart: new Date('2026-06-01'),
+        summary: 'x',
+        createdAt: new Date(now.getTime() - (6 * 24 + 11) * 3600_000),
+      },
+    });
+    const pushA = createPushMock();
+    const a = await service.sendWeeklyReportReminders({ pushService: pushA, now });
+    assert.equal(a.reminded, 0);
+
+    // Ha 6d13h: dispara.
+    await prisma.weeklyReport.updateMany({
+      where: { userId: user.id },
+      data: { createdAt: new Date(now.getTime() - (6 * 24 + 13) * 3600_000) },
+    });
+    const pushB = createPushMock();
+    const b = await service.sendWeeklyReportReminders({ pushService: pushB, now });
+    assert.equal(b.reminded, 1);
+
+    // R2: sexta 16:59 BRT nao dispara pra quem nunca enviou; 17:00 sim.
+    const fresh = await seedUser('COMMERCIAL');
+    const fridayEarly = new Date('2026-06-12T19:59:00.000Z');
+    const pushC = createPushMock();
+    const c = await service.sendWeeklyReportReminders({ pushService: pushC, now: fridayEarly });
+    assert.equal(c.reminded, 0);
+
+    const fridayAt = new Date('2026-06-12T20:00:00.000Z');
+    const pushD = createPushMock();
+    const d = await service.sendWeeklyReportReminders({ pushService: pushD, now: fridayAt });
+    assert.equal(d.reminded, 1);
+    assert.deepEqual(pushD.calls[0].userIds, [fresh.id]);
   });
 
   // O service do prospector segue funcionando lado a lado (smoke do feed).
