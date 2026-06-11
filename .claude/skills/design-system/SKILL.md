@@ -281,7 +281,15 @@ Excecao a regra "nunca verde ao clicar":
 
 **Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
 
-- **Variante `.is-informe` (formulario de visita):** torna o formulario NATIVO do sheet — as secoes `.inf-card` sao achatadas (sem fundo/sombra/borda de card; divisorias suaves entre secoes) e o `.inf-form` ganha padding lateral proprio (o `.bottom-sheet-body` nao tem padding horizontal; sem isso os cards batiam na borda do modal). Usada por `components/visits/VisitReportFormSheet.tsx` (botao "+" do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute `components/visits/VisitReportForm.tsx` — **exclusivo do prospector**; a pagina `/informe` e placeholder dos futuros formularios por papel (`.informe-placeholder`). Confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
+- **Variante `.is-informe` (formularios de visita/relatorio):** torna o formulario NATIVO do sheet — as secoes `.inf-card` sao achatadas (sem fundo/sombra/borda de card; divisorias suaves entre secoes) e o `.inf-form` ganha padding lateral proprio (o `.bottom-sheet-body` nao tem padding horizontal; sem isso os cards batiam na borda do modal). Usada pelos sheets do prospector (`components/visits/VisitReportFormSheet`) e do comercial (`components/informe/CommercialVisitFormSheet` + `WeeklyReportFormSheet`). Confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
+
+### Pagina /informe do COMERCIAL (formularios por papel)
+
+- `role === 'COMMERCIAL' || isAdmin` → `components/informe/InformeCommercialPage.tsx` com o shell da `/samples` (`.samples-page-v2` + header + `.hero-search-wrap.is-informe` SEM barra de busca — vira so um respiro verde — + `.samples-page-v2-sheet` com `.spv2-list-meta`/`.spv2-list-scroll`); demais papeis nao-comerciais seguem no placeholder `.informe-placeholder`
+- **FAB radial de LAPIS** (`InformeCreateRadialFab`, copy-adapt do SampleCreateRadialFab — comentario cruzado): variante `.cv2-fab.is-informe-fab` com DOIS svgs empilhados (lapis ↔ ×) em **crossfade** (grid-area 1/1; neutraliza o rotate 45° herdado do `.is-expanded`); opcoes do drawer "Visitas" (prancheta-check) e "Relatório" (calendario) nas classes `fab-menu-*`
+- Feed proprio (scope=mine): cards `rsm-*` por tipo com **badge `.rsm-type-badge`** (`.is-visit` verde / `.is-weekly` azul / `.is-prospect` ambar — pill uppercase no canto direito do `.rsm-card-head`; convive com a lixeira via margin-right em `.has-quick-delete`); lixeira + confirm central; "Carregar mais" (mecanica rsm — o espelhamento da /samples e o shell visual, nao o cursor/sentinel)
+- Relatorio semanal: campo read-only `.informe-week-label` ("Semana de DD/MM a DD/MM", espelho client-side `lib/weekly-report.ts`); 409 do servidor abre modal central de aviso `.is-stacked` ("Relatório já enviado", botao unico "Entendi") — regra bloqueante → modal, conforme skill feedback-messages
+- `/resumo` consome o mesmo feed (scope=all) e renderiza os 3 tipos: `VisitReportCard typeBadge="Prospecção"`, `CommercialVisitCard`, `WeeklyReportCard`
 
 ### Modal central (`.app-modal.is-themed`)
 

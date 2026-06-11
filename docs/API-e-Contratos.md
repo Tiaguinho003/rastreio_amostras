@@ -186,6 +186,19 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 4. `DELETE /api/v1/visit-reports/:reportId`
    `ADMIN` exclui qualquer informe (curadoria do feed `/resumo`); os demais papeis excluem apenas o proprio (lixeira do dashboard do prospector). Informe alheio responde 404, igual a inexistente.
 
+### Formularios do comercial
+
+5. `POST /api/v1/commercial-visits`
+   Visita do comercial (papeis `COMMERCIAL` e `ADMIN`). Body: `clientKind` (EXISTING/NEW + campos de cliente, mesma regra do informe do prospector), `reason` (NEGOTIATION / SAMPLE_DELIVERY_OR_PICKUP / COLLECTION / RELATIONSHIP), `outcome` (DEAL_CLOSED / PROPOSAL_IN_PROGRESS / NO_PROGRESS / NO_INTEREST), `outcomeNotes`/`generalNotes` opcionais. Sem fila offline (sem Idempotency-Key).
+6. `DELETE /api/v1/commercial-visits/:visitId`
+   Autor exclui o proprio; `ADMIN` exclui qualquer (alheio = 404).
+7. `POST /api/v1/weekly-reports`
+   Relatorio semanal (`COMMERCIAL`/`ADMIN`). Body: `summary` (obrigatorio), `difficulties`, `nextWeekPlan`. A semana de referencia (segunda BRT) e SEMPRE computada pelo servidor; max 1 por usuario por semana — duplicata responde `409 WEEKLY_REPORT_ALREADY_EXISTS`.
+8. `DELETE /api/v1/weekly-reports/:reportId`
+   Mesma regra autor-ou-admin.
+9. `GET /api/v1/informe-feed?scope=mine|all`
+   Feed combinado paginado (`page`, `limit` max 100), mais recentes primeiro, itens com `type` discriminador. `scope=mine` (papeis `COMMERCIAL`/`ADMIN`): visitas + relatorios do proprio ator — alimenta a pagina /informe do comercial. `scope=all` (viewers do /resumo): os 3 tipos (incluindo `VISIT_REPORT` do prospector) de todos os autores.
+
 ### Politica de acesso do PROSPECTOR
 
 Alem dos guards de navegacao, um gate central em `resolveActorContext` (`src/api/v1/backend-api.js`) responde `403 ROLE_FORBIDDEN` para o `PROSPECTOR` em qualquer metodo autenticado fora da allowlist `PROSPECTOR_ALLOWED_API_METHODS` — fonte canonica em `src/auth/prospector-access.js` (sessao/conta, push, lookup de clientes e informes). Consultar o modulo em vez de duplicar a lista aqui.

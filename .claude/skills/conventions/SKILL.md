@@ -24,7 +24,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `src/uploads/` — upload com magic bytes validation
 - `src/email/` — email via SMTP ou outbox
 - `src/clients/` — dominio de clientes
-- `src/visits/` — informes de visita: formulario exclusivo do PROSPECTOR (sheet do dashboard; a pagina `/informe` e placeholder de formularios por papel), feed `/resumo` (viewers veem tudo), lista do dashboard do prospector (todos os autores PROSPECTOR) + stats proprios + busca por nome; allowlist de API em `src/auth/prospector-access.js`
+- `src/visits/` — formularios por papel: `visit-report-service` (informe do PROSPECTOR — sheet do dashboard dele, lista de todos os autores prospectores + stats proprios + busca por nome) e `commercial-forms-service` (visita do COMERCIAL + relatorio semanal com UNIQUE por semana + feed combinado `listInformeFeed` dos 3 tipos que alimenta a pagina /informe do comercial em scope=mine e o `/resumo` em scope=all); allowlist de API do prospector em `src/auth/prospector-access.js`
 - `src/push/` — Web Push (inscricoes + envio VAPID; gatilhos fire-and-forget nos services)
 - `src/db/` — Prisma client singleton
 - `tests/` — testes na raiz (nao em `__tests__/`)

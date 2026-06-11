@@ -201,7 +201,7 @@ O `PROSPECTOR` (equipe de campo de prospeccao) usa um app restrito dentro da mes
 3. Visibilidade: a lista do dashboard mostra os informes de todos os prospectores (comparacao da equipe; busca por nome do cliente e contador de registros acompanham). Os cards "Visitas/Hoje" e "Clientes novos/Hoje" contam apenas o que o proprio usuario enviou, e a lixeira de exclusao aparece so nos informes dele.
 4. Lembrete diario de push (seg–sex 11h) abre `/dashboard?informe=novo` com o formulario ja aberto.
 5. API: allowlist central — fora de sessao/conta, push, lookup de clientes e informes, qualquer endpoint autenticado responde `403 ROLE_FORBIDDEN` (fonte canonica: `src/auth/prospector-access.js`).
-6. O formulario de visita e EXCLUSIVO do prospector (sheet do dashboard). A pagina `/informe` segue existindo para os demais papeis como placeholder — cada papel ganhara seu proprio formulario ali no futuro. O feed `/resumo` segue com `ADMIN`, `COMMERCIAL` e `CADASTRO`.
+6. O formulario de visita do prospector e EXCLUSIVO dele (sheet do dashboard). A pagina `/informe` e dos formularios POR PAPEL: o COMMERCIAL (e o ADMIN) tem pagina propria — shell da /samples com FAB de lapis abrindo "Visitas" (motivo + resultado da negociacao) e "Relatorio" (semanal, max 1 por semana) e o feed dos proprios envios com lixeira; os demais papeis seguem no placeholder. O feed `/resumo` mostra os 3 tipos com badges (Prospeccao / Visita / Relatorio) para `ADMIN`, `COMMERCIAL` e `CADASTRO` — um comercial ve os formularios dos colegas por la (decisao confirmada).
 
 ## Fora do escopo atual
 

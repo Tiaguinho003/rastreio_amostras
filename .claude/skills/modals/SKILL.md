@@ -527,14 +527,19 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 > `app-modal-dashboard` e classe scoped pra largura especifica (maior que o default 38rem do `.is-themed`). Selector de 3 classes `.app-modal.is-themed.app-modal-dashboard` sobrescreve sem `!important`. Cards internos usam `.app-modal-card*` (titulo do lote livre, linhas auxiliares truncadas em 50% pra nao colidir com CTA "Classificar").
 
-#### Informe de visita
+#### Formularios de informe (prospector + comercial)
 
-| Modal                                    | Arquivo                                      | Variantes                                               |
-| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
-| Excluir informe (confirm, admin /resumo) | `app/resumo/page.tsx` (inline)               | `is-themed app-confirm-modal` + `.is-danger`            |
-| Descartar informe (confirm do sheet)     | `components/visits/VisitReportFormSheet.tsx` | `is-themed app-confirm-modal is-stacked` + `.is-danger` |
+| Modal                                        | Arquivo                                                   | Variantes                                                                |
+| -------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Excluir item (confirm, admin /resumo)        | `app/resumo/page.tsx` (inline, titulo por tipo)           | `is-themed app-confirm-modal` + `.is-danger`                             |
+| Excluir informe (dashboard do prospector)    | `components/dashboard/prospector/ProspectorDashboard.tsx` | `is-themed app-confirm-modal` + `.is-danger` (portal)                    |
+| Descartar informe (sheet do prospector)      | `components/visits/VisitReportFormSheet.tsx`              | `is-themed app-confirm-modal is-stacked` + `.is-danger` (portal)         |
+| Descartar visita (sheet do comercial)        | `components/informe/CommercialVisitFormSheet.tsx`         | `is-themed app-confirm-modal is-stacked` + `.is-danger` (portal)         |
+| Descartar relatorio (sheet do comercial)     | `components/informe/WeeklyReportFormSheet.tsx`            | `is-themed app-confirm-modal is-stacked` + `.is-danger` (portal)         |
+| Relatorio ja enviado (aviso 409, bloqueante) | `components/informe/WeeklyReportForm.tsx`                 | `is-themed app-confirm-modal is-stacked` (botao unico "Entendi", portal) |
+| Excluir visita/relatorio (pagina comercial)  | `components/informe/InformeCommercialPage.tsx`            | `is-themed app-confirm-modal` + `.is-danger` (portal, titulo por tipo)   |
 
-> O formulario do prospector abre num BottomSheet (`.bottom-sheet.is-informe`, ver skill `design-system` §8) com o form compartilhado `components/visits/VisitReportForm.tsx`. O confirm de descarte empilha sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar amostra?" do NewSampleModal.
+> Os formularios abrem em BottomSheets (`.bottom-sheet.is-informe`, ver skill `design-system` §8). Confirms de descarte empilham sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar amostra?" do NewSampleModal. TODOS os confirms acima renderizam via `createPortal(document.body)` (regra do §2) exceto o do /resumo, inline historico.
 
 #### Extracao da classificacao (`/camera` — Q.cls.2)
 
