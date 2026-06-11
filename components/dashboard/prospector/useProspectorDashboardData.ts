@@ -6,20 +6,23 @@ import { ApiError, getMyVisitReportStats, listVisitReports } from '../../../lib/
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../../../lib/offline/visit-sync';
 import type { SessionData, VisitReportStatsResponse, VisitReportSummary } from '../../../lib/types';
 
-// Dados do dashboard do prospector: contadores (hoje + clientes novos no
-// mes) e a lista paginada dos PROPRIOS informes (o backend forca o escopo
-// por userId). Refresh automatico em tres momentos: volta ao primeiro
-// plano (com throttle, padrao do recent-activity), envio online pelo sheet
-// (refresh() chamado pelo dashboard) e conclusao do sync da fila offline
-// (evento global VISIT_SYNC_COMPLETED_EVENT com sent > 0).
+// Dados do dashboard do prospector: contadores do dia e a lista paginada
+// dos PROPRIOS informes (o backend forca o escopo por userId). `search`
+// (ja debounced/validado pelo dashboard; '' = sem filtro) filtra por nome
+// do cliente no servidor — o total acompanha o filtro. Refresh automatico
+// em tres momentos: volta ao primeiro plano (com throttle, padrao do
+// recent-activity), envio online pelo sheet (refresh() chamado pelo
+// dashboard) e conclusao do sync da fila offline (evento global
+// VISIT_SYNC_COMPLETED_EVENT com sent > 0).
 
 const PAGE_LIMIT = 20;
 const REFETCH_THROTTLE_MS = 30_000;
 
-export function useProspectorDashboardData(session: SessionData) {
+export function useProspectorDashboardData(session: SessionData, search: string) {
   const [stats, setStats] = useState<VisitReportStatsResponse | null>(null);
   // null = primeira carga em andamento (skeletons); [] = carregado e vazio.
   const [items, setItems] = useState<VisitReportSummary[] | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [hasNext, setHasNext] = useState(false);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -42,13 +45,18 @@ export function useProspectorDashboardData(session: SessionData) {
     try {
       const [statsResponse, listResponse] = await Promise.all([
         getMyVisitReportStats(session),
-        listVisitReports(session, { page: 1, limit: PAGE_LIMIT }),
+        listVisitReports(session, {
+          page: 1,
+          limit: PAGE_LIMIT,
+          ...(search ? { search } : {}),
+        }),
       ]);
       if (!mountedRef.current) {
         return;
       }
       setStats(statsResponse);
       setItems(listResponse.items);
+      setTotal(listResponse.page.total);
       setHasNext(listResponse.page.hasNext);
       setPage(listResponse.page.page);
     } catch (cause) {
@@ -61,7 +69,7 @@ export function useProspectorDashboardData(session: SessionData) {
           : 'Não foi possível carregar seus informes. Verifique sua conexão.'
       );
     }
-  }, [session]);
+  }, [session, search]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore) {
@@ -70,11 +78,16 @@ export function useProspectorDashboardData(session: SessionData) {
 
     setLoadingMore(true);
     try {
-      const response = await listVisitReports(session, { page: page + 1, limit: PAGE_LIMIT });
+      const response = await listVisitReports(session, {
+        page: page + 1,
+        limit: PAGE_LIMIT,
+        ...(search ? { search } : {}),
+      });
       if (!mountedRef.current) {
         return;
       }
       setItems((current) => [...(current ?? []), ...response.items]);
+      setTotal(response.page.total);
       setHasNext(response.page.hasNext);
       setPage(response.page.page);
     } catch (cause) {
@@ -91,7 +104,7 @@ export function useProspectorDashboardData(session: SessionData) {
         setLoadingMore(false);
       }
     }
-  }, [session, page, loadingMore]);
+  }, [session, search, page, loadingMore]);
 
   // Primeira carga.
   useEffect(() => {
@@ -136,5 +149,5 @@ export function useProspectorDashboardData(session: SessionData) {
     return () => window.removeEventListener(VISIT_SYNC_COMPLETED_EVENT, handleSyncCompleted);
   }, [refresh]);
 
-  return { stats, items, hasNext, loadingMore, error, refresh, loadMore };
+  return { stats, items, total, hasNext, loadingMore, error, refresh, loadMore };
 }

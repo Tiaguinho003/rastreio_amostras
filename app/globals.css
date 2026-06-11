@@ -9014,14 +9014,18 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(31, 93, 67, 0.45);
 }
 
-/* Botao central "+" do formulario — mesma posicao/gradiente/elevacao do
-   botao da camera da tabbar, porem quadrado arredondado e ligeiramente
-   menor (pedido do Flavio); fixo no rodape ja que o app do prospector NAO
-   tem navbar. translate3d compoe o centering com um GPU layer proprio
-   (mesmo fix de position:fixed do .mobile-tabbar em iOS standalone). */
+/* Botao "+" do formulario — gradiente/elevacao do botao da camera da
+   tabbar, quadrado arredondado e ligeiramente menor; fixo no rodape ja que
+   o app do prospector NAO tem navbar. Alinhado horizontalmente ao CENTRO
+   do avatar do hero: right = padding do hero + metade do avatar - metade
+   do botao (mesmas clamps de .dashboard-hero/.dashboard-hero-avatar).
+   translate3d cria GPU layer proprio (mesmo fix de position:fixed do
+   .mobile-tabbar em iOS standalone). */
 .prospector-fab {
   position: fixed;
-  left: 50%;
+  right: calc(
+    clamp(1.2rem, 5vw, 1.5rem) + clamp(1.4rem, 5.5vw, 1.7rem) - clamp(2.1rem, 8.5vw, 2.45rem)
+  );
   bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
   );
@@ -9039,7 +9043,7 @@ button:disabled {
   padding: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transform: translate3d(-50%, 0, 0);
+  transform: translate3d(0, 0, 0);
   will-change: transform;
   transition:
     transform 0.15s ease,
@@ -9048,7 +9052,7 @@ button:disabled {
 }
 
 .prospector-fab:active {
-  transform: translate3d(-50%, 0, 0) scale(0.92);
+  transform: translate3d(0, 0, 0) scale(0.92);
 }
 
 .prospector-fab svg {
@@ -9074,12 +9078,119 @@ body:has(.app-modal-backdrop) .prospector-fab {
     visibility 0s linear 0.22s;
 }
 
-/* Folga no fim do sheet pro ultimo card nao ficar atras do botao "+"
-   (offset inferior + altura do botao + respiro). */
+/* Scroll SO na area dos cards de informes: o sheet deixa de rolar (hero,
+   busca e cards de contagem ficam sempre visiveis) e .prospector-list-scroll
+   assume o overflow. O clearance do botao "+" migra pro fim da lista. */
 .prospector-dashboard .dashboard-sheet {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.prospector-dashboard .is-slot-operations {
+  flex-shrink: 0;
+}
+
+.prospector-dashboard .is-slot-activities {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 14px);
+}
+
+.prospector-list-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 14px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(7.4rem, 30vw, 8.2rem)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.4rem, 27vw, 7rem)
   );
+}
+
+.prospector-list-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Contador de registros — canto esquerdo, acima dos cards; acompanha o
+   filtro de busca (total do servidor). */
+.prospector-list-meta {
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(2px, 0.8vw, 4px);
+}
+
+/* Lupa decorativa da busca do hero (a busca filtra ao digitar — nao ha
+   acao de submit). */
+.prospector-search-icon {
+  pointer-events: none;
+}
+
+.prospector-search-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Lixeira rapida do card (so nos informes do PROPRIO usuario — a regra de
+   exclusao por autor e do backend). Irma do botao-toggle no DOM (button
+   nao aninha button), sobreposta ao canto superior direito do card. */
+.rsm-card.has-quick-delete {
+  position: relative;
+}
+
+.rsm-card.has-quick-delete .rsm-card-head {
+  padding-right: clamp(30px, 8vw, 34px);
+}
+
+.rsm-card-quick-delete {
+  position: absolute;
+  top: clamp(10px, 3vw, 12px);
+  right: clamp(10px, 3vw, 12px);
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(28px, 7.5vw, 32px);
+  height: clamp(28px, 7.5vw, 32px);
+  border: 0;
+  border-radius: 9px;
+  background: rgba(196, 92, 92, 0.1);
+  color: #c45c5c;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease;
+}
+
+.rsm-card-quick-delete:active {
+  transform: scale(0.9);
+}
+
+.rsm-card-quick-delete svg {
+  width: clamp(14px, 3.8vw, 16px);
+  height: clamp(14px, 3.8vw, 16px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Perfil: o .stg-header centraliza os filhos (align-items: center) e o
+   header-top encolheria ao conteudo — full width mantem o botao de voltar
+   do prospector no canto esquerdo, como nas paginas de detalhe. */
+.sdv-header.stg-header .sdv-header-top {
+  width: 100%;
 }
 
 /* Formulario dentro do sheet: sem o fundo bege da pagina (o corpo do
@@ -24313,10 +24424,41 @@ select.samples-filter-field-input {
   .prospector-dashboard .dashboard-sheet {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px;
-    padding: 2rem 1.6rem 9rem;
+    padding: 2rem 1.6rem 1.6rem;
     display: flex;
     flex-direction: column;
     gap: 2.2rem;
+  }
+
+  /* Scroll interno da lista no desktop: a pagina flui livre, entao a area
+     rolavel precisa de teto proprio. */
+  .prospector-dashboard .prospector-list-scroll {
+    max-height: 56vh;
+    padding-bottom: 7.5rem;
+  }
+
+  /* Busca do hero (replica das regras mobile, que vivem no bloco max-900). */
+  .prospector-dashboard .dashboard-hero-search .sample-search-field {
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .prospector-dashboard .dashboard-hero-search .sample-search-field input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: 0.85rem 2.6rem 0.85rem 1.15rem;
+    font-size: 0.95rem;
+    color: #1a1a1a;
+    outline: none;
+  }
+
+  /* Botao "+" alinhado ao avatar dentro do container capado em 46rem:
+     borda direita do container (50vw - 23rem) + padding do hero (1.4rem)
+     + metade do avatar (1.7rem) - metade do botao (2.45rem). */
+  .prospector-fab {
+    right: calc(50vw - 23rem + 0.65rem);
   }
 
   /* ── Topbar: full-width no desktop ──

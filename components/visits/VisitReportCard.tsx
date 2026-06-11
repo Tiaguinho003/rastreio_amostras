@@ -34,8 +34,12 @@ interface VisitReportCardProps {
   report: VisitReportSummary;
   expanded: boolean;
   onToggle: () => void;
-  /** Mostra o botao "Excluir informe" no detalhe (admin no /resumo). */
+  /** Mostra o botao "Excluir informe" no detalhe expandido (admin no /resumo). */
   canDelete?: boolean;
+  /** Lixeira sempre visivel no canto do card (dashboard do prospector —
+      o autor exclui o proprio informe). Irma do botao-toggle no DOM
+      (button nao aninha button), posicionada por cima via CSS. */
+  quickDelete?: boolean;
   onRequestDelete?: (report: VisitReportSummary) => void;
 }
 
@@ -44,6 +48,7 @@ export function VisitReportCard({
   expanded,
   onToggle,
   canDelete = false,
+  quickDelete = false,
   onRequestDelete,
 }: VisitReportCardProps) {
   const isNewClient = report.clientKind === 'NEW';
@@ -57,7 +62,25 @@ export function VisitReportCard({
       : null;
 
   return (
-    <article className={`rsm-card${expanded ? ' is-expanded' : ''}`}>
+    <article
+      className={`rsm-card${expanded ? ' is-expanded' : ''}${quickDelete ? ' has-quick-delete' : ''}`}
+    >
+      {quickDelete && onRequestDelete ? (
+        <button
+          type="button"
+          className="rsm-card-quick-delete"
+          aria-label="Excluir informe"
+          onClick={() => onRequestDelete(report)}
+        >
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M3 6h18" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+          </svg>
+        </button>
+      ) : null}
       <button type="button" className="rsm-card-toggle" aria-expanded={expanded} onClick={onToggle}>
         <header className="rsm-card-head">
           <UserAvatar
