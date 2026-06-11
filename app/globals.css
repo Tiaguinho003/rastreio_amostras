@@ -9024,15 +9024,15 @@ button:disabled {
 .prospector-fab {
   position: fixed;
   right: calc(
-    clamp(1.2rem, 5vw, 1.5rem) + clamp(1.4rem, 5.5vw, 1.7rem) - clamp(2.1rem, 8.5vw, 2.45rem)
+    clamp(1.2rem, 5vw, 1.5rem) + clamp(1.4rem, 5.5vw, 1.7rem) - clamp(1.85rem, 7.5vw, 2.15rem)
   );
   bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
   );
   z-index: 70;
-  width: clamp(4.2rem, 17vw, 4.9rem);
-  height: clamp(4.2rem, 17vw, 4.9rem);
-  border-radius: clamp(18px, 5vw, 22px);
+  width: clamp(3.7rem, 15vw, 4.3rem);
+  height: clamp(3.7rem, 15vw, 4.3rem);
+  border-radius: clamp(16px, 4.5vw, 20px);
   background: linear-gradient(180deg, #1a6b2e 0%, #0d4a1a 100%);
   border: 2px solid rgba(255, 255, 255, 0.18);
   box-shadow:
@@ -9056,8 +9056,8 @@ button:disabled {
 }
 
 .prospector-fab svg {
-  width: clamp(1.9rem, 8vw, 2.2rem);
-  height: clamp(1.9rem, 8vw, 2.2rem);
+  width: clamp(1.65rem, 7vw, 1.9rem);
+  height: clamp(1.65rem, 7vw, 1.9rem);
   fill: none;
   stroke: #ffffff;
   stroke-width: 1.8;
@@ -24486,9 +24486,9 @@ select.samples-filter-field-input {
 
   /* Botao "+" alinhado ao avatar dentro do container capado em 46rem:
      borda direita do container (50vw - 23rem) + padding do hero (1.4rem)
-     + metade do avatar (1.7rem) - metade do botao (2.45rem). */
+     + metade do avatar (1.7rem) - metade do botao (2.15rem). */
   .prospector-fab {
-    right: calc(50vw - 23rem + 0.65rem);
+    right: calc(50vw - 23rem + 0.95rem);
   }
 
   /* ── Topbar: full-width no desktop ──
