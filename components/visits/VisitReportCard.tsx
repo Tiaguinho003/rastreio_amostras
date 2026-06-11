@@ -40,6 +40,9 @@ interface VisitReportCardProps {
       o autor exclui o proprio informe). Irma do botao-toggle no DOM
       (button nao aninha button), posicionada por cima via CSS. */
   quickDelete?: boolean;
+  /** Etiqueta de tipo no cabecalho (feed combinado do /resumo usa
+      "Prospecção"; o dashboard do prospector nao passa). */
+  typeBadge?: string;
   onRequestDelete?: (report: VisitReportSummary) => void;
 }
 
@@ -49,6 +52,7 @@ export function VisitReportCard({
   onToggle,
   canDelete = false,
   quickDelete = false,
+  typeBadge,
   onRequestDelete,
 }: VisitReportCardProps) {
   const isNewClient = report.clientKind === 'NEW';
@@ -106,6 +110,7 @@ export function VisitReportCard({
               ) : null}
             </p>
           </div>
+          {typeBadge ? <span className="rsm-type-badge is-prospect">{typeBadge}</span> : null}
         </header>
 
         <div className="rsm-card-client">

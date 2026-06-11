@@ -5,24 +5,41 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { CommercialVisitCard } from '../../components/informe/CommercialVisitCard';
+import { WeeklyReportCard } from '../../components/informe/WeeklyReportCard';
 import { VisitReportCard } from '../../components/visits/VisitReportCard';
-import { ApiError, deleteVisitReport, listVisitReports } from '../../lib/api-client';
+import {
+  ApiError,
+  deleteCommercialVisit,
+  deleteVisitReport,
+  deleteWeeklyReport,
+  listInformeFeed,
+} from '../../lib/api-client';
 import { isAdmin } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
-import type { VisitReportSummary } from '../../lib/types';
+import type { InformeFeedItem } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
 
 // Pagina "Resumo" (Administracao + Comercial + Cadastro — ver
 // isVisitReportViewer; acessada pelo menu do avatar e pelas notificacoes
-// situacionais de visita): feed dos informes enviados pela equipe na pagina
-// /informe. Mais recentes primeiro, com "Carregar mais" (append) no rodape.
-// Cards sao accordions (components/visits/VisitReportCard, compartilhado
-// com o dashboard do prospector): colapsados mostram so cabecalho +
-// cliente; o clique expande revelando as respostas e, para admin, o
-// "Excluir informe" (DELETE /visit-reports/:id e admin-only no backend).
-// Backend: GET /visit-reports (VISIT_REPORT_VIEWER_ROLES no service).
+// situacionais de visita): feed COMBINADO dos 3 tipos de formulario —
+// informe do prospector (badge Prospeccao), visita do comercial (Visita)
+// e relatorio semanal (Relatorio) — de todos os autores, mais recentes
+// primeiro, com "Carregar mais" (append). Cards sao accordions por tipo;
+// admin pode excluir qualquer item (autor-ou-admin no backend).
+// Backend: GET /informe-feed?scope=all (viewers no service).
 
 const PAGE_LIMIT = 20;
+
+function deleteLabels(item: InformeFeedItem) {
+  if (item.type === 'COMMERCIAL_VISIT') {
+    return { title: 'Excluir visita?', success: 'Visita excluída' };
+  }
+  if (item.type === 'WEEKLY_REPORT') {
+    return { title: 'Excluir relatório?', success: 'Relatório excluído' };
+  }
+  return { title: 'Excluir informe?', success: 'Informe excluído' };
+}
 
 export default function ResumoPage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -30,7 +47,7 @@ export default function ResumoPage() {
   });
   const toast = useToast();
 
-  const [items, setItems] = useState<VisitReportSummary[]>([]);
+  const [items, setItems] = useState<InformeFeedItem[]>([]);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [page, setPage] = useState(1);
@@ -41,8 +58,8 @@ export default function ResumoPage() {
   // Accordion: ids dos cards expandidos (toggle independente por card).
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  // Exclusao (admin): informe alvo do modal de confirmacao + request em voo.
-  const [deleteTarget, setDeleteTarget] = useState<VisitReportSummary | null>(null);
+  // Exclusao (admin): item alvo do modal de confirmacao + request em voo.
+  const [deleteTarget, setDeleteTarget] = useState<InformeFeedItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const loadPage = useCallback(
@@ -59,7 +76,11 @@ export default function ResumoPage() {
       setError(null);
 
       try {
-        const response = await listVisitReports(session, { page: targetPage, limit: PAGE_LIMIT });
+        const response = await listInformeFeed(session, {
+          scope: 'all',
+          page: targetPage,
+          limit: PAGE_LIMIT,
+        });
         setItems((current) =>
           mode === 'append' ? [...current, ...response.items] : response.items
         );
@@ -121,16 +142,23 @@ export default function ResumoPage() {
 
     setDeleting(true);
     try {
-      await deleteVisitReport(session, deleteTarget.id);
+      // Despacha o delete pelo tipo do item.
+      if (deleteTarget.type === 'COMMERCIAL_VISIT') {
+        await deleteCommercialVisit(session, deleteTarget.id);
+      } else if (deleteTarget.type === 'WEEKLY_REPORT') {
+        await deleteWeeklyReport(session, deleteTarget.id);
+      } else {
+        await deleteVisitReport(session, deleteTarget.id);
+      }
       removeFromList(deleteTarget.id);
       setDeleteTarget(null);
-      toast.success({ title: 'Informe excluído' });
+      toast.success({ title: deleteLabels(deleteTarget).success });
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
         // Ja sumiu no servidor (excluido em outra sessao): alinha a lista.
         removeFromList(deleteTarget.id);
         setDeleteTarget(null);
-        toast.info({ title: 'Informe já havia sido excluído' });
+        toast.info({ title: 'Este envio já havia sido excluído' });
       } else {
         toast.error({
           title: 'Não foi possível excluir',
@@ -181,8 +209,8 @@ export default function ResumoPage() {
           <div className="rsm-feed">
             <header className="inf-intro rsm-intro">
               <div className="rsm-intro-text">
-                <h2 className="inf-intro-title">Informes de visita</h2>
-                <p className="inf-intro-sub">Envios da equipe, mais recentes primeiro.</p>
+                <h2 className="inf-intro-title">Informes</h2>
+                <p className="inf-intro-sub">Formulários da equipe, mais recentes primeiro.</p>
               </div>
               {!initialLoading && !error ? (
                 <span className="rsm-total-chip">
@@ -229,16 +257,43 @@ export default function ResumoPage() {
 
             {!initialLoading && items.length > 0 ? (
               <div className="rsm-list">
-                {items.map((report) => (
-                  <VisitReportCard
-                    key={report.id}
-                    report={report}
-                    expanded={expandedIds.has(report.id)}
-                    onToggle={() => toggleExpanded(report.id)}
-                    canDelete={canDelete}
-                    onRequestDelete={setDeleteTarget}
-                  />
-                ))}
+                {items.map((item) => {
+                  if (item.type === 'COMMERCIAL_VISIT') {
+                    return (
+                      <CommercialVisitCard
+                        key={item.id}
+                        visit={item}
+                        expanded={expandedIds.has(item.id)}
+                        onToggle={() => toggleExpanded(item.id)}
+                        canDelete={canDelete}
+                        onRequestDelete={setDeleteTarget}
+                      />
+                    );
+                  }
+                  if (item.type === 'WEEKLY_REPORT') {
+                    return (
+                      <WeeklyReportCard
+                        key={item.id}
+                        report={item}
+                        expanded={expandedIds.has(item.id)}
+                        onToggle={() => toggleExpanded(item.id)}
+                        canDelete={canDelete}
+                        onRequestDelete={setDeleteTarget}
+                      />
+                    );
+                  }
+                  return (
+                    <VisitReportCard
+                      key={item.id}
+                      report={item}
+                      typeBadge="Prospecção"
+                      expanded={expandedIds.has(item.id)}
+                      onToggle={() => toggleExpanded(item.id)}
+                      canDelete={canDelete}
+                      onRequestDelete={() => setDeleteTarget(item)}
+                    />
+                  );
+                })}
               </div>
             ) : null}
 
@@ -278,7 +333,7 @@ export default function ResumoPage() {
             <header className="app-modal-header">
               <div className="app-modal-title-wrap">
                 <h3 id="rsm-delete-title" className="app-modal-title">
-                  Excluir informe?
+                  {deleteLabels(deleteTarget).title}
                 </h3>
               </div>
             </header>
