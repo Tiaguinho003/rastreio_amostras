@@ -39,12 +39,17 @@ RUN_JOB_URI="https://run.googleapis.com/v2/projects/${GCLOUD_PROJECT_ID}/locatio
 echo "[gcp] habilitando Cloud Scheduler API (no-op se ja ativa)"
 gcloud services enable cloudscheduler.googleapis.com --project "${GCLOUD_PROJECT_ID}"
 
-echo "[gcp] concedendo run.invoker ao service account no job de digest"
+# Os schedulers executam o job COM containerOverrides (--kind por agenda),
+# e isso exige `run.jobs.runWithOverrides` — que NAO esta no run.invoker
+# (so execucao simples). run.developer cobre run + runWithOverrides,
+# escopado a ESTE job. Sem ele o disparo agendado falha com 403
+# PERMISSION_DENIED (aconteceu na primeira execucao real, 2026-06-11).
+echo "[gcp] concedendo run.developer (run + runWithOverrides) ao SA no job de digest"
 gcloud run jobs add-iam-policy-binding "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}" \
   --project "${GCLOUD_PROJECT_ID}" \
   --region "${GCLOUD_REGION}" \
   --member "serviceAccount:${GCLOUD_SERVICE_ACCOUNT}" \
-  --role roles/run.invoker
+  --role roles/run.developer
 
 upsert_scheduler() {
   local name="$1"

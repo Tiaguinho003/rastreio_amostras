@@ -17,8 +17,9 @@
 //   scripts/gcp/execute-job.sh push-digest <cloud-env> [--kind=X]
 //
 // Entrega: TTL curto (12h pendencias / 6h lembrete) — lembrete de ontem nao
-// chega hoje; topic fixo por kind (apns-collapse-id) — aparelho dias offline
-// acorda com no maximo 1 de cada; urgency normal.
+// chega hoje; urgency normal. SEM header Topic: a Apple respondeu 400 a ele
+// na primeira execucao real (2026-06-11) e o anti-acumulo de notificacoes
+// VISIVEIS ja e garantido pela `tag` no aparelho (mesma tag substitui).
 //
 // Sem PUSH_VAPID_* configurado o script loga e sai com exit 0 — o job
 // agendado nao deve falhar por feature desabilitada. Exit != 0 so em falha
@@ -74,7 +75,7 @@ async function sendClassificationDigest({ pushService, queryService }) {
       url: '/dashboard',
       tag: 'daily-classification',
     },
-    { ttl: PENDING_TTL_SECONDS, urgency: 'normal', topic: 'daily-classification' }
+    { ttl: PENDING_TTL_SECONDS, urgency: 'normal' }
   );
   console.log('[push-digest] classificacao enviada', result);
 }
@@ -95,7 +96,7 @@ async function sendRegistrationsDigest({ pushService, queryService }) {
       url: '/clients?incomplete=true',
       tag: 'daily-clients',
     },
-    { ttl: PENDING_TTL_SECONDS, urgency: 'normal', topic: 'daily-clients' }
+    { ttl: PENDING_TTL_SECONDS, urgency: 'normal' }
   );
   console.log('[push-digest] cadastros enviado', result);
 }
@@ -109,7 +110,7 @@ async function sendProspectReminder({ pushService }) {
       url: '/informe',
       tag: 'prospect-reminder',
     }),
-    { ttl: REMINDER_TTL_SECONDS, urgency: 'normal', topic: 'prospect-reminder' }
+    { ttl: REMINDER_TTL_SECONDS, urgency: 'normal' }
   );
   console.log('[push-digest] lembrete prospeccao enviado', result);
 }
