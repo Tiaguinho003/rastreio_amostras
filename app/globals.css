@@ -7231,6 +7231,14 @@ button:disabled {
   gap: clamp(10px, 3vw, 12px);
   display: flex;
   flex-direction: column;
+  /* O perfil mantem a navbar inferior (exceto prospector, que nao a
+     renderiza): o padding-bottom soma o clearance da tabbar — a var zera
+     sozinha quando a navbar nao existe (is-tabbar-hidden) — pro ultimo
+     elemento (botao de sair) nao ficar tampado pela barra. */
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
+      var(--mobile-tabbar-clearance, 0rem) + clamp(1rem, 3vw, 1.5rem)
+  );
 }
 
 @keyframes stg-card-in {
@@ -29121,53 +29129,44 @@ select.samples-filter-field-input {
    Visual coerente com os outros .stg-card mas com accent danger pra
    sinalizar acao destrutiva (encerra sessao). Conteudo: titulo + texto
    descritivo + botao "Sair" alinhado a esquerda. */
-.stg-card-icon.is-logout {
-  background: rgba(var(--color-danger-rgb), 0.12);
-  color: var(--color-danger);
+/* Sair da conta — botao unico vermelho solido, alinhado a direita no fim
+   do perfil (substituiu o card descritivo). Press = so transform (skill
+   button-press-effect). */
+.stg-logout-row {
+  display: flex;
+  justify-content: flex-end;
+  animation: stg-card-in 0.3s ease backwards;
+  animation-delay: calc(var(--i, 0) * 0.05s);
 }
 
-.stg-card-icon.is-logout svg {
-  stroke: currentColor;
-}
-
-.stg-logout-description {
-  margin: 6px 0 12px;
-  font-size: clamp(13px, 3.4vw, 14px);
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.stg-logout-button {
+.stg-logout-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(var(--color-danger-rgb), 0.4);
-  background: rgba(var(--color-danger-rgb), 0.06);
-  color: var(--color-danger);
-  font-size: clamp(13px, 3.4vw, 14px);
-  font-weight: 600;
+  gap: clamp(8px, 2.2vw, 10px);
+  padding: clamp(11px, 3.2vw, 13px) clamp(18px, 5vw, 22px);
+  border: 0;
+  border-radius: clamp(12px, 3.5vw, 14px);
+  background: #d32f2f;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: clamp(13.5px, 3.8vw, 14.5px);
+  font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 14px rgba(211, 47, 47, 0.35);
+  transition: transform 0.15s ease;
 }
 
-.stg-logout-button:hover {
-  background: rgba(var(--color-danger-rgb), 0.12);
+.stg-logout-btn:active {
+  transform: scale(0.96);
 }
 
-.stg-logout-button:active {
-  transform: scale(0.98);
-}
-
-.stg-logout-button svg {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-  stroke-width: 1.7;
+.stg-logout-btn svg {
+  width: clamp(16px, 4.4vw, 18px);
+  height: clamp(16px, 4.4vw, 18px);
   fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
