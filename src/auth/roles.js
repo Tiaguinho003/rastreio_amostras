@@ -5,7 +5,8 @@ export const USER_ROLES = {
   CLASSIFIER: 'CLASSIFIER',
   REGISTRATION: 'REGISTRATION',
   COMMERCIAL: 'COMMERCIAL',
-  // PROSPECTOR: por enquanto espelha integralmente os acessos do COMMERCIAL.
+  // PROSPECTOR: app restrito — so informes de visita (+ conta/push).
+  // Allowlist central de API em src/auth/prospector-access.js.
   PROSPECTOR: 'PROSPECTOR',
   // CADASTRO: espelha o REGISTRATION (operacao geral) — sem admin e sem
   // elegibilidade comercial. Especializar aqui quando precisar.
@@ -23,8 +24,9 @@ export function isKnownRole(role) {
 }
 
 // Papeis "comerciais": podem ser responsavel comercial de cliente e tem
-// prioridade no lookup de usuarios. PROSPECTOR espelha COMMERCIAL por enquanto;
-// concentrar a regra aqui facilita especializa-la no futuro.
+// prioridade no lookup de usuarios. Vale para COMMERCIAL e PROSPECTOR —
+// a restricao de navegacao/API do PROSPECTOR e tratada a parte
+// (src/auth/prospector-access.js), nao por aqui.
 export function isCommercialRole(role) {
   return role === USER_ROLES.COMMERCIAL || role === USER_ROLES.PROSPECTOR;
 }

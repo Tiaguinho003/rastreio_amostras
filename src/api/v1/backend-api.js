@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { HttpError } from '../../contracts/errors.js';
 import { readSessionTokenFromCookieHeader } from '../../auth/session-cookie.js';
 import { createRateLimiter } from '../../auth/rate-limiter.js';
+import { PROSPECTOR_ALLOWED_API_METHODS } from '../../auth/prospector-access.js';
+import { USER_ROLES } from '../../auth/roles.js';
 import { executeApi, readPositiveInteger } from '../http-utils.js';
 import { IDEMPOTENCY_SCOPES, buildScopeKey, withIdempotency } from './idempotency-helper.js';
 
@@ -60,6 +62,22 @@ async function resolveActorContext(input, authService, { allowPending = false } 
   }
 
   const actor = await authService.authenticateAuthorizationHeader(authorization, requestContext);
+
+  // Gate central do app restrito do PROSPECTOR: fora da allowlist
+  // (src/auth/prospector-access.js) responde 403 — fail-closed quando o
+  // input nao traz methodName (carimbado no fim de createBackendApiV1).
+  // Roda dentro da MESMA resolucao de sessao (sem autenticar duas vezes) e
+  // antes do check de senha pendente.
+  if (
+    actor.role === USER_ROLES.PROSPECTOR &&
+    !PROSPECTOR_ALLOWED_API_METHODS.has(input?.methodName)
+  ) {
+    throw new HttpError(
+      403,
+      `Role PROSPECTOR is not allowed to ${input?.methodName ?? 'access this resource'}`,
+      { code: 'ROLE_FORBIDDEN' }
+    );
+  }
 
   if (!allowPending && actor.initialPasswordDecision === 'PENDING') {
     throw new HttpError(403, 'Troca de senha obrigatoria antes de continuar', {
@@ -144,7 +162,7 @@ export function createBackendApiV1({
   reportService = null,
   idempotencyStore = null,
 }) {
-  return {
+  const api = {
     health: () =>
       executeApi(async () => ({
         status: 200,
@@ -2175,4 +2193,17 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
   };
+
+  // Carimba o nome do metodo no input de cada chamada — consumido pelo
+  // gate de papel do PROSPECTOR dentro de resolveActorContext (enforcement
+  // central; ver src/auth/prospector-access.js). Mutar as propriedades do
+  // MESMO objeto literal preserva a inferencia de tipos que alimenta
+  // BackendMethodName em app/api/v1/_lib/adapter.ts e cobre tambem quem
+  // chama a API direto (testes de integracao), nao so as rotas Next.
+  for (const name of Object.keys(api)) {
+    const original = api[name];
+    api[name] = (input) => original({ ...input, methodName: name });
+  }
+
+  return api;
 }
