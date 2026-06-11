@@ -418,19 +418,21 @@ export class VisitReportService {
       where.user = { is: { role: USER_ROLES.PROSPECTOR } };
     }
 
-    // Busca por nome do cliente (barra do dashboard do prospector):
-    // cliente novo via contains case-insensitive no texto livre; cliente
-    // cadastrado via coluna gerada search_normalized (acento-insensitive,
-    // mesma semantica da busca de clientes do app).
+    // Busca por nome do cliente (barra do dashboard do prospector) —
+    // acento-insensitive nos dois caminhos, via colunas GERADAS pelo banco
+    // (LOWER + immutable_unaccent): cliente novo em
+    // visit_report.new_client_name_normalized e cliente cadastrado em
+    // client.search_normalized (mesma semantica da busca de clientes).
     const search = normalizeOptionalText(input?.search, 'search', 120);
     if (search) {
       const normalized = normalizeSearchInput(search);
-      where.OR = [
-        { newClientName: { contains: search, mode: 'insensitive' } },
-        ...(normalized.length > 0
-          ? [{ client: { is: { searchNormalized: { contains: normalized } } } }]
-          : []),
-      ];
+      where.OR =
+        normalized.length > 0
+          ? [
+              { newClientNameNormalized: { contains: normalized } },
+              { client: { is: { searchNormalized: { contains: normalized } } } },
+            ]
+          : [{ newClientName: { contains: search, mode: 'insensitive' } }];
     }
 
     const page = readPageQuery(input?.page, 1);

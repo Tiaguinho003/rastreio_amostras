@@ -692,6 +692,9 @@ model VisitReport {
   clientKind     VisitClientKind    @map("client_kind")
   clientId       String?            @map("client_id") @db.Uuid
   newClientName  String?            @map("new_client_name")
+  // Coluna GERADA pelo banco (LOWER + immutable_unaccent de
+  // new_client_name) — busca acento-insensitive; nunca escrever por aqui.
+  newClientNameNormalized String?   @map("new_client_name_normalized") @db.Text
   newClientCity  String?            @map("new_client_city")
   newClientPhone String?            @map("new_client_phone")
   farmSize       VisitFarmSize      @map("farm_size")

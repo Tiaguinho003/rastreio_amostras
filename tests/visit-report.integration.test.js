@@ -502,6 +502,10 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(prospector)
     );
     await service.createVisitReport(
+      baseInput({ newClientName: 'Sítio São José' }),
+      actorFor(prospector)
+    );
+    await service.createVisitReport(
       baseInput({ clientKind: 'EXISTING', clientId: clientJose.id }),
       actorFor(prospector)
     );
@@ -512,15 +516,24 @@ if (!databaseUrl || !databaseReachable) {
       actorFor(commercial)
     );
 
-    // Cliente novo: texto livre, case-insensitive.
+    // Cliente novo: case-insensitive.
     const byNew = await service.listVisitReports({ search: 'bOa' }, actorFor(prospector));
     assert.equal(byNew.page.total, 1);
     assert.equal(byNew.items[0].newClient.name, 'Fazenda Boa Vista');
 
-    // Cliente cadastrado: coluna normalizada — acento-insensitive.
-    const byExisting = await service.listVisitReports({ search: 'jose' }, actorFor(prospector));
-    assert.equal(byExisting.page.total, 1);
-    assert.equal(byExisting.items[0].client.id, clientJose.id);
+    // 'jose' sem acento casa o cliente CADASTRADO (search_normalized) e o
+    // cliente NOVO acentuado (new_client_name_normalized) — os dois caminhos.
+    const byName = await service.listVisitReports({ search: 'jose' }, actorFor(prospector));
+    assert.equal(byName.page.total, 2);
+    assert.deepEqual(byName.items.map((item) => item.clientKind).sort(), ['EXISTING', 'NEW']);
+
+    // 'sao jose' atinge apenas o cliente novo acentuado.
+    const byNewAccent = await service.listVisitReports(
+      { search: 'sao jose' },
+      actorFor(prospector)
+    );
+    assert.equal(byNewAccent.page.total, 1);
+    assert.equal(byNewAccent.items[0].newClient.name, 'Sítio São José');
 
     // Sem match: lista vazia com total 0 (o contador do dashboard segue a busca).
     const none = await service.listVisitReports({ search: 'inexistente' }, actorFor(prospector));
