@@ -44,6 +44,10 @@ const NOTES_MAX = 1000;
 // Tolerancia de relogio adiantado do aparelho ao validar capturedAt.
 const CAPTURED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
+// Offset fixo de Brasilia (UTC-3, sem horario de verao desde 2019) —
+// mesmo padrao das janelas do dashboard (src/samples/sample-query-service.js).
+const SAO_PAULO_UTC_OFFSET_HOURS = 3;
+
 const VISIT_REPORT_USER_SELECT = {
   id: true,
   fullName: true,
@@ -61,6 +65,26 @@ const VISIT_REPORT_CLIENT_SELECT = {
   legalName: true,
   status: true,
 };
+
+// Janelas dos contadores do dashboard do prospector: dia BRT corrente e
+// mes BRT corrente, como instantes UTC (inicio inclusivo, fim exclusivo).
+// Dia inteiro 00:00→24:00 BRT — nao confundir com a janela 07:00–18:00 do
+// todayReceivedTotal do dashboard (horario comercial, outro proposito).
+export function computeVisitStatsWindows(now = new Date()) {
+  const brtNow = new Date(now.getTime() - SAO_PAULO_UTC_OFFSET_HOURS * 3600_000);
+  const brtYear = brtNow.getUTCFullYear();
+  const brtMonth = brtNow.getUTCMonth();
+  const brtDay = brtNow.getUTCDate();
+
+  return {
+    todayStartUtc: new Date(Date.UTC(brtYear, brtMonth, brtDay, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    todayEndUtc: new Date(
+      Date.UTC(brtYear, brtMonth, brtDay + 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)
+    ),
+    monthStartUtc: new Date(Date.UTC(brtYear, brtMonth, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+    monthEndUtc: new Date(Date.UTC(brtYear, brtMonth + 1, 1, SAO_PAULO_UTC_OFFSET_HOURS, 0, 0)),
+  };
+}
 
 function buildPage(total, page, limit) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -407,6 +431,38 @@ export class VisitReportService {
     return {
       items: items.map(toVisitReportView),
       page: buildPage(total, page, limit),
+    };
+  }
+
+  // Contadores do dashboard do prospector — sempre do proprio ator (escopo
+  // inerente por actorUserId; sem regra de papel aqui: quem alcanca o
+  // endpoint e decidido pelo gate central de API). Base temporal
+  // COALESCE(captured_at, created_at): informe preenchido offline ontem e
+  // sincronizado hoje conta ontem, coerente com a data que /resumo exibe.
+  // `now` e injetavel apenas para testes deterministas.
+  async getMyVisitReportStats(actorContext, { now = new Date() } = {}) {
+    const actor = assertAuthenticatedActor(actorContext, 'read visit report stats');
+    const { todayStartUtc, todayEndUtc, monthStartUtc, monthEndUtc } =
+      computeVisitStatsWindows(now);
+
+    const [row] = await this.prisma.$queryRaw`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE COALESCE(v."captured_at", v."created_at") >= ${todayStartUtc}
+            AND COALESCE(v."captured_at", v."created_at") < ${todayEndUtc}
+        )::INTEGER AS "todayCount",
+        COUNT(*) FILTER (
+          WHERE v."client_kind" = 'NEW'
+            AND COALESCE(v."captured_at", v."created_at") >= ${monthStartUtc}
+            AND COALESCE(v."captured_at", v."created_at") < ${monthEndUtc}
+        )::INTEGER AS "monthNewClientsCount"
+      FROM "visit_report" v
+      WHERE v."user_id" = ${actor.actorUserId}::uuid
+    `;
+
+    return {
+      todayCount: row?.todayCount ?? 0,
+      monthNewClientsCount: row?.monthNewClientsCount ?? 0,
     };
   }
 }

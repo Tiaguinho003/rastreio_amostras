@@ -45,6 +45,7 @@ import type {
   VisitReportDeleteResponse,
   VisitReportMutationResponse,
   VisitReportsListResponse,
+  VisitReportStatsResponse,
   PushConfigResponse,
   PushSubscriptionMutationResponse,
 } from './types';
@@ -1743,6 +1744,13 @@ export function listVisitReports(
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<VisitReportsListResponse>(`/visit-reports${suffix}`, {
+    method: 'GET',
+    session,
+  });
+}
+
+export function getMyVisitReportStats(session: SessionData) {
+  return request<VisitReportStatsResponse>('/visit-reports/stats', {
     method: 'GET',
     session,
   });

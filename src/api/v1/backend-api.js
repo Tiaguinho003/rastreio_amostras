@@ -2102,6 +2102,19 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    getMyVisitReportStats: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        // Contadores do dashboard do prospector — sempre do proprio ator.
+        const actor = await resolveActorContext(input, authService);
+        const result = await visitReportService.getMyVisitReportStats(actor);
+
+        return { status: 200, body: result };
+      }),
+
     // ============================================================
     // Web Push (inscricoes de notificacao nativa)
     // ============================================================

@@ -354,6 +354,73 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  test('getMyVisitReportStats: conta so do ator, fronteiras BRT e COALESCE(capturedAt)', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const other = await seedUser('COMMERCIAL');
+    const idle = await seedUser('PROSPECTOR');
+
+    // "Agora" fixo: 2026-06-15 12:00 BRT (15:00Z). Janelas esperadas:
+    // dia  [2026-06-15T03:00Z, 2026-06-16T03:00Z)
+    // mes  [2026-06-01T03:00Z, 2026-07-01T03:00Z)
+    const now = new Date('2026-06-15T15:00:00.000Z');
+
+    async function seedReport({ userId, clientKind = 'NEW', createdAt, capturedAt = null }) {
+      await prisma.visitReport.create({
+        data: {
+          id: randomUUID(),
+          userId,
+          clientKind,
+          newClientName: clientKind === 'NEW' ? 'Prospect Stats' : null,
+          farmSize: 'SMALL',
+          interestLevel: 'LOW',
+          sellsCurrently: false,
+          createdAt: new Date(createdAt),
+          capturedAt: capturedAt ? new Date(capturedAt) : null,
+        },
+      });
+    }
+
+    // Hoje + mes (NEW dentro do dia BRT corrente).
+    await seedReport({ userId: prospector.id, createdAt: '2026-06-15T14:00:00.000Z' });
+    // COALESCE: preenchido offline ontem, sincronizado hoje — conta ontem
+    // (fora do dia, dentro do mes).
+    await seedReport({
+      userId: prospector.id,
+      createdAt: '2026-06-15T14:30:00.000Z',
+      capturedAt: '2026-06-14T18:00:00.000Z',
+    });
+    // EXISTING hoje: conta no dia, nao conta como cliente novo.
+    await seedReport({
+      userId: prospector.id,
+      clientKind: 'EXISTING',
+      createdAt: '2026-06-15T10:00:00.000Z',
+    });
+    // Mes anterior (31/05 BRT): fora das duas janelas.
+    await seedReport({ userId: prospector.id, createdAt: '2026-05-31T20:00:00.000Z' });
+    // Fronteira inclusiva do dia (00:00 BRT exato).
+    await seedReport({ userId: prospector.id, createdAt: '2026-06-15T03:00:00.000Z' });
+    // Fronteira exclusiva (1ms antes = 14/06 BRT): fora do dia, dentro do mes.
+    await seedReport({ userId: prospector.id, createdAt: '2026-06-15T02:59:59.999Z' });
+    // Informe de OUTRO usuario hoje: nunca entra na conta do ator.
+    await seedReport({ userId: other.id, createdAt: '2026-06-15T13:00:00.000Z' });
+
+    const stats = await service.getMyVisitReportStats(actorFor(prospector), { now });
+    assert.equal(stats.todayCount, 3);
+    assert.equal(stats.monthNewClientsCount, 4);
+
+    // Usuario sem informes: zeros.
+    const empty = await service.getMyVisitReportStats(actorFor(idle), { now });
+    assert.equal(empty.todayCount, 0);
+    assert.equal(empty.monthNewClientsCount, 0);
+
+    // Sem ator autenticado: 401.
+    await assert.rejects(
+      service.getMyVisitReportStats({}, { now }),
+      (error) => error.status === 401
+    );
+  });
+
   test('createVisitReport: generalNotes (campo 5) persiste; ausente fica null', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
