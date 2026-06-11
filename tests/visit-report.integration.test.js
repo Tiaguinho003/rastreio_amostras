@@ -11,8 +11,9 @@ import { VisitReportService } from '../src/visits/visit-report-service.js';
 
 // Informe de visita — service de criacao (qualquer papel autenticado, com
 // userId/createdAt carimbados no servidor; capturedAt opcional da fila
-// offline) e listagem admin-only paginada. Inclui o caminho idempotente do
-// POST /visit-reports via backend-api (replay da fila nao duplica).
+// offline) e listagem paginada (viewers veem tudo; PROSPECTOR so os
+// proprios). Inclui o caminho idempotente do POST /visit-reports via
+// backend-api (replay da fila nao duplica).
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -264,7 +265,7 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
-  test('listVisitReports: permitido a ADMIN/COMMERCIAL/CADASTRO; 403 pros demais', async () => {
+  test('listVisitReports: viewers veem tudo; PROSPECTOR so os proprios; 403 pros demais', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const cadastro = await seedUser('CADASTRO');
@@ -272,13 +273,34 @@ if (!databaseUrl || !databaseReachable) {
     const registration = await seedUser('REGISTRATION');
     const prospector = await seedUser('PROSPECTOR');
 
-    // Papeis com acesso ao /resumo (VISIT_REPORT_VIEWER_ROLES).
-    const allowedCommercial = await service.listVisitReports({}, actorFor(commercial));
-    assert.equal(allowedCommercial.page.total, 0);
-    const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
-    assert.equal(allowedCadastro.page.total, 0);
+    // Informes de dois autores: 2 do prospector + 1 do comercial.
+    await service.createVisitReport(
+      baseInput({ newClientName: 'Visita Prospector 1' }),
+      actorFor(prospector)
+    );
+    await service.createVisitReport(
+      baseInput({ newClientName: 'Visita Prospector 2' }),
+      actorFor(prospector)
+    );
+    await service.createVisitReport(
+      baseInput({ newClientName: 'Visita Comercial 1' }),
+      actorFor(commercial)
+    );
 
-    for (const denied of [classifier, registration, prospector]) {
+    // Papeis com acesso ao /resumo (VISIT_REPORT_VIEWER_ROLES) veem tudo.
+    const allowedCommercial = await service.listVisitReports({}, actorFor(commercial));
+    assert.equal(allowedCommercial.page.total, 3);
+    const allowedCadastro = await service.listVisitReports({}, actorFor(cadastro));
+    assert.equal(allowedCadastro.page.total, 3);
+
+    // PROSPECTOR lista apenas os proprios informes (dashboard dele) —
+    // escopo forcado por userId no service, items e total.
+    const own = await service.listVisitReports({}, actorFor(prospector));
+    assert.equal(own.page.total, 2);
+    assert.equal(own.items.length, 2);
+    assert.ok(own.items.every((item) => item.user.id === prospector.id));
+
+    for (const denied of [classifier, registration]) {
       await assert.rejects(
         service.listVisitReports({}, actorFor(denied)),
         (error) => error.status === 403

@@ -15,7 +15,8 @@ import {
 
 // Informe de visita (pagina /informe): cada envio do formulario vira 1 row
 // imutavel em visit_report. Qualquer usuario autenticado envia; a listagem
-// (pagina /resumo) e exclusiva do admin. userId e createdAt sao carimbados
+// e dos viewers (pagina /resumo, veem tudo) e do PROSPECTOR (so os proprios
+// informes, lista do dashboard dele). userId e createdAt sao carimbados
 // no servidor — o body nunca decide quem enviou nem quando.
 
 export const VISIT_CLIENT_KINDS = Object.freeze(['EXISTING', 'NEW']);
@@ -27,7 +28,8 @@ export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 
 // Quem ve a pagina /resumo (espelhado no front em lib/roles.ts
 // isVisitReportViewer): Administracao + Comercial + Cadastro — as
-// notificacoes situacionais de visita apontam pra la.
+// notificacoes situacionais de visita apontam pra la. PROSPECTOR nao e
+// viewer: lista apenas os proprios informes (escopo forcado por userId).
 export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([
   USER_ROLES.ADMIN,
   USER_ROLES.COMMERCIAL,
@@ -372,7 +374,15 @@ export class VisitReportService {
 
   async listVisitReports(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'list visit reports');
-    assertRoleAllowed(actor.role, VISIT_REPORT_VIEWER_ROLES, 'list visit reports');
+    assertRoleAllowed(
+      actor.role,
+      [...VISIT_REPORT_VIEWER_ROLES, USER_ROLES.PROSPECTOR],
+      'list visit reports'
+    );
+    // Viewers (/resumo) veem todos os informes; PROSPECTOR ve apenas os
+    // proprios (lista do dashboard dele) — o escopo e forcado aqui, nunca
+    // decidido pelo cliente.
+    const where = actor.role === USER_ROLES.PROSPECTOR ? { userId: actor.actorUserId } : {};
     const page = readPageQuery(input?.page, 1);
     const limit = readLimitQuery(input?.limit, {
       fallback: VISIT_REPORT_LIST_LIMIT_DEFAULT,
@@ -382,6 +392,7 @@ export class VisitReportService {
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.visitReport.findMany({
+        where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
@@ -390,7 +401,7 @@ export class VisitReportService {
           client: { select: VISIT_REPORT_CLIENT_SELECT },
         },
       }),
-      this.prisma.visitReport.count(),
+      this.prisma.visitReport.count({ where }),
     ]);
 
     return {
