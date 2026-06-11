@@ -172,11 +172,10 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
               <div className="dashboard-operations-grid">
                 <div className="dashboard-operation-card is-wide is-static">
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                    {/* Pino de localizacao — visita em campo. */}
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <rect x="5.5" y="3.5" width="13" height="17" rx="2.2" />
-                      <path d="M9 8h6" />
-                      <path d="M9 11.5h6" />
-                      <path d="M9 15h4" />
+                      <path d="M20 10.2c0 5.7-8 11.3-8 11.3s-8-5.6-8-11.3a8 8 0 0 1 16 0z" />
+                      <circle cx="12" cy="10" r="2.6" />
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
@@ -194,11 +193,12 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
 
                 <div className="dashboard-operation-card is-wide is-static">
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                    {/* Pessoa + sinal de adicionar — cliente novo prospectado. */}
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <circle cx="10" cy="8" r="4" />
-                      <path d="M3 21c0-3.9 3.1-7 7-7 1.2 0 2.4 0.3 3.4 0.9" />
-                      <path d="M18 14v6" />
-                      <path d="M15 17h6" />
+                      <circle cx="10" cy="8" r="3.5" />
+                      <path d="M3.5 20a6.5 6.5 0 0 1 13 0" />
+                      <path d="M18.5 11.5v6" />
+                      <path d="M15.5 14.5h6" />
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
