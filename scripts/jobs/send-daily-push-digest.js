@@ -107,7 +107,9 @@ async function sendProspectReminder({ pushService }) {
     (user) => ({
       title: `Bom dia ${firstName(user?.fullName, user?.username)}!`,
       body: 'Vamos prospectar! Lembre-se dos formulários de visita.',
-      url: '/informe',
+      // Dashboard do prospector com o sheet do formulario ja aberto
+      // (?informe=novo) — o /informe nao serve mais o PROSPECTOR.
+      url: '/dashboard?informe=novo',
       tag: 'prospect-reminder',
     }),
     { ttl: REMINDER_TTL_SECONDS, urgency: 'normal' }
