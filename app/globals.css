@@ -9109,6 +9109,15 @@ body:has(.app-modal-backdrop) .prospector-fab {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* O overflow cliparia as sombras laterais dos .rsm-card rente a borda
+     (linha vertical dura). Margens negativas do tamanho do padding-x do
+     .dashboard-sheet + padding igual movem o limite de clip pra borda do
+     proprio sheet — a sombra esmaece naturalmente e os cards continuam
+     alinhados com os cards de contagem acima. */
+  margin-inline: calc(-1 * clamp(1rem, 4vw, 1.4rem));
+  padding-inline: clamp(1rem, 4vw, 1.4rem);
+  /* Respiro no topo pro brilho/sombra superior do primeiro card. */
+  padding-top: 2px;
   padding-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.4rem, 27vw, 7rem)
   );
@@ -24461,9 +24470,12 @@ select.samples-filter-field-input {
   }
 
   /* Scroll interno da lista no desktop: a pagina flui livre, entao a area
-     rolavel precisa de teto proprio. */
+     rolavel precisa de teto proprio. Clip estendido com o padding-x do
+     sheet desktop (1.6rem). */
   .prospector-dashboard .prospector-list-scroll {
     max-height: 56vh;
+    margin-inline: -1.6rem;
+    padding-inline: 1.6rem;
     padding-bottom: 7.5rem;
   }
 
