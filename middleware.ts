@@ -1,16 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * M1: middleware de manutencao. Quando `MAINTENANCE_MODE=true` no env,
- * redireciona usuarios nao-ADMIN para `/maintenance` em qualquer rota
- * UI; rotas publicas (login, health, assets) ficam livres.
+ * Dois gates de UX, ambos lendo o role por decodificacao do payload do JWT
+ * do cookie `rastreio_session` (base64url puro, SEM verificacao de
+ * assinatura — a seguranca real fica nas APIs e server actions):
  *
- * O role e lido decodificando o payload do JWT do cookie
- * `rastreio_session` (base64url puro, sem verificacao). A verificacao
- * de assinatura/validade fica nas APIs e server actions; aqui o objetivo
- * e apenas UX (filtrar quem ve o app vs a pagina de manutencao).
+ * M1 — manutencao: quando `MAINTENANCE_MODE=true` no env, redireciona
+ * usuarios nao-ADMIN para `/maintenance` em qualquer rota UI; rotas
+ * publicas (login, health, assets) ficam livres.
  *
- * Fora de manutencao (env != 'true'), middleware e no-op.
+ * P1 — app restrito do PROSPECTOR: fora das paginas do app dele
+ * (/dashboard, /profile, alem de /settings que ja redireciona pra
+ * /profile e /offline), redireciona para /dashboard. Apenas UX:
+ * - APIs nao passam por aqui (se autodefendem no gate central de papel —
+ *   ver src/auth/prospector-access.js);
+ * - navegacoes servidas do cache do service worker (PWA offline) NAO
+ *   passam pelo middleware — os guards de pagina via useRequireAuth
+ *   (allowedRoles: NON_PROSPECTOR_ROLES) cobrem esse caminho;
+ * - /dashboard nunca e redirecionado (evita loop) e o deep link
+ *   `/dashboard?informe=novo` do lembrete push passa intacto.
  */
 
 const SESSION_COOKIE = 'rastreio_session';
@@ -36,8 +44,17 @@ const PUBLIC_PATH_PREFIXES = [
   '/login-coffee-beans',
 ];
 
+// Paginas do app restrito do PROSPECTOR (prefixos).
+const PROSPECTOR_PAGE_PREFIXES = ['/dashboard', '/profile', '/settings', '/offline'];
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+}
+
+function isProspectorAllowedPage(pathname: string): boolean {
+  return PROSPECTOR_PAGE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 }
 
 function decodeJwtRole(token: string): string | null {
@@ -57,25 +74,43 @@ function decodeJwtRole(token: string): string | null {
 }
 
 export function middleware(request: NextRequest) {
-  if (process.env.MAINTENANCE_MODE !== 'true') {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
-  if (isPublicPath(pathname)) {
+
+  // M1: modo manutencao (comportamento original, inalterado).
+  if (process.env.MAINTENANCE_MODE === 'true') {
+    if (isPublicPath(pathname)) {
+      return NextResponse.next();
+    }
+
+    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+    const role = sessionToken ? decodeJwtRole(sessionToken) : null;
+    if (role === 'ADMIN') {
+      return NextResponse.next();
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = MAINTENANCE_PATH;
+    url.search = '';
+    return NextResponse.redirect(url, 307);
+  }
+
+  // P1: app restrito do PROSPECTOR (so paginas — APIs se autodefendem).
+  if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
-  const role = sessionToken ? decodeJwtRole(sessionToken) : null;
-  if (role === 'ADMIN') {
-    return NextResponse.next();
+  if (!isPublicPath(pathname)) {
+    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+    const role = sessionToken ? decodeJwtRole(sessionToken) : null;
+    if (role === 'PROSPECTOR' && !isProspectorAllowedPage(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.search = '';
+      return NextResponse.redirect(url, 307);
+    }
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = MAINTENANCE_PATH;
-  url.search = '';
-  return NextResponse.redirect(url, 307);
+  return NextResponse.next();
 }
 
 export const config = {

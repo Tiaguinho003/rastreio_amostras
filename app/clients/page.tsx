@@ -34,7 +34,7 @@ import type {
   UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
-import { isCommercialRole } from '../../lib/roles';
+import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
 const CLIENT_PAGE_LIMIT = 60;
 // 14.6.C: shape do nextCursor mudou (createdAt -> displayName). Snapshots
@@ -369,7 +369,9 @@ export default function ClientsPageWrapper() {
 }
 
 function ClientsPage() {
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
   const searchParams = useSearchParams();
 
   // URL ?incomplete=true tem precedencia sobre o snapshot — quando o user

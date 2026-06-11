@@ -47,7 +47,7 @@ import { useDocumentMask } from '../../../lib/use-document-mask';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useRequireAuth } from '../../../lib/use-auth';
-import { isCommercialRole } from '../../../lib/roles';
+import { isCommercialRole, NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 import { UserMultiSelect } from '../../../components/users/UserMultiSelect';
 import type {
   ClientPurchaseListItem,
@@ -293,7 +293,9 @@ function commercialStatusClass(
 
 export default function ClientDetailPage() {
   /* ---- auth & params ---- */
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
   const params = useParams<{ clientId: string }>();
   const clientId = typeof params.clientId === 'string' ? params.clientId : '';
 

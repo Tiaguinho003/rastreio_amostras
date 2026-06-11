@@ -55,6 +55,7 @@ import type {
   UserLookupItem,
 } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 
 type QrScannerClass = typeof import('qr-scanner').default;
@@ -118,7 +119,9 @@ function normalizeLot(lot: string | null | undefined): string {
 // --- Main Camera Page ---
 
 function CameraPageContent() {
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
   const router = useRouter();
   const searchParams = useSearchParams();
 

@@ -7,6 +7,7 @@ import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
 import { VisitReportForm } from '../../components/visits/VisitReportForm';
 import { useRequireAuth } from '../../lib/use-auth';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
 // Pagina "Informe" — formulario de visita (item do tabbar mobile).
 // O formulario em si vive em components/visits/VisitReportForm (reutilizado
@@ -18,7 +19,11 @@ import { useRequireAuth } from '../../lib/use-auth';
 // na pagina /resumo.
 
 export default function InformePage() {
-  const { session, loading, logout, setSession } = useRequireAuth();
+  // PROSPECTOR nao usa esta pagina: o formulario dele abre no dashboard
+  // (FAB + ?informe=novo) — o guard redireciona para /dashboard.
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
 
   const contentRef = useRef<HTMLElement | null>(null);
 

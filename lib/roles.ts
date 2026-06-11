@@ -34,6 +34,18 @@ export function isProspector(role: UserRole | null | undefined): boolean {
   return role === 'PROSPECTOR';
 }
 
+// allowedRoles das paginas que NAO fazem parte do app do prospector
+// (amostras, clientes, camera, informe) — o guard redireciona PROSPECTOR
+// para /dashboard. O middleware cobre a navegacao online; este guard cobre
+// tambem paginas servidas do cache do service worker (PWA offline).
+export const NON_PROSPECTOR_ROLES: UserRole[] = [
+  'ADMIN',
+  'CLASSIFIER',
+  'REGISTRATION',
+  'COMMERCIAL',
+  'CADASTRO',
+];
+
 // Quem ve a pagina /resumo (informes de visita). Espelha
 // VISIT_REPORT_VIEWER_ROLES do backend (src/visits/visit-report-service.js):
 // as notificacoes situacionais de visita apontam pra la.

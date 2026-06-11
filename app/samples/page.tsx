@@ -38,6 +38,7 @@ import { useToast } from '../../lib/toast/ToastProvider';
 import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { ClientSummary, SampleEligibilityReason, SampleSnapshot } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
+import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
 const SAMPLE_PAGE_LIMIT = 20;
 // Mesma fonte do registro (NewSampleModal) — desliza com o ano e cobre todas
@@ -461,7 +462,9 @@ export default function SamplesPageWrapper() {
 }
 
 function SamplesPage() {
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
   const router = useRouter();
   const searchParams = useSearchParams();
 

@@ -45,6 +45,7 @@ import {
 import { useFocusTrap } from '../../../lib/use-focus-trap';
 import { useGlobalLoading } from '../../../lib/loading/loading-context';
 import { useRequireAuth } from '../../../lib/use-auth';
+import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 import type {
   ActiveBlendDetail,
   AffectedBlendDetail,
@@ -423,7 +424,9 @@ function mapSampleOwnerClientToSummary(
 }
 
 export default function SampleDetailPage() {
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
   const router = useRouter();
   const params = useParams<{ sampleId: string }>();
   const searchParams = useSearchParams();

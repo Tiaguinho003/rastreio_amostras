@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '../../../components/AppShell';
 import { NewSampleModal } from '../../../components/NewSampleModal';
 import { useRequireAuth } from '../../../lib/use-auth';
+import { NON_PROSPECTOR_ROLES } from '../../../lib/roles';
 
 // /samples/new e um wrapper que renderiza o <NewSampleModal /> ja aberto.
 // O AppShell e mantido por baixo pra preservar o contexto visual (tabbar
@@ -22,7 +23,9 @@ import { useRequireAuth } from '../../../lib/use-auth';
 
 function NewSamplePageContent() {
   const router = useRouter();
-  const { session, loading, logout, setSession } = useRequireAuth();
+  const { session, loading, logout, setSession } = useRequireAuth({
+    allowedRoles: NON_PROSPECTOR_ROLES,
+  });
 
   if (loading || !session) {
     return null;

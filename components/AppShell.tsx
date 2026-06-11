@@ -12,7 +12,7 @@ import { changeCurrentUserPassword, recordInitialPasswordDecision } from '../lib
 import { changePasswordSchema } from '../lib/form-schemas';
 import { useVisitOutboxAutoSync } from '../lib/offline/use-visit-outbox-sync';
 import { VISIT_SYNC_COMPLETED_EVENT, type VisitSyncResult } from '../lib/offline/visit-sync';
-import { getRoleLabel, isAdmin, isVisitReportViewer } from '../lib/roles';
+import { getRoleLabel, isAdmin, isProspector, isVisitReportViewer } from '../lib/roles';
 import { useToast } from '../lib/toast/ToastProvider';
 import type { SessionData } from '../lib/types';
 import { mergeUserIntoSession } from '../lib/use-auth';
@@ -79,6 +79,24 @@ const MOBILE_NAV_ITEMS = [
   },
 ] as const;
 
+// App restrito do PROSPECTOR: so o dashboard dedicado (lista + FAB do
+// formulario de visita) e o perfil. O informe dele abre no proprio
+// dashboard (sheet), por isso nao ha tab de Informe.
+const PROSPECTOR_MOBILE_NAV_ITEMS = [
+  {
+    href: '/dashboard',
+    mobileLabel: 'Inicio',
+    icon: 'dashboard' as NavIcon,
+    emphasis: 'default' as const,
+  },
+  {
+    href: '/profile',
+    mobileLabel: 'Perfil',
+    icon: 'avatar' as NavIcon,
+    emphasis: 'default' as const,
+  },
+] as const;
+
 function isMainNavItemActive(pathname: string, href: string) {
   if (href === '/dashboard') {
     return pathname === '/dashboard';
@@ -98,6 +116,10 @@ function isMainNavItemActive(pathname: string, href: string) {
 
   if (href === '/informe') {
     return pathname === '/informe';
+  }
+
+  if (href === '/profile') {
+    return pathname === '/profile';
   }
 
   return pathname === href;
@@ -292,9 +314,12 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  const desktopNavItems = isAdmin(session.user.role)
-    ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM]
-    : DESKTOP_NAV_ITEMS;
+  const prospector = isProspector(session.user.role);
+  const desktopNavItems = prospector
+    ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
+    : isAdmin(session.user.role)
+      ? [...DESKTOP_NAV_ITEMS, ADMIN_NAV_ITEM]
+      : DESKTOP_NAV_ITEMS;
   const mobileRouteMeta = resolveMobileRouteMeta(pathname);
   const isCameraRoute = pathname === '/camera';
 
@@ -583,7 +608,9 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
           <div className="topbar-tools">
             <div className="topbar-search-slot">
-              <SampleSearchField session={session} compact />
+              {/* PROSPECTOR nao acessa amostras — a busca de lote chamaria
+                  um endpoint negado pela allowlist de API (403). */}
+              {!prospector ? <SampleSearchField session={session} compact /> : null}
             </div>
 
             <div className="topbar-profile" ref={profileMenuRef}>
@@ -627,13 +654,15 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
                       Resumo
                     </Link>
                   ) : null}
-                  <Link
-                    href="/clients"
-                    className="topbar-profile-link"
-                    onClick={() => setProfileMenuOpen(false)}
-                  >
-                    Clientes
-                  </Link>
+                  {!prospector ? (
+                    <Link
+                      href="/clients"
+                      className="topbar-profile-link"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      Clientes
+                    </Link>
+                  ) : null}
                   <Link
                     href="/profile"
                     className="topbar-profile-link"
@@ -684,7 +713,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
       {!hideMobileTabbar ? (
         <MobileTabbar
-          items={MOBILE_NAV_ITEMS.map((item) => ({
+          items={(prospector ? PROSPECTOR_MOBILE_NAV_ITEMS : MOBILE_NAV_ITEMS).map((item) => ({
             href: item.href,
             mobileLabel: item.mobileLabel,
             icon: renderNavIcon(item.icon, session.user),
