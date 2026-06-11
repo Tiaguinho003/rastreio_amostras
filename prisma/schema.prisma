@@ -207,6 +207,22 @@ enum VisitInterestLevel {
   HIGH
 }
 
+// Motivo da visita do comercial (formulario "Visitas" da pagina /informe).
+enum CommercialVisitReason {
+  NEGOTIATION // negociacao de compra/venda
+  SAMPLE_DELIVERY_OR_PICKUP // entrega ou coleta de amostra
+  COLLECTION // cobranca
+  RELATIONSHIP // relacionamento / pos-venda
+}
+
+// Resultado da negociacao relatado na visita do comercial.
+enum CommercialVisitOutcome {
+  DEAL_CLOSED // negocio fechado
+  PROPOSAL_IN_PROGRESS // proposta em andamento
+  NO_PROGRESS // sem avanco
+  NO_INTEREST // sem interesse
+}
+
 model Sample {
   id                String           @id @db.Uuid
   internalLotNumber String?          @unique(map: "uq_sample_internal_lot") @map("internal_lot_number")
@@ -399,6 +415,8 @@ model User {
   clientAuditEventsAsActor ClientAuditEvent[]     @relation("ClientAuditActor")
   commercialClientLinks    ClientCommercialUser[]
   visitReports             VisitReport[]
+  commercialVisits         CommercialVisit[]
+  weeklyReports            WeeklyReport[]
   pushSubscriptions        PushSubscription[]
 
   @@index([status, createdAt, id], map: "idx_user_status_created_id")
@@ -453,6 +471,7 @@ model Client {
   auditEventsAsTarget ClientAuditEvent[]     @relation("ClientAuditTarget")
   commercialUsers     ClientCommercialUser[]
   visitReports        VisitReport[]
+  commercialVisits    CommercialVisit[]
 
   @@index([cnpjRoot], map: "idx_client_cnpj_root")
   @@index([status, code], map: "idx_client_status_code")
@@ -714,6 +733,58 @@ model VisitReport {
   @@index([userId, createdAt], map: "idx_visit_report_user_created")
   @@index([clientId], map: "idx_visit_report_client")
   @@map("visit_report")
+}
+
+// Visita do COMERCIAL (formulario "Visitas" da pagina /informe do papel
+// COMMERCIAL — diferente do informe do prospector). 1 row por envio, sem
+// update via API; user_id/created_at carimbados no servidor. Identificacao
+// do cliente identica ao visit_report (client_kind EXISTING/NEW). Sem
+// captured_at: o formulario do comercial nao tem fila offline.
+model CommercialVisit {
+  id             String                 @id @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  clientKind     VisitClientKind        @map("client_kind")
+  clientId       String?                @map("client_id") @db.Uuid
+  newClientName  String?                @map("new_client_name")
+  // Coluna GERADA pelo banco (LOWER + immutable_unaccent de
+  // new_client_name) — busca acento-insensitive; nunca escrever por aqui.
+  newClientNameNormalized String?       @map("new_client_name_normalized") @db.Text
+  newClientCity  String?                @map("new_client_city")
+  newClientPhone String?                @map("new_client_phone")
+  reason         CommercialVisitReason
+  outcome        CommercialVisitOutcome
+  outcomeNotes   String?                @map("outcome_notes")
+  generalNotes   String?                @map("general_notes")
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([createdAt, id], map: "idx_commercial_visit_created_id")
+  @@index([userId, createdAt], map: "idx_commercial_visit_user_created")
+  @@index([clientId], map: "idx_commercial_visit_client")
+  @@map("commercial_visit")
+}
+
+// Relatorio SEMANAL do comercial (formulario "Relatorio" da pagina
+// /informe). Semana de referencia computada pelo SERVIDOR (segunda BRT,
+// date-only) — o body nunca decide a semana. UNIQUE (user_id, week_start)
+// garante no maximo 1 relatorio por usuario por semana (violacao -> 409).
+model WeeklyReport {
+  id           String   @id @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  weekStart    DateTime @map("week_start") @db.Date
+  summary      String
+  difficulties String?
+  nextWeekPlan String?  @map("next_week_plan")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, weekStart], map: "uq_weekly_report_user_week")
+  @@index([createdAt, id], map: "idx_weekly_report_created_id")
+  @@index([userId, createdAt], map: "idx_weekly_report_user_created")
+  @@map("weekly_report")
 }
 
 // Inscricao de Web Push de UM aparelho/navegador de UM usuario (N aparelhos
