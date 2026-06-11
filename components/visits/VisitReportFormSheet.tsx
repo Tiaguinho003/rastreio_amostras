@@ -68,8 +68,8 @@ export function VisitReportFormSheet({
         open={open}
         onClose={onClose}
         onDismissAttempt={handleDismissAttempt}
-        title="Novo informe"
-        ariaLabel="Novo informe de visita"
+        title="Nova visita"
+        ariaLabel="Nova visita"
         dragToDismiss
         dragDisabled={confirmDiscardOpen}
         className="is-informe"

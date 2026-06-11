@@ -424,7 +424,7 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
       <button
         type="button"
         className="prospector-fab"
-        aria-label="Novo informe de visita"
+        aria-label="Nova visita"
         onClick={() => setSheetOpen(true)}
       >
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
