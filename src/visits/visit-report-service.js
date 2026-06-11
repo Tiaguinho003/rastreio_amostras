@@ -154,7 +154,9 @@ function normalizeCapturedAt(value, fieldName = 'capturedAt') {
   return parsed;
 }
 
-function toVisitReportView(row) {
+// Exportada: o feed combinado (commercial-forms-service) reusa esta view
+// para os itens do tipo VISIT_REPORT.
+export function toVisitReportView(row) {
   return {
     id: row.id,
     user: row.user

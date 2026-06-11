@@ -966,6 +966,95 @@ export interface VisitReportStatsResponse {
   todayNewClientsCount: number;
 }
 
+// ── Formularios do comercial (pagina /informe do papel COMMERCIAL) ──
+
+export type CommercialVisitReason =
+  | 'NEGOTIATION'
+  | 'SAMPLE_DELIVERY_OR_PICKUP'
+  | 'COLLECTION'
+  | 'RELATIONSHIP';
+
+export type CommercialVisitOutcome =
+  | 'DEAL_CLOSED'
+  | 'PROPOSAL_IN_PROGRESS'
+  | 'NO_PROGRESS'
+  | 'NO_INTEREST';
+
+export interface CommercialVisitSummary {
+  id: string;
+  type: 'COMMERCIAL_VISIT';
+  user: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  clientKind: VisitClientKind;
+  client: {
+    id: string;
+    code: number;
+    displayName: string | null;
+    status: ClientStatus;
+  } | null;
+  newClient: {
+    name: string | null;
+    city: string | null;
+    phone: string | null;
+  } | null;
+  reason: CommercialVisitReason;
+  outcome: CommercialVisitOutcome;
+  outcomeNotes: string | null;
+  generalNotes: string | null;
+  createdAt: string;
+}
+
+export interface WeeklyReportSummary {
+  id: string;
+  type: 'WEEKLY_REPORT';
+  user: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  /** Segunda da semana de referencia (YYYY-MM-DD, BRT). */
+  weekStart: string;
+  /** Domingo da semana de referencia (YYYY-MM-DD, BRT). */
+  weekEnd: string;
+  summary: string;
+  difficulties: string | null;
+  nextWeekPlan: string | null;
+  createdAt: string;
+}
+
+export type InformeFeedScope = 'mine' | 'all';
+
+// Uniao discriminada por `type` — o informe do prospector entra no feed
+// com o type carimbado pelo servidor.
+export type InformeFeedItem =
+  | ({ type: 'VISIT_REPORT' } & VisitReportSummary)
+  | CommercialVisitSummary
+  | WeeklyReportSummary;
+
+export interface InformeFeedResponse {
+  items: InformeFeedItem[];
+  page: {
+    limit: number;
+    page: number;
+    offset: number;
+    total: number;
+    totalPages: number;
+    hasPrev: boolean;
+    hasNext: boolean;
+  };
+}
+
+export interface CommercialVisitMutationResponse {
+  visit: CommercialVisitSummary;
+}
+
+export interface WeeklyReportMutationResponse {
+  report: WeeklyReportSummary;
+}
+
 // ── Web Push (notificações nativas) ──
 
 export interface PushConfigResponse {

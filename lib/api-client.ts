@@ -46,6 +46,12 @@ import type {
   VisitReportMutationResponse,
   VisitReportsListResponse,
   VisitReportStatsResponse,
+  CommercialVisitReason,
+  CommercialVisitOutcome,
+  CommercialVisitMutationResponse,
+  WeeklyReportMutationResponse,
+  InformeFeedResponse,
+  InformeFeedScope,
   PushConfigResponse,
   PushSubscriptionMutationResponse,
 } from './types';
@@ -1752,6 +1758,73 @@ export function listVisitReports(
 
 export function getMyVisitReportStats(session: SessionData) {
   return request<VisitReportStatsResponse>('/visit-reports/stats', {
+    method: 'GET',
+    session,
+  });
+}
+
+// ── Formularios do comercial ──
+
+export function createCommercialVisit(
+  session: SessionData,
+  data: {
+    clientKind: VisitClientKind;
+    clientId: string | null;
+    newClientName: string | null;
+    newClientCity: string | null;
+    newClientPhone: string | null;
+    reason: CommercialVisitReason;
+    outcome: CommercialVisitOutcome;
+    outcomeNotes: string | null;
+    generalNotes: string | null;
+  }
+) {
+  return request<CommercialVisitMutationResponse>('/commercial-visits', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function deleteCommercialVisit(session: SessionData, visitId: string) {
+  return request<VisitReportDeleteResponse>(`/commercial-visits/${visitId}`, {
+    method: 'DELETE',
+    session,
+  });
+}
+
+export function createWeeklyReport(
+  session: SessionData,
+  data: {
+    summary: string;
+    difficulties: string | null;
+    nextWeekPlan: string | null;
+  }
+) {
+  return request<WeeklyReportMutationResponse>('/weekly-reports', {
+    method: 'POST',
+    session,
+    body: data,
+  });
+}
+
+export function deleteWeeklyReport(session: SessionData, reportId: string) {
+  return request<VisitReportDeleteResponse>(`/weekly-reports/${reportId}`, {
+    method: 'DELETE',
+    session,
+  });
+}
+
+export function listInformeFeed(
+  session: SessionData,
+  query: { scope: InformeFeedScope; page?: number; limit?: number }
+) {
+  const params = new URLSearchParams();
+  params.set('scope', query.scope);
+  if (typeof query.page === 'number') params.set('page', String(query.page));
+  if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+
+  return request<InformeFeedResponse>(`/informe-feed?${params.toString()}`, {
     method: 'GET',
     session,
   });

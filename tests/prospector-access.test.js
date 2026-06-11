@@ -49,6 +49,7 @@ function createApiFor(role, services = {}) {
     userService: {},
     clientService: {},
     visitReportService: {},
+    commercialFormsService: {},
     ...services,
   });
 }
@@ -63,6 +64,12 @@ test('PROSPECTOR: metodos fora da allowlist respondem 403 ROLE_FORBIDDEN', async
     'listClients',
     'createSample',
     'listUsers',
+    // Formularios do comercial: fora do app restrito do prospector.
+    'createCommercialVisit',
+    'deleteCommercialVisit',
+    'createWeeklyReport',
+    'deleteWeeklyReport',
+    'listInformeFeed',
   ];
 
   for (const methodName of deniedSamples) {

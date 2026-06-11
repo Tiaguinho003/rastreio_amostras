@@ -156,6 +156,7 @@ export function createBackendApiV1({
   userService = null,
   clientService = null,
   visitReportService = null,
+  commercialFormsService = null,
   pushService = null,
   commandService,
   queryService,
@@ -2130,6 +2131,109 @@ export function createBackendApiV1({
         // Contadores do dashboard do prospector — sempre do proprio ator.
         const actor = await resolveActorContext(input, authService);
         const result = await visitReportService.getMyVisitReportStats(actor);
+
+        return { status: 200, body: result };
+      }),
+
+    // ============================================================
+    // Formularios do comercial (pagina /informe do papel COMMERCIAL)
+    // ============================================================
+
+    createCommercialVisit: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await commercialFormsService.createCommercialVisit(
+          {
+            clientKind: body.clientKind,
+            clientId: body.clientId,
+            newClientName: body.newClientName,
+            newClientCity: body.newClientCity,
+            newClientPhone: body.newClientPhone,
+            reason: body.reason,
+            outcome: body.outcome,
+            outcomeNotes: body.outcomeNotes,
+            generalNotes: body.generalNotes,
+          },
+          actor
+        );
+
+        return { status: 201, body: result };
+      }),
+
+    deleteCommercialVisit: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const visitId = input?.params?.visitId;
+        if (typeof visitId !== 'string' || visitId.length === 0) {
+          throw new HttpError(422, 'visitId path param is required');
+        }
+
+        const result = await commercialFormsService.deleteCommercialVisit({ visitId }, actor);
+        return { status: 200, body: result };
+      }),
+
+    createWeeklyReport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        // A semana de referencia e SEMPRE computada no servidor.
+        const actor = await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const result = await commercialFormsService.createWeeklyReport(
+          {
+            summary: body.summary,
+            difficulties: body.difficulties,
+            nextWeekPlan: body.nextWeekPlan,
+          },
+          actor
+        );
+
+        return { status: 201, body: result };
+      }),
+
+    deleteWeeklyReport: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const reportId = input?.params?.reportId;
+        if (typeof reportId !== 'string' || reportId.length === 0) {
+          throw new HttpError(422, 'reportId path param is required');
+        }
+
+        const result = await commercialFormsService.deleteWeeklyReport({ reportId }, actor);
+        return { status: 200, body: result };
+      }),
+
+    listInformeFeed: (input) =>
+      executeApiForInput(input, async () => {
+        if (!commercialFormsService) {
+          throw new HttpError(501, 'Commercial forms service is not configured');
+        }
+
+        const actor = await resolveActorContext(input, authService);
+        const query = input?.query ?? {};
+        const result = await commercialFormsService.listInformeFeed(
+          {
+            scope: query.scope,
+            page: query.page,
+            limit: query.limit,
+          },
+          actor
+        );
 
         return { status: 200, body: result };
       }),
