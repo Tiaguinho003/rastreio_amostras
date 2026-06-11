@@ -642,7 +642,7 @@ export function VisitReportForm({
       </section>
 
       <button type="submit" className="inf-submit" disabled={submitting}>
-        {submitting ? 'Enviando…' : 'Enviar informe'}
+        {submitting ? 'Enviando…' : 'Enviar'}
       </button>
     </form>
   );

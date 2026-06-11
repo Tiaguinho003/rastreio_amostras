@@ -9014,11 +9014,11 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(31, 93, 67, 0.45);
 }
 
-/* Botao central "+" do formulario — clone do botao da camera da tabbar
-   (mesmo tamanho/gradiente/elevacao), fixo no rodape ja que o app do
-   prospector NAO tem navbar. translate3d compoe o centering com um GPU
-   layer proprio (mesmo fix de position:fixed do .mobile-tabbar em iOS
-   standalone). */
+/* Botao central "+" do formulario — mesma posicao/gradiente/elevacao do
+   botao da camera da tabbar, porem quadrado arredondado e ligeiramente
+   menor (pedido do Flavio); fixo no rodape ja que o app do prospector NAO
+   tem navbar. translate3d compoe o centering com um GPU layer proprio
+   (mesmo fix de position:fixed do .mobile-tabbar em iOS standalone). */
 .prospector-fab {
   position: fixed;
   left: 50%;
@@ -9026,9 +9026,9 @@ button:disabled {
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
   );
   z-index: 70;
-  width: clamp(4.75rem, 19vw, 5.5rem);
-  height: clamp(4.75rem, 19vw, 5.5rem);
-  border-radius: 999px;
+  width: clamp(4.2rem, 17vw, 4.9rem);
+  height: clamp(4.2rem, 17vw, 4.9rem);
+  border-radius: clamp(18px, 5vw, 22px);
   background: linear-gradient(180deg, #1a6b2e 0%, #0d4a1a 100%);
   border: 2px solid rgba(255, 255, 255, 0.18);
   box-shadow:
@@ -9052,8 +9052,8 @@ button:disabled {
 }
 
 .prospector-fab svg {
-  width: clamp(2.1rem, 9vw, 2.5rem);
-  height: clamp(2.1rem, 9vw, 2.5rem);
+  width: clamp(1.9rem, 8vw, 2.2rem);
+  height: clamp(1.9rem, 8vw, 2.2rem);
   fill: none;
   stroke: #ffffff;
   stroke-width: 1.8;
