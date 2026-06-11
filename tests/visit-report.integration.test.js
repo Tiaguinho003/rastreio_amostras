@@ -437,30 +437,91 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(without.report.generalNotes, null);
   });
 
-  test('deleteVisitReport: admin exclui; nao-admin 403; inexistente 404', async () => {
+  test('deleteVisitReport: admin exclui qualquer; autor exclui o proprio; alheio 404', async () => {
     await resetDatabase();
     const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
+    const prospector = await seedUser('PROSPECTOR');
 
-    const created = await service.createVisitReport(baseInput(), actorFor(commercial));
+    const own = await service.createVisitReport(baseInput(), actorFor(prospector));
+    const other = await service.createVisitReport(baseInput(), actorFor(commercial));
 
-    // Comercial (que pode LER o /resumo) nao pode excluir.
+    // Informe alheio: mesma resposta de inexistente (404), sem vazar existencia.
     await assert.rejects(
-      service.deleteVisitReport({ reportId: created.report.id }, actorFor(commercial)),
-      (error) => error.status === 403
+      service.deleteVisitReport({ reportId: other.report.id }, actorFor(prospector)),
+      (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
     );
 
-    const removed = await service.deleteVisitReport(
-      { reportId: created.report.id },
+    // Autor exclui o proprio (lixeira do dashboard do prospector).
+    const removedOwn = await service.deleteVisitReport(
+      { reportId: own.report.id },
+      actorFor(prospector)
+    );
+    assert.deepEqual(removedOwn, { removed: true });
+
+    // Admin exclui informe de qualquer autor (curadoria do /resumo).
+    const removedOther = await service.deleteVisitReport(
+      { reportId: other.report.id },
       actorFor(admin)
     );
-    assert.deepEqual(removed, { removed: true });
+    assert.deepEqual(removedOther, { removed: true });
     assert.equal(await prisma.visitReport.count(), 0);
 
     await assert.rejects(
-      service.deleteVisitReport({ reportId: created.report.id }, actorFor(admin)),
+      service.deleteVisitReport({ reportId: other.report.id }, actorFor(admin)),
       (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
     );
+  });
+
+  test('listVisitReports: search filtra por nome do cliente (novo e cadastrado) com total real', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const commercial = await seedUser('COMMERCIAL');
+
+    // search_normalized e coluna GERADA pelo Postgres a partir do nome —
+    // o banco materializa 'jose produtor' sozinho.
+    const clientJose = await prisma.client.create({
+      data: {
+        id: randomUUID(),
+        personType: 'PF',
+        fullName: 'José Produtor',
+        status: 'ACTIVE',
+        isSeller: true,
+      },
+    });
+
+    await service.createVisitReport(
+      baseInput({ newClientName: 'Fazenda Boa Vista' }),
+      actorFor(prospector)
+    );
+    await service.createVisitReport(
+      baseInput({ clientKind: 'EXISTING', clientId: clientJose.id }),
+      actorFor(prospector)
+    );
+    // De outro autor: casa a busca, mas nunca aparece pro prospector.
+    await service.createVisitReport(
+      baseInput({ newClientName: 'Boa Esperanca' }),
+      actorFor(commercial)
+    );
+
+    // Cliente novo: texto livre, case-insensitive.
+    const byNew = await service.listVisitReports({ search: 'bOa' }, actorFor(prospector));
+    assert.equal(byNew.page.total, 1);
+    assert.equal(byNew.items[0].newClient.name, 'Fazenda Boa Vista');
+
+    // Cliente cadastrado: coluna normalizada — acento-insensitive.
+    const byExisting = await service.listVisitReports({ search: 'jose' }, actorFor(prospector));
+    assert.equal(byExisting.page.total, 1);
+    assert.equal(byExisting.items[0].client.id, clientJose.id);
+
+    // Sem match: lista vazia com total 0 (o contador do dashboard segue a busca).
+    const none = await service.listVisitReports({ search: 'inexistente' }, actorFor(prospector));
+    assert.equal(none.page.total, 0);
+    assert.equal(none.items.length, 0);
+
+    // Viewer busca cruzando autores.
+    const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(commercial));
+    assert.equal(viewer.page.total, 2);
   });
 
   test('createVisitReport: capturedAt passado e persistido e retornado; ausente fica null', async () => {

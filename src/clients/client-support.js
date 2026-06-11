@@ -107,6 +107,16 @@ export function normalizeRegistrationCanonical(value) {
     .replace(/[^a-z0-9]+/g, '');
 }
 
+// 14.7: normaliza input de busca pra casar com a coluna gerada
+// search_normalized do Client (acento removido + minusculas, espacos
+// preservados). NFD decompoe caracteres acentuados em base + combining
+// mark; o regex remove os marks (U+0300..U+036F). Compartilhada com a
+// busca de informes de visita (visit-report-service).
+export function normalizeSearchInput(input) {
+  if (typeof input !== 'string' || input.length === 0) return '';
+  return input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 function normalizeClientPersonType(value, fieldName = 'personType') {
   const normalized = normalizeRequiredText(value, fieldName, 8).toUpperCase();
   if (!Object.values(CLIENT_PERSON_TYPES).includes(normalized)) {

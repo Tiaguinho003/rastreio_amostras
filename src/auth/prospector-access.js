@@ -25,9 +25,12 @@ export const PROSPECTOR_ALLOWED_API_METHODS = new Set([
   'savePushSubscription',
   'deletePushSubscription',
 
-  // Formulario de visita + dashboard do prospector
+  // Formulario de visita + dashboard do prospector. deleteVisitReport
+  // entra porque o autor exclui o PROPRIO informe (lixeira do dashboard);
+  // a regra "so o proprio" e do service, nao do gate.
   'lookupClients',
   'createVisitReport',
   'listVisitReports',
   'getMyVisitReportStats',
+  'deleteVisitReport',
 ]);

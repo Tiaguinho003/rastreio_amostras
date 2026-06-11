@@ -2113,6 +2113,7 @@ export function createBackendApiV1({
           {
             page: query.page,
             limit: query.limit,
+            search: query.search,
           },
           actor
         );

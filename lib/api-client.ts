@@ -1736,11 +1736,12 @@ export function deleteVisitReport(session: SessionData, reportId: string) {
 
 export function listVisitReports(
   session: SessionData,
-  query: { page?: number; limit?: number } = {}
+  query: { page?: number; limit?: number; search?: string } = {}
 ) {
   const params = new URLSearchParams();
   if (typeof query.page === 'number') params.set('page', String(query.page));
   if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+  if (query.search) params.set('search', query.search);
 
   const suffix = params.size ? `?${params.toString()}` : '';
   return request<VisitReportsListResponse>(`/visit-reports${suffix}`, {

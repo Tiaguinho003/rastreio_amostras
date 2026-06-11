@@ -2,9 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import { HttpError } from '../contracts/errors.js';
 import { assertRoleAllowed, USER_ROLES } from '../auth/roles.js';
-import { buildClientDisplayName } from '../clients/client-support.js';
+import { buildClientDisplayName, normalizeSearchInput } from '../clients/client-support.js';
 import {
-  assertAdminActor,
   assertAuthenticatedActor,
   normalizeOptionalText,
   normalizeRequiredText,
@@ -377,14 +376,21 @@ export class VisitReportService {
     return { report: view };
   }
 
-  // Exclusao e CURADORIA do feed — exclusiva da Administracao (Comercial e
-  // Cadastro seguem somente-leitura no /resumo). Hard delete: o informe nao
+  // Exclusao: Administracao exclui QUALQUER informe (curadoria do feed
+  // /resumo); os demais papeis excluem apenas o PROPRIO (lixeira do
+  // dashboard do prospector). Informe alheio responde 404 — mesma resposta
+  // de inexistente, sem vazar existencia. Hard delete: o informe nao
   // participa de projecoes nem do event store.
   async deleteVisitReport(input, actorContext) {
-    assertAdminActor(actorContext, 'delete visit report');
+    const actor = assertAuthenticatedActor(actorContext, 'delete visit report');
     const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
 
-    const result = await this.prisma.visitReport.deleteMany({ where: { id: reportId } });
+    const where =
+      actor.role === USER_ROLES.ADMIN
+        ? { id: reportId }
+        : { id: reportId, userId: actor.actorUserId };
+
+    const result = await this.prisma.visitReport.deleteMany({ where });
     if (result.count === 0) {
       throw new HttpError(404, 'Visit report not found', {
         code: 'VISIT_REPORT_NOT_FOUND',
@@ -404,7 +410,26 @@ export class VisitReportService {
     // Viewers (/resumo) veem todos os informes; PROSPECTOR ve apenas os
     // proprios (lista do dashboard dele) — o escopo e forcado aqui, nunca
     // decidido pelo cliente.
-    const where = actor.role === USER_ROLES.PROSPECTOR ? { userId: actor.actorUserId } : {};
+    const where = {};
+    if (actor.role === USER_ROLES.PROSPECTOR) {
+      where.userId = actor.actorUserId;
+    }
+
+    // Busca por nome do cliente (barra do dashboard do prospector):
+    // cliente novo via contains case-insensitive no texto livre; cliente
+    // cadastrado via coluna gerada search_normalized (acento-insensitive,
+    // mesma semantica da busca de clientes do app).
+    const search = normalizeOptionalText(input?.search, 'search', 120);
+    if (search) {
+      const normalized = normalizeSearchInput(search);
+      where.OR = [
+        { newClientName: { contains: search, mode: 'insensitive' } },
+        ...(normalized.length > 0
+          ? [{ client: { is: { searchNormalized: { contains: normalized } } } }]
+          : []),
+      ];
+    }
+
     const page = readPageQuery(input?.page, 1);
     const limit = readLimitQuery(input?.limit, {
       fallback: VISIT_REPORT_LIST_LIMIT_DEFAULT,

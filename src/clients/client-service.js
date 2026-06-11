@@ -24,6 +24,7 @@ import {
   normalizeCreateClientInput,
   normalizeListClientsInput,
   normalizeLookupClientsInput,
+  normalizeSearchInput,
   normalizeStatusReasonInput,
   normalizeUpdateUnitInput,
   normalizeUpdateClientInput,
@@ -152,17 +153,10 @@ const CLIENT_DETAIL_SELECT = {
   },
 };
 
-// 14.7: normaliza input de busca pra casar com search_normalized
-// (acento removido + minusculas, espacos preservados).
-function normalizeSearchInput(input) {
-  if (typeof input !== 'string' || input.length === 0) return '';
-  // NFD decompoe caracteres acentuados em base + combining mark; o regex
-  // remove os combining marks (U+0300..U+036F). Resultado: acentos sumiram.
-  return input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
 // 14.7: variante "compacta" — sem espacos. Casa input "GAS" com
 // search_compact que materializa "G A S COMERCIO ..." -> "gascomercio...".
+// (normalizeSearchInput vive em client-support.js — compartilhada com a
+// busca de informes de visita.)
 function compactSearchInput(input) {
   return normalizeSearchInput(input).replace(/\s+/g, '');
 }

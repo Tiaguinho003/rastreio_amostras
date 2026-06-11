@@ -63,7 +63,6 @@ test('PROSPECTOR: metodos fora da allowlist respondem 403 ROLE_FORBIDDEN', async
     'listClients',
     'createSample',
     'listUsers',
-    'deleteVisitReport',
   ];
 
   for (const methodName of deniedSamples) {
@@ -108,6 +107,9 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
       async getMyVisitReportStats() {
         return { todayCount: 0, todayNewClientsCount: 0 };
       },
+      async deleteVisitReport() {
+        return { removed: true };
+      },
     },
     pushService: {
       getPublicKey() {
@@ -131,6 +133,14 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
     const result = await api[methodName](AUTHED_INPUT);
     assert.equal(result.status, 200, `${methodName} deveria responder 200`);
   }
+
+  // deleteVisitReport tambem entra na allowlist (lixeira do proprio
+  // informe) — a regra "so o proprio" e do service, nao do gate.
+  const del = await api.deleteVisitReport({
+    ...AUTHED_INPUT,
+    params: { reportId: '00000000-0000-0000-0000-000000000099' },
+  });
+  assert.equal(del.status, 200, 'deleteVisitReport deveria passar pelo gate');
 });
 
 test('demais papeis nao sao afetados pelo gate', async () => {

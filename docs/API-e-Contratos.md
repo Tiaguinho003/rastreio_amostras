@@ -180,11 +180,11 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 1. `POST /api/v1/visit-reports`
    Qualquer usuario autenticado. `userId` e `createdAt` carimbados no servidor; `capturedAt` opcional (hora local da fila offline). Idempotente via `Idempotency-Key` (replay da fila nao duplica).
 2. `GET /api/v1/visit-reports`
-   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (`/resumo`); `PROSPECTOR` recebe apenas os proprios informes (escopo forcado por `userId` no service). Demais papeis: 403.
+   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (`/resumo`); `PROSPECTOR` recebe apenas os proprios informes (escopo forcado por `userId` no service). Demais papeis: 403. `search` (opcional, max 120) filtra por nome do cliente: texto livre do cliente novo (case-insensitive) ou cliente cadastrado via `search_normalized` (acento-insensitive); `page.total` reflete o filtro.
 3. `GET /api/v1/visit-reports/stats`
    Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, todayNewClientsCount }` (visitas de hoje e, dentre elas, as com "Cliente novo"). Janela do dia no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
 4. `DELETE /api/v1/visit-reports/:reportId`
-   Exclusao admin-only (curadoria do feed `/resumo`).
+   `ADMIN` exclui qualquer informe (curadoria do feed `/resumo`); os demais papeis excluem apenas o proprio (lixeira do dashboard do prospector). Informe alheio responde 404, igual a inexistente.
 
 ### Politica de acesso do PROSPECTOR
 
