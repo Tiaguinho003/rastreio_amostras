@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { BottomSheet } from '../BottomSheet';
 import { VisitReportForm } from './VisitReportForm';
+import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { SessionData } from '../../lib/types';
 
 // BottomSheet do formulario de visita — superficie do dashboard do
@@ -28,6 +30,7 @@ export function VisitReportFormSheet({
   onSubmitted,
 }: VisitReportFormSheetProps) {
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const confirmTrapRef = useFocusTrap(confirmDiscardOpen);
 
   // Ref (e nao state): o dismiss so LE o valor no momento do gesto; nao ha
   // re-render a cada tecla digitada no formulario.
@@ -79,53 +82,68 @@ export function VisitReportFormSheet({
         />
       </BottomSheet>
 
-      {confirmDiscardOpen ? (
-        <div className="app-modal-backdrop is-stacked" onClick={() => setConfirmDiscardOpen(false)}>
-          <section
-            className="app-modal is-themed app-confirm-modal is-stacked"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="discard-informe-title"
-            aria-describedby="discard-informe-description"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="app-modal-header">
-              <div className="app-modal-title-wrap">
-                <h3 id="discard-informe-title" className="app-modal-title">
-                  Descartar informe?
-                </h3>
-              </div>
-            </header>
-
-            <div className="app-modal-content">
-              <div className="app-confirm-modal-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                  <path d="M12 9v4" />
-                  <path d="M12 17v.01" />
-                </svg>
-              </div>
-              <p id="discard-informe-description" className="app-confirm-modal-message">
-                Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
-              </p>
-            </div>
-
-            <div className="app-modal-actions">
-              <button
-                type="button"
-                className="app-modal-secondary"
-                onClick={() => setConfirmDiscardOpen(false)}
-                autoFocus
+      {/* Portal pro body (skill modals): o sheet ja vive no body via portal;
+          renderizado inline na arvore da pagina, o confirm cairia no
+          contexto de empilhamento do PageTransition e ficaria ATRAS do
+          sheet, mesmo com z-index maior (.is-stacked 600 vs sheet 400). */}
+      {confirmDiscardOpen
+        ? createPortal(
+            <div
+              className="app-modal-backdrop is-stacked"
+              onClick={() => setConfirmDiscardOpen(false)}
+            >
+              <section
+                ref={confirmTrapRef}
+                className="app-modal is-themed app-confirm-modal is-stacked"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="discard-informe-title"
+                aria-describedby="discard-informe-description"
+                onClick={(event) => event.stopPropagation()}
               >
-                Continuar
-              </button>
-              <button type="button" className="app-modal-submit is-danger" onClick={handleDiscard}>
-                Descartar
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+                <header className="app-modal-header">
+                  <div className="app-modal-title-wrap">
+                    <h3 id="discard-informe-title" className="app-modal-title">
+                      Descartar informe?
+                    </h3>
+                  </div>
+                </header>
+
+                <div className="app-modal-content">
+                  <div className="app-confirm-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17v.01" />
+                    </svg>
+                  </div>
+                  <p id="discard-informe-description" className="app-confirm-modal-message">
+                    Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+                  </p>
+                </div>
+
+                <div className="app-modal-actions">
+                  <button
+                    type="button"
+                    className="app-modal-secondary"
+                    onClick={() => setConfirmDiscardOpen(false)}
+                    autoFocus
+                  >
+                    Continuar
+                  </button>
+                  <button
+                    type="button"
+                    className="app-modal-submit is-danger"
+                    onClick={handleDiscard}
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
