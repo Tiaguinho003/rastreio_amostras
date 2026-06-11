@@ -9,6 +9,7 @@ import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
 import { getDashboardRecentActivity } from '../../lib/api-client';
 import { getRoleLabel } from '../../lib/roles';
+import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityListMobile } from './RecentActivityListMobile';
@@ -18,21 +19,6 @@ import type {
   DashboardSalesAvailabilityResponse,
   SessionData,
 } from '../../lib/types';
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Bom dia,';
-  if (hour < 18) return 'Boa tarde,';
-  return 'Boa noite,';
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
 
 interface DashboardMobileProps {
   session: SessionData;

@@ -21,11 +21,17 @@ export function isAdmin(role: UserRole): boolean {
   return role === 'ADMIN';
 }
 
-// Papeis "comerciais": podem ser responsavel comercial de cliente. PROSPECTOR
-// espelha COMMERCIAL por enquanto; concentrar a regra aqui facilita
-// especializa-la no futuro.
+// Papeis "comerciais": podem ser responsavel comercial de cliente.
 export function isCommercialRole(role: UserRole | null | undefined): boolean {
   return role === 'COMMERCIAL' || role === 'PROSPECTOR';
+}
+
+// PROSPECTOR tem um app restrito: dashboard dedicado (cards + lista dos
+// proprios informes + FAB do formulario) e perfil — nada alem. A navegacao
+// e os guards de pagina usam este helper; a restricao de verdade e a
+// allowlist central de API no backend (src/auth/prospector-access.js).
+export function isProspector(role: UserRole | null | undefined): boolean {
+  return role === 'PROSPECTOR';
 }
 
 // Quem ve a pagina /resumo (informes de visita). Espelha
