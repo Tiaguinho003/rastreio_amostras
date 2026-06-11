@@ -172,10 +172,11 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
               <div className="dashboard-operations-grid">
                 <div className="dashboard-operation-card is-wide is-static">
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                    {/* Pino de localizacao — visita em campo. */}
+                    {/* Prancheta com check — visita registrada. */}
                     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="M20 10.2c0 5.7-8 11.3-8 11.3s-8-5.6-8-11.3a8 8 0 0 1 16 0z" />
-                      <circle cx="12" cy="10" r="2.6" />
+                      <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
+                      <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
+                      <path d="m9 13.5 2.3 2.3 4.4-5" />
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
