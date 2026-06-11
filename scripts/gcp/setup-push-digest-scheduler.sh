@@ -62,6 +62,9 @@ upsert_scheduler() {
   local body
   body="$(printf '{"overrides":{"containerOverrides":[{"args":["run","push:digest","--","--kind=%s"]}]}}' "${kind}")"
 
+  # `--headers` so existe no CREATE; o UPDATE usa `--update-headers`
+  # (descoberto na primeira atualizacao real, 2026-06-11 — ate entao so o
+  # caminho create tinha rodado).
   local args=(
     --project "${GCLOUD_PROJECT_ID}"
     --location "${GCLOUD_REGION}"
@@ -69,7 +72,6 @@ upsert_scheduler() {
     --time-zone "${TIME_ZONE}"
     --http-method POST
     --uri "${RUN_JOB_URI}"
-    --headers "Content-Type=application/json"
     --message-body "${body}"
     --oauth-service-account-email "${GCLOUD_SERVICE_ACCOUNT}"
   )
@@ -77,10 +79,12 @@ upsert_scheduler() {
   if gcloud scheduler jobs describe "${name}" \
     --project "${GCLOUD_PROJECT_ID}" --location "${GCLOUD_REGION}" >/dev/null 2>&1; then
     echo "[gcp] atualizando scheduler ${name} ('${schedule}', kind=${kind})"
-    gcloud scheduler jobs update http "${name}" "${args[@]}" >/dev/null
+    gcloud scheduler jobs update http "${name}" "${args[@]}" \
+      --update-headers "Content-Type=application/json" >/dev/null
   else
     echo "[gcp] criando scheduler ${name} ('${schedule}', kind=${kind})"
-    gcloud scheduler jobs create http "${name}" "${args[@]}" >/dev/null
+    gcloud scheduler jobs create http "${name}" "${args[@]}" \
+      --headers "Content-Type=application/json" >/dev/null
   fi
 }
 
