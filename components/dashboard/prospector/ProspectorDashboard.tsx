@@ -180,13 +180,13 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                     </svg>
                   </span>
                   <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Informes</span>
+                    <span className="dashboard-operation-title">Visitas</span>
                     <span className="dashboard-operation-divider" aria-hidden="true" />
                     <span className="dashboard-operation-subtitle">Hoje</span>
                   </span>
                   <span
                     className="dashboard-operation-badge"
-                    aria-label={`${stats.todayCount} informes enviados hoje`}
+                    aria-label={`${stats.todayCount} visitas enviadas hoje`}
                   >
                     {stats.todayCount}
                   </span>
@@ -204,13 +204,13 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
                   <span className="dashboard-operation-content">
                     <span className="dashboard-operation-title">Clientes novos</span>
                     <span className="dashboard-operation-divider" aria-hidden="true" />
-                    <span className="dashboard-operation-subtitle">No mês</span>
+                    <span className="dashboard-operation-subtitle">Hoje</span>
                   </span>
                   <span
                     className="dashboard-operation-badge"
-                    aria-label={`${stats.monthNewClientsCount} clientes novos no mês`}
+                    aria-label={`${stats.todayNewClientsCount} clientes novos hoje`}
                   >
-                    {stats.monthNewClientsCount}
+                    {stats.todayNewClientsCount}
                   </span>
                 </div>
               </div>

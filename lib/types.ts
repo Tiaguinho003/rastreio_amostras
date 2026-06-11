@@ -958,12 +958,12 @@ export interface VisitReportsListResponse {
 }
 
 // Contadores do dashboard do prospector — sempre do proprio usuario,
-// janelas de dia/mes no fuso de Brasilia (base capturedAt ?? createdAt).
+// janela do dia no fuso de Brasilia (base capturedAt ?? createdAt).
 export interface VisitReportStatsResponse {
-  /** Informes enviados hoje. */
+  /** Visitas enviadas hoje. */
   todayCount: number;
-  /** Informes com "Cliente novo" no mes corrente. */
-  monthNewClientsCount: number;
+  /** Visitas de hoje com "Cliente novo". */
+  todayNewClientsCount: number;
 }
 
 // ── Web Push (notificações nativas) ──

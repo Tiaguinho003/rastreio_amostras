@@ -197,7 +197,7 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 O `PROSPECTOR` (equipe de campo de prospeccao) usa um app restrito dentro da mesma PWA:
 
 1. Paginas: apenas o dashboard dedicado e o perfil (tabbar com Inicio + Perfil). As demais rotas redirecionam para `/dashboard` — middleware (UX online) + guard de pagina via `useRequireAuth` (cobre tambem paginas servidas do cache do service worker).
-2. Dashboard dedicado: cards "Informes hoje" e "Clientes novos no mes" (janelas no fuso de Brasilia, base `capturedAt ?? createdAt`), lista dos proprios informes (cards expansiveis compartilhados com `/resumo`) e FAB central que abre o formulario de visita num bottom sheet. A fila offline e o contador de pendentes sao os mesmos do `/informe`.
+2. Dashboard dedicado: cards "Visitas hoje" e "Clientes novos hoje" (janela do dia no fuso de Brasilia, base `capturedAt ?? createdAt`), lista dos proprios informes (cards expansiveis compartilhados com `/resumo`) e botao central "+" que abre o formulario de visita num bottom sheet. A fila offline e o contador de pendentes sao os mesmos do `/informe`.
 3. Visibilidade: o prospector ve somente os informes que ele mesmo enviou (lista e contadores).
 4. Lembrete diario de push (seg–sex 11h) abre `/dashboard?informe=novo` com o formulario ja aberto.
 5. API: allowlist central — fora de sessao/conta, push, lookup de clientes e informes, qualquer endpoint autenticado responde `403 ROLE_FORBIDDEN` (fonte canonica: `src/auth/prospector-access.js`).

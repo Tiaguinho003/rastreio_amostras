@@ -182,7 +182,7 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 2. `GET /api/v1/visit-reports`
    Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (`/resumo`); `PROSPECTOR` recebe apenas os proprios informes (escopo forcado por `userId` no service). Demais papeis: 403.
 3. `GET /api/v1/visit-reports/stats`
-   Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, monthNewClientsCount }`. Janelas de dia/mes no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
+   Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, todayNewClientsCount }` (visitas de hoje e, dentre elas, as com "Cliente novo"). Janela do dia no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
 4. `DELETE /api/v1/visit-reports/:reportId`
    Exclusao admin-only (curadoria do feed `/resumo`).
 

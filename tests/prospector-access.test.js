@@ -106,7 +106,7 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
         return { items: [], page: { total: 0 } };
       },
       async getMyVisitReportStats() {
-        return { todayCount: 0, monthNewClientsCount: 0 };
+        return { todayCount: 0, todayNewClientsCount: 0 };
       },
     },
     pushService: {
