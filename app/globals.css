@@ -9246,6 +9246,92 @@ body:has(.app-modal-backdrop) .prospector-fab {
   margin-top: clamp(2.5rem, 14vw, 5rem);
 }
 
+/* ── Pagina /informe do COMERCIAL ──
+   Shell da /samples sem a barra de busca: a faixa verde vira so um respiro
+   entre o header e o sheet (o FAB e position: fixed, nao ocupa fluxo). */
+.informe-commercial-page .hero-search-wrap.is-informe {
+  min-height: clamp(10px, 3vw, 18px);
+}
+
+/* Badge de tipo nos cards do feed (Visita / Relatorio / Prospeccao) —
+   pill discreta no canto direito do cabecalho do card. */
+.rsm-type-badge {
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
+  padding: 2px clamp(7px, 2vw, 9px);
+  border-radius: 999px;
+  font-size: clamp(9.5px, 2.6vw, 10.5px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.rsm-type-badge.is-visit {
+  color: #1f5d43;
+  background: rgba(31, 93, 67, 0.12);
+}
+
+.rsm-type-badge.is-weekly {
+  color: #2980b9;
+  background: rgba(41, 128, 185, 0.12);
+}
+
+.rsm-type-badge.is-prospect {
+  color: #b07d10;
+  background: rgba(212, 160, 23, 0.14);
+}
+
+/* Badge convive com a lixeira rapida (absoluta no canto): empurra o badge
+   pra esquerda dela. */
+.rsm-card.has-quick-delete .rsm-type-badge {
+  margin-right: clamp(26px, 7vw, 30px);
+}
+
+/* FAB da pagina /informe: icone LAPIS no idle. O .cv2-fab base gira o svg
+   45 graus no .is-expanded ("+" vira "x") — aqui ha DOIS svgs empilhados
+   em crossfade (lapis some girando, "x" entra), neutralizando a rotacao
+   herdada por svg individual. */
+.cv2-fab.is-informe-fab svg {
+  grid-area: 1 / 1;
+  transition:
+    transform 0.28s cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 0.22s ease;
+}
+
+.cv2-fab.is-informe-fab .informe-fab-icon-pencil {
+  opacity: 1;
+  transform: rotate(0deg);
+}
+
+.cv2-fab.is-informe-fab .informe-fab-icon-close {
+  opacity: 0;
+  transform: rotate(-45deg);
+}
+
+.cv2-fab.is-informe-fab.is-expanded .informe-fab-icon-pencil {
+  opacity: 0;
+  transform: rotate(45deg);
+}
+
+.cv2-fab.is-informe-fab.is-expanded .informe-fab-icon-close {
+  opacity: 1;
+  transform: rotate(0deg);
+}
+
+/* Semana de referencia (read-only) no formulario de relatorio semanal. */
+.informe-week-label {
+  margin: 0;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 3.5vw, 14px);
+  background: #f8f6f2;
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: clamp(10px, 3vw, 12px);
+  font-size: clamp(13.5px, 3.8vw, 14.5px);
+  font-weight: 600;
+  color: #444;
+}
+
 .sdv-content::-webkit-scrollbar {
   display: none;
 }

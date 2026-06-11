@@ -4,16 +4,17 @@ import Link from 'next/link';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
+import { InformeCommercialPage } from '../../components/informe/InformeCommercialPage';
 import { useRequireAuth } from '../../lib/use-auth';
-import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
+import { isAdmin, NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
-// Pagina "Informe" — placeholder dos formularios POR PAPEL (em construcao).
-// O formulario de visita, que vivia aqui, e hoje EXCLUSIVO do PROSPECTOR e
-// abre no sheet do dashboard dele (components/visits/VisitReportFormSheet);
-// cada papel ganhara seu proprio formulario nesta pagina no futuro.
-// PROSPECTOR nao usa esta pagina (guard redireciona pro /dashboard).
-// Visual: verde em cima (.sdv-header transparente sobre o app-shell verde —
-// rota layered no AppShell) + sheet bege embaixo, navbar visivel.
+// Pagina "Informe" — formularios POR PAPEL.
+// COMMERCIAL (e ADMIN): pagina propria espelhando a /samples, com FAB de
+// lapis abrindo os formularios "Visitas" e "Relatorio" e o feed dos
+// proprios envios (components/informe/InformeCommercialPage).
+// CLASSIFIER/REGISTRATION/CADASTRO: placeholder (formularios em construcao).
+// PROSPECTOR nao usa esta pagina (guard redireciona pro /dashboard) — o
+// formulario dele abre no sheet do dashboard.
 
 export default function InformePage() {
   const { session, loading, logout, setSession } = useRequireAuth({
@@ -22,6 +23,14 @@ export default function InformePage() {
 
   if (loading || !session) {
     return null;
+  }
+
+  if (session.user.role === 'COMMERCIAL' || isAdmin(session.user.role)) {
+    return (
+      <AppShell session={session} onLogout={logout} onSessionChange={setSession}>
+        <InformeCommercialPage session={session} onLogout={logout} />
+      </AppShell>
+    );
   }
 
   const userFullName = session.user.fullName ?? session.user.username;
