@@ -281,7 +281,7 @@ Excecao a regra "nunca verde ao clicar":
 
 **Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
 
-- **Variante `.is-informe` (formulario de visita):** `className="is-informe"` centra a coluna do form no `.bottom-sheet-body` (fundo padrao do sheet, quase branco — NAO replicar o bege da pagina /informe) e esconde a `.inf-intro` (o header do sheet ja titula "Novo informe"). Usada por `components/visits/VisitReportFormSheet.tsx` (botao "+" do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute o form compartilhado `components/visits/VisitReportForm.tsx` e abre confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
+- **Variante `.is-informe` (formulario de visita):** torna o formulario NATIVO do sheet — as secoes `.inf-card` sao achatadas (sem fundo/sombra/borda de card; divisorias suaves entre secoes) e o `.inf-form` ganha padding lateral proprio (o `.bottom-sheet-body` nao tem padding horizontal; sem isso os cards batiam na borda do modal). Usada por `components/visits/VisitReportFormSheet.tsx` (botao "+" do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute `components/visits/VisitReportForm.tsx` — **exclusivo do prospector**; a pagina `/informe` e placeholder dos futuros formularios por papel (`.informe-placeholder`). Confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
 
 ### Modal central (`.app-modal.is-themed`)
 

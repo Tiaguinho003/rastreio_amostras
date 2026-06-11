@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ClientLookupField } from '../clients/ClientLookupField';
 import { ApiError, createVisitReport } from '../../lib/api-client';
@@ -23,11 +23,13 @@ import type {
 } from '../../lib/types';
 import { VISIT_FARM_SIZE_OPTIONS, VISIT_INTEREST_OPTIONS } from '../../lib/visit-report';
 
-// Formulario de visita — extraido da pagina /informe para ser reutilizado
-// em duas superficies: a propria pagina (tab dos demais papeis) e o
-// BottomSheet do dashboard do prospector. Toda a logica (validacao, fila
-// offline com Idempotency-Key, toasts, contador de pendentes) vive aqui;
-// a superficie so decide onde renderizar e o que fazer apos o envio.
+// Formulario de visita — EXCLUSIVO do prospector, renderizado no
+// BottomSheet do dashboard dele (VisitReportFormSheet). A pagina /informe
+// virou placeholder dos futuros formularios por papel. Toda a logica
+// (validacao, fila offline com Idempotency-Key, toasts, contador de
+// pendentes) vive aqui; o sheet so decide o que fazer apos o envio.
+// Visual nativo do modal: as secoes .inf-card sao achatadas pelas regras
+// .bottom-sheet.is-informe (sem chrome de card — divisorias suaves).
 
 type VisitFieldName =
   | 'clientKind'
@@ -52,9 +54,6 @@ interface VisitReportFormProps {
   onDirtyChange?: (dirty: boolean) => void;
   /** Chamado apos envio bem-sucedido (online ou enfileirado offline). */
   onSubmitted?: (info: { queued: boolean }) => void;
-  /** Container rolavel da superficie — usado pra voltar ao topo apos o
-      envio. Omitido no sheet (que fecha em vez de rolar). */
-  scrollContainerRef?: RefObject<HTMLElement | null>;
 }
 
 export function VisitReportForm({
@@ -62,7 +61,6 @@ export function VisitReportForm({
   dirtyStateKey = 'informe-visit-form',
   onDirtyChange,
   onSubmitted,
-  scrollContainerRef,
 }: VisitReportFormProps) {
   const toast = useToast();
 
@@ -224,7 +222,6 @@ export function VisitReportForm({
       }
 
       resetForm();
-      scrollContainerRef?.current?.scrollTo({ top: 0, behavior: 'smooth' });
       toast.success({
         title: 'Informe enviado',
         description: clientName ? `Visita a ${clientName} registrada.` : 'Visita registrada.',
@@ -250,7 +247,6 @@ export function VisitReportForm({
       });
 
       resetForm();
-      scrollContainerRef?.current?.scrollTo({ top: 0, behavior: 'smooth' });
       toast.success({
         title: 'Informe salvo no aparelho',
         description: 'Será enviado automaticamente quando a internet voltar.',
@@ -306,10 +302,6 @@ export function VisitReportForm({
           </div>
         </div>
       ) : null}
-
-      <header className="inf-intro">
-        <h2 className="inf-intro-title">Formulário de visita</h2>
-      </header>
 
       {pendingCount > 0 ? (
         <div className="inf-pending" role="status">

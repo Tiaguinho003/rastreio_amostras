@@ -1,31 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
 
 import { AppShell } from '../../components/AppShell';
 import { HeaderAvatarMenu } from '../../components/HeaderAvatarMenu';
-import { VisitReportForm } from '../../components/visits/VisitReportForm';
 import { useRequireAuth } from '../../lib/use-auth';
 import { NON_PROSPECTOR_ROLES } from '../../lib/roles';
 
-// Pagina "Informe" — formulario de visita (item do tabbar mobile).
-// O formulario em si vive em components/visits/VisitReportForm (reutilizado
-// pelo BottomSheet do dashboard do prospector); aqui fica so o shell visual:
-// verde em cima (.sdv-header transparente sobre o app-shell verde — rota
-// layered no AppShell) + sheet bege embaixo (.sdv-content.informe-content)
-// com a navbar visivel (fora de hideMobileTabbar). O envio via POST
-// /visit-reports carimba usuario + data/hora no backend; viewers leem tudo
-// na pagina /resumo.
+// Pagina "Informe" — placeholder dos formularios POR PAPEL (em construcao).
+// O formulario de visita, que vivia aqui, e hoje EXCLUSIVO do PROSPECTOR e
+// abre no sheet do dashboard dele (components/visits/VisitReportFormSheet);
+// cada papel ganhara seu proprio formulario nesta pagina no futuro.
+// PROSPECTOR nao usa esta pagina (guard redireciona pro /dashboard).
+// Visual: verde em cima (.sdv-header transparente sobre o app-shell verde —
+// rota layered no AppShell) + sheet bege embaixo, navbar visivel.
 
 export default function InformePage() {
-  // PROSPECTOR nao usa esta pagina: o formulario dele abre no dashboard
-  // (FAB + ?informe=novo) — o guard redireciona para /dashboard.
   const { session, loading, logout, setSession } = useRequireAuth({
     allowedRoles: NON_PROSPECTOR_ROLES,
   });
-
-  const contentRef = useRef<HTMLElement | null>(null);
 
   if (loading || !session) {
     return null;
@@ -60,8 +53,21 @@ export default function InformePage() {
           </div>
         </header>
 
-        <section className="sdv-content informe-content" ref={contentRef}>
-          <VisitReportForm session={session} scrollContainerRef={contentRef} />
+        <section className="sdv-content informe-content">
+          <div className="informe-placeholder">
+            <div className="rsm-empty">
+              <span className="rsm-empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <rect x="5.5" y="4" width="13" height="17" rx="2.2" />
+                  <rect x="9" y="2.5" width="6" height="3.5" rx="1.2" />
+                  <path d="M9 12h6" />
+                  <path d="M9 15.5h4" />
+                </svg>
+              </span>
+              <p className="rsm-empty-title">Nenhum formulário disponível</p>
+              <p className="rsm-empty-sub">Os formulários do seu perfil vão aparecer aqui.</p>
+            </div>
+          </div>
         </section>
       </section>
     </AppShell>
