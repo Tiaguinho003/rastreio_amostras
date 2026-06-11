@@ -175,6 +175,21 @@ Endpoints somente-leitura usados pela pagina de detalhe do cliente (4 cards-filt
 6. `POST /api/v1/users/me/email/resend`
 7. `POST /api/v1/users/me/initial-password-decision`
 
+## Rotas de informes de visita
+
+1. `POST /api/v1/visit-reports`
+   Qualquer usuario autenticado. `userId` e `createdAt` carimbados no servidor; `capturedAt` opcional (hora local da fila offline). Idempotente via `Idempotency-Key` (replay da fila nao duplica).
+2. `GET /api/v1/visit-reports`
+   Paginada (`page`, `limit` max 100), mais recentes primeiro. Viewers (`ADMIN`, `COMMERCIAL`, `CADASTRO`) veem tudo (`/resumo`); `PROSPECTOR` recebe apenas os proprios informes (escopo forcado por `userId` no service). Demais papeis: 403.
+3. `GET /api/v1/visit-reports/stats`
+   Contadores do dashboard do prospector, sempre do proprio usuario: `{ todayCount, monthNewClientsCount }`. Janelas de dia/mes no fuso de Brasilia (UTC-3 fixo), base temporal `COALESCE(captured_at, created_at)`.
+4. `DELETE /api/v1/visit-reports/:reportId`
+   Exclusao admin-only (curadoria do feed `/resumo`).
+
+### Politica de acesso do PROSPECTOR
+
+Alem dos guards de navegacao, um gate central em `resolveActorContext` (`src/api/v1/backend-api.js`) responde `403 ROLE_FORBIDDEN` para o `PROSPECTOR` em qualquer metodo autenticado fora da allowlist `PROSPECTOR_ALLOWED_API_METHODS` — fonte canonica em `src/auth/prospector-access.js` (sessao/conta, push, lookup de clientes e informes). Consultar o modulo em vez de duplicar a lista aqui.
+
 ## Health e prontidao
 
 1. `GET /api/health`

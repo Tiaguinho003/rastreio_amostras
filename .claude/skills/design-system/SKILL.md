@@ -37,6 +37,13 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 - Manter a cor de fundo quente `#fdf9ec` como base, nunca branco puro frio (#fff) como background de pagina
 - Excecao: areas de formulario/cards internos podem usar `#ffffff`
 
+### Variante: dashboard do PROSPECTOR (app restrito)
+
+- `/dashboard` renderiza `components/dashboard/prospector/ProspectorDashboard.tsx` quando `isProspector(role)` — **layout unico responsivo** (sem par mobile/desktop): reusa `.dashboard-page/.dashboard-hero/.dashboard-sheet` do dashboard mobile; o bloco `@media (min-width: 901px)` replica hero/sheet sob `.prospector-dashboard` com cap de largura (46rem)
+- Hero de saudacao SEM busca de lote; 2 cards de contagem `dashboard-operation-card is-wide is-static` (nao clicaveis: `cursor: default`, sem `:active`, badge sempre visivel e sem pulse) + lista "Ultimos informes" com os cards `rsm-*` compartilhados (`components/visits/VisitReportCard.tsx`)
+- FAB central `.cv2-fab.prospector-fab` (`left: 50%` + `translateX(-50%)`; o `:active` recompoe `translateX(-50%) scale(0.92)`) abre o formulario num bottom sheet `.is-informe`; some junto com a tabbar quando ha sheet/modal aberto
+- Tabbar por papel: PROSPECTOR ve apenas Inicio + Perfil (`PROSPECTOR_MOBILE_NAV_ITEMS` no AppShell); demais papeis seguem com as 5 tabs
+
 ## 2. Paleta de Cores
 
 ### Marca (verdes — paleta Safras)
@@ -272,6 +279,8 @@ Excecao a regra "nunca verde ao clicar":
 - **Variante `.is-menu` (altura por conteudo):** `className="is-menu"` troca a altura fixa alta por `height: auto` + `max-height: min(72dvh, 30rem)`, pro sheet encolher ao conteudo (poucas linhas em vez de ocupar quase a tela). Usada pelo menu da conta no header mobile (`components/HeaderAvatarMenu.tsx`): botao de avatar (`.header-avatar-trigger`, mobile-only, substituiu o antigo sino) que abre um launcher com resumo (nome+cargo) + linhas Perfil/Usuarios(adm)/Resumo(adm+comercial+cadastro via isVisitReportViewer, feed dos informes de visita)/Metricas(desab. "Em breve")/Sair — cada linha fecha o sheet e navega.
 
 **Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
+
+- **Variante `.is-informe` (formulario de visita):** `className="is-informe"` da ao `.bottom-sheet-body` o fundo bege do `.sdv-content` (gradiente `#fdf9ec → #f4f0e7`) + coluna centrada, pros `.inf-card` brancos manterem contraste. Usada por `components/visits/VisitReportFormSheet.tsx` (FAB central do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute o form compartilhado `components/visits/VisitReportForm.tsx` e abre confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
 
 ### Modal central (`.app-modal.is-themed`)
 

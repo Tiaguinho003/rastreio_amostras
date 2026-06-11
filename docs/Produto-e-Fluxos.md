@@ -39,6 +39,8 @@ Os papeis suportados hoje sao:
 2. `CLASSIFIER`
 3. `REGISTRATION`
 4. `COMMERCIAL`
+5. `PROSPECTOR` (equipe de campo de prospeccao — app restrito, ver "Experiencia do PROSPECTOR")
+6. `CADASTRO` (operacao geral, espelha `REGISTRATION` sem admin/comercial)
 
 Regra consolidada nesta revisao:
 
@@ -46,6 +48,7 @@ Regra consolidada nesta revisao:
 2. No dominio de amostras, o backend atual aceita qualquer usuario autenticado para as operacoes de fluxo.
 3. Isso significa que os papeis nao impõem, hoje, um RBAC tecnico forte por etapa de amostra.
 4. Qualquer necessidade futura de segregacao mais rigida por modulo deve ser tratada como evolucao de permissao, nao como comportamento ja existente.
+5. Excecao ja implementada: o `PROSPECTOR` tem restricao tecnica real — allowlist central de API (`src/auth/prospector-access.js`) + navegacao restrita.
 
 ## Ciclo de vida da amostra
 
@@ -189,8 +192,19 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
    inativar, reativar e desbloquear conta;
    consultar trilha de auditoria de usuarios.
 
+## Experiencia do PROSPECTOR
+
+O `PROSPECTOR` (equipe de campo de prospeccao) usa um app restrito dentro da mesma PWA:
+
+1. Paginas: apenas o dashboard dedicado e o perfil (tabbar com Inicio + Perfil). As demais rotas redirecionam para `/dashboard` — middleware (UX online) + guard de pagina via `useRequireAuth` (cobre tambem paginas servidas do cache do service worker).
+2. Dashboard dedicado: cards "Informes hoje" e "Clientes novos no mes" (janelas no fuso de Brasilia, base `capturedAt ?? createdAt`), lista dos proprios informes (cards expansiveis compartilhados com `/resumo`) e FAB central que abre o formulario de visita num bottom sheet. A fila offline e o contador de pendentes sao os mesmos do `/informe`.
+3. Visibilidade: o prospector ve somente os informes que ele mesmo enviou (lista e contadores).
+4. Lembrete diario de push (seg–sex 11h) abre `/dashboard?informe=novo` com o formulario ja aberto.
+5. API: allowlist central — fora de sessao/conta, push, lookup de clientes e informes, qualquer endpoint autenticado responde `403 ROLE_FORBIDDEN` (fonte canonica: `src/auth/prospector-access.js`).
+6. O formulario continua disponivel na pagina `/informe` para os demais papeis; o feed `/resumo` segue com `ADMIN`, `COMMERCIAL` e `CADASTRO`.
+
 ## Fora do escopo atual
 
 1. Fila externa para impressao ou processamento assincromo.
 2. Suite E2E versionada no repositorio.
-3. RBAC tecnico detalhado por modulo de amostras.
+3. RBAC tecnico detalhado por modulo de amostras (excecao ja implementada: gate por allowlist do `PROSPECTOR`).

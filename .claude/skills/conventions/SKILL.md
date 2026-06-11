@@ -24,7 +24,7 @@ description: Use this skill when writing or reviewing any code in this project. 
 - `src/uploads/` — upload com magic bytes validation
 - `src/email/` — email via SMTP ou outbox
 - `src/clients/` — dominio de clientes
-- `src/visits/` — informes de visita (formulario `/informe` + listagem admin `/resumo`)
+- `src/visits/` — informes de visita: formulario `/informe`, feed `/resumo` (viewers veem tudo), lista escopada + stats do dashboard do PROSPECTOR (so os proprios; allowlist de API em `src/auth/prospector-access.js`)
 - `src/push/` — Web Push (inscricoes + envio VAPID; gatilhos fire-and-forget nos services)
 - `src/db/` — Prisma client singleton
 - `tests/` — testes na raiz (nao em `__tests__/`)

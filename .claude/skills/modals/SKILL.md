@@ -527,6 +527,15 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 > `app-modal-dashboard` e classe scoped pra largura especifica (maior que o default 38rem do `.is-themed`). Selector de 3 classes `.app-modal.is-themed.app-modal-dashboard` sobrescreve sem `!important`. Cards internos usam `.app-modal-card*` (titulo do lote livre, linhas auxiliares truncadas em 50% pra nao colidir com CTA "Classificar").
 
+#### Informe de visita
+
+| Modal                                    | Arquivo                                      | Variantes                                               |
+| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
+| Excluir informe (confirm, admin /resumo) | `app/resumo/page.tsx` (inline)               | `is-themed app-confirm-modal` + `.is-danger`            |
+| Descartar informe (confirm do sheet)     | `components/visits/VisitReportFormSheet.tsx` | `is-themed app-confirm-modal is-stacked` + `.is-danger` |
+
+> O formulario do prospector abre num BottomSheet (`.bottom-sheet.is-informe`, ver skill `design-system` §8) com o form compartilhado `components/visits/VisitReportForm.tsx`. O confirm de descarte empilha sobre o sheet (`.is-stacked`, `dragDisabled` enquanto aberto) — mesmo padrao do "Descartar amostra?" do NewSampleModal.
+
 #### Extracao da classificacao (`/camera` — Q.cls.2)
 
 Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handleSendPhoto → detecting → detected → extracting → ` (3a/3b se falha; senão) ` confirming (Review) → selecting-type (Type) → selecting-classifier (Classifier) → submitting → success`. Mismatch/reclassify aparecem no caminho do save.
