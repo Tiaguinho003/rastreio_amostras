@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -22,6 +23,7 @@ import {
   updateProfileSchema,
 } from '../../lib/form-schemas';
 import { usePushNotifications } from '../../lib/push/use-push-notifications';
+import { isProspector } from '../../lib/roles';
 import { mergeUserIntoSession, useRequireAuth } from '../../lib/use-auth';
 
 function formatExpiresAt(expiresAt: string): string | null {
@@ -332,7 +334,25 @@ export default function ProfilePage() {
         {/* Header */}
         <header className="sdv-header stg-header">
           <div className="sdv-header-top">
-            <span className="sdv-header-title">Meu Perfil</span>
+            {/* Prospector nao tem navbar — sem o back ele ficaria preso aqui.
+                Spacer invisivel do outro lado mantem o titulo centrado. */}
+            {isProspector(session.user.role) ? (
+              <>
+                <Link href="/dashboard" className="nsv2-back" aria-label="Voltar ao início">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </Link>
+                <span className="sdv-header-title">Meu Perfil</span>
+                <span
+                  className="nsv2-back"
+                  aria-hidden="true"
+                  style={{ visibility: 'hidden', pointerEvents: 'none' }}
+                />
+              </>
+            ) : (
+              <span className="sdv-header-title">Meu Perfil</span>
+            )}
           </div>
           <div className="stg-header-wrap">
             <UserAvatar size="lg" user={session.user} />

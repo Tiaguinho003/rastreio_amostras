@@ -321,17 +321,17 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
         </section>
       </section>
 
+      {/* Botao central "+" — ocupa a posicao/tamanho do botao da camera da
+          tabbar (que o prospector nao tem). */}
       <button
         type="button"
-        className="cv2-fab prospector-fab"
+        className="prospector-fab"
         aria-label="Novo informe de visita"
         onClick={() => setSheetOpen(true)}
       >
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <rect x="5.5" y="3.5" width="13" height="17" rx="2.2" />
-          <path d="M9 8h6" />
-          <path d="M9 11.5h6" />
-          <path d="M9 15h4" />
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
         </svg>
       </button>
 

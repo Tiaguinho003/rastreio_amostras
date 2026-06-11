@@ -40,9 +40,9 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 ### Variante: dashboard do PROSPECTOR (app restrito)
 
 - `/dashboard` renderiza `components/dashboard/prospector/ProspectorDashboard.tsx` quando `isProspector(role)` — **layout unico responsivo** (sem par mobile/desktop): reusa `.dashboard-page/.dashboard-hero/.dashboard-sheet` do dashboard mobile; o bloco `@media (min-width: 901px)` replica hero/sheet sob `.prospector-dashboard` com cap de largura (46rem)
-- Hero de saudacao SEM busca de lote; 2 cards de contagem `dashboard-operation-card is-wide is-static` (nao clicaveis: `cursor: default`, sem `:active`, badge sempre visivel e sem pulse) + lista "Ultimos informes" com os cards `rsm-*` compartilhados (`components/visits/VisitReportCard.tsx`)
-- FAB central `.cv2-fab.prospector-fab` (`left: 50%` + `translateX(-50%)`; o `:active` recompoe `translateX(-50%) scale(0.92)`) abre o formulario num bottom sheet `.is-informe`; some junto com a tabbar quando ha sheet/modal aberto
-- Tabbar por papel: PROSPECTOR ve apenas Inicio + Perfil (`PROSPECTOR_MOBILE_NAV_ITEMS` no AppShell); demais papeis seguem com as 5 tabs
+- Hero de saudacao SEM busca de lote; 2 cards de contagem `dashboard-operation-card is-wide is-static` ("Visitas / Hoje" e "Clientes novos / Hoje"; nao clicaveis: `cursor: default`, sem `:active`, badge sempre visivel e sem pulse; identidade verde brand via `.prospector-dashboard .dashboard-operation-icon-wrap` — sem modificador `.dashboard-op-*` o icone fica sem stroke) + lista "Ultimos informes" com os cards `rsm-*` compartilhados (`components/visits/VisitReportCard.tsx`)
+- **SEM navbar**: o PROSPECTOR nao renderiza a MobileTabbar (`hideMobileTabbar` no AppShell). No lugar do botao da camera fica o botao central `.prospector-fab` — clone do pill da camera (mesmo clamp `4.75–5.5rem`, gradiente `#1a6b2e→#0d4a1a`, borda branca translucida) com icone "+", fixo no rodape; abre o formulario num bottom sheet `.is-informe`; some quando ha sheet/modal aberto. Em `/profile` o prospector ganha seta de voltar (sem navbar nao haveria caminho de volta); o menu do avatar dele nao mostra "Metricas"
+- Sheet `.is-informe`: corpo no fundo padrao do BottomSheet (quase branco) com `.inf-intro` escondida (o header do sheet ja titula "Novo informe")
 
 ## 2. Paleta de Cores
 
@@ -280,7 +280,7 @@ Excecao a regra "nunca verde ao clicar":
 
 **Modais aninhados sobre o sheet:** classes `.is-stacked` no `.app-modal-backdrop` + `.app-modal` elevam pra `var(--z-modal-stacked: 600)` (ex: cliente quick-create dentro do form, modal "Descartar?").
 
-- **Variante `.is-informe` (formulario de visita):** `className="is-informe"` da ao `.bottom-sheet-body` o fundo bege do `.sdv-content` (gradiente `#fdf9ec → #f4f0e7`) + coluna centrada, pros `.inf-card` brancos manterem contraste. Usada por `components/visits/VisitReportFormSheet.tsx` (FAB central do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute o form compartilhado `components/visits/VisitReportForm.tsx` e abre confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
+- **Variante `.is-informe` (formulario de visita):** `className="is-informe"` centra a coluna do form no `.bottom-sheet-body` (fundo padrao do sheet, quase branco — NAO replicar o bege da pagina /informe) e esconde a `.inf-intro` (o header do sheet ja titula "Novo informe"). Usada por `components/visits/VisitReportFormSheet.tsx` (botao "+" do dashboard do prospector + deep link `/dashboard?informe=novo` do lembrete push), que embute o form compartilhado `components/visits/VisitReportForm.tsx` e abre confirm de descarte `.is-stacked` quando ha dados preenchidos (mesmo padrao do NewSampleModal).
 
 ### Modal central (`.app-modal.is-themed`)
 

@@ -8997,24 +8997,71 @@ button:disabled {
   animation: none;
 }
 
-/* FAB central: visual do .cv2-fab, centralizado horizontalmente. O :active
-   recompoe o translate — sem isso o scale de .cv2-fab:active puxaria o
-   botao pra fora do centro. */
+/* Identidade dos cards do prospector (verde brand) — sem isto o icon-wrap
+   fica sem fundo e o SVG sem stroke (os cards padrao ganham cor via
+   modificadores .dashboard-op-*). */
+.prospector-dashboard .dashboard-operation-icon-wrap {
+  background: linear-gradient(135deg, rgba(31, 93, 67, 0.15), rgba(31, 93, 67, 0.08));
+  border: 1.5px solid rgba(31, 93, 67, 0.25);
+}
+
+.prospector-dashboard .dashboard-operation-icon-wrap svg {
+  stroke: var(--brand-green);
+}
+
+.prospector-dashboard .dashboard-operation-badge {
+  background: var(--brand-green);
+  box-shadow: 0 2px 8px rgba(31, 93, 67, 0.45);
+}
+
+/* Botao central "+" do formulario — clone do botao da camera da tabbar
+   (mesmo tamanho/gradiente/elevacao), fixo no rodape ja que o app do
+   prospector NAO tem navbar. translate3d compoe o centering com um GPU
+   layer proprio (mesmo fix de position:fixed do .mobile-tabbar em iOS
+   standalone). */
 .prospector-fab {
+  position: fixed;
   left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+  bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.9rem, 3.6vw, 1.25rem)
+  );
+  z-index: 70;
+  width: clamp(4.75rem, 19vw, 5.5rem);
+  height: clamp(4.75rem, 19vw, 5.5rem);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #1a6b2e 0%, #0d4a1a 100%);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 6px 20px rgba(4, 14, 5, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate3d(-50%, 0, 0);
+  will-change: transform;
   transition:
-    transform 0.15s,
+    transform 0.15s ease,
     opacity 0.22s ease,
     visibility 0s linear 0s;
 }
 
 .prospector-fab:active {
-  transform: translateX(-50%) scale(0.92);
+  transform: translate3d(-50%, 0, 0) scale(0.92);
 }
 
-/* Esconde o FAB enquanto o sheet do informe (ou qualquer modal central)
+.prospector-fab svg {
+  width: clamp(2.1rem, 9vw, 2.5rem);
+  height: clamp(2.1rem, 9vw, 2.5rem);
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Esconde o botao enquanto o sheet do informe (ou qualquer modal central)
    esta aberto — mesmo criterio da regra da tabbar mobile. */
 body.is-bottom-sheet-open .prospector-fab,
 body:has(.app-modal-backdrop) .prospector-fab {
@@ -9022,28 +9069,31 @@ body:has(.app-modal-backdrop) .prospector-fab {
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform 0.15s,
+    transform 0.15s ease,
     opacity 0.22s ease-in,
     visibility 0s linear 0.22s;
 }
 
-/* Folga extra no fim do sheet pro ultimo card nao ficar atras do FAB
-   central (offset do FAB + altura do FAB + respiro). */
+/* Folga no fim do sheet pro ultimo card nao ficar atras do botao "+"
+   (offset inferior + altura do botao + respiro). */
 .prospector-dashboard .dashboard-sheet {
   padding-bottom: calc(
-    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem) +
-      clamp(4.4rem, 18vw, 5rem)
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(7.4rem, 30vw, 8.2rem)
   );
 }
 
-/* Corpo do sheet do informe: mesmo fundo bege do .sdv-content da pagina
-   /informe pra manter o contraste dos .inf-card brancos; coluna centrada
-   (o .inf-form ja se limita a 36rem). */
+/* Formulario dentro do sheet: sem o fundo bege da pagina (o corpo do
+   BottomSheet ja e quase branco) e sem o titulo "Formulario de visita" —
+   o header do sheet ja diz "Novo informe". So coluna centrada (o
+   .inf-form se limita a 36rem). */
 .bottom-sheet.is-informe .bottom-sheet-body {
-  background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.bottom-sheet.is-informe .inf-intro {
+  display: none;
 }
 
 .sdv-content::-webkit-scrollbar {
@@ -24263,7 +24313,7 @@ select.samples-filter-field-input {
   .prospector-dashboard .dashboard-sheet {
     background: linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%);
     border-radius: 20px;
-    padding: 2rem 1.6rem 11rem;
+    padding: 2rem 1.6rem 9rem;
     display: flex;
     flex-direction: column;
     gap: 2.2rem;

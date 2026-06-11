@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { getRoleLabel, isAdmin, isVisitReportViewer } from '../lib/roles';
+import { getRoleLabel, isAdmin, isProspector, isVisitReportViewer } from '../lib/roles';
 import type { SessionData } from '../lib/types';
 import { BottomSheet } from './BottomSheet';
 import { UserAvatar } from './UserAvatar';
@@ -108,18 +108,21 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
               </button>
             ) : null}
 
-            <button
-              type="button"
-              className="header-avatar-menu-row is-disabled"
-              disabled
-              aria-disabled="true"
-            >
-              <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
-              </svg>
-              <span className="header-avatar-menu-row-label">Métricas</span>
-              <span className="header-avatar-menu-row-tag">Em breve</span>
-            </button>
+            {/* Teaser de metricas: fora do app restrito do prospector. */}
+            {!isProspector(session.user.role) ? (
+              <button
+                type="button"
+                className="header-avatar-menu-row is-disabled"
+                disabled
+                aria-disabled="true"
+              >
+                <svg className="header-avatar-menu-row-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
+                </svg>
+                <span className="header-avatar-menu-row-label">Métricas</span>
+                <span className="header-avatar-menu-row-tag">Em breve</span>
+              </button>
+            ) : null}
 
             <button
               type="button"

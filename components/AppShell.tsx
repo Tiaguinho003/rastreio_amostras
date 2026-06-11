@@ -79,24 +79,6 @@ const MOBILE_NAV_ITEMS = [
   },
 ] as const;
 
-// App restrito do PROSPECTOR: so o dashboard dedicado (lista + FAB do
-// formulario de visita) e o perfil. O informe dele abre no proprio
-// dashboard (sheet), por isso nao ha tab de Informe.
-const PROSPECTOR_MOBILE_NAV_ITEMS = [
-  {
-    href: '/dashboard',
-    mobileLabel: 'Inicio',
-    icon: 'dashboard' as NavIcon,
-    emphasis: 'default' as const,
-  },
-  {
-    href: '/profile',
-    mobileLabel: 'Perfil',
-    icon: 'avatar' as NavIcon,
-    emphasis: 'default' as const,
-  },
-] as const;
-
 function isMainNavItemActive(pathname: string, href: string) {
   if (href === '/dashboard') {
     return pathname === '/dashboard';
@@ -116,10 +98,6 @@ function isMainNavItemActive(pathname: string, href: string) {
 
   if (href === '/informe') {
     return pathname === '/informe';
-  }
-
-  if (href === '/profile') {
-    return pathname === '/profile';
   }
 
   return pathname === href;
@@ -248,7 +226,10 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
   // some do DOM, sem visibility:hidden — zero risco de bug visual iOS PWA.
   // Para modais/sheets que escondem dinamicamente, ver body.is-bottom-sheet-open
   // / body.is-app-modal-open em globals.css.
-  const hideMobileTabbar = isSampleDetail || isClientDetail;
+  // PROSPECTOR: app restrito SEM navbar — o lugar do botao central (camera)
+  // e ocupado pelo "+" do formulario, renderizado pelo ProspectorDashboard.
+  const prospector = isProspector(session.user.role);
+  const hideMobileTabbar = isSampleDetail || isClientDetail || prospector;
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [passwordModalStep, setPasswordModalStep] = useState<'decision' | 'change'>('decision');
@@ -314,7 +295,6 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
     typeof session.user.fullName === 'string' && session.user.fullName.trim().length > 0
       ? session.user.fullName.trim()
       : session.user.username;
-  const prospector = isProspector(session.user.role);
   const desktopNavItems = prospector
     ? DESKTOP_NAV_ITEMS.filter((item) => item.href === '/dashboard')
     : isAdmin(session.user.role)
@@ -713,7 +693,7 @@ export function AppShell({ session, onLogout, onSessionChange, children }: AppSh
 
       {!hideMobileTabbar ? (
         <MobileTabbar
-          items={(prospector ? PROSPECTOR_MOBILE_NAV_ITEMS : MOBILE_NAV_ITEMS).map((item) => ({
+          items={MOBILE_NAV_ITEMS.map((item) => ({
             href: item.href,
             mobileLabel: item.mobileLabel,
             icon: renderNavIcon(item.icon, session.user),
