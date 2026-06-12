@@ -27,8 +27,8 @@ import { VISIT_FARM_SIZE_OPTIONS, VISIT_INTEREST_OPTIONS } from '../../lib/visit
 // (validacao, fila offline com Idempotency-Key, toasts, contador de
 // pendentes) vive aqui; o sheet so decide o que fazer apos o envio.
 // Identificacao do cliente e DECLARACAO ("Ja e cliente" / "Cliente novo"),
-// sem lookup no banco: nome/cidade/telefone em texto livre nos dois kinds,
-// identico online e offline. O vinculo real com o cadastro e curadoria
+// sem lookup no banco: nome sempre; cidade/telefone (texto livre) so no
+// "Cliente novo". Identico online e offline. O vinculo real com o cadastro e curadoria
 // posterior do ADM/Cadastro no /resumo (linkVisitReportClient).
 // Visual nativo do modal: as secoes .inf-card sao achatadas pelas regras
 // .bottom-sheet.is-informe (sem chrome de card — divisorias suaves).
@@ -317,8 +317,9 @@ export function VisitReportForm({
       ) : null}
 
       {/* P1 — Identificação do cliente. Os dois pills sao DECLARACAO do
-          prospector (sem busca no banco) e abrem os mesmos campos de texto
-          livre; o vinculo real e curadoria do ADM/Cadastro no /resumo. */}
+          prospector (sem busca no banco): "Ja e cliente" pede so o nome;
+          "Cliente novo" abre tambem cidade/telefone. O vinculo real e
+          curadoria do ADM/Cadastro no /resumo. */}
       <section
         className="inf-card"
         data-invalid={fieldErrors.clientKind || fieldErrors.newClientName ? 'true' : undefined}
@@ -342,6 +343,8 @@ export function VisitReportForm({
             aria-pressed={clientKind === 'EXISTING'}
             onClick={() => {
               setClientKind('EXISTING');
+              setNewClientCity('');
+              setNewClientPhone('');
               clearFieldError('clientKind');
             }}
           >
@@ -380,34 +383,38 @@ export function VisitReportForm({
                 }}
               />
             </label>
-            <label className="inf-field">
-              <span className="inf-field-label">
-                Cidade ou região <span className="inf-field-optional">(opcional)</span>
-              </span>
-              <input
-                className="inf-input"
-                value={newClientCity}
-                placeholder="Ex.: Três Pontas/MG"
-                autoComplete="off"
-                maxLength={120}
-                onChange={(event) => setNewClientCity(event.target.value)}
-              />
-            </label>
-            <label className="inf-field">
-              <span className="inf-field-label">
-                Telefone <span className="inf-field-optional">(opcional)</span>
-              </span>
-              <input
-                className="inf-input"
-                type="tel"
-                inputMode="tel"
-                value={newClientPhone}
-                placeholder="Ex.: (35) 99999-9999"
-                autoComplete="off"
-                maxLength={40}
-                onChange={(event) => setNewClientPhone(event.target.value)}
-              />
-            </label>
+            {clientKind === 'NEW' ? (
+              <>
+                <label className="inf-field">
+                  <span className="inf-field-label">
+                    Cidade ou região <span className="inf-field-optional">(opcional)</span>
+                  </span>
+                  <input
+                    className="inf-input"
+                    value={newClientCity}
+                    placeholder="Ex.: Três Pontas/MG"
+                    autoComplete="off"
+                    maxLength={120}
+                    onChange={(event) => setNewClientCity(event.target.value)}
+                  />
+                </label>
+                <label className="inf-field">
+                  <span className="inf-field-label">
+                    Telefone <span className="inf-field-optional">(opcional)</span>
+                  </span>
+                  <input
+                    className="inf-input"
+                    type="tel"
+                    inputMode="tel"
+                    value={newClientPhone}
+                    placeholder="Ex.: (35) 99999-9999"
+                    autoComplete="off"
+                    maxLength={40}
+                    onChange={(event) => setNewClientPhone(event.target.value)}
+                  />
+                </label>
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
