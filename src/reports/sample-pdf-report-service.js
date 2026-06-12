@@ -503,7 +503,16 @@ export async function renderSamplePdf({
     classificationRows.push({ label: 'Observações', value: asValue(observacoesEntry) });
   }
 
-  const drawSection = ({ x, topY, width, height, title, rows, labelRatio = 0.46 }) => {
+  const drawSection = ({
+    x,
+    topY,
+    width,
+    height,
+    title,
+    rows,
+    labelRatio = 0.46,
+    maxColumns = 1,
+  }) => {
     if (height <= sectionHeaderHeight + 18) {
       return;
     }
@@ -534,55 +543,96 @@ export async function renderSamplePdf({
 
     const sx = x + 12;
     const sWidth = width - 24;
-    const labelColumnWidth = Math.max(70, sWidth * labelRatio);
     const rowTop = topY - sectionHeaderHeight - 12;
     const rowBottom = topY - height + 12;
     const avail = rowTop - rowBottom;
 
+    const fontSize = 8.8;
     // Gap vertical moderado: parte de distribuir pra encher, mas com um teto
-    // (pra nao explodir quando ha poucas linhas) e um minimo de 17pt (pra caber
-    // mais info quando necessario — o excedente vira "+N adicionais").
+    // (pra nao espalhar demais quando ha poucas linhas) e um minimo de 17pt (pra
+    // caber mais info quando necessario — o excedente vira "+N adicionais").
     const minRowHeight = 17;
     const maxRowHeight = 26;
-    let visibleRows = rows.slice(0, Math.max(1, Math.floor(avail / minRowHeight)));
+    // Densidade a partir da qual uma unica coluna deixa de ser confortavel.
+    const comfortRowHeight = 22;
+
+    // ── Layout adaptativo de colunas ──
+    // Enquanto as linhas cabem confortavelmente numa unica coluna, mantem o
+    // padrao de coluna unica. Quando passam do que cabe confortavelmente (e a
+    // secao autoriza via maxColumns), divide em 2 colunas — assim o laudo acomoda
+    // bem mais informacao sem espremer nem truncar cedo demais.
+    const comfortPerColumn = Math.max(1, Math.floor(avail / comfortRowHeight));
+    const columns = maxColumns >= 2 && rows.length > comfortPerColumn ? 2 : 1;
+
+    // Capacidade total no pitch mais denso (somando as colunas). O que exceder
+    // vira "+N linhas adicionais".
+    const maxPerColumn = Math.max(1, Math.floor(avail / minRowHeight));
+    let visibleRows = rows.slice(0, Math.min(rows.length, maxPerColumn * columns));
     let hiddenRows = rows.length - visibleRows.length;
+    // Reserva um slot pro indicador "+N" quando ha excedente.
     if (hiddenRows > 0 && visibleRows.length > 1) {
       visibleRows = visibleRows.slice(0, visibleRows.length - 1);
       hiddenRows = rows.length - visibleRows.length;
     }
 
-    const bands = visibleRows.length + (hiddenRows > 0 ? 1 : 0);
-    const step = Math.min(maxRowHeight, bands > 0 ? avail / bands : avail);
-    // Alinhado ao topo: as linhas comecam logo abaixo do cabecalho da secao
-    // (sobra de espaco, quando ha poucas linhas, fica embaixo).
-    const startY = rowTop;
+    // Slots = linhas visiveis + (eventual) indicador. Preenchimento coluna-a-
+    // coluna, SEMPRE de cima pra baixo: a coluna da esquerda recebe a primeira
+    // metade; a da direita, o restante (incluindo o indicador). Nunca a partir
+    // do meio.
+    const indicatorSlots = hiddenRows > 0 ? 1 : 0;
+    const totalSlots = visibleRows.length + indicatorSlots;
+    const leftCount = columns === 2 ? Math.ceil(totalSlots / 2) : totalSlots;
+    const rightCount = totalSlots - leftCount;
 
-    for (let index = 0; index < visibleRows.length; index += 1) {
-      const row = visibleRows[index];
-      const baselineY = startY - (index + 0.5) * step - 3;
-      const label = fitTextToWidth(row.label, fontBold, 8.8, labelColumnWidth - 6);
-      const value = fitTextToWidth(row.value, fontRegular, 8.8, sWidth - labelColumnWidth - 2);
+    // Pitch compartilhado pelas duas colunas (parte da coluna mais cheia), preso
+    // ao topo: a sobra, quando ha poucas linhas, fica embaixo.
+    const bands = Math.max(leftCount, rightCount, 1);
+    const step = Math.min(maxRowHeight, avail / bands);
+
+    const colGap = 18;
+    const colWidth = columns === 2 ? (sWidth - colGap) / 2 : sWidth;
+    const labelColumnWidth = Math.max(64, colWidth * labelRatio);
+
+    // Resolve em qual coluna/linha cada slot cai (e quantas linhas tem a coluna,
+    // pra saber onde NAO desenhar separador).
+    const placeSlot = (slot) =>
+      columns === 2 && slot >= leftCount
+        ? { cellX: sx + colWidth + colGap, rowIndex: slot - leftCount, colCount: rightCount }
+        : { cellX: sx, rowIndex: slot, colCount: leftCount };
+
+    for (let slot = 0; slot < visibleRows.length; slot += 1) {
+      const row = visibleRows[slot];
+      const { cellX, rowIndex, colCount } = placeSlot(slot);
+      const baselineY = rowTop - (rowIndex + 0.5) * step - 3;
+      const label = fitTextToWidth(row.label, fontBold, fontSize, labelColumnWidth - 6);
+      const value = fitTextToWidth(
+        row.value,
+        fontRegular,
+        fontSize,
+        colWidth - labelColumnWidth - 2
+      );
 
       page.drawText(label, {
-        x: sx,
+        x: cellX,
         y: baselineY,
-        size: 8.8,
+        size: fontSize,
         font: fontBold,
         color: rgb(0.25, 0.29, 0.26),
       });
       page.drawText(value || '-', {
-        x: sx + labelColumnWidth,
+        x: cellX + labelColumnWidth,
         y: baselineY,
-        size: 8.8,
+        size: fontSize,
         font: fontRegular,
         color: docText,
       });
 
-      if (index < visibleRows.length - 1 || hiddenRows > 0) {
-        const sepY = startY - (index + 1) * step;
+      // Separador abaixo da linha, exceto na ultima linha da coluna.
+      if (rowIndex < colCount - 1) {
+        const sepY = rowTop - (rowIndex + 1) * step;
         page.drawLine({
-          start: { x: sx, y: sepY },
-          end: { x: sx + sWidth, y: sepY },
+          start: { x: cellX, y: sepY },
+          end: { x: cellX + colWidth, y: sepY },
           thickness: 0.7,
           color: rgb(0.9, 0.91, 0.92),
         });
@@ -590,9 +640,10 @@ export async function renderSamplePdf({
     }
 
     if (hiddenRows > 0) {
+      const { cellX, rowIndex } = placeSlot(totalSlots - 1);
       page.drawText(`+${hiddenRows} linhas adicionais`, {
-        x: sx,
-        y: startY - (visibleRows.length + 0.5) * step - 3,
+        x: cellX,
+        y: rowTop - (rowIndex + 0.5) * step - 3,
         size: 8.2,
         font: fontRegular,
         color: rgb(0.45, 0.47, 0.44),
@@ -684,6 +735,7 @@ export async function renderSamplePdf({
       title: 'Dados de Classificação',
       rows: classificationRows,
       labelRatio: 0.42,
+      maxColumns: 2,
     });
   }
 
