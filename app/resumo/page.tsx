@@ -332,7 +332,7 @@ export default function ResumoPage() {
           </div>
         </header>
 
-        <section className="sdv-content informe-content">
+        <section className="sdv-content informe-content rsm-content">
           <div className="rsm-feed">
             <header className="inf-intro rsm-intro">
               <div className="rsm-intro-text">

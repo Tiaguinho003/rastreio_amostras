@@ -8477,6 +8477,32 @@ button:disabled {
   padding-top: clamp(4px, 1.5vw, 8px);
 }
 
+/* Scroll do /resumo: como toda lista do app (/samples, /clients, feed do
+   comercial, dashboard do prospector), o sheet NAO rola — quem rola e a
+   lista. O .informe-content vira container limitado (overflow hidden) e o
+   .rsm-feed assume o scroll (mesmo padrao de .spv2-list-scroll), pra os
+   formularios mais antigos ficarem alcancaveis conforme a quantidade. O
+   clearance da tabbar migra pro scroller (skill responsive §5). */
+.sdv-content.informe-content.rsm-content {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.rsm-content .rsm-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) +
+      var(--mobile-tabbar-clearance, 0rem) + clamp(0.6rem, 2vw, 1rem)
+  );
+}
+.rsm-content .rsm-feed::-webkit-scrollbar {
+  display: none;
+}
+
 .rsm-intro {
   flex-direction: row;
   align-items: center;
