@@ -1462,7 +1462,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(classificationPhotos.length, 1);
   });
 
-  test('POST /samples/:sampleId/export/pdf exports COMPLETE report and records REPORT_EXPORTED event', async () => {
+  test('POST /samples/:sampleId/export/pdf exporta o laudo unico (sem owner) e registra REPORT_EXPORTED', async () => {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
 
@@ -1470,7 +1470,6 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          exportType: 'COMPLETO',
           destination: 'Comprador XPTO',
         },
       })
@@ -1479,12 +1478,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(exported.status, 200);
     assert.equal(exported.body.contentType, 'application/pdf');
     assert.equal(exported.body.auditEvent.eventType, 'REPORT_EXPORTED');
-    assert.equal(exported.body.exportType, 'COMPLETO');
+    // Laudo unico: nao ha mais tipos; o campo exportType deixou de existir.
+    assert.equal(exported.body.exportType, undefined);
     assert.equal(exported.body.destination, 'Comprador XPTO');
-    assert.ok(exported.body.selectedFields.includes('owner'));
+    // Omite o proprietario (owner) e os lotes internos.
+    assert.equal(exported.body.selectedFields.includes('owner'), false);
     assert.ok(exported.body.selectedFields.includes('sacks'));
     assert.ok(exported.body.selectedFields.includes('harvest'));
-    assert.equal(exported.body.selectedFields.includes('technicalDensity'), false);
     assert.equal(exported.body.selectedFields.includes('originLot'), false);
     assert.equal(exported.body.selectedFields.includes('classificationOriginLot'), false);
 
@@ -1498,38 +1498,8 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(exported.body.fileName, `amostra(${detail.sample.internalLotNumber}).pdf`);
     const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
     assert.equal(reportEvents.length, 1);
-    assert.equal(reportEvents[0].payload.exportType, 'COMPLETO');
+    assert.equal(reportEvents[0].payload.exportType, undefined);
     assert.equal(reportEvents[0].payload.destination, 'Comprador XPTO');
-    assert.deepEqual(reportEvents[0].payload.selectedFields, exported.body.selectedFields);
-  });
-
-  test('POST /samples/:sampleId/export/pdf exports COMPRADOR_PARCIAL report without owner', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToClassified(sampleId);
-
-    const exported = await api.exportSamplePdf(
-      buildInput({
-        params: { sampleId },
-        body: {
-          exportType: 'COMPRADOR_PARCIAL',
-        },
-      })
-    );
-
-    assert.equal(exported.status, 200);
-    assert.equal(exported.body.exportType, 'COMPRADOR_PARCIAL');
-    assert.equal(exported.body.destination, null);
-    assert.equal(exported.body.selectedFields.includes('owner'), false);
-    assert.ok(exported.body.selectedFields.includes('sacks'));
-    assert.ok(exported.body.selectedFields.includes('harvest'));
-    assert.equal(exported.body.selectedFields.includes('originLot'), false);
-    assert.equal(exported.body.selectedFields.includes('classificationOriginLot'), false);
-
-    const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
-    const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
-    assert.equal(reportEvents.length, 1);
-    assert.equal(reportEvents[0].payload.exportType, 'COMPRADOR_PARCIAL');
-    assert.equal(reportEvents[0].payload.destination, null);
     assert.deepEqual(reportEvents[0].payload.selectedFields, exported.body.selectedFields);
   });
 
@@ -1579,7 +1549,7 @@ if (!databaseUrl || !databaseReachable) {
     const exported = await api.exportSamplePdf(
       buildInput({
         params: { sampleId },
-        body: { exportType: 'COMPRADOR_PARCIAL' },
+        body: {},
       })
     );
 
@@ -1614,9 +1584,7 @@ if (!databaseUrl || !databaseReachable) {
     const blocked = await api.exportSamplePdf(
       buildInput({
         params: { sampleId },
-        body: {
-          exportType: 'COMPLETO',
-        },
+        body: {},
       })
     );
 
@@ -1637,9 +1605,7 @@ if (!databaseUrl || !databaseReachable) {
       data: { declaredHarvest: '24/25, 25/26' },
     });
 
-    const blocked = await api.exportSamplePdf(
-      buildInput({ params: { sampleId }, body: { exportType: 'COMPRADOR_PARCIAL' } })
-    );
+    const blocked = await api.exportSamplePdf(buildInput({ params: { sampleId }, body: {} }));
 
     assert.equal(blocked.status, 422);
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
@@ -1658,7 +1624,7 @@ if (!databaseUrl || !databaseReachable) {
     const exported = await api.exportSamplePdf(
       buildInput({
         params: { sampleId },
-        body: { exportType: 'COMPRADOR_PARCIAL', reportedHarvest: '25/26' },
+        body: { reportedHarvest: '25/26' },
       })
     );
 
@@ -1680,7 +1646,7 @@ if (!databaseUrl || !databaseReachable) {
     const blocked = await api.exportSamplePdf(
       buildInput({
         params: { sampleId },
-        body: { exportType: 'COMPRADOR_PARCIAL', reportedHarvest: '99/00' },
+        body: { reportedHarvest: '99/00' },
       })
     );
 
@@ -1691,32 +1657,13 @@ if (!databaseUrl || !databaseReachable) {
     const sampleId = randomUUID();
     await moveSampleToClassified(sampleId);
 
-    const exported = await api.exportSamplePdf(
-      buildInput({ params: { sampleId }, body: { exportType: 'COMPRADOR_PARCIAL' } })
-    );
+    const exported = await api.exportSamplePdf(buildInput({ params: { sampleId }, body: {} }));
 
     assert.equal(exported.status, 200);
     const detail = await queryService.getSampleDetail(sampleId, { eventLimit: 40 });
     const reportEvents = detail.events.filter((event) => event.eventType === 'REPORT_EXPORTED');
     assert.equal(reportEvents.length, 1);
     assert.equal(reportEvents[0].payload.reportedHarvest, undefined);
-  });
-
-  test('POST /samples/:sampleId/export/pdf rejects invalid exportType', async () => {
-    const sampleId = randomUUID();
-    await moveSampleToClassified(sampleId);
-
-    const invalid = await api.exportSamplePdf(
-      buildInput({
-        params: { sampleId },
-        body: {
-          exportType: 'PARCIAL_X',
-        },
-      })
-    );
-
-    assert.equal(invalid.status, 422);
-    assert.equal(invalid.body.error.message, 'Unsupported export type: PARCIAL_X');
   });
 
   test('POST /samples/:sampleId/export/pdf rejects destination with invalid type', async () => {
@@ -1727,7 +1674,6 @@ if (!databaseUrl || !databaseReachable) {
       buildInput({
         params: { sampleId },
         body: {
-          exportType: 'COMPLETO',
           destination: 42,
         },
       })

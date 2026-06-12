@@ -473,9 +473,18 @@ test('report exported is accepted and does not mutate sample version/status', ()
 
   assert.equal(exported.statusCode, 201);
   assert.equal(exported.event.eventType, 'REPORT_EXPORTED');
-  assert.equal(exported.event.payload.exportType, 'COMPLETO');
+  // Laudo unico: novos eventos nao gravam mais exportType.
+  assert.equal(exported.event.payload.exportType, undefined);
   assert.equal(afterExport.status, 'CLASSIFIED');
   assert.equal(afterExport.version, beforeExport.version);
+
+  // Compat: payload legado COM exportType (eventos antigos do event store
+  // append-only) ainda valida contra o schema.
+  const legacy = service.appendEvent(
+    reportExportedEvent(sampleId, { payload: { exportType: 'COMPRADOR_PARCIAL' } })
+  );
+  assert.equal(legacy.statusCode, 201);
+  assert.equal(legacy.event.payload.exportType, 'COMPRADOR_PARCIAL');
 });
 
 test('commercial status updated is accepted and mutates commercial status/version', () => {

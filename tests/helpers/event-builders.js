@@ -179,7 +179,6 @@ export function reportExportedEvent(sampleId, overrides = {}) {
     toStatus: null,
     payload: {
       format: 'PDF',
-      exportType: 'COMPLETO',
       fileName: 'amostra(5444).pdf',
       destination: null,
       selectedFields: ['owner', 'sacks', 'harvest'],

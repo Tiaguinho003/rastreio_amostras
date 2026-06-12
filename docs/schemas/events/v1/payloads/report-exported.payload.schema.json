@@ -10,7 +10,7 @@
     },
     "exportType": {
       "type": "string",
-      "enum": ["COMPLETO", "COMPRADOR_PARCIAL"]
+      "description": "Historico/deprecated: nao e mais gravado (o laudo virou unico, sem tipos COMPLETO/COMPRADOR_PARCIAL). Mantido em properties (additionalProperties:false) para validar eventos REPORT_EXPORTED antigos."
     },
     "fileName": {
       "type": "string",
@@ -90,7 +90,6 @@
   },
   "required": [
     "format",
-    "exportType",
     "fileName",
     "selectedFields",
     "classificationPhotoId",

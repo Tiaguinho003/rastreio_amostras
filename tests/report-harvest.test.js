@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { HttpError } from '../src/contracts/errors.js';
 import {
   SAMPLE_EXPORT_FIELDS,
+  SAMPLE_EXPORT_FIELDS_FOR_REPORT,
   buildSelectedExportFieldEntries,
   normalizeReportedHarvest,
-  resolveSampleExportFieldsForType,
 } from '../src/reports/export-fields.js';
 
 const is422 = (error) => error instanceof HttpError && error.status === 422;
@@ -90,14 +90,16 @@ test('buildSelectedExportFieldEntries: peneirasPercentuais formata peneiras{} + 
   assert.equal(/P11:/.test(sieve), false);
 });
 
-test('resolveSampleExportFieldsForType: COMPRADOR_PARCIAL exclui data/owner/lotes e inclui novos campos', () => {
-  const fields = resolveSampleExportFieldsForType('COMPRADOR_PARCIAL');
-  // data da classificacao nao sai no laudo (decisao de produto)
-  assert.equal(fields.includes('classificationDate'), false);
+test('SAMPLE_EXPORT_FIELDS_FOR_REPORT: laudo unico exclui owner/data/lotes/classificadores e inclui os campos do laudo', () => {
+  const fields = SAMPLE_EXPORT_FIELDS_FOR_REPORT;
+  // proprietario e dados internos nao saem no laudo unico (decisao de produto)
   assert.equal(fields.includes('owner'), false);
+  assert.equal(fields.includes('classificationDate'), false);
   assert.equal(fields.includes('originLot'), false);
   assert.equal(fields.includes('classificationOriginLot'), false);
-  // campos adicionados ao laudo
+  assert.equal(fields.includes('classifiers'), false);
+  assert.equal(fields.includes('conferredBy'), false);
+  // campos do laudo
   assert.ok(fields.includes('certif'));
   assert.ok(fields.includes('ap'));
   assert.ok(fields.includes('gpi'));

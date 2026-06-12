@@ -56,7 +56,6 @@ import type {
   InvalidateReasonCode,
   SampleDetailResponse,
   SampleEvent,
-  SampleExportType,
   SampleMovement,
   SendHistoryItem,
   UpdateReasonCode,
@@ -481,9 +480,9 @@ export default function SampleDetailPage() {
     null
   );
   const [printHighlighted, setPrintHighlighted] = useState(false);
-  const [exportingPdfType, setExportingPdfType] = useState<SampleExportType | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [exportConfirmationOpen, setExportConfirmationOpen] = useState(false);
-  const [pendingExportType, setPendingExportType] = useState<SampleExportType | null>(null);
+  const [exportPending, setExportPending] = useState(false);
   // Efeito de check verde no modal de laudo (substitui a mensagem verde).
   const [exportPdfSuccess, setExportPdfSuccess] = useState(false);
   const [exportRecipientClients, setExportRecipientClients] = useState<ClientSummary[]>([]);
@@ -783,7 +782,7 @@ export default function SampleDetailPage() {
 
   useEffect(() => {
     setExportConfirmationOpen(false);
-    setPendingExportType(null);
+    setExportPending(false);
     setExportRecipientClients([]);
     setLabelModalOpen(false);
     setLabelModalSubmitting(false);
@@ -1044,7 +1043,7 @@ export default function SampleDetailPage() {
     );
   }
 
-  function handleOpenExportConfirmation(exportType: SampleExportType) {
+  function handleOpenExportConfirmation() {
     if (!detail) {
       return;
     }
@@ -1059,23 +1058,22 @@ export default function SampleDetailPage() {
 
     setGeneralNotice(null);
     setExportPdfSuccess(false);
-    setPendingExportType(exportType);
+    setExportPending(true);
     setExportRecipientClients([]);
     setExportConfirmationOpen(true);
   }
 
   function handleCloseExportConfirmation() {
-    if (Boolean(exportingPdfType)) {
+    if (exportingPdf) {
       return;
     }
 
     setExportConfirmationOpen(false);
-    setPendingExportType(null);
+    setExportPending(false);
     setExportRecipientClients([]);
   }
 
   async function handleExportPdf(
-    exportType: SampleExportType,
     recipientClients: ClientSummary[],
     reportedHarvest?: string | null
   ) {
@@ -1092,7 +1090,7 @@ export default function SampleDetailPage() {
     }
 
     setGeneralNotice(null);
-    setExportingPdfType(exportType);
+    setExportingPdf(true);
 
     try {
       // TODO(specs): multi-destinatario — por ora envia todos os nomes em
@@ -1103,16 +1101,13 @@ export default function SampleDetailPage() {
           .filter(Boolean)
           .join(', ') || null;
       const exported = await exportSamplePdf(session, sampleId, {
-        exportType,
         destination,
         recipientClientId: recipientClients[0]?.id ?? null,
         reportedHarvest: reportedHarvest ?? null,
       });
 
-      // Laudo unico (tecnico): o titulo de compartilhamento e sempre
-      // "Laudo Tecnico (lote)". exportType continua indo pro backend (filtra os
-      // campos do PDF), mas nao aparece mais no titulo — antes o COMPRADOR_PARCIAL
-      // virava "Laudo Comprador Parcial" no share do WhatsApp.
+      // Laudo unico ("Laudo Tecnico"): titulo de compartilhamento sempre
+      // "Laudo Tecnico (lote)". Nao ha mais tipos de laudo.
       const lot = detail.sample.internalLotNumber?.trim();
       const result = await shareOrDownloadFile(exported.blob, exported.fileName, {
         mimeType: 'application/pdf',
@@ -1125,7 +1120,7 @@ export default function SampleDetailPage() {
         // Usuario fechou a folha de compartilhamento — fecha sem alarde.
         setExportConfirmationOpen(false);
         setHarvestChoiceOpen(false);
-        setPendingExportType(null);
+        setExportPending(false);
         setExportRecipientClients([]);
       } else {
         // Sucesso (compartilhado/baixado): efeito de check verde por ~900ms e
@@ -1135,7 +1130,7 @@ export default function SampleDetailPage() {
           setExportPdfSuccess(false);
           setExportConfirmationOpen(false);
           setHarvestChoiceOpen(false);
-          setPendingExportType(null);
+          setExportPending(false);
           setExportRecipientClients([]);
         }, 900);
       }
@@ -1146,12 +1141,12 @@ export default function SampleDetailPage() {
         setGeneralNotice({ kind: 'error', text: 'Falha ao exportar laudo PDF' });
       }
     } finally {
-      setExportingPdfType(null);
+      setExportingPdf(false);
     }
   }
 
   async function handleConfirmExportFromModal() {
-    if (!pendingExportType || !detail) {
+    if (!exportPending || !detail) {
       return;
     }
 
@@ -1169,7 +1164,7 @@ export default function SampleDetailPage() {
       return;
     }
 
-    await handleExportPdf(pendingExportType, exportRecipientClients);
+    await handleExportPdf(exportRecipientClients);
   }
 
   async function handlePhysicalSend() {
@@ -2396,8 +2391,8 @@ export default function SampleDetailPage() {
                           <button
                             type="button"
                             className="sdv-action-card is-report"
-                            onClick={() => handleOpenExportConfirmation('COMPRADOR_PARCIAL')}
-                            disabled={!canQuickReport || Boolean(exportingPdfType)}
+                            onClick={() => handleOpenExportConfirmation()}
+                            disabled={!canQuickReport || exportingPdf}
                           >
                             <span className="sdv-action-card-icon">
                               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3898,7 +3893,7 @@ export default function SampleDetailPage() {
         />
       ) : null}
 
-      {exportConfirmationOpen && pendingExportType ? (
+      {exportConfirmationOpen ? (
         <div className="app-modal-backdrop" onClick={handleCloseExportConfirmation}>
           <section
             ref={exportConfirmTrapRef}
@@ -3933,7 +3928,7 @@ export default function SampleDetailPage() {
                 type="button"
                 className="app-modal-close"
                 onClick={handleCloseExportConfirmation}
-                disabled={Boolean(exportingPdfType)}
+                disabled={exportingPdf}
                 aria-label="Fechar"
               >
                 <span aria-hidden="true">&times;</span>
@@ -3944,7 +3939,7 @@ export default function SampleDetailPage() {
               className="app-modal-content"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (exportingPdfType) return;
+                if (exportingPdf) return;
                 void handleConfirmExportFromModal();
               }}
             >
@@ -3963,7 +3958,7 @@ export default function SampleDetailPage() {
                         type="button"
                         className="samples-filter-token-remove"
                         aria-label={`Remover destinatário: ${client.displayName ?? ''}`}
-                        disabled={Boolean(exportingPdfType)}
+                        disabled={exportingPdf}
                         onClick={() =>
                           setExportRecipientClients((prev) =>
                             prev.filter((c) => c.id !== client.id)
@@ -3988,7 +3983,7 @@ export default function SampleDetailPage() {
                         prev.some((c) => c.id === client.id) ? prev : [...prev, client]
                       );
                     }}
-                    disabled={Boolean(exportingPdfType)}
+                    disabled={exportingPdf}
                     placeholder={
                       exportRecipientClients.length > 0
                         ? ''
@@ -4003,16 +3998,12 @@ export default function SampleDetailPage() {
                   type="button"
                   className="app-modal-secondary"
                   onClick={handleCloseExportConfirmation}
-                  disabled={Boolean(exportingPdfType)}
+                  disabled={exportingPdf}
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="app-modal-submit"
-                  disabled={Boolean(exportingPdfType)}
-                >
-                  {exportingPdfType ? 'Gerando...' : 'Gerar laudo'}
+                <button type="submit" className="app-modal-submit" disabled={exportingPdf}>
+                  {exportingPdf ? 'Gerando...' : 'Gerar laudo'}
                 </button>
               </div>
             </form>
@@ -4023,10 +4014,10 @@ export default function SampleDetailPage() {
       <ReportHarvestSelectModal
         open={harvestChoiceOpen}
         harvests={harvestOptions}
-        submitting={Boolean(exportingPdfType)}
+        submitting={exportingPdf}
         onConfirm={(selected) => {
-          if (pendingExportType) {
-            void handleExportPdf(pendingExportType, exportRecipientClients, selected);
+          if (exportPending) {
+            void handleExportPdf(exportRecipientClients, selected);
           }
         }}
         onBack={() => {
@@ -4035,7 +4026,7 @@ export default function SampleDetailPage() {
         }}
         onClose={() => {
           setHarvestChoiceOpen(false);
-          setPendingExportType(null);
+          setExportPending(false);
           setExportRecipientClients([]);
         }}
       />

@@ -29,8 +29,6 @@ export const SAMPLE_EXPORT_FIELDS = [
   'technicalDensity',
 ];
 
-export const SAMPLE_EXPORT_TYPES = ['COMPLETO', 'COMPRADOR_PARCIAL'];
-
 export const SAMPLE_EXPORT_FIELD_LABELS = {
   internalLotNumber: 'Lote interno',
   owner: 'Proprietario',
@@ -61,16 +59,16 @@ export const SAMPLE_EXPORT_FIELD_LABELS = {
 };
 
 const SAMPLE_EXPORT_FIELD_SET = new Set(SAMPLE_EXPORT_FIELDS);
-const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
 // Mesma ordem canonica do projetor (event-contract-db-service.js): peneiras
 // cheias decrescentes + MK por ultimo. (Era stale: faltava p11 e tinha mk9/10/11
 // que nao existem na ficha unificada — por isso as peneiras nunca saiam.)
 const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
-// Campos excluidos do laudo por decisao de produto (nao devem aparecer no
-// documento enviado ao comprador): a data da classificacao e os classificadores
-// (`classificador`/`conferredBy`/`classifiers` — quem classificou e dado
-// interno). originLot/classificationOriginLot ja eram internos.
+// Campos excluidos do laudo unico por decisao de produto (nao devem aparecer no
+// documento enviado ao comprador): proprietario (`owner`), a data da
+// classificacao, os classificadores (`classificador`/`conferredBy`/`classifiers`
+// — quem classificou e dado interno) e os lotes de origem internos.
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set([
+  'owner',
   'originLot',
   'classificationOriginLot',
   'classificationDate',
@@ -78,13 +76,11 @@ const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set([
   'conferredBy',
   'classifiers',
 ]);
-const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
+// Laudo unico ("Laudo Tecnico"): nao ha mais tipos (COMPLETO/COMPRADOR_PARCIAL).
+// Os campos do laudo sao todos os autorizados menos os excluidos acima.
+export const SAMPLE_EXPORT_FIELDS_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)
 );
-const SAMPLE_EXPORT_FIELDS_BY_TYPE = {
-  COMPLETO: [...SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT],
-  COMPRADOR_PARCIAL: SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT.filter((field) => field !== 'owner'),
-};
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -295,32 +291,6 @@ export function normalizeSelectedExportFields(input) {
   }
 
   return SAMPLE_EXPORT_FIELDS.filter((field) => selected.has(field));
-}
-
-export function normalizeSampleExportType(input) {
-  if (input === undefined || input === null) {
-    return 'COMPLETO';
-  }
-
-  if (typeof input !== 'string') {
-    throw new HttpError(422, 'exportType must be a string');
-  }
-
-  const normalized = input.trim().toUpperCase();
-  if (!normalized) {
-    throw new HttpError(422, 'exportType cannot be empty');
-  }
-
-  if (!SAMPLE_EXPORT_TYPE_SET.has(normalized)) {
-    throw new HttpError(422, `Unsupported export type: ${normalized}`);
-  }
-
-  return normalized;
-}
-
-export function resolveSampleExportFieldsForType(exportType) {
-  const normalized = normalizeSampleExportType(exportType);
-  return [...SAMPLE_EXPORT_FIELDS_BY_TYPE[normalized]];
 }
 
 // Liga: valida e resolve a safra que sai no laudo. Quando a amostra tem mais de

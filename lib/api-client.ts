@@ -31,7 +31,6 @@ import type {
   SampleMovementsResponse,
   SampleEventsResponse,
   SessionData,
-  SampleExportType,
   UpdateReasonCode,
   UserAuditListResponse,
   UserLookupResponse,
@@ -1085,7 +1084,6 @@ export async function exportSamplePdf(
   session: SessionData,
   sampleId: string,
   data: {
-    exportType: SampleExportType;
     destination?: string | null;
     recipientClientId?: string | null;
     /** Liga: safra escolhida pro laudo quando a amostra tem mais de uma safra.
@@ -1099,7 +1097,6 @@ export async function exportSamplePdf(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      exportType: data.exportType,
       destination: data.destination ?? null,
       recipientClientId: data.recipientClientId ?? null,
       reportedHarvest: data.reportedHarvest ?? null,

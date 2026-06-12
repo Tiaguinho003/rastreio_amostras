@@ -31,7 +31,6 @@ const PHOTO_KIND_ALLOWED_STATUSES = {
 // leitura). PrintJobs PENDING > 1min sao marcados como FAILED.
 const PRINT_JOB_PENDING_TIMEOUT_MS = 60 * 1000;
 const UPDATE_REASON_CODES = new Set(['DATA_FIX', 'TYPO', 'MISSING_INFO', 'OTHER']);
-const REPORT_EXPORT_TYPES = new Set(['COMPLETO', 'COMPRADOR_PARCIAL']);
 const COMMERCIAL_STATUS_VALUES = new Set(['OPEN', 'PARTIALLY_SOLD', 'SOLD', 'LOST']);
 // Venda e perda podem ser registradas a partir do momento em que a amostra tem sacas
 // declaradas (REGISTRATION_CONFIRMED). Classificacao nao e pre-requisito comercial:
@@ -341,15 +340,6 @@ function normalizeRequiredStringArray(value, fieldName) {
   }
 
   return deduped;
-}
-
-function normalizeReportExportType(value) {
-  const normalized = normalizeRequiredText(value ?? 'COMPLETO', 'exportType').toUpperCase();
-  if (!REPORT_EXPORT_TYPES.has(normalized)) {
-    throw new HttpError(422, 'exportType is invalid');
-  }
-
-  return normalized;
 }
 
 function countWords(value) {
@@ -3541,7 +3531,6 @@ export class SampleCommandService {
     assertSampleStatus(sample, ['CLASSIFIED'], 'export sample report');
 
     const format = normalizeRequiredText(input.format ?? 'PDF', 'format').toUpperCase();
-    const exportType = normalizeReportExportType(input.exportType);
     const fileName = normalizeRequiredText(input.fileName, 'fileName');
     const classificationPhotoId = normalizeRequiredText(
       input.classificationPhotoId,
@@ -3585,7 +3574,6 @@ export class SampleCommandService {
       sampleId: sample.id,
       payload: {
         format,
-        exportType,
         fileName,
         destination,
         recipientClientId,

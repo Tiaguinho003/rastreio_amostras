@@ -623,7 +623,6 @@ export function createBackendApiV1({
         const exported = await reportService.exportSamplePdf(
           {
             sampleId,
-            exportType: body.exportType,
             destination: body.destination,
             recipientClientId: body.recipientClientId,
             // Liga: safra escolhida pro laudo quando a amostra tem mais de uma
@@ -640,7 +639,6 @@ export function createBackendApiV1({
             contentType: exported.contentType,
             sizeBytes: exported.sizeBytes,
             checksumSha256: exported.checksumSha256,
-            exportType: exported.exportType,
             destination: exported.destination,
             selectedFields: exported.selectedFields,
             auditEvent: exported.auditEvent,

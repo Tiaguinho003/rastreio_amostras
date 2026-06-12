@@ -53,8 +53,6 @@ export type PrintJobStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED';
 export type SampleMovementType = 'SALE' | 'LOSS';
 export type SampleMovementStatus = 'ACTIVE' | 'CANCELLED';
 
-export type SampleExportType = 'COMPLETO' | 'COMPRADOR_PARCIAL';
-
 export interface SessionUser {
   id: string;
   username: string;

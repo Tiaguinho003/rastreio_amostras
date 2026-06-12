@@ -150,15 +150,16 @@ Pos Q.print: impressao virou **acao pura**. Nao muda mais o status do Sample.
 2. Se sim, o usuario seleciona um ou mais usuarios ativos do sistema via picker com busca client-side.
 3. O backend valida a lista em `normalizeConferredBy`: rejeita auto-conferral (ator nao pode estar na lista), rejeita usuarios inativos ou inexistentes, faz dedup silencioso, limita a 50 entradas.
 4. O conjunto final e persistido como `conferredBy` no payload de `CLASSIFICATION_COMPLETED` (snapshot com `{id, fullName, username}`), editavel pos-classificacao via `CLASSIFICATION_UPDATED`.
-5. A conferencia aparece no card resumo da classificacao, no modal full-view e no laudo PDF exportado (em linha unica, com os nomes dos classificadores separados por barra).
+5. A conferencia aparece no card resumo da classificacao e no modal full-view (com os nomes dos classificadores). No laudo PDF **nao** aparece — quem classificou e dado interno, nao enviado ao comprador.
 
 ### 4. Laudo e consulta
 
 1. O laudo PDF so pode ser gerado quando a amostra esta `CLASSIFIED`.
-2. A interface gera um **unico laudo** ("Laudo Tecnico"), que omite proprietario e
-   lote de origem (internamente usa o tipo `COMPRADOR_PARCIAL`). O tipo `COMPLETO`
-   (com proprietario) permanece no backend apenas por compatibilidade com eventos
-   `REPORT_EXPORTED` historicos — nao ha acesso a ele pela UI.
+2. Existe um **unico laudo** ("Laudo Tecnico"), sem tipos. Ele omite proprietario,
+   lote de origem, classificadores e a data da classificacao (dados internos que nao
+   vao ao comprador). Eventos `REPORT_EXPORTED` historicos podem ter um `exportType`
+   antigo (`COMPLETO`/`COMPRADOR_PARCIAL`), mantido so por compatibilidade — o campo
+   nao e mais gravado.
 3. Em amostra com mais de uma safra (liga de safras diferentes), ao gerar o laudo
    o operador escolhe qual safra sai nele (`reportedHarvest`, registrado no evento):
    o laudo nunca imprime a safra concatenada, pra nao revelar que e uma liga.

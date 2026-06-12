@@ -17,11 +17,9 @@ import sharp from 'sharp';
 import { HttpError } from '../contracts/errors.js';
 import {
   SAMPLE_EXPORT_FIELDS,
-  SAMPLE_EXPORT_TYPES,
+  SAMPLE_EXPORT_FIELDS_FOR_REPORT,
   buildSelectedExportFieldEntries,
   normalizeReportedHarvest,
-  normalizeSampleExportType,
-  resolveSampleExportFieldsForType,
 } from './export-fields.js';
 
 const PDF_PAGE_WIDTH = 595.28;
@@ -806,9 +804,10 @@ export class SamplePdfReportService {
       throw new HttpError(409, `Sample ${sampleId} must be CLASSIFIED to export report`);
     }
 
-    const exportType = normalizeSampleExportType(input?.exportType);
     const destination = normalizeReportDestination(input?.destination);
-    const selectedFields = resolveSampleExportFieldsForType(exportType);
+    // Laudo unico ("Laudo Tecnico"): nao ha mais tipos (COMPLETO/COMPRADOR_PARCIAL).
+    // Os campos sao fixos — todos os autorizados menos os internos (inclui owner).
+    const selectedFields = SAMPLE_EXPORT_FIELDS_FOR_REPORT;
     // Liga: resolve a safra que sai no laudo. Em amostra de safra multipla
     // (liga), exige a escolha de UMA safra — o laudo nunca imprime a string
     // concatenada (anti-vazamento). Em safra unica, fica null (usa o declarado).
@@ -870,7 +869,6 @@ export class SamplePdfReportService {
       {
         sampleId: detail.sample.id,
         format: 'PDF',
-        exportType,
         fileName,
         destination,
         recipientClientId: input.recipientClientId ?? null,
@@ -889,7 +887,6 @@ export class SamplePdfReportService {
       contentType: 'application/pdf',
       sizeBytes: pdfBuffer.length,
       checksumSha256,
-      exportType,
       destination,
       selectedFields: exportedFields,
       buffer: pdfBuffer,
@@ -898,4 +895,4 @@ export class SamplePdfReportService {
   }
 }
 
-export { SAMPLE_EXPORT_FIELDS, SAMPLE_EXPORT_TYPES };
+export { SAMPLE_EXPORT_FIELDS };

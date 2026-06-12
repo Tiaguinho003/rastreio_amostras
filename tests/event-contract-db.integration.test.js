@@ -349,7 +349,8 @@ if (!databaseUrl || !databaseReachable) {
     const afterExport = await prisma.sample.findUnique({ where: { id: sampleId } });
     assert.equal(exported.statusCode, 201);
     assert.equal(exported.event.eventType, 'REPORT_EXPORTED');
-    assert.equal(exported.event.payload.exportType, 'COMPLETO');
+    // Laudo unico: novos eventos nao gravam mais exportType.
+    assert.equal(exported.event.payload.exportType, undefined);
     assert.equal(afterExport.status, 'CLASSIFIED');
     assert.equal(afterExport.version, beforeExport.version);
   });
