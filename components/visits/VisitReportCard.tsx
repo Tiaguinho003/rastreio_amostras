@@ -35,14 +35,18 @@ function wasSentLater(report: VisitReportSummary): boolean {
   return Number.isFinite(gap) && gap > OFFLINE_GAP_MS;
 }
 
-/** Acao de curadoria disparada pelos botoes do detalhe expandido. */
-export type VisitLinkAction = 'link' | 'create' | 'unlink';
+/** Acao de curadoria disparada pelos botoes do detalhe expandido. O cadastro
+    de cliente novo nao e uma acao do card: o estado vazio do lookup no modal
+    de vinculo ja oferece "Cadastrar e vincular" inline. */
+export type VisitLinkAction = 'link' | 'unlink';
 
 interface VisitReportCardProps {
   report: VisitReportSummary;
   expanded: boolean;
   onToggle: () => void;
-  /** Mostra o botao "Excluir informe" no detalhe expandido (admin no /resumo). */
+  /** Mostra o botao "Excluir informe" no detalhe expandido. So o autor
+      exclui o proprio informe (vale tambem no /resumo — nem ADM nem Cadastro
+      excluem informe alheio). */
   canDelete?: boolean;
   /** Lixeira sempre visivel no canto do card (dashboard do prospector —
       o autor exclui o proprio informe). Irma do botao-toggle no DOM
@@ -247,25 +251,7 @@ export function VisitReportCard({
                   </svg>
                   Remover vínculo
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className="rsm-link-btn"
-                  tabIndex={expanded ? undefined : -1}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onLinkAction(report, 'create');
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <circle cx="10" cy="8" r="4" />
-                    <path d="M3 21c0-3.9 3.1-7 7-7 1.2 0 2.4 0.3 3.4 0.9" />
-                    <path d="M18 14v6" />
-                    <path d="M15 17h6" />
-                  </svg>
-                  Cadastrar e vincular
-                </button>
-              )}
+              ) : null}
             </div>
           ) : null}
 

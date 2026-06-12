@@ -350,7 +350,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(prospectItem.farmSize, 'SMALL');
   });
 
-  test('deletes: admin exclui qualquer; autor exclui o proprio; alheio 404', async () => {
+  test('deletes: so o autor exclui o proprio; alheio 404 (nem ADMIN)', async () => {
     await resetDatabase();
     const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
@@ -371,21 +371,29 @@ if (!databaseUrl || !databaseReachable) {
       (error) => error.status === 404 && error.details?.code === 'WEEKLY_REPORT_NOT_FOUND'
     );
 
-    // Autor exclui o proprio.
+    // Nem ADMIN exclui formulario alheio.
+    await assert.rejects(
+      service.deleteCommercialVisit({ visitId: visit.visit.id }, actorFor(admin)),
+      (error) => error.status === 404 && error.details?.code === 'COMMERCIAL_VISIT_NOT_FOUND'
+    );
+    await assert.rejects(
+      service.deleteWeeklyReport({ reportId: report.report.id }, actorFor(admin)),
+      (error) => error.status === 404 && error.details?.code === 'WEEKLY_REPORT_NOT_FOUND'
+    );
+
+    // Autor exclui o proprio (visita e relatorio).
     assert.deepEqual(
       await service.deleteCommercialVisit({ visitId: visit.visit.id }, actorFor(commercial)),
       { removed: true }
     );
-
-    // Admin exclui de qualquer autor.
     assert.deepEqual(
-      await service.deleteWeeklyReport({ reportId: report.report.id }, actorFor(admin)),
+      await service.deleteWeeklyReport({ reportId: report.report.id }, actorFor(commercial)),
       { removed: true }
     );
 
-    // Inexistente: 404.
+    // Inexistente (ja removido): 404.
     await assert.rejects(
-      service.deleteWeeklyReport({ reportId: report.report.id }, actorFor(admin)),
+      service.deleteWeeklyReport({ reportId: report.report.id }, actorFor(commercial)),
       (error) => error.status === 404
     );
 

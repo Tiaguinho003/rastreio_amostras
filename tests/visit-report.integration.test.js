@@ -522,7 +522,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(without.report.generalNotes, null);
   });
 
-  test('deleteVisitReport: admin exclui qualquer; autor exclui o proprio; alheio 404', async () => {
+  test('deleteVisitReport: so o autor exclui o proprio; alheio 404 (nem ADMIN)', async () => {
     await resetDatabase();
     const admin = await seedUser('ADMIN');
     const commercial = await seedUser('COMMERCIAL');
@@ -537,6 +537,13 @@ if (!databaseUrl || !databaseReachable) {
       (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
     );
 
+    // Nem ADMIN exclui informe alheio: o /resumo e curadoria de vinculo, nao
+    // de exclusao.
+    await assert.rejects(
+      service.deleteVisitReport({ reportId: own.report.id }, actorFor(admin)),
+      (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
+    );
+
     // Autor exclui o proprio (lixeira do dashboard do prospector).
     const removedOwn = await service.deleteVisitReport(
       { reportId: own.report.id },
@@ -544,16 +551,17 @@ if (!databaseUrl || !databaseReachable) {
     );
     assert.deepEqual(removedOwn, { removed: true });
 
-    // Admin exclui informe de qualquer autor (curadoria do /resumo).
+    // O outro autor exclui o proprio.
     const removedOther = await service.deleteVisitReport(
       { reportId: other.report.id },
-      actorFor(admin)
+      actorFor(commercial)
     );
     assert.deepEqual(removedOther, { removed: true });
     assert.equal(await prisma.visitReport.count(), 0);
 
+    // Ja removido: 404.
     await assert.rejects(
-      service.deleteVisitReport({ reportId: other.report.id }, actorFor(admin)),
+      service.deleteVisitReport({ reportId: other.report.id }, actorFor(commercial)),
       (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
     );
   });

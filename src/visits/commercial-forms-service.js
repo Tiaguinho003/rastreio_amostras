@@ -332,19 +332,16 @@ export class CommercialFormsService {
     return { report: toWeeklyReportView(created) };
   }
 
-  // Exclusao no mesmo padrao do deleteVisitReport: ADMIN exclui qualquer;
-  // os demais papeis excluem apenas o PROPRIO (alheio responde 404, igual
-  // a inexistente — nao vaza existencia).
+  // Exclusao no mesmo padrao do deleteVisitReport: APENAS o autor exclui o
+  // proprio formulario (nem ADMIN exclui alheio). Item alheio (ou
+  // inexistente) responde 404 — nao vaza existencia.
   async deleteCommercialVisit(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'delete commercial visit');
     const visitId = normalizeRequiredText(input?.visitId, 'visitId', 100);
 
-    const where =
-      actor.role === USER_ROLES.ADMIN
-        ? { id: visitId }
-        : { id: visitId, userId: actor.actorUserId };
-
-    const result = await this.prisma.commercialVisit.deleteMany({ where });
+    const result = await this.prisma.commercialVisit.deleteMany({
+      where: { id: visitId, userId: actor.actorUserId },
+    });
     if (result.count === 0) {
       throw new HttpError(404, 'Commercial visit not found', {
         code: 'COMMERCIAL_VISIT_NOT_FOUND',
@@ -358,12 +355,9 @@ export class CommercialFormsService {
     const actor = assertAuthenticatedActor(actorContext, 'delete weekly report');
     const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
 
-    const where =
-      actor.role === USER_ROLES.ADMIN
-        ? { id: reportId }
-        : { id: reportId, userId: actor.actorUserId };
-
-    const result = await this.prisma.weeklyReport.deleteMany({ where });
+    const result = await this.prisma.weeklyReport.deleteMany({
+      where: { id: reportId, userId: actor.actorUserId },
+    });
     if (result.count === 0) {
       throw new HttpError(404, 'Weekly report not found', {
         code: 'WEEKLY_REPORT_NOT_FOUND',

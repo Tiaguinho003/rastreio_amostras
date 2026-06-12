@@ -19,7 +19,7 @@ import {
   linkVisitReportClient,
   listInformeFeed,
 } from '../../lib/api-client';
-import { isAdmin, isVisitLinkCurator } from '../../lib/roles';
+import { isVisitLinkCurator } from '../../lib/roles';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { ClientSummary, InformeFeedItem, VisitReportSummary } from '../../lib/types';
 import { useRequireAuth } from '../../lib/use-auth';
@@ -31,12 +31,14 @@ import { useFocusTrap } from '../../lib/use-focus-trap';
 // informe do prospector (badge Prospeccao), visita do comercial (Visita)
 // e relatorio semanal (Relatorio) — de todos os autores, mais recentes
 // primeiro, com "Carregar mais" (append). Cards sao accordions por tipo;
-// admin pode excluir qualquer item (autor-ou-admin no backend).
+// so o autor exclui o proprio item (nem ADM nem Cadastro excluem alheio —
+// espelha o backend; o /resumo cura vinculo, nao exclui).
 // CURADORIA do vinculo (so informes de prospeccao): ADM/Cadastro vinculam
 // o informe a um cliente do cadastro (modal com lookup pre-carregado com o
-// nome anotado), cadastram-e-vinculam (ClientQuickCreateModal prefilled) ou
-// removem o vinculo. Backend: GET /informe-feed?scope=all +
-// PATCH /visit-reports/:id/client.
+// nome anotado). Nao achou o cliente? O estado vazio do lookup oferece
+// "Cadastrar e vincular" (ClientQuickCreateModal prefilled) — nao ha botao
+// separado no card. Tambem removem o vinculo. Backend:
+// GET /informe-feed?scope=all + PATCH /visit-reports/:id/client.
 
 const PAGE_LIMIT = 20;
 
@@ -198,9 +200,12 @@ export default function ResumoPage() {
       setUnlinkTarget(report);
       return;
     }
+    // action === 'link': abre o modal de busca. Cadastrar cliente novo nao e
+    // acao do card — o estado vazio do lookup ja oferece "Cadastrar e
+    // vincular" inline (onRequestCreate -> mode 'create').
     setLinkClient(null);
     setLinkCreateName(report.newClient?.name ?? '');
-    setLinkTarget({ report, mode: action === 'create' ? 'create' : 'lookup' });
+    setLinkTarget({ report, mode: 'lookup' });
   }, []);
 
   // Vincula (clientId) ou desvincula (null) e reflete a resposta na lista.
@@ -293,7 +298,9 @@ export default function ResumoPage() {
     return null;
   }
 
-  const canDelete = isAdmin(session.user.role);
+  // Exclusao: so o autor exclui o proprio formulario — nem ADM nem Cadastro
+  // excluem alheio (espelha o backend; o /resumo e curadoria de vinculo, nao
+  // de exclusao). Avaliado por item (item.user.id) na lista abaixo.
   const canLinkClient = isVisitLinkCurator(session.user.role);
 
   const userFullName = session.user.fullName ?? session.user.username;
@@ -385,7 +392,7 @@ export default function ResumoPage() {
                         visit={item}
                         expanded={expandedIds.has(item.id)}
                         onToggle={() => toggleExpanded(item.id)}
-                        canDelete={canDelete}
+                        canDelete={item.user?.id === session.user.id}
                         onRequestDelete={setDeleteTarget}
                       />
                     );
@@ -397,7 +404,7 @@ export default function ResumoPage() {
                         report={item}
                         expanded={expandedIds.has(item.id)}
                         onToggle={() => toggleExpanded(item.id)}
-                        canDelete={canDelete}
+                        canDelete={item.user?.id === session.user.id}
                         onRequestDelete={setDeleteTarget}
                       />
                     );
@@ -409,7 +416,7 @@ export default function ResumoPage() {
                       typeBadge="Prospecção"
                       expanded={expandedIds.has(item.id)}
                       onToggle={() => toggleExpanded(item.id)}
-                      canDelete={canDelete}
+                      canDelete={item.user?.id === session.user.id}
                       showLinkStatus
                       canLinkClient={canLinkClient}
                       onLinkAction={handleLinkAction}

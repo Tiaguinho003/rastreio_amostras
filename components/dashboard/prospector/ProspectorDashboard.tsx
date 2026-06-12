@@ -162,7 +162,8 @@ export function ProspectorDashboard({ session, onLogout }: ProspectorDashboardPr
       void refresh();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 404) {
-        // Ja sumiu no servidor (excluido pelo admin no /resumo): alinha.
+        // Ja sumiu no servidor (excluido em outra sessao do proprio autor):
+        // alinha.
         setDeleteTarget(null);
         toast.info({ title: 'Informe já havia sido excluído' });
         void refresh();

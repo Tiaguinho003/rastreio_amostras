@@ -413,21 +413,18 @@ export class VisitReportService {
     return { report: view };
   }
 
-  // Exclusao: Administracao exclui QUALQUER informe (curadoria do feed
-  // /resumo); os demais papeis excluem apenas o PROPRIO (lixeira do
-  // dashboard do prospector). Informe alheio responde 404 — mesma resposta
-  // de inexistente, sem vazar existencia. Hard delete: o informe nao
-  // participa de projecoes nem do event store.
+  // Exclusao: APENAS o autor exclui o proprio informe (lixeira do dashboard
+  // do prospector). Nenhum outro papel exclui informe alheio — nem ADM nem
+  // Cadastro: o /resumo e curadoria de vinculo, nao de exclusao. Informe
+  // alheio (ou inexistente) responde 404, sem vazar existencia. Hard delete:
+  // o informe nao participa de projecoes nem do event store.
   async deleteVisitReport(input, actorContext) {
     const actor = assertAuthenticatedActor(actorContext, 'delete visit report');
     const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
 
-    const where =
-      actor.role === USER_ROLES.ADMIN
-        ? { id: reportId }
-        : { id: reportId, userId: actor.actorUserId };
-
-    const result = await this.prisma.visitReport.deleteMany({ where });
+    const result = await this.prisma.visitReport.deleteMany({
+      where: { id: reportId, userId: actor.actorUserId },
+    });
     if (result.count === 0) {
       throw new HttpError(404, 'Visit report not found', {
         code: 'VISIT_REPORT_NOT_FOUND',
