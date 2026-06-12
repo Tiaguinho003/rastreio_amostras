@@ -100,6 +100,7 @@ if (!databaseUrl || !databaseReachable) {
     const result = await service.createCommercialVisit(
       baseVisitInput({
         newClientCity: 'Varginha/MG',
+        reasonNotes: 'indicacao de um parceiro',
         outcomeNotes: 'volta semana que vem',
         generalNotes: 'pediu tabela de precos',
       }),
@@ -111,6 +112,7 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.visit.client, null);
     assert.equal(result.visit.newClient.name, 'Comprador Novo');
     assert.equal(result.visit.reason, 'NEGOTIATION');
+    assert.equal(result.visit.reasonNotes, 'indicacao de um parceiro');
     assert.equal(result.visit.outcome, 'PROPOSAL_IN_PROGRESS');
     assert.equal(result.visit.outcomeNotes, 'volta semana que vem');
     assert.equal(result.visit.user.id, commercial.id);

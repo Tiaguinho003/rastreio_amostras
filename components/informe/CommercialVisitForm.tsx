@@ -51,6 +51,7 @@ export function CommercialVisitForm({
   const [newClientCity, setNewClientCity] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [reason, setReason] = useState<CommercialVisitReason | null>(null);
+  const [reasonNotes, setReasonNotes] = useState('');
   const [outcome, setOutcome] = useState<CommercialVisitOutcome | null>(null);
   const [outcomeNotes, setOutcomeNotes] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
@@ -66,6 +67,7 @@ export function CommercialVisitForm({
     newClientCity !== '' ||
     newClientPhone !== '' ||
     reason !== null ||
+    reasonNotes !== '' ||
     outcome !== null ||
     outcomeNotes !== '' ||
     generalNotes !== '';
@@ -138,6 +140,7 @@ export function CommercialVisitForm({
         newClientCity: clientKind === 'NEW' ? newClientCity.trim() || null : null,
         newClientPhone: clientKind === 'NEW' ? newClientPhone.trim() || null : null,
         reason: reason as CommercialVisitReason,
+        reasonNotes: reasonNotes.trim() || null,
         outcome: outcome as CommercialVisitOutcome,
         outcomeNotes: outcomeNotes.trim() || null,
         generalNotes: generalNotes.trim() || null,
@@ -340,6 +343,20 @@ export function CommercialVisitForm({
           ))}
         </div>
         {fieldErrors.reason ? <p className="inf-card-error">{fieldErrors.reason}</p> : null}
+
+        <label className="inf-field">
+          <span className="inf-field-label">
+            Observações <span className="inf-field-optional">(opcional)</span>
+          </span>
+          <textarea
+            className="inf-textarea"
+            rows={2}
+            value={reasonNotes}
+            placeholder="Ex.: cliente pediu para retornar após a colheita"
+            maxLength={1000}
+            onChange={(event) => setReasonNotes(event.target.value)}
+          />
+        </label>
       </section>
 
       {/* P3 — Resultado da negociação */}

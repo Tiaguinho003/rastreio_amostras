@@ -162,6 +162,7 @@ function toCommercialVisitView(row) {
           }
         : null,
     reason: row.reason,
+    reasonNotes: row.reasonNotes,
     outcome: row.outcome,
     outcomeNotes: row.outcomeNotes,
     generalNotes: row.generalNotes,
@@ -261,6 +262,7 @@ export class CommercialFormsService {
 
     const identification = await this.resolveClientIdentification(input ?? {});
     const reason = normalizeEnumChoice(input?.reason, COMMERCIAL_VISIT_REASONS, 'reason');
+    const reasonNotes = normalizeOptionalText(input?.reasonNotes, 'reasonNotes', NOTES_MAX);
     const outcome = normalizeEnumChoice(input?.outcome, COMMERCIAL_VISIT_OUTCOMES, 'outcome');
     const outcomeNotes = normalizeOptionalText(input?.outcomeNotes, 'outcomeNotes', NOTES_MAX);
     const generalNotes = normalizeOptionalText(input?.generalNotes, 'generalNotes', NOTES_MAX);
@@ -275,6 +277,7 @@ export class CommercialFormsService {
         newClientCity: identification.newClientCity,
         newClientPhone: identification.newClientPhone,
         reason,
+        reasonNotes,
         outcome,
         outcomeNotes,
         generalNotes,

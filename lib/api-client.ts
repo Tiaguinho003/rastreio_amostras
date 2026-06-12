@@ -1787,6 +1787,7 @@ export function createCommercialVisit(
     newClientCity: string | null;
     newClientPhone: string | null;
     reason: CommercialVisitReason;
+    reasonNotes: string | null;
     outcome: CommercialVisitOutcome;
     outcomeNotes: string | null;
     generalNotes: string | null;

@@ -124,6 +124,9 @@ export function CommercialVisitCard({
             <div className="rsm-answer">
               <dt>Motivo da visita</dt>
               <dd>{getCommercialVisitReasonLabel(visit.reason)}</dd>
+              {visit.reasonNotes ? (
+                <dd className="rsm-answer-notes">“{visit.reasonNotes}”</dd>
+              ) : null}
             </div>
             <div className="rsm-answer">
               <dt>Resultado da negociação</dt>

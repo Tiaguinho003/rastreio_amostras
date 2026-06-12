@@ -1013,6 +1013,7 @@ export interface CommercialVisitSummary {
     phone: string | null;
   } | null;
   reason: CommercialVisitReason;
+  reasonNotes: string | null;
   outcome: CommercialVisitOutcome;
   outcomeNotes: string | null;
   generalNotes: string | null;

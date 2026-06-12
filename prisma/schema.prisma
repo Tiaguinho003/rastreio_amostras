@@ -764,6 +764,7 @@ model CommercialVisit {
   newClientCity  String?                @map("new_client_city")
   newClientPhone String?                @map("new_client_phone")
   reason         CommercialVisitReason
+  reasonNotes    String?                @map("reason_notes")
   outcome        CommercialVisitOutcome
   outcomeNotes   String?                @map("outcome_notes")
   generalNotes   String?                @map("general_notes")
