@@ -112,127 +112,120 @@ export function DashboardMobile({
               <span className="dashboard-hero-avatar-initials">{initials}</span>
             </Link>
           </div>
+        </section>
+
+        {/* Container de scroll do efeito "cobrir a busca": a saudacao
+            (hero acima) fica SEMPRE visivel; aqui dentro a busca e sticky
+            no topo e o sheet branco sobe POR CIMA dela ao rolar — coberta
+            a busca, o scroll segue dentro da parte branca. */}
+        <div className="dashboard-scroll">
           <div className="dashboard-hero-search">
             <SampleSearchField session={session} placeholder="Buscar por lote" />
           </div>
-        </section>
 
-        <section className="dashboard-sheet">
-          <section className="dashboard-sheet-section is-slot-operations">
-            <div className="dashboard-section-heading">
-              <h2 className="dashboard-section-title">Operacoes</h2>
-            </div>
-            {error ? <p className="error">{error}</p> : null}
-            {data ? (
-              <div className="dashboard-operations-grid">
-                {/* Fase P4: card "Impressão" removido (volta na Fase Pb quando
+          <section className="dashboard-sheet">
+            <section className="dashboard-sheet-section is-slot-operations">
+              {error ? <p className="error">{error}</p> : null}
+              {data ? (
+                <div className="dashboard-operations-grid">
+                  {/* Fase P4: card "Impressão" removido (volta na Fase Pb quando
                     a impressao pos-classificacao for implementada). */}
-                <button
-                  type="button"
-                  className="dashboard-operation-card dashboard-op-classification is-wide"
-                  onClick={(event) =>
-                    openOperationPanel('classification_pending', event.currentTarget)
-                  }
-                  aria-expanded={activeOperationPanel === 'classification_pending'}
-                  aria-haspopup="dialog"
-                >
-                  <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      {/* Corpo do grao: elipse vertical (rx:ry ~ 1:1.45). */}
-                      <ellipse cx="12" cy="12" rx="6.2" ry="9" />
-                      {/* Fenda central — verde brand pra contrastar com o
-                          corpo branco no novo design (antes era branco
-                          contra corpo gold). */}
-                      <path
-                        d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4"
-                        style={{
-                          fill: 'none',
-                          stroke: '#1f5d43',
-                          strokeWidth: 1.7,
-                          strokeLinecap: 'round',
-                          strokeLinejoin: 'round',
-                        }}
-                      />
-                    </svg>
-                  </span>
-                  <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Classificação</span>
-                    <span className="dashboard-operation-divider" aria-hidden="true" />
-                    <span className="dashboard-operation-subtitle">Pendentes</span>
-                  </span>
-                  {data.classificationPending.total > 0 ? (
-                    <span className="dashboard-operation-badge">
-                      {data.classificationPending.total}
+                  <button
+                    type="button"
+                    className="dashboard-operation-card dashboard-op-classification is-wide"
+                    onClick={(event) =>
+                      openOperationPanel('classification_pending', event.currentTarget)
+                    }
+                    aria-expanded={activeOperationPanel === 'classification_pending'}
+                    aria-haspopup="dialog"
+                  >
+                    <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        {/* Corpo do grao: elipse vertical (rx:ry ~ 1:1.45). */}
+                        <ellipse cx="12" cy="12" rx="6.2" ry="9" />
+                        {/* Fenda central — clara (cor do icon-wrap) pra
+                          contrastar com o corpo verde-escuro do grao no
+                          design do mockup (glifo solido verde sobre
+                          container verde-claro). */}
+                        <path
+                          d="M12 4.6 Q 13 8.5 12 12 Q 11 15.5 12 19.4"
+                          style={{
+                            fill: 'none',
+                            stroke: '#e8f1ec',
+                            strokeWidth: 1.7,
+                            strokeLinecap: 'round',
+                            strokeLinejoin: 'round',
+                          }}
+                        />
+                      </svg>
                     </span>
-                  ) : null}
-                  <span className="dashboard-operation-chevron" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  className="dashboard-operation-card dashboard-op-clients is-wide"
-                  onClick={() => router.push('/clients?incomplete=true')}
-                  aria-label={`Cadastros pendentes (${data.clientsIncomplete.total})`}
-                >
-                  <span className="dashboard-operation-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <circle cx="12" cy="7.5" r="4" />
-                      <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
-                    </svg>
-                  </span>
-                  <span className="dashboard-operation-content">
-                    <span className="dashboard-operation-title">Cadastros</span>
-                    <span className="dashboard-operation-divider" aria-hidden="true" />
-                    <span className="dashboard-operation-subtitle">Pendentes</span>
-                  </span>
-                  {data.clientsIncomplete.total > 0 ? (
-                    <span className="dashboard-operation-badge">
-                      {data.clientsIncomplete.total}
+                    <span className="dashboard-operation-content">
+                      <span className="dashboard-operation-title">Lotes</span>
+                      <span className="dashboard-operation-subtitle">Pendentes</span>
                     </span>
-                  ) : null}
-                  <span className="dashboard-operation-chevron" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </span>
-                </button>
-              </div>
-            ) : (
-              <div className="dashboard-operations-grid">
-                <div
-                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                  aria-hidden="true"
-                >
-                  <span className="dashboard-skeleton-icon-wrap" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                </div>
-                <div
-                  className="dashboard-operation-card dashboard-skeleton-card is-wide"
-                  aria-hidden="true"
-                >
-                  <span className="dashboard-skeleton-icon-wrap" />
-                  <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
-                </div>
-              </div>
-            )}
-          </section>
+                    {data.classificationPending.total > 0 ? (
+                      <span className="dashboard-operation-badge">
+                        {data.classificationPending.total}
+                      </span>
+                    ) : null}
+                  </button>
 
-          <section className="dashboard-sheet-section dashboard-sheet-content is-slot-sales">
-            {salesData ? (
-              <SalesAvailabilityCard data={salesData} />
-            ) : (
-              <div className="sales-card sales-card-skeleton" aria-hidden="true" />
-            )}
-          </section>
+                  <button
+                    type="button"
+                    className="dashboard-operation-card dashboard-op-clients is-wide"
+                    onClick={() => router.push('/clients?incomplete=true')}
+                    aria-label={`Clientes pendentes (${data.clientsIncomplete.total})`}
+                  >
+                    <span className="dashboard-operation-icon-wrap" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <circle cx="12" cy="7.5" r="4" />
+                        <path d="M4.5 20.5v-1.5c0-3.3 3.36-5.7 7.5-5.7s7.5 2.4 7.5 5.7v1.5z" />
+                      </svg>
+                    </span>
+                    <span className="dashboard-operation-content">
+                      <span className="dashboard-operation-title">Clientes</span>
+                      <span className="dashboard-operation-subtitle">Pendentes</span>
+                    </span>
+                    {data.clientsIncomplete.total > 0 ? (
+                      <span className="dashboard-operation-badge">
+                        {data.clientsIncomplete.total}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              ) : (
+                <div className="dashboard-operations-grid">
+                  <div
+                    className="dashboard-operation-card dashboard-skeleton-card is-wide"
+                    aria-hidden="true"
+                  >
+                    <span className="dashboard-skeleton-icon-wrap" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                  </div>
+                  <div
+                    className="dashboard-operation-card dashboard-skeleton-card is-wide"
+                    aria-hidden="true"
+                  >
+                    <span className="dashboard-skeleton-icon-wrap" />
+                    <span className="dashboard-skeleton-line dashboard-skeleton-line-sm" />
+                  </div>
+                </div>
+              )}
+            </section>
 
-          <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
-            <RecentActivityListMobile items={recentActivity} />
+            <section className="dashboard-sheet-section dashboard-sheet-content is-slot-sales">
+              {salesData ? (
+                <SalesAvailabilityCard data={salesData} />
+              ) : (
+                <div className="sales-card sales-card-skeleton" aria-hidden="true" />
+              )}
+            </section>
+
+            <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
+              <RecentActivityListMobile items={recentActivity} />
+            </section>
           </section>
-        </section>
+        </div>
       </section>
 
       <OperationModal

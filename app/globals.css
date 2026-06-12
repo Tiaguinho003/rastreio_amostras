@@ -19028,12 +19028,232 @@ select.samples-filter-field-input {
     animation: dashboard-sheet-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
   }
 
+  /* ── Dashboard mobile (admin) — redesign 2026-06 (mockup) ──
+     Overrides escopados sob .dashboard-mobile: as classes base
+     (.dashboard-hero, -greeting, -operation, -sheet) sao COMPARTILHADAS
+     com o dashboard do prospector, que mantem o design anterior — nada
+     aqui pode vazar pra ele. Decisoes do mockup: fundo do sheet FRIO
+     claro (excecao consciente ao bege do design system, so nesta
+     pagina); cards de pendencia com identidade verde uniforme (sai o
+     ambar semantico); saudacao grande; busca cavalgando a borda
+     verde/sheet. */
+
+  .dashboard-mobile .dashboard-hero {
+    /* Textura sutil de brilho/onda diagonal sobre o verde do shell. */
+    background:
+      radial-gradient(
+        130% 90% at 88% -12%,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0) 52%
+      ),
+      linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0) 46%,
+        rgba(255, 255, 255, 0.045) 47%,
+        rgba(255, 255, 255, 0.045) 64%,
+        rgba(255, 255, 255, 0) 65%
+      ),
+      radial-gradient(120% 110% at -15% 115%, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 48%);
+    gap: clamp(1.1rem, 2.6dvh, 1.9rem);
+    /* Respiro entre a saudacao (sempre visivel) e a busca sticky, que
+       agora vive no .dashboard-scroll logo abaixo. Reduzido em 0.45rem
+       — folga que migrou pro padding-top da busca (slack do foco). */
+    padding-bottom: clamp(0.55rem, calc(2.4dvh - 0.45rem), 1.05rem);
+  }
+
+  .dashboard-mobile .dashboard-greeting {
+    gap: 0.12rem;
+  }
+
+  .dashboard-mobile .dashboard-greeting-label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: clamp(1.25rem, 5vw, 1.5rem);
+    line-height: 1.25;
+  }
+
+  .dashboard-mobile .dashboard-greeting-name {
+    font-size: clamp(2.3rem, 9.5vw, 3rem);
+    font-weight: 700;
+    line-height: 1.05;
+  }
+
+  .dashboard-mobile .dashboard-greeting-role {
+    margin-top: 0.35rem;
+    font-size: clamp(0.8rem, 3.2vw, 0.92rem);
+  }
+
+  .dashboard-mobile .dashboard-greeting-role-icon {
+    width: clamp(0.95rem, 3.6vw, 1.05rem);
+    height: clamp(0.95rem, 3.6vw, 1.05rem);
+  }
+
+  /* Avatar translucido com iniciais brancas (mockup). No mobile o avatar
+     visivel e o .header-avatar-trigger (UserAvatar); o backgroundColor
+     vem INLINE do componente, dai o !important. */
+  .dashboard-mobile .dashboard-hero .header-avatar-trigger {
+    width: clamp(3.1rem, 12vw, 3.6rem);
+    height: clamp(3.1rem, 12vw, 3.6rem);
+  }
+
+  .dashboard-mobile .dashboard-hero .header-avatar-trigger .user-avatar {
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.18) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+
+  .dashboard-mobile .dashboard-hero .header-avatar-trigger .user-avatar__initials {
+    color: #ffffff;
+    font-size: clamp(1.05rem, 4.2vw, 1.25rem);
+    font-weight: 700;
+  }
+
+  /* Busca sticky no topo do .dashboard-scroll: fica parada (a folga do
+     padding-bottom e a distancia da fase 1 do scroll) enquanto o sheet
+     branco sobe por cima. Padding lateral proprio — ela nao esta mais
+     dentro do hero. z-index 0 < 1 do sheet.
+     O padding-TOP e a folga entre a pill e o limite de clip do scroll:
+     sem ela a pill encosta na borda e o auto-scroll do foco (teclado)
+     corta o topo do campo. Compensada no padding-bottom do hero pra
+     posicao de descanso nao mudar. */
+  .dashboard-mobile .dashboard-hero-search {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+    flex-shrink: 0;
+    padding: 0.45rem clamp(1.2rem, 5vw, 1.5rem) clamp(1rem, 2.4dvh, 1.5rem);
+    animation: dashboard-hero-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .dashboard-mobile .dashboard-hero-search .sample-search-field {
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow:
+      0 10px 26px rgba(8, 24, 16, 0.16),
+      0 2px 8px rgba(8, 24, 16, 0.1);
+  }
+
+  .dashboard-mobile .dashboard-hero-search .sample-search-field input {
+    padding-top: clamp(0.8rem, 2.8vw, 0.95rem);
+    padding-bottom: clamp(0.8rem, 2.8vw, 0.95rem);
+    font-size: clamp(0.98rem, 3.4vw, 1.08rem);
+  }
+
+  .dashboard-mobile .dashboard-sheet {
+    /* Fundo frio claro do mockup (excecao ao bege — ver comentario do
+       bloco). */
+    background: #f4f6f5;
+    gap: clamp(1.1rem, 3.5vw, 1.4rem);
+    /* O sheet NAO rola: e conteudo do .dashboard-scroll e desliza POR
+       CIMA da busca sticky (z-index 1 > 0) ate cobri-la. flex 1 0 auto:
+       nunca encolhe abaixo do conteudo e preenche a tela quando o
+       conteudo e curto. */
+    overflow: visible;
+    flex: 1 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Efeito "cobrir a busca" (pedido do usuario): a saudacao + avatar
+     (hero, fora deste container) ficam SEMPRE visiveis; aqui dentro a
+     busca e sticky no topo e o sheet branco sobe por cima dela na
+     primeira fase do scroll — coberta a busca, o resto do scroll
+     acontece so na parte branca. Na volta o inverso: o branco desce e
+     revela a busca de novo. */
+  .dashboard-mobile .dashboard-scroll {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Recorte com cantos arredondados: o branco que rola alem do topo e
+       clipado com o MESMO raio do sheet (20px) — na fase 2 a divisa
+       verde/branco mantem a curvatura natural das pontas do sheet em vez
+       de virar linha reta; os cantos revelam o verde do shell atras. O
+       raio coincidir com o do sheet faz a transicao fase 1 -> fase 2 ser
+       continua (os cantos do sheet "viram" os cantos do recorte). */
+    border-radius: 20px 20px 0 0;
+    /* Auto-scroll do foco (teclado) respeita a folga acima da busca —
+       evita o topo do campo cortado ao focar o input. */
+    scroll-padding-top: 0.5rem;
+  }
+
+  .dashboard-mobile .dashboard-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Cards de pendencia: card branco; icone verde-escuro solido em
+     container verde-claro arredondado; titulo escuro + subtitulo cinza
+     empilhados; numero em CHIP verde-claro estatico a direita (sai o
+     circulo ambar pulsante na borda). */
+  .dashboard-mobile .dashboard-operations-grid {
+    gap: clamp(0.7rem, 2.6vw, 0.9rem);
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.05),
+      0 8px 20px rgba(0, 0, 0, 0.06);
+    padding: clamp(1rem, 3.5vw, 1.2rem) clamp(0.75rem, 2.6vw, 0.95rem);
+    gap: clamp(0.55rem, 2vw, 0.75rem);
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap {
+    width: clamp(44px, 13vw, 52px);
+    height: clamp(44px, 13vw, 52px);
+    border-radius: clamp(13px, 4vw, 15px);
+    background: #e8f1ec;
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-icon-wrap svg {
+    fill: #1f5d43;
+    stroke: none;
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-content {
+    padding-top: 0;
+    gap: clamp(0.14rem, 0.6vw, 0.2rem);
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-title {
+    color: #1a1a1a;
+    font-size: clamp(0.82rem, 3.2vw, 1rem);
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-subtitle {
+    color: #8a8f8c;
+    font-size: clamp(0.74rem, 2.8vw, 0.85rem);
+  }
+
+  .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge {
+    position: static;
+    width: auto;
+    min-width: clamp(2.1rem, 7.5vw, 2.45rem);
+    height: clamp(2.1rem, 7.5vw, 2.45rem);
+    padding: 0 0.45rem;
+    border-radius: clamp(10px, 3.2vw, 12px);
+    background: #e8f1ec;
+    color: #1f5d43;
+    font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+    border: 0;
+    box-shadow: none;
+    animation: none;
+    flex-shrink: 0;
+  }
+
   /* ── Recent activity (mobile) ──
-     Card unico full-width com lista vertical de atividades. Cada item
-     tem 2 linhas (lote+produtor / badge+sacas+tempo), border-left
-     colorida pela variante do evento (cor lida de --activity-color
-     inline-style), seta a direita indicando clicavel. Mesmo helpers de
-     `lib/dashboard-activity.ts` que o RecentActivityList desktop. */
+     Card unico full-width com lista vertical de atividades. Visual do
+     mockup (redesign 2026-06): itens NEUTROS — glifo escuro em circulo
+     claro igual pra todo tipo de evento, subtitulo cinza — e header so
+     com o titulo escuro. Mesmos helpers de `lib/dashboard-activity.ts`
+     que o desktop (so o label e usado aqui; cor/bg por evento ficam pro
+     desktop). */
 
   .recent-activity-mobile {
     /* Altura fixa pra mostrar ~5 items visiveis sem scroll. Cabem ate
@@ -19044,36 +19264,32 @@ select.samples-filter-field-input {
     flex-direction: column;
     padding: 0;
     background: #ffffff;
-    border-radius: 16px;
-    /* Card limpo no novo design — sem border-left verde, sem header
-       gradient. Header agora e branco com texto brand-green. */
+    border-radius: 20px;
     border: 0;
     overflow: hidden;
     box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.04),
-      0 8px 20px rgba(15, 64, 41, 0.06);
+      0 2px 8px rgba(0, 0, 0, 0.05),
+      0 8px 20px rgba(0, 0, 0, 0.06);
   }
 
-  /* Header branco com texto brand-green — abandona o gradient verde do
-     design anterior. Linha sutil divisora entre o header e o primeiro
-     item da lista (mesmo padrao dos dividers entre items). */
+  /* Header: titulo escuro, sem icone (decisao do usuario). Linha sutil
+     divisora entre o header e o primeiro item. */
   .recent-activity-mobile-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.6rem;
     padding: 1rem 1.1rem 0.9rem;
     background: #ffffff;
-    color: #1f5d43;
     flex-shrink: 0;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .recent-activity-mobile-title {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: #1f5d43;
+    color: #1a1a1a;
     letter-spacing: -0.01em;
   }
 
@@ -19128,7 +19344,8 @@ select.samples-filter-field-input {
     background: rgba(0, 0, 0, 0.025);
   }
 
-  /* Circulo do icone — bg light na cor da variante, icone na cor solida. */
+  /* Circulo do icone — NEUTRO (mockup): glifo escuro em fundo claro,
+     igual pra todo tipo de evento (sem cor por variante). */
   .recent-activity-mobile-icon {
     display: inline-flex;
     align-items: center;
@@ -19137,8 +19354,8 @@ select.samples-filter-field-input {
     height: 2.4rem;
     min-width: 2.4rem;
     border-radius: 50%;
-    background: var(--activity-bg, rgba(107, 114, 128, 0.12));
-    color: var(--activity-color, #6b7280);
+    background: #f1f4f2;
+    color: #44544b;
     flex-shrink: 0;
   }
 
@@ -19178,7 +19395,7 @@ select.samples-filter-field-input {
   .recent-activity-mobile-lot-number {
     font-size: 0.98rem;
     font-weight: 700;
-    color: #1a2a35;
+    color: #1a1a1a;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -19187,8 +19404,8 @@ select.samples-filter-field-input {
 
   .recent-activity-mobile-type {
     font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--activity-color, #6b7280);
+    font-weight: 400;
+    color: #8a8f8c;
     line-height: 1.15;
   }
 
@@ -19235,7 +19452,7 @@ select.samples-filter-field-input {
      dados chegam. */
   .recent-activity-mobile-item-skeleton {
     min-height: 68px;
-    background: rgba(216, 212, 200, 0.4);
+    background: rgba(208, 214, 210, 0.35);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
@@ -23630,16 +23847,17 @@ select.samples-filter-field-input {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(0.65rem, 2.4vw, 0.95rem);
-  padding: clamp(0.95rem, 3.3vw, 1.2rem) clamp(1rem, 3.8vw, 1.35rem);
-  background: linear-gradient(135deg, #1a4a35, #14372a);
-  color: #ffffff;
-  border-radius: clamp(14px, 4vw, 18px);
-  /* Bordas zeradas — card limpo no novo design (sem faixa branca topo). */
+  gap: clamp(0.85rem, 3vw, 1.1rem);
+  padding: clamp(1.1rem, 4vw, 1.4rem);
+  /* Card BRANCO (redesign 2026-06 do mockup — sai o gradiente verde
+     escuro; o verde fica no icone-titulo e no botao full-width). */
+  background: #ffffff;
+  color: #1a1a1a;
+  border-radius: 20px;
   border: 0;
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    0 8px 20px rgba(15, 64, 41, 0.14);
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    0 8px 20px rgba(0, 0, 0, 0.06);
   text-align: left;
   font: inherit;
   -webkit-tap-highlight-color: transparent;
@@ -23649,30 +23867,29 @@ select.samples-filter-field-input {
     box-shadow 0.15s ease;
 }
 
-/* Header: titulo a esquerda + icone de grafico (decorativo) a direita. */
+/* Header: titulo (flex: 1) + icone de grafico decorativo a direita. */
 .sales-card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: clamp(0.6rem, 2vw, 1rem);
+  gap: clamp(0.6rem, 2vw, 0.8rem);
 }
 
 .sales-card-chart-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(1.9rem, 6.5vw, 2.25rem);
-  height: clamp(1.9rem, 6.5vw, 2.25rem);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  width: clamp(2.1rem, 7vw, 2.4rem);
+  height: clamp(2.1rem, 7vw, 2.4rem);
+  border-radius: 12px;
+  background: #eef5f1;
+  border: 1px solid rgba(31, 93, 67, 0.22);
+  color: #1f5d43;
   flex-shrink: 0;
 }
 
 .sales-card-chart-icon svg {
-  width: 62%;
-  height: 62%;
+  width: 58%;
+  height: 58%;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -23682,10 +23899,12 @@ select.samples-filter-field-input {
 
 .sales-card-title {
   margin: 0;
-  font-size: clamp(0.92rem, 3.2vw, 1.05rem);
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(1.05rem, 3.8vw, 1.2rem);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: 0.01em;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
   line-height: 1.15;
 }
 
@@ -23708,31 +23927,28 @@ select.samples-filter-field-input {
   width: clamp(140px, 39vw, 205px);
   height: clamp(140px, 39vw, 205px);
   flex-shrink: 0;
-  /* Sombra forte abaixo do donut — da profundidade ao grafico isolado,
-     sem aumentar a box-shadow do card. */
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
 }
 
 .sales-chart-donut-total {
-  font-size: 30px;
+  /* Numero central grande verde-escuro (mockup, card claro). */
+  font-size: 33px;
   font-weight: 700;
-  fill: #ffffff;
+  fill: #14532d;
   font-family: inherit;
 }
 
 .sales-chart-donut-label {
   font-size: 11px;
   font-weight: 400;
-  fill: rgba(255, 255, 255, 0.65);
+  fill: #6b7d72;
   font-family: inherit;
 }
 
-/* Legenda das cores a direita do donut — 3 linhas (over30/from15to30/under15).
-   Itens separados por linha sutil branca; legenda sobe ~1.1rem em relacao
-   ao centro vertical do body pra balancear visualmente com o donut maior. */
+/* Legenda das cores a direita do donut — 3 linhas (over30/from15to30/under15),
+   separadas por divisores sutis, centradas verticalmente com o donut. */
 .sales-chart-legend {
   list-style: none;
-  margin: -1.1rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -23759,7 +23975,7 @@ select.samples-filter-field-input {
 }
 
 .sales-chart-legend-item:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .sales-chart-legend-dot {
@@ -23772,17 +23988,17 @@ select.samples-filter-field-input {
 }
 
 .sales-chart-legend-label {
-  font-size: clamp(0.74rem, 2.6vw, 0.85rem);
+  font-size: clamp(0.78rem, 2.8vw, 0.9rem);
   font-weight: 400;
-  color: #ffffff;
+  color: #4a5550;
   line-height: 1.1;
   white-space: nowrap;
 }
 
 .sales-chart-legend-count {
-  font-size: clamp(0.8rem, 2.8vw, 0.9rem);
-  font-weight: 500;
-  color: #ffffff;
+  font-size: clamp(0.92rem, 3.2vw, 1.02rem);
+  font-weight: 700;
+  color: #1a1a1a;
   line-height: 1.1;
   text-align: right;
   /* Padding-left min reduzido (era 1.5rem) pra evitar overflow em
@@ -23791,35 +24007,44 @@ select.samples-filter-field-input {
   padding-left: clamp(0.5rem, 2.5vw, 2rem);
 }
 
-/* Pilula "Ver detalhes >" no canto inferior direito do card — puramente
-   visual, o card todo (<button>) e o alvo do clique. Verde mais saturado
-   que o gradient do card pra criar profundidade de botao elevado. */
+/* Botao "Ver disponíveis" full-width no rodape do card (mockup):
+   pill verde-escura, label centrada e chevron ancorado na borda
+   direita. */
 .sales-card-detail-button {
-  position: absolute;
-  bottom: clamp(0.7rem, 2.6vw, 0.95rem);
-  right: clamp(0.7rem, 2.6vw, 0.95rem);
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: clamp(0.3rem, 1.2vw, 0.45rem);
-  padding: clamp(0.45rem, 1.7vw, 0.6rem) clamp(0.85rem, 3vw, 1.1rem);
-  background: #1f5d43;
+  justify-content: center;
+  width: 100%;
+  padding: clamp(0.85rem, 3vw, 1rem) 2.6rem;
+  background: linear-gradient(180deg, #1c5a40, #153f2d);
   color: #ffffff;
   border-radius: 999px;
-  font-size: clamp(0.78rem, 2.7vw, 0.88rem);
-  font-weight: 500;
+  font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+  font-weight: 700;
   line-height: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 16px rgba(15, 64, 41, 0.28);
   text-decoration: none;
   transition: transform 0.12s ease;
 }
 
 .sales-card-detail-button:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
+}
+
+.sales-card-detail-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sales-card-detail-button svg {
-  width: clamp(0.85rem, 3vw, 1rem);
-  height: clamp(0.85rem, 3vw, 1rem);
+  position: absolute;
+  right: clamp(0.95rem, 3.4vw, 1.15rem);
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(1rem, 3.6vw, 1.15rem);
+  height: clamp(1rem, 3.6vw, 1.15rem);
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -23830,7 +24055,7 @@ select.samples-filter-field-input {
 /* ── Skeleton ── */
 
 .sales-card-skeleton {
-  min-height: clamp(160px, 44vw, 200px);
+  min-height: clamp(280px, 78vw, 330px);
   opacity: 0.45;
 }
 

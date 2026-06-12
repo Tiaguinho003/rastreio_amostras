@@ -26,14 +26,21 @@ function AgingDonut({
   const circumference = 2 * Math.PI * radius;
   const strokeWidth = 11;
 
+  // Fresta visual entre segmentos (unidades do viewBox 100), como no
+  // mockup — o track claro aparece no vao. So quando ha 2+ segmentos com
+  // valor; com 1 segmento o anel fecha sem emenda.
+  const visibleCount = SEGMENT_ORDER.filter(({ key }) => bands[key] > 0).length;
+  const segmentGap = visibleCount > 1 ? 2 : 0;
+
   let accumulated = 0;
   const segments = SEGMENT_ORDER.map(({ key, color }) => {
     const value = bands[key];
     const fraction = total > 0 ? value / total : 0;
     const dash = fraction * circumference;
-    const offset = -accumulated;
+    const offset = -(accumulated + segmentGap / 2);
     accumulated += dash;
-    return { key, color, dash, offset };
+    // Segmento minimo de 1 unidade: band pequena nao some atras do gap.
+    return { key, color, dash: dash > 0 ? Math.max(dash - segmentGap, 1) : 0, offset };
   });
 
   return (
@@ -43,14 +50,7 @@ function AgingDonut({
       role="img"
       aria-label={`Distribuicao por tempo: ${bands.over30} mais de 30 dias, ${bands.from15to30} entre 15 e 30 dias, ${bands.under15} menos de 15 dias`}
     >
-      <circle
-        cx="50"
-        cy="50"
-        r={radius}
-        fill="none"
-        stroke="rgba(255, 255, 255, 0.18)"
-        strokeWidth={strokeWidth}
-      />
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="#edf0ee" strokeWidth={strokeWidth} />
       {total > 0
         ? segments.map(({ key, color, dash, offset }) =>
             dash > 0 ? (
@@ -130,9 +130,11 @@ export function SalesAvailabilityCard({ data }: { data: DashboardSalesAvailabili
         </ul>
       </div>
 
-      {/* Unica acao do card: leva pra lista de amostras disponiveis (em aberto). */}
+      {/* Unica acao do card: leva pra lista de amostras disponiveis (em
+          aberto). Botao full-width do mockup: label centrada + chevron
+          ancorado na borda direita (CSS). */}
       <Link href="/samples?displayStatus=OPEN" className="sales-card-detail-button">
-        Ver disponíveis
+        <span className="sales-card-detail-label">Ver disponíveis</span>
         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
           <path d="m9 6 6 6-6 6" />
         </svg>

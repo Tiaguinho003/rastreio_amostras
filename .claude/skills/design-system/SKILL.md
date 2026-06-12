@@ -26,10 +26,21 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 
 ### Sheet de Conteudo (area bege)
 
-- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`
+- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`. **Excecao aprovada (2026-06-12)**: o dashboard mobile do ADMIN usa fundo FRIO claro `#f4f6f5` (redesign do mockup, escopado em `.dashboard-mobile .dashboard-sheet`) — as demais paginas seguem no bege
 - `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
 - `padding-bottom` respeita tabbar: `calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))` — usar a CSS var sincronizada (ver skill `responsive` §4), nunca `env()` direto. **Excecao**: list pages com sheet rolavel (`/samples`, `/clients`) movem o clearance pro container de scroll e deixam o conteudo rolar por tras da tabbar flutuante — ver skill `responsive` §5
 - O sheet ocupa o restante da tela com `flex: 1`
+
+### Variante: dashboard mobile do ADMIN (redesign 2026-06, mockup)
+
+Overrides escopados sob `.dashboard-mobile` em `app/globals.css` (bloco "Dashboard mobile (admin) — redesign 2026-06") — as classes base sao compartilhadas com o prospector, que MANTEM o design anterior. Componentes: `DashboardMobile.tsx`, `SalesAvailabilityCard.tsx`, `RecentActivityListMobile.tsx` (os 2 ultimos exclusivos do admin mobile; estilos editados direto).
+
+- **Hero**: saudacao grande em 2 linhas (label `clamp(1.25-1.5rem)` w400; nome `clamp(2.3-3rem)` **w700**) + papel com escudo `#7eccae`; textura sutil de brilho diagonal (gradientes translucidos no proprio `.dashboard-hero`); avatar do menu (`.header-avatar-trigger .user-avatar`) translucido `rgba(255,255,255,0.18)` com iniciais brancas (`!important` por causa do backgroundColor inline do UserAvatar)
+- **Busca**: pill branca solida radius 999px, input mais alto, inteira sobre a area verde. Lupa segue A DIREITA (diverge do mockup de proposito: o botao vira o CTA verde de submit no estado `.has-input` — move-lo quebraria a interacao). Estruturalmente ela NAO vive mais no hero: mora no topo do `.dashboard-scroll` (ver scroll abaixo)
+- **Scroll "cobrir a busca"** (so o admin mobile; demais paginas mantem hero fixo + scroll interno): saudacao + avatar (hero) ficam SEMPRE visiveis; o scroll acontece no `.dashboard-scroll` (busca + sheet), onde a busca e `position: sticky; top: 0; z-index: 0` e o `.dashboard-sheet` (`position: relative; z-index: 1; overflow: visible; flex: 1 0 auto`) **sobe por cima dela** na primeira fase do scroll — coberta a busca, o resto rola so na parte branca; na volta o branco desce e revela a busca. O `.dashboard-scroll` tem `border-radius: 20px 20px 0 0` (mesmo raio do sheet): o recorte do scroll mantem a divisa verde/branco com a curvatura natural das pontas do sheet na fase 2 (transicao continua entre as fases). Sem dropdown ancorado na busca (resultado abre em modal), entao o z-index baixo nao esconde nada
+- **Cards de pendencias** (sem heading "Operacoes"): labels **"Lotes" / "Clientes"** (dados seguem sendo classificacao pendente e cadastros incompletos); card branco flat radius 18px; icon-wrap rounded-square `#e8f1ec` com glifo SOLIDO `#1f5d43` (fenda do grao em stroke claro `#e8f1ec` inline no markup); titulo `#1a1a1a` w700 + subtitulo `#8a8f8c` empilhados (sem divider/chevron); numero em CHIP estatico `#e8f1ec`/`#1f5d43` radius ~12px a direita (sem pulse, some quando 0). Identidade verde uniforme nos 2 cards (decisao do usuario — sai o ambar semantico)
+- **Lotes disponiveis** (`.sales-card`): card BRANCO radius 20px (sai o gradiente verde escuro); header = titulo escuro (sem icone-cubo — decisao do usuario) + botao decorativo trending-up (`.sales-card-chart-icon`, `#eef5f1` borda verde); donut com track `#edf0ee`, **fresta de 2 unidades entre segmentos** quando 2+ tem valor, total central `#14532d`; legenda com labels `#4a5550`, counts `#1a1a1a` w700, dividers `rgba(0,0,0,0.08)`; botao "Ver disponíveis" **full-width** pill verde-escura com label centrada e chevron na borda direita
+- **Ultimas atividades**: header so com titulo `#1a1a1a` (sem icone e sem "Ver todas" — decisoes do usuario); itens NEUTROS — glifo `#44544b` em circulo `#f1f4f2` igual pra todo evento (as cores por tipo de `lib/dashboard-activity.ts` ficam so no desktop), subtitulo cinza; mantem altura fixa 400px + scroll interno
 
 ### Paginas sem header verde
 

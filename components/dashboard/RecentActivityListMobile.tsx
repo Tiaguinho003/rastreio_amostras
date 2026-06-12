@@ -20,8 +20,9 @@ function formatLot(lot: string | null, fallback: string): string {
 }
 
 // Icone por tipo de atividade. Stroke-based SVG (24x24); cor herdada
-// via currentColor — o `.recent-activity-mobile-icon` define o color
-// final a partir de --activity-color setado inline no link.
+// via currentColor — no design do mockup os icones sao NEUTROS (glifo
+// escuro em circulo claro, igual pra todo tipo); a cor fica fixa no CSS
+// de `.recent-activity-mobile-icon`, sem variavel por evento.
 function ActivityIcon({ type }: { type: DashboardRecentActivityType }) {
   switch (type) {
     case 'REGISTRATION_CONFIRMED':
@@ -121,12 +122,6 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
                   href={`/samples/${item.sampleId}?focus=${getActivityFocus(item.activity.type)}`}
                   className="recent-activity-mobile-link"
                   aria-label={`${cfg.label} — lote ${lotLabel} — ${formatRelativeTime(item.activity.at, now)}`}
-                  style={
-                    {
-                      '--activity-color': cfg.color,
-                      '--activity-bg': cfg.bg,
-                    } as React.CSSProperties
-                  }
                 >
                   <span className="recent-activity-mobile-icon" aria-hidden="true">
                     <ActivityIcon type={item.activity.type} />
