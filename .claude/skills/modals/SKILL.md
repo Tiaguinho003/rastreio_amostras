@@ -260,7 +260,8 @@ Modal central que hospeda um `<ClientLookupField>` (ex.: envio fisico e gerar la
 
 - libera `overflow: visible` no modal e no `.app-modal-content` (o card continua arredondado pelo `border-radius` e o header tem radius proprio — so o dropdown, que e filho, passa pra fora);
 - o dropdown ganha `max-height` pra ~4 itens + scroll **vertical** (`overflow-x: hidden`);
-- capar resultados com a prop **`maxResults={10}`** no `ClientLookupField` (alem de 10, o usuario refina a digitacao).
+- capar resultados com a prop **`maxResults={10}`** no `ClientLookupField` (alem de 10, o usuario refina a digitacao);
+- pra abrir com a busca ja preenchida (ex.: nome anotado no informe, modal de vinculo do /resumo), usar a prop **`initialSearch`** — so inicializa o estado no mount; o primeiro foco no campo ja dispara as sugestoes.
 
 **Multi-select de clientes:** chips dentro do box `.samples-filter-multi .samples-filter-multi--lookup` + `ClientLookupField` com `clearOnSelect` (o pai mantem o array e renderiza os chips). Rotulo do chip capado em ~10 chars + `…` (nome completo no `title`), placeholder sai quando ha selecao. Ver `design-system` §"Campos de filtro multi-select".
 
