@@ -66,12 +66,17 @@ const SAMPLE_EXPORT_TYPE_SET = new Set(SAMPLE_EXPORT_TYPES);
 // cheias decrescentes + MK por ultimo. (Era stale: faltava p11 e tinha mk9/10/11
 // que nao existem na ficha unificada — por isso as peneiras nunca saiam.)
 const PENEIRA_KEYS = ['p18', 'p17', 'p16', 'p15', 'p14', 'p13', 'p12', 'p11', 'p10', 'mk'];
-// `classificationDate` excluido do laudo (decisao de produto: a data da
-// classificacao nao deve aparecer no documento enviado ao comprador).
+// Campos excluidos do laudo por decisao de produto (nao devem aparecer no
+// documento enviado ao comprador): a data da classificacao e os classificadores
+// (`classificador`/`conferredBy`/`classifiers` — quem classificou e dado
+// interno). originLot/classificationOriginLot ja eram internos.
 const SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT = new Set([
   'originLot',
   'classificationOriginLot',
   'classificationDate',
+  'classificador',
+  'conferredBy',
+  'classifiers',
 ]);
 const SAMPLE_EXPORT_FIELDS_ALLOWED_FOR_REPORT = SAMPLE_EXPORT_FIELDS.filter(
   (field) => !SAMPLE_EXPORT_FIELDS_EXCLUDED_FROM_REPORT.has(field)

@@ -448,22 +448,6 @@ export async function renderSamplePdf({
     }
   }
 
-  // Classificadores: uma unica row com os nomes na horizontal, separados por
-  // " / " (decisao de produto: nao empilhar verticalmente). Aceita o campo novo
-  // `classifiers` ou o legacy `conferredBy` (mesma string pipe-separada do
-  // export-fields.js). Excesso de nomes e truncado com "..." pelo fitTextToWidth
-  // do renderer (largura da coluna de valor).
-  const classifiersEntry = entryById.get('classifiers') ?? entryById.get('conferredBy');
-  if (classifiersEntry) {
-    const names = asValue(classifiersEntry)
-      .split('|')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (names.length > 0) {
-      classificationRows.push({ label: 'Classificadores', value: names.join(' / ') });
-    }
-  }
-
   // Peneiras percentuais: uma row por peneira ("P18: 5%" -> Peneira P18 | 5%).
   // Os fundos vem na mesma string como "Fundo 13=4%" (sem numeracao, peneira+%
   // juntos) -> row "Fundo" | "13=4%".
