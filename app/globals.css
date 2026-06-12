@@ -13476,6 +13476,22 @@ body:has(.app-modal-backdrop) .prospector-fab {
   }
 }
 
+/* Fundo (FD): peneira e percentual juntos com "=" no meio em modo edicao.
+   Espelha o padrao .review-fundos-* da tela de extracao. */
+.cld-fundo-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(6px, 2vw, 10px);
+}
+
+.cld-fundo-eq {
+  font-size: clamp(1.1rem, 4vw, 1.4rem);
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.5);
+  user-select: none;
+}
+
 .cld-field {
   display: flex;
   flex-direction: column;

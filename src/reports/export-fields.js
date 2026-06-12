@@ -181,7 +181,10 @@ function formatSieve(peneiras, fundos) {
     for (let i = 0; i < fundos.length; i++) {
       const f = fundos[i];
       if (f && f.peneira && f.percentual != null) {
-        parts.push(`FUNDO${i + 1} P${f.peneira}: ${formatNumber(f.percentual)}%`);
+        // Fundo sem numeracao (FD1/FD2) e sem prefixo "P": peneira crua junta ao
+        // percentual com "=" (ex.: "Fundo 13=4%"). O renderer do PDF detecta o
+        // prefixo "Fundo " pra montar a linha "Fundo" | "13=4%".
+        parts.push(`Fundo ${f.peneira}=${formatNumber(f.percentual)}%`);
       }
     }
   }

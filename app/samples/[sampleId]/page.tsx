@@ -3278,6 +3278,60 @@ export default function SampleDetailPage() {
                 </div>
               );
             };
+            // Fundo: peneira + percentual num campo so ("13=4%"). Sem numeracao
+            // FD1/FD2 (rotulo "FD" nos dois slots). View mostra o valor junto; em
+            // edicao, dois inputs com "=" no meio. Escreve nos mesmos 4 campos do
+            // form (fundo1/fundo2 Peneira/Percent) \u2014 o payload nao muda.
+            const renderFundo = (
+              peneiraKey: keyof ClassificationFormState,
+              percentKey: keyof ClassificationFormState
+            ) => {
+              const peneira = f[peneiraKey];
+              const percent = f[percentKey];
+              const combined =
+                peneira && percent
+                  ? `${peneira}=${percent}%`
+                  : peneira
+                    ? peneira
+                    : percent
+                      ? `${percent}%`
+                      : '';
+              const isEmpty = !editing && !combined;
+              return (
+                <div className={`cld-field${isEmpty ? ' is-empty' : ''}`} key={peneiraKey}>
+                  <span className="cld-field-label">FD</span>
+                  {editing ? (
+                    <div className="cld-fundo-edit">
+                      <input
+                        type="text"
+                        inputMode="text"
+                        className="cld-field-input"
+                        value={peneira}
+                        onChange={(e) =>
+                          updateClassificationDetailField(peneiraKey, e.target.value.toUpperCase())
+                        }
+                        disabled={saving}
+                      />
+                      <span className="cld-fundo-eq" aria-hidden="true">
+                        =
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="cld-field-input"
+                        value={percent}
+                        onChange={(e) =>
+                          updateClassificationDetailField(percentKey, e.target.value)
+                        }
+                        disabled={saving}
+                      />
+                    </div>
+                  ) : (
+                    <span className="cld-field-value">{combined || '\u2014'}</span>
+                  )}
+                </div>
+              );
+            };
             const renderStatic = (label: string, value: string | number | null | undefined) => {
               const isEmpty = value === null || value === undefined || value === '';
               return (
@@ -3480,12 +3534,8 @@ export default function SampleDetailPage() {
 
                         <div className="cld-section is-funds">
                           <div className="cld-section-title">Fundos</div>
-                          <div className="cld-grid cld-grid-4">
-                            {renderVal('fundo1Peneira', 'FD1 Pen.')}
-                            {renderVal('fundo1Percent', 'FD1 %', 'decimal')}
-                            {renderVal('fundo2Peneira', 'FD2 Pen.')}
-                            {renderVal('fundo2Percent', 'FD2 %', 'decimal')}
-                          </div>
+                          {renderFundo('fundo1Peneira', 'fundo1Percent')}
+                          {renderFundo('fundo2Peneira', 'fundo2Percent')}
                         </div>
 
                         <div className="cld-section is-defects">

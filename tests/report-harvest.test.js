@@ -83,7 +83,8 @@ test('buildSelectedExportFieldEntries: peneirasPercentuais formata peneiras{} + 
   const sieve = entries[0]?.value ?? '';
   assert.match(sieve, /P18: 12%/);
   assert.match(sieve, /MK: 5%/);
-  assert.match(sieve, /FUNDO1 P9: 2%/);
+  // Fundo sem numeracao/sem "P": peneira crua junta ao % com "=".
+  assert.match(sieve, /Fundo 9=2%/);
   // peneiras nulas (p12/p11) nao aparecem
   assert.equal(/P12:/.test(sieve), false);
   assert.equal(/P11:/.test(sieve), false);

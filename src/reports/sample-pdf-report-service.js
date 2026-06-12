@@ -465,6 +465,8 @@ export async function renderSamplePdf({
   }
 
   // Peneiras percentuais: uma row por peneira ("P18: 5%" -> Peneira P18 | 5%).
+  // Os fundos vem na mesma string como "Fundo 13=4%" (sem numeracao, peneira+%
+  // juntos) -> row "Fundo" | "13=4%".
   const sieveEntry = entryById.get('peneirasPercentuais');
   if (sieveEntry) {
     const parts = asValue(sieveEntry)
@@ -472,6 +474,10 @@ export async function renderSamplePdf({
       .map((part) => part.trim())
       .filter(Boolean);
     for (const part of parts) {
+      if (part.startsWith('Fundo ')) {
+        classificationRows.push({ label: 'Fundo', value: part.slice('Fundo '.length).trim() });
+        continue;
+      }
       const sep = part.indexOf(':');
       if (sep > 0) {
         classificationRows.push({
