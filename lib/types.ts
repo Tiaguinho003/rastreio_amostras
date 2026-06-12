@@ -910,18 +910,30 @@ export interface VisitReportSummary {
     fullName: string;
     username: string;
   } | null;
+  /** Declaração do prospector ("Já é cliente" / "Cliente novo") — sem busca. */
   clientKind: VisitClientKind;
+  /** Vínculo curado (ADM/Cadastro no /resumo) ou born-linked legado.
+      Null = aguardando vínculo. */
   client: {
     id: string;
     code: number;
     displayName: string | null;
     status: ClientStatus;
   } | null;
+  /** Dados anotados em texto livre na visita (os dois kinds). Null apenas
+      em rows legadas born-linked. */
   newClient: {
     name: string | null;
     city: string | null;
     phone: string | null;
   } | null;
+  /** Quem curou o vínculo atual. Null: aguardando vínculo ou born-linked. */
+  linkedBy: {
+    id: string;
+    fullName: string;
+    username: string;
+  } | null;
+  linkedAt: string | null;
   farmSize: VisitFarmSize;
   farmSizeNotes: string | null;
   interestLevel: VisitInterestLevel;

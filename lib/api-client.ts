@@ -1742,6 +1742,20 @@ export function deleteVisitReport(session: SessionData, reportId: string) {
   });
 }
 
+// Curadoria do vinculo informe -> cliente (ADM/Cadastro no /resumo).
+// clientId null desvincula (informe volta a "aguardando vinculo").
+export function linkVisitReportClient(
+  session: SessionData,
+  reportId: string,
+  clientId: string | null
+) {
+  return request<VisitReportMutationResponse>(`/visit-reports/${reportId}/client`, {
+    method: 'PATCH',
+    session,
+    body: { clientId },
+  });
+}
+
 export function listVisitReports(
   session: SessionData,
   query: { page?: number; limit?: number; search?: string } = {}

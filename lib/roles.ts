@@ -52,3 +52,10 @@ export const NON_PROSPECTOR_ROLES: UserRole[] = [
 export function isVisitReportViewer(role: UserRole | null | undefined): boolean {
   return role === 'ADMIN' || role === 'COMMERCIAL' || role === 'CADASTRO';
 }
+
+// Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
+// vincular / Remover vinculo). Espelha VISIT_REPORT_LINK_CURATOR_ROLES do
+// backend: subconjunto dos viewers — COMMERCIAL le, nao vincula.
+export function isVisitLinkCurator(role: UserRole | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'CADASTRO';
+}

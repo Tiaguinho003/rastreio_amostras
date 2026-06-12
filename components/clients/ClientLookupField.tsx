@@ -26,6 +26,12 @@ type ClientLookupFieldProps = {
   disabled?: boolean;
   placeholder?: string;
   emptyMessage?: string;
+  /**
+   * Texto inicial da busca (so no mount, sem selecao) — usado pelo modal de
+   * vinculo do /resumo pra pre-carregar o nome anotado pelo prospector; o
+   * primeiro foco no campo ja abre as sugestoes.
+   */
+  initialSearch?: string;
   onRequestCreate?: (search: string) => void;
   createLabel?: string;
   /**
@@ -123,9 +129,10 @@ export function ClientLookupField({
   required = false,
   clearOnSelect = false,
   maxResults,
+  initialSearch,
 }: ClientLookupFieldProps) {
   const inputId = useId();
-  const [search, setSearch] = useState(selectedClient?.displayName ?? '');
+  const [search, setSearch] = useState(selectedClient?.displayName ?? initialSearch ?? '');
   const [items, setItems] = useState<ClientSummary[]>([]);
   const [matchedUnitId, setMatchedUnitId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

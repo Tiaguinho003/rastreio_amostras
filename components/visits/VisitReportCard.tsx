@@ -9,6 +9,11 @@ import { getVisitFarmSizeLabel, getVisitInterestDetailLabel } from '../../lib/vi
 // prospector. Colapsado mostra cabecalho (autor + data) e cliente; expandido
 // revela as respostas e, quando canDelete, o "Excluir informe" (o modal de
 // confirmacao fica na superficie que consome o card).
+// Nome do cliente por PRESENCA de dados: vinculado (client setado pela
+// curadoria ou born-linked) mostra o nome canonico do cadastro; sem vinculo
+// mostra o nome anotado pelo prospector. As props showLinkStatus/
+// canLinkClient (so o /resumo passa) ligam o badge "Aguardando vinculo" e
+// as acoes de curadoria — o dashboard do prospector fica sem nada disso.
 
 // Acima disso entre o preenchimento (capturedAt, fila offline) e a chegada
 // ao servidor (createdAt), o card ganha o marcador "enviado depois".
@@ -30,6 +35,9 @@ function wasSentLater(report: VisitReportSummary): boolean {
   return Number.isFinite(gap) && gap > OFFLINE_GAP_MS;
 }
 
+/** Acao de curadoria disparada pelos botoes do detalhe expandido. */
+export type VisitLinkAction = 'link' | 'create' | 'unlink';
+
 interface VisitReportCardProps {
   report: VisitReportSummary;
   expanded: boolean;
@@ -43,6 +51,11 @@ interface VisitReportCardProps {
   /** Etiqueta de tipo no cabecalho (feed combinado do /resumo usa
       "Prospecção"; o dashboard do prospector nao passa). */
   typeBadge?: string;
+  /** /resumo: badge "Aguardando vínculo" + linha do vinculo no detalhe. */
+  showLinkStatus?: boolean;
+  /** ADM/Cadastro no /resumo: acoes de vinculo no detalhe expandido. */
+  canLinkClient?: boolean;
+  onLinkAction?: (report: VisitReportSummary, action: VisitLinkAction) => void;
   onRequestDelete?: (report: VisitReportSummary) => void;
 }
 
@@ -53,17 +66,18 @@ export function VisitReportCard({
   canDelete = false,
   quickDelete = false,
   typeBadge,
+  showLinkStatus = false,
+  canLinkClient = false,
+  onLinkAction,
   onRequestDelete,
 }: VisitReportCardProps) {
   const isNewClient = report.clientKind === 'NEW';
-  const clientName = isNewClient
-    ? (report.newClient?.name ?? '—')
-    : (report.client?.displayName ?? '—');
-  const clientMeta = isNewClient
-    ? [report.newClient?.city, report.newClient?.phone].filter(Boolean).join(' · ')
-    : report.client
-      ? `Código ${report.client.code}`
-      : null;
+  const isLinked = report.client !== null;
+  // Vinculado mostra o nome canonico do cadastro; sem vinculo, o anotado.
+  const clientName = report.client?.displayName ?? report.newClient?.name ?? '—';
+  const clientMeta = isLinked
+    ? `Código ${report.client?.code}`
+    : [report.newClient?.city, report.newClient?.phone].filter(Boolean).join(' · ');
 
   return (
     <article
@@ -133,6 +147,9 @@ export function VisitReportCard({
             <p className="rsm-client-name">
               {clientName}
               {isNewClient ? <span className="rsm-client-tag">Cliente novo</span> : null}
+              {showLinkStatus && !isLinked ? (
+                <span className="rsm-client-tag is-pending-link">Aguardando vínculo</span>
+              ) : null}
             </p>
             {clientMeta ? <p className="rsm-client-meta">{clientMeta}</p> : null}
           </div>
@@ -177,7 +194,80 @@ export function VisitReportCard({
                 <dd>{report.generalNotes}</dd>
               </div>
             ) : null}
+            {showLinkStatus && isLinked ? (
+              <div className="rsm-answer">
+                <dt>Cliente vinculado</dt>
+                <dd>
+                  {report.client?.displayName ?? '—'} · Código {report.client?.code}
+                </dd>
+                {report.newClient?.name ? (
+                  <dd className="rsm-answer-notes">Anotado na visita: {report.newClient.name}</dd>
+                ) : null}
+                {report.linkedBy && report.linkedAt ? (
+                  <dd className="rsm-answer-notes">
+                    Vinculado por {report.linkedBy.fullName} em{' '}
+                    {formatVisitDateTime(report.linkedAt)}
+                  </dd>
+                ) : null}
+              </div>
+            ) : null}
           </dl>
+
+          {canLinkClient && onLinkAction ? (
+            <div className="rsm-link-actions">
+              <button
+                type="button"
+                className="rsm-link-btn"
+                tabIndex={expanded ? undefined : -1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onLinkAction(report, 'link');
+                }}
+              >
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+                  <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+                </svg>
+                {isLinked ? 'Alterar vínculo' : 'Vincular cliente'}
+              </button>
+              {isLinked ? (
+                <button
+                  type="button"
+                  className="rsm-link-btn is-remove"
+                  tabIndex={expanded ? undefined : -1}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onLinkAction(report, 'unlink');
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+                    <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+                    <path d="m3 3 18 18" />
+                  </svg>
+                  Remover vínculo
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="rsm-link-btn"
+                  tabIndex={expanded ? undefined : -1}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onLinkAction(report, 'create');
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                    <circle cx="10" cy="8" r="4" />
+                    <path d="M3 21c0-3.9 3.1-7 7-7 1.2 0 2.4 0.3 3.4 0.9" />
+                    <path d="M18 14v6" />
+                    <path d="M15 17h6" />
+                  </svg>
+                  Cadastrar e vincular
+                </button>
+              )}
+            </div>
+          ) : null}
 
           {canDelete ? (
             <button

@@ -63,6 +63,8 @@ type ClientQuickCreateModalProps = {
   initialPersonType?: ClientPersonType;
   initialIsBuyer?: boolean;
   initialIsSeller?: boolean;
+  /** Prefill opcional do telefone (ex: anotado no informe de visita). */
+  initialPhone?: string;
   onClose: () => void;
   onCreated: (client: ClientSummary) => void;
 };
@@ -72,11 +74,13 @@ function buildInitialForm({
   initialPersonType = 'PJ',
   initialIsBuyer = false,
   initialIsSeller = true,
+  initialPhone = '',
 }: {
   initialSearch?: string;
   initialPersonType?: ClientPersonType;
   initialIsBuyer?: boolean;
   initialIsSeller?: boolean;
+  initialPhone?: string;
 }) {
   return {
     personType: initialPersonType,
@@ -85,7 +89,7 @@ function buildInitialForm({
     tradeName: initialPersonType === 'PJ' ? initialSearch : '',
     cpf: '',
     cnpj: '',
-    phone: '',
+    phone: maskPhoneInput(initialPhone),
     isBuyer: initialIsBuyer,
     isSeller: initialIsSeller,
     commercialUserIds: [] as string[],
@@ -100,6 +104,7 @@ export function ClientQuickCreateModal({
   initialPersonType = 'PJ',
   initialIsBuyer = false,
   initialIsSeller = true,
+  initialPhone,
   onClose,
   onCreated,
 }: ClientQuickCreateModalProps) {
@@ -110,6 +115,7 @@ export function ClientQuickCreateModal({
       initialPersonType,
       initialIsBuyer,
       initialIsSeller,
+      initialPhone,
     })
   );
   const [saving, setSaving] = useState(false);
@@ -128,6 +134,7 @@ export function ClientQuickCreateModal({
           initialPersonType,
           initialIsBuyer,
           initialIsSeller,
+          initialPhone,
         })
       );
       setSaving(false);
@@ -136,7 +143,7 @@ export function ClientQuickCreateModal({
     }
 
     lastOpenRef.current = open;
-  }, [initialIsBuyer, initialIsSeller, initialPersonType, initialSearch, open]);
+  }, [initialIsBuyer, initialIsSeller, initialPersonType, initialPhone, initialSearch, open]);
 
   useEffect(() => {
     if (!open) {
@@ -234,6 +241,7 @@ export function ClientQuickCreateModal({
         initialPersonType,
         initialIsBuyer,
         initialIsSeller,
+        initialPhone,
       })
     );
     setError(null);
