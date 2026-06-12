@@ -8,7 +8,7 @@ set -euo pipefail
 #
 #   *-classification  0 8 * * *     (todos os dias 08:00)  --kind=classification
 #   *-registrations   0 8 * * 1-5   (seg-sex 08:00)         --kind=registrations
-#   *-prospect        0 11 * * 1-5  (seg-sex 11:00)         --kind=prospect-reminder
+#   *-prospect        0 11 * * 2-4  (ter-qui 11:00)         --kind=prospect-reminder
 #   *-weekly          0 8-20 * * *  (hora em hora 08-20)    --kind=weekly-reminder
 #     (o kind avalia as regras por usuario e o marcador semanal garante no
 #      maximo 1 push por usuario por semana — execucoes extras sao no-op;
@@ -90,7 +90,7 @@ upsert_scheduler() {
 
 upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-classification" "0 8 * * *" "classification"
 upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-registrations" "0 8 * * 1-5" "registrations"
-upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-prospect" "0 11 * * 1-5" "prospect-reminder"
+upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-prospect" "0 11 * * 2-4" "prospect-reminder"
 upsert_scheduler "${GCLOUD_CLOUD_RUN_PUSH_DIGEST_JOB}-weekly" "0 8-20 * * *" "weekly-reminder"
 
 # Scheduler legado (formato unico sem kind): remover se existir.
@@ -106,7 +106,7 @@ echo "[gcp] ============================================================"
 echo "[gcp]  Lembretes agendados (${TIME_ZONE}):"
 echo "[gcp]   classification: todos os dias 08:00"
 echo "[gcp]   registrations:  seg-sex 08:00"
-echo "[gcp]   prospect:       seg-sex 11:00"
+echo "[gcp]   prospect:       ter-qui 11:00"
 echo "[gcp]   weekly:         hora em hora 08:00-20:00 (relatorio semanal)"
 echo "[gcp]  Teste manual: scripts/gcp/execute-job.sh push-digest ${CLOUD_ENV} [--kind=X]"
 echo "[gcp] ============================================================"

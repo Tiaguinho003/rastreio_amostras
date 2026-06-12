@@ -8,7 +8,7 @@
 //     pendencia > 0.
 //   --kind=registrations       seg-sex 08:00
 //     "Revise os Cadastros!" -> ADMIN + CADASTRO, so com pendencia > 0.
-//   --kind=prospect-reminder   seg-sex 11:00
+//   --kind=prospect-reminder   ter-qui 11:00
 //     "Bom dia <primeiro nome>!" -> PROSPECTOR (personalizada por usuario,
 //     sem condicao — e lembrete de preencher o formulario de visita).
 //   --kind=weekly-reminder     de hora em hora, 08:00-20:00 (todos os dias)
