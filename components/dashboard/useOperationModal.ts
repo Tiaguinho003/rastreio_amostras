@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
 
 // Q.print: card "Impressao pendente" cortado — so resta classification_pending.
@@ -10,27 +9,16 @@ export type OperationPanel = 'classification_pending' | null;
 export type OperationPanelKey = Exclude<OperationPanel, null>;
 
 export interface OperationModalData {
-  modalId: string;
   title: string;
   emptyMessage: string;
-  total: number;
   items: SampleSnapshot[];
   themeClass: string;
 }
 
-function buildOperationModalData(
-  data: DashboardPendingResponse,
-  activePanel: OperationPanel
-): OperationModalData | null {
-  if (activePanel === null) {
-    return null;
-  }
-
+function buildOperationModalData(data: DashboardPendingResponse): OperationModalData {
   return {
-    modalId: 'dashboard-operation-modal-classification-pending',
     title: 'Amostras pendentes',
     emptyMessage: 'Nenhuma amostra aguardando classificacao.',
-    total: data.classificationPending.total,
     items: data.classificationPending.items,
     themeClass: 'is-status-classification-pending',
   };
@@ -38,38 +26,12 @@ function buildOperationModalData(
 
 export function useOperationModal(data: DashboardPendingResponse | null) {
   const [activeOperationPanel, setActiveOperationPanel] = useState<OperationPanel>(null);
-  const focusTrapRef = useFocusTrap(activeOperationPanel !== null);
-  const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastOperationTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    if (!activeOperationPanel) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setActiveOperationPanel(null);
-      }
-    };
-
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => {
-      modalCloseButtonRef.current?.focus();
-    }, 0);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        lastOperationTriggerRef.current?.focus();
-      }, 0);
-    };
-  }, [activeOperationPanel]);
+  // O painel virou um BottomSheet (ver OperationModal): ESC, lock de scroll,
+  // focus trap, backdrop, drag e back do Android sao todos do BottomSheet —
+  // o hook so guarda o estado de aberto/fechado e o gatilho pra devolver foco.
+  const open = activeOperationPanel !== null;
 
   function openOperationPanel(panel: OperationPanelKey, trigger: HTMLButtonElement) {
     lastOperationTriggerRef.current = trigger;
@@ -78,14 +40,22 @@ export function useOperationModal(data: DashboardPendingResponse | null) {
 
   function closeOperationModal() {
     setActiveOperationPanel(null);
+    // O BottomSheet faz focus trap mas nao devolve o foco ao gatilho ao
+    // fechar — restauramos no card que abriu o sheet (a11y de teclado).
+    const trigger = lastOperationTriggerRef.current;
+    if (trigger) {
+      window.setTimeout(() => trigger.focus(), 0);
+    }
   }
 
-  const operationModalData = data ? buildOperationModalData(data, activeOperationPanel) : null;
+  // Construido sempre que ha dados do dashboard (nao so quando aberto) pra que
+  // o conteudo continue disponivel durante a animacao de saida do BottomSheet,
+  // que mantem o sheet montado por ANIMATION_MS apos o close.
+  const operationModalData = data ? buildOperationModalData(data) : null;
 
   return {
+    open,
     activeOperationPanel,
-    focusTrapRef,
-    modalCloseButtonRef,
     openOperationPanel,
     closeOperationModal,
     operationModalData,

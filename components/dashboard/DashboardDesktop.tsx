@@ -114,8 +114,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
   const router = useRouter();
   const {
     activeOperationPanel,
-    focusTrapRef,
-    modalCloseButtonRef,
+    open: operationModalOpen,
     openOperationPanel,
     closeOperationModal,
     operationModalData,
@@ -189,7 +188,6 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
               className="dd-card dd-card-classification"
               onClick={(event) => openOperationPanel('classification_pending', event.currentTarget)}
               aria-expanded={activeOperationPanel === 'classification_pending'}
-              aria-controls="dashboard-operation-modal-classification-pending"
               aria-haspopup="dialog"
             >
               <span className="dd-card-icon" aria-hidden="true">
@@ -277,18 +275,15 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         <RecentActivityList items={recentActivity} />
       </section>
 
-      {operationModalData ? (
-        <OperationModal
-          data={operationModalData}
-          focusTrapRef={focusTrapRef}
-          modalCloseButtonRef={modalCloseButtonRef}
-          onClose={closeOperationModal}
-          onItemAction={(sampleId) => {
-            closeOperationModal();
-            router.push(`/camera?sampleId=${sampleId}`);
-          }}
-        />
-      ) : null}
+      <OperationModal
+        open={operationModalOpen}
+        data={operationModalData}
+        onClose={closeOperationModal}
+        onItemAction={(sampleId) => {
+          closeOperationModal();
+          router.push(`/camera?sampleId=${sampleId}`);
+        }}
+      />
     </div>
   );
 }

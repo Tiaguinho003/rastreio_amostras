@@ -38,8 +38,7 @@ export function DashboardMobile({
   const router = useRouter();
   const {
     activeOperationPanel,
-    focusTrapRef,
-    modalCloseButtonRef,
+    open: operationModalOpen,
     openOperationPanel,
     closeOperationModal,
     operationModalData,
@@ -135,7 +134,6 @@ export function DashboardMobile({
                     openOperationPanel('classification_pending', event.currentTarget)
                   }
                   aria-expanded={activeOperationPanel === 'classification_pending'}
-                  aria-controls="dashboard-operation-modal-classification-pending"
                   aria-haspopup="dialog"
                 >
                   <span className="dashboard-operation-icon-wrap" aria-hidden="true">
@@ -237,18 +235,15 @@ export function DashboardMobile({
         </section>
       </section>
 
-      {operationModalData ? (
-        <OperationModal
-          data={operationModalData}
-          focusTrapRef={focusTrapRef}
-          modalCloseButtonRef={modalCloseButtonRef}
-          onClose={closeOperationModal}
-          onItemAction={(sampleId) => {
-            closeOperationModal();
-            router.push(`/camera?sampleId=${sampleId}`);
-          }}
-        />
-      ) : null}
+      <OperationModal
+        open={operationModalOpen}
+        data={operationModalData}
+        onClose={closeOperationModal}
+        onItemAction={(sampleId) => {
+          closeOperationModal();
+          router.push(`/camera?sampleId=${sampleId}`);
+        }}
+      />
     </div>
   );
 }

@@ -522,11 +522,7 @@ UPPERCASE em campos de nome/dados cadastrais (`event.target.value.toUpperCase()`
 
 #### Dashboard
 
-| Modal          | Arquivo                                   | Variantes                                                    |
-| -------------- | ----------------------------------------- | ------------------------------------------------------------ |
-| OperationModal | `components/dashboard/OperationModal.tsx` | `is-themed app-modal-dashboard` (largura 800/900px) + portal |
-
-> `app-modal-dashboard` e classe scoped pra largura especifica (maior que o default 38rem do `.is-themed`). Selector de 3 classes `.app-modal.is-themed.app-modal-dashboard` sobrescreve sem `!important`. Cards internos usam `.app-modal-card*` (titulo do lote livre, linhas auxiliares truncadas em 50% pra nao colidir com CTA "Classificar").
+> O **OperationModal** ("Amostras pendentes") **deixou de ser modal central** — migrou pra **BottomSheet** (`components/dashboard/OperationModal.tsx` renderiza `<BottomSheet className="is-operations">`). Sai de baixo no mobile e vira modal central no desktop (CSS responsivo >901px do `.bottom-sheet`). Ver `design-system` §8 "Bottom Sheet" (variante `.is-operations`). A classe `.app-modal-dashboard` e seus overrides foram removidos; os cards internos seguem usando `.app-modal-card*`.
 
 #### Formularios de informe (prospector + comercial)
 

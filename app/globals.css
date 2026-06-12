@@ -15074,38 +15074,6 @@ select.samples-filter-field-input {
   text-shadow: 0 2px 8px rgba(15, 27, 17, 0.32);
 }
 
-/* OperationModal (dashboard de pendencias) — usa .app-modal.is-themed
-   (header verde + body branco) com largura maior que o default 38rem.
-   Especificidade (3 classes) supera a do .is-themed (2 classes) sem !important. */
-.app-modal.is-themed.app-modal-dashboard {
-  width: min(800px, calc(100vw - 1.5rem));
-  max-width: min(800px, calc(100vw - 1.5rem));
-  max-height: min(88vh, 36rem);
-}
-
-.app-modal.is-themed.app-modal-dashboard .app-modal-list {
-  display: grid;
-  gap: 0.62rem;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.app-modal.is-themed.app-modal-dashboard .app-modal-list::-webkit-scrollbar {
-  display: none;
-}
-
-.app-modal.is-themed.app-modal-dashboard .app-modal-card-body {
-  text-align: left;
-  justify-items: start;
-}
-
-/* Header verde brand — herda o gradient padrao de .app-modal.is-themed
-   (var(--brand-green), var(--brand-green-soft)). Substituiu o gradient
-   gold que tinhamos antes do redesign do dashboard. */
-
 .export-confirm-backdrop {
   position: fixed;
   inset: 0;
@@ -19299,12 +19267,6 @@ select.samples-filter-field-input {
 
   .dashboard-secondary-panel {
     min-height: 0;
-  }
-
-  /* ── Nova Amostra: placeholder ── */
-
-  .app-modal.is-themed.app-modal-dashboard {
-    max-height: 88vh;
   }
 
   .app-modal-header {
@@ -27240,12 +27202,6 @@ select.samples-filter-field-input {
      MODAIS DESKTOP
      ══════════════════════════════════════════ */
 
-  .app-modal.is-themed.app-modal-dashboard {
-    width: min(900px, calc(100vw - 3rem));
-    max-width: min(900px, calc(100vw - 3rem));
-    max-height: min(80vh, 42rem);
-  }
-
   .sample-classification-edit-modal {
     width: min(680px, calc(100vw - 3rem));
   }
@@ -29128,18 +29084,36 @@ select.samples-filter-field-input {
   }
 }
 
-/* ── Bottom sheet "menu da conta" (variante curta do BottomSheet) ──
-   .is-menu: altura por conteudo em vez da altura fixa alta do sheet padrao,
-   ja que o menu tem poucas linhas. Mesmo precedente da variante desktop. */
-.bottom-sheet.is-menu {
+/* ── Bottom sheet com altura por conteudo (variante curta do BottomSheet) ──
+   .is-menu (menu da conta) e .is-operations (pendencias do dashboard): altura
+   por conteudo em vez da altura fixa alta do sheet padrao, ja que tem poucas
+   linhas. Mesmo precedente da variante desktop. */
+.bottom-sheet.is-menu,
+.bottom-sheet.is-operations {
   height: auto;
   max-height: min(72dvh, 30rem);
 }
 
 @supports not (height: 100dvh) {
-  .bottom-sheet.is-menu {
+  .bottom-sheet.is-menu,
+  .bottom-sheet.is-operations {
     max-height: min(72vh, 30rem);
   }
+}
+
+/* Pendencias (OperationModal): o scroll fica no .bottom-sheet-body; a lista
+   so cresce. Sem isto o .app-modal-list traz max-height + overflow proprios
+   (heranca do uso antigo no modal central) e criaria duplo scroll no sheet. */
+.bottom-sheet.is-operations .app-modal-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+/* Alinhamento do corpo do card preservado do antigo modal central. */
+.bottom-sheet.is-operations .app-modal-card-body {
+  text-align: left;
+  justify-items: start;
 }
 
 .header-avatar-menu {
