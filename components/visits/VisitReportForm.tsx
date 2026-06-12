@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
-import { ClientLookupField } from '../clients/ClientLookupField';
 import { ApiError, createVisitReport } from '../../lib/api-client';
 import { useRegisterDirtyState } from '../../lib/dirty-state/DirtyStateProvider';
 import { useOnlineStatus } from '../../lib/offline/use-online-status';
@@ -15,7 +14,6 @@ import {
 import { flushVisitOutbox } from '../../lib/offline/visit-sync';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type {
-  ClientSummary,
   SessionData,
   VisitClientKind,
   VisitFarmSize,
@@ -28,12 +26,15 @@ import { VISIT_FARM_SIZE_OPTIONS, VISIT_INTEREST_OPTIONS } from '../../lib/visit
 // virou placeholder dos futuros formularios por papel. Toda a logica
 // (validacao, fila offline com Idempotency-Key, toasts, contador de
 // pendentes) vive aqui; o sheet so decide o que fazer apos o envio.
+// Identificacao do cliente e DECLARACAO ("Ja e cliente" / "Cliente novo"),
+// sem lookup no banco: nome/cidade/telefone em texto livre nos dois kinds,
+// identico online e offline. O vinculo real com o cadastro e curadoria
+// posterior do ADM/Cadastro no /resumo (linkVisitReportClient).
 // Visual nativo do modal: as secoes .inf-card sao achatadas pelas regras
 // .bottom-sheet.is-informe (sem chrome de card — divisorias suaves).
 
 type VisitFieldName =
   | 'clientKind'
-  | 'client'
   | 'newClientName'
   | 'farmSize'
   | 'interestLevel'
@@ -65,7 +66,6 @@ export function VisitReportForm({
   const toast = useToast();
 
   const [clientKind, setClientKind] = useState<VisitClientKind | null>(null);
-  const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
   const [newClientName, setNewClientName] = useState('');
   const [newClientCity, setNewClientCity] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -99,7 +99,6 @@ export function VisitReportForm({
 
   const isDirty =
     clientKind !== null ||
-    selectedClient !== null ||
     newClientName !== '' ||
     newClientCity !== '' ||
     newClientPhone !== '' ||
@@ -130,7 +129,6 @@ export function VisitReportForm({
 
   function resetForm() {
     setClientKind(null);
-    setSelectedClient(null);
     setNewClientName('');
     setNewClientCity('');
     setNewClientPhone('');
@@ -153,9 +151,7 @@ export function VisitReportForm({
     const errors: VisitFieldErrors = {};
     if (!clientKind) {
       errors.clientKind = 'Selecione uma opção';
-    } else if (clientKind === 'EXISTING' && !selectedClient) {
-      errors.client = 'Obrigatório';
-    } else if (clientKind === 'NEW' && !newClientName.trim()) {
+    } else if (!newClientName.trim()) {
       errors.newClientName = 'Obrigatório';
     }
     if (!farmSize) {
@@ -180,14 +176,12 @@ export function VisitReportForm({
 
     setSubmitting(true);
     try {
-      const clientName =
-        clientKind === 'EXISTING' ? selectedClient?.displayName : newClientName.trim();
+      const clientName = newClientName.trim();
       const payload: VisitDraftPayload = {
         clientKind: clientKind as VisitClientKind,
-        clientId: clientKind === 'EXISTING' ? (selectedClient?.id ?? null) : null,
-        newClientName: clientKind === 'NEW' ? newClientName.trim() : null,
-        newClientCity: clientKind === 'NEW' ? newClientCity.trim() || null : null,
-        newClientPhone: clientKind === 'NEW' ? newClientPhone.trim() || null : null,
+        newClientName: clientName,
+        newClientCity: newClientCity.trim() || null,
+        newClientPhone: newClientPhone.trim() || null,
         farmSize: farmSize as VisitFarmSize,
         farmSizeNotes: farmSizeNotes.trim() || null,
         interestLevel: interestLevel as VisitInterestLevel,
@@ -322,14 +316,12 @@ export function VisitReportForm({
         </div>
       ) : null}
 
-      {/* P1 — Identificação do cliente */}
+      {/* P1 — Identificação do cliente. Os dois pills sao DECLARACAO do
+          prospector (sem busca no banco) e abrem os mesmos campos de texto
+          livre; o vinculo real e curadoria do ADM/Cadastro no /resumo. */}
       <section
         className="inf-card"
-        data-invalid={
-          fieldErrors.clientKind || fieldErrors.client || fieldErrors.newClientName
-            ? 'true'
-            : undefined
-        }
+        data-invalid={fieldErrors.clientKind || fieldErrors.newClientName ? 'true' : undefined}
       >
         <header className="inf-card-head">
           <span className="inf-card-num" aria-hidden="true">
@@ -348,14 +340,12 @@ export function VisitReportForm({
             type="button"
             className={`inf-pill${clientKind === 'EXISTING' ? ' is-selected' : ''}`}
             aria-pressed={clientKind === 'EXISTING'}
-            disabled={!isOnline && clientKind !== 'EXISTING'}
             onClick={() => {
               setClientKind('EXISTING');
               clearFieldError('clientKind');
-              clearFieldError('newClientName');
             }}
           >
-            Já cadastrado
+            Já é cliente
           </button>
           <button
             type="button"
@@ -364,40 +354,14 @@ export function VisitReportForm({
             onClick={() => {
               setClientKind('NEW');
               clearFieldError('clientKind');
-              clearFieldError('client');
             }}
           >
             Cliente novo
           </button>
         </div>
         {fieldErrors.clientKind ? <p className="inf-card-error">{fieldErrors.clientKind}</p> : null}
-        {!isOnline ? (
-          <p className="inf-offline-note">
-            Sem internet, a busca de clientes cadastrados fica indisponível — use Cliente novo.
-          </p>
-        ) : null}
 
-        {clientKind === 'EXISTING' ? (
-          <ClientLookupField
-            session={session}
-            label="Cliente"
-            kind="any"
-            required
-            disabled={!isOnline}
-            selectedClient={selectedClient}
-            onSelectClient={(client) => {
-              setSelectedClient(client);
-              if (client) {
-                clearFieldError('client');
-              }
-            }}
-            invalid={Boolean(fieldErrors.client)}
-            invalidText={fieldErrors.client ?? 'Obrigatório'}
-            placeholder="Busque por nome, documento ou código"
-          />
-        ) : null}
-
-        {clientKind === 'NEW' ? (
+        {clientKind !== null ? (
           <div className="inf-newclient">
             <label className="inf-field">
               <span className="inf-field-label">

@@ -7,8 +7,12 @@ import type { VisitClientKind, VisitFarmSize, VisitInterestLevel } from '../type
 // reenvio apos falha no meio do caminho nunca duplica o informe.
 
 export interface VisitOutboxPayload {
+  /** Declaracao do prospector ("Ja e cliente" / "Cliente novo") — sem
+      lookup; o vinculo real e curadoria do ADM/Cadastro no /resumo. */
   clientKind: VisitClientKind;
-  clientId: string | null;
+  /** Legado: presente apenas em entradas enfileiradas por versoes antigas
+      do app (lookup de cliente no formulario). O backend segue aceitando. */
+  clientId?: string | null;
   newClientName: string | null;
   newClientCity: string | null;
   newClientPhone: string | null;

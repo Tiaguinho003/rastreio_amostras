@@ -22,9 +22,10 @@ import type {
 // Formulario de VISITA do comercial — renderizado no BottomSheet da pagina
 // /informe do papel COMMERCIAL (CommercialVisitFormSheet). SEM fila
 // offline: o envio exige internet (erro claro quando nao ha conexao).
-// O bloco de identificacao do cliente e copy-adapt do VisitReportForm do
-// prospector (comentario cruzado: manter regras/copy em sincronia), sem a
-// logica offline de desabilitar o lookup.
+// DIVERGENCIA DELIBERADA do VisitReportForm do prospector: o comercial
+// MANTEM o lookup de cliente cadastrado (EXISTING via ClientLookupField) —
+// ele visita majoritariamente clientes da carteira, online. O formulario
+// do prospector virou declaracao sem lookup (vinculo curado no /resumo).
 
 type FieldName = 'clientKind' | 'client' | 'newClientName' | 'reason' | 'outcome';
 type FieldErrors = Partial<Record<FieldName, string>>;

@@ -8093,13 +8093,6 @@ button:disabled {
   background: linear-gradient(135deg, var(--brand-green), var(--brand-green-soft));
 }
 
-/* Nota contextual de limitacao offline (ex: busca de cliente cadastrado). */
-.inf-offline-note {
-  margin: 0;
-  font-size: clamp(11px, 3vw, 12px);
-  color: #8a7559;
-}
-
 /* Card branco de pergunta — estilo base de card do design system. */
 .inf-card {
   display: flex;

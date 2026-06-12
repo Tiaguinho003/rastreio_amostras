@@ -1705,8 +1705,10 @@ export function listSampleEvents(
 export function createVisitReport(
   session: SessionData,
   data: {
+    /** Declaracao do prospector — sem lookup; vinculo e curadoria no /resumo. */
     clientKind: VisitClientKind;
-    clientId: string | null;
+    /** Legado: so em reenvios da fila offline de versoes antigas do app. */
+    clientId?: string | null;
     newClientName: string | null;
     newClientCity: string | null;
     newClientPhone: string | null;
