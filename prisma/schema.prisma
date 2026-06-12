@@ -414,7 +414,8 @@ model User {
   auditEventsAsActor       UserAuditEvent[]       @relation("UserAuditActor")
   clientAuditEventsAsActor ClientAuditEvent[]     @relation("ClientAuditActor")
   commercialClientLinks    ClientCommercialUser[]
-  visitReports             VisitReport[]
+  visitReports             VisitReport[]          @relation("VisitReportAuthor")
+  visitReportsLinked       VisitReport[]          @relation("VisitReportLinkedBy")
   commercialVisits         CommercialVisit[]
   weeklyReports            WeeklyReport[]
   weeklyReportReminders    WeeklyReportReminder[]
@@ -695,13 +696,19 @@ model IdempotencyRecord {
   @@map("idempotency_record")
 }
 
-// Informe de visita — envio do formulario da pagina /informe (1 row por
-// envio, ilimitado por usuario). Snapshot do que foi respondido: sem update
-// via API; DELETE existe e e exclusivo da Administracao (curadoria do
-// /resumo). userId e createdAt sao carimbados no servidor, nunca vindos do
-// client.
-// clientKind decide a identificacao: EXISTING usa clientId (FK em client);
-// NEW usa new_client_name (obrigatorio) + cidade/telefone opcionais.
+// Informe de visita — envio do formulario do prospector (1 row por envio,
+// ilimitado por usuario). Snapshot do que foi respondido: imutavel via API
+// EXCETO o trio de vinculo curado (clientId/linkedByUserId/linkedAt, ver
+// abaixo); DELETE e admin-qualquer ou autor-proprio. userId e createdAt sao
+// carimbados no servidor, nunca vindos do client.
+// clientKind e DECLARACAO do autor ("Ja e cliente" / "Cliente novo"), sem
+// lookup no banco: new_client_name (obrigatorio) + cidade/telefone opcionais
+// sao capturados em texto livre nos DOIS kinds. O vinculo real com o
+// cadastro e CURADORIA posterior (linkVisitReportClient, ADMIN/CADASTRO no
+// /resumo): clientId setado/trocado/removido com linkedByUserId+linkedAt
+// auditando o vinculo ATUAL (null = aguardando vinculo). Compat: payload
+// legado EXISTING+clientId (fila offline antiga) nasce "born-linked"
+// (clientId setado na criacao, linked_* null).
 // sellsToWhom e texto livre, presente apenas quando sellsCurrently=true.
 // capturedAt: hora local do preenchimento informada pelo aparelho quando o
 // envio passou pela fila offline (null = envio online direto). createdAt
@@ -725,14 +732,18 @@ model VisitReport {
   sellsToWhom    String?            @map("sells_to_whom")
   generalNotes   String?            @map("general_notes")
   capturedAt     DateTime?          @map("captured_at") @db.Timestamptz(6)
+  linkedByUserId String?            @map("linked_by_user_id") @db.Uuid
+  linkedAt       DateTime?          @map("linked_at") @db.Timestamptz(6)
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user     User    @relation("VisitReportAuthor", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  linkedBy User?   @relation("VisitReportLinkedBy", fields: [linkedByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([createdAt, id], map: "idx_visit_report_created_id")
   @@index([userId, createdAt], map: "idx_visit_report_user_created")
   @@index([clientId], map: "idx_visit_report_client")
+  @@index([linkedByUserId], map: "idx_visit_report_linked_by")
   @@map("visit_report")
 }
 
