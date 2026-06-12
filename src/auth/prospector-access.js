@@ -28,7 +28,10 @@ export const PROSPECTOR_ALLOWED_API_METHODS = new Set([
   // Formulario de visita + dashboard do prospector. deleteVisitReport
   // entra porque o autor exclui o PROPRIO informe (lixeira do dashboard);
   // a regra "so o proprio" e do service, nao do gate.
-  'lookupClients',
+  // SEM lookupClients: o formulario virou declaracao (sem busca de cliente
+  // cadastrado) — o papel de campo nao enumera a base de clientes. O
+  // vinculo informe->cliente (linkVisitReportClient) e curadoria de
+  // ADMIN/CADASTRO no /resumo e tambem fica fora daqui.
   'createVisitReport',
   'listVisitReports',
   'getMyVisitReportStats',

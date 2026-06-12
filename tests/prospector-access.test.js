@@ -64,6 +64,11 @@ test('PROSPECTOR: metodos fora da allowlist respondem 403 ROLE_FORBIDDEN', async
     'listClients',
     'createSample',
     'listUsers',
+    // O formulario virou declaracao (sem busca de cliente cadastrado): o
+    // papel de campo nao enumera a base de clientes.
+    'lookupClients',
+    // Curadoria do vinculo informe->cliente e de ADMIN/CADASTRO no /resumo.
+    'linkVisitReportClient',
     // Formularios do comercial: fora do app restrito do prospector.
     'createCommercialVisit',
     'deleteCommercialVisit',
@@ -102,11 +107,6 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
         };
       },
     },
-    clientService: {
-      async lookupClients() {
-        return { items: [] };
-      },
-    },
     visitReportService: {
       async listVisitReports() {
         return { items: [], page: { total: 0 } };
@@ -130,7 +130,6 @@ test('PROSPECTOR: metodos da allowlist nao caem no gate', async () => {
 
   const allowedSamples = [
     'getSession',
-    'lookupClients',
     'listVisitReports',
     'getMyVisitReportStats',
     'getPushConfig',
