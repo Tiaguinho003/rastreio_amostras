@@ -22,10 +22,13 @@ import { toVisitReportView } from './visit-report-service.js';
 // userId e createdAt sao carimbados no servidor; sem fila offline (sem
 // capturedAt e sem idempotencia — envio exige internet).
 
+// Reasons aceitos no CREATE. Subconjunto do enum Prisma CommercialVisitReason:
+// COLLECTION ("Cobrança") foi DESCONTINUADA do formulario e nao e mais
+// criavel via API — mas segue no enum do banco para nao quebrar visitas ja
+// registradas (leitura/exibicao preservadas; sem migration de enum).
 export const COMMERCIAL_VISIT_REASONS = Object.freeze([
   'NEGOTIATION',
   'SAMPLE_DELIVERY_OR_PICKUP',
-  'COLLECTION',
   'RELATIONSHIP',
 ]);
 

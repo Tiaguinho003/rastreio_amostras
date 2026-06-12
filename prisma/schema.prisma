@@ -211,7 +211,7 @@ enum VisitInterestLevel {
 enum CommercialVisitReason {
   NEGOTIATION // negociacao de compra/venda
   SAMPLE_DELIVERY_OR_PICKUP // entrega ou coleta de amostra
-  COLLECTION // cobranca
+  COLLECTION // cobranca — LEGADO: nao selecionavel no form nem criavel via API; mantido p/ visitas ja registradas
   RELATIONSHIP // relacionamento / pos-venda
 }
 

@@ -983,6 +983,8 @@ export interface VisitReportStatsResponse {
 export type CommercialVisitReason =
   | 'NEGOTIATION'
   | 'SAMPLE_DELIVERY_OR_PICKUP'
+  // LEGADO: descontinuado do formulario e nao criavel via API; mantido para
+  // ler/exibir visitas ja registradas (label em lib/commercial-visit.ts).
   | 'COLLECTION'
   | 'RELATIONSHIP';
 
