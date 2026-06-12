@@ -453,6 +453,8 @@ export class CommercialFormsService {
             include: {
               user: { select: FORM_USER_SELECT },
               client: { select: FORM_CLIENT_SELECT },
+              // Curadoria do vinculo (badge/acoes do /resumo).
+              linkedBy: { select: FORM_USER_SELECT },
             },
           })
         : [],

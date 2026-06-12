@@ -2102,6 +2102,30 @@ export function createBackendApiV1({
         return { status: 200, body: result };
       }),
 
+    linkVisitReportClient: (input) =>
+      executeApiForInput(input, async () => {
+        if (!visitReportService) {
+          throw new HttpError(501, 'Visit report service is not configured');
+        }
+
+        // Curadoria do /resumo (ADMIN/CADASTRO): seta/troca/remove o
+        // cliente vinculado de um informe. Body {clientId: string | null}
+        // — null desvincula; a regra de papel fica no service.
+        const actor = await resolveActorContext(input, authService);
+        const reportId = input?.params?.reportId;
+        if (typeof reportId !== 'string' || reportId.length === 0) {
+          throw new HttpError(422, 'reportId path param is required');
+        }
+
+        const body = readRequestBody(input);
+        const result = await visitReportService.linkVisitReportClient(
+          { reportId, clientId: body.clientId },
+          actor
+        );
+
+        return { status: 200, body: result };
+      }),
+
     listVisitReports: (input) =>
       executeApiForInput(input, async () => {
         if (!visitReportService) {

@@ -11,9 +11,14 @@ import { VisitReportService } from '../src/visits/visit-report-service.js';
 
 // Informe de visita — service de criacao (qualquer papel autenticado, com
 // userId/createdAt carimbados no servidor; capturedAt opcional da fila
-// offline) e listagem paginada (viewers veem tudo; PROSPECTOR so os
-// proprios). Inclui o caminho idempotente do POST /visit-reports via
-// backend-api (replay da fila nao duplica).
+// offline), listagem paginada (viewers veem tudo; PROSPECTOR so os
+// proprios) e CURADORIA do vinculo informe -> cliente
+// (linkVisitReportClient: ADMIN/CADASTRO setam/trocam/removem clientId com
+// auditoria linkedBy/linkedAt). clientKind e declaracao do autor: nome
+// anotado obrigatorio nos dois kinds; payload legado EXISTING+clientId
+// (fila offline antiga) segue aceito e nasce born-linked. Inclui os
+// caminhos via backend-api: POST idempotente (replay da fila nao duplica)
+// e PATCH /visit-reports/:id/client.
 
 const databaseUrl = process.env.DATABASE_URL;
 const databaseReachable = await canReachDatabase(databaseUrl);
@@ -24,10 +29,14 @@ if (!databaseUrl || !databaseReachable) {
   const prisma = new PrismaClient();
   const service = new VisitReportService({ prisma });
 
-  // Actor fixo do caminho via backend-api (LocalAuthService + FK em app_user).
+  // Actors fixos do caminho via backend-api (LocalAuthService + FK em
+  // app_user): autor COMMERCIAL (envia informes) e curador CADASTRO
+  // (vincula cliente).
   const ACTOR_USER_ID = '00000000-0000-0000-0000-000000000901';
+  const CURATOR_USER_ID = '00000000-0000-0000-0000-000000000902';
   let api;
   let authHeaders;
+  let curatorHeaders;
 
   test.before(() => {
     const authService = new LocalAuthService({
@@ -41,11 +50,22 @@ if (!databaseUrl || !databaseReachable) {
           role: 'COMMERCIAL',
           displayName: 'Visita Teste',
         },
+        {
+          id: CURATOR_USER_ID,
+          username: 'visit-curator',
+          password: 'curator123',
+          role: 'CADASTRO',
+          displayName: 'Curadora Cadastro',
+        },
       ],
     });
 
     authHeaders = {
       authorization: `Bearer ${authService.login({ username: 'visit-test', password: 'visit123' }).accessToken}`,
+      'x-source': 'web',
+    };
+    curatorHeaders = {
+      authorization: `Bearer ${authService.login({ username: 'visit-curator', password: 'curator123' }).accessToken}`,
       'x-source': 'web',
     };
 
@@ -75,6 +95,21 @@ if (!databaseUrl || !databaseReachable) {
         emailCanonical: 'visit-test@example.com',
         passwordHash: 'x',
         role: 'COMMERCIAL',
+      },
+    });
+  }
+
+  async function seedCuratorUser() {
+    return prisma.user.create({
+      data: {
+        id: CURATOR_USER_ID,
+        fullName: 'Curadora Cadastro',
+        username: 'visit-curator',
+        usernameCanonical: 'visit-curator',
+        email: 'visit-curator@example.com',
+        emailCanonical: 'visit-curator@example.com',
+        passwordHash: 'x',
+        role: 'CADASTRO',
       },
     });
   }
@@ -154,11 +189,13 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(row.sellsCurrently, false);
   });
 
-  test('createVisitReport EXISTING: vincula cliente ativo do cadastro e zera campos new_*', async () => {
+  test('createVisitReport EXISTING legado (clientId no payload): nasce born-linked e zera campos new_*', async () => {
     await resetDatabase();
     const commercial = await seedUser('COMMERCIAL');
     const client = await seedClient();
 
+    // Payload de versoes antigas do app (fila offline anterior a curadoria):
+    // EXISTING + clientId selecionado no lookup. Continua aceito por compat.
     const result = await service.createVisitReport(
       baseInput({
         clientKind: 'EXISTING',
@@ -176,11 +213,48 @@ if (!databaseUrl || !databaseReachable) {
     assert.equal(result.report.client.displayName, 'Produtor Teste');
     assert.equal(result.report.newClient, null);
     assert.equal(result.report.sellsToWhom, 'Cooxupe, corretor local');
+    // Born-linked: clientId setado na criacao, SEM auditoria de curadoria.
+    assert.equal(result.report.linkedBy, null);
+    assert.equal(result.report.linkedAt, null);
 
     const row = await prisma.visitReport.findUnique({ where: { id: result.report.id } });
     assert.equal(row.newClientName, null);
     assert.equal(row.newClientCity, null);
     assert.equal(row.newClientPhone, null);
+    assert.equal(row.linkedByUserId, null);
+    assert.equal(row.linkedAt, null);
+  });
+
+  test('createVisitReport EXISTING (declaracao): sem clientId persiste nome anotado e nasce aguardando vinculo', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+
+    // Formulario novo: "Ja e cliente" e declaracao do autor, sem lookup —
+    // nome/cidade/telefone capturados em texto livre como no Cliente novo.
+    const result = await service.createVisitReport(
+      baseInput({
+        clientKind: 'EXISTING',
+        clientId: null,
+        newClientName: 'João da Boa Vista',
+        newClientCity: 'Campos Altos/MG',
+        newClientPhone: '(34) 98888-7777',
+      }),
+      actorFor(prospector)
+    );
+
+    assert.equal(result.report.clientKind, 'EXISTING');
+    assert.equal(result.report.client, null);
+    assert.equal(result.report.newClient.name, 'João da Boa Vista');
+    assert.equal(result.report.newClient.city, 'Campos Altos/MG');
+    assert.equal(result.report.newClient.phone, '(34) 98888-7777');
+    assert.equal(result.report.linkedBy, null);
+    assert.equal(result.report.linkedAt, null);
+
+    const row = await prisma.visitReport.findUnique({ where: { id: result.report.id } });
+    assert.equal(row.clientId, null);
+    assert.equal(row.newClientName, 'João da Boa Vista');
+    assert.equal(row.linkedByUserId, null);
+    assert.equal(row.linkedAt, null);
   });
 
   test('createVisitReport: sellsToWhom e descartado quando sellsCurrently=false', async () => {
@@ -207,10 +281,14 @@ if (!databaseUrl || !databaseReachable) {
       (error) => error.status === 422 && error.details?.field === 'clientKind'
     );
 
-    // EXISTING sem clientId
+    // EXISTING sem clientId e sem nome anotado: a falta agora e do NOME
+    // (declaracao exige texto livre nos dois kinds).
     await assert.rejects(
-      service.createVisitReport(baseInput({ clientKind: 'EXISTING', clientId: null }), actor),
-      (error) => error.status === 422 && error.details?.field === 'clientId'
+      service.createVisitReport(
+        baseInput({ clientKind: 'EXISTING', clientId: null, newClientName: '  ' }),
+        actor
+      ),
+      (error) => error.status === 422 && error.details?.field === 'newClientName'
     );
 
     // EXISTING com clientId inexistente
@@ -480,6 +558,133 @@ if (!databaseUrl || !databaseReachable) {
     );
   });
 
+  test('linkVisitReportClient: ADMIN e CADASTRO vinculam com auditoria, preservando nome anotado e declaracao', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const cadastro = await seedUser('CADASTRO');
+    const admin = await seedUser('ADMIN');
+    const clientA = await seedClient({ fullName: 'Produtor A' });
+    const clientB = await seedClient({ fullName: 'Produtor B' });
+
+    const created = await service.createVisitReport(
+      baseInput({ newClientName: 'Anotado na Visita' }),
+      actorFor(prospector)
+    );
+
+    // CADASTRO vincula: clientId + auditoria; nome anotado e clientKind
+    // (declaracao do autor) ficam intactos.
+    const linked = await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: clientA.id },
+      actorFor(cadastro)
+    );
+    assert.equal(linked.report.client.id, clientA.id);
+    assert.equal(linked.report.client.displayName, 'Produtor A');
+    assert.equal(linked.report.newClient.name, 'Anotado na Visita');
+    assert.equal(linked.report.clientKind, 'NEW');
+    assert.equal(linked.report.linkedBy.id, cadastro.id);
+    assert.ok(linked.report.linkedAt);
+
+    // ADMIN re-vincula para outro cliente: troca o vinculo e a auditoria.
+    const relinked = await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: clientB.id },
+      actorFor(admin)
+    );
+    assert.equal(relinked.report.client.id, clientB.id);
+    assert.equal(relinked.report.linkedBy.id, admin.id);
+
+    const row = await prisma.visitReport.findUnique({ where: { id: created.report.id } });
+    assert.equal(row.clientId, clientB.id);
+    assert.equal(row.linkedByUserId, admin.id);
+    assert.ok(row.linkedAt);
+    assert.equal(row.newClientName, 'Anotado na Visita');
+    assert.equal(row.clientKind, 'NEW');
+  });
+
+  test('linkVisitReportClient: desvincular (clientId null) limpa vinculo e auditoria', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const admin = await seedUser('ADMIN');
+    const client = await seedClient();
+
+    const created = await service.createVisitReport(baseInput(), actorFor(prospector));
+    await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: client.id },
+      actorFor(admin)
+    );
+
+    const unlinked = await service.linkVisitReportClient(
+      { reportId: created.report.id, clientId: null },
+      actorFor(admin)
+    );
+    assert.equal(unlinked.report.client, null);
+    assert.equal(unlinked.report.linkedBy, null);
+    assert.equal(unlinked.report.linkedAt, null);
+    // Nome anotado segue disponivel pra re-vincular depois.
+    assert.equal(unlinked.report.newClient.name, 'Fazenda Boa Vista');
+
+    const row = await prisma.visitReport.findUnique({ where: { id: created.report.id } });
+    assert.equal(row.clientId, null);
+    assert.equal(row.linkedByUserId, null);
+    assert.equal(row.linkedAt, null);
+  });
+
+  test('linkVisitReportClient: permissoes e validacoes (403/401/422/404)', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+    const admin = await seedUser('ADMIN');
+    const inactive = await seedClient({ status: 'INACTIVE', fullName: 'Inativo' });
+    const client = await seedClient();
+
+    const created = await service.createVisitReport(baseInput(), actorFor(prospector));
+    const reportId = created.report.id;
+
+    // Papeis fora da curadoria (viewers ou nao): 403.
+    for (const role of ['COMMERCIAL', 'PROSPECTOR', 'CLASSIFIER', 'REGISTRATION']) {
+      const denied = await seedUser(role);
+      await assert.rejects(
+        service.linkVisitReportClient({ reportId, clientId: client.id }, actorFor(denied)),
+        (error) => error.status === 403
+      );
+    }
+
+    // Sem ator autenticado: 401.
+    await assert.rejects(
+      service.linkVisitReportClient({ reportId, clientId: client.id }, {}),
+      (error) => error.status === 401
+    );
+
+    // clientId ausente (undefined): 422 — PATCH com body vazio nao pode
+    // desvincular por acidente.
+    await assert.rejects(
+      service.linkVisitReportClient({ reportId }, actorFor(admin)),
+      (error) => error.status === 422 && error.details?.field === 'clientId'
+    );
+
+    // Informe inexistente: 404 sem vazar existencia.
+    await assert.rejects(
+      service.linkVisitReportClient(
+        { reportId: randomUUID(), clientId: client.id },
+        actorFor(admin)
+      ),
+      (error) => error.status === 404 && error.details?.code === 'VISIT_REPORT_NOT_FOUND'
+    );
+
+    // Cliente inexistente ou inativo: 422 (mesmos codigos do create legado).
+    await assert.rejects(
+      service.linkVisitReportClient({ reportId, clientId: randomUUID() }, actorFor(admin)),
+      (error) => error.status === 422 && error.details?.code === 'VISIT_CLIENT_NOT_FOUND'
+    );
+    await assert.rejects(
+      service.linkVisitReportClient({ reportId, clientId: inactive.id }, actorFor(admin)),
+      (error) => error.status === 422 && error.details?.code === 'VISIT_CLIENT_INACTIVE'
+    );
+
+    // Nada disso mudou o informe.
+    const row = await prisma.visitReport.findUnique({ where: { id: reportId } });
+    assert.equal(row.clientId, null);
+    assert.equal(row.linkedByUserId, null);
+  });
+
   test('listVisitReports: search filtra por nome do cliente (novo e cadastrado) com total real', async () => {
     await resetDatabase();
     const prospector = await seedUser('PROSPECTOR');
@@ -543,6 +748,25 @@ if (!databaseUrl || !databaseReachable) {
     // Viewer busca cruzando autores.
     const viewer = await service.listVisitReports({ search: 'boa' }, actorFor(commercial));
     assert.equal(viewer.page.total, 2);
+  });
+
+  test('listVisitReports: search casa o nome anotado de claim EXISTING aguardando vinculo', async () => {
+    await resetDatabase();
+    const prospector = await seedUser('PROSPECTOR');
+
+    // Declaracao "Ja e cliente" sem vinculo: o nome anotado vive em
+    // new_client_name e a coluna gerada normalizada cobre a busca
+    // acento-insensitive de graca.
+    await service.createVisitReport(
+      baseInput({ clientKind: 'EXISTING', clientId: null, newClientName: 'Café São Bento' }),
+      actorFor(prospector)
+    );
+
+    const hits = await service.listVisitReports({ search: 'sao bento' }, actorFor(prospector));
+    assert.equal(hits.page.total, 1);
+    assert.equal(hits.items[0].clientKind, 'EXISTING');
+    assert.equal(hits.items[0].client, null);
+    assert.equal(hits.items[0].newClient.name, 'Café São Bento');
   });
 
   test('createVisitReport: capturedAt passado e persistido e retornado; ausente fica null', async () => {
@@ -650,6 +874,57 @@ if (!databaseUrl || !databaseReachable) {
 
     const total = await prisma.visitReport.count();
     assert.equal(total, 2);
+  });
+
+  test('PATCH /visit-reports/:id/client via backend-api: 422 sem reportId, 200 no vinculo, 403 fora da curadoria', async () => {
+    await resetDatabase();
+    await seedActorUser();
+    await seedCuratorUser();
+    const client = await seedClient();
+
+    const created = await api.createVisitReport({
+      headers: authHeaders,
+      params: {},
+      query: {},
+      body: {
+        clientKind: 'NEW',
+        newClientName: 'Fazenda Vinculo',
+        farmSize: 'SMALL',
+        interestLevel: 'LOW',
+        sellsCurrently: false,
+      },
+    });
+    assert.equal(created.status, 201);
+    const reportId = created.body.report.id;
+
+    // Path param ausente: 422 antes de chegar no service.
+    const missing = await api.linkVisitReportClient({
+      headers: curatorHeaders,
+      params: {},
+      query: {},
+      body: { clientId: client.id },
+    });
+    assert.equal(missing.status, 422);
+
+    // Curador CADASTRO vincula com 200 e auditoria.
+    const linked = await api.linkVisitReportClient({
+      headers: curatorHeaders,
+      params: { reportId },
+      query: {},
+      body: { clientId: client.id },
+    });
+    assert.equal(linked.status, 200);
+    assert.equal(linked.body.report.client.id, client.id);
+    assert.equal(linked.body.report.linkedBy.id, CURATOR_USER_ID);
+
+    // Ator COMMERCIAL (viewer, nao curador): 403.
+    const denied = await api.linkVisitReportClient({
+      headers: authHeaders,
+      params: { reportId },
+      query: {},
+      body: { clientId: null },
+    });
+    assert.equal(denied.status, 403);
   });
 }
 

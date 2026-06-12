@@ -12,12 +12,13 @@ import {
   toIsoString,
 } from '../users/user-support.js';
 
-// Informe de visita (pagina /informe): cada envio do formulario vira 1 row
-// imutavel em visit_report. Qualquer usuario autenticado envia; a listagem
-// e dos viewers (pagina /resumo, veem tudo) e do PROSPECTOR (informes de
-// todos os autores prospectores — comparacao da equipe — na lista do
-// dashboard dele). userId e createdAt sao carimbados no servidor — o body
-// nunca decide quem enviou nem quando.
+// Informe de visita (formulario do prospector): cada envio vira 1 row em
+// visit_report, imutavel via API EXCETO o trio de vinculo curado
+// (clientId/linkedByUserId/linkedAt — ver linkVisitReportClient). Qualquer
+// usuario autenticado envia; a listagem e dos viewers (pagina /resumo, veem
+// tudo) e do PROSPECTOR (informes de todos os autores prospectores —
+// comparacao da equipe — na lista do dashboard dele). userId e createdAt
+// sao carimbados no servidor — o body nunca decide quem enviou nem quando.
 
 export const VISIT_CLIENT_KINDS = Object.freeze(['EXISTING', 'NEW']);
 export const VISIT_FARM_SIZES = Object.freeze(['SMALL', 'MEDIUM', 'LARGE']);
@@ -33,6 +34,14 @@ export const VISIT_REPORT_LIST_LIMIT_MAX = 100;
 export const VISIT_REPORT_VIEWER_ROLES = Object.freeze([
   USER_ROLES.ADMIN,
   USER_ROLES.COMMERCIAL,
+  USER_ROLES.CADASTRO,
+]);
+
+// Quem cura o vinculo informe -> cliente no /resumo (Vincular / Cadastrar e
+// vincular / Remover vinculo; espelhado no front em lib/roles.ts
+// isVisitLinkCurator). Subconjunto dos viewers: COMMERCIAL le, nao vincula.
+export const VISIT_REPORT_LINK_CURATOR_ROLES = Object.freeze([
+  USER_ROLES.ADMIN,
   USER_ROLES.CADASTRO,
 ]);
 
@@ -175,14 +184,26 @@ export function toVisitReportView(row) {
           status: row.client.status,
         }
       : null,
-    newClient:
-      row.clientKind === 'NEW'
-        ? {
-            name: row.newClientName,
-            city: row.newClientCity,
-            phone: row.newClientPhone,
-          }
-        : null,
+    // Nome anotado por PRESENCA de dados, nao por kind: a declaracao
+    // "Ja e cliente" (EXISTING sem clientId) tambem captura texto livre.
+    // Rows legadas born-linked (EXISTING+clientId) ficam sem nome anotado.
+    newClient: row.newClientName
+      ? {
+          name: row.newClientName,
+          city: row.newClientCity,
+          phone: row.newClientPhone,
+        }
+      : null,
+    // Curadoria do vinculo atual (null = aguardando vinculo ou born-linked).
+    // Defensivo: hidratacao sem o include de linkedBy nao quebra a view.
+    linkedBy: row.linkedBy
+      ? {
+          id: row.linkedBy.id,
+          fullName: row.linkedBy.fullName,
+          username: row.linkedBy.username,
+        }
+      : null,
+    linkedAt: toIsoString(row.linkedAt ?? null),
     farmSize: row.farmSize,
     farmSizeNotes: row.farmSizeNotes,
     interestLevel: row.interestLevel,
@@ -267,35 +288,47 @@ export class VisitReportService {
     }
   }
 
-  // Valida a identificacao do cliente conforme o kind:
-  //   EXISTING — clientId obrigatorio, precisa existir e estar ACTIVE
-  //              (espelha resolveOwnerBinding, sem exigir isSeller: a visita
-  //              pode ser a qualquer cliente do cadastro). Campos new_* zeram.
-  //   NEW      — newClientName obrigatorio; cidade/telefone opcionais.
-  //              clientId zera (prospect ainda fora do cadastro).
+  // Cliente referenciavel por vinculo: precisa existir e estar ACTIVE
+  // (espelha resolveOwnerBinding, sem exigir isSeller: a visita pode ser a
+  // qualquer cliente do cadastro). Usado pelo caminho legado do create e
+  // pela curadoria (linkVisitReportClient).
+  async _assertActiveClient(clientId) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: VISIT_REPORT_CLIENT_SELECT,
+    });
+
+    if (!client) {
+      throw new HttpError(422, 'clientId does not reference an existing client', {
+        code: 'VISIT_CLIENT_NOT_FOUND',
+        field: 'clientId',
+      });
+    }
+
+    if (client.status !== 'ACTIVE') {
+      throw new HttpError(422, 'clientId must reference an active client', {
+        code: 'VISIT_CLIENT_INACTIVE',
+        field: 'clientId',
+      });
+    }
+
+    return client;
+  }
+
+  // Identificacao do cliente: clientKind e DECLARACAO do autor ("Ja e
+  // cliente" / "Cliente novo"), sem lookup — newClientName obrigatorio e
+  // cidade/telefone opcionais nos DOIS kinds; clientId nasce null e o
+  // vinculo real e curadoria posterior (linkVisitReportClient).
+  // Compat legado: payload EXISTING+clientId (fila offline de versoes
+  // antigas do app) segue aceito — valida cliente ACTIVE, zera campos new_*
+  // e nasce "born-linked" (linked_* null). NAO apertar esse caminho: 4xx
+  // (exceto 401) prende o informe na fila do aparelho (visit-sync.ts).
   async resolveClientIdentification(input) {
     const clientKind = normalizeEnumChoice(input.clientKind, VISIT_CLIENT_KINDS, 'clientKind');
+    const legacyClientId = normalizeOptionalText(input.clientId, 'clientId', 100);
 
-    if (clientKind === 'EXISTING') {
-      const clientId = normalizeRequiredText(input.clientId, 'clientId', 100);
-      const client = await this.prisma.client.findUnique({
-        where: { id: clientId },
-        select: VISIT_REPORT_CLIENT_SELECT,
-      });
-
-      if (!client) {
-        throw new HttpError(422, 'clientId does not reference an existing client', {
-          code: 'VISIT_CLIENT_NOT_FOUND',
-          field: 'clientId',
-        });
-      }
-
-      if (client.status !== 'ACTIVE') {
-        throw new HttpError(422, 'clientId must reference an active client', {
-          code: 'VISIT_CLIENT_INACTIVE',
-          field: 'clientId',
-        });
-      }
+    if (clientKind === 'EXISTING' && legacyClientId) {
+      const client = await this._assertActiveClient(legacyClientId);
 
       return {
         clientKind,
@@ -370,6 +403,7 @@ export class VisitReportService {
       include: {
         user: { select: VISIT_REPORT_USER_SELECT },
         client: { select: VISIT_REPORT_CLIENT_SELECT },
+        linkedBy: { select: VISIT_REPORT_USER_SELECT },
       },
     });
 
@@ -401,6 +435,60 @@ export class VisitReportService {
     }
 
     return { removed: true };
+  }
+
+  // Curadoria do vinculo informe -> cliente (pagina /resumo): seta, troca
+  // ou remove (clientId null) o cliente vinculado de QUALQUER informe — o
+  // escopo e o papel (VISIT_REPORT_LINK_CURATOR_ROLES), sem regra de autor.
+  // linkedByUserId/linkedAt auditam o vinculo ATUAL; desvincular limpa o
+  // trio (informe volta a "aguardando vinculo"). clientKind (declaracao do
+  // autor) nunca muda aqui. clientId === undefined responde 422: PATCH com
+  // body vazio nao pode desvincular por acidente.
+  async linkVisitReportClient(input, actorContext) {
+    const actor = assertAuthenticatedActor(actorContext, 'link visit report client');
+    assertRoleAllowed(actor.role, VISIT_REPORT_LINK_CURATOR_ROLES, 'link visit report client');
+
+    const reportId = normalizeRequiredText(input?.reportId, 'reportId', 100);
+
+    let clientId = null;
+    if (input?.clientId !== null) {
+      if (input?.clientId === undefined) {
+        throw new HttpError(422, 'clientId must be a client id string, or null to unlink', {
+          code: 'VALIDATION_ERROR',
+          field: 'clientId',
+        });
+      }
+
+      clientId = normalizeRequiredText(input.clientId, 'clientId', 100);
+      await this._assertActiveClient(clientId);
+    }
+
+    let updated;
+    try {
+      updated = await this.prisma.visitReport.update({
+        where: { id: reportId },
+        data:
+          clientId === null
+            ? { clientId: null, linkedByUserId: null, linkedAt: null }
+            : { clientId, linkedByUserId: actor.actorUserId, linkedAt: new Date() },
+        include: {
+          user: { select: VISIT_REPORT_USER_SELECT },
+          client: { select: VISIT_REPORT_CLIENT_SELECT },
+          linkedBy: { select: VISIT_REPORT_USER_SELECT },
+        },
+      });
+    } catch (cause) {
+      // P2025: informe inexistente — mesma resposta do delete, sem vazar
+      // existencia.
+      if (cause?.code === 'P2025') {
+        throw new HttpError(404, 'Visit report not found', {
+          code: 'VISIT_REPORT_NOT_FOUND',
+        });
+      }
+      throw cause;
+    }
+
+    return { report: toVisitReportView(updated) };
   }
 
   async listVisitReports(input, actorContext) {
@@ -453,6 +541,7 @@ export class VisitReportService {
         include: {
           user: { select: VISIT_REPORT_USER_SELECT },
           client: { select: VISIT_REPORT_CLIENT_SELECT },
+          linkedBy: { select: VISIT_REPORT_USER_SELECT },
         },
       }),
       this.prisma.visitReport.count({ where }),
