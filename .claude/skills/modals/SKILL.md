@@ -9,6 +9,8 @@ Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao con
 
 > Bottom sheets (mobile, slide de baixo) seguem outro padrao — ver `design-system` §8 "Bottom Sheet". Esta skill cobre apenas modais centrais.
 
+> **Padrao de modal de ACAO (consolidado 2026-06):** o canonico de modais de **ACAO** (forms, listas, menus que o usuario opera) e o **BottomSheet** (header branco, titulo verde a esquerda, X quadrado claro, backdrop escuro sem blur, slide-up de baixo) — ver `design-system` §8. Os centrais `.app-modal.is-themed` (esta skill) ficam pra **AVISO/notice/confirm** (`.app-confirm-modal`: icone + mensagem + confirmar/cancelar) e casos especiais. Excecao: os 2 centrais de ACAO do dashboard — busca de lote (`.app-modal-lookup-result`) e senha (`.app-modal-password-decision`) — **continuam centrais** mas adotam o VISUAL de acao via overrides ESCOPADOS (header claro + titulo verde a esquerda + X claro + backdrop escuro), sem tocar no chrome `.is-themed` compartilhado pelos demais ~28 modais.
+
 ## 1. Quando usar
 
 Use o padrao `.app-modal.is-themed` para:
