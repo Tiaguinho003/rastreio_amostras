@@ -1261,6 +1261,52 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
   stroke-linejoin: round;
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+   Modais CENTRAIS de ACAO no padrao "Lotes pendentes" — restyle ESCOPADO,
+   sem tocar no chrome `.app-modal.is-themed` compartilhado (~28 modais).
+   Header claro, titulo verde a esquerda, X quadrado claro, backdrop escuro
+   sem blur. Continuam centrais (decisao do usuario). ────────────────────── */
+
+/* Amostra localizada (busca por lote; mesmo componente da camera). */
+.app-modal.is-themed.app-modal-lookup-result .app-modal-header {
+  background: #ffffff;
+  color: var(--color-ink);
+}
+.app-modal.is-themed.app-modal-lookup-result .app-modal-title {
+  color: var(--brand-green);
+}
+.app-modal.is-themed.app-modal-lookup-result .app-modal-close {
+  background: #eef1ee;
+  color: #4a5751;
+}
+.app-modal.is-themed.app-modal-lookup-result .app-modal-close span {
+  color: #4a5751;
+}
+
+/* Senha inicial / Nova senha (gate nao-dispensavel; sem X). */
+.app-modal-password-decision .app-modal-title {
+  color: var(--brand-green);
+}
+
+/* Backdrop escuro sem blur pros 2 centrais. Anima so a opacidade (sem
+   reanimar o blur da @keyframes app-modal-backdrop-in). */
+.app-modal-backdrop:has(.app-modal-lookup-result),
+.app-modal-backdrop:has(.app-modal-password-decision) {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: app-modal-scrim-in 0.3s ease backwards;
+}
+
+@keyframes app-modal-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* SampleCreatedSuccessModal — header com titulo centralizado + close
    absoluto (mesmo padrao do BottomSheet "Nova amostra" pra coerencia do
    fluxo de registro). Mais especifico que .app-modal.is-themed por
@@ -3751,10 +3797,15 @@ button:disabled {
 }
 
 .mobile-tabbar-inner {
-  display: flex;
+  /* Colunas de largura IGUAL (grid auto-flow) -> todos os itens ficam
+     exatamente a mesma distancia um do outro, com o scanner central
+     centrado na sua propria coluna (era flex com o scanner em slot de
+     largura fixa, que deixava os vaos levemente desiguais). */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   align-items: center;
   gap: 0.2rem;
-  justify-content: center;
 }
 
 .mobile-tabbar-link {
@@ -3763,22 +3814,25 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(0.5rem, 1.8vw, 0.7rem) 0.1rem;
+  /* Padding vertical -10% (barra mais baixa). */
+  padding: clamp(0.45rem, 1.62vw, 0.63rem) 0.1rem;
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.9);
+  /* Barra clara: item inativo em cinza-esverdeado (icone via currentColor
+     + label). Ativo vira verde no .is-active abaixo. */
+  color: #74837a;
   /* skill button-press-effect: transition apenas em transform (sem
      background/color que geraria flash). */
   transition: transform 140ms ease;
   -webkit-tap-highlight-color: transparent;
-  /* Anchor pro ::before (traco branco do indicador de pagina ativa).
+  /* Anchor pro ::before (traco verde do indicador de pagina ativa).
      `.is-primary` ja tem position:relative pelo seu proprio bloco. */
   position: relative;
 }
 
 @media (hover: hover) {
   .mobile-tabbar-link:hover {
-    color: #ffffff;
+    color: #1e8540;
     background: transparent;
   }
 }
@@ -3788,40 +3842,36 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-active {
-  color: #ffffff;
+  color: #1e8540;
   background: transparent;
   box-shadow: none;
 }
 
-/* Indicador da pagina ativa: traco branco horizontal no topo do link,
-   largura = largura do icone (mesma clamp adaptativa). Cantos inferiores
-   arredondados (visual de fita pendurada do topo). Excluido do
-   .is-primary (camera) — o user pediu pra camera nao ter efeito de
-   ativo. */
+/* Indicador da pagina ativa: traco VERDE curto e arredondado ABAIXO do
+   label (referencia do mockup). Excluido do .is-primary (camera) — o
+   user pediu pra camera nao ter efeito de ativo. */
 .mobile-tabbar-link.is-active:not(.is-primary)::before {
   content: '';
   position: absolute;
-  top: 0;
+  bottom: 0.12rem;
   left: 50%;
   transform: translateX(-50%);
-  width: clamp(2.25rem, 10vw, 2.7rem);
+  width: clamp(1.5rem, 6.5vw, 1.9rem);
   height: 3px;
-  background: #ffffff;
-  border-radius: 0 0 3px 3px;
+  background: #1e8540;
+  border-radius: 999px;
   pointer-events: none;
 }
 
 .mobile-tabbar-link.is-primary {
   position: relative;
-  flex: 0 0 auto;
-  /* Clamp ativa no range de phones — camera escala junto com os outros
-     icones (mantem proporcao visual entre primary e os links comuns). */
-  width: clamp(4.75rem, 19vw, 5.5rem);
-  /* Camera levemente elevada em relacao aos demais itens: margin-top negativo
-     moderado (~metade do deslocamento antigo) a partir do eixo central.
-     Tamanho do botao preservado pelos clamps de width/height do
-     .mobile-tabbar-pill. */
-  margin-top: clamp(-0.85rem, -2.4vw, -0.55rem);
+  /* Sem width fixa: ocupa a propria coluna do grid e o circulo (pill) e
+     centrado nela via justify-content do link. O tamanho do botao vem dos
+     clamps de width/height do .mobile-tabbar-pill (mantem a proporcao
+     visual com os links comuns). */
+  /* Camera levemente elevada em relacao aos demais itens (deslocamento -10%
+     junto com o resto da barra). */
+  margin-top: clamp(-0.77rem, -2.16vw, -0.5rem);
   padding: 0;
   background: transparent;
   color: #ffffff;
@@ -3856,11 +3906,11 @@ button:disabled {
 }
 
 .mobile-tabbar-icon {
-  /* Clamp ajustada pra ATIVAR dentro do range de phones (320-430px).
-     Min 2.25rem (36px) em iPhone SE/12 mini; cresce ate 2.7rem (43.2px)
-     em iPhone Pro Max — adapta proporcionalmente ao tamanho da tela. */
-  width: clamp(2.25rem, 10vw, 2.7rem);
-  height: clamp(2.25rem, 10vw, 2.7rem);
+  /* Clamp ajustada pra ATIVAR dentro do range de phones (320-430px),
+     -10% em relacao ao tamanho anterior (barra mais baixa): de 32.4px
+     (iPhone SE/12 mini) ate ~38.9px (iPhone Pro Max). */
+  width: clamp(2.03rem, 9vw, 2.43rem);
+  height: clamp(2.03rem, 9vw, 2.43rem);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3871,7 +3921,9 @@ button:disabled {
   height: 100%;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.16;
+  /* Traco mais fino (pedido do usuario). EXCECAO: o icone da camera
+     (.is-primary) mantem o traco anterior via override proprio abaixo. */
+  stroke-width: 0.9;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -3885,17 +3937,30 @@ button:disabled {
   opacity: 1;
 }
 
-.mobile-tabbar-link:not(.is-active):not(.is-primary) .mobile-tabbar-icon {
-  opacity: 0.6;
+/* Label da pagina ativa em peso mais forte (referencia do mockup); o
+   icone inativo fica em cinza cheio (cor do link), sem dim de opacidade
+   — na barra clara o dim deixava o glifo fraco demais. */
+.mobile-tabbar-link.is-active .mobile-tabbar-label {
+  font-weight: 600;
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  /* Pill da camera segue o mesmo clamp da link (ativa em phones). */
-  width: clamp(4.75rem, 19vw, 5.5rem);
-  height: clamp(4.75rem, 19vw, 5.5rem);
+  /* Circulo da camera: largura desejada (-10%, clamp) MAS nunca maior que a
+     propria coluna do grid (`min(..., 100%)`). Sem o cap, o circulo (maior
+     que a coluna em phones) transbordava — e um filho flex que transborda
+     com justify-content:center "escorrega" pro lado no Safari iOS, deixando
+     o botao fora do centro e os vaos com os vizinhos desiguais. Capado, ele
+     cabe na coluna -> realmente centrado e os 5 itens distribuidos por igual.
+     aspect-ratio:1 mantem o circulo perfeito (a altura segue a largura, entao
+     capar so a largura nao deixa o botao oval). */
+  width: min(clamp(4.28rem, 17.1vw, 4.95rem), 100%);
+  aspect-ratio: 1;
+  height: auto;
+  flex-shrink: 0;
   min-height: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, #1a6b2e 0%, #0d4a1a 100%);
+  /* Mesmo verde do cabecalho/topbar (tokens da marca). */
+  background: linear-gradient(180deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
   border: 2px solid rgba(255, 255, 255, 0.18);
   box-shadow:
     0 6px 20px rgba(4, 14, 5, 0.4),
@@ -3908,27 +3973,31 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon {
-  /* Icone da camera escala junto com o pill (clamp ativa em phones).
+  /* Icone da camera -10% (escala junto com o pill).
      Grid centering pro SVG dentro do wrap, pelo mesmo motivo do pill. */
-  width: clamp(2.5rem, 11vw, 2.95rem);
-  height: clamp(2.5rem, 11vw, 2.95rem);
+  width: clamp(2.25rem, 9.9vw, 2.66rem);
+  height: clamp(2.25rem, 9.9vw, 2.66rem);
   display: grid;
   place-items: center;
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-icon svg {
-  /* SVG dentro do icone — clamp ativa em phones (cresce com tudo). */
-  width: clamp(2.25rem, 10vw, 2.7rem);
-  height: clamp(2.25rem, 10vw, 2.7rem);
+  /* SVG dentro do icone -10% (cresce com tudo). */
+  width: clamp(2.03rem, 9vw, 2.43rem);
+  height: clamp(2.03rem, 9vw, 2.43rem);
+  /* Mantem o traco original do icone da camera (nao afina junto com os
+     demais — pedido do usuario). */
+  stroke-width: 1.16;
 }
 
 .mobile-tabbar-label {
   display: block;
   max-width: 100%;
-  /* Clamp ajustada pra ativar em phones — label cresce de 10.4px (iPhone
-     SE) ate ~12.5px (iPhone Pro Max), proporcional ao viewport. */
-  font-size: clamp(0.65rem, 2.6vw, 0.78rem);
-  font-weight: 600;
+  /* Clamp -10% (label menor junto com a barra): de ~9.4px (iPhone SE) ate
+     ~11.2px (iPhone Pro Max), proporcional ao viewport. */
+  font-size: clamp(0.585rem, 2.34vw, 0.7rem);
+  /* Peso mais leve (letras mais finas — pedido do usuario). */
+  font-weight: 500;
   letter-spacing: 0.01em;
   text-align: center;
   white-space: nowrap;
@@ -3936,7 +4005,7 @@ button:disabled {
   text-overflow: ellipsis;
   line-height: 1;
   padding-inline: 0.1rem;
-  margin-top: 0.18rem;
+  margin-top: 0.16rem;
 }
 
 /* Camera (primary): nao mostra label — so o icone grande dentro do
@@ -18161,13 +18230,14 @@ select.samples-filter-field-input {
 
   :root {
     --mobile-shell-top-offset: 5.2rem;
-    /* Tabbar: icones e labels mantidos a +25% (chrome ja absorveu o
-       crescimento do conteudo), mas paddings internos voltaram a
-       valores enxutos pra evitar barra alta demais. Clearance ajustada
-       pra refletir a nova altura real (icone+label dominam o tamanho). */
-    --mobile-tabbar-clearance: 8.9rem;
-    --mobile-tabbar-inner-pad-top: 0.34rem;
-    --mobile-tabbar-inner-pad-bottom: 0.18rem;
+    /* Tabbar -10% na vertical (pedido do usuario): icone, label e paddings
+       internos escalados por 0.9 (ver clamps em .mobile-tabbar-icon/-label,
+       .mobile-tabbar-link e o pill da camera). Clearance reduzida ~0.56rem
+       (a queda real da altura do pill no topo dos clamps) pra preservar o
+       mesmo respiro entre o conteudo e a barra. */
+    --mobile-tabbar-clearance: 8.3rem;
+    --mobile-tabbar-inner-pad-top: 0.31rem;
+    --mobile-tabbar-inner-pad-bottom: 0.16rem;
     --mobile-tabbar-link-pad-top: 0.04rem;
     --mobile-tabbar-link-pad-bottom: 0.1rem;
     --mobile-tabbar-primary-link-pad-top: 0.02rem;
@@ -18631,11 +18701,16 @@ select.samples-filter-field-input {
     max-width: 28rem;
     margin: 0 auto;
     border-radius: clamp(18px, 5.5vw, 24px);
-    border: 0;
     padding: var(--mobile-tabbar-inner-pad-top) clamp(0.35rem, 2vw, 0.6rem)
       var(--mobile-tabbar-inner-pad-bottom);
-    background: linear-gradient(180deg, #0b4a04 0%, #073603 100%);
-    box-shadow: 0 8px 28px rgba(7, 22, 8, 0.35);
+    /* Barra BRANCA com sombra reforcada pra destacar do fundo da pagina
+       (pedido do usuario). Sombra em camadas: contato curto + difusa
+       ampla. */
+    background: #ffffff;
+    border: 1px solid rgba(20, 50, 25, 0.08);
+    box-shadow:
+      0 4px 12px rgba(20, 50, 25, 0.14),
+      0 14px 34px rgba(20, 50, 25, 0.22);
     box-sizing: border-box;
   }
 
@@ -19039,25 +19114,11 @@ select.samples-filter-field-input {
      verde/sheet. */
 
   .dashboard-mobile .dashboard-hero {
-    /* Textura sutil de brilho/onda diagonal sobre o verde do shell. */
-    background:
-      radial-gradient(
-        130% 90% at 88% -12%,
-        rgba(255, 255, 255, 0.08) 0%,
-        rgba(255, 255, 255, 0) 52%
-      ),
-      linear-gradient(
-        118deg,
-        rgba(255, 255, 255, 0) 46%,
-        rgba(255, 255, 255, 0.045) 47%,
-        rgba(255, 255, 255, 0.045) 64%,
-        rgba(255, 255, 255, 0) 65%
-      ),
-      radial-gradient(120% 110% at -15% 115%, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 48%);
+    /* Sem textura propria: o verde vem so do shell, continuo com a area da
+       busca (sem emenda na borda de baixo do hero). */
     gap: clamp(1.1rem, 2.6dvh, 1.9rem);
-    /* Respiro entre a saudacao (sempre visivel) e a busca sticky, que
-       agora vive no .dashboard-scroll logo abaixo. Reduzido em 0.45rem
-       — folga que migrou pro padding-top da busca (slack do foco). */
+    /* Respiro entre a saudacao e a busca logo abaixo (ambas rolam juntas
+       no .dashboard-scroll). */
     padding-bottom: clamp(0.55rem, calc(2.4dvh - 0.45rem), 1.05rem);
   }
 
@@ -19108,18 +19169,10 @@ select.samples-filter-field-input {
     font-weight: 700;
   }
 
-  /* Busca sticky no topo do .dashboard-scroll: fica parada (a folga do
-     padding-bottom e a distancia da fase 1 do scroll) enquanto o sheet
-     branco sobe por cima. Padding lateral proprio — ela nao esta mais
-     dentro do hero. z-index 0 < 1 do sheet.
-     O padding-TOP e a folga entre a pill e o limite de clip do scroll:
-     sem ela a pill encosta na borda e o auto-scroll do foco (teclado)
-     corta o topo do campo. Compensada no padding-bottom do hero pra
-     posicao de descanso nao mudar. */
+  /* Busca no fluxo normal do .dashboard-scroll: rola junto com a saudacao
+     e o sheet (scroll simples da pagina). Padding lateral proprio — ela
+     vive entre o hero e o sheet, fora do hero. */
   .dashboard-mobile .dashboard-hero-search {
-    position: sticky;
-    top: 0;
-    z-index: 0;
     flex-shrink: 0;
     padding: 0.45rem clamp(1.2rem, 5vw, 1.5rem) clamp(1rem, 2.4dvh, 1.5rem);
     animation: dashboard-hero-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -19128,14 +19181,16 @@ select.samples-filter-field-input {
   .dashboard-mobile .dashboard-hero-search .sample-search-field {
     border-radius: 999px;
     background: #ffffff;
+    /* Sombra reforcada nas bordas do campo. */
     box-shadow:
-      0 10px 26px rgba(8, 24, 16, 0.16),
-      0 2px 8px rgba(8, 24, 16, 0.1);
+      0 16px 38px rgba(8, 24, 16, 0.28),
+      0 5px 14px rgba(8, 24, 16, 0.2);
   }
 
   .dashboard-mobile .dashboard-hero-search .sample-search-field input {
-    padding-top: clamp(0.8rem, 2.8vw, 0.95rem);
-    padding-bottom: clamp(0.8rem, 2.8vw, 0.95rem);
+    /* Altura do campo um pouco menor (padding vertical reduzido ~20%). */
+    padding-top: clamp(0.62rem, 2.2vw, 0.76rem);
+    padding-bottom: clamp(0.62rem, 2.2vw, 0.76rem);
     font-size: clamp(0.98rem, 3.4vw, 1.08rem);
   }
 
@@ -19144,22 +19199,17 @@ select.samples-filter-field-input {
        bloco). */
     background: #f4f6f5;
     gap: clamp(1.1rem, 3.5vw, 1.4rem);
-    /* O sheet NAO rola: e conteudo do .dashboard-scroll e desliza POR
-       CIMA da busca sticky (z-index 1 > 0) ate cobri-la. flex 1 0 auto:
-       nunca encolhe abaixo do conteudo e preenche a tela quando o
-       conteudo e curto. */
+    /* O sheet NAO rola por conta propria: e conteudo do .dashboard-scroll
+       e a pagina inteira rola junto. flex 1 0 auto: nunca encolhe abaixo
+       do conteudo e preenche a tela quando o conteudo e curto. */
     overflow: visible;
     flex: 1 0 auto;
-    position: relative;
-    z-index: 1;
   }
 
-  /* Efeito "cobrir a busca" (pedido do usuario): a saudacao + avatar
-     (hero, fora deste container) ficam SEMPRE visiveis; aqui dentro a
-     busca e sticky no topo e o sheet branco sobe por cima dela na
-     primeira fase do scroll — coberta a busca, o resto do scroll
-     acontece so na parte branca. Na volta o inverso: o branco desce e
-     revela a busca de novo. */
+  /* Scroll simples da pagina inteira: a saudacao + avatar (hero), a busca
+     e o sheet vivem TODOS aqui dentro e rolam juntos — nada fica fixo no
+     topo. overscroll-behavior: contain evita pull-to-refresh do iOS PWA;
+     -webkit-overflow-scrolling: touch ativa o momentum scrolling no iOS. */
   .dashboard-mobile .dashboard-scroll {
     flex: 1;
     min-height: 0;
@@ -19170,16 +19220,6 @@ select.samples-filter-field-input {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    /* Recorte com cantos arredondados: o branco que rola alem do topo e
-       clipado com o MESMO raio do sheet (20px) — na fase 2 a divisa
-       verde/branco mantem a curvatura natural das pontas do sheet em vez
-       de virar linha reta; os cantos revelam o verde do shell atras. O
-       raio coincidir com o do sheet faz a transicao fase 1 -> fase 2 ser
-       continua (os cantos do sheet "viram" os cantos do recorte). */
-    border-radius: 20px 20px 0 0;
-    /* Auto-scroll do foco (teclado) respeita a folga acima da busca —
-       evita o topo do campo cortado ao focar o input. */
-    scroll-padding-top: 0.5rem;
   }
 
   .dashboard-mobile .dashboard-scroll::-webkit-scrollbar {
@@ -19231,20 +19271,29 @@ select.samples-filter-field-input {
     font-size: clamp(0.74rem, 2.8vw, 0.85rem);
   }
 
+  /* Numero de pendencias: chip verde flutuando no canto SUPERIOR DIREITO,
+     popando um pouco pra fora da borda de cima (top negativo). Sai do
+     fluxo (absolute, ancorado no card que e position:relative) — assim o
+     titulo + subtitulo ("Lotes/Clientes" + "Pendentes") ocupam a largura
+     toda do card sem cortar. Anel branco + sombra suave dao o destaque de
+     "popou pra fora" sobre o card branco e o sheet claro atras. */
   .dashboard-mobile .dashboard-operation-card.is-wide .dashboard-operation-badge {
-    position: static;
+    position: absolute;
+    top: clamp(-9px, -2.4vw, -7px);
+    right: clamp(0.5rem, 2vw, 0.7rem);
     width: auto;
-    min-width: clamp(2.1rem, 7.5vw, 2.45rem);
-    height: clamp(2.1rem, 7.5vw, 2.45rem);
-    padding: 0 0.45rem;
-    border-radius: clamp(10px, 3.2vw, 12px);
+    min-width: clamp(1.55rem, 6vw, 1.85rem);
+    height: clamp(1.45rem, 5.4vw, 1.7rem);
+    padding: 0 clamp(0.42rem, 1.7vw, 0.58rem);
+    border-radius: 999px;
     background: #e8f1ec;
     color: #1f5d43;
-    font-size: clamp(0.95rem, 3.4vw, 1.1rem);
-    border: 0;
-    box-shadow: none;
+    font-size: clamp(0.82rem, 3vw, 0.98rem);
+    border: 2px solid #ffffff;
+    box-shadow: 0 3px 8px rgba(20, 55, 42, 0.18);
     animation: none;
     flex-shrink: 0;
+    z-index: 2;
   }
 
   /* ── Recent activity (mobile) ──
@@ -19344,8 +19393,11 @@ select.samples-filter-field-input {
     background: rgba(0, 0, 0, 0.025);
   }
 
-  /* Circulo do icone — NEUTRO (mockup): glifo escuro em fundo claro,
-     igual pra todo tipo de evento (sem cor por variante). */
+  /* Circulo do icone colorido por ACAO: glifo na cor da acao
+     (`EVENT_CONFIG[type].color`) sobre circulo no mesmo tom clarinho
+     (`.bg`) — ambos vem inline do componente (ver RecentActivityListMobile).
+     Os valores abaixo (background/color) sao so fallback neutro caso o
+     inline nao chegue. */
   .recent-activity-mobile-icon {
     display: inline-flex;
     align-items: center;
@@ -23930,8 +23982,10 @@ select.samples-filter-field-input {
 }
 
 .sales-chart-donut-total {
-  /* Numero central grande verde-escuro (mockup, card claro). */
-  font-size: 33px;
+  /* Numero central grande verde-escuro (mockup, card claro). O tamanho
+     (em unidades do viewBox) vem do atributo `fontSize` no componente —
+     encolhe conforme a quantidade de digitos pra caber no furo do donut.
+     Nao definir `font-size` aqui: CSS venceria o atributo de apresentacao. */
   font-weight: 700;
   fill: #14532d;
   font-family: inherit;
@@ -29367,6 +29421,75 @@ select.samples-filter-field-input {
   justify-items: start;
 }
 
+/* O chrome do "Lotes pendentes" (.is-operations) foi PROMOVIDO pro BASE do
+   BottomSheet — virou o padrao canonico de modal de ACAO (ver
+   `.bottom-sheet-header`, `-title`, `-close`, `-drag-handle`/`-bar` e
+   `.bottom-sheet-backdrop.is-open`). Aqui embaixo ficam so as regras de
+   CONTEUDO deste modal (lista + cards). */
+
+/* ── Cards do modal "Lotes pendentes": reusam o visual do card da pagina de
+   Lotes (.spv2-card*) porem colapsados, inertes (so a seta classifica), sem
+   status comercial e sem versao expandida. Abaixo so os ajustes escopados ao
+   modal — o resto vem das regras .spv2-card* ja existentes. ── */
+
+/* Barra lateral em verde de tema "pendente" (todos os lotes do modal estao no
+   mesmo estado; nao encoda status comercial). O `.spv2-card-bar` consome
+   `--card-status-color`. */
+.spv2-card-wrap.is-card-pending {
+  --card-status-color: var(--brand-green-soft);
+}
+
+/* Card inerte: o corpo nao navega (decisao do usuario) — sem cursor de clique
+   nem o afundar do `.spv2-card:active`. */
+.bottom-sheet.is-operations .spv2-card.is-static {
+  cursor: default;
+}
+
+.bottom-sheet.is-operations .spv2-card.is-static:active {
+  transform: none;
+}
+
+/* Sem o entrance por card (`spv2-cardIn`, presente tanto no wrap quanto no
+   card): no modal os cards ja sobem junto com o slide do sheet — evita
+   animacao dupla. */
+.bottom-sheet.is-operations .spv2-card-wrap,
+.bottom-sheet.is-operations .spv2-card.is-static {
+  animation: none;
+}
+
+/* CTA classificar: botao quadrado de cantos arredondados com seta pra direita,
+   no lugar do chevron. Verde da marca (acao principal). */
+.bottom-sheet.is-operations .spv2-card-classify-arrow {
+  flex-shrink: 0;
+  width: clamp(2.4rem, 9vw, 2.7rem);
+  height: clamp(2.4rem, 9vw, 2.7rem);
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: clamp(0.6rem, 2.6vw, 0.75rem);
+  background: linear-gradient(180deg, var(--brand-green) 0%, var(--brand-green-deep) 100%);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 12px rgba(20, 55, 42, 0.24);
+  transition: transform 0.12s ease;
+}
+
+.bottom-sheet.is-operations .spv2-card-classify-arrow:active {
+  transform: scale(0.95);
+}
+
+.bottom-sheet.is-operations .spv2-card-classify-arrow svg {
+  width: clamp(1.2rem, 4.6vw, 1.4rem);
+  height: clamp(1.2rem, 4.6vw, 1.4rem);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .header-avatar-menu {
   display: flex;
   flex-direction: column;
@@ -29533,14 +29656,15 @@ select.samples-filter-field-input {
      aberto, sem transition: entra/sai num unico frame) e quem faz o fade suave
      e o scrim (background). Custo de um backdrop-filter estatico e baixo; o de
      anima-lo e altissimo. */
-  transition: background 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Fade do escurecimento sincronizado com o slide do sheet (0.46s, mesmo
+     easing) — abertura/fechamento mais naturais. */
+  transition: background 0.46s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 
 .bottom-sheet-backdrop.is-open {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(16px) saturate(1.05);
-  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  /* Padrao de ACAO: escurece a pagina (que continua VISIVEL) SEM blur. */
+  background: rgba(0, 0, 0, 0.55);
   pointer-events: auto;
 }
 
@@ -29561,7 +29685,10 @@ select.samples-filter-field-input {
     calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(0.6rem, 2vw, 0.9rem));
   /* translate3d permanente: GPU layer; previne scroll lock iOS standalone */
   transform: translate3d(0, 100%, 0);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Abertura de baixo pra cima mais lenta/natural (0.35s -> 0.46s, ease-out
+     suave). Casa com ANIMATION_MS (460) no BottomSheet.tsx pra o slide de
+     saida nao ser cortado antes do unmount. */
+  transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
   /* Sobe ate logo abaixo do header da pagina (deixa visivel o titulo +
      avatar/sino, conforme pedido do usuario). */
   max-height: calc(100dvh - env(safe-area-inset-top) - var(--bottom-sheet-top-gap));
@@ -29588,25 +29715,15 @@ select.samples-filter-field-input {
   transition: none;
 }
 
-/* Drag handle e header formam uma faixa verde unica no topo do sheet,
-   transbordando o padding horizontal do .bottom-sheet via margem negativa
-   pra cobrir edge-to-edge. Border-radius do drag handle acompanha a curva
-   superior do sheet. */
+/* Padrao de ACAO: drag handle TRANSPARENTE e compacto (sai a antiga faixa
+   verde); a barra fica cinza pra contrastar no fundo claro do sheet. */
 .bottom-sheet-drag-handle {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  /* Padding bottom maior (era 0.35-0.55) pra dar respiro entre o
-     drag bar e o titulo — contribui pra altura total do header verde
-     sem inflar so o header. */
-  padding: clamp(0.65rem, 2.2vw, 0.9rem) 0 clamp(0.55rem, 2vw, 0.8rem);
-  margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
-  background: var(--brand-green);
-  /* Border-radius removido daqui: o .bottom-sheet pai tem
-     `overflow: hidden` + `border-radius: clamp(20px, 5vw, 28px) ... 0 0`
-     que clipa todos os filhos no formato arredondado. Ter border-radius
-     proprio aqui criava dupla-rounding com sub-pixel offset — slivers
-     brancos visiveis no canto superior em alguns devices iOS. */
+  padding: clamp(0.45rem, 1.7vw, 0.65rem) 0 clamp(0.15rem, 0.7vw, 0.28rem);
+  margin: 0;
+  background: transparent;
   cursor: grab;
 }
 
@@ -29614,54 +29731,44 @@ select.samples-filter-field-input {
   width: clamp(2.4rem, 11vw, 3.2rem);
   height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(20, 50, 25, 0.18);
 }
 
+/* Padrao de ACAO: header BRANCO (transparente = fundo claro do sheet);
+   titulo a esquerda + X a direita na mesma linha, colados no topo. */
 .bottom-sheet-header {
   flex-shrink: 0;
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
-  /* Padding vertical simetrico e maior (era clamp(0.7-0.95rem)) — area
-     do header verde mais respirada. Titulo (line-height: 1) fica
-     geometricamente alinhado com o botao X (absolute top:50%). Body
-     abaixo tem flex:1 + overflow-y:auto entao scrolla se necessario
-     em devices pequenos (iPhone SE) sem cortar o footer. */
-  padding: clamp(1.1rem, 3.4vw, 1.45rem) clamp(3.6rem, 12vw, 4.2rem);
-  background: var(--brand-green);
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: clamp(0.4rem, 1.4vw, 0.6rem) 0 clamp(0.7rem, 2.4vw, 0.95rem);
+  background: transparent;
 }
 
 .bottom-sheet-title {
   margin: 0;
-  /* +12% em relacao ao tamanho anterior (1.05-1.2rem -> 1.18-1.34rem) */
   font-size: clamp(1.18rem, 4.7vw, 1.34rem);
   font-weight: 700;
-  color: #ffffff;
-  text-align: center;
+  /* Padrao de ACAO: titulo VERDE da marca, alinhado a esquerda. */
+  color: var(--brand-green);
+  text-align: left;
   min-width: 0;
-  /* line-height: 1 garante que a caixa visual do texto seja igual ao
-     glifo — sem line-box extra acima/abaixo. Combinado com padding
-     simetrico do header, o centro visual do titulo coincide com o
-     centro vertical do botao X. */
   line-height: 1;
 }
 
 .bottom-sheet-close {
-  /* Position absolute pra deixar o titulo flutuar centralizado no header.
-     O padding-right do .bottom-sheet-header reserva o espaco visual. */
-  position: absolute;
-  right: clamp(1rem, 4vw, 1.4rem);
-  top: 50%;
-  transform: translateY(-50%);
+  /* Padrao de ACAO: X quadrado de bordas arredondadas, claro, no fluxo do
+     header (sai o circulo translucido branco absolute). */
+  position: static;
   width: 2.2rem;
   height: 2.2rem;
-  border-radius: 999px;
+  border-radius: clamp(0.55rem, 2.4vw, 0.7rem);
   border: 0;
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: #eef1ee;
+  color: #4a5751;
   /* inline-grid + place-items garante centralizacao perfeita do SVG
      (sem dependencia de line-height/baseline do glyph "x"). */
   display: inline-grid;
@@ -29685,12 +29792,11 @@ select.samples-filter-field-input {
 }
 
 .bottom-sheet-close:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: #e3e8e4;
 }
 
 .bottom-sheet-close:active {
-  /* transform composto: mantem o translateY do absolute + active scale */
-  transform: translateY(-50%) scale(0.92);
+  transform: scale(0.92);
 }
 
 .bottom-sheet-body {
@@ -29757,6 +29863,7 @@ select.samples-filter-field-input {
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-title {
   color: #fdf9ec;
+  text-align: center;
 }
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-close,
@@ -29764,8 +29871,22 @@ select.samples-filter-field-input {
   display: none;
 }
 
+/* Camera preview NAO e modal de acao: restaura o header verde edge-to-edge
+   (o novo chrome claro do base nao se aplica a ela; sem isso o titulo claro
+   sumiria sobre o fundo bege do estado review). */
 .bottom-sheet.camera-preview-sheet .bottom-sheet-header {
+  margin: 0 calc(-1 * clamp(1rem, 4vw, 1.4rem));
+  justify-content: center;
+  padding: clamp(1.1rem, 3.4vw, 1.45rem) clamp(1.2rem, 4vw, 1.5rem);
+  background: var(--brand-green);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* E mantem o backdrop com blur (nao adota o escuro-sem-blur do padrao). */
+.bottom-sheet-backdrop.is-open:has(.bottom-sheet.camera-preview-sheet) {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px) saturate(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
 }
 
 .bottom-sheet.camera-preview-sheet .bottom-sheet-footer {
