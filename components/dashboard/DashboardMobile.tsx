@@ -89,36 +89,35 @@ export function DashboardMobile({
   return (
     <div className="dashboard-mobile">
       <section className="dashboard-page">
-        <section className="dashboard-hero">
-          <div className="dashboard-hero-header">
-            <div className="dashboard-greeting">
-              <span className="dashboard-greeting-label">{getGreeting()}</span>
-              <span className="dashboard-greeting-name">{firstName}</span>
-              <span className="dashboard-greeting-role">
-                <svg
-                  className="dashboard-greeting-role-icon"
-                  viewBox="0 0 24 24"
-                  focusable="false"
-                  aria-hidden="true"
-                >
-                  <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
-                  <path d="m9 12 2 2 4-4.5" />
-                </svg>
-                {roleLabel}
-              </span>
-            </div>
-            <HeaderAvatarMenu session={session} onLogout={onLogout} />
-            <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
-              <span className="dashboard-hero-avatar-initials">{initials}</span>
-            </Link>
-          </div>
-        </section>
-
-        {/* Container de scroll do efeito "cobrir a busca": a saudacao
-            (hero acima) fica SEMPRE visivel; aqui dentro a busca e sticky
-            no topo e o sheet branco sobe POR CIMA dela ao rolar — coberta
-            a busca, o scroll segue dentro da parte branca. */}
+        {/* Scroll simples da pagina inteira: a saudacao (hero), a busca e
+            o sheet vivem todos dentro do .dashboard-scroll e rolam juntos
+            como uma pagina normal — nada fica fixo no topo. */}
         <div className="dashboard-scroll">
+          <section className="dashboard-hero">
+            <div className="dashboard-hero-header">
+              <div className="dashboard-greeting">
+                <span className="dashboard-greeting-label">{getGreeting()}</span>
+                <span className="dashboard-greeting-name">{firstName}</span>
+                <span className="dashboard-greeting-role">
+                  <svg
+                    className="dashboard-greeting-role-icon"
+                    viewBox="0 0 24 24"
+                    focusable="false"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 3 5 5.5v6c0 4.5 3 8.3 7 9.5 4-1.2 7-5 7-9.5v-6L12 3z" />
+                    <path d="m9 12 2 2 4-4.5" />
+                  </svg>
+                  {roleLabel}
+                </span>
+              </div>
+              <HeaderAvatarMenu session={session} onLogout={onLogout} />
+              <Link href="/profile" className="dashboard-hero-avatar" aria-label="Ir para perfil">
+                <span className="dashboard-hero-avatar-initials">{initials}</span>
+              </Link>
+            </div>
+          </section>
+
           <div className="dashboard-hero-search">
             <SampleSearchField session={session} placeholder="Buscar por lote" />
           </div>

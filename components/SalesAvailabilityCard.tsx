@@ -32,6 +32,14 @@ function AgingDonut({
   const visibleCount = SEGMENT_ORDER.filter(({ key }) => bands[key] > 0).length;
   const segmentGap = visibleCount > 1 ? 2 : 0;
 
+  // O numero central encolhe conforme cresce a quantidade de digitos pra
+  // caber confortavelmente dentro do furo do donut (diametro ~69 unidades
+  // no viewBox 100: r=40, stroke=11 -> borda interna em r=34.5). Ate 2
+  // digitos no tamanho cheio; 3+ reduz progressivo pra nao encostar no anel.
+  const totalDigits = String(total).length;
+  const totalFontSize =
+    totalDigits <= 2 ? 33 : totalDigits === 3 ? 29 : totalDigits === 4 ? 23 : 19;
+
   let accumulated = 0;
   const segments = SEGMENT_ORDER.map(({ key, color }) => {
     const value = bands[key];
@@ -80,6 +88,7 @@ function AgingDonut({
         textAnchor="middle"
         dominantBaseline="central"
         className="sales-chart-donut-total"
+        fontSize={totalFontSize}
       >
         {total}
       </text>
