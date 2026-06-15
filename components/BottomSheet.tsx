@@ -10,7 +10,11 @@ import { useFocusTrap } from '../lib/use-focus-trap';
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const SWIPE_THRESHOLD = 60;
-export const ANIMATION_MS = 350;
+// Duracao da animacao de entrada/saida do sheet. DEVE casar (>=) com a
+// `transition` do `.bottom-sheet` no globals.css — senao o slide de saida e
+// cortado antes do unmount. Subiu de 350 -> 460 pra uma abertura de baixo pra
+// cima mais lenta/natural (global, todos os sheets).
+export const ANIMATION_MS = 460;
 
 // Contador module-level pra distinguir popstate causado pelo nosso proprio
 // cleanup (history.back()) vs back externo do usuario (gesto/botao do
