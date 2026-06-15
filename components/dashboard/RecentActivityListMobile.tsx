@@ -19,10 +19,11 @@ function formatLot(lot: string | null, fallback: string): string {
   return lot ?? fallback.slice(0, 8);
 }
 
-// Icone por tipo de atividade. Stroke-based SVG (24x24); cor herdada
-// via currentColor — no design do mockup os icones sao NEUTROS (glifo
-// escuro em circulo claro, igual pra todo tipo); a cor fica fixa no CSS
-// de `.recent-activity-mobile-icon`, sem variavel por evento.
+// Icone por tipo de atividade. Stroke-based SVG (24x24); a cor do glifo
+// herda via `currentColor` da cor por acao (`EVENT_CONFIG[type].color`),
+// aplicada inline no `.recent-activity-mobile-icon` junto do circulo no
+// mesmo tom (`.bg`) — ver render. Verde=venda, vermelho=perda, ambar=envio,
+// azul=registro, cinza=cancelamentos.
 function ActivityIcon({ type }: { type: DashboardRecentActivityType }) {
   switch (type) {
     case 'REGISTRATION_CONFIRMED':
@@ -123,7 +124,11 @@ export function RecentActivityListMobile({ items }: RecentActivityListMobileProp
                   className="recent-activity-mobile-link"
                   aria-label={`${cfg.label} — lote ${lotLabel} — ${formatRelativeTime(item.activity.at, now)}`}
                 >
-                  <span className="recent-activity-mobile-icon" aria-hidden="true">
+                  <span
+                    className="recent-activity-mobile-icon"
+                    style={{ color: cfg.color, background: cfg.bg }}
+                    aria-hidden="true"
+                  >
                     <ActivityIcon type={item.activity.type} />
                   </span>
 

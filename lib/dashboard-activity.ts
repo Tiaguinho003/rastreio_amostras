@@ -20,21 +20,28 @@ export interface DashboardActivityConfig {
   bg: string;
 }
 
+// Cor PADRAO de cada acao (canonica): consumida tanto pelo icone do
+// mobile (`RecentActivityListMobile`, glifo + circulo do mesmo tom) quanto
+// pelo rotulo do desktop (`RecentActivityList`, pill `.dd-activity-event`).
+// Verde/ambar/vermelho sao os MESMOS tons semanticos do grafico de "Lotes
+// disponiveis" (`SalesAvailabilityCard`) — coerencia no dashboard:
+// venda=verde, envio=ambar, perda=vermelho; registro=azul (informativo);
+// cancelamentos=cinza (neutro).
 export const EVENT_CONFIG: Record<DashboardRecentActivityType, DashboardActivityConfig> = {
   REGISTRATION_CONFIRMED: {
     label: 'Registrada',
-    color: '#5a8a5f',
-    bg: 'rgba(90, 138, 95, 0.12)',
-  },
-  SALE_CREATED: {
-    label: 'Vendida',
     color: '#3a6ea3',
     bg: 'rgba(58, 110, 163, 0.12)',
   },
+  SALE_CREATED: {
+    label: 'Vendida',
+    color: '#27ae60',
+    bg: 'rgba(39, 174, 96, 0.14)',
+  },
   LOSS_RECORDED: {
     label: 'Perda',
-    color: '#9a3434',
-    bg: 'rgba(154, 52, 52, 0.12)',
+    color: '#c0392b',
+    bg: 'rgba(192, 57, 43, 0.12)',
   },
   SALE_CANCELLED: {
     label: 'Venda cancelada',
@@ -48,8 +55,8 @@ export const EVENT_CONFIG: Record<DashboardRecentActivityType, DashboardActivity
   },
   PHYSICAL_SAMPLE_SENT: {
     label: 'Enviada',
-    color: '#b56a1d',
-    bg: 'rgba(181, 106, 29, 0.12)',
+    color: '#e5a100',
+    bg: 'rgba(229, 161, 0, 0.15)',
   },
 };
 
