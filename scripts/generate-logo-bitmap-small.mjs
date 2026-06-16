@@ -14,9 +14,9 @@ const ROOT = join(__dirname, '..');
 const SOURCE = join(ROOT, 'assets', 'Safras-logo-ori.png');
 const OUTPUT = join(ROOT, 'print-agent', 'logo-small-data.js');
 
-const WIDTH_BYTES = 30;
-const WIDTH_PX = WIDTH_BYTES * 8; // 240
-const HEIGHT = 86;
+const WIDTH_BYTES = 26;
+const WIDTH_PX = WIDTH_BYTES * 8; // 208
+const HEIGHT = 72;
 const THRESHOLD = 160;
 
 async function main() {

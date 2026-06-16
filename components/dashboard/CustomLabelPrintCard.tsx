@@ -21,30 +21,20 @@ interface FieldConfig {
 // Ordem = ordem de leitura na etiqueta (topo → base). Os printLabel saem
 // MAIUSCULOS com ":" na etiqueta (o ":" e adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
+  { key: 'compra', uiLabel: 'Nº compra', printLabel: 'N° COMPRA', placeholder: 'Nº da compra' },
   {
-    key: 'termoCompra',
-    uiLabel: 'Nº termo/compra',
-    printLabel: 'N° TERMO/COMPRA',
-    placeholder: 'Nº do termo/compra',
+    key: 'fechamento',
+    uiLabel: 'Nº fechamento',
+    printLabel: 'N° FECHAMENTO',
+    placeholder: 'Nº do fechamento',
   },
+  { key: 'produtor', uiLabel: 'Produtor', printLabel: 'PRODUT', placeholder: 'Nome do produtor' },
+  { key: 'armazem', uiLabel: 'Armazém', printLabel: 'ARMAZ', placeholder: 'Nome do armazém' },
+  { key: 'lote', uiLabel: 'Lote', printLabel: 'LOTE', placeholder: 'Lote' },
   {
-    key: 'compraCorretor',
-    uiLabel: 'Nº compra corretor',
-    printLabel: 'N° COMPRA CORRETOR',
-    placeholder: 'Nº da compra do corretor',
-  },
-  { key: 'produtor', uiLabel: 'Produtor', printLabel: 'PRODUTOR', placeholder: 'Nome do produtor' },
-  { key: 'armazem', uiLabel: 'Armazém', printLabel: 'ARMAZEM', placeholder: 'Nome do armazém' },
-  {
-    key: 'loteArmazem',
-    uiLabel: 'Lote armazém',
-    printLabel: 'LOTE ARMAZEM',
-    placeholder: 'Lote no armazém',
-  },
-  {
-    key: 'totalSacas',
-    uiLabel: 'Total sacas',
-    printLabel: 'TOTAL SACAS',
+    key: 'sacas',
+    uiLabel: 'Sacas',
+    printLabel: 'SACAS',
     placeholder: 'Total de sacas',
     numeric: true,
   },

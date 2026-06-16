@@ -169,28 +169,47 @@ export function buildLabel(job) {
   return Buffer.concat(parts);
 }
 
-// Etiqueta avulsa do dashboard admin. Mesma 100x35mm (a calibracao de
-// SIZE/GAP/DENSITY vive em calibratePrinter() no startup). Sem QR: logo no
-// topo direito + os campos em "ROTULO: valor", agrupados conforme o modelo
-// aprovado. payload = { lines: [{ label, value }], copies } — as linhas vem
-// na ordem fixa do card e sao posicionadas POR INDICE (CUSTOM_SLOTS_Y).
-// Ajuste fino do layout: as constantes CUSTOM_* abaixo. O preview
-// (scripts/preview-custom-label.mjs) consome buildCustomLabelLayout, entao o
-// que aparece la == o que imprime.
+// Etiqueta avulsa do dashboard admin (100x35mm; calibracao de SIZE/GAP/DENSITY
+// vive em calibratePrinter() no startup). Layout em 2 colunas — detalhes nas
+// constantes/funcoes abaixo. O preview (scripts/preview-custom-label.mjs)
+// consome buildCustomLabelLayout, entao o que aparece la == o que imprime.
 
-// Largura/altura (dots) das fontes internas TSPL usadas aqui (pra calcular
-// onde o valor comeca e alinhar valor menor pela base do rotulo).
-const TSPL_FONT_W = { 2: 12, 3: 16, 4: 24 };
-const TSPL_FONT_H = { 2: 20, 3: 24, 4: 32 };
+// Largura/altura (dots) das fontes internas TSPL usadas aqui.
+const TSPL_FONT_W = { 1: 8, 2: 12, 3: 16, 4: 24 };
+const TSPL_FONT_H = { 1: 12, 2: 20, 3: 24, 4: 32 };
 
-// Posicao vertical (topo do texto, dots) de cada campo, na ordem do card:
-// 0 N° TERMO/COMPRA · 1 N° COMPRA CORRETOR · 2 PRODUTOR · 3 ARMAZEM ·
-// 4 LOTE ARMAZEM · 5 TOTAL SACAS. Os gaps formam os 3 grupos do modelo.
-const CUSTOM_SLOTS_Y = [24, 56, 140, 172, 204, 246];
-const CUSTOM_LABEL_X = 24;
-const CUSTOM_LABEL_FONT = '3'; // rotulo: maior, em negrito (overstrike)
-const CUSTOM_VALUE_FONT = '2'; // valor: normal, um pouco menor
-const CUSTOM_LABEL_VALUE_GAP = 12; // dots entre "ROTULO:" e o valor
+// --- Layout em 2 colunas (modelo aprovado 2026-06-16) ---
+// Geometria em dots (etiqueta 800x280). Ajuste fino destes numeros aqui; o
+// preview (scripts/preview-custom-label.mjs) consome buildCustomLabelLayout,
+// entao o que aparece la == o que imprime.
+const LABEL_W = 800;
+const LABEL_H = 280;
+const M_TOP = 18; // margens (respiro com a borda — prioridade do usuario)
+const M_BOTTOM = 24;
+const M_LEFT = 22;
+const M_RIGHT = 22;
+const DIVIDER_X = 300; // linha vertical entre as 2 colunas
+const DIVIDER_GAP = 14; // respiro de cada lado da divisoria
+const LINE_PITCH = 22; // topo-a-topo entre linhas de texto
+const FIELD_GAP = 12; // espaco vertical entre campos
+const LABEL_VALUE_GAP = 10; // entre "ROTULO:" e o valor (modo inline)
+
+const CUSTOM_FONT = '2'; // rotulo e valor no MESMO tamanho (12x20)
+const CUSTOM_DEGREE_FONT = '1'; // "°"/"º" pequeno e sobrescrito (tipo "N°")
+const CUSTOM_SHRINK_FONT = '1'; // valor cai pra ca quando nao cabe na fonte padrao
+
+// Campos por ROTULO normalizado (sem "°"/":"), NAO por ordem do card (robusto
+// a reordenacao). mode 'below' = valor abaixo do rotulo; 'inline' = ao lado.
+const CUSTOM_FIELDS = {
+  'N COMPRA': { mode: 'below', maxLines: 2 },
+  'N FECHAMENTO': { mode: 'below', maxLines: 2 },
+  PRODUT: { mode: 'inline', maxLines: 2 },
+  ARMAZ: { mode: 'inline', maxLines: 1 },
+  SACAS: { mode: 'inline', maxLines: 1 },
+  LOTE: { mode: 'inline', maxLines: 3 },
+};
+const CUSTOM_LEFT_ORDER = ['N COMPRA', 'N FECHAMENTO'];
+const CUSTOM_RIGHT_ORDER = ['PRODUT', 'ARMAZ', 'SACAS', 'LOTE'];
 // Carrega o logo pequeno sob demanda. Se logo-small-data.js nao existir,
 // retorna null e a etiqueta avulsa sai sem logo (a de amostra nao depende
 // disso). Node faz cache do import, entao o custo so existe na 1a chamada.
@@ -207,67 +226,207 @@ async function loadSmallLogo() {
   }
 }
 
-// Calcula o layout (posicoes/fontes ja resolvidas) SEM serializar TSPL.
-// Fonte unica compartilhada por buildCustomLabel (impressao) e pelo preview.
-// Retorna { width, height, copies, logo, texts:[{x,y,font,xMul,yMul,text}] }.
+// Quebra o rotulo em segmentos pra desenhar "°"/"º" como um sobrescrito
+// pequeno (fonte 1, tipo "N°") e o resto na fonte do rotulo. Retorna os
+// segmentos (cada um com offset dx relativo ao inicio do rotulo) + o avanco
+// total (largura "real" do rotulo, pra posicionar o valor depois).
+function buildLabelSegments(label) {
+  const bigW = TSPL_FONT_W[Number(CUSTOM_FONT)] ?? 12;
+  const smallW = TSPL_FONT_W[Number(CUSTOM_DEGREE_FONT)] ?? 8;
+  const segments = [];
+  let dx = 0;
+  let run = '';
+  function flushRun() {
+    if (run.length > 0) {
+      segments.push({ dx, font: CUSTOM_FONT, bold: true, text: run });
+      dx += run.length * bigW;
+      run = '';
+    }
+  }
+  for (const ch of label) {
+    if (ch === '°' || ch === 'º') {
+      flushRun();
+      segments.push({ dx, font: CUSTOM_DEGREE_FONT, bold: false, text: '°' });
+      dx += smallW;
+    } else {
+      run += ch;
+    }
+  }
+  flushRun();
+  return { segments, advance: dx };
+}
+
+// Normaliza o rotulo recebido pra casar com as chaves de CUSTOM_FIELDS
+// (remove "°"/"º"/":" e padroniza espacos/caixa). Ex.: "N° COMPRA:" -> "N COMPRA".
+function normalizeFieldKey(label) {
+  return label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+// Word-wrap greedy: quebra `text` em linhas de no maximo `maxChars` (palavra
+// maior que a linha e quebrada na forca).
+function wrapWords(text, maxChars) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (let word of words) {
+    while (word.length > maxChars) {
+      if (cur) {
+        lines.push(cur);
+        cur = '';
+      }
+      lines.push(word.slice(0, maxChars));
+      word = word.slice(maxChars);
+    }
+    if (cur === '') {
+      cur = word;
+    } else if (cur.length + 1 + word.length <= maxChars) {
+      cur += ' ' + word;
+    } else {
+      lines.push(cur);
+      cur = word;
+    }
+  }
+  if (cur) {
+    lines.push(cur);
+  }
+  return lines.length > 0 ? lines : [''];
+}
+
+// Quebra o valor pra caber em `maxLines` dentro de `maxWidth` (dots). Tenta a
+// fonte padrao; se passar, reduz pra fonte menor; se ainda passar, corta a
+// ultima linha com "..." (trava de seguranca da borda). Retorna { font, lines }.
+function wrapValue(text, maxWidth, maxLines) {
+  for (const font of [CUSTOM_FONT, CUSTOM_SHRINK_FONT]) {
+    const charW = TSPL_FONT_W[Number(font)] ?? 12;
+    const maxChars = Math.max(1, Math.floor(maxWidth / charW));
+    const wrapped = wrapWords(text, maxChars);
+    if (wrapped.length <= maxLines) {
+      return { font, lines: wrapped };
+    }
+  }
+  const charW = TSPL_FONT_W[Number(CUSTOM_SHRINK_FONT)] ?? 8;
+  const maxChars = Math.max(1, Math.floor(maxWidth / charW));
+  const wrapped = wrapWords(text, maxChars).slice(0, maxLines);
+  let last = wrapped[wrapped.length - 1] ?? '';
+  if (last.length > maxChars - 3) {
+    last = last.slice(0, Math.max(0, maxChars - 3));
+  }
+  wrapped[wrapped.length - 1] = `${last}...`;
+  return { font: CUSTOM_SHRINK_FONT, lines: wrapped };
+}
+
+// Calcula o layout (posicoes/fontes/quebras ja resolvidas) SEM serializar
+// TSPL. Fonte unica compartilhada por buildCustomLabel (impressao) e pelo
+// preview. Layout por FLUXO (cursor que avanca pela altura real de cada campo)
+// em 2 colunas. Retorna { width, height, copies, logo, texts, divider, safeArea }.
 export async function buildCustomLabelLayout(payload) {
   const lines = Array.isArray(payload?.lines) ? payload.lines : [];
   if (lines.length === 0) {
     throw new Error('etiqueta avulsa sem linhas');
   }
 
-  const logo = await loadSmallLogo();
-  const logoOp = logo
-    ? {
-        widthBytes: logo.widthBytes,
-        height: logo.height,
-        x: 800 - logo.widthBytes * 8 - 16,
-        y: 18,
-        data: logo.data,
-      }
-    : null;
-
-  const labelCharW = TSPL_FONT_W[Number(CUSTOM_LABEL_FONT)] ?? 16;
-  const labelH = TSPL_FONT_H[Number(CUSTOM_LABEL_FONT)] ?? 24;
-  const valueH = TSPL_FONT_H[Number(CUSTOM_VALUE_FONT)] ?? 24;
-  // Valor (fonte menor) desce um pouco pra alinhar pela BASE com o rotulo.
-  const valueDY = Math.max(0, labelH - valueH);
+  // Indexa as linhas recebidas pelo rotulo normalizado (robusto a ordem).
+  const byKey = new Map();
+  for (const line of lines) {
+    byKey.set(normalizeFieldKey(sanitize(line?.label || '', 40)), line);
+  }
 
   const texts = [];
-  lines.forEach((line, index) => {
-    const y = CUSTOM_SLOTS_Y[index] ?? CUSTOM_SLOTS_Y[CUSTOM_SLOTS_Y.length - 1];
 
-    let label = sanitize(line?.label || '', 40);
+  // Desenha o rotulo (com "°" sobrescrito) em (x,y); retorna o avanco do rotulo.
+  function pushLabel(rawLabel, x, y) {
+    let label = sanitize(rawLabel || '', 40);
     if (!label.endsWith(':')) {
       label += ':';
     }
-    // Rotulo em negrito (overstrike na serializacao TSPL).
-    texts.push({
-      x: CUSTOM_LABEL_X,
-      y,
-      font: CUSTOM_LABEL_FONT,
-      xMul: 1,
-      yMul: 1,
-      bold: true,
-      text: label,
-    });
-
-    const rawValue = typeof line?.value === 'string' ? line.value.trim() : '';
-    if (rawValue.length > 0) {
-      const valueX = CUSTOM_LABEL_X + label.length * labelCharW + CUSTOM_LABEL_VALUE_GAP;
+    const { segments, advance } = buildLabelSegments(label);
+    for (const seg of segments) {
       texts.push({
-        x: valueX,
-        y: y + valueDY,
-        font: CUSTOM_VALUE_FONT,
+        x: x + seg.dx,
+        y,
+        font: seg.font,
         xMul: 1,
         yMul: 1,
-        bold: false,
-        text: sanitize(rawValue, 40),
+        bold: seg.bold,
+        text: seg.text,
       });
     }
-  });
+    return advance;
+  }
 
-  return { width: 800, height: 280, copies: 1, logo: logoOp, texts };
+  // Empilha as linhas (ja quebradas) do valor a partir de (x, startY); retorna
+  // o y logo abaixo da ultima linha.
+  function pushValue(vlines, font, x, startY) {
+    let y = startY;
+    for (const vl of vlines) {
+      texts.push({ x, y, font, xMul: 1, yMul: 1, bold: false, text: vl });
+      y += LINE_PITCH;
+    }
+    return y;
+  }
+
+  function readValue(line) {
+    return typeof line?.value === 'string' ? line.value.trim() : '';
+  }
+
+  // Logo no topo-ESQUERDA (opcional — degrada sem o arquivo).
+  const logo = await loadSmallLogo();
+  const logoOp = logo
+    ? { widthBytes: logo.widthBytes, height: logo.height, x: M_LEFT, y: M_TOP, data: logo.data }
+    : null;
+
+  // Coluna ESQUERDA: logo + campos com valor ABAIXO do rotulo.
+  const leftW = DIVIDER_X - DIVIDER_GAP - M_LEFT;
+  let yL = M_TOP + (logoOp ? logoOp.height + FIELD_GAP : 0);
+  for (const key of CUSTOM_LEFT_ORDER) {
+    const line = byKey.get(key);
+    if (!line) continue;
+    pushLabel(line.label, M_LEFT, yL);
+    let y = yL + LINE_PITCH;
+    const rawValue = readValue(line);
+    if (rawValue) {
+      const { font, lines: vlines } = wrapValue(
+        sanitize(rawValue, 300),
+        leftW,
+        CUSTOM_FIELDS[key].maxLines
+      );
+      y = pushValue(vlines, font, M_LEFT, y);
+    }
+    yL = y + FIELD_GAP;
+  }
+
+  // Coluna DIREITA: campos com valor INLINE (ao lado), quebra com recuo
+  // pendurado (continuacao alinha sob o inicio do valor).
+  const rightX = DIVIDER_X + DIVIDER_GAP;
+  let yR = M_TOP;
+  for (const key of CUSTOM_RIGHT_ORDER) {
+    const line = byKey.get(key);
+    if (!line) continue;
+    const advance = pushLabel(line.label, rightX, yR);
+    const rawValue = readValue(line);
+    if (rawValue) {
+      const valueX = rightX + advance + LABEL_VALUE_GAP;
+      const valueW = LABEL_W - M_RIGHT - valueX;
+      const { font, lines: vlines } = wrapValue(
+        sanitize(rawValue, 300),
+        valueW,
+        CUSTOM_FIELDS[key].maxLines
+      );
+      yR = pushValue(vlines, font, valueX, yR) + FIELD_GAP;
+    } else {
+      yR += LINE_PITCH + FIELD_GAP;
+    }
+  }
+
+  const divider = { x: DIVIDER_X, y: M_TOP, width: 3, height: LABEL_H - M_BOTTOM - M_TOP };
+  const safeArea = {
+    left: M_LEFT,
+    right: LABEL_W - M_RIGHT,
+    top: M_TOP,
+    bottom: LABEL_H - M_BOTTOM,
+  };
+
+  return { width: LABEL_W, height: LABEL_H, copies: 1, logo: logoOp, texts, divider, safeArea };
 }
 
 export async function buildCustomLabel(payload) {
@@ -278,6 +437,11 @@ export async function buildCustomLabel(payload) {
   // logo (binario) e o PRINT vao por ultimo. A ordem de desenho nao muda o
   // resultado (campos e logo nao se sobrepoem).
   const head = ['CLS', ''];
+  // Divisoria vertical entre as 2 colunas.
+  if (layout.divider) {
+    const d = layout.divider;
+    head.push(`BAR ${d.x},${d.y},${d.width},${d.height}`);
+  }
   for (const t of layout.texts) {
     head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
     // Negrito: a fonte interna nao tem peso — simula com overstrike (2a

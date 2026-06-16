@@ -25,15 +25,19 @@ const FONT = { 1: [8, 12], 2: [12, 20], 3: [16, 24], 4: [24, 32], 5: [32, 48] };
 const SCALE = 2; // px por dot no PNG final
 const CAPTION_H = 46; // faixa de legenda abaixo da etiqueta (dots)
 
-// Valores de exemplo realistas (inclui nomes longos pra testar o "cabe?").
+// PIOR-CASO: valores longos que atingem o maximo de linhas de cada campo, pra
+// validar que nem o cenario mais cheio encosta nas margens.
 const SAMPLE = {
   lines: [
-    { label: 'N° TERMO/COMPRA', value: '1234/2025' },
-    { label: 'N° COMPRA CORRETOR', value: 'CC-8891' },
-    { label: 'PRODUTOR', value: 'Fazenda Boa Esperança do Café' },
-    { label: 'ARMAZEM', value: 'Armazém Central — Patrocínio' },
-    { label: 'LOTE ARMAZEM', value: 'A-1234' },
-    { label: 'TOTAL SACAS', value: '320' },
+    { label: 'N° COMPRA', value: 'OC-2025-0001234 / NF-99887766-A' },
+    { label: 'N° FECHAMENTO', value: 'FC-2025-554433 / Lote 2025-06-A' },
+    { label: 'PRODUT', value: 'Fazenda Boa Esperança do Rio Verde Ltda ME' },
+    { label: 'ARMAZ', value: 'Armazém Central Patrocínio MG' },
+    { label: 'SACAS', value: '320' },
+    {
+      label: 'LOTE',
+      value: 'A-1234, A-1235, A-1236, A-1237, A-1238, A-1239, A-1240, A-1241, A-1242',
+    },
   ],
 };
 
@@ -64,6 +68,22 @@ async function main() {
     `<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none" stroke="#bbbbbb" />`
   );
 
+  // Divisoria vertical entre as colunas.
+  if (layout.divider) {
+    const d = layout.divider;
+    els.push(
+      `<rect x="${d.x}" y="${d.y}" width="${d.width}" height="${d.height}" fill="#333333" />`
+    );
+  }
+
+  // Guia da area util (margens) — azul tracejado; nada de texto deve passar dela.
+  if (layout.safeArea) {
+    const s = layout.safeArea;
+    els.push(
+      `<rect x="${s.left}" y="${s.top}" width="${s.right - s.left}" height="${s.bottom - s.top}" fill="none" stroke="#4a90d9" stroke-dasharray="6 5" />`
+    );
+  }
+
   // Moldura tracejada da area do logo (o bitmap real entra por composite).
   if (logo) {
     els.push(
@@ -78,14 +98,17 @@ async function main() {
     const charH = ch * (t.yMul || 1);
     const width = t.text.length * charW;
 
-    const offEdge = t.x + width > W || t.y + charH > H;
+    const s = layout.safeArea;
+    const offEdge = s
+      ? t.x + width > s.right || t.y + charH > s.bottom || t.x < s.left - 1 || t.y < s.top - 1
+      : t.x + width > W || t.y + charH > H;
     const onLogo = logo && overlaps(t.x, t.y, width, charH, logo.x, logo.y, logoW, logoH);
     const bad = offEdge || onLogo;
     const fill = bad ? '#cc0000' : '#111111';
 
     const baseline = t.y + charH * 0.8;
     els.push(
-      `<text x="${t.x}" y="${baseline}" font-family="monospace" font-weight="${t.bold ? 'bold' : 'normal'}" font-size="${charH}" textLength="${width}" lengthAdjust="spacingAndGlyphs" fill="${fill}">${esc(t.text)}</text>`
+      `<text xml:space="preserve" x="${t.x}" y="${baseline}" font-family="monospace" font-weight="${t.bold ? 'bold' : 'normal'}" font-size="${charH}" textLength="${width}" lengthAdjust="spacingAndGlyphs" fill="${fill}">${esc(t.text)}</text>`
     );
     if (bad) {
       els.push(
@@ -96,7 +119,7 @@ async function main() {
 
   // Legenda.
   els.push(
-    `<text x="0" y="${H + 30}" font-family="sans-serif" font-size="20" fill="#666666">Etiqueta avulsa — 100 x 35 mm (800 x 280 dots, 203 dpi).  Vermelho = texto fora da borda ou sobre o logo.</text>`
+    `<text x="0" y="${H + 30}" font-family="sans-serif" font-size="20" fill="#666666">Etiqueta avulsa — 100 x 35 mm.  Azul tracejado = margem util.  Vermelho = texto fora da margem.</text>`
   );
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * SCALE}" height="${(H + CAPTION_H) * SCALE}" viewBox="0 0 ${W} ${H + CAPTION_H}"><rect width="${W}" height="${H + CAPTION_H}" fill="#f4f4f4"/>${els.join('')}</svg>`;
