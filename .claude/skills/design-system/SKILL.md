@@ -294,6 +294,7 @@ Excecao a regra "nunca verde ao clicar":
 - Body flex com `min-height: 0` + `overflow-y: auto` (crítico pra teclado virtual)
 - Footer sticky bottom (nao fixed) — acompanha scroll-into-view
 - ESC dispara `onDismissAttempt`; back Android via `history.pushState` + `popstate` listener
+- **GOTCHA — navegar a partir de uma acao do sheet:** o sheet injeta uma entry de history (`state.bottomSheet`) e, no cleanup do close/unmount, chama `history.back()` pra desfaze-la. Como `router.push` (App Router) e assincrono, esse `back()` corre contra a navegacao e a DESFAZ (a acao "nao navega"). Antes do `router.push`, limpe o marcador: `history.replaceState({ ...history.state, bottomSheet: false }, '')`. Ver `useOperationModal.classifySample` (seta de classificar dos "Lotes pendentes") e `HeaderAvatarMenu.go` (linhas do menu da conta).
 - Focus trap via `useFocusTrap`; `role="dialog"` + `aria-modal="true"`
 - `translate3d` permanente: GPU layer; previne scroll lock iOS standalone PWA
 - **Renderiza via `createPortal(document.body)`** (igual ao MobileTabbar): o sheet `position: fixed` escapa do contexto de empilhamento de onde o componente esta montado. Por isso pode ser montado em qualquer lugar (ex: dentro do header de uma pagina, como o `HeaderAvatarMenu`) sem ficar atras do conteudo.

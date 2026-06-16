@@ -117,6 +117,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
     open: operationModalOpen,
     openOperationPanel,
     closeOperationModal,
+    classifySample,
     operationModalData,
   } = useOperationModal(data);
 
@@ -279,10 +280,7 @@ export function DashboardDesktop({ session, data, salesData, error }: DashboardD
         open={operationModalOpen}
         data={operationModalData}
         onClose={closeOperationModal}
-        onItemAction={(sampleId) => {
-          closeOperationModal();
-          router.push(`/camera?sampleId=${sampleId}`);
-        }}
+        onItemAction={classifySample}
       />
     </div>
   );

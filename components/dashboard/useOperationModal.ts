@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
 import type { DashboardPendingResponse, SampleSnapshot } from '../../lib/types';
@@ -25,6 +26,7 @@ function buildOperationModalData(data: DashboardPendingResponse): OperationModal
 }
 
 export function useOperationModal(data: DashboardPendingResponse | null) {
+  const router = useRouter();
   const [activeOperationPanel, setActiveOperationPanel] = useState<OperationPanel>(null);
   const lastOperationTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -48,6 +50,19 @@ export function useOperationModal(data: DashboardPendingResponse | null) {
     }
   }
 
+  // Acao da seta de cada card: abre a camera com a amostra pra classificar.
+  // CRITICO: limpamos o marcador de history do BottomSheet ANTES de navegar.
+  // Ir pra /camera desmonta o dashboard -> o cleanup do sheet roda e, se o
+  // marcador continuar setado, chama history.back() e DESFAZ o router.push
+  // assincrono (a seta nao abria a camera). Mesmo padrao do HeaderAvatarMenu.go().
+  function classifySample(sampleId: string) {
+    if (typeof window !== 'undefined' && window.history.state?.bottomSheet) {
+      window.history.replaceState({ ...window.history.state, bottomSheet: false }, '');
+    }
+    setActiveOperationPanel(null);
+    router.push(`/camera?sampleId=${sampleId}`);
+  }
+
   // Construido sempre que ha dados do dashboard (nao so quando aberto) pra que
   // o conteudo continue disponivel durante a animacao de saida do BottomSheet,
   // que mantem o sheet montado por ANIMATION_MS apos o close.
@@ -58,6 +73,7 @@ export function useOperationModal(data: DashboardPendingResponse | null) {
     activeOperationPanel,
     openOperationPanel,
     closeOperationModal,
+    classifySample,
     operationModalData,
   };
 }

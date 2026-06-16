@@ -43,6 +43,7 @@ export function DashboardMobile({
     open: operationModalOpen,
     openOperationPanel,
     closeOperationModal,
+    classifySample,
     operationModalData,
   } = useOperationModal(data);
 
@@ -240,10 +241,7 @@ export function DashboardMobile({
         open={operationModalOpen}
         data={operationModalData}
         onClose={closeOperationModal}
-        onItemAction={(sampleId) => {
-          closeOperationModal();
-          router.push(`/camera?sampleId=${sampleId}`);
-        }}
+        onItemAction={classifySample}
       />
     </div>
   );
