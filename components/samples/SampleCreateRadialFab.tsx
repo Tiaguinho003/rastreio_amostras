@@ -1,26 +1,24 @@
 'use client';
 
-// Liga B1.3 (Liga F1.0 + F1.C): FAB radial que substitui o "+" simples
-// na pagina /samples. Dois modos:
+// FAB de criação na página /samples (Lotes). Dois modos:
 //
-// - 'idle': mostra "+". Tap abre um drawer glass que parece sair de
-//   DENTRO do FAB — o drawer fica em z=49 (FAB em z=50) e sobrepoe o
-//   topo do FAB pelo proprio border-radius, fazendo o corpo retangular
-//   do drawer preencher os corner-cutouts do FAB. Visualmente os dois
-//   formam uma unica pill continua: bottom corners do FAB + body reto
-//   + top corners do drawer. Animacao via clip-path: inset(100% -> 0)
-//   revela o drawer de baixo pra cima, parecendo emergir do FAB.
-//   Simultaneamente o "+" do FAB gira 45° virando "×". Fechamento
-//   reverte ambos (clip volta a 100% + icone gira de volta).
+// - 'idle': mostra "+". Tap abre um LEQUE (speed-dial) de 2 opções circulares
+//   que parecem sair de DENTRO do FAB: Lote sobe direto ACIMA do FAB e Liga vai
+//   direto À ESQUERDA (canto inferior direito). Ao abrir, o FAB encolhe, vira
+//   circular e o "+" gira 45° virando "×"; a página escurece (scrim no tier de
+//   modal, acima da tabbar) e fica não-clicável — só as opções respondem; tap
+//   fora fecha o leque. Fechamento reverte tudo.
 //
 // - 'blendArrow' (Liga F1.1 + F1.D): substitui "+" por seta direita ->.
 //   Disabled (opacity 40% + cursor not-allowed) quando selectedCount < 2.
 //   Tap habilitado dispara onContinue. Cabeado em B1.4 (modo selecao).
 //
-// CSS em app/globals.css: .fab-menu-card (glass + clip-path reveal),
-// .fab-menu-option (icone grande + label), .fab-radial-backdrop
-// (capta tap-fora), .cv2-fab.is-expanded (rotacao do icone). Reusa
-// tokens existentes (--brand-green, .cv2-fab).
+// CSS em app/globals.css (seção "Leque do FAB de Lotes"): .fab-fan-backdrop
+// (scrim escuro), .fab-fan / .fab-fan-option (opções circulares + rótulo ao
+// lado, posicionadas a partir das vars --fab-* do FAB), e o transform do FAB
+// em .cv2-fab.is-expanded:not(.is-informe-fab) (encolher + circular + z-index).
+// NÃO reusa as classes .fab-menu-* / .fab-radial-backdrop (essas continuam do
+// InformeCreateRadialFab). Reusa tokens existentes (--brand-green, .cv2-fab).
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -40,18 +38,19 @@ type SampleCreateRadialFabProps =
     };
 
 const TOOLTIP_BLEND_DISABLED = 'Selecione pelo menos 2 amostras';
-// Duracao do fechamento — precisa bater com a transition do clip-path
-// no `.fab-menu-card` (sem `.is-open`). Veja globals.css.
-const CLOSE_ANIMATION_MS = 320;
+// Duracao do fechamento — precisa bater com a transition de transform do
+// `.fab-fan-option` (sem `.is-open`) no globals.css, pra o unmount esperar a
+// animacao de "recolher pra dentro do FAB" terminar.
+const CLOSE_ANIMATION_MS = 360;
 
 export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
   // State machine de duas variaveis:
-  // - mounted: drawer existe no DOM (true durante abertura, aberto e fechamento).
-  // - open: classe `.is-open` aplicada — dispara a transition pra revelar o drawer
-  //         e a rotacao 45° do icone do FAB simultaneamente.
+  // - mounted: leque existe no DOM (true durante abertura, aberto e fechamento).
+  // - open: classe `.is-open` aplicada — dispara as transitions (opções emergem
+  //         do FAB, scrim faz fade-in, FAB encolhe + "+"→"×").
   // Pattern duplo-RAF em openMenu garante que o paint inicial (mounted=true,
-  // open=false → drawer com clip-path: inset(100% 0 0 0)) aconteca ANTES de
-  // setOpen(true), pra que a transition CSS dispare corretamente.
+  // open=false → opções colapsadas no FAB) aconteca ANTES de setOpen(true), pra
+  // que as transitions CSS disparem corretamente.
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [pulsingOption, setPulsingOption] = useState<MenuAction | null>(null);
@@ -64,8 +63,7 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
 
   function openMenu() {
     // Se vier de um fechamento em andamento, cancela o unmount pendente
-    // e reabre — a transition do clip-path interpola suavemente do estado
-    // atual (mid-close) pro aberto.
+    // e reabre — as transitions interpolam suavemente do estado atual.
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -150,13 +148,13 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       setPulsingOption(null);
       closeMenu();
       if (action === 'unit') {
-        // NewSampleModal abre e seu backdrop cobre o drawer enquanto
+        // NewSampleModal abre e seu backdrop cobre o leque enquanto
         // ele fecha em paralelo — sem jank visual.
         props.onCreateUnit();
         actionFiredRef.current = false;
       } else {
         // Mode troca pra 'blendArrow' e o early return do component
-        // desmontaria o drawer instantaneamente. Espera o close
+        // desmontaria o leque instantaneamente. Espera o close
         // animation completar antes pra que o user veja a transicao.
         setTimeout(() => {
           props.onStartBlendSelection();
@@ -171,67 +169,75 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
     closeMenu();
   };
 
-  // Classe is-expanded no FAB acompanha o `open` — quando o user pede
-  // pra fechar (open=false), a rotacao reverte simultaneamente com o
-  // clip-path do drawer. mounted&&open == drawer aberto.
+  // Classe is-expanded no FAB acompanha o `open` — quando o user pede pra
+  // fechar (open=false), o FAB cresce de volta e "×"→"+" junto com o leque.
   const fabIsExpanded = mounted && open;
 
   return (
     <>
-      {mounted && open && (
-        <div className="fab-radial-backdrop" onPointerDown={handleBackdropTap} aria-hidden="true" />
+      {mounted && (
+        <div
+          className={`fab-fan-backdrop${open ? ' is-open' : ''}`}
+          onPointerDown={handleBackdropTap}
+          aria-hidden="true"
+        />
       )}
 
       {mounted && (
-        <div
-          className={`fab-menu-card${open ? ' is-open' : ''}`}
-          role="menu"
-          aria-label="Opções de criação"
-          aria-hidden={!open}
-        >
+        <div className="fab-fan" role="menu" aria-label="Opções de criação" aria-hidden={!open}>
+          {/* Lote — acima do FAB */}
           <button
             type="button"
-            className={`fab-menu-option${pulsingOption === 'unit' ? ' is-pulsing' : ''}`}
-            aria-label="Nova amostra"
+            className={`fab-fan-option is-lote${open ? ' is-open' : ''}${
+              pulsingOption === 'unit' ? ' is-pulsing' : ''
+            }`}
+            aria-label="Novo lote"
             role="menuitem"
+            tabIndex={open ? 0 : -1}
             onClick={() => handleOptionTap('unit')}
           >
-            <svg
-              className="fab-menu-option-icon"
-              viewBox="0 0 24 24"
-              focusable="false"
-              aria-hidden="true"
-            >
-              {/* Grao de cafe: oval levemente rotacionado (-18°) + crease
-                  S-shape ao longo do eixo longo. */}
-              <g transform="rotate(-18 12 12)">
-                <path d="M12 3c-3.9 0-6 4-6 9s2.1 9 6 9 6-4 6-9-2.1-9-6-9z" />
-                <path d="M14.5 5.5c-3 4-3 9 0 13" />
-              </g>
-            </svg>
-            <span className="fab-menu-option-label">Amostra</span>
+            <span className="fab-fan-option-label">Lote</span>
+            <span className="fab-fan-option-circle">
+              <svg
+                className="fab-fan-option-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                {/* Grao de cafe: oval levemente rotacionado (-18°) + crease
+                    S-shape ao longo do eixo longo. */}
+                <g transform="rotate(-18 12 12)">
+                  <path d="M12 3c-3.9 0-6 4-6 9s2.1 9 6 9 6-4 6-9-2.1-9-6-9z" />
+                  <path d="M14.5 5.5c-3 4-3 9 0 13" />
+                </g>
+              </svg>
+            </span>
           </button>
 
-          <div className="fab-menu-option-separator" aria-hidden="true" />
-
+          {/* Liga — à esquerda do FAB */}
           <button
             type="button"
-            className={`fab-menu-option${pulsingOption === 'blend' ? ' is-pulsing' : ''}`}
+            className={`fab-fan-option is-liga${open ? ' is-open' : ''}${
+              pulsingOption === 'blend' ? ' is-pulsing' : ''
+            }`}
             aria-label="Nova liga"
             role="menuitem"
+            tabIndex={open ? 0 : -1}
             onClick={() => handleOptionTap('blend')}
           >
-            <svg
-              className="fab-menu-option-icon"
-              viewBox="0 0 24 24"
-              focusable="false"
-              aria-hidden="true"
-            >
-              <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
-              <path d="M10 14v6" />
-              <path d="M14 14v6" />
-            </svg>
-            <span className="fab-menu-option-label">Liga</span>
+            <span className="fab-fan-option-label">Liga</span>
+            <span className="fab-fan-option-circle">
+              <svg
+                className="fab-fan-option-icon"
+                viewBox="0 0 24 24"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <path d="M6 4v6a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V4" />
+                <path d="M10 14v6" />
+                <path d="M14 14v6" />
+              </svg>
+            </span>
           </button>
         </div>
       )}
@@ -239,7 +245,7 @@ export function SampleCreateRadialFab(props: SampleCreateRadialFabProps) {
       <button
         type="button"
         className={`cv2-fab${fabIsExpanded ? ' is-expanded' : ''}`}
-        aria-label={open ? 'Fechar opções de criação' : 'Criar nova amostra'}
+        aria-label={open ? 'Fechar opções de criação' : 'Criar novo lote'}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={handleMainTap}

@@ -5186,6 +5186,16 @@ button:disabled {
   /* recuo interno (cards na lista + contador/filtro no meta); guarda folga
      pra a `box-shadow` dos cards nao ser decepada no `overflow-x: hidden` */
   --lotes-inner-pad: clamp(12px, 3.2vw, 14px);
+  /* Geometria do FAB flutuante (mobile) — ESPELHA `.cv2-fab` (manter em sync):
+     o leque (`.fab-fan-option`) ancora as opcoes a partir dela. */
+  --fab-right: calc(var(--lotes-sheet-pad) + var(--lotes-inner-pad));
+  --fab-size: clamp(53px, 14.95vw, 60px);
+  --fab-bottom: calc(
+    var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
+  );
+  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. */
+  --fan-opt-size: clamp(44px, 12vw, 50px);
+  --fan-gap: clamp(11px, 3vw, 15px);
 }
 
 /* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
@@ -5221,7 +5231,7 @@ button:disabled {
    position: relative). */
 @media (max-width: 900px) {
   .samples-page-v2:not(.informe-commercial-page) .cv2-fab {
-    right: calc(var(--lotes-sheet-pad) + var(--lotes-inner-pad));
+    right: var(--fab-right);
   }
 }
 
@@ -7072,14 +7082,33 @@ button:disabled {
     stroke 0.32s ease-out;
 }
 
-/* Transition de saida do estado expanded (closing): background e
-   box-shadow voltam suavemente ao default em sincronia com o close
-   do drawer (0.28s). Aplicada no `.cv2-fab` base via `transition:
-   background` — mas o base nao tem transition de background. Adiciono
-   abaixo pra cobrir o caso fechado. */
+/* Leque de Lotes: ao abrir, o "+" do /samples ENCOLHE e vira CIRCULAR,
+   parecendo que as opcoes sairam de dentro dele. `:not(.is-informe-fab)`
+   preserva o FAB do informe (que reusa `.cv2-fab.is-expanded` no drawer
+   antigo). A inversao de cor + rotacao "+"→"×" vem das regras acima. z sobe
+   pro tier de modal pra ficar acima do scrim escuro. */
+.cv2-fab.is-expanded:not(.is-informe-fab) {
+  transform: scale(0.85);
+  border-radius: 50%;
+  z-index: var(--z-modal);
+  transition:
+    transform 0.34s cubic-bezier(0.34, 1.4, 0.6, 1),
+    border-radius 0.34s cubic-bezier(0.34, 1.4, 0.6, 1),
+    background 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cv2-fab.is-expanded:not(.is-informe-fab):active {
+  transform: scale(0.8);
+}
+
+/* Transition de saida do estado expanded (closing): background, box-shadow e
+   border-radius voltam suavemente ao default em sincronia com o close.
+   Aplicada no `.cv2-fab` base (que nao tinha transition de background). */
 .cv2-fab {
   transition:
     transform 0.15s,
+    border-radius 0.3s cubic-bezier(0.34, 1.4, 0.6, 1),
     background 0.24s ease-in,
     box-shadow 0.24s ease-in;
 }
@@ -30410,6 +30439,180 @@ select.samples-filter-field-input {
 
 .cv2-fab.is-disabled:active {
   transform: none;
+}
+
+/* ============================================================
+   Leque (speed-dial) do FAB "+" — pagina de Lotes (/samples)
+   ============================================================
+   Substitui o drawer vertical antigo SO no /samples. O drawer (classes
+   `.fab-menu-*` / `.fab-radial-backdrop`) continua em uso pelo
+   InformeCreateRadialFab — NAO mexer la. Aqui: scrim escuro no tier de modal
+   (cobre a tabbar e bloqueia cliques) + 2 opcoes circulares (Lote ACIMA, Liga
+   A ESQUERDA) que emergem do FAB. Posicoes ancoradas nas vars `--fab-*` /
+   `--fan-*` (herdadas de `.samples-page-v2:not(.informe-commercial-page)`). O
+   encolher/arredondar do FAB esta em `.cv2-fab.is-expanded:not(.is-informe-fab)`.
+*/
+
+/* Scrim: escurece a pagina INTEIRA (inclusive a tabbar z-70) no tier de modal
+   e bloqueia cliques — so as opcoes + o "×" respondem. Sem blur (padrao dos
+   modais de acao). Fica montado durante o close pra fazer fade-out. */
+.fab-fan-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+.fab-fan-backdrop.is-open {
+  opacity: 1;
+}
+
+/* Grupo semantico (role=menu) acima do scrim. pointer-events:none deixa os
+   taps no "vazio" passarem pro scrim (fechar); so as opcoes capturam. */
+.fab-fan {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  pointer-events: none;
+}
+
+/* Cada opcao: botao fixo ancorado ao FAB, com rotulo de texto + circulo.
+   Fechado = colapsado (scale 0.2) na direcao do FAB via transform-origin —
+   parece emergir de dentro dele. */
+.fab-fan-option {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2.4vw, 10px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0;
+  transform: scale(0.2);
+  transition:
+    opacity 0.2s ease,
+    transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1);
+}
+
+/* Lote: ACIMA do FAB (centro horizontal alinhado ao FAB). transform-origin no
+   canto inferior-direito do botao (onde fica o circulo, logo acima do FAB). */
+.fab-fan-option.is-lote {
+  right: calc(var(--fab-right) + (var(--fab-size) - var(--fan-opt-size)) / 2);
+  bottom: calc(var(--fab-bottom) + var(--fab-size) + var(--fan-gap));
+  transform-origin: right bottom;
+}
+
+/* Liga: A ESQUERDA do FAB (centro vertical alinhado ao FAB). transform-origin
+   na direita-centro (lado do FAB). */
+.fab-fan-option.is-liga {
+  right: calc(var(--fab-right) + var(--fab-size) + var(--fan-gap));
+  bottom: calc(var(--fab-bottom) + (var(--fab-size) - var(--fan-opt-size)) / 2);
+  transform-origin: right center;
+}
+
+.fab-fan-option.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Liga chega ~40ms depois (stagger sutil, so na abertura). */
+.fab-fan-option.is-liga.is-open {
+  transition:
+    opacity 0.2s ease 0.04s,
+    transform 0.36s cubic-bezier(0.34, 1.46, 0.5, 1) 0.04s;
+}
+
+.fab-fan-option-label {
+  font-size: clamp(13px, 3.7vw, 15px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.fab-fan-option-circle {
+  flex-shrink: 0;
+  width: var(--fan-opt-size);
+  height: var(--fan-opt-size);
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-grid;
+  place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  transition: transform 0.16s ease;
+}
+
+.fab-fan-option-icon {
+  width: 50%;
+  height: 50%;
+  fill: none;
+  stroke: var(--brand-green, #1f5d43);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Tap-feedback: so profundidade (sem mudar cor) — skill button-press-effect. */
+.fab-fan-option:active .fab-fan-option-circle {
+  transform: scale(0.92);
+}
+
+@media (hover: hover) {
+  .fab-fan-option:hover .fab-fan-option-circle {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+  }
+}
+
+.fab-fan-option:focus-visible {
+  outline: none;
+}
+
+.fab-fan-option:focus-visible .fab-fan-option-circle {
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.3),
+    0 0 0 3px rgba(255, 255, 255, 0.55);
+}
+
+/* Pulse ao selecionar (so scale, sem cor). */
+.fab-fan-option.is-pulsing .fab-fan-option-circle {
+  animation: fab-fan-pulse 0.18s ease-out;
+}
+
+@keyframes fab-fan-pulse {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Reduce motion: sem emergencia (scale) — opcoes so aparecem com fade nas
+   posicoes finais; FAB sem o spring (so cor/sombra). */
+@media (prefers-reduced-motion: reduce) {
+  .fab-fan-option,
+  .fab-fan-option.is-open,
+  .fab-fan-option.is-liga.is-open {
+    transform: none;
+    transition: opacity 0.16s ease;
+  }
+  .cv2-fab.is-expanded:not(.is-informe-fab) {
+    transition:
+      background 0.2s ease,
+      box-shadow 0.2s ease;
+  }
 }
 
 /* ============================================================
