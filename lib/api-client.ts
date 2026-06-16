@@ -1332,7 +1332,7 @@ export function requestQrPrint(
   });
 }
 
-// TEMPORARIO: enfileira uma etiqueta avulsa (card do dashboard admin).
+// Enfileira uma etiqueta avulsa (card do dashboard admin).
 // lines = [{ label, value }] na ordem de impressao. Sem vinculo com Sample.
 export function requestCustomPrint(
   session: SessionData,

@@ -54,6 +54,11 @@ const ACCENT_MAP = {
   '\u00c7': 'C',
   '\u00f1': 'n',
   '\u00d1': 'N',
+  // Grau (e ordinal masculino) preservados pra "N\u00b0"/"N\u00ba" da etiqueta avulsa.
+  // Emitidos como byte 0xB0 (latin1) \u2014 a impressao depende da code page da
+  // impressora (verificar no print real; fallback "N." se nao sair).
+  '\u00b0': '\u00b0',
+  '\u00ba': '\u00b0',
 };
 
 function toAscii(text) {
@@ -164,12 +169,28 @@ export function buildLabel(job) {
   return Buffer.concat(parts);
 }
 
-// TEMPORARIO: etiqueta avulsa do dashboard admin. Mesma 100x35mm (a
-// calibracao de SIZE/GAP/DENSITY vive em calibratePrinter() no startup).
-// Sem QR: so logo pequeno no topo direito + N linhas "ROTULO  valor".
-// payload = { lines: [{ label, value }], copies }. Layout em dots (203dpi,
-// 800x280). Ajustar START_Y/STEP_Y/VALUE_X aqui se precisar afinar no print
-// real. Removivel junto com o card.
+// Etiqueta avulsa do dashboard admin. Mesma 100x35mm (a calibracao de
+// SIZE/GAP/DENSITY vive em calibratePrinter() no startup). Sem QR: logo no
+// topo direito + os campos em "ROTULO: valor", agrupados conforme o modelo
+// aprovado. payload = { lines: [{ label, value }], copies } — as linhas vem
+// na ordem fixa do card e sao posicionadas POR INDICE (CUSTOM_SLOTS_Y).
+// Ajuste fino do layout: as constantes CUSTOM_* abaixo. O preview
+// (scripts/preview-custom-label.mjs) consome buildCustomLabelLayout, entao o
+// que aparece la == o que imprime.
+
+// Largura/altura (dots) das fontes internas TSPL usadas aqui (pra calcular
+// onde o valor comeca e alinhar valor menor pela base do rotulo).
+const TSPL_FONT_W = { 2: 12, 3: 16, 4: 24 };
+const TSPL_FONT_H = { 2: 20, 3: 24, 4: 32 };
+
+// Posicao vertical (topo do texto, dots) de cada campo, na ordem do card:
+// 0 N° TERMO/COMPRA · 1 N° COMPRA CORRETOR · 2 PRODUTOR · 3 ARMAZEM ·
+// 4 LOTE ARMAZEM · 5 TOTAL SACAS. Os gaps formam os 3 grupos do modelo.
+const CUSTOM_SLOTS_Y = [24, 56, 140, 172, 204, 246];
+const CUSTOM_LABEL_X = 24;
+const CUSTOM_LABEL_FONT = '3'; // rotulo: maior, em negrito (overstrike)
+const CUSTOM_VALUE_FONT = '2'; // valor: normal, um pouco menor
+const CUSTOM_LABEL_VALUE_GAP = 12; // dots entre "ROTULO:" e o valor
 // Carrega o logo pequeno sob demanda. Se logo-small-data.js nao existir,
 // retorna null e a etiqueta avulsa sai sem logo (a de amostra nao depende
 // disso). Node faz cache do import, entao o custo so existe na 1a chamada.
@@ -186,53 +207,98 @@ async function loadSmallLogo() {
   }
 }
 
-export async function buildCustomLabel(payload) {
+// Calcula o layout (posicoes/fontes ja resolvidas) SEM serializar TSPL.
+// Fonte unica compartilhada por buildCustomLabel (impressao) e pelo preview.
+// Retorna { width, height, copies, logo, texts:[{x,y,font,xMul,yMul,text}] }.
+export async function buildCustomLabelLayout(payload) {
   const lines = Array.isArray(payload?.lines) ? payload.lines : [];
   if (lines.length === 0) {
     throw new Error('etiqueta avulsa sem linhas');
   }
-  const copies = 1;
-  const logoY = 14;
 
+  const logo = await loadSmallLogo();
+  const logoOp = logo
+    ? {
+        widthBytes: logo.widthBytes,
+        height: logo.height,
+        x: 800 - logo.widthBytes * 8 - 16,
+        y: 18,
+        data: logo.data,
+      }
+    : null;
+
+  const labelCharW = TSPL_FONT_W[Number(CUSTOM_LABEL_FONT)] ?? 16;
+  const labelH = TSPL_FONT_H[Number(CUSTOM_LABEL_FONT)] ?? 24;
+  const valueH = TSPL_FONT_H[Number(CUSTOM_VALUE_FONT)] ?? 24;
+  // Valor (fonte menor) desce um pouco pra alinhar pela BASE com o rotulo.
+  const valueDY = Math.max(0, labelH - valueH);
+
+  const texts = [];
+  lines.forEach((line, index) => {
+    const y = CUSTOM_SLOTS_Y[index] ?? CUSTOM_SLOTS_Y[CUSTOM_SLOTS_Y.length - 1];
+
+    let label = sanitize(line?.label || '', 40);
+    if (!label.endsWith(':')) {
+      label += ':';
+    }
+    // Rotulo em negrito (overstrike na serializacao TSPL).
+    texts.push({
+      x: CUSTOM_LABEL_X,
+      y,
+      font: CUSTOM_LABEL_FONT,
+      xMul: 1,
+      yMul: 1,
+      bold: true,
+      text: label,
+    });
+
+    const rawValue = typeof line?.value === 'string' ? line.value.trim() : '';
+    if (rawValue.length > 0) {
+      const valueX = CUSTOM_LABEL_X + label.length * labelCharW + CUSTOM_LABEL_VALUE_GAP;
+      texts.push({
+        x: valueX,
+        y: y + valueDY,
+        font: CUSTOM_VALUE_FONT,
+        xMul: 1,
+        yMul: 1,
+        bold: false,
+        text: sanitize(rawValue, 40),
+      });
+    }
+  });
+
+  return { width: 800, height: 280, copies: 1, logo: logoOp, texts };
+}
+
+export async function buildCustomLabel(payload) {
+  const layout = await buildCustomLabelLayout(payload);
   const parts = [];
 
-  // Logo pequeno no topo direito (opcional — ver loadSmallLogo).
-  const logo = await loadSmallLogo();
-  if (logo) {
-    const logoPixelWidth = logo.widthBytes * 8;
-    const logoX = 800 - logoPixelWidth - 24;
-    const header = [
-      'CLS',
-      '',
-      `BITMAP ${logoX},${logoY},${logo.widthBytes},${logo.height},0,`,
-    ].join('\r\n');
-    parts.push(Buffer.from(header, 'ascii'));
-    parts.push(logo.data);
-  } else {
-    // Sem logo: ainda precisamos limpar o buffer antes de desenhar o texto.
-    parts.push(Buffer.from(['CLS', ''].join('\r\n'), 'ascii'));
+  // CLS + textos primeiro (texto em latin1 pra preservar o "°"); o BITMAP do
+  // logo (binario) e o PRINT vao por ultimo. A ordem de desenho nao muda o
+  // resultado (campos e logo nao se sobrepoem).
+  const head = ['CLS', ''];
+  for (const t of layout.texts) {
+    head.push(`TEXT ${t.x},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    // Negrito: a fonte interna nao tem peso — simula com overstrike (2a
+    // passada 1 dot a direita engrossa o traco).
+    if (t.bold) {
+      head.push(`TEXT ${t.x + 1},${t.y},"${t.font}",0,${t.xMul},${t.yMul},"${t.text}"`);
+    }
+  }
+  parts.push(Buffer.from(head.join('\r\n') + '\r\n', 'latin1'));
+
+  if (layout.logo) {
+    parts.push(
+      Buffer.from(
+        `BITMAP ${layout.logo.x},${layout.logo.y},${layout.logo.widthBytes},${layout.logo.height},0,`,
+        'latin1'
+      )
+    );
+    parts.push(layout.logo.data);
+    parts.push(Buffer.from('\r\n', 'latin1'));
   }
 
-  // Linhas rotulo:valor abaixo do logo. Rotulo em font "2" (menor), valor em
-  // font "3" (maior). Valores alinhados na coluna x=VALUE_X.
-  const LABEL_X = 24;
-  const VALUE_X = 340;
-  const START_Y = 78;
-  const STEP_Y = 33;
-
-  const body = [''];
-  lines.forEach((line, index) => {
-    const y = START_Y + index * STEP_Y;
-    const label = sanitize(line?.label || '', 24).toUpperCase();
-    const value = sanitize(line?.value || '', 28);
-    // Rotulo levemente abaixo (+3) pra centrar opticamente com o valor maior.
-    body.push(`TEXT ${LABEL_X},${y + 3},"2",0,1,1,"${label}"`);
-    body.push(`TEXT ${VALUE_X},${y},"3",0,1,1,"${value}"`);
-  });
-  body.push('');
-  body.push(`PRINT 1,${copies}`);
-  body.push('');
-  parts.push(Buffer.from(body.join('\r\n'), 'ascii'));
-
+  parts.push(Buffer.from(`PRINT 1,${layout.copies}\r\n`, 'latin1'));
   return Buffer.concat(parts);
 }

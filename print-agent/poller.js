@@ -212,10 +212,10 @@ async function processJob(config, job) {
 }
 
 // ============================================================
-// TEMPORARIO: etiqueta avulsa (card do dashboard admin). Fila propria
+// Etiqueta avulsa (card do dashboard admin). Fila propria
 // (/api/v1/custom-print), independente da fila de amostras. Pollada em
-// paralelo dentro do pollCycle, com try/catch proprio pra tolerar o
-// endpoint ainda nao existir (agente atualizado antes do deploy).
+// paralelo dentro do pollCycle, com try/catch proprio pra tolerar
+// indisponibilidade momentanea do endpoint sem derrubar o ciclo.
 // ============================================================
 
 async function fetchPendingCustomJobs(config) {
@@ -343,7 +343,7 @@ export async function pollCycle(config) {
     log.debug('Nenhum job pendente');
   }
 
-  // TEMPORARIO: fila de etiquetas avulsas (independente da de amostras).
+  // Fila de etiquetas avulsas (independente da de amostras).
   await pollCustomCycle(config);
 }
 

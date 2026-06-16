@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import sharp from 'sharp';
 
-// TEMPORARIO: gera um logo PEQUENO (separado do logo-data.js da etiqueta de
-// amostra) para a etiqueta avulsa do dashboard admin. Saida:
+// Gera um logo PEQUENO (separado do logo-data.js da etiqueta de amostra)
+// para a etiqueta avulsa do dashboard admin. Saida:
 // print-agent/logo-small-data.js. Espelha scripts/generate-logo-bitmap.mjs
 // com caixa menor (fit:contain preserva a proporcao, sobra vira branco).
 
@@ -14,9 +14,9 @@ const ROOT = join(__dirname, '..');
 const SOURCE = join(ROOT, 'assets', 'Safras-logo-ori.png');
 const OUTPUT = join(ROOT, 'print-agent', 'logo-small-data.js');
 
-const WIDTH_BYTES = 20;
-const WIDTH_PX = WIDTH_BYTES * 8; // 160
-const HEIGHT = 48;
+const WIDTH_BYTES = 30;
+const WIDTH_PX = WIDTH_BYTES * 8; // 240
+const HEIGHT = 86;
 const THRESHOLD = 160;
 
 async function main() {
@@ -58,7 +58,7 @@ async function main() {
   }
 
   const base64 = bytes.toString('base64');
-  const content = `// TEMPORARIO: logo pequeno da etiqueta avulsa (gerado por scripts/generate-logo-bitmap-small.mjs).
+  const content = `// Logo pequeno da etiqueta avulsa (gerado por scripts/generate-logo-bitmap-small.mjs).
 export const LOGO_SMALL_WIDTH_BYTES = ${WIDTH_BYTES};
 export const LOGO_SMALL_HEIGHT = ${HEIGHT};
 export const LOGO_SMALL_DATA = Buffer.from(

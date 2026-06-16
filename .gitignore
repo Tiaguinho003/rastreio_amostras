@@ -51,6 +51,10 @@ notes-*.md
 # Artefato local do gerador de bitmap da etiqueta
 print-agent/logo-preview.png
 
+# Artefato local do preview da etiqueta avulsa (scripts/preview-custom-label.mjs)
+print-agent/custom-label-preview.png
+print-agent/custom-label-preview.svg
+
 # Estado local do print-agent (jobs ja impressos nesta sessao)
 print-agent/.printed-jobs.json
 

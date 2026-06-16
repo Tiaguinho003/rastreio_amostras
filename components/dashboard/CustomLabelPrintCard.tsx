@@ -6,11 +6,9 @@ import { ApiError, requestCustomPrint } from '../../lib/api-client';
 import { useToast } from '../../lib/toast/ToastProvider';
 import type { SessionData } from '../../lib/types';
 
-// TEMPORARIO: card de etiqueta avulsa no fim do dashboard admin. Imprime na
-// MESMA impressora das amostras (via print agent) uma etiqueta com 6 campos
+// Card de etiqueta avulsa no fim do dashboard admin. Imprime na MESMA
+// impressora das amostras (via print agent) uma etiqueta com 6 campos
 // editaveis, sem QR, logo pequeno, 1 copia por clique (cliques ilimitados).
-// Para remover: apagar este arquivo + o uso no DashboardMobile + os endpoints
-// /custom-print + a tabela custom_print_job.
 
 interface FieldConfig {
   key: string;
@@ -20,33 +18,35 @@ interface FieldConfig {
   numeric?: boolean;
 }
 
+// Ordem = ordem de leitura na etiqueta (topo → base). Os printLabel saem
+// MAIUSCULOS com ":" na etiqueta (o ":" e adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
-  { key: 'producer', uiLabel: 'Produtor', printLabel: 'PRODUTOR', placeholder: 'Nome do produtor' },
   {
-    key: 'sacks',
-    uiLabel: 'Sacas',
-    printLabel: 'SACAS',
-    placeholder: 'Qtd. de sacas',
-    numeric: true,
+    key: 'termoCompra',
+    uiLabel: 'Nº termo/compra',
+    printLabel: 'N° TERMO/COMPRA',
+    placeholder: 'Nº do termo/compra',
   },
   {
-    key: 'warehouseLot',
+    key: 'compraCorretor',
+    uiLabel: 'Nº compra corretor',
+    printLabel: 'N° COMPRA CORRETOR',
+    placeholder: 'Nº da compra do corretor',
+  },
+  { key: 'produtor', uiLabel: 'Produtor', printLabel: 'PRODUTOR', placeholder: 'Nome do produtor' },
+  { key: 'armazem', uiLabel: 'Armazém', printLabel: 'ARMAZEM', placeholder: 'Nome do armazém' },
+  {
+    key: 'loteArmazem',
     uiLabel: 'Lote armazém',
-    printLabel: 'L. ARMAZEM',
+    printLabel: 'LOTE ARMAZEM',
     placeholder: 'Lote no armazém',
   },
-  { key: 'warehouse', uiLabel: 'Armazém', printLabel: 'ARMAZEM', placeholder: 'Nome do armazém' },
   {
-    key: 'brokerPurchase',
-    uiLabel: 'Nº compra corretor',
-    printLabel: 'N. COMPRA CORRETOR',
-    placeholder: 'Número da compra',
-  },
-  {
-    key: 'c6Term',
-    uiLabel: 'Nº termo C6',
-    printLabel: 'N. TERMO C6',
-    placeholder: 'Número do termo',
+    key: 'totalSacas',
+    uiLabel: 'Total sacas',
+    printLabel: 'TOTAL SACAS',
+    placeholder: 'Total de sacas',
+    numeric: true,
   },
 ];
 
@@ -81,12 +81,15 @@ export function CustomLabelPrintCard({ session }: CustomLabelPrintCardProps) {
       return;
     }
 
+    // Envia TODOS os campos na ordem fixa (mesmo vazios) — o buildCustomLabel
+    // posiciona por indice, entao a ordem nao pode "compactar". Campos vazios
+    // saem so com o rotulo na etiqueta.
     const lines = FIELDS.map((field) => ({
       label: field.printLabel,
       value: values[field.key].trim(),
-    })).filter((line) => line.value.length > 0);
+    }));
 
-    if (lines.length === 0) {
+    if (lines.every((line) => line.value.length === 0)) {
       setFormError('Preencha ao menos um campo para imprimir.');
       return;
     }

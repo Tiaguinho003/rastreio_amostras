@@ -13,7 +13,7 @@ import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityListMobile } from './RecentActivityListMobile';
-// TEMPORARIO: card de etiqueta avulsa no fim do dashboard (admin).
+// Card de etiqueta avulsa no fim do dashboard (admin).
 import { CustomLabelPrintCard } from './CustomLabelPrintCard';
 import type {
   DashboardPendingResponse,
@@ -226,7 +226,7 @@ export function DashboardMobile({
               <RecentActivityListMobile items={recentActivity} />
             </section>
 
-            {/* TEMPORARIO: etiqueta avulsa (admin) — ultimo bloco do dashboard. */}
+            {/* Etiqueta avulsa (admin) — ultimo bloco do dashboard. */}
             {isAdmin(session.user.role) ? (
               <section className="dashboard-sheet-section dashboard-sheet-content is-slot-custom-print">
                 <CustomLabelPrintCard session={session} />

@@ -146,10 +146,10 @@ function readPageQuery(value) {
   return parsed;
 }
 
-// TEMPORARIO (card de etiqueta avulsa do dashboard admin). Valida/normaliza
-// as linhas { label, value } enviadas pelo card. O agente renderiza essas
-// linhas como rotulo:valor (sem QR). Mantido generico de proposito: o card
-// decide os rotulos, o backend so sanitiza tamanho/forma.
+// Etiqueta avulsa (card do dashboard admin). Valida/normaliza as linhas
+// { label, value } enviadas pelo card. O agente renderiza essas linhas como
+// rotulo:valor (sem QR). Mantido generico de proposito: o card decide os
+// rotulos, o backend so sanitiza tamanho/forma.
 function normalizeCustomLabelLines(rawLines) {
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
     throw new HttpError(422, 'lines deve ser uma lista nao vazia');
@@ -1003,11 +1003,10 @@ export function createBackendApiV1({
       }),
 
     // ============================================================
-    // TEMPORARIO: etiqueta avulsa (card do dashboard admin).
+    // Etiqueta avulsa (card do dashboard admin).
     // Fila propria (custom_print_job) — endpoint separado de proposito
     // pra nao tocar no fluxo de impressao das amostras. O print agent
     // poll este /pending alem do /print-queue/pending de sempre.
-    // Removivel junto com o card (drop table + remover estes handlers).
     // ============================================================
 
     enqueueCustomPrintJob: (input) =>
