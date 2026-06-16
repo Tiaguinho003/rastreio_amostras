@@ -26,7 +26,7 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 
 ### Sheet de Conteudo (area bege)
 
-- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`. **Excecao aprovada (2026-06-12)**: o dashboard mobile do ADMIN usa fundo FRIO claro `#f4f6f5` (redesign do mockup, escopado em `.dashboard-mobile .dashboard-sheet`) — as demais paginas seguem no bege
+- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`. **Excecoes aprovadas (fundo FRIO claro `#f4f6f5`, nunca `#fff` puro)**: (1) dashboard mobile do ADMIN (2026-06-12, `.dashboard-mobile .dashboard-sheet`); (2) pagina de **Lotes `/samples`** (2026-06-16, `.samples-page-v2:not(.informe-commercial-page) .samples-page-v2-sheet` — escopado pra NAO afetar o `InformeCommercialPage`, que reusa o shell `.samples-page-v2`, nem a `/clients`). As demais paginas (Clientes, Informe, etc.) seguem no bege
 - `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
 - `padding-bottom` respeita tabbar: `calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))` — usar a CSS var sincronizada (ver skill `responsive` §4), nunca `env()` direto. **Excecao**: list pages com sheet rolavel (`/samples`, `/clients`) movem o clearance pro container de scroll e deixam o conteudo rolar por tras da tabbar flutuante — ver skill `responsive` §5
 - O sheet ocupa o restante da tela com `flex: 1`

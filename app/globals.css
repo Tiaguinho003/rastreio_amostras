@@ -5168,6 +5168,27 @@ button:disabled {
   animation: samples-sheet-in 0.5s ease-out 0.15s both;
 }
 
+/* ── Pagina de Lotes (/samples): visual branco/limpo do dashboard ──
+   ESCOPADO so a /samples. O InformeCommercialPage reusa `.samples-page-v2` +
+   `.samples-page-v2-sheet` + `.spv2-list-scroll` (distinto por
+   `.informe-commercial-page`) e a /clients usa `.clients-page-v2` — ambos
+   seguem no bege e no recuo originais.
+   (1) Sheet FRIO claro `#f4f6f5` (mesmo do dashboard; 2a excecao ao bege —
+       ver design-system §1) no lugar do gradiente bege quente.
+   (2) Recuo lateral menor (sheet + list-scroll) pra os cards ficarem um pouco
+       mais largos, sem encostar na borda. O list-scroll guarda folga (~8-10px)
+       pra a `box-shadow` dos cards nao ser decepada no `overflow-x: hidden`. */
+.samples-page-v2:not(.informe-commercial-page) .samples-page-v2-sheet {
+  background: #f4f6f5;
+  padding-left: clamp(6px, 2vw, 9px);
+  padding-right: clamp(6px, 2vw, 9px);
+}
+
+.samples-page-v2:not(.informe-commercial-page) .spv2-list-scroll {
+  padding-left: clamp(8px, 2.3vw, 10px);
+  padding-right: clamp(8px, 2.3vw, 10px);
+}
+
 /* List-scroll do samples/clients: padding-bottom = clearance pro FAB
    ("+" ou seta da liga) + breathing. Sem isso o ultimo item ficaria
    coberto pelo FAB flutuante. Vale tanto modo normal quanto selecao.
