@@ -56,10 +56,14 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
         <UserAvatar size="md" user={session.user} />
       </button>
 
+      {/* Sem titulo visivel: o resumo (avatar + nome/cargo) ja encabeca o
+          menu. title="" mantem o <h3> vazio como flex item, entao o X
+          continua a direita (header com space-between) e a altura nao muda —
+          nada se move de lugar. O nome acessivel do dialog vem do ariaLabel. */}
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Conta"
+        title=""
         ariaLabel="Menu da conta"
         className="is-menu"
         dragToDismiss
