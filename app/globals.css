@@ -19135,7 +19135,7 @@ select.samples-filter-field-input {
     /* Respiro entre a saudacao (verde) e o sheet branco logo abaixo. A busca
        por lote que ocupava esse espaco foi removida (2026-06-16); aumentamos o
        padding pra o sheet nao colar no cabecalho. */
-    padding-bottom: clamp(1rem, 2.8dvh, 1.5rem);
+    padding-bottom: clamp(1.35rem, 3.6dvh, 2rem);
   }
 
   .dashboard-mobile .dashboard-greeting {
