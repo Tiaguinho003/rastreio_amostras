@@ -4528,15 +4528,15 @@ button:disabled {
   }
 }
 
-/* Pulsacao LEVE do badge de pendencias no dashboard mobile: respiro sutil
-   (scale 1.07, mais lento) pra chamar atencao ao numero sem distrair —
-   versao suave do badge-pulse base (1.15, usado no desktop). */
+/* Pulsacao do badge de pendencias no dashboard mobile: respiro pra chamar
+   atencao ao numero (scale 1.13, 2s). Proximo do badge-pulse base (1.15,
+   desktop), porem keyframe proprio pra ajustar a intensidade so no mobile. */
 @keyframes badge-pulse-soft {
   0% {
     transform: scale(1);
   }
   50% {
-    transform: scale(1.07);
+    transform: scale(1.13);
   }
   100% {
     transform: scale(1);
@@ -19306,7 +19306,7 @@ select.samples-filter-field-input {
     font-size: clamp(0.82rem, 3vw, 0.98rem);
     border: 2px solid #ffffff;
     box-shadow: 0 3px 8px rgba(20, 55, 42, 0.18);
-    animation: badge-pulse-soft 2.4s ease-in-out infinite;
+    animation: badge-pulse-soft 2s ease-in-out infinite;
     flex-shrink: 0;
     z-index: 2;
   }
