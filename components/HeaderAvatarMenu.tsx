@@ -66,10 +66,13 @@ export function HeaderAvatarMenu({ session, onLogout }: HeaderAvatarMenuProps) {
       >
         <div className="header-avatar-menu">
           <div className="header-avatar-menu-summary">
-            <span className="header-avatar-menu-summary-name">{displayName}</span>
-            <span className="header-avatar-menu-summary-role">
-              {getRoleLabel(session.user.role)}
-            </span>
+            <UserAvatar size="md" user={session.user} />
+            <div className="header-avatar-menu-summary-text">
+              <span className="header-avatar-menu-summary-name">{displayName}</span>
+              <span className="header-avatar-menu-summary-role">
+                {getRoleLabel(session.user.role)}
+              </span>
+            </div>
           </div>
 
           <div className="header-avatar-menu-list">

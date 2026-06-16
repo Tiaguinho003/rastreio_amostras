@@ -29515,12 +29515,23 @@ select.samples-filter-field-input {
   flex-direction: column;
 }
 
+/* Resumo do menu da conta: avatar (mesmo do gatilho do header) a ESQUERDA +
+   coluna nome/cargo. Antes era so a coluna de texto; o avatar ancora o topo
+   do menu na identidade de quem esta logado. */
 .header-avatar-menu-summary {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 3vw, 0.85rem);
+  padding: clamp(0.4rem, 2vw, 0.7rem) clamp(0.4rem, 2vw, 0.6rem) clamp(0.7rem, 2.6vw, 0.9rem);
+  border-bottom: 1px solid var(--color-line, rgba(0, 0, 0, 0.08));
+}
+
+/* min-width: 0 deixa o ellipsis do nome funcionar dentro do flex row. */
+.header-avatar-menu-summary-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: clamp(0.4rem, 2vw, 0.7rem) clamp(0.4rem, 2vw, 0.6rem) clamp(0.7rem, 2.6vw, 0.9rem);
-  border-bottom: 1px solid var(--color-line, rgba(0, 0, 0, 0.08));
+  min-width: 0;
 }
 
 .header-avatar-menu-summary-name {
