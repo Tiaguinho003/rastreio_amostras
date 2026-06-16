@@ -3869,9 +3869,9 @@ button:disabled {
      centrado nela via justify-content do link. O tamanho do botao vem dos
      clamps de width/height do .mobile-tabbar-pill (mantem a proporcao
      visual com os links comuns). */
-  /* Camera levemente elevada em relacao aos demais itens (deslocamento -10%
-     junto com o resto da barra). */
-  margin-top: clamp(-0.77rem, -2.16vw, -0.5rem);
+  /* Camera levemente elevada em relacao aos demais itens — elevacao reduzida
+     pra ficar mais centrada na vertical da barra (pedido do usuario). */
+  margin-top: clamp(-0.5rem, -1.4vw, -0.32rem);
   padding: 0;
   background: transparent;
   color: #ffffff;
@@ -3945,15 +3945,16 @@ button:disabled {
 }
 
 .mobile-tabbar-link.is-primary .mobile-tabbar-pill {
-  /* Circulo da camera: largura desejada (-10%, clamp) MAS nunca maior que a
-     propria coluna do grid (`min(..., 100%)`). Sem o cap, o circulo (maior
-     que a coluna em phones) transbordava — e um filho flex que transborda
-     com justify-content:center "escorrega" pro lado no Safari iOS, deixando
-     o botao fora do centro e os vaos com os vizinhos desiguais. Capado, ele
-     cabe na coluna -> realmente centrado e os 5 itens distribuidos por igual.
-     aspect-ratio:1 mantem o circulo perfeito (a altura segue a largura, entao
-     capar so a largura nao deixa o botao oval). */
-  width: min(clamp(4.28rem, 17.1vw, 4.95rem), 100%);
+  /* Circulo da camera: cap em % da PROPRIA COLUNA do grid, < 100% DE
+     PROPOSITO pra deixar margem simetrica dos dois lados. Antes era 100% e o
+     circulo enchia a coluna, encostando nos vizinhos -> o vao camera<->vizinho
+     ficava ~metade do vao icone<->icone, dando sensacao de desalinhado e de
+     camera "descentrada". Com cap menor sobra respiro -> os vaos ficam mais
+     parelhos e a camera parece centrada. Igualdade 100% perfeita exigiria a
+     camera do tamanho dos icones (geometria do phone), entao isto e o
+     equilibrio (afinar o % no device). aspect-ratio:1 mantem o circulo
+     perfeito (a altura segue a largura). */
+  width: min(clamp(4.28rem, 17.1vw, 4.95rem), 82%);
   aspect-ratio: 1;
   height: auto;
   flex-shrink: 0;
