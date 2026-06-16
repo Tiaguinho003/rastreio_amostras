@@ -16,27 +16,51 @@ interface FieldConfig {
   printLabel: string; // rotulo impresso na etiqueta (abreviado, maiusculo)
   placeholder: string;
   numeric?: boolean;
+  noSpaces?: boolean; // bloqueia espaco no input (so caracteres)
+  maxChars?: number; // limite de caracteres do input (default 80)
 }
 
 // Ordem = ordem de leitura na etiqueta (topo → base). Os printLabel saem
 // MAIUSCULOS com ":" na etiqueta (o ":" e adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
-  { key: 'compra', uiLabel: 'Nº compra', printLabel: 'N° COMPRA', placeholder: 'Nº da compra' },
+  {
+    key: 'compra',
+    uiLabel: 'Nº compra',
+    printLabel: 'N° COMPRA',
+    placeholder: 'Nº da compra',
+    noSpaces: true,
+    maxChars: 36,
+  },
   {
     key: 'fechamento',
     uiLabel: 'Nº fechamento',
     printLabel: 'N° FECHAMENTO',
     placeholder: 'Nº do fechamento',
+    noSpaces: true,
+    maxChars: 36,
   },
-  { key: 'produtor', uiLabel: 'Produtor', printLabel: 'PRODUT', placeholder: 'Nome do produtor' },
-  { key: 'armazem', uiLabel: 'Armazém', printLabel: 'ARMAZ', placeholder: 'Nome do armazém' },
-  { key: 'lote', uiLabel: 'Lote', printLabel: 'LOTE', placeholder: 'Lote' },
+  {
+    key: 'produtor',
+    uiLabel: 'Produtor',
+    printLabel: 'PRODUT',
+    placeholder: 'Nome do produtor',
+    maxChars: 52,
+  },
+  {
+    key: 'armazem',
+    uiLabel: 'Armazém',
+    printLabel: 'ARMAZ',
+    placeholder: 'Nome do armazém',
+    maxChars: 52,
+  },
+  { key: 'lote', uiLabel: 'Lote', printLabel: 'LOTE', placeholder: 'Lote', maxChars: 78 },
   {
     key: 'sacas',
     uiLabel: 'Sacas',
     printLabel: 'SACAS',
     placeholder: 'Total de sacas',
     numeric: true,
+    maxChars: 26,
   },
 ];
 
@@ -139,9 +163,14 @@ export function CustomLabelPrintCard({ session }: CustomLabelPrintCardProps) {
               type="text"
               inputMode={field.numeric ? 'numeric' : 'text'}
               value={values[field.key]}
-              onChange={(event) => setField(field.key, event.target.value)}
+              onChange={(event) =>
+                setField(
+                  field.key,
+                  field.noSpaces ? event.target.value.replace(/\s/g, '') : event.target.value
+                )
+              }
               placeholder={field.placeholder}
-              maxLength={80}
+              maxLength={field.maxChars ?? 80}
               autoComplete="off"
             />
           </label>

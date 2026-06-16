@@ -193,20 +193,24 @@ const DIVIDER_GAP = 14; // respiro de cada lado da divisoria
 const LINE_PITCH = 22; // topo-a-topo entre linhas de texto
 const FIELD_GAP = 12; // espaco vertical entre campos
 const LABEL_VALUE_GAP = 10; // entre "ROTULO:" e o valor (modo inline)
+const LABEL_INDENT = 12; // recuo do TITULO em relacao a borda/linha da coluna
+const VALUE_INDENT = 22; // recuo do VALOR sob o titulo (modo "abaixo" da esquerda)
 
 const CUSTOM_FONT = '2'; // rotulo e valor no MESMO tamanho (12x20)
 const CUSTOM_DEGREE_FONT = '1'; // "°"/"º" pequeno e sobrescrito (tipo "N°")
-const CUSTOM_SHRINK_FONT = '1'; // valor cai pra ca quando nao cabe na fonte padrao
 
 // Campos por ROTULO normalizado (sem "°"/":"), NAO por ordem do card (robusto
 // a reordenacao). mode 'below' = valor abaixo do rotulo; 'inline' = ao lado.
+// maxChars = limite de caracteres POR LINHA (incl. espaco); ausente = usa a
+// largura da coluna. Word-wrap nao corta palavra no meio (so palavra unica
+// maior que o limite e quebrada na forca).
 const CUSTOM_FIELDS = {
-  'N COMPRA': { mode: 'below', maxLines: 2 },
-  'N FECHAMENTO': { mode: 'below', maxLines: 2 },
-  PRODUT: { mode: 'inline', maxLines: 2 },
-  ARMAZ: { mode: 'inline', maxLines: 1 },
-  SACAS: { mode: 'inline', maxLines: 1 },
-  LOTE: { mode: 'inline', maxLines: 3 },
+  'N COMPRA': { mode: 'below', maxLines: 2, maxChars: 18 },
+  'N FECHAMENTO': { mode: 'below', maxLines: 2, maxChars: 18 },
+  PRODUT: { mode: 'inline', maxLines: 2, maxChars: 26 },
+  ARMAZ: { mode: 'inline', maxLines: 2, maxChars: 26 },
+  SACAS: { mode: 'inline', maxLines: 1, maxChars: 26 },
+  LOTE: { mode: 'inline', maxLines: 3, maxChars: 26 },
 };
 const CUSTOM_LEFT_ORDER = ['N COMPRA', 'N FECHAMENTO'];
 const CUSTOM_RIGHT_ORDER = ['PRODUT', 'ARMAZ', 'SACAS', 'LOTE'];
@@ -292,27 +296,28 @@ function wrapWords(text, maxChars) {
   return lines.length > 0 ? lines : [''];
 }
 
-// Quebra o valor pra caber em `maxLines` dentro de `maxWidth` (dots). Tenta a
-// fonte padrao; se passar, reduz pra fonte menor; se ainda passar, corta a
-// ultima linha com "..." (trava de seguranca da borda). Retorna { font, lines }.
-function wrapValue(text, maxWidth, maxLines) {
-  for (const font of [CUSTOM_FONT, CUSTOM_SHRINK_FONT]) {
-    const charW = TSPL_FONT_W[Number(font)] ?? 12;
-    const maxChars = Math.max(1, Math.floor(maxWidth / charW));
-    const wrapped = wrapWords(text, maxChars);
-    if (wrapped.length <= maxLines) {
-      return { font, lines: wrapped };
-    }
+// Quebra o valor por PALAVRA pra caber em `maxLines` dentro de `maxWidth`
+// (dots), opcionalmente limitado a `charCap` caracteres/linha. NAO reduz a
+// fonte (decisao do usuario): mantem a fonte padrao e, se ainda exceder
+// maxLines (raro — o input do card ja limita o tamanho), corta a ultima linha
+// com "..." como trava de seguranca. Retorna { font, lines }.
+function wrapValue(text, maxWidth, maxLines, charCap = 0) {
+  const charW = TSPL_FONT_W[Number(CUSTOM_FONT)] ?? 12;
+  let maxChars = Math.max(1, Math.floor(maxWidth / charW));
+  if (charCap > 0) {
+    maxChars = Math.min(maxChars, charCap);
   }
-  const charW = TSPL_FONT_W[Number(CUSTOM_SHRINK_FONT)] ?? 8;
-  const maxChars = Math.max(1, Math.floor(maxWidth / charW));
-  const wrapped = wrapWords(text, maxChars).slice(0, maxLines);
-  let last = wrapped[wrapped.length - 1] ?? '';
+  const wrapped = wrapWords(text, maxChars);
+  if (wrapped.length <= maxLines) {
+    return { font: CUSTOM_FONT, lines: wrapped };
+  }
+  const kept = wrapped.slice(0, maxLines);
+  let last = kept[maxLines - 1] ?? '';
   if (last.length > maxChars - 3) {
     last = last.slice(0, Math.max(0, maxChars - 3));
   }
-  wrapped[wrapped.length - 1] = `${last}...`;
-  return { font: CUSTOM_SHRINK_FONT, lines: wrapped };
+  kept[maxLines - 1] = `${last}...`;
+  return { font: CUSTOM_FONT, lines: kept };
 }
 
 // Calcula o layout (posicoes/fontes/quebras ja resolvidas) SEM serializar
@@ -372,50 +377,80 @@ export async function buildCustomLabelLayout(payload) {
   // Logo no topo-ESQUERDA (opcional — degrada sem o arquivo).
   const logo = await loadSmallLogo();
   const logoOp = logo
-    ? { widthBytes: logo.widthBytes, height: logo.height, x: M_LEFT, y: M_TOP, data: logo.data }
+    ? {
+        widthBytes: logo.widthBytes,
+        height: logo.height,
+        // Centralizado entre a borda esquerda e a divisoria.
+        x: Math.max(M_LEFT, Math.floor((DIVIDER_X - logo.widthBytes * 8) / 2)),
+        y: M_TOP,
+        data: logo.data,
+      }
     : null;
 
-  // Coluna ESQUERDA: logo + campos com valor ABAIXO do rotulo.
-  const leftW = DIVIDER_X - DIVIDER_GAP - M_LEFT;
+  // Coluna ESQUERDA: logo + campos com valor ABAIXO do rotulo. RESERVA SEMPRE
+  // maxLines linhas de valor (espacamento fixo entre os campos, mesmo quando o
+  // valor ocupa menos) e limita cada linha a LEFT_MAX_CHARS caracteres.
+  const leftLabelX = M_LEFT + LABEL_INDENT; // titulo afastado da borda
+  const leftValueX = leftLabelX + VALUE_INDENT; // valor recuado sob o titulo
+  const leftValueW = DIVIDER_X - DIVIDER_GAP - leftValueX;
   let yL = M_TOP + (logoOp ? logoOp.height + FIELD_GAP : 0);
   for (const key of CUSTOM_LEFT_ORDER) {
     const line = byKey.get(key);
     if (!line) continue;
-    pushLabel(line.label, M_LEFT, yL);
-    let y = yL + LINE_PITCH;
+    const cfg = CUSTOM_FIELDS[key];
+    pushLabel(line.label, leftLabelX, yL);
     const rawValue = readValue(line);
     if (rawValue) {
       const { font, lines: vlines } = wrapValue(
         sanitize(rawValue, 300),
-        leftW,
-        CUSTOM_FIELDS[key].maxLines
+        leftValueW,
+        cfg.maxLines,
+        cfg.maxChars
       );
-      y = pushValue(vlines, font, M_LEFT, y);
+      pushValue(vlines, font, leftValueX, yL + LINE_PITCH);
     }
-    yL = y + FIELD_GAP;
+    // Avanca sempre por (rotulo + maxLines de valor), reservando o espaco.
+    yL += (1 + cfg.maxLines) * LINE_PITCH + FIELD_GAP;
   }
 
-  // Coluna DIREITA: campos com valor INLINE (ao lado), quebra com recuo
-  // pendurado (continuacao alinha sob o inicio do valor).
+  // Coluna DIREITA: rotulo + valor, com TODOS os valores alinhados numa coluna
+  // (referencia = inicio do valor do rotulo mais largo, que e o PRODUT). Quebra
+  // com recuo pendurado (continuacao alinha sob o inicio do valor).
   const rightX = DIVIDER_X + DIVIDER_GAP;
-  let yR = M_TOP;
+  const rightLabelX = rightX + LABEL_INDENT; // titulo afastado da divisoria
+
+  // x fixo da coluna de valor: maior avanco de rotulo entre os campos da direita.
+  let rightMaxAdvance = 0;
   for (const key of CUSTOM_RIGHT_ORDER) {
     const line = byKey.get(key);
     if (!line) continue;
-    const advance = pushLabel(line.label, rightX, yR);
+    let lbl = sanitize(line.label || '', 40);
+    if (!lbl.endsWith(':')) lbl += ':';
+    rightMaxAdvance = Math.max(rightMaxAdvance, buildLabelSegments(lbl).advance);
+  }
+  const rightValueX = rightLabelX + rightMaxAdvance + LABEL_VALUE_GAP;
+  const rightValueW = LABEL_W - M_RIGHT - rightValueX;
+
+  // PRODUT afastado da borda superior na mesma proporcao do recuo lateral dos N°.
+  let yR = M_TOP + LABEL_INDENT;
+  for (const key of CUSTOM_RIGHT_ORDER) {
+    const line = byKey.get(key);
+    if (!line) continue;
+    const cfg = CUSTOM_FIELDS[key];
+    pushLabel(line.label, rightLabelX, yR);
     const rawValue = readValue(line);
     if (rawValue) {
-      const valueX = rightX + advance + LABEL_VALUE_GAP;
-      const valueW = LABEL_W - M_RIGHT - valueX;
       const { font, lines: vlines } = wrapValue(
         sanitize(rawValue, 300),
-        valueW,
-        CUSTOM_FIELDS[key].maxLines
+        rightValueW,
+        cfg.maxLines,
+        cfg.maxChars
       );
-      yR = pushValue(vlines, font, valueX, yR) + FIELD_GAP;
-    } else {
-      yR += LINE_PITCH + FIELD_GAP;
+      pushValue(vlines, font, rightValueX, yR);
     }
+    // Reserva SEMPRE maxLines linhas (espacamento uniforme entre os campos,
+    // espelhando a coluna esquerda) — mesmo quando o valor ocupa menos.
+    yR += cfg.maxLines * LINE_PITCH + FIELD_GAP;
   }
 
   const divider = { x: DIVIDER_X, y: M_TOP, width: 3, height: LABEL_H - M_BOTTOM - M_TOP };

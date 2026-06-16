@@ -29,8 +29,8 @@ const CAPTION_H = 46; // faixa de legenda abaixo da etiqueta (dots)
 // validar que nem o cenario mais cheio encosta nas margens.
 const SAMPLE = {
   lines: [
-    { label: 'N° COMPRA', value: 'OC-2025-0001234 / NF-99887766-A' },
-    { label: 'N° FECHAMENTO', value: 'FC-2025-554433 / Lote 2025-06-A' },
+    { label: 'N° COMPRA', value: 'OC20250001234NF998877' },
+    { label: 'N° FECHAMENTO', value: 'FC2025554433LOTE202506' },
     { label: 'PRODUT', value: 'Fazenda Boa Esperança do Rio Verde Ltda ME' },
     { label: 'ARMAZ', value: 'Armazém Central Patrocínio MG' },
     { label: 'SACAS', value: '320' },
