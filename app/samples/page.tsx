@@ -1557,7 +1557,7 @@ function SamplesPage() {
             </svg>
           </Link>
           <div className="samples-page-v2-header-center">
-            <h2 className="nsv2-title">Amostras</h2>
+            <h2 className="nsv2-title">Lotes</h2>
           </div>
           <HeaderAvatarMenu session={session} onLogout={logout} />
           <Link href="/profile" className="nsv2-avatar" aria-label="Ir para perfil">
