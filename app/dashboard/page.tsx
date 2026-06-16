@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { AppShell } from '../../components/AppShell';
 import { DashboardDesktop } from '../../components/dashboard/DashboardDesktop';
 import { DashboardMobile } from '../../components/dashboard/DashboardMobile';
+import { DashboardStatusBarTint } from '../../components/dashboard/DashboardStatusBarTint';
 import { ProspectorDashboard } from '../../components/dashboard/prospector/ProspectorDashboard';
 import { useDashboardData } from '../../components/dashboard/useDashboardData';
 import { isProspector } from '../../lib/roles';
@@ -39,6 +40,9 @@ function DashboardPage() {
         <ProspectorDashboard session={session} onLogout={logout} />
       ) : (
         <>
+          {/* Status bar segue o scroll (verde no topo -> claro no conteudo).
+              Passo 1 do experimento iOS — so afeta o meta theme-color. */}
+          <DashboardStatusBarTint />
           <DashboardMobile
             session={session}
             data={data}
