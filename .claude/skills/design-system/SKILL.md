@@ -26,7 +26,7 @@ Toda pagina autenticada segue o padrao **Fundo Verde (app-shell) + Header Transp
 
 ### Sheet de Conteudo (area bege)
 
-- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`. **Excecoes aprovadas (fundo FRIO claro `#f4f6f5`, nunca `#fff` puro)**: (1) dashboard mobile do ADMIN (2026-06-12, `.dashboard-mobile .dashboard-sheet`); (2) pagina de **Lotes `/samples`** (2026-06-16, `.samples-page-v2:not(.informe-commercial-page) .samples-page-v2-sheet` — escopado pra NAO afetar o `InformeCommercialPage`, que reusa o shell `.samples-page-v2`, nem a `/clients`). As demais paginas (Clientes, Informe, etc.) seguem no bege
+- Fundo quente: `linear-gradient(180deg, #fdf9ec 0%, #f4f0e7 100%)`. **Excecoes aprovadas (fundo claro frio)**: (1) dashboard mobile do ADMIN — `#f4f6f5` no sheet (2026-06-12, `.dashboard-mobile .dashboard-sheet`); (2) pagina de **Lotes `/samples`** — **BRANCO puro `#ffffff`** no sheet **e** nos cards (`.spv2-card-wrap`, sai o gradiente quente), com **sombra reforcada** pra definir as bordas sobre o branco e o recuo lateral redistribuido (pouco no sheet, mais no `.spv2-list-scroll`) pra a sombra nao ser decepada (2026-06-16, escopado `.samples-page-v2:not(.informe-commercial-page)` — NAO afeta o `InformeCommercialPage`/shell reusado nem a `/clients`). O `/samples` e a **UNICA excecao** ao "nunca `#fff` puro" abaixo (a pedido do usuario). As demais paginas (Clientes, Informe, etc.) seguem no bege
 - `border-radius: 20px 20px 0 0` — bordas arredondadas no topo criando o efeito 3D sobre o verde
 - `padding-bottom` respeita tabbar: `calc(var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + var(--mobile-tabbar-clearance))` — usar a CSS var sincronizada (ver skill `responsive` §4), nunca `env()` direto. **Excecao**: list pages com sheet rolavel (`/samples`, `/clients`) movem o clearance pro container de scroll e deixam o conteudo rolar por tras da tabbar flutuante — ver skill `responsive` §5
 - O sheet ocupa o restante da tela com `flex: 1`
@@ -45,7 +45,7 @@ Overrides escopados sob `.dashboard-mobile` em `app/globals.css` (bloco "Dashboa
 ### Paginas sem header verde
 
 - Paginas como settings, detalhes de amostra podem usar header mais compacto
-- Manter a cor de fundo quente `#fdf9ec` como base, nunca branco puro frio (#fff) como background de pagina
+- Manter a cor de fundo quente `#fdf9ec` como base, nunca branco puro frio (#fff) como background de pagina (**excecao unica: `/samples`** — ver §1, Sheet de Conteudo)
 - Excecao: areas de formulario/cards internos podem usar `#ffffff`
 
 ### Variante: dashboard do PROSPECTOR (app restrito)
