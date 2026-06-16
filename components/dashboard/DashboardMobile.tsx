@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
-import { SampleSearchField } from '../SampleSearchField';
 import { getDashboardRecentActivity } from '../../lib/api-client';
 import { getRoleLabel, isAdmin } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
@@ -92,9 +91,9 @@ export function DashboardMobile({
   return (
     <div className="dashboard-mobile">
       <section className="dashboard-page">
-        {/* Scroll simples da pagina inteira: a saudacao (hero), a busca e
-            o sheet vivem todos dentro do .dashboard-scroll e rolam juntos
-            como uma pagina normal — nada fica fixo no topo. */}
+        {/* Scroll simples da pagina inteira: a saudacao (hero) e o sheet
+            vivem dentro do .dashboard-scroll e rolam juntos como uma pagina
+            normal — nada fica fixo no topo. */}
         <div className="dashboard-scroll">
           <section className="dashboard-hero">
             <div className="dashboard-hero-header">
@@ -120,10 +119,6 @@ export function DashboardMobile({
               </Link>
             </div>
           </section>
-
-          <div className="dashboard-hero-search">
-            <SampleSearchField session={session} placeholder="Buscar por lote" />
-          </div>
 
           <section className="dashboard-sheet">
             <section className="dashboard-sheet-section is-slot-operations">
