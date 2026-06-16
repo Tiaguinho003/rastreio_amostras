@@ -29415,6 +29415,26 @@ select.samples-filter-field-input {
   padding-right: 0;
 }
 
+/* Sombra dos cards "respirando": o recuo lateral sai do .bottom-sheet (que
+   NAO recorta) e passa pro .bottom-sheet-body (que tem overflow-x: hidden).
+   Antes os cards encostavam na linha de corte do body, entao a box-shadow era
+   decepada rente a borda do card — criava uma divisao dura entre o card e a
+   borda do modal. Agora a sombra dissipa DENTRO do padding do body, antes do
+   corte: transicao macia ate o creme do sheet. O header recebe o mesmo recuo
+   pra manter o alinhamento. `--ops-inset-x` guarda o valor (sobrescrito no
+   desktop, onde o sheet vira modal central com recuo proprio). */
+.bottom-sheet.is-operations {
+  --ops-inset-x: clamp(1rem, 4vw, 1.4rem);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.bottom-sheet.is-operations .bottom-sheet-header,
+.bottom-sheet.is-operations .bottom-sheet-body {
+  padding-left: var(--ops-inset-x);
+  padding-right: var(--ops-inset-x);
+}
+
 /* Alinhamento do corpo do card preservado do antigo modal central. */
 .bottom-sheet.is-operations .app-modal-card-body {
   text-align: left;
@@ -30068,6 +30088,12 @@ select.samples-filter-field-input {
   .bottom-sheet.is-open {
     transform: translate3d(-50%, -50%, 0) scale(1);
     opacity: 1;
+  }
+  /* Modal central: o recuo lateral do sheet passou pro body/header (ver
+     `.bottom-sheet.is-operations` na secao mobile). Aqui so casamos o valor
+     com o recuo proprio do modal desktop pra largura identica a de antes. */
+  .bottom-sheet.is-operations {
+    --ops-inset-x: clamp(1.2rem, 1.5vw, 1.6rem);
   }
   .bottom-sheet-drag-handle {
     display: none;
