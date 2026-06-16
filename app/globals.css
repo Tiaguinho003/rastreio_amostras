@@ -5169,30 +5169,33 @@ button:disabled {
   animation: samples-sheet-in 0.5s ease-out 0.15s both;
 }
 
-/* ── Pagina de Lotes (/samples): visual BRANCO limpo ──
+/* ── Pagina de Lotes (/samples): visual BRANCO limpo + alinhamento direito ──
    ESCOPADO so a /samples. O InformeCommercialPage reusa `.samples-page-v2` +
    `.samples-page-v2-sheet` + `.spv2-list-scroll` + `.spv2-card-wrap` (distinto
    por `.informe-commercial-page`) e a /clients usa `.clients-page-v2` — ambos
-   seguem no bege/visual originais.
-   (1) Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16;
-       vai alem do `#f4f6f5` do dashboard — UNICA excecao ao "nunca #fff puro",
-       ver design-system §1). Cards perdem o gradiente quente.
-   (2) Sombra dos cards reforcada pra definir as bordas sobre o branco.
-   (3) Recuo lateral REDISTRIBUIDO: pouco no sheet, mais no list-scroll. Os
-       cards mantem a largura (recuo liquido ~15-19px, sem encostar na borda) e
-       a `box-shadow` ganha folga (~12-14px) dentro do `overflow-x: hidden` do
-       list-scroll, sem ser decepada (mesmo cuidado do modal). O
-       `.spv2-list-meta` tem padding lateral proprio, entao segue confortavel
-       mesmo com o sheet quase sem recuo. */
-.samples-page-v2:not(.informe-commercial-page) .samples-page-v2-sheet {
-  background: #ffffff;
-  padding-left: clamp(3px, 1vw, 5px);
-  padding-right: clamp(3px, 1vw, 5px);
+   seguem no visual/recuo originais.
+
+   FONTE UNICA do recuo lateral (vars abaixo) pra os cards (lista), o
+   contador/filtro (meta) E o FAB "+" alinharem a MESMA borda esquerda/direita
+   — mexer numa var realinha os tres (evita o FAB sair de sincronia ao mudar o
+   padding, como ja aconteceu). Borda dos cards/filtro/FAB = sheet-pad +
+   inner-pad. */
+.samples-page-v2:not(.informe-commercial-page) {
+  /* recuo do sheet (off da borda do celular) — pequeno de proposito */
+  --lotes-sheet-pad: clamp(3px, 1vw, 5px);
+  /* recuo interno (cards na lista + contador/filtro no meta); guarda folga
+     pra a `box-shadow` dos cards nao ser decepada no `overflow-x: hidden` */
+  --lotes-inner-pad: clamp(12px, 3.2vw, 14px);
 }
 
-.samples-page-v2:not(.informe-commercial-page) .spv2-list-scroll {
-  padding-left: clamp(12px, 3.2vw, 14px);
-  padding-right: clamp(12px, 3.2vw, 14px);
+/* Sheet E cards em BRANCO puro `#ffffff` (a pedido do usuario, 2026-06-16; vai
+   alem do `#f4f6f5` do dashboard — UNICA excecao ao "nunca #fff puro", ver
+   design-system §1). Cards sem o gradiente quente e com sombra reforcada pra
+   definir as bordas sobre o branco. */
+.samples-page-v2:not(.informe-commercial-page) .samples-page-v2-sheet {
+  background: #ffffff;
+  padding-left: var(--lotes-sheet-pad);
+  padding-right: var(--lotes-sheet-pad);
 }
 
 .samples-page-v2:not(.informe-commercial-page) .spv2-card-wrap {
@@ -5202,6 +5205,24 @@ button:disabled {
     0 6px 14px rgba(0, 0, 0, 0.11),
     0 14px 28px rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Cards (lista) + contador/filtro (meta) no MESMO recuo interno -> bordas
+   alinhadas. (O meta era `clamp(14-20px)`, mais fundo que os cards.) */
+.samples-page-v2:not(.informe-commercial-page) .spv2-list-scroll,
+.samples-page-v2:not(.informe-commercial-page) .spv2-list-meta {
+  padding-left: var(--lotes-inner-pad);
+  padding-right: var(--lotes-inner-pad);
+}
+
+/* FAB "+": borda direita na MESMA linha vertical dos cards/filtro (era
+   `clamp(24-34px)`, calculado no recuo antigo do sheet). So mobile — no
+   desktop o FAB e inline (`.samples-page-v2 .hero-search-wrap .cv2-fab`,
+   position: relative). */
+@media (max-width: 900px) {
+  .samples-page-v2:not(.informe-commercial-page) .cv2-fab {
+    right: calc(var(--lotes-sheet-pad) + var(--lotes-inner-pad));
+  }
 }
 
 /* List-scroll do samples/clients: padding-bottom = clearance pro FAB
