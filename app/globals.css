@@ -19129,12 +19129,13 @@ select.samples-filter-field-input {
      verde/sheet. */
 
   .dashboard-mobile .dashboard-hero {
-    /* Sem textura propria: o verde vem so do shell, continuo com a area da
-       busca (sem emenda na borda de baixo do hero). */
+    /* Sem textura propria: o verde vem so do shell, continuo com o sheet logo
+       abaixo (sem emenda na borda de baixo do hero). */
     gap: clamp(1.1rem, 2.6dvh, 1.9rem);
-    /* Respiro entre a saudacao e a busca logo abaixo (ambas rolam juntas
-       no .dashboard-scroll). */
-    padding-bottom: clamp(0.55rem, calc(2.4dvh - 0.45rem), 1.05rem);
+    /* Respiro entre a saudacao (verde) e o sheet branco logo abaixo. A busca
+       por lote que ocupava esse espaco foi removida (2026-06-16); aumentamos o
+       padding pra o sheet nao colar no cabecalho. */
+    padding-bottom: clamp(1rem, 2.8dvh, 1.5rem);
   }
 
   .dashboard-mobile .dashboard-greeting {
