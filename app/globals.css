@@ -18910,7 +18910,16 @@ select.samples-filter-field-input {
   /* ── Dashboard: layered layout ── */
 
   .app-shell-main.is-dashboard-route {
-    background: linear-gradient(180deg, #1f5d43 0%, #14372a 100%);
+    /* O .dashboard-scroll e transparente e o verde vem deste shell. No
+       rubber-band (overscroll) do RODAPE o iOS revelava o verde atras do sheet
+       claro. 2 camadas: (1) faixa clara `#f4f6f5` (= cor do sheet) so nos 40%
+       de baixo — fica atras do sheet opaco no uso normal e so aparece no
+       overscroll do rodape; (2) o verde ORIGINAL intacto (hero nao muda). O
+       topo do bounce continua verde; o respiro hero/sheet vive na zona verde
+       (sobe ao rolar, nunca cruza pra clara). Mantem o scroll/bounce nativos. */
+    background:
+      linear-gradient(180deg, transparent 60%, #f4f6f5 60%),
+      linear-gradient(180deg, #1f5d43 0%, #14372a 100%);
     padding: 0;
     overflow: hidden;
     display: flex;
