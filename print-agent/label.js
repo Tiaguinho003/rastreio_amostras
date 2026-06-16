@@ -1,4 +1,9 @@
 import { LOGO_WIDTH_BYTES, LOGO_HEIGHT, LOGO_DATA } from './logo-data.js';
+// NB: o logo pequeno da etiqueta avulsa (logo-small-data.js) e carregado SOB
+// DEMANDA dentro de buildCustomLabel (loadSmallLogo) DE PROPOSITO: assim este
+// modulo — usado tambem pela etiqueta de amostra (buildLabel) — NAO depende
+// daquele arquivo. Se ele faltar (ex: deploy parcial), a etiqueta de amostra
+// imprime normalmente e a avulsa apenas sai sem logo.
 
 const ACCENT_MAP = {
   '\u00e0': 'a',
@@ -155,6 +160,79 @@ export function buildLabel(job) {
     '',
   ].join('\r\n');
   parts.push(Buffer.from(body, 'ascii'));
+
+  return Buffer.concat(parts);
+}
+
+// TEMPORARIO: etiqueta avulsa do dashboard admin. Mesma 100x35mm (a
+// calibracao de SIZE/GAP/DENSITY vive em calibratePrinter() no startup).
+// Sem QR: so logo pequeno no topo direito + N linhas "ROTULO  valor".
+// payload = { lines: [{ label, value }], copies }. Layout em dots (203dpi,
+// 800x280). Ajustar START_Y/STEP_Y/VALUE_X aqui se precisar afinar no print
+// real. Removivel junto com o card.
+// Carrega o logo pequeno sob demanda. Se logo-small-data.js nao existir,
+// retorna null e a etiqueta avulsa sai sem logo (a de amostra nao depende
+// disso). Node faz cache do import, entao o custo so existe na 1a chamada.
+async function loadSmallLogo() {
+  try {
+    const mod = await import('./logo-small-data.js');
+    return {
+      widthBytes: mod.LOGO_SMALL_WIDTH_BYTES,
+      height: mod.LOGO_SMALL_HEIGHT,
+      data: mod.LOGO_SMALL_DATA,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function buildCustomLabel(payload) {
+  const lines = Array.isArray(payload?.lines) ? payload.lines : [];
+  if (lines.length === 0) {
+    throw new Error('etiqueta avulsa sem linhas');
+  }
+  const copies = 1;
+  const logoY = 14;
+
+  const parts = [];
+
+  // Logo pequeno no topo direito (opcional — ver loadSmallLogo).
+  const logo = await loadSmallLogo();
+  if (logo) {
+    const logoPixelWidth = logo.widthBytes * 8;
+    const logoX = 800 - logoPixelWidth - 24;
+    const header = [
+      'CLS',
+      '',
+      `BITMAP ${logoX},${logoY},${logo.widthBytes},${logo.height},0,`,
+    ].join('\r\n');
+    parts.push(Buffer.from(header, 'ascii'));
+    parts.push(logo.data);
+  } else {
+    // Sem logo: ainda precisamos limpar o buffer antes de desenhar o texto.
+    parts.push(Buffer.from(['CLS', ''].join('\r\n'), 'ascii'));
+  }
+
+  // Linhas rotulo:valor abaixo do logo. Rotulo em font "2" (menor), valor em
+  // font "3" (maior). Valores alinhados na coluna x=VALUE_X.
+  const LABEL_X = 24;
+  const VALUE_X = 340;
+  const START_Y = 78;
+  const STEP_Y = 33;
+
+  const body = [''];
+  lines.forEach((line, index) => {
+    const y = START_Y + index * STEP_Y;
+    const label = sanitize(line?.label || '', 24).toUpperCase();
+    const value = sanitize(line?.value || '', 28);
+    // Rotulo levemente abaixo (+3) pra centrar opticamente com o valor maior.
+    body.push(`TEXT ${LABEL_X},${y + 3},"2",0,1,1,"${label}"`);
+    body.push(`TEXT ${VALUE_X},${y},"3",0,1,1,"${value}"`);
+  });
+  body.push('');
+  body.push(`PRINT 1,${copies}`);
+  body.push('');
+  parts.push(Buffer.from(body.join('\r\n'), 'ascii'));
 
   return Buffer.concat(parts);
 }

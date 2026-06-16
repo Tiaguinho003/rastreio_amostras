@@ -8,11 +8,13 @@ import { HeaderAvatarMenu } from '../HeaderAvatarMenu';
 import { SalesAvailabilityCard } from '../SalesAvailabilityCard';
 import { SampleSearchField } from '../SampleSearchField';
 import { getDashboardRecentActivity } from '../../lib/api-client';
-import { getRoleLabel } from '../../lib/roles';
+import { getRoleLabel, isAdmin } from '../../lib/roles';
 import { getGreeting, getInitials } from './greeting';
 import { useOperationModal } from './useOperationModal';
 import { OperationModal } from './OperationModal';
 import { RecentActivityListMobile } from './RecentActivityListMobile';
+// TEMPORARIO: card de etiqueta avulsa no fim do dashboard (admin).
+import { CustomLabelPrintCard } from './CustomLabelPrintCard';
 import type {
   DashboardPendingResponse,
   DashboardRecentActivityItem,
@@ -223,6 +225,13 @@ export function DashboardMobile({
             <section className="dashboard-sheet-section dashboard-sheet-content is-slot-activities">
               <RecentActivityListMobile items={recentActivity} />
             </section>
+
+            {/* TEMPORARIO: etiqueta avulsa (admin) — ultimo bloco do dashboard. */}
+            {isAdmin(session.user.role) ? (
+              <section className="dashboard-sheet-section dashboard-sheet-content is-slot-custom-print">
+                <CustomLabelPrintCard session={session} />
+              </section>
+            ) : null}
           </section>
         </div>
       </section>

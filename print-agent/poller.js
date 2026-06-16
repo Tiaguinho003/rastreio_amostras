@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import * as log from './logger.js';
 import { ensureAuthenticated, getAuthHeaders, clearSession, login } from './auth.js';
 import { sendToPrinter } from './printer.js';
-import { buildLabel } from './label.js';
+import { buildLabel, buildCustomLabel } from './label.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PRINTED_JOBS_FILE = join(__dirname, '.printed-jobs.json');
@@ -211,22 +211,140 @@ async function processJob(config, job) {
   await reportFailure(config, job, lastError.message);
 }
 
+// ============================================================
+// TEMPORARIO: etiqueta avulsa (card do dashboard admin). Fila propria
+// (/api/v1/custom-print), independente da fila de amostras. Pollada em
+// paralelo dentro do pollCycle, com try/catch proprio pra tolerar o
+// endpoint ainda nao existir (agente atualizado antes do deploy).
+// ============================================================
+
+async function fetchPendingCustomJobs(config) {
+  const url = `${config.backendUrl}/api/v1/custom-print/pending`;
+  const res = await fetch(url, { headers: { ...getAuthHeaders() } });
+
+  if (res.status === 401) {
+    clearSession();
+    await login(config);
+    const retry = await fetch(url, { headers: { ...getAuthHeaders() } });
+    if (!retry.ok) throw new Error(`Falha ao buscar etiquetas avulsas (HTTP ${retry.status})`);
+    return retry.json();
+  }
+
+  if (!res.ok) throw new Error(`Falha ao buscar etiquetas avulsas (HTTP ${res.status})`);
+  return res.json();
+}
+
+async function reportCustomResult(config, jobId, status, errorMessage) {
+  const body = { jobId, status, printerId: config.printerId };
+  if (status === 'FAILED' && errorMessage) {
+    body.error = errorMessage;
+  }
+
+  const maxAttempts = status === 'DONE' ? 3 : 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${config.backendUrl}/api/v1/custom-print/result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return;
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${text}`);
+    } catch (err) {
+      if (attempt < maxAttempts) {
+        await sleep(2000 * attempt);
+      } else {
+        log.error(
+          `[avulsa ${jobId.slice(0, 8)}] Nao foi possivel reportar ${status} ao backend: ${err.message}`
+        );
+      }
+    }
+  }
+}
+
+async function processCustomJob(config, job) {
+  const shortId = job.jobId.slice(0, 8);
+
+  if (printedJobIds.has(job.jobId)) {
+    log.info(`[avulsa ${shortId}] Job ja impresso nesta sessao. Reportando done...`);
+    await reportCustomResult(config, job.jobId, 'DONE', null);
+    return;
+  }
+
+  let tspl;
+  try {
+    tspl = await buildCustomLabel(job.payload);
+  } catch (err) {
+    log.error(`[avulsa ${shortId}] Payload invalido: ${err.message}`);
+    await reportCustomResult(config, job.jobId, 'FAILED', `Payload invalido: ${err.message}`);
+    return;
+  }
+
+  log.info(`[avulsa ${shortId}] Imprimindo etiqueta avulsa...`);
+
+  const maxRetries = config.printRetryCount;
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await sendToPrinter(config.printerName, null, tspl);
+      log.info(`[avulsa ${shortId}] Impressao enviada com sucesso`);
+      printedJobIds.add(job.jobId);
+      persistPrintedJobs();
+      await reportCustomResult(config, job.jobId, 'DONE', null);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delayMs = config.printRetryDelayMs * Math.pow(2, attempt - 1);
+        log.warn(
+          `[avulsa ${shortId}] Tentativa ${attempt}/${maxRetries} falhou: ${err.message}. Retry em ${delayMs}ms...`
+        );
+        await sleep(delayMs);
+      }
+    }
+  }
+
+  log.error(
+    `[avulsa ${shortId}] Falha na impressao apos ${maxRetries} tentativa(s): ${lastError.message}`
+  );
+  await reportCustomResult(config, job.jobId, 'FAILED', lastError.message);
+}
+
+async function pollCustomCycle(config) {
+  try {
+    const data = await fetchPendingCustomJobs(config);
+    const jobs = data.items || [];
+    if (jobs.length === 0) return;
+
+    log.info(`${jobs.length} etiqueta(s) avulsa(s) pendente(s)`);
+    for (const job of jobs) {
+      await processCustomJob(config, job);
+    }
+  } catch (err) {
+    // Nao deixa a fila avulsa derrubar o ciclo principal (ex: endpoint ainda
+    // nao deployado). So loga e segue.
+    log.warn(`Fila de etiquetas avulsas indisponivel (ignorado): ${err.message}`);
+  }
+}
+
 export async function pollCycle(config) {
   await ensureAuthenticated(config);
 
   const data = await fetchPendingJobs(config);
   const jobs = data.items || [];
 
-  if (jobs.length === 0) {
+  if (jobs.length > 0) {
+    log.info(`${jobs.length} job(s) pendente(s)`);
+    for (const job of jobs) {
+      await processJob(config, job);
+    }
+  } else {
     log.debug('Nenhum job pendente');
-    return;
   }
 
-  log.info(`${jobs.length} job(s) pendente(s)`);
-
-  for (const job of jobs) {
-    await processJob(config, job);
-  }
+  // TEMPORARIO: fila de etiquetas avulsas (independente da de amostras).
+  await pollCustomCycle(config);
 }
 
 export async function startPolling(config) {

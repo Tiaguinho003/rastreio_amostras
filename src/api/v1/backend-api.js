@@ -146,6 +146,32 @@ function readPageQuery(value) {
   return parsed;
 }
 
+// TEMPORARIO (card de etiqueta avulsa do dashboard admin). Valida/normaliza
+// as linhas { label, value } enviadas pelo card. O agente renderiza essas
+// linhas como rotulo:valor (sem QR). Mantido generico de proposito: o card
+// decide os rotulos, o backend so sanitiza tamanho/forma.
+function normalizeCustomLabelLines(rawLines) {
+  if (!Array.isArray(rawLines) || rawLines.length === 0) {
+    throw new HttpError(422, 'lines deve ser uma lista nao vazia');
+  }
+  if (rawLines.length > 12) {
+    throw new HttpError(422, 'lines suporta no maximo 12 linhas');
+  }
+
+  return rawLines.map((line, index) => {
+    const label = typeof line?.label === 'string' ? line.label.trim() : '';
+    const value = typeof line?.value === 'string' ? line.value.trim() : '';
+    if (label.length === 0) {
+      throw new HttpError(422, `lines[${index}].label e obrigatorio`);
+    }
+    return {
+      label: label.slice(0, 40),
+      // value pode ser vazio (campo deixado em branco no card).
+      value: value.slice(0, 80),
+    };
+  });
+}
+
 function executeApiForInput(input, handler) {
   const requestId = readHeader(input?.headers ?? {}, 'x-request-id') ?? null;
   return executeApi(handler, { requestId });
@@ -974,6 +1000,92 @@ export function createBackendApiV1({
           status: 200,
           body: result,
         };
+      }),
+
+    // ============================================================
+    // TEMPORARIO: etiqueta avulsa (card do dashboard admin).
+    // Fila propria (custom_print_job) — endpoint separado de proposito
+    // pra nao tocar no fluxo de impressao das amostras. O print agent
+    // poll este /pending alem do /print-queue/pending de sempre.
+    // Removivel junto com o card (drop table + remover estes handlers).
+    // ============================================================
+
+    enqueueCustomPrintJob: (input) =>
+      executeApiForInput(input, async () => {
+        const actor = await resolveActorContext(input, authService);
+        if (actor.role !== USER_ROLES.ADMIN) {
+          throw new HttpError(403, 'Apenas administradores podem imprimir etiquetas avulsas', {
+            code: 'ROLE_FORBIDDEN',
+          });
+        }
+
+        const body = readRequestBody(input);
+        const lines = normalizeCustomLabelLines(body.lines);
+
+        const job = await queryService.prisma.customPrintJob.create({
+          data: {
+            status: 'PENDING',
+            payload: { lines, copies: 1 },
+          },
+          select: { id: true, status: true, createdAt: true },
+        });
+
+        return {
+          status: 201,
+          body: { id: job.id, status: job.status, createdAt: job.createdAt.toISOString() },
+        };
+      }),
+
+    getPendingCustomPrintJobs: (input) =>
+      executeApiForInput(input, async () => {
+        // Mesma politica do /print-queue/pending: qualquer sessao autenticada
+        // (o print agent loga como usuario normal).
+        await resolveActorContext(input, authService);
+        const rows = await queryService.prisma.customPrintJob.findMany({
+          where: { status: 'PENDING' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 10,
+          select: { id: true, payload: true, printerId: true, createdAt: true },
+        });
+        return {
+          status: 200,
+          body: {
+            items: rows.map((row) => ({
+              jobId: row.id,
+              kind: 'custom',
+              payload: row.payload,
+              printerId: row.printerId ?? null,
+              createdAt: row.createdAt.toISOString(),
+            })),
+            total: rows.length,
+          },
+        };
+      }),
+
+    resolveCustomPrintJob: (input) =>
+      executeApiForInput(input, async () => {
+        await resolveActorContext(input, authService);
+        const body = readRequestBody(input);
+        const jobId = typeof body.jobId === 'string' ? body.jobId.trim() : '';
+        if (jobId.length === 0) {
+          throw new HttpError(422, 'jobId e obrigatorio');
+        }
+        const status = body.status === 'FAILED' ? 'FAILED' : 'DONE';
+        const error =
+          status === 'FAILED' && typeof body.error === 'string' ? body.error.slice(0, 500) : null;
+
+        // updateMany com filtro status=PENDING torna o report idempotente:
+        // reentrega do agente apos sucesso nao sobrescreve nem erra.
+        const result = await queryService.prisma.customPrintJob.updateMany({
+          where: { id: jobId, status: 'PENDING' },
+          data: {
+            status,
+            error,
+            printerId: typeof body.printerId === 'string' ? body.printerId : null,
+          },
+        });
+
+        return { status: 200, body: { ok: true, updated: result.count } };
       }),
 
     listClients: (input) =>

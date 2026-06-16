@@ -1,0 +1,7 @@
+// TEMPORARIO: logo pequeno da etiqueta avulsa (gerado por scripts/generate-logo-bitmap-small.mjs).
+export const LOGO_SMALL_WIDTH_BYTES = 20;
+export const LOGO_SMALL_HEIGHT = 48;
+export const LOGO_SMALL_DATA = Buffer.from(
+  '//////////////////////////////////////////////////////////////////////////////////////////////////////////////4B////////////////////////8AB////////////////////////gAB//8H/8P/gD+A//wf/g/////4BwD//AH/gf8AHwA/+B/8A/////A/4H/8Af+B/wAfAB/4H/gB////8P/4P/gA/4H/AB8AD/gP8AH////h//w/+HD/gf8P/w8P+A/w4f///8H//h/4eP8B/w//Dw/4D/Dx////w//+H/h4/xD/D/8PD/gP8PD////H+B8P+H//EP8P/w8P8I/w/////8f4Bw/4f/8Q/w//Dw/wj/B/////h/gBD/g//xj/D/8PD/GP8H////+H+AAP/B//GP8P/w8P8Yf4P////4f44H/+D/8Y/wB/AB/xh/wf////h/j4f/4H/hh/AH8AP/GH/g////+H+Pw//wP+GH8AfwAf8Yf/B////8f4/h//gf44fwB/AA/hx/+D////w/j+H//h/jh/D/8PD+HH/8H////D+P8f/+D+PH8P/w8P48P/4f///+H4/w//8P4Afw//Dw/gA//h////4Pj/D/jw/AA/D/8PD+AD8fD////wOP8P+PD8AD8P/w8P4APw8P///4AI/w/48PwAPw//Dw/AA/Dw////hAD/D/hw/Hw/D/8PD8Pj8OH////GAP8P+AD8fD8P/w8Pw+HwAf///8eA/w/4Afx+Pw//Dw/H4fgB////w/D+H/wB+H4fD/8PD8fh+AP////D+P4f/wf8/j+P/4+Px/H+D////+H4/D//////////////////////8Pj4P//////////////////////wePB///////////////////////gYwP/+v///////7//+/////////AAB//2/////////////////////AAP//r//3+P8f9f4/v4/x//////AD//+f/7v3fufu/d+/d+7//////h///1//u/d+9979/7975//////+P///Y/+79H733/3/v/v4//////4///73/7v3/ufe/f+/e/7//////j///3P/u/N/Z+7837935v/////+P///n////P+38/8//4/x//////4//////////u//////////////////////////T////////////////////////////////////////////////////////////////',
+  'base64'
+);

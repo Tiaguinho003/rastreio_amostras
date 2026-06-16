@@ -389,6 +389,24 @@ model PrintJob {
   @@map("print_job")
 }
 
+// TEMPORARIO: fila de etiquetas avulsas impressas pelo card do dashboard
+// admin. Desacoplada de Sample/event store/PrintJob — o print agent busca
+// os PENDING via /api/v1/custom-print/pending, imprime e marca DONE/FAILED.
+// payload guarda { lines: [{ label, value }], copies }. Removivel com um
+// DROP TABLE quando o card temporario sair.
+model CustomPrintJob {
+  id        String   @id @default(uuid()) @db.Uuid
+  status    String   @default("PENDING")
+  payload   Json
+  printerId String?  @map("printer_id")
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt], map: "idx_custom_print_job_status_created")
+  @@map("custom_print_job")
+}
+
 model User {
   id                      String                  @id @db.Uuid
   fullName                String                  @map("full_name")

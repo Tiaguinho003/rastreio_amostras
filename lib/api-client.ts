@@ -1332,6 +1332,19 @@ export function requestQrPrint(
   });
 }
 
+// TEMPORARIO: enfileira uma etiqueta avulsa (card do dashboard admin).
+// lines = [{ label, value }] na ordem de impressao. Sem vinculo com Sample.
+export function requestCustomPrint(
+  session: SessionData,
+  lines: Array<{ label: string; value: string }>
+) {
+  return request<{ id: string; status: string; createdAt: string }>('/custom-print/request', {
+    method: 'POST',
+    session,
+    body: { lines },
+  });
+}
+
 export function recordQrPrintFailed(
   session: SessionData,
   sampleId: string,
