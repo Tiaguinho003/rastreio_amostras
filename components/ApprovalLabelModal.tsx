@@ -10,10 +10,10 @@ import type { SessionData } from '../lib/types';
 // Modal da Etiqueta de Aprovação (ex-"avulsa"). Mesmo padrão do NewSampleModal:
 // bottom-sheet saindo de baixo + efeito de sucesso (check animado) que
 // auto-fecha. Aberto pela opção "Aprovação" do leque do "+" em /samples.
-// Imprime na MESMA impressora das amostras (via print agent), 6 campos
-// editáveis, sem QR, 1 cópia por envio. Pipeline intacto: requestCustomPrint →
-// fila custom_print_job. Acesso garantido pelo gate da página (/samples =
-// NON_PROSPECTOR_ROLES) + gate central do PROSPECTOR no backend.
+// Imprime na MESMA impressora das amostras (via print agent), sem QR, 1 cópia
+// por envio. Pipeline intacto: requestCustomPrint → fila custom_print_job.
+// Acesso garantido pelo gate da página (/samples = NON_PROSPECTOR_ROLES) + gate
+// central do PROSPECTOR no backend.
 
 interface FieldConfig {
   key: string;
@@ -25,8 +25,9 @@ interface FieldConfig {
   maxChars?: number; // limite de caracteres do input (default 80)
 }
 
-// Ordem = ordem de leitura na etiqueta (topo → base). Os printLabel saem
-// MAIÚSCULOS com ":" na etiqueta (o ":" é adicionado pelo buildCustomLabel).
+// Campos de VALOR ÚNICO (impressos). O Lote NÃO está aqui: virou um grupo de
+// campos dinâmicos (ver `lots` no componente). Os printLabel saem MAIÚSCULOS com
+// ":" na etiqueta (o ":" é adicionado pelo buildCustomLabel).
 const FIELDS: FieldConfig[] = [
   {
     key: 'compra',
@@ -58,7 +59,6 @@ const FIELDS: FieldConfig[] = [
     placeholder: 'Nome do armazém',
     maxChars: 52,
   },
-  { key: 'lote', uiLabel: 'Lote', printLabel: 'LOTE', placeholder: 'Lote', maxChars: 78 },
   {
     key: 'sacas',
     uiLabel: 'Sacas',
@@ -69,10 +69,9 @@ const FIELDS: FieldConfig[] = [
   },
 ];
 
-// Disposição dos campos no formulário (linhas; pares ficam lado a lado). `weight`
-// = fração da largura da linha (colunas desiguais via grid-template-columns em
-// `fr`). Referencia as keys de FIELDS — a etiqueta IMPRESSA não depende desta
-// ordem (o print agent posiciona cada campo pelo rótulo, não pela ordem).
+// Disposição dos campos de valor único (linhas; pares lado a lado). `weight` =
+// fração da largura da linha (colunas desiguais via grid-template-columns em
+// `fr`). O grupo de Lotes é renderizado SEPARADAMENTE, logo abaixo (full-width).
 const FORM_ROWS: Array<Array<{ key: string; weight: number }>> = [
   [
     { key: 'compra', weight: 1 },
@@ -83,12 +82,32 @@ const FORM_ROWS: Array<Array<{ key: string; weight: number }>> = [
     { key: 'sacas', weight: 1 },
   ],
   [{ key: 'armazem', weight: 1 }],
-  [{ key: 'lote', weight: 1 }],
 ];
 
 const FIELD_BY_KEY: Record<string, FieldConfig> = Object.fromEntries(
   FIELDS.map((field) => [field.key, field])
 );
+
+// Rótulo impresso do Lote. O campo virou grupo dinâmico: no envio, os lotes
+// não-vazios são juntados numa ÚNICA linha LOTE (a divisão por quantidade na
+// etiqueta — substituindo o wrap automático — é o próximo passo).
+const LOTE_PRINT_LABEL = 'LOTE';
+const LOT_MAX_CHARS = 16;
+
+type Lot = { id: number; value: string };
+
+// Contador de id estável pros campos de lote (chaves do React; permite remover
+// do meio sem reanimar/embaralhar os demais). Module-level = estável, sem
+// disparar exhaustive-deps nos effects.
+let lotIdSeq = 0;
+function nextLotId(): number {
+  const id = lotIdSeq;
+  lotIdSeq += 1;
+  return id;
+}
+function freshLots(): Lot[] {
+  return [{ id: nextLotId(), value: '' }];
+}
 
 function emptyValues(): Record<string, string> {
   const acc: Record<string, string> = {};
@@ -107,6 +126,7 @@ interface ApprovalLabelModalProps {
 export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModalProps) {
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>(emptyValues);
+  const [lots, setLots] = useState<Lot[]>(freshLots);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   // 'form' = bottom-sheet visível; 'success' = sheet desceu, aguardando o check.
@@ -114,29 +134,58 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   // O check central só aparece depois que o sheet termina de descer.
   const [successVisible, setSuccessVisible] = useState(false);
 
+  // Foco automático no campo de lote recém-criado (digita direto, sem clicar).
+  const lotsRowRef = useRef<HTMLDivElement | null>(null);
+  const focusLastLotRef = useRef(false);
+
   function setField(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (formError) setFormError(null);
   }
 
+  function setLot(id: number, value: string) {
+    setLots((prev) => prev.map((lot) => (lot.id === id ? { ...lot, value } : lot)));
+    if (formError) setFormError(null);
+  }
+
+  function addLot() {
+    focusLastLotRef.current = true;
+    setLots((prev) => [...prev, { id: nextLotId(), value: '' }]);
+    if (formError) setFormError(null);
+  }
+
+  function removeLot(id: number) {
+    // O último lote nunca some (precisa de ao menos um campo).
+    setLots((prev) => (prev.length > 1 ? prev.filter((lot) => lot.id !== id) : prev));
+  }
+
   function handleClear() {
     setValues(emptyValues());
+    setLots(freshLots());
     setFormError(null);
   }
 
   function hasUnsavedData() {
-    return Object.values(values).some((v) => v.trim().length > 0);
+    return (
+      Object.values(values).some((v) => v.trim().length > 0) ||
+      lots.some((lot) => lot.value.trim().length > 0)
+    );
   }
 
   async function handleSubmit() {
     if (submitting) return;
 
-    // Envia TODOS os campos na ordem fixa (mesmo vazios) — o buildCustomLabel
-    // posiciona por índice, então a ordem não pode "compactar".
-    const lines = FIELDS.map((field) => ({
+    // Campos de valor único + a linha LOTE (junta os lotes não-vazios). O print
+    // agent posiciona cada campo pelo rótulo, então a ordem aqui é livre.
+    const fieldLines = FIELDS.map((field) => ({
       label: field.printLabel,
       value: values[field.key].trim(),
     }));
+    const lotValue = lots
+      .map((lot) => lot.value.trim())
+      .filter(Boolean)
+      .join(', ');
+    const lines = [...fieldLines, { label: LOTE_PRINT_LABEL, value: lotValue }];
 
     if (lines.every((line) => line.value.length === 0)) {
       setFormError('Preencha ao menos um campo para imprimir.');
@@ -158,6 +207,14 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
     }
   }
 
+  // Foca o campo de lote recém-adicionado, depois que ele monta.
+  useEffect(() => {
+    if (!focusLastLotRef.current) return;
+    focusLastLotRef.current = false;
+    const inputs = lotsRowRef.current?.querySelectorAll<HTMLInputElement>('input.alm-lot-input');
+    inputs?.[inputs.length - 1]?.focus();
+  }, [lots.length]);
+
   // Reset total quando o modal é totalmente dispensado (pai fecha, inclusive
   // após o auto-close do sucesso). Garante form limpo na próxima abertura.
   useEffect(() => {
@@ -165,6 +222,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
     setPhase('form');
     setSuccessVisible(false);
     setValues(emptyValues());
+    setLots(freshLots());
     setFormError(null);
     setSubmitting(false);
   }, [open]);
@@ -256,6 +314,46 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                 })}
               </div>
             ))}
+
+            {/* Grupo de Lotes (campos dinâmicos). "+" cria mais um ao lado (máx.
+                3 + botão por linha; o 4º quebra). "×" remove (some quando só 1). */}
+            <div className="alm-lots-group">
+              <span className="nsv2-field-label">Lotes</span>
+              <div className="alm-lots" ref={lotsRowRef}>
+                {lots.map((lot, index) => (
+                  <div key={lot.id} className="alm-lot-field">
+                    <input
+                      className="nsv2-field-input alm-input alm-lot-input"
+                      type="text"
+                      value={lot.value}
+                      onChange={(event) => setLot(lot.id, event.target.value)}
+                      placeholder={`Lote ${index + 1}`}
+                      aria-label={`Lote ${index + 1}`}
+                      maxLength={LOT_MAX_CHARS}
+                      autoComplete="off"
+                    />
+                    {lots.length > 1 ? (
+                      <button
+                        type="button"
+                        className="alm-lot-remove"
+                        aria-label={`Remover lote ${index + 1}`}
+                        onClick={() => removeLot(lot.id)}
+                      >
+                        ×
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="alm-lot-add"
+                  aria-label="Adicionar lote"
+                  onClick={addLot}
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
 
           {formError ? (
