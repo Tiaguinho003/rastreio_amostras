@@ -146,10 +146,14 @@ function readPageQuery(value) {
   return parsed;
 }
 
-// Etiqueta avulsa (card do dashboard admin). Valida/normaliza as linhas
-// { label, value } enviadas pelo card. O agente renderiza essas linhas como
-// rotulo:valor (sem QR). Mantido generico de proposito: o card decide os
-// rotulos, o backend so sanitiza tamanho/forma.
+// Espelha MAX_LOTS em components/ApprovalLabelModal.tsx (a etiqueta nao comporta
+// mais lotes sem encolher a fonte a ponto de cortar o numero).
+const MAX_CUSTOM_LOTS = 16;
+
+// Etiqueta de Aprovacao (modal "Aprovacao" do leque "+" em /samples). Valida/
+// normaliza as linhas { label, value } enviadas pelo modal; o agente as
+// renderiza como rotulo:valor (sem QR). Generico de proposito: o modal decide os
+// rotulos, o backend so sanitiza tamanho/forma e valida a contagem de lotes.
 function normalizeCustomLabelLines(rawLines) {
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
     throw new HttpError(422, 'lines deve ser uma lista nao vazia');
@@ -164,13 +168,25 @@ function normalizeCustomLabelLines(rawLines) {
     if (label.length === 0) {
       throw new HttpError(422, `lines[${index}].label e obrigatorio`);
     }
-    // O campo LOTE carrega varios lotes juntados (a etiqueta os divide numa
-    // grade responsiva), entao precisa de mais folga; os demais ficam em 80.
+    // Deteccao do LOTE: MESMA norma do normalizeFieldKey em print-agent/label.js
+    // (manter em sincronia). O LOTE carrega varios lotes juntados por virgula (a
+    // etiqueta os divide numa grade); validamos a CONTAGEM em vez de cortar 240
+    // chars cru, que partia o numero do ultimo lote no meio.
     const isLots = label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase() === 'LOTE';
+    if (isLots) {
+      const lots = value
+        .split(/[,\n]+/)
+        .map((lot) => lot.trim().slice(0, 40))
+        .filter(Boolean);
+      if (lots.length > MAX_CUSTOM_LOTS) {
+        throw new HttpError(422, `lotes suporta no maximo ${MAX_CUSTOM_LOTS}`);
+      }
+      return { label: label.slice(0, 40), value: lots.join(', ') };
+    }
     return {
       label: label.slice(0, 40),
-      // value pode ser vazio (campo deixado em branco no card).
-      value: value.slice(0, isLots ? 240 : 80),
+      // value pode ser vazio (campo deixado em branco no modal).
+      value: value.slice(0, 80),
     };
   });
 }
@@ -1026,7 +1042,9 @@ export function createBackendApiV1({
         const job = await queryService.prisma.customPrintJob.create({
           data: {
             status: 'PENDING',
-            payload: { lines, copies: 1 },
+            // copies sempre 1 (o layout/impressao crava 1); nao gravamos o campo
+            // pra nao sugerir uma configurabilidade que nao existe.
+            payload: { lines },
           },
           select: { id: true, status: true, createdAt: true },
         });
@@ -1065,6 +1083,9 @@ export function createBackendApiV1({
 
     resolveCustomPrintJob: (input) =>
       executeApiForInput(input, async () => {
+        // Mesma politica do getPendingCustomPrintJobs: qualquer sessao
+        // autenticada (o print agent loga como usuario normal) — por design nao
+        // ha identidade dedicada de agente pra restringir a esses dois handlers.
         await resolveActorContext(input, authService);
         const body = readRequestBody(input);
         const jobId = typeof body.jobId === 'string' ? body.jobId.trim() : '';
@@ -1082,7 +1103,9 @@ export function createBackendApiV1({
           data: {
             status,
             error,
-            printerId: typeof body.printerId === 'string' ? body.printerId : null,
+            // cap defensivo (espelha o .slice de `error`); printerId vem do
+            // config do agente, nao de input de usuario, mas a coluna e ilimitada.
+            printerId: typeof body.printerId === 'string' ? body.printerId.slice(0, 120) : null,
           },
         });
 
