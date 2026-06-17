@@ -1311,33 +1311,8 @@ body:has(.bottom-sheet-backdrop.is-open) .mobile-edge-shell-auth::after {
    absoluto (mesmo padrao do BottomSheet "Nova amostra" pra coerencia do
    fluxo de registro). Mais especifico que .app-modal.is-themed por
    classe escopada — nao afeta outros modais. */
-.sample-created-modal .app-modal-header {
-  position: relative;
-  justify-content: center;
-  padding-right: clamp(3.6rem, 12vw, 4.2rem);
-  padding-left: clamp(3.6rem, 12vw, 4.2rem);
-}
-
-.sample-created-modal .app-modal-title-wrap {
-  text-align: center;
-  width: 100%;
-}
-
-.sample-created-modal .app-modal-title {
-  /* +8% em relacao ao .is-themed default (1.15-1.45rem). */
-  font-size: clamp(1.25rem, 3.4vw, 1.55rem);
-}
-
-.sample-created-modal .app-modal-close {
-  position: absolute;
-  right: clamp(1.1rem, 3.5vw, 1.4rem);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.sample-created-modal .app-modal-close:active:not(:disabled) {
-  transform: translateY(-50%) scale(0.94);
-}
+/* Modal de sucesso SEM header (design limpo): titulo vai no corpo
+   (.sample-created-title), sem faixa verde nem X — ver SampleCreatedSuccessModal. */
 
 /* Botoes do footer: altura uniforme (default difere 0.2rem entre secondary
    e submit) + width 100% pra preencher cada coluna do grid. Padding
@@ -17534,44 +17509,23 @@ select.samples-filter-field-input {
   padding-bottom: clamp(1.3rem, 4.5vw, 1.7rem);
 }
 
-/* Wrapper do check: pop-in do ring verde-claro + tick stroke-draw por
-   cima. Da peso visual ao "sucesso" sem perder o charm da animacao
-   linear do tick. Consistente com o treatment de icone em quadrado/
-   circulo dos outros modais (discard âmbar, etc). */
+/* Check LIMPO: so o line-art (circulo + tick) desenhando, SEM disco de fundo.
+   Traço fino. O charme fica na animacao linear de draw (circle + path abaixo). */
 .sample-created-check-wrap {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: clamp(70px, 19vw, 84px);
-  height: clamp(70px, 19vw, 84px);
-}
-
-.sample-created-check-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: rgba(31, 93, 67, 0.12);
-  animation: sample-created-ring-pop 0.45s cubic-bezier(0.22, 1.4, 0.36, 1) backwards;
-}
-
-@keyframes sample-created-ring-pop {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  width: clamp(60px, 16vw, 72px);
+  height: clamp(60px, 16vw, 72px);
 }
 
 .sample-created-check {
   position: relative;
-  width: 58%;
-  height: 58%;
+  width: 100%;
+  height: 100%;
   fill: none;
   stroke: var(--brand-green);
-  stroke-width: 3;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -17587,6 +17541,16 @@ select.samples-filter-field-input {
   stroke-dasharray: 40;
   stroke-dashoffset: 40;
   animation: client-success-tick 0.35s 0.7s ease forwards;
+}
+
+/* Titulo no corpo (modal de sucesso SEM header): escuro sobre o branco, centrado. */
+.sample-created-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 3.6vw, 1.45rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+  text-align: center;
 }
 
 /* Lot card: artefato principal do sucesso. Bg suave verde-claro +

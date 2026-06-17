@@ -74,27 +74,17 @@ export function SampleCreatedSuccessModal({
         aria-labelledby="sample-created-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="app-modal-header">
-          <div className="app-modal-title-wrap">
-            <h3 id="sample-created-title" className="app-modal-title">
-              {copy.title}
-            </h3>
-          </div>
-          <button type="button" className="app-modal-close" onClick={onClose} aria-label="Fechar">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </header>
-
         <div className="app-modal-content sample-created-body">
           <div className="sample-created-check-wrap" aria-hidden="true">
-            <span className="sample-created-check-ring" />
             <svg className="sample-created-check" viewBox="0 0 52 52">
               <circle cx="26" cy="26" r="24" />
               <path d="M14 27l8 8 16-16" />
             </svg>
           </div>
+
+          <h3 id="sample-created-title" className="sample-created-title">
+            {copy.title}
+          </h3>
 
           <div className="sample-created-lot-card">
             <p className="sample-created-label">{copy.label}</p>
