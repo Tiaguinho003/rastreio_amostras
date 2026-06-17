@@ -30703,6 +30703,19 @@ select.samples-filter-field-input {
   z-index: calc(var(--z-modal-stacked) + 10);
 }
 
+/* BottomSheet empilhado (modo `stacked`) — sheet SOBRE outro sheet/modal. Mesmo
+   tier dos modais centrais aninhados (--z-modal-stacked), acima do --z-modal do
+   sheet de baixo. Ex.: sheet de "novo cliente" sobre o de "Nova amostra". O
+   scroll-lock + gating de ESC/back ao topmost sao tratados no componente
+   (sheetStack em BottomSheet.tsx). */
+.bottom-sheet-backdrop.is-stacked {
+  z-index: var(--z-modal-stacked);
+}
+
+.bottom-sheet.is-stacked {
+  z-index: calc(var(--z-modal-stacked) + 10);
+}
+
 /* Animacao fade entre steps do wizard de Nova Amostra (decisao 5.22).
    O container que envolve o step content recebe key={state.step} no
    JSX — ao trocar de step, React re-monta o div e o keyframe roda. */

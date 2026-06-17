@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 import { useFocusTrap } from '../lib/use-focus-trap';
@@ -28,6 +36,19 @@ export const ANIMATION_MS = 460;
 // counter fica em 0 e o comportamento e identico ao anterior.
 let pendingInternalBacks = 0;
 
+// Stack de sheets visiveis (topmost = ultimo). Serve a dois propositos quando um
+// sheet abre SOBRE outro (modo `stacked`):
+//  - ref-count do scroll-lock do body: trava no 0->1 e restaura no 1->0, pra
+//    fechar o sheet de cima NAO destravar o scroll do de baixo;
+//  - gating de ESC/back ao TOPMOST: so o sheet do topo responde, pra ESC/back
+//    nao fecharem o sheet de baixo junto.
+// Sheet sozinho (os 11 sheets existentes): a stack chega no maximo a 1 ->
+// comportamento identico ao anterior.
+const sheetStack: string[] = [];
+let savedBodyOverflow = '';
+// Ref-count da classe is-bottom-sheet-open (atrelada a isOpen/intencao).
+let openIntentCount = 0;
+
 interface BottomSheetProps {
   open: boolean;
   onClose: () => void;
@@ -45,6 +66,13 @@ interface BottomSheetProps {
   dragToDismiss?: boolean;
   /** Pausa drag-to-dismiss temporariamente (ex: enquanto modal aninhado aberto). */
   dragDisabled?: boolean;
+  /**
+   * Sheet empilhado SOBRE outro overlay (sheet/modal). Eleva o z-index pro tier
+   * `--z-modal-stacked` (backdrop+sheet) e DELEGA a history ao overlay-pai (nao
+   * injeta entry propria). O scroll-lock e o gating ESC/back ao topmost sao
+   * automaticos (ver `sheetStack`). Default: false.
+   */
+  stacked?: boolean;
   /** Aria-label do dialog (lido por screen readers). */
   ariaLabel?: string;
   /** Classe modificadora opcional aplicada ao .bottom-sheet pra permitir
@@ -63,8 +91,11 @@ export function BottomSheet({
   dragDisabled = false,
   ariaLabel,
   className,
+  stacked = false,
 }: BottomSheetProps) {
   const focusTrapRef = useFocusTrap(open);
+  // Token estavel por instancia pra identificar este sheet na `sheetStack`.
+  const sheetToken = useId();
   const dragState = useRef({ startY: 0, currentY: 0, dragging: false });
   const historyInjectedRef = useRef(false);
 
@@ -137,21 +168,31 @@ export function BottomSheet({
   useEffect(() => {
     if (!visible) return;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Ref-count do scroll-lock via sheetStack: trava no 0->1, restaura no 1->0.
+    // Empilhar um sheet sobre outro nao re-trava nem destrava cedo demais.
+    if (sheetStack.length === 0) {
+      savedBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+    sheetStack.push(sheetToken);
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        void requestDismissRef.current();
-      }
+      if (event.key !== 'Escape') return;
+      // So o sheet do TOPO responde ao ESC (nao fecha o de baixo junto).
+      if (sheetStack[sheetStack.length - 1] !== sheetToken) return;
+      event.preventDefault();
+      void requestDismissRef.current();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
+      const index = sheetStack.lastIndexOf(sheetToken);
+      if (index !== -1) sheetStack.splice(index, 1);
+      if (sheetStack.length === 0) {
+        document.body.style.overflow = savedBodyOverflow;
+      }
     };
-  }, [visible]);
+  }, [visible, sheetToken]);
 
   // Body class `is-bottom-sheet-open` (esconde tabbar mobile). Atrelada a
   // `isOpen` (intencao do user), NAO a `visible` (presenca no DOM).
@@ -161,7 +202,12 @@ export function BottomSheet({
   useEffect(() => {
     if (!isOpen) return;
 
-    document.body.classList.add('is-bottom-sheet-open');
+    // Ref-count: a classe entra no 0->1 e sai no 1->0, pra fechar um sheet
+    // empilhado nao reexibir a tabbar enquanto o de baixo segue aberto.
+    if (openIntentCount === 0) {
+      document.body.classList.add('is-bottom-sheet-open');
+    }
+    openIntentCount += 1;
     // Defesa contra is-keyboard-open ficando presa: se user abriu o sheet
     // com teclado ainda aberto (focusout pode nao disparar em todos os fluxos
     // iOS standalone), a classe ficaria ativa apos o sheet fechar, deixando
@@ -171,7 +217,11 @@ export function BottomSheet({
     document.body.classList.remove('is-keyboard-open');
 
     return () => {
-      document.body.classList.remove('is-bottom-sheet-open');
+      openIntentCount -= 1;
+      if (openIntentCount <= 0) {
+        openIntentCount = 0;
+        document.body.classList.remove('is-bottom-sheet-open');
+      }
     };
     // isOpen e derivado de `open` + `animatingIn`; quando open vira false,
     // isOpen flipa pra false imediatamente (animatingIn ja era true).
@@ -191,6 +241,9 @@ export function BottomSheet({
   // sheet recem-aberto. O counter sinaliza ao listener que aquele pop foi
   // gerado pelo nosso proprio cleanup (back interno) e deve ser ignorado.
   useEffect(() => {
+    // Sheet empilhado (modo stacked) delega a history ao overlay-pai — nao
+    // injeta entry propria (evita back-button confuso com 2 entries iguais).
+    if (stacked) return;
     if (!open || historyInjectedRef.current) return;
 
     window.history.pushState({ bottomSheet: true }, '');
@@ -205,6 +258,9 @@ export function BottomSheet({
         pendingInternalBacks--;
         return;
       }
+      // So o sheet do TOPO responde ao back (nao fecha o de baixo enquanto um
+      // sheet empilhado esta aberto por cima).
+      if (sheetStack[sheetStack.length - 1] !== sheetToken) return;
       void requestDismissRef.current();
     };
 
@@ -220,7 +276,7 @@ export function BottomSheet({
         }
       }
     };
-  }, [open]);
+  }, [open, stacked, sheetToken]);
 
   function handleTouchStart(event: React.TouchEvent) {
     if (!dragToDismiss || dragDisabled) return;
@@ -270,12 +326,12 @@ export function BottomSheet({
   // fica preso ATRAS do conteudo da pagina. Mesmo motivo do portal no MobileTabbar.
   return createPortal(
     <div
-      className={`bottom-sheet-backdrop${isOpen ? ' is-open' : ''}`}
+      className={`bottom-sheet-backdrop${isOpen ? ' is-open' : ''}${stacked ? ' is-stacked' : ''}`}
       onClick={() => void requestDismiss()}
     >
       <section
         ref={focusTrapRef}
-        className={`bottom-sheet${content.className ? ` ${content.className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}`}
+        className={`bottom-sheet${content.className ? ` ${content.className}` : ''}${isOpen ? ' is-open' : ''}${isOpen && dragOffset > 0 ? ' is-dragging' : ''}${stacked ? ' is-stacked' : ''}`}
         style={{
           ...(isOpen && dragOffset > 0 ? { transform: sheetTransform } : null),
           // Conteudo congelado durante o close fica inerte: evita clique

@@ -135,6 +135,8 @@ Combinar livremente: `.app-modal is-themed is-wide`.
 
 > **Confirm SEM header (enxuto):** um `.app-confirm-modal` pode dispensar o `<header className="app-modal-header">` — o titulo vai no CORPO via `.app-confirm-modal-title` (entre o icone e a mensagem). O card `.is-themed` (`overflow: hidden` + branco + radius) fica redondo sem o header. Usado no "Descartar amostra?" do `NewSampleModal`. Continua via `createPortal(document.body)` (§ Portal) — sem portar, um confirm dentro de um sheet/modal **ja portalado** fica ATRAS dele no empilhamento.
 
+> **Sheet SOBRE sheet (`<BottomSheet stacked>`):** desde 2026-06, um bottom-sheet pode abrir sobre outro — a prop `stacked` eleva backdrop+sheet pro tier `--z-modal-stacked` (600/610) e o scroll-lock/ESC/back viram ref-contados/gated-ao-topo no componente (ver `design-system` §8 "stacked"). Ex.: "novo cliente" (`ClientQuickCreateModal`) sobre "Nova amostra" (`NewSampleModal`). **Pegadinha:** o confirm de "Descartar?" do sheet DE CIMA NAO deve ser um `.app-modal.is-stacked` portalado (colidiria no mesmo tier 600 do sheet de cima) — use um **overlay INTERNO** ao sheet (`position:absolute; inset:0`, como o overlay de sucesso).
+
 > Existe um `.app-modal` "compacto" sem `.is-themed` (legacy: 430px max, fundo glass). NAO usar pra modais novos. Existe apenas pra `cdm-modal`, modais de users, cam-\* e similares — todos candidatos a refatoracao quando tocar.
 
 ## 4. Tokens visuais (referencia rapida)
