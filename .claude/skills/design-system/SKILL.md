@@ -258,12 +258,14 @@ box-shadow: 0 4px 24px rgba(31, 93, 67, 0.3);
 
 Excecao a regra "nunca verde ao clicar":
 
-- Em listagens (`/clients`, `/samples`, `/users`), **filter chips/botoes em estado `.is-active`** podem usar verde solid (`linear-gradient(135deg, var(--brand-green), var(--brand-green-soft))` com SVG branco) para sinalizar acao em uso. Exemplo: `.sdv-card-commercial-mini.is-active`, `.hero-search-filter-btn` em `/samples`.
+- Em listagens (`/clients`, `/users`), **filter chips/botoes em estado `.is-active`** podem usar verde solid (`linear-gradient(135deg, var(--brand-green), var(--brand-green-soft))` com SVG branco) para sinalizar acao em uso. Exemplo: `.sdv-card-commercial-mini.is-active`, `.hero-search-filter-btn` (base verde, usado em `/clients`). **Exceção — `/samples`**: o `.hero-search-filter-btn` foi movido pra linha da busca (à direita; a busca encurta via flex) e vira **pílula BRANCA + ícone verde** (escopado a `.samples-page-v2`, não afeta /clients), com **badge vermelho** sinalizando filtros ativos. O contador `.spv2-list-meta`/`.spv2-list-count` ficou alinhado à direita (modo liga volta a `space-between`).
 - A excecao se aplica **apenas ao estado persistente de "filtro ativo"** — nunca ao `:active` transitorio do clique.
 
 ### Campos de filtro multi-select (chips dentro do campo)
 
-- No modal de filtros de `/samples`, campos de selecao multipla usam o box `.samples-filter-multi`: os itens selecionados viram chips (`.samples-filter-token`) **dentro** do box, nunca abaixo do campo. Duas variantes: `--lookup` (typeahead `ClientLookupField` borderless ocupando a linha abaixo dos chips — Proprietario/Comprador/Enviado para) e `--select` (box clicavel + chevron que abre `.samples-filter-multi-dropdown` com checklist — campos de classificacao via `ClassificationFilterField`: Padrao/Aspecto/Catacao/Certificado). As opcoes de classificacao vem de valores distintos canonicos do backend (`GET /samples/classification-values?field=padrao|aspecto|catacao|certif`).
+- No modal de filtros de `/samples`, campos de selecao multipla usam o box `.samples-filter-multi`. Duas variantes:
+  - **`--lookup` RETRÁTIL** (Proprietário/Comprador/Enviado para — `ClientLookupField`): é um **disclosure**. Colapsado mostra SÓ o gatilho (`.samples-filter-retract-trigger`: nome do campo numa caixa de **borda fina** + seta `.samples-filter-retract-chevron` + bolinha `.samples-filter-retract-count` com a contagem) — sem caixa de input à vista. Clicar abre a caixa de busca (animação `samples-filter-field-reveal`; a borda do gatilho some). Aberto: chips dos selecionados (`.samples-filter-chips-row`, fila horizontal **rolável**, `nowrap`, rótulo truncado `8ch`) na **MESMA linha** do typeahead inline → o campo **não cresce de altura**; placeholder some quando há seleção; sem outline preto no input (`input:focus { outline: none }`). Fecha ao clicar fora, em outro campo ou ao **rolar o modal** (JS em `app/samples/page.tsx`, fecha via `.samples-filter-field--retractable.is-open`).
+  - **`--select`** (box clicavel + chevron que abre `.samples-filter-multi-dropdown` com checklist — classificacao via `ClassificationFilterField`: Padrao/Aspecto/Catacao/Certificado; opcoes de `GET /samples/classification-values?field=padrao|aspecto|catacao|certif`).
 
 ### Regras universais de botao
 
