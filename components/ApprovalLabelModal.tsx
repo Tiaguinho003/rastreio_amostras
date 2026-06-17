@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ANIMATION_MS, BottomSheet } from './BottomSheet';
 import { ApiError, requestCustomPrint } from '../lib/api-client';
@@ -134,10 +134,6 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   // O check central só aparece depois que o sheet termina de descer.
   const [successVisible, setSuccessVisible] = useState(false);
 
-  // Foco automático no campo de lote recém-criado (digita direto, sem clicar).
-  const lotsRowRef = useRef<HTMLDivElement | null>(null);
-  const focusLastLotRef = useRef(false);
-
   function setField(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (formError) setFormError(null);
@@ -149,7 +145,8 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
   }
 
   function addLot() {
-    focusLastLotRef.current = true;
+    // Sem auto-foco: o campo é criado vazio; o teclado só abre quando o usuário
+    // toca no campo pra digitar.
     setLots((prev) => [...prev, { id: nextLotId(), value: '' }]);
     if (formError) setFormError(null);
   }
@@ -206,14 +203,6 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
       setSubmitting(false);
     }
   }
-
-  // Foca o campo de lote recém-adicionado, depois que ele monta.
-  useEffect(() => {
-    if (!focusLastLotRef.current) return;
-    focusLastLotRef.current = false;
-    const inputs = lotsRowRef.current?.querySelectorAll<HTMLInputElement>('input.alm-lot-input');
-    inputs?.[inputs.length - 1]?.focus();
-  }, [lots.length]);
 
   // Reset total quando o modal é totalmente dispensado (pai fecha, inclusive
   // após o auto-close do sucesso). Garante form limpo na próxima abertura.
@@ -319,7 +308,7 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                 3 + botão por linha; o 4º quebra). "×" remove (some quando só 1). */}
             <div className="alm-lots-group">
               <span className="nsv2-field-label">Lotes</span>
-              <div className="alm-lots" ref={lotsRowRef}>
+              <div className="alm-lots">
                 {lots.map((lot, index) => (
                   <div key={lot.id} className="alm-lot-field">
                     <input
@@ -350,7 +339,9 @@ export function ApprovalLabelModal({ open, onClose, session }: ApprovalLabelModa
                   aria-label="Adicionar lote"
                   onClick={addLot}
                 >
-                  +
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
                 </button>
               </div>
             </div>

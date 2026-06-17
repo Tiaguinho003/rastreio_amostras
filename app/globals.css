@@ -24904,7 +24904,7 @@ select.samples-filter-field-input {
   --alm-lots-gap: 8px;
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
+  align-items: center;
   gap: var(--alm-lots-gap);
 }
 
@@ -24958,41 +24958,48 @@ select.samples-filter-field-input {
   transform: scale(0.86);
 }
 
-/* Botão "+" pra adicionar lote: pequeno, tracejado, segue o último campo.
-   Verde só no texto/foco — NUNCA fundo verde no clique (afunda via scale). */
+/* Botão "+" pra adicionar lote: CÍRCULO verde com ícone branco, segue o último
+   campo. Feedback de toque = afunda (scale), nunca troca de cor (skill
+   button-press-effect). */
 .alm-lot-add {
   flex: 0 0 var(--alm-add-w);
+  width: var(--alm-add-w);
+  height: var(--alm-add-w);
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1.5px dashed rgba(0, 0, 0, 0.18);
-  border-radius: clamp(8px, 2.5vw, 10px);
-  background: #faf9f6;
-  color: #2f6b4a;
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1;
+  border: none;
+  border-radius: 50%;
+  background: var(--brand-green);
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(31, 93, 67, 0.28);
   -webkit-tap-highlight-color: transparent;
   transition:
     transform 0.12s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
+    box-shadow 0.2s ease;
+}
+
+.alm-lot-add svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .alm-lot-add:hover {
-  border-color: rgba(47, 107, 74, 0.45);
-  background: #f3f6f1;
+  box-shadow: 0 3px 9px rgba(31, 93, 67, 0.34);
 }
 
 .alm-lot-add:active {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
 .alm-lot-add:focus-visible {
   outline: none;
-  border-color: #7ca16f;
-  box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.16);
+  box-shadow: 0 0 0 3px rgba(124, 161, 111, 0.4);
 }
 
 @keyframes alm-lot-in {
