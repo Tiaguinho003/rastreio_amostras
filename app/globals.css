@@ -17799,6 +17799,58 @@ select.samples-filter-field-input {
   padding-right: 0.08rem;
 }
 
+/* "Novo cliente" agora e um BottomSheet (slide de baixo). O sheet ja da o scroll
+   (.bottom-sheet-body) e o recuo lateral (padding do .bottom-sheet) — entao aqui
+   o form/body viram blocos simples: sem grid-de-2-linhas (as acoes foram pro
+   footer do sheet), sem scroll proprio e sem padding duplicado. */
+.client-quick-create-sheet .client-quick-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.client-quick-create-sheet .client-quick-create-body {
+  overflow: visible;
+  padding: 0;
+}
+
+/* "Descartar cadastro?" — overlay INTERNO do sheet. O containing block do
+   position:absolute e o .bottom-sheet (fixed), entao inset:0 cobre o sheet
+   INTEIRO (header/body/footer), sem ser cortado pelo overflow do body. Evita um
+   3o tier de z-index sobre o sheet ja empilhado (ver modals skill). */
+.client-quick-create-discard-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 5vw, 1.5rem);
+  background: rgba(255, 255, 255, 0.96);
+  animation: client-success-fade-in 0.2s ease;
+}
+
+.client-quick-create-discard-card {
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.client-quick-create-discard-actions {
+  display: flex;
+  gap: 0.55rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.client-quick-create-discard-actions > button {
+  flex: 1;
+}
+
 .client-quick-create-error {
   margin: 0;
 }

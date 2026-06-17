@@ -1,14 +1,13 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { ApiError, createClient, lookupUsersForReference } from '../../lib/api-client';
 import { maskDocumentInput, maskPhoneInput } from '../../lib/client-field-formatters';
 import { isValidCnpjChecksum, isValidCpfChecksum } from '../../lib/document-validation';
-import { useFocusTrap } from '../../lib/use-focus-trap';
 import { isCommercialRole } from '../../lib/roles';
 import type { ClientPersonType, ClientSummary, SessionData, UserLookupItem } from '../../lib/types';
+import { BottomSheet } from '../BottomSheet';
 import { UserMultiSelect } from '../users/UserMultiSelect';
 
 // Mapeia mensagens de erro do backend (em ingles) para pt-BR.
@@ -108,7 +107,7 @@ export function ClientQuickCreateModal({
   onClose,
   onCreated,
 }: ClientQuickCreateModalProps) {
-  const focusTrapRef = useFocusTrap(open);
+  const formId = useId();
   const [form, setForm] = useState(() =>
     buildInitialForm({
       initialSearch,
@@ -118,28 +117,32 @@ export function ClientQuickCreateModal({
       initialPhone,
     })
   );
+  // Snapshot do form inicial pra detectar "dirty" (gatilho do "Descartar?").
+  const initialFormRef = useRef(form);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [users, setUsers] = useState<UserLookupItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const lastOpenRef = useRef(false);
 
   useEffect(() => {
     if (open && !lastOpenRef.current) {
-      setForm(
-        buildInitialForm({
-          initialSearch,
-          initialPersonType,
-          initialIsBuyer,
-          initialIsSeller,
-          initialPhone,
-        })
-      );
+      const initial = buildInitialForm({
+        initialSearch,
+        initialPersonType,
+        initialIsBuyer,
+        initialIsSeller,
+        initialPhone,
+      });
+      setForm(initial);
+      initialFormRef.current = initial;
       setSaving(false);
       setError(null);
       setSubmitted(false);
+      setDiscardOpen(false);
     }
 
     lastOpenRef.current = open;
@@ -207,10 +210,6 @@ export function ClientQuickCreateModal({
     return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser;
   }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser]);
 
-  if (!open) {
-    return null;
-  }
-
   const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
 
@@ -230,22 +229,48 @@ export function ClientQuickCreateModal({
   // vermelho mesmo sem o usuario interagir).
   const hasCommercialUserError = submitted && !loadingUsers && !hasCommercialUser;
 
-  function handleCloseAndReset() {
-    if (saving) {
-      return;
-    }
+  // "dirty" = algo mudou em relacao ao seed inicial (gatilho do "Descartar?").
+  const dirty = JSON.stringify(form) !== JSON.stringify(initialFormRef.current);
 
-    setForm(
-      buildInitialForm({
-        initialSearch,
-        initialPersonType,
-        initialIsBuyer,
-        initialIsSeller,
-        initialPhone,
-      })
-    );
+  function resetForm() {
+    const initial = buildInitialForm({
+      initialSearch,
+      initialPersonType,
+      initialIsBuyer,
+      initialIsSeller,
+      initialPhone,
+    });
+    setForm(initial);
+    initialFormRef.current = initial;
     setError(null);
     setSubmitted(false);
+    setDiscardOpen(false);
+  }
+
+  // onDismissAttempt do BottomSheet (arrastar/tocar-fora/ESC) + botao Cancelar.
+  // Bloqueia durante save/sucesso; com dados digitados pede "Descartar?".
+  function handleDismissAttempt() {
+    if (saving || showSuccess) return false;
+    if (dirty) {
+      setDiscardOpen(true);
+      return false;
+    }
+    return true;
+  }
+
+  // Fechamento PERMITIDO (sem dados, ou apos confirmar o descarte): reseta o
+  // form e avisa o pai. O BottomSheet faz o slide-down (mantido montado).
+  function handleClose() {
+    resetForm();
+    onClose();
+  }
+
+  function attemptClose() {
+    if (handleDismissAttempt()) handleClose();
+  }
+
+  function confirmDiscard() {
+    resetForm();
     onClose();
   }
 
@@ -289,232 +314,251 @@ export function ClientQuickCreateModal({
     }
   }
 
-  // is-stacked: este modal e sempre aberto SOBRE outra coisa (sheet de Nova
-  // Amostra z-modal, modal de vinculo do /resumo, lookup do detalhe). Sem o
-  // tier stacked (z-modal-stacked) ele ficava no z-modal-backdrop, ATRAS do
-  // sheet de Nova Amostra (que e z-modal).
-  return createPortal(
-    <div className="app-modal-backdrop is-stacked">
-      <section
-        ref={focusTrapRef}
-        className="app-modal client-quick-create-modal is-stacked"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="client-quick-create-title"
-        onClick={(event) => event.stopPropagation()}
+  const footerActions = (
+    <div className="client-quick-create-actions">
+      <button
+        type="button"
+        className="app-modal-secondary"
+        onClick={attemptClose}
+        disabled={saving}
       >
-        {showSuccess ? (
-          <div className="client-create-success-overlay" aria-live="polite">
-            <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
-              <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
-              <path
-                fill="none"
-                stroke="#2f8a3e"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 27l7 7 15-15"
-              />
-            </svg>
-          </div>
-        ) : null}
-        <div className="client-modal-header client-quick-create-header">
-          <div className="client-quick-create-copy">
-            <h3 id="client-quick-create-title" style={{ margin: 0 }}>
-              {title}
-            </h3>
-          </div>
-          <button
-            type="button"
-            className="app-modal-close client-quick-create-close"
-            onClick={handleCloseAndReset}
-            disabled={saving}
-            aria-label="Fechar novo cliente"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
+        Cancelar
+      </button>
+      {/* Habilitado fora do saving: o submit roda a validacao e REVELA os erros
+          inline (showFieldErrors depende de `submitted`). Associado ao form via
+          `form={formId}` — o form vive no corpo do sheet, o botao no footer. */}
+      <button type="submit" form={formId} className="app-modal-submit" disabled={saving}>
+        {saving ? 'Salvando...' : 'Cadastrar'}
+      </button>
+    </div>
+  );
 
-        <form className="client-quick-create-form" onSubmit={handleSubmit}>
-          <div className="client-quick-create-body">
-            {error ? <p className="error client-quick-create-error">{error}</p> : null}
+  // BottomSheet com `stacked`: este modal sempre abre SOBRE algo (sheet de Nova
+  // Amostra, fluxo de vinculo do /resumo, detalhe). O tier stacked + o
+  // scroll-lock ref-contado vivem no proprio BottomSheet (ver components/BottomSheet).
+  return (
+    <BottomSheet
+      open={open}
+      onClose={handleClose}
+      onDismissAttempt={handleDismissAttempt}
+      title={title}
+      ariaLabel={title}
+      footer={footerActions}
+      stacked
+      dragToDismiss
+      // Pausa o arraste do proprio sheet enquanto o "Descartar?"/save estao
+      // ativos (mesmo cuidado do NewSampleModal com o quick-create).
+      dragDisabled={discardOpen || saving}
+      className="client-quick-create-sheet"
+    >
+      <form id={formId} className="client-quick-create-form" onSubmit={handleSubmit}>
+        <div className="client-quick-create-body">
+          {error ? <p className="error client-quick-create-error">{error}</p> : null}
 
-            {/* 14.7.C: 1 bloco unico (sem sections "Identificacao/Contato/...").
+          {/* 14.7.C: 1 bloco unico (sem sections "Identificacao/Contato/...").
                 5 linhas ordenadas: tipo+doc / nome / nome fantasia (PJ) /
                 telefone+responsavel / vendedor+comprador. */}
 
-            {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
-            <div className="client-quick-create-grid client-quick-create-grid-2col">
-              <label className="client-quick-create-field">
-                Tipo de cliente
-                <select
-                  value={form.personType}
-                  disabled={saving}
-                  onChange={(event) => {
-                    const nextType = event.target.value as ClientPersonType;
-                    setForm((current) => ({ ...current, personType: nextType }));
-                    setSubmitted(false);
-                    setError(null);
-                  }}
-                >
-                  <option value="PJ">Pessoa juridica</option>
-                  <option value="PF">Pessoa fisica</option>
-                </select>
-              </label>
-
-              <label
-                className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
+          {/* Linha 1: Tipo de cliente | CNPJ ou CPF */}
+          <div className="client-quick-create-grid client-quick-create-grid-2col">
+            <label className="client-quick-create-field">
+              Tipo de cliente
+              <select
+                value={form.personType}
+                disabled={saving}
+                onChange={(event) => {
+                  const nextType = event.target.value as ClientPersonType;
+                  setForm((current) => ({ ...current, personType: nextType }));
+                  setSubmitted(false);
+                  setError(null);
+                }}
               >
-                {documentLabel}
-                <input
-                  value={documentValue}
-                  disabled={saving}
-                  className={hasDocumentError ? 'cqc-input-error' : undefined}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      cpf:
-                        current.personType === 'PF'
-                          ? maskDocumentInput(event.target.value, 'PF')
-                          : current.cpf,
-                      cnpj:
-                        current.personType === 'PJ'
-                          ? maskDocumentInput(event.target.value, 'PJ')
-                          : current.cnpj,
-                    }))
-                  }
-                  placeholder={hasDocumentError ? (documentHint ?? '') : ''}
-                />
-              </label>
-            </div>
+                <option value="PJ">Pessoa juridica</option>
+                <option value="PF">Pessoa fisica</option>
+              </select>
+            </label>
 
-            {/* Linha 2: Nome (PF: completo, PJ: razao social) — full width */}
-            <div className="client-quick-create-grid client-quick-create-grid-single">
-              <label
-                className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}
-              >
-                {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
-                <input
-                  value={nameValue}
-                  disabled={saving}
-                  className={hasNameError ? 'cqc-input-error' : undefined}
-                  onChange={(event) => {
-                    const value = event.target.value.toUpperCase();
-                    setForm((current) => ({
-                      ...current,
-                      fullName: current.personType === 'PF' ? value : current.fullName,
-                      legalName: current.personType === 'PJ' ? value : current.legalName,
-                    }));
-                  }}
-                  placeholder={hasNameError ? 'Obrigatorio' : ''}
-                />
-              </label>
-            </div>
-
-            {/* Linha 3 (so PJ): Nome fantasia — full width */}
-            {form.personType === 'PJ' ? (
-              <div className="client-quick-create-grid client-quick-create-grid-single">
-                <label className="client-quick-create-field">
-                  Nome fantasia
-                  <input
-                    value={form.tradeName}
-                    disabled={saving}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        tradeName: event.target.value.toUpperCase(),
-                      }))
-                    }
-                    placeholder=""
-                  />
-                </label>
-              </div>
-            ) : null}
-
-            {/* Linha 4: Telefone | Responsavel */}
-            <div className="client-quick-create-grid client-quick-create-grid-2col">
-              <label
-                className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}
-              >
-                Telefone
-                <input
-                  value={form.phone}
-                  disabled={saving}
-                  className={hasPhoneError ? 'cqc-input-error' : undefined}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      phone: maskPhoneInput(event.target.value),
-                    }))
-                  }
-                  placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
-                />
-              </label>
-
-              <div className="client-quick-create-field">
-                Responsavel
-                <UserMultiSelect
-                  value={form.commercialUserIds}
-                  onChange={(next) =>
-                    setForm((current) => ({ ...current, commercialUserIds: next }))
-                  }
-                  users={users}
-                  loading={loadingUsers}
-                  disabled={saving}
-                  placeholder=""
-                  errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
-                  hideRoleInChips
-                />
-              </div>
-            </div>
-
-            {/* Linha 5: Vendedor | Comprador checkboxes */}
-            <div className="client-modal-flags client-quick-create-flags">
-              <label className="client-modal-flag client-quick-create-flag">
-                <input
-                  type="checkbox"
-                  checked={form.isSeller}
-                  disabled={saving}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, isSeller: event.target.checked }))
-                  }
-                />
-                <span className="client-quick-create-flag-label">Vendedor</span>
-              </label>
-              <label className="client-modal-flag client-quick-create-flag">
-                <input
-                  type="checkbox"
-                  checked={form.isBuyer}
-                  disabled={saving}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, isBuyer: event.target.checked }))
-                  }
-                />
-                <span className="client-quick-create-flag-label">Comprador</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="client-quick-create-actions">
-            <button
-              type="button"
-              className="app-modal-secondary"
-              onClick={handleCloseAndReset}
-              disabled={saving}
+            <label
+              className={`client-quick-create-field${hasDocumentError ? ' is-field-error' : ''}`}
             >
-              Cancelar
-            </button>
-            {/* Habilitado fora do saving: o submit roda a validacao e REVELA
-                os erros inline (showFieldErrors depende de `submitted`).
-                Desabilitar por !canSubmit criava beco sem saida: clique morto
-                e nenhum erro visivel. */}
-            <button type="submit" className="app-modal-submit" disabled={saving}>
-              {saving ? 'Salvando...' : 'Cadastrar'}
-            </button>
+              {documentLabel}
+              <input
+                value={documentValue}
+                disabled={saving}
+                className={hasDocumentError ? 'cqc-input-error' : undefined}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    cpf:
+                      current.personType === 'PF'
+                        ? maskDocumentInput(event.target.value, 'PF')
+                        : current.cpf,
+                    cnpj:
+                      current.personType === 'PJ'
+                        ? maskDocumentInput(event.target.value, 'PJ')
+                        : current.cnpj,
+                  }))
+                }
+                placeholder={hasDocumentError ? (documentHint ?? '') : ''}
+              />
+            </label>
           </div>
-        </form>
-      </section>
-    </div>,
-    document.body
+
+          {/* Linha 2: Nome (PF: completo, PJ: razao social) — full width */}
+          <div className="client-quick-create-grid client-quick-create-grid-single">
+            <label className={`client-quick-create-field${hasNameError ? ' is-field-error' : ''}`}>
+              {form.personType === 'PF' ? 'Nome completo' : 'Razao social'}
+              <input
+                value={nameValue}
+                disabled={saving}
+                className={hasNameError ? 'cqc-input-error' : undefined}
+                onChange={(event) => {
+                  const value = event.target.value.toUpperCase();
+                  setForm((current) => ({
+                    ...current,
+                    fullName: current.personType === 'PF' ? value : current.fullName,
+                    legalName: current.personType === 'PJ' ? value : current.legalName,
+                  }));
+                }}
+                placeholder={hasNameError ? 'Obrigatorio' : ''}
+              />
+            </label>
+          </div>
+
+          {/* Linha 3 (so PJ): Nome fantasia — full width */}
+          {form.personType === 'PJ' ? (
+            <div className="client-quick-create-grid client-quick-create-grid-single">
+              <label className="client-quick-create-field">
+                Nome fantasia
+                <input
+                  value={form.tradeName}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      tradeName: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder=""
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {/* Linha 4: Telefone | Responsavel */}
+          <div className="client-quick-create-grid client-quick-create-grid-2col">
+            <label className={`client-quick-create-field${hasPhoneError ? ' is-field-error' : ''}`}>
+              Telefone
+              <input
+                value={form.phone}
+                disabled={saving}
+                className={hasPhoneError ? 'cqc-input-error' : undefined}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    phone: maskPhoneInput(event.target.value),
+                  }))
+                }
+                placeholder={hasPhoneError ? (phoneHint ?? 'Obrigatorio') : ''}
+              />
+            </label>
+
+            <div className="client-quick-create-field">
+              Responsavel
+              <UserMultiSelect
+                value={form.commercialUserIds}
+                onChange={(next) => setForm((current) => ({ ...current, commercialUserIds: next }))}
+                users={users}
+                loading={loadingUsers}
+                disabled={saving}
+                placeholder=""
+                errorMessage={hasCommercialUserError ? 'Obrigatorio' : undefined}
+                hideRoleInChips
+              />
+            </div>
+          </div>
+
+          {/* Linha 5: Vendedor | Comprador checkboxes */}
+          <div className="client-modal-flags client-quick-create-flags">
+            <label className="client-modal-flag client-quick-create-flag">
+              <input
+                type="checkbox"
+                checked={form.isSeller}
+                disabled={saving}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, isSeller: event.target.checked }))
+                }
+              />
+              <span className="client-quick-create-flag-label">Vendedor</span>
+            </label>
+            <label className="client-modal-flag client-quick-create-flag">
+              <input
+                type="checkbox"
+                checked={form.isBuyer}
+                disabled={saving}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, isBuyer: event.target.checked }))
+                }
+              />
+              <span className="client-quick-create-flag-label">Comprador</span>
+            </label>
+          </div>
+        </div>
+      </form>
+
+      {showSuccess ? (
+        <div className="client-create-success-overlay" aria-live="polite">
+          <svg className="client-create-success-check" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r="24" fill="none" stroke="#2f8a3e" strokeWidth="2.5" />
+            <path
+              fill="none"
+              stroke="#2f8a3e"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 27l7 7 15-15"
+            />
+          </svg>
+        </div>
+      ) : null}
+
+      {discardOpen ? (
+        <div
+          className="client-quick-create-discard-overlay"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="client-quick-create-discard-title"
+        >
+          <div className="client-quick-create-discard-card">
+            <div className="app-confirm-modal-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                <path d="M12 9v4" />
+                <path d="M12 17v.01" />
+              </svg>
+            </div>
+            <h3 id="client-quick-create-discard-title" className="app-confirm-modal-title">
+              Descartar cadastro?
+            </h3>
+            <p className="app-confirm-modal-message">
+              Os dados preenchidos serão perdidos. Esta ação não pode ser desfeita.
+            </p>
+            <div className="client-quick-create-discard-actions">
+              <button
+                type="button"
+                className="app-modal-secondary"
+                onClick={() => setDiscardOpen(false)}
+                autoFocus
+              >
+                Continuar editando
+              </button>
+              <button type="button" className="app-modal-submit is-danger" onClick={confirmDiscard}>
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </BottomSheet>
   );
 }

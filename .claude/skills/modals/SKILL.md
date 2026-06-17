@@ -15,7 +15,7 @@ Toda construcao ou edicao de modal central (nao bottom sheet) segue o padrao con
 
 Use o padrao `.app-modal.is-themed` para:
 
-- Formularios de criacao (ex: novo cliente, nova filial)
+- Formularios de criacao (ex: nova filial). **Obs.:** forms de ACAO preferem **BottomSheet** (ver §12) — o "novo cliente" (`ClientQuickCreateModal`) migrou pra bottom-sheet em 2026-06
 - Formularios de edicao (ex: editar cliente, editar filial)
 - Confirmacoes destrutivas (ex: inativar cliente em cascata)
 - View+edit hibrido (ex: detalhe de filial com modo edit inline)
@@ -569,9 +569,9 @@ Todos seguem `.app-modal.is-themed`. Ordem do fluxo: `idle → preview → handl
 
 ### ⚠ Visual igual mas implementacao com classes proprias (refatorar quando tocar)
 
-| Modal                  | Arquivo                                         | Pendencia                                                                                                                                                                                                                                                                   |
-| ---------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | Usa `client-quick-create-*` no lugar de `.is-themed` + `.app-modal-header/-field/-input/-actions`. Resultado visual igual mas duplica CSS. Ja renderiza via `createPortal` pra body (fica na frente de modais inline, ex: aberto de dentro do modal de edicao de registro). |
+| Modal                  | Arquivo                                         | Pendencia                                                                                                                                                                                                                                                      |
+| ---------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ClientQuickCreateModal | `components/clients/ClientQuickCreateModal.tsx` | **MIGRADO pra BottomSheet** (2026-06: slide de baixo + `stacked`) — NAO e mais modal central. Ainda usa classes `client-quick-create-*` pros campos (coabitam com o chrome do sheet); "Descartar?" e overlay interno (`.client-quick-create-discard-overlay`). |
 
 ### ⚠ Compactos sem `.is-themed` (legados, refatorar quando tocar)
 
@@ -688,7 +688,7 @@ Quando encontrar um modal listado em "⚠ Compactos sem `.is-themed`" que precis
 4. **Remover CSS duplicado** (header verde, close button, botoes) que era replicado localmente
 5. **Smoke test visual**: abrir o modal antes/depois e comparar — efeito final deve ser identico
 
-Exemplo de referencia: comparar `ClientQuickCreateModal` (legacy, divergente) com `ClientUnitModal` (canonico) — mesmo resultado visual final, codigo bem mais enxuto no canonico.
+Exemplo de referencia do canonico central: `ClientUnitModal`. _(O `ClientQuickCreateModal`, antes citado aqui como modal central divergente, virou **BottomSheet** em 2026-06 — ver §1 e a secao de Bottom Sheet no `design-system` §8.)_
 
 ## 14. Quando criar classes scoped
 
