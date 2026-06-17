@@ -5206,11 +5206,13 @@ button:disabled {
   --fab-bottom: calc(
     var(--app-safe-area-bottom, env(safe-area-inset-bottom)) + clamp(6.3rem, 27vw, 6.8rem)
   );
-  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. Gap
-     dimensionado pra os 3 itens do arco (Lote/Liga/Aprovacao) caberem com
-     folga confortavel — ver --fan-radius. */
+  /* Leque: tamanho do circulo da opcao + gap entre o FAB e cada opcao. Com 3
+     itens no arco de 90° (45° entre cada), o raio precisa ser grande o bastante
+     pra os circulos E os rotulos (que saem A ESQUERDA de cada circulo) nao se
+     sobreporem — o par mais apertado e Lote↔Liga, cuja distancia vertical entre
+     rotulos e ~0.293*raio. Gap calibrado pra dar essa folga; ver --fan-radius. */
   --fan-opt-size: clamp(44px, 12vw, 50px);
-  --fan-gap: clamp(18px, 5vw, 24px);
+  --fan-gap: clamp(32px, 9vw, 42px);
   /* Raio centro-a-centro do arco do leque. Lote (topo) e Aprovacao (esquerda)
      sao ortogonais ao FAB; Liga fica no diagonal a 45° usando este raio
      (offset --fan-radius * 0.7071 em cada eixo). */
