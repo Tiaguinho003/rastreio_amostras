@@ -164,10 +164,13 @@ function normalizeCustomLabelLines(rawLines) {
     if (label.length === 0) {
       throw new HttpError(422, `lines[${index}].label e obrigatorio`);
     }
+    // O campo LOTE carrega varios lotes juntados (a etiqueta os divide numa
+    // grade responsiva), entao precisa de mais folga; os demais ficam em 80.
+    const isLots = label.replace(/[°º:]/g, '').replace(/\s+/g, ' ').trim().toUpperCase() === 'LOTE';
     return {
       label: label.slice(0, 40),
       // value pode ser vazio (campo deixado em branco no card).
-      value: value.slice(0, 80),
+      value: value.slice(0, isLots ? 240 : 80),
     };
   });
 }
