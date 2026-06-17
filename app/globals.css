@@ -4940,6 +4940,27 @@ button:disabled {
   min-width: 0;
 }
 
+/* Lupa da busca de /samples = PURAMENTE DECORATIVA (a busca filtra ao vivo ao
+   digitar, sem submit). Tira a afordancia de botao herdada do .hero-search-submit
+   compartilhado (cursor pointer + caixa 2rem + scale ao apertar) e reduz o icone;
+   o flex do .hero-search-bar (align-items:center) mantem centralizado. Escopado
+   a /samples — /clients e /users seguem com a lupa-botao + cross-fade pra seta. */
+.samples-page-v2 .hero-search-submit {
+  width: auto;
+  height: auto;
+  cursor: default;
+}
+
+.samples-page-v2 .hero-search-submit:active {
+  transform: none;
+}
+
+.samples-page-v2 .hero-search-icon-search {
+  position: static;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 /* Filtro como pilula BRANCA (irma da barra de busca) + icone verde; o badge
    vermelho sinaliza filtros ativos. Escopado a /samples — NAO afeta o filtro
    reusado em /clients (la o `.hero-search-filter-btn` base segue verde). */
