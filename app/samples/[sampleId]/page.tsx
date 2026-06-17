@@ -2995,7 +2995,6 @@ export default function SampleDetailPage() {
         title="Novo cliente"
         initialSearch={ownerQuickCreateSeed}
         initialPersonType="PJ"
-        initialIsSeller
         initialIsBuyer={false}
         onClose={() => setOwnerQuickCreateOpen(false)}
         onCreated={(client) => {

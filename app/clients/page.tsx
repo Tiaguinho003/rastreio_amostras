@@ -1433,7 +1433,6 @@ function ClientsPage() {
         title="Novo cliente"
         initialSearch={clientSearchInput.trim()}
         initialPersonType="PJ"
-        initialIsSeller
         initialIsBuyer={false}
         onClose={() => setClientQuickCreateOpen(false)}
         onCreated={async (client) => {

@@ -745,7 +745,6 @@ export function NewSampleModal({ open, onClose, session, onSuccessNavigate }: Ne
         title="Novo proprietario"
         initialSearch={quickCreateSeed}
         initialPersonType="PJ"
-        initialIsSeller
         initialIsBuyer={false}
         onClose={() => setQuickCreateOpen(false)}
         onCreated={(client: ClientSummary) => {

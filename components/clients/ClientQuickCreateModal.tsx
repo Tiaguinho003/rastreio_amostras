@@ -72,7 +72,7 @@ function buildInitialForm({
   initialSearch = '',
   initialPersonType = 'PJ',
   initialIsBuyer = false,
-  initialIsSeller = true,
+  initialIsSeller = false,
   initialPhone = '',
 }: {
   initialSearch?: string;
@@ -142,7 +142,7 @@ export function ClientQuickCreateModal({
   initialSearch,
   initialPersonType = 'PJ',
   initialIsBuyer = false,
-  initialIsSeller = true,
+  initialIsSeller = false,
   initialPhone,
   onClose,
   onCreated,
@@ -251,9 +251,12 @@ export function ClientQuickCreateModal({
     [10, 11].includes(form.phone.replace(/\D/g, '').length);
 
   const hasCommercialUser = form.commercialUserIds.length > 0;
+  // Papel obrigatorio: o usuario deve escolher ao menos Vendedor ou Comprador
+  // (o campo vem VAZIO, sem default — pra forcar a escolha consciente).
+  const hasRole = form.isSeller || form.isBuyer;
   const canSubmit = useMemo(() => {
-    return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser;
-  }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser]);
+    return isNameFilled && isPhoneValid && isDocumentValid && hasCommercialUser && hasRole;
+  }, [isNameFilled, isPhoneValid, isDocumentValid, hasCommercialUser, hasRole]);
 
   const documentLabel = form.personType === 'PF' ? 'CPF' : 'CNPJ';
   const documentValue = form.personType === 'PF' ? form.cpf : form.cnpj;
@@ -276,6 +279,7 @@ export function ClientQuickCreateModal({
   // submit (antes era permanente quando lista vazia, gerando aspecto
   // vermelho mesmo sem o usuario interagir).
   const hasCommercialUserError = submitted && !loadingUsers && !hasCommercialUser;
+  const hasRoleError = submitted && !hasRole;
 
   // "dirty" = algo mudou em relacao ao seed inicial (gatilho do "Descartar?").
   const dirty = JSON.stringify(form) !== JSON.stringify(initialFormRef.current);
@@ -553,6 +557,7 @@ export function ClientQuickCreateModal({
                 }))
               }
               disabled={saving}
+              errorMessage={hasRoleError ? 'Obrigatorio' : undefined}
             />
           </div>
         </div>

@@ -244,7 +244,13 @@ export function ChipMultiSelectField({
                           event.preventDefault();
                           toggle(option.id);
                         }}
-                        onClick={() => toggle(option.id)}
+                        // onClick SÓ pra ativação por TECLADO (Enter/Espaço →
+                        // event.detail === 0). O pointer já foi tratado no
+                        // onMouseDown — sem este guard o toggle disparava 2x
+                        // (mousedown + click) e se anulava (seleção "não funcionava").
+                        onClick={(event) => {
+                          if (event.detail === 0) toggle(option.id);
+                        }}
                       >
                         <span className="chip-select-check" aria-hidden="true">
                           {isSelected ? (

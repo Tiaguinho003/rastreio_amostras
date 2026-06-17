@@ -617,7 +617,6 @@ export default function ResumoPage() {
           title="Cadastrar e vincular"
           initialSearch={linkCreateName}
           initialPersonType="PF"
-          initialIsSeller
           initialIsBuyer={false}
           initialPhone={linkTarget.report.newClient?.phone ?? undefined}
           onClose={closeLinkFlow}
